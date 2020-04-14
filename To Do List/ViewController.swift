@@ -30,6 +30,7 @@ class ViewController: UIViewController {
             //each.backgroundColor = UIColor.red
         }
     }
+    
     @IBAction func changeBackgroundBackToLight(_ sender: Any) {
         
         view.backgroundColor = UIColor.white
