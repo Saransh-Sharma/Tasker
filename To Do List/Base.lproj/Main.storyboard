@@ -135,6 +135,15 @@
                                     <action selector="changeBackground:" destination="BYZ-38-t0r" eventType="touchUpInside" id="b4s-EJ-Oxm"/>
                                 </connections>
                             </button>
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="QNJ-7T-Jkv">
+                                <rect key="frame" x="168" y="710" width="78" height="30"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <state key="normal" title="Light Mode"/>
+                                <connections>
+                                    <action selector="changeBackground:" destination="BYZ-38-t0r" eventType="touchUpInside" id="GKm-WQ-dpv"/>
+                                    <action selector="changeBackgroundBackToLight:" destination="BYZ-38-t0r" eventType="touchUpInside" id="mB8-xE-wVe"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>

@@ -16,7 +16,23 @@ class ViewController: UIViewController {
     }
 
     @IBAction func changeBackground(_ sender: Any) {
-        view.backgroundColor = UIColor.darkGray
+        view.backgroundColor = UIColor.black
+        
+        let everything = view.subviews
+        
+        for each in everything {
+            each.backgroundColor = UIColor.red
+        }
+    }
+    @IBAction func changeBackgroundBackToLight(_ sender: Any) {
+        
+        view.backgroundColor = UIColor.white
+            
+            let everything = view.subviews
+            
+            for each in everything {
+                each.backgroundColor = UIColor.white
+            }
     }
     
 }
