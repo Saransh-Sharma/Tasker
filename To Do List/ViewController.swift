@@ -15,6 +15,9 @@ class ViewController: UIViewController {
         // Do any additional setup after loading the view.
     }
 
-
+    @IBAction func changeBackground(_ sender: Any) {
+        view.backgroundColor = UIColor.darkGray
+    }
+    
 }
 
