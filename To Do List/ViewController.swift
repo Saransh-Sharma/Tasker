@@ -21,7 +21,13 @@ class ViewController: UIViewController {
         let everything = view.subviews
         
         for each in everything {
-            each.backgroundColor = UIColor.red
+            // is it a label
+            if(each is UILabel) {
+                let currenLabel = each as! UILabel
+                currenLabel.textColor = UIColor.red
+            }
+            
+            //each.backgroundColor = UIColor.red
         }
     }
     @IBAction func changeBackgroundBackToLight(_ sender: Any) {
@@ -31,7 +37,13 @@ class ViewController: UIViewController {
             let everything = view.subviews
             
             for each in everything {
-                each.backgroundColor = UIColor.white
+                //each.backgroundColor = UIColor.white
+                if(each is UILabel) {
+                         let currenLabel = each as! UILabel
+                    currenLabel.textColor = UIColor.black
+                    
+                    
+                     }
             }
     }
     
