@@ -8,7 +8,7 @@
 
 import UIKit
 
-class ViewController: UIViewController, UITableViewDataSource {
+class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
     let dailyTasks = ["daily task 1",
                       "daily task 2",
@@ -25,6 +25,19 @@ class ViewController: UIViewController, UITableViewDataSource {
     
     func numberOfSections(in tableView: UITableView) -> Int {
         return 3;
+    }
+    
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        switch section {
+        case 0:
+            return "Daily Tasks:"
+        case 1:
+            return "Weekly Tasks:"
+        case 2:
+            return "Monthly Tasks:"
+        default:
+            return nil
+        }
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
