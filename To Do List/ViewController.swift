@@ -8,7 +8,60 @@
 
 import UIKit
 
-class ViewController: UIViewController {
+class ViewController: UIViewController, UITableViewDataSource {
+    
+    let dailyTasks = ["daily task 1",
+                      "daily task 2",
+                      "daily task 3"]
+    
+    let weeklyTasks = ["weeklyTask 1",
+                       "WeeklyTask 2",
+                       "WeeklyTask 3"]
+    
+    let monthlyTasks = ["Monthly Task 1",
+                        "Monthly Task 2",
+                        "Monthly Task 3"]
+    
+    
+    func numberOfSections(in tableView: UITableView) -> Int {
+        return 3;
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    
+        switch section {
+        case 0:
+            return dailyTasks.count
+        case 1:
+        return weeklyTasks.count
+        case 2:
+        return monthlyTasks.count
+        default:
+            return 0;
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        
+        let cell = UITableViewCell()
+        //cell.textLabel?.text = "This is row number \(indexPath.row)"
+        //return cell;
+        
+        switch indexPath.section {
+        case 0:
+            cell.textLabel?.text = dailyTasks[indexPath.row]
+        case 1:
+            cell.textLabel?.text = weeklyTasks[indexPath.row]
+        case 2:
+            cell.textLabel?.text = monthlyTasks[indexPath.row]
+        default:
+            cell.textLabel?.text = "This should not happen !"
+        }
+        
+        return cell
+        
+    }
+    
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -47,6 +100,10 @@ class ViewController: UIViewController {
                      }
             }
     }
+    @IBAction func changeLabelButton(_ sender: Any) {
+        
+    }
+    @IBOutlet weak var labelToBeChanged: UILabel!
     
 }
 
