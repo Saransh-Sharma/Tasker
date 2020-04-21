@@ -74,6 +74,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         switch indexPath.section {
         case 0:
+            cell.imageView
             cell.textLabel?.text = dailyTasks[indexPath.row]
         case 1:
             cell.textLabel?.text = weeklyTasks[indexPath.row]
