@@ -22,6 +22,17 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                         "Monthly Task 2",
                         "Monthly Task 3"]
     
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        print("You selected row \(indexPath.row) from section \(indexPath.section)")
+    }
+   
+//    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+//        let action = UIContextualAction(style: .normal, title: "bla") { (action, view, success) in
+//            success(true)
+//        }
+//        return UISwipeActionsConfiguration(actions: [action])
+//    }
+      
     
     func numberOfSections(in tableView: UITableView) -> Int {
         return 3;
@@ -56,7 +67,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let cell = UITableViewCell()
+//        let cell = UITableViewCell()
+        let cell = tableView.dequeueReusableCell(withIdentifier: "normalCell", for: indexPath)
         //cell.textLabel?.text = "This is row number \(indexPath.row)"
         //return cell;
         
