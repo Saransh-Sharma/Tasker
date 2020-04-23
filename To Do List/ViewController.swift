@@ -10,17 +10,15 @@ import UIKit
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
-    let dailyTasks = ["make breakfast",
+    let todaysTasks = ["make breakfast",
                       "clean study desk",
                       "workout"]
     
-    let weeklyTasks = ["do laundry",
+    let eveningTasks = ["do laundry",
                        "meet batman",
                        "get supplies"]
-    
-    let monthlyTasks = ["Deep clean the carpet",
-                        "pay rent",
-                        "prep montly report"]
+
+    @IBOutlet weak var addTaskAtHome: UIButton!
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         print("You selected row \(indexPath.row) from section \(indexPath.section)")
@@ -35,17 +33,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
       
     
     func numberOfSections(in tableView: UITableView) -> Int {
-        return 3;
+        return 2;
     }
     
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch section {
         case 0:
-            return "Daily Tasks:"
+            return "Today's Tasks"
         case 1:
-            return "Weekly Tasks:"
-        case 2:
-            return "Monthly Tasks:"
+            return "Evening"
         default:
             return nil
         }
@@ -55,11 +51,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
         switch section {
         case 0:
-            return dailyTasks.count
+            return todaysTasks.count
         case 1:
-        return weeklyTasks.count
-        case 2:
-        return monthlyTasks.count
+        return eveningTasks.count
         default:
             return 0;
         }
@@ -75,11 +69,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         switch indexPath.section {
         case 0:
             //cell.imageView
-            cell.textLabel?.text = dailyTasks[indexPath.row]
+            cell.textLabel?.text = todaysTasks[indexPath.row]
         case 1:
-            cell.textLabel?.text = weeklyTasks[indexPath.row]
-        case 2:
-            cell.textLabel?.text = monthlyTasks[indexPath.row]
+            cell.textLabel?.text = eveningTasks[indexPath.row]
         default:
             cell.textLabel?.text = "This should not happen !"
         }
