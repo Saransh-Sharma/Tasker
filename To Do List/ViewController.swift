@@ -10,17 +10,17 @@ import UIKit
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
-    let dailyTasks = ["daily task 1",
-                      "daily task 2",
-                      "daily task 3"]
+    let dailyTasks = ["make breakfast",
+                      "clean study desk",
+                      "workout"]
     
-    let weeklyTasks = ["weeklyTask 1",
-                       "WeeklyTask 2",
-                       "WeeklyTask 3"]
+    let weeklyTasks = ["do laundry",
+                       "meet batman",
+                       "get supplies"]
     
-    let monthlyTasks = ["Monthly Task 1",
-                        "Monthly Task 2",
-                        "Monthly Task 3"]
+    let monthlyTasks = ["Deep clean the carpet",
+                        "pay rent",
+                        "prep montly report"]
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         print("You selected row \(indexPath.row) from section \(indexPath.section)")
@@ -74,7 +74,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         switch indexPath.section {
         case 0:
-            cell.imageView
+            //cell.imageView
             cell.textLabel?.text = dailyTasks[indexPath.row]
         case 1:
             cell.textLabel?.text = weeklyTasks[indexPath.row]
@@ -92,6 +92,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
+        self.title = "Today"
     }
 
     @IBAction func changeBackground(_ sender: Any) {
