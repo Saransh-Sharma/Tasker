@@ -137,17 +137,40 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
-            switch indexPath.section {
-            case 0:
-                self.todaysTasks.remove(at: indexPath.row)
-            case 1:
-                self.todaysTasks.remove(at: indexPath.row)
-            default:
-                break
+            let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
+            
+            let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
+            {
+                (UIAlertAction) in
+                
+                switch indexPath.section {
+                          case 0:
+                              self.todaysTasks.remove(at: indexPath.row)
+                          case 1:
+                              self.eveningTasks.remove(at: indexPath.row)
+                          default:
+                              break
+                          }
+                
+                tableView.reloadData()
+                
             }
-            tableView.reloadData()
-            actionPerformed(true)
+            let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
+            { (UIAlertAction) in
+            
+                print("That was a close one. No deletion.")
+            }
+            
+            //add actions to alert controller
+            confirmDelete.addAction(yesDeleteAction)
+            confirmDelete.addAction(noDeleteAction)
+            
+            //show it
+            self.present(confirmDelete ,animated: true, completion: nil)
+            
+          actionPerformed(true)
         }
+        
         
         return UISwipeActionsConfiguration(actions: [deleteTaskAction])
     }
