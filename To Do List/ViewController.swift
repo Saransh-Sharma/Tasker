@@ -10,11 +10,14 @@ import UIKit
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
-//    let todaysTasks = ["make breakfast",
-//                      "clean study desk",
-//                      "workout"]
     
-    let todaysTasks = [
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        // Do any additional setup after loading the view.
+        self.title = "Today"
+    }
+    
+    var todaysTasks = [
         Task(name: "make breakfast", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p0),
         Task(name: "clean study desk", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
         Task(name: "workout", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
@@ -22,11 +25,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         Task(name: "push code for to do app", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2)
     ]
     
-//    let eveningTasks = ["do laundry",
-//                       "meet batman",
-//                       "get supplies"]
     
-    let eveningTasks = [
+    var eveningTasks = [
     Task(name: "do laundry", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
     Task(name: "meet batman", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
     Task(name: "get supplies", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
@@ -113,11 +113,45 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        // Do any additional setup after loading the view.
-        self.title = "Today"
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        
+        let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+            
+            switch indexPath.section {
+            case 0:
+                self.todaysTasks[indexPath.row].completed = true
+            case 1:
+                self.eveningTasks[indexPath.row].completed = true
+            default:
+                break
+            }
+            
+            tableView.reloadData()
+            actionPerformed(true)
+        }
+        
+        return UISwipeActionsConfiguration(actions: [completeTaskAction])
     }
+    
+    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        
+        let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+            
+            switch indexPath.section {
+            case 0:
+                self.todaysTasks.remove(at: indexPath.row)
+            case 1:
+                self.todaysTasks.remove(at: indexPath.row)
+            default:
+                break
+            }
+            tableView.reloadData()
+            actionPerformed(true)
+        }
+        
+        return UISwipeActionsConfiguration(actions: [deleteTaskAction])
+    }
+
 
     @IBAction func changeBackground(_ sender: Any) {
         view.backgroundColor = UIColor.black
