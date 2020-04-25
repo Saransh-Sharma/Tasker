@@ -10,10 +10,15 @@ import UIKit
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
+    @IBOutlet weak var switchState: UISwitch!
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
+        if UserDefaults.standard.bool(forKey: "isDarkModeOn") {
+            switchState.setOn(true, animated: true)
+             view.backgroundColor = UIColor.darkGray
+        }
         self.title = "Today"
     }
     
@@ -45,7 +50,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         if mSwitch.isOn {
             view.backgroundColor = UIColor.darkGray
+            
+            UserDefaults.standard.set(true, forKey: "isDarkModeOn")
+            
         } else {
+            UserDefaults.standard.set(false, forKey: "isDarkModeOn")
             view.backgroundColor = UIColor.white
         }
     }

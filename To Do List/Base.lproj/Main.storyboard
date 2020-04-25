@@ -66,6 +66,7 @@
                     <navigationItem key="navigationItem" id="RaV-gL-NUe"/>
                     <connections>
                         <outlet property="addTaskAtHome" destination="zPK-Bz-B77" id="xdS-5S-LcC"/>
+                        <outlet property="switchState" destination="I6M-y2-kON" id="6fB-7E-Vyx"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
