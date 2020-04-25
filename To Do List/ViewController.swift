@@ -10,33 +10,41 @@ import UIKit
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
-    let todaysTasks = ["make breakfast",
-                      "clean study desk",
-                      "workout"]
+//    let todaysTasks = ["make breakfast",
+//                      "clean study desk",
+//                      "workout"]
     
-    let eveningTasks = ["do laundry",
-                       "meet batman",
-                       "get supplies"]
+    let todaysTasks = [
+        Task(name: "make breakfast", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p0),
+        Task(name: "clean study desk", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
+        Task(name: "workout", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
+        Task(name: "water plants", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
+        Task(name: "push code for to do app", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2)
+    ]
+    
+//    let eveningTasks = ["do laundry",
+//                       "meet batman",
+//                       "get supplies"]
+    
+    let eveningTasks = [
+    Task(name: "do laundry", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
+    Task(name: "meet batman", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
+    Task(name: "get supplies", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
+    Task(name: "invent covid-19 vaccine", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
+    ]
 
     @IBOutlet weak var addTaskAtHome: UIButton!
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         print("You selected row \(indexPath.row) from section \(indexPath.section)")
     }
-   
-//    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-//        let action = UIContextualAction(style: .normal, title: "bla") { (action, view, success) in
-//            success(true)
-//        }
-//        return UISwipeActionsConfiguration(actions: [action])
-//    }
       
     @IBAction func toggleDarkMode(_ sender: Any) {
         
         let mSwitch = sender as! UISwitch
         
         if mSwitch.isOn {
-            view.backgroundColor = UIColor.gray
+            view.backgroundColor = UIColor.darkGray
         } else {
             view.backgroundColor = UIColor.white
         }
@@ -73,22 +81,32 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-//        let cell = UITableViewCell()
+
+        var currentTask: Task!
         let cell = tableView.dequeueReusableCell(withIdentifier: "normalCell", for: indexPath)
-        //cell.textLabel?.text = "This is row number \(indexPath.row)"
-        //return cell;
+        
+        
         
         switch indexPath.section {
         case 0:
             //cell.imageView
-            cell.textLabel?.text = todaysTasks[indexPath.row]
+            currentTask = todaysTasks[indexPath.row]
         case 1:
-            cell.textLabel?.text = eveningTasks[indexPath.row]
+            currentTask = eveningTasks[indexPath.row]
         default:
-            cell.textLabel?.text = "This should not happen !"
+            break
         }
-        
+        cell.textLabel!.text = currentTask.name
         cell.backgroundColor = UIColor.clear
+        
+        if currentTask.completed {
+            cell.textLabel?.textColor = UIColor.lightGray
+            cell.accessoryType = .checkmark
+        } else {
+            
+            cell.textLabel?.textColor = UIColor.black
+            cell.accessoryType = .none
+        }
         
         return cell
         
