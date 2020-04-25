@@ -31,8 +31,20 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 //        return UISwipeActionsConfiguration(actions: [action])
 //    }
       
+    @IBAction func toggleDarkMode(_ sender: Any) {
+        
+        let mSwitch = sender as! UISwitch
+        
+        if mSwitch.isOn {
+            view.backgroundColor = UIColor.gray
+        } else {
+            view.backgroundColor = UIColor.white
+        }
+    }
     
     func numberOfSections(in tableView: UITableView) -> Int {
+        
+        tableView.backgroundColor = UIColor.clear
         return 2;
     }
     
@@ -76,6 +88,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             cell.textLabel?.text = "This should not happen !"
         }
         
+        cell.backgroundColor = UIColor.clear
+        
         return cell
         
     }
@@ -102,27 +116,5 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             //each.backgroundColor = UIColor.red
         }
     }
-    
-    @IBAction func changeBackgroundBackToLight(_ sender: Any) {
-        
-        view.backgroundColor = UIColor.white
-            
-            let everything = view.subviews
-            
-            for each in everything {
-                //each.backgroundColor = UIColor.white
-                if(each is UILabel) {
-                         let currenLabel = each as! UILabel
-                    currenLabel.textColor = UIColor.black
-                    
-                    
-                     }
-            }
-    }
-    @IBAction func changeLabelButton(_ sender: Any) {
-        
-    }
-    @IBOutlet weak var labelToBeChanged: UILabel!
-    
 }
 
