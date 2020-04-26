@@ -11,15 +11,19 @@ import UIKit
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
     @IBOutlet weak var switchState: UISwitch!
+    @IBOutlet weak var addTaskAtHome: UIButton!
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
         if UserDefaults.standard.bool(forKey: "isDarkModeOn") {
             switchState.setOn(true, animated: true)
-             view.backgroundColor = UIColor.darkGray
+            view.backgroundColor = UIColor.darkGray
         }
         self.title = "Today"
+    }
+    
+    @IBAction func openSettings(_ sender: Any) {
     }
     
     var todaysTasks = [
@@ -32,18 +36,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     
     var eveningTasks = [
-    Task(name: "do laundry", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
-    Task(name: "meet batman", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
-    Task(name: "get supplies", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
-    Task(name: "invent covid-19 vaccine", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
+        Task(name: "do laundry", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
+        Task(name: "meet batman", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
+        Task(name: "get supplies", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
+        Task(name: "invent covid-19 vaccine", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
     ]
+    
 
-    @IBOutlet weak var addTaskAtHome: UIButton!
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         print("You selected row \(indexPath.row) from section \(indexPath.section)")
     }
-      
+    
     @IBAction func toggleDarkMode(_ sender: Any) {
         
         let mSwitch = sender as! UISwitch
@@ -77,12 +81,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-    
+        
         switch section {
         case 0:
             return todaysTasks.count
         case 1:
-        return eveningTasks.count
+            return eveningTasks.count
         default:
             return 0;
         }
@@ -90,7 +94,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-
+        
         var currentTask: Task!
         let cell = tableView.dequeueReusableCell(withIdentifier: "normalCell", for: indexPath)
         
@@ -121,7 +125,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
     }
     
-
+    
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         
         let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
@@ -153,20 +157,20 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 (UIAlertAction) in
                 
                 switch indexPath.section {
-                          case 0:
-                              self.todaysTasks.remove(at: indexPath.row)
-                          case 1:
-                              self.eveningTasks.remove(at: indexPath.row)
-                          default:
-                              break
-                          }
+                case 0:
+                    self.todaysTasks.remove(at: indexPath.row)
+                case 1:
+                    self.eveningTasks.remove(at: indexPath.row)
+                default:
+                    break
+                }
                 
                 tableView.reloadData()
                 
             }
             let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
             { (UIAlertAction) in
-            
+                
                 print("That was a close one. No deletion.")
             }
             
@@ -177,14 +181,31 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             //show it
             self.present(confirmDelete ,animated: true, completion: nil)
             
-          actionPerformed(true)
+            actionPerformed(true)
         }
         
         
         return UISwipeActionsConfiguration(actions: [deleteTaskAction])
     }
+    
 
-
+//    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+//        // We'll assume that there is only one section for now.
+//
+//          if section == 0 {
+//
+//              let imageView: UIImageView = UIImageView()
+//              //imageView.clipsToBounds = true
+//              //imageView.contentMode = .scaleAspectFill
+//            imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 50)
+//              imageView.image =  UIImage(named: "Star")!
+//              return imageView
+//          }
+//
+//          return nil
+//    }
+//
+    
     @IBAction func changeBackground(_ sender: Any) {
         view.backgroundColor = UIColor.black
         
