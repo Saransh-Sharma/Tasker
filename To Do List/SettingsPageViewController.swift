@@ -9,6 +9,8 @@
 import UIKit
 
 class SettingsPageViewController: UIViewController {
+    @IBAction func backToHome(_ sender: Any) {
+    }
     
     @IBOutlet weak var switchState: UISwitch!
     override func viewDidLoad() {
