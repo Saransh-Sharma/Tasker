@@ -13,12 +13,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var switchState: UISwitch!
     @IBOutlet weak var addTaskAtHome: UIButton!
     
-    override func viewDidLoad() {
+          override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
         if UserDefaults.standard.bool(forKey: "isDarkModeOn") {
-            switchState.setOn(true, animated: true)
+            //switchState.setOn(true, animated: true)
+            print("HOME: DARK ON")
             view.backgroundColor = UIColor.darkGray
+        } else {
+            print("HOME: DARK OFF !!")
         }
         self.title = "Today"
     }

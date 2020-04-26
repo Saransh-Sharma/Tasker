@@ -105,6 +105,9 @@
                         <viewLayoutGuide key="safeArea" id="vgi-mT-HfT"/>
                     </view>
                     <navigationItem key="navigationItem" id="nWs-tY-ed2"/>
+                    <connections>
+                        <outlet property="switchState" destination="I6M-y2-kON" id="9fh-bI-PD2"/>
+                    </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="mfh-TD-bmw" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
