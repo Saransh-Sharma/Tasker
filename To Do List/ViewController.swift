@@ -26,8 +26,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         self.title = "Today"
     }
     
-    @IBAction func openSettings(_ sender: Any) {
-    }
     
     var todaysTasks = [
         Task(name: "make breakfast", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p0),
