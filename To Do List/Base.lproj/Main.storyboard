@@ -153,9 +153,19 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <tableView clipsSubviews="YES" contentMode="scaleToFill" fixedFrame="YES" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="28" sectionFooterHeight="28" translatesAutoresizingMaskIntoConstraints="NO" id="j0Q-XJ-9lc">
-                                <rect key="frame" x="0.0" y="44" width="414" height="769"/>
+                                <rect key="frame" x="0.0" y="44" width="375" height="769"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                                <prototypes>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" reuseIdentifier="weeklyTaskCell" rowHeight="179" id="CRf-sd-X4m">
+                                        <rect key="frame" x="0.0" y="28" width="375" height="179"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="CRf-sd-X4m" id="HuT-YG-Ilb">
+                                            <rect key="frame" x="0.0" y="0.0" width="375" height="179"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                        </tableViewCellContentView>
+                                    </tableViewCell>
+                                </prototypes>
                                 <connections>
                                     <outlet property="dataSource" destination="3VI-Ba-Eml" id="VcH-1z-0s0"/>
                                     <outlet property="delegate" destination="3VI-Ba-Eml" id="eyO-d9-g89"/>
@@ -166,10 +176,13 @@
                         <viewLayoutGuide key="safeArea" id="cDV-7n-DVd"/>
                     </view>
                     <tabBarItem key="tabBarItem" title="Week" image="calendar" catalog="system" id="ZwP-Sp-bMy"/>
+                    <connections>
+                        <outlet property="weeklyTableView" destination="j0Q-XJ-9lc" id="Phb-6i-tfr"/>
+                    </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="v71-ys-T0N" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="137.68115942028987" y="963.61607142857133"/>
+            <point key="canvasLocation" x="136.80000000000001" y="963.54679802955673"/>
         </scene>
         <!--Tab Bar Controller-->
         <scene sceneID="JQ4-gc-1aO">
