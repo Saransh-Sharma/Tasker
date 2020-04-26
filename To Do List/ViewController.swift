@@ -35,13 +35,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
      */
     func calculateTodaysScore() -> Int {
         var score = 0
-        for item1 in todaysTasks {
-            if item1.completed {
+        for each in todaysTasks {
+            if each.completed {
                 score = score+1
             }
         }
-        for item2 in eveningTasks {
-            if item2.completed {
+        for each in eveningTasks {
+            if each.completed {
                 score = score+1
             }
         }
@@ -72,7 +72,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         print("You selected row \(indexPath.row) from section \(indexPath.section)")
     }
     
-
+    
     /*
      Toggles Dark Mode
      */
@@ -124,8 +124,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         var currentTask: Task!
-        let cell = tableView.dequeueReusableCell(withIdentifier: "normalCell", for: indexPath)
-        
+        let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
+        let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
         
         
         switch indexPath.section {
@@ -137,19 +137,28 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         default:
             break
         }
-        cell.textLabel!.text = currentTask.name
-        cell.backgroundColor = UIColor.clear
+        
+        completedTaskCell.textLabel!.text = currentTask.name
+        completedTaskCell.backgroundColor = UIColor.clear
+        
+        openTaskCell.textLabel!.text = currentTask.name
+        openTaskCell.backgroundColor = UIColor.clear
         
         if currentTask.completed {
-            cell.textLabel?.textColor = UIColor.lightGray
-            cell.accessoryType = .checkmark
+            completedTaskCell.textLabel?.textColor = UIColor.lightGray
+            completedTaskCell.accessoryType = .checkmark
+            
+            return completedTaskCell
         } else {
             
-            cell.textLabel?.textColor = UIColor.black
-            cell.accessoryType = .none
+            openTaskCell.textLabel?.textColor = UIColor.black
+            //            cell.accessoryType = .detailButton
+            openTaskCell.accessoryType = .detailDisclosureButton
+            //            cell.accessoryType = .disclosureIndicator
+            return openTaskCell
         }
         
-        return cell
+//        return completedTaskCell
         
     }
     
