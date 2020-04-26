@@ -16,7 +16,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <tableView clipsSubviews="YES" contentMode="scaleToFill" fixedFrame="YES" alwaysBounceVertical="YES" dataMode="prototypes" style="grouped" separatorStyle="none" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="18" sectionFooterHeight="18" translatesAutoresizingMaskIntoConstraints="NO" id="ghW-4P-SJF">
-                                <rect key="frame" x="0.0" y="120" width="375" height="498"/>
+                                <rect key="frame" x="0.0" y="78" width="375" height="540"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                 <prototypes>
@@ -34,9 +34,14 @@
                                     <outlet property="delegate" destination="BYZ-38-t0r" id="D9t-hJ-uXI"/>
                                 </connections>
                             </tableView>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="s9t-oG-jvR">
-                                <rect key="frame" x="16" y="44" width="80" height="22"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Score:" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="QJU-WQ-ngQ">
+                                <rect key="frame" x="269.66666666666669" y="44" width="49.333333333333314" height="20.333333333333329"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <button opaque="NO" contentMode="scaleToFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="s9t-oG-jvR">
+                                <rect key="frame" x="16" y="44" width="82" height="26"/>
                                 <state key="normal" title="Settings" image="chevron.left" catalog="system">
                                     <color key="titleColor" systemColor="labelColor" cocoaTouchSystemColor="darkTextColor"/>
                                 </state>
@@ -44,8 +49,32 @@
                                     <segue destination="xW2-Ba-zLu" kind="show" id="AYN-0J-stK"/>
                                 </connections>
                             </button>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="XX" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
+                                <rect key="frame" x="324" y="44" width="23" height="21"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <button autoresizesSubviews="NO" opaque="NO" contentMode="scaleAspectFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="tGT-bN-yKg">
+                                <rect key="frame" x="318" y="664" width="42" height="41"/>
+                                <rect key="contentStretch" x="1" y="1" width="1" height="1"/>
+                                <color key="tintColor" cocoaTouchSystemColor="darkTextColor"/>
+                                <state key="normal" image="plus" catalog="system">
+                                    <preferredSymbolConfiguration key="preferredSymbolConfiguration" scale="large" weight="heavy"/>
+                                </state>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <constraints>
+                            <constraint firstItem="QJU-WQ-ngQ" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" id="ByC-op-FOJ"/>
+                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="leading" secondItem="QJU-WQ-ngQ" secondAttribute="trailing" constant="5" id="Ckz-38-PRb"/>
+                            <constraint firstItem="QJU-WQ-ngQ" firstAttribute="centerX" secondItem="s9t-oG-jvR" secondAttribute="trailing" constant="200" id="Gu9-ua-7rZ"/>
+                            <constraint firstItem="s9t-oG-jvR" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" id="LRd-YR-KIt"/>
+                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" id="UYF-rx-ehc"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="tGT-bN-yKg" secondAttribute="trailing" constant="15" id="aX1-y6-Yec"/>
+                            <constraint firstItem="s9t-oG-jvR" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="15" id="bfk-Sh-ujq"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="tGT-bN-yKg" secondAttribute="bottom" constant="24" id="tZ6-0v-G4f"/>
+                        </constraints>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                     </view>
                     <tabBarItem key="tabBarItem" title="Today" image="star.fill" catalog="system" id="R21-R3-4Qo"/>
@@ -53,6 +82,7 @@
                     <connections>
                         <outlet property="addTaskAtHome" destination="zPK-Bz-B77" id="xdS-5S-LcC"/>
                         <outlet property="switchState" destination="I6M-y2-kON" id="6fB-7E-Vyx"/>
+                        <outlet property="todaysScoreCounter" destination="wpq-c7-3Dg" id="BLU-i1-SAD"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
@@ -185,6 +215,7 @@
     <resources>
         <image name="calendar" catalog="system" width="64" height="52"/>
         <image name="chevron.left" catalog="system" width="48" height="64"/>
+        <image name="plus" catalog="system" width="64" height="56"/>
         <image name="star.fill" catalog="system" width="64" height="58"/>
         <image name="tray.full.fill" catalog="system" width="64" height="44"/>
     </resources>

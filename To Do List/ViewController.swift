@@ -10,10 +10,11 @@ import UIKit
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
+    @IBOutlet weak var todaysScoreCounter: UILabel!
     @IBOutlet weak var switchState: UISwitch!
     @IBOutlet weak var addTaskAtHome: UIButton!
     
-          override func viewDidLoad() {
+    override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
         if UserDefaults.standard.bool(forKey: "isDarkModeOn") {
@@ -23,9 +24,29 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         } else {
             print("HOME: DARK OFF !!")
         }
+        
+        
+        todaysScoreCounter.text = "\(calculateTodaysScore())"
         self.title = "Today"
     }
     
+    /*
+     Calculates daily productivity score
+     */
+    func calculateTodaysScore() -> Int {
+        var score = 0
+        for item1 in todaysTasks {
+            if item1.completed {
+                score = score+1
+            }
+        }
+        for item2 in eveningTasks {
+            if item2.completed {
+                score = score+1
+            }
+        }
+        return score;
+    }
     
     var todaysTasks = [
         Task(name: "make breakfast", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p0),
@@ -43,12 +64,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         Task(name: "invent covid-19 vaccine", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
     ]
     
-
     
+    /*
+     Prints logs on selecting a row
+     */
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         print("You selected row \(indexPath.row) from section \(indexPath.section)")
     }
     
+
+    /*
+     Toggles Dark Mode
+     */
     @IBAction func toggleDarkMode(_ sender: Any) {
         
         let mSwitch = sender as! UISwitch
@@ -140,10 +167,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 break
             }
             
+            self.todaysScoreCounter.text = "\(self.calculateTodaysScore())"
             tableView.reloadData()
             actionPerformed(true)
         }
         
+        //todaysScoreCounter.text = "\(calculateTodaysScore())"
         return UISwipeActionsConfiguration(actions: [completeTaskAction])
     }
     
@@ -189,23 +218,23 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return UISwipeActionsConfiguration(actions: [deleteTaskAction])
     }
     
-
-//    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-//        // We'll assume that there is only one section for now.
-//
-//          if section == 0 {
-//
-//              let imageView: UIImageView = UIImageView()
-//              //imageView.clipsToBounds = true
-//              //imageView.contentMode = .scaleAspectFill
-//            imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 50)
-//              imageView.image =  UIImage(named: "Star")!
-//              return imageView
-//          }
-//
-//          return nil
-//    }
-//
+    
+    //    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+    //        // We'll assume that there is only one section for now.
+    //
+    //          if section == 0 {
+    //
+    //              let imageView: UIImageView = UIImageView()
+    //              //imageView.clipsToBounds = true
+    //              //imageView.contentMode = .scaleAspectFill
+    //            imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 50)
+    //              imageView.image =  UIImage(named: "Star")!
+    //              return imageView
+    //          }
+    //
+    //          return nil
+    //    }
+    //
     
     @IBAction func changeBackground(_ sender: Any) {
         view.backgroundColor = UIColor.black
