@@ -10,24 +10,47 @@ import UIKit
 
 class WeeklyViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
+    @IBOutlet weak var weeklyTableView: UITableView!
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
         self.title = "Week"
         // Do any additional setup after loading the view.
+        
+        weeklyTableView.delegate = self
+        weeklyTableView.dataSource = self
+        
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+    
+        return UITableView.automaticDimension
+    }
+
+    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+        return UITableView.automaticDimension
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return 15
+        return 5
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let inboxCell = UITableViewCell()
+        let cell = tableView.dequeueReusableCell(withIdentifier: "weeklyTaskCell", for: indexPath)
         
-        inboxCell.textLabel?.text = "This is weekly cell \(indexPath.row)"
+        cell.textLabel?.text = "This is a really long title that has no hope of fittinng in. blah blah blah.... blah blah blah.... blah blah blah.... \(indexPath.row)"
         
-        return inboxCell
+        if (indexPath.row == 3) {
+            cell.textLabel?.text = "This is compact \(indexPath.row)"
+        }
+        
+        cell.textLabel?.numberOfLines = 0
+//        weeklyTaskTitleLabel.text = "This is weekly Cell \(indexPath.row)"
+        //inboxCell.textLabel?.text = "This is weekly cell \(indexPath.row)"
+        
+        return cell
     }
     
     

@@ -18,6 +18,7 @@
 		758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A803F2450BFA300BFB571 /* InboxViewController.swift */; };
 		758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A80632451E86E00BFB571 /* WeeklyViewController.swift */; };
 		758A806624546D2600BFB571 /* Task.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A806524546D2600BFB571 /* Task.swift */; };
+		75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,6 +56,7 @@
 		758A803F2450BFA300BFB571 /* InboxViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViewController.swift; sourceTree = "<group>"; };
 		758A80632451E86E00BFB571 /* WeeklyViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyViewController.swift; sourceTree = "<group>"; };
 		758A806524546D2600BFB571 /* Task.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Task.swift; sourceTree = "<group>"; };
+		75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPageViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +112,7 @@
 				753EFCA12445A24500A739E3 /* ViewController.swift */,
 				758A803F2450BFA300BFB571 /* InboxViewController.swift */,
 				758A80632451E86E00BFB571 /* WeeklyViewController.swift */,
+				75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */,
 				753EFCA32445A24500A739E3 /* Main.storyboard */,
 				753EFCA62445A24700A739E3 /* Assets.xcassets */,
 				753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */,
@@ -268,6 +271,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */,
 				758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */,
 				753EFCA22445A24500A739E3 /* ViewController.swift in Sources */,
 				753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */,
