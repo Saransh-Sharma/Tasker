@@ -15,6 +15,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var switchState: UISwitch!
     @IBOutlet weak var addTaskAtHome: UIButton!
     
+    var todaysTasks = [Task]()
+    var eveningTasks = [Task]()
+    
     //    var globalTaskList: [Task] = []
     
     //    func makeTask(name: String, type: TaskType, completed: Bool, lastCompleted: NSDate?, taskCreationDate: NSDate?, priority: TaskPriority? ) -> Task {
@@ -42,17 +45,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
-        if UserDefaults.standard.bool(forKey: "isDarkModeOn") {
-            //switchState.setOn(true, animated: true)
-            print("HOME: DARK ON")
-            view.backgroundColor = UIColor.darkGray
-        } else {
-            print("HOME: DARK OFF !!")
-        }
-        
+    
+        enableDarkModeIfPreset()
         
         todaysScoreCounter.text = "\(calculateTodaysScore())"
-        self.title = "Today"
+        self.title = "This Day"
+        
         
         let mTask1 = Task(withName: "Swipe me to left to complete your first task !", withPriority: TaskPriority.p0)
         let mTask2 = Task(withName: "Create your first task by clicking on the + sign", withPriority: TaskPriority.p1)
@@ -70,7 +68,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
     }
     
-    
+    /*
+     Checks & enables dark mode if user previously set such
+     */
+    func enableDarkModeIfPreset() {
+        if UserDefaults.standard.bool(forKey: "isDarkModeOn") {
+                //switchState.setOn(true, animated: true)
+                print("HOME: DARK ON")
+                view.backgroundColor = UIColor.darkGray
+            } else {
+                print("HOME: DARK OFF !!")
+            }
+    }
     
     //    func buildEveningTasks(<#parameters#>) -> <#return type#> {
     //        <#function body#>
@@ -86,44 +95,19 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func calculateTodaysScore() -> Int {
         var score = 0
         for each in todaysTasks {
+            
             if each.completed {
-                score = score+1
+                
+                score = score + each.getTaskScore(task: each)
             }
         }
         for each in eveningTasks {
             if each.completed {
-                score = score+1
+                score = score + each.getTaskScore(task: each)
             }
         }
         return score;
     }
-    
-    var todaysTasks = [Task]()
-    
-    //    let mTaskx = Task().in
-    
-    
-    
-    
-    
-    //        [
-    //        Task(name: "make breakfast", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p0),
-    //        Task(name: "clean study desk", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
-    //        Task(name: "workout", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
-    //        Task(name: "water plants", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
-    //        Task(name: "push code for to do app", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2)
-    //    ]
-    
-    
-    var eveningTasks = [Task]()
-    
-    //        [
-    //        Task(name: "do laundry", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
-    //        Task(name: "meet batman", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
-    //        Task(name: "get supplies", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
-    //        Task(name: "invent covid-19 vaccine", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
-    //    ]
-    
     
     /*
      Prints logs on selecting a row

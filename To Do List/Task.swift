@@ -45,18 +45,40 @@ class Task {
         self.priority = withPriority
     }
     
-    func toggleCompleted(completedStatus: Bool) -> Bool {
-        return !completedStatus
+    func markComplete(task: Task) -> Task {
+        task.completed = true
+        return task
     }
     
-    func calculateTaskPoints(priority: TaskPriority) -> Int {
-        if TaskPriority.p0 == .p0 {
+    func markIncomplete(task: Task) -> Task {
+        task.completed = false
+        return task
+    }
+    
+    func calcScore(task: Task) -> Int {
+        let priority = task.priority
+        if priority == .p0 {
             return 7
-        } else if TaskPriority.p1 == .p1 {
+        } else if priority == .p1 {
             return 4
-        } else if TaskPriority.p2 == .p2  {
+        } else if priority == .p2  {
             return 3
-        } else if TaskPriority.p3 == .p3 {
+        } else if priority == .p3 {
+            return 2
+        }
+        else {
+            return 1
+        }
+       }
+    
+    func getTaskScore(task: Task) -> Int {
+        if task.priority == .p0 {
+            return 7
+        } else if task.priority == .p1 {
+            return 4
+        } else if task.priority == .p2  {
+            return 3
+        } else if task.priority == .p3 {
             return 2
         }
         else {
