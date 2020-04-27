@@ -8,11 +8,36 @@
 
 import UIKit
 
+
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
     @IBOutlet weak var todaysScoreCounter: UILabel!
     @IBOutlet weak var switchState: UISwitch!
     @IBOutlet weak var addTaskAtHome: UIButton!
+    
+    var globalTaskList: [Task] = []
+    
+    func makeTask(name: String, type: TaskType, completed: Bool, lastCompleted: NSDate?, taskCreationDate: NSDate?, priority: TaskPriority? ) -> Task {
+        return Task(name: name, type: type, completed: completed, lastCompleted: lastCompleted, taskCreationDate: taskCreationDate, priority: priority)
+      }
+    
+    func addTaskToGlobalTasksList(taskToBeadded: Task, globalTasks: [Task]) -> [Task] {
+        var mTasks: [Task]
+        mTasks = globalTasks
+        mTasks.append(taskToBeadded)
+        return mTasks
+    }
+    
+//    func getTodayMorningTasks(globalTasksList: [Task]) -> [Task] {
+//
+//        var todayMorning: [Task]
+//
+//
+//        for each in globalTasksList {
+//           // each.lastCompleted = isToaf
+//            let today = Calendar.current.isDateInToday(each.lastCompleted! as Date)
+//        }
+//    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -158,7 +183,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             return openTaskCell
         }
         
-//        return completedTaskCell
+        //        return completedTaskCell
         
     }
     
