@@ -15,29 +15,29 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var switchState: UISwitch!
     @IBOutlet weak var addTaskAtHome: UIButton!
     
-    var globalTaskList: [Task] = []
+    //    var globalTaskList: [Task] = []
     
-    func makeTask(name: String, type: TaskType, completed: Bool, lastCompleted: NSDate?, taskCreationDate: NSDate?, priority: TaskPriority? ) -> Task {
-        return Task(name: name, type: type, completed: completed, lastCompleted: lastCompleted, taskCreationDate: taskCreationDate, priority: priority)
-      }
+    //    func makeTask(name: String, type: TaskType, completed: Bool, lastCompleted: NSDate?, taskCreationDate: NSDate?, priority: TaskPriority? ) -> Task {
+    //        return Task(name: name, type: type, completed: completed, lastCompleted: lastCompleted, taskCreationDate: taskCreationDate, priority: priority)
+    //      }
     
-    func addTaskToGlobalTasksList(taskToBeadded: Task, globalTasks: [Task]) -> [Task] {
-        var mTasks: [Task]
-        mTasks = globalTasks
-        mTasks.append(taskToBeadded)
-        return mTasks
-    }
+    //    func addTaskToGlobalTasksList(taskToBeadded: Task, globalTasks: [Task]) -> [Task] {
+    //        var mTasks: [Task]
+    //        mTasks = globalTasks
+    //        mTasks.append(taskToBeadded)
+    //        return mTasks
+    //    }
     
-//    func getTodayMorningTasks(globalTasksList: [Task]) -> [Task] {
-//
-//        var todayMorning: [Task]
-//
-//
-//        for each in globalTasksList {
-//           // each.lastCompleted = isToaf
-//            let today = Calendar.current.isDateInToday(each.lastCompleted! as Date)
-//        }
-//    }
+    //    func getTodayMorningTasks(globalTasksList: [Task]) -> [Task] {
+    //
+    //        var todayMorning: [Task]
+    //
+    //
+    //        for each in globalTasksList {
+    //           // each.lastCompleted = isToaf
+    //            let today = Calendar.current.isDateInToday(each.lastCompleted! as Date)
+    //        }
+    //    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -53,7 +53,32 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         todaysScoreCounter.text = "\(calculateTodaysScore())"
         self.title = "Today"
+        
+        let mTask1 = Task(withName: "Swipe me to left to complete your first task !", withPriority: TaskPriority.p0)
+        let mTask2 = Task(withName: "Create your first task by clicking on the + sign", withPriority: TaskPriority.p1)
+        let mTask3 = Task(withName: "Delete me by swiping to the right", withPriority: TaskPriority.p2)
+        
+        let mTask4 = Task(withName: "Meet Batman", withPriority: TaskPriority.p3)
+        
+        
+        
+        
+        todaysTasks.append(mTask1)
+        todaysTasks.append(mTask2)
+        todaysTasks.append(mTask3)
+        eveningTasks.append(mTask4)
+        
     }
+    
+    
+    
+    //    func buildEveningTasks(<#parameters#>) -> <#return type#> {
+    //        <#function body#>
+    //    }
+    //
+    //    func buildDayTasks(<#parameters#>) -> <#return type#> {
+    //          <#function body#>
+    //      }
     
     /*
      Calculates daily productivity score
@@ -73,21 +98,31 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return score;
     }
     
-    var todaysTasks = [
-        Task(name: "make breakfast", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p0),
-        Task(name: "clean study desk", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
-        Task(name: "workout", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
-        Task(name: "water plants", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
-        Task(name: "push code for to do app", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2)
-    ]
+    var todaysTasks = [Task]()
+    
+    //    let mTaskx = Task().in
     
     
-    var eveningTasks = [
-        Task(name: "do laundry", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
-        Task(name: "meet batman", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
-        Task(name: "get supplies", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
-        Task(name: "invent covid-19 vaccine", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
-    ]
+    
+    
+    
+    //        [
+    //        Task(name: "make breakfast", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p0),
+    //        Task(name: "clean study desk", type: TaskType.today, completed: true, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
+    //        Task(name: "workout", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
+    //        Task(name: "water plants", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
+    //        Task(name: "push code for to do app", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2)
+    //    ]
+    
+    
+    var eveningTasks = [Task]()
+    
+    //        [
+    //        Task(name: "do laundry", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p1),
+    //        Task(name: "meet batman", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
+    //        Task(name: "get supplies", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p2),
+    //        Task(name: "invent covid-19 vaccine", type: TaskType.today, completed: false, lastCompleted: nil, taskCreationDate: nil, priority: TaskPriority.p3),
+    //    ]
     
     
     /*

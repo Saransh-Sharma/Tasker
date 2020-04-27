@@ -39,7 +39,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		753EFC9A2445A24500A739E3 /* To Do List.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "To Do List.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		753EFC9A2445A24500A739E3 /* This Day.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "This Day.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFC9D2445A24500A739E3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		753EFC9F2445A24500A739E3 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		753EFCA12445A24500A739E3 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -97,7 +97,7 @@
 		753EFC9B2445A24500A739E3 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				753EFC9A2445A24500A739E3 /* To Do List.app */,
+				753EFC9A2445A24500A739E3 /* This Day.app */,
 				753EFCB02445A24700A739E3 /* To Do ListTests.xctest */,
 				753EFCBB2445A24800A739E3 /* To Do ListUITests.xctest */,
 			);
@@ -157,7 +157,7 @@
 			);
 			name = "To Do List";
 			productName = "To Do List";
-			productReference = 753EFC9A2445A24500A739E3 /* To Do List.app */;
+			productReference = 753EFC9A2445A24500A739E3 /* This Day.app */;
 			productType = "com.apple.product-type.application";
 		};
 		753EFCAF2445A24700A739E3 /* To Do ListTests */ = {
@@ -458,7 +458,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "This Day";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -476,7 +476,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "This Day";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
