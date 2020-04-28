@@ -18,7 +18,7 @@
 		758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A803F2450BFA300BFB571 /* InboxViewController.swift */; };
 		758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A80632451E86E00BFB571 /* WeeklyViewController.swift */; };
 		758A806624546D2600BFB571 /* Task.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A806524546D2600BFB571 /* Task.swift */; };
-		759D21192458999E00A4D2DE /* AddTaskViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759D21182458999E00A4D2DE /* AddTaskViewController.swift */; };
+		759D213F2458D09600A4D2DE /* AddTaskTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */; };
 		75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */; };
 /* End PBXBuildFile section */
 
@@ -57,7 +57,7 @@
 		758A803F2450BFA300BFB571 /* InboxViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViewController.swift; sourceTree = "<group>"; };
 		758A80632451E86E00BFB571 /* WeeklyViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyViewController.swift; sourceTree = "<group>"; };
 		758A806524546D2600BFB571 /* Task.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Task.swift; sourceTree = "<group>"; };
-		759D21182458999E00A4D2DE /* AddTaskViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskViewController.swift; sourceTree = "<group>"; };
+		759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskTableViewController.swift; sourceTree = "<group>"; };
 		75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPageViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -111,8 +111,8 @@
 			children = (
 				753EFC9D2445A24500A739E3 /* AppDelegate.swift */,
 				753EFC9F2445A24500A739E3 /* SceneDelegate.swift */,
-				759D21182458999E00A4D2DE /* AddTaskViewController.swift */,
 				753EFCA12445A24500A739E3 /* ViewController.swift */,
+				759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */,
 				758A803F2450BFA300BFB571 /* InboxViewController.swift */,
 				758A80632451E86E00BFB571 /* WeeklyViewController.swift */,
 				75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */,
@@ -275,10 +275,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */,
-				759D21192458999E00A4D2DE /* AddTaskViewController.swift in Sources */,
 				758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */,
 				753EFCA22445A24500A739E3 /* ViewController.swift in Sources */,
 				753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */,
+				759D213F2458D09600A4D2DE /* AddTaskTableViewController.swift in Sources */,
 				758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */,
 				758A806624546D2600BFB571 /* Task.swift in Sources */,
 				753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */,
