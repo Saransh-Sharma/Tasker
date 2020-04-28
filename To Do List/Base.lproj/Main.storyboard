@@ -10,7 +10,7 @@
         <!--Today-->
         <scene sceneID="tne-QT-ifu">
             <objects>
-                <viewController id="BYZ-38-t0r" customClass="ViewController" customModule="To_Do_List" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="BYZ-38-t0r" customClass="ViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="8bC-Xf-vdC">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -42,27 +42,21 @@
                                     <outlet property="delegate" destination="BYZ-38-t0r" id="D9t-hJ-uXI"/>
                                 </connections>
                             </tableView>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Score:" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="QJU-WQ-ngQ">
-                                <rect key="frame" x="269.66666666666669" y="44" width="49.333333333333314" height="20.333333333333329"/>
-                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="This Day's Score " textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="QJU-WQ-ngQ">
+                                <rect key="frame" x="56" y="36" width="207" height="35"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="28"/>
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
                             </label>
                             <button opaque="NO" contentMode="scaleToFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="s9t-oG-jvR">
-                                <rect key="frame" x="16" y="44" width="82" height="26"/>
-                                <state key="normal" title="Settings" image="chevron.left" catalog="system">
+                                <rect key="frame" x="16" y="35" width="52" height="39"/>
+                                <state key="normal" image="chevron.left" catalog="system">
                                     <color key="titleColor" systemColor="labelColor" cocoaTouchSystemColor="darkTextColor"/>
                                 </state>
                                 <connections>
                                     <segue destination="xW2-Ba-zLu" kind="show" id="AYN-0J-stK"/>
                                 </connections>
                             </button>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="XX" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
-                                <rect key="frame" x="324" y="44" width="23" height="21"/>
-                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                <nil key="textColor"/>
-                                <nil key="highlightedColor"/>
-                            </label>
                             <button autoresizesSubviews="NO" opaque="NO" contentMode="scaleAspectFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" reversesTitleShadowWhenHighlighted="YES" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="tGT-bN-yKg">
                                 <rect key="frame" x="318" y="664" width="42" height="41"/>
                                 <rect key="contentStretch" x="1" y="1" width="1" height="1"/>
@@ -71,6 +65,12 @@
                                     <preferredSymbolConfiguration key="preferredSymbolConfiguration" scale="large" weight="heavy"/>
                                 </state>
                             </button>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="XX" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
+                                <rect key="frame" x="291" y="27" width="61" height="47"/>
+                                <fontDescription key="fontDescription" type="system" weight="medium" pointSize="33"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <constraints>
@@ -100,7 +100,7 @@
         <!--Settings Page View Controller-->
         <scene sceneID="1cw-Fs-vYG">
             <objects>
-                <viewController id="xW2-Ba-zLu" customClass="SettingsPageViewController" customModule="To_Do_List" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="xW2-Ba-zLu" customClass="SettingsPageViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="rJs-lW-ioH">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="758"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -157,7 +157,7 @@
         <!--Week-->
         <scene sceneID="CV6-ao-UkR">
             <objects>
-                <viewController storyboardIdentifier="weekly" id="3VI-Ba-Eml" customClass="WeeklyViewController" customModule="To_Do_List" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="weekly" id="3VI-Ba-Eml" customClass="WeeklyViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="Dw4-tN-PGe" customClass="WeeklyView">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -217,7 +217,7 @@
         <!--Inbox-->
         <scene sceneID="ZJY-Ck-VZb">
             <objects>
-                <viewController storyboardIdentifier="inbox" id="cL4-7B-bD1" customClass="InboxViewController" customModule="To_Do_List" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="inbox" id="cL4-7B-bD1" customClass="InboxViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="Cyd-Cl-tmh">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
