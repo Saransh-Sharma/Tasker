@@ -46,11 +46,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
-    
+        
         enableDarkModeIfPreset()
         
         todaysScoreCounter.text = "\(calculateTodaysScore())"
-        self.title = "This Day"
+        self.title = "\(calculateTodaysScore())"
         
         
         let mTask1 = Task(withName: "Swipe me to left to complete your first task !", withPriority: TaskPriority.p0)
@@ -61,12 +61,20 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         
-
+        
         todaysTasks.append(mTask1)
         todaysTasks.append(mTask2)
         todaysTasks.append(mTask3)
         eveningTasks.append(mTask4)
         
+        navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
+    
+        //set nav bar to black with white text
+        self.navigationController!.navigationBar.barStyle = .black
+        self.navigationController!.navigationBar.isTranslucent = true
+        self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
+        self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
+      
     }
     
     /*
@@ -74,12 +82,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
      */
     func enableDarkModeIfPreset() {
         if UserDefaults.standard.bool(forKey: "isDarkModeOn") {
-                //switchState.setOn(true, animated: true)
-                print("HOME: DARK ON")
-                view.backgroundColor = UIColor.darkGray
-            } else {
-                print("HOME: DARK OFF !!")
-            }
+            //switchState.setOn(true, animated: true)
+            print("HOME: DARK ON")
+            view.backgroundColor = UIColor.darkGray
+        } else {
+            print("HOME: DARK OFF !!")
+        }
     }
     
     //    func buildEveningTasks(<#parameters#>) -> <#return type#> {
@@ -223,6 +231,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             
             self.todaysScoreCounter.text = "\(self.calculateTodaysScore())"
             tableView.reloadData()
+            self.title = "\(self.calculateTodaysScore())"
             actionPerformed(true)
         }
         
@@ -265,6 +274,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             //show it
             self.present(confirmDelete ,animated: true, completion: nil)
             
+            self.title = "\(self.calculateTodaysScore())"
             actionPerformed(true)
         }
         
