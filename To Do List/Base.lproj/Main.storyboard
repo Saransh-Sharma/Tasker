@@ -10,29 +10,29 @@
         <!--Today-->
         <scene sceneID="tne-QT-ifu">
             <objects>
-                <viewController id="BYZ-38-t0r" customClass="ViewController" customModule="To_Do_List" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="BYZ-38-t0r" customClass="ViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="8bC-Xf-vdC">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <tableView clipsSubviews="YES" contentMode="scaleToFill" fixedFrame="YES" alwaysBounceVertical="YES" dataMode="prototypes" style="grouped" separatorStyle="none" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="18" sectionFooterHeight="18" translatesAutoresizingMaskIntoConstraints="NO" id="ghW-4P-SJF">
-                                <rect key="frame" x="0.0" y="130" width="375" height="488"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <rect key="frame" x="0.0" y="73" width="375" height="545"/>
+                                <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxY="YES"/>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                 <prototypes>
-                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" reuseIdentifier="completedTaskCell" id="MQw-br-fY8">
-                                        <rect key="frame" x="0.0" y="55.333332061767578" width="375" height="44"/>
+                                    <tableViewCell clipsSubviews="YES" tag="500" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" reuseIdentifier="completedTaskCell" rowHeight="104" id="MQw-br-fY8">
+                                        <rect key="frame" x="0.0" y="55.333332061767578" width="375" height="104"/>
                                         <autoresizingMask key="autoresizingMask"/>
                                         <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="MQw-br-fY8" id="YT6-6E-dME">
-                                            <rect key="frame" x="0.0" y="0.0" width="375" height="44"/>
+                                            <rect key="frame" x="0.0" y="0.0" width="375" height="104"/>
                                             <autoresizingMask key="autoresizingMask"/>
                                         </tableViewCellContentView>
                                     </tableViewCell>
-                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" reuseIdentifier="openTaskCell" id="w2l-3m-UZM">
-                                        <rect key="frame" x="0.0" y="99.333332061767578" width="375" height="44"/>
+                                    <tableViewCell clipsSubviews="YES" tag="501" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" reuseIdentifier="openTaskCell" rowHeight="118" id="w2l-3m-UZM">
+                                        <rect key="frame" x="0.0" y="159.33333206176758" width="375" height="118"/>
                                         <autoresizingMask key="autoresizingMask"/>
                                         <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="w2l-3m-UZM" id="qld-tr-noB">
-                                            <rect key="frame" x="0.0" y="0.0" width="375" height="44"/>
+                                            <rect key="frame" x="0.0" y="0.0" width="375" height="118"/>
                                             <autoresizingMask key="autoresizingMask"/>
                                         </tableViewCellContentView>
                                     </tableViewCell>
@@ -42,46 +42,47 @@
                                     <outlet property="delegate" destination="BYZ-38-t0r" id="D9t-hJ-uXI"/>
                                 </connections>
                             </tableView>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Score:" textAlignment="right" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="QJU-WQ-ngQ">
-                                <rect key="frame" x="269.66666666666669" y="44" width="49.333333333333314" height="20.333333333333329"/>
-                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" horizontalCompressionResistancePriority="751" misplaced="YES" text="This Day's Score " textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="QJU-WQ-ngQ">
+                                <rect key="frame" x="56" y="30" width="214" height="35"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="29"/>
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
                             </label>
-                            <button opaque="NO" contentMode="scaleToFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="s9t-oG-jvR">
-                                <rect key="frame" x="16" y="44" width="82" height="26"/>
-                                <state key="normal" title="Settings" image="chevron.left" catalog="system">
+                            <button opaque="NO" contentMode="scaleToFill" horizontalCompressionResistancePriority="752" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="s9t-oG-jvR">
+                                <rect key="frame" x="20" y="36" width="13" height="22"/>
+                                <state key="normal" image="chevron.left" catalog="system">
                                     <color key="titleColor" systemColor="labelColor" cocoaTouchSystemColor="darkTextColor"/>
                                 </state>
                                 <connections>
                                     <segue destination="xW2-Ba-zLu" kind="show" id="AYN-0J-stK"/>
                                 </connections>
                             </button>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="XX" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
-                                <rect key="frame" x="324" y="44" width="23" height="21"/>
-                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                <nil key="textColor"/>
-                                <nil key="highlightedColor"/>
-                            </label>
                             <button autoresizesSubviews="NO" opaque="NO" contentMode="scaleAspectFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" reversesTitleShadowWhenHighlighted="YES" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="tGT-bN-yKg">
-                                <rect key="frame" x="318" y="664" width="42" height="41"/>
+                                <rect key="frame" x="306" y="652" width="54" height="53"/>
                                 <rect key="contentStretch" x="1" y="1" width="1" height="1"/>
                                 <color key="tintColor" cocoaTouchSystemColor="darkTextColor"/>
-                                <state key="normal" image="plus" catalog="system">
+                                <state key="normal" image="addTaskIcon">
                                     <preferredSymbolConfiguration key="preferredSymbolConfiguration" scale="large" weight="heavy"/>
                                 </state>
                             </button>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="XX" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
+                                <rect key="frame" x="278" y="26" width="61" height="47"/>
+                                <fontDescription key="fontDescription" type="system" weight="medium" pointSize="34"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <constraints>
-                            <constraint firstItem="QJU-WQ-ngQ" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" id="ByC-op-FOJ"/>
-                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="leading" secondItem="QJU-WQ-ngQ" secondAttribute="trailing" constant="5" id="Ckz-38-PRb"/>
-                            <constraint firstItem="QJU-WQ-ngQ" firstAttribute="centerX" secondItem="s9t-oG-jvR" secondAttribute="trailing" constant="200" id="Gu9-ua-7rZ"/>
-                            <constraint firstItem="s9t-oG-jvR" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" id="LRd-YR-KIt"/>
-                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" id="UYF-rx-ehc"/>
+                            <constraint firstItem="QJU-WQ-ngQ" firstAttribute="leading" secondItem="s9t-oG-jvR" secondAttribute="trailing" constant="100" id="6ji-oL-YPP"/>
+                            <constraint firstItem="s9t-oG-jvR" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="8" id="AUN-a5-Uqb"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="top" secondItem="wpq-c7-3Dg" secondAttribute="top" id="R1c-8z-sUT"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="wpq-c7-3Dg" secondAttribute="trailing" constant="16" id="R4h-Hq-D76"/>
                             <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="tGT-bN-yKg" secondAttribute="trailing" constant="15" id="aX1-y6-Yec"/>
-                            <constraint firstItem="s9t-oG-jvR" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="15" id="bfk-Sh-ujq"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="top" secondItem="s9t-oG-jvR" secondAttribute="top" id="hLp-Jd-BYh"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="top" secondItem="QJU-WQ-ngQ" secondAttribute="top" id="lHv-pz-hX1"/>
                             <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="tGT-bN-yKg" secondAttribute="bottom" constant="24" id="tZ6-0v-G4f"/>
+                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="leading" secondItem="QJU-WQ-ngQ" secondAttribute="trailing" constant="8" id="zhD-gk-4bz"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                     </view>
@@ -100,7 +101,7 @@
         <!--Settings Page View Controller-->
         <scene sceneID="1cw-Fs-vYG">
             <objects>
-                <viewController id="xW2-Ba-zLu" customClass="SettingsPageViewController" customModule="To_Do_List" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="xW2-Ba-zLu" customClass="SettingsPageViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="rJs-lW-ioH">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="758"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -157,7 +158,7 @@
         <!--Week-->
         <scene sceneID="CV6-ao-UkR">
             <objects>
-                <viewController storyboardIdentifier="weekly" id="3VI-Ba-Eml" customClass="WeeklyViewController" customModule="To_Do_List" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="weekly" id="3VI-Ba-Eml" customClass="WeeklyViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="Dw4-tN-PGe" customClass="WeeklyView">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -217,7 +218,7 @@
         <!--Inbox-->
         <scene sceneID="ZJY-Ck-VZb">
             <objects>
-                <viewController storyboardIdentifier="inbox" id="cL4-7B-bD1" customClass="InboxViewController" customModule="To_Do_List" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="inbox" id="cL4-7B-bD1" customClass="InboxViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="Cyd-Cl-tmh">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -244,9 +245,9 @@
         </scene>
     </scenes>
     <resources>
+        <image name="addTaskIcon" width="60" height="60"/>
         <image name="calendar" catalog="system" width="64" height="52"/>
         <image name="chevron.left" catalog="system" width="48" height="64"/>
-        <image name="plus" catalog="system" width="64" height="56"/>
         <image name="star.fill" catalog="system" width="64" height="58"/>
         <image name="tray.full.fill" catalog="system" width="64" height="44"/>
     </resources>
