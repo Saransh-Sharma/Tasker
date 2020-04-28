@@ -15,6 +15,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var switchState: UISwitch!
     @IBOutlet weak var addTaskAtHome: UIButton!
     
+    @IBOutlet weak var scoreButton: UIBarButtonItem!
     
     var todaysTasks = [Task]()
     var eveningTasks = [Task]()
@@ -74,6 +75,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         self.navigationController!.navigationBar.isTranslucent = true
         self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
         self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
+        
+        scoreButton.title = "99"
       
     }
     

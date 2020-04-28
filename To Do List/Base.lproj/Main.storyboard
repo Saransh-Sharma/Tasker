@@ -89,9 +89,12 @@
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                     </view>
-                    <navigationItem key="navigationItem" title="Today" largeTitleDisplayMode="always" id="7Lj-NY-AD8"/>
+                    <navigationItem key="navigationItem" title="Today" largeTitleDisplayMode="always" id="7Lj-NY-AD8">
+                        <barButtonItem key="rightBarButtonItem" title="Item" id="4Mp-yu-ByE"/>
+                    </navigationItem>
                     <connections>
                         <outlet property="addTaskAtHome" destination="tGT-bN-yKg" id="uwG-p2-eoP"/>
+                        <outlet property="scoreButton" destination="4Mp-yu-ByE" id="VeP-wW-OZT"/>
                         <outlet property="switchState" destination="I6M-y2-kON" id="6fB-7E-Vyx"/>
                         <outlet property="todaysScoreCounter" destination="wpq-c7-3Dg" id="BLU-i1-SAD"/>
                     </connections>
@@ -249,20 +252,32 @@
         <scene sceneID="DB7-Q8-kk1">
             <objects>
                 <tableViewController id="Kpc-qh-IGB" customClass="AddTaskTableViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
-                    <tableView key="view" clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="28" sectionFooterHeight="28" id="B1f-00-vD2">
+                    <tableView key="view" clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="static" style="grouped" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="18" sectionFooterHeight="18" id="B1f-00-vD2">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
-                        <prototypes>
-                            <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" rowHeight="196" id="fL7-CR-7lE">
-                                <rect key="frame" x="0.0" y="28" width="375" height="196"/>
-                                <autoresizingMask key="autoresizingMask"/>
-                                <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="fL7-CR-7lE" id="ATe-Sg-Iok">
-                                    <rect key="frame" x="0.0" y="0.0" width="375" height="196"/>
-                                    <autoresizingMask key="autoresizingMask"/>
-                                </tableViewCellContentView>
-                            </tableViewCell>
-                        </prototypes>
+                        <sections>
+                            <tableViewSection id="V2G-Xn-Vr6">
+                                <cells>
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" rowHeight="185" id="fL7-CR-7lE">
+                                        <rect key="frame" x="0.0" y="18" width="375" height="185"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="fL7-CR-7lE" id="ATe-Sg-Iok">
+                                            <rect key="frame" x="0.0" y="0.0" width="375" height="185"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <textField opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="natural" minimumFontSize="17" clearButtonMode="always" translatesAutoresizingMaskIntoConstraints="NO" id="Peb-7P-r50">
+                                                    <rect key="frame" x="16" y="11" width="343" height="34"/>
+                                                    <autoresizingMask key="autoresizingMask"/>
+                                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                                    <textInputTraits key="textInputTraits"/>
+                                                </textField>
+                                            </subviews>
+                                        </tableViewCellContentView>
+                                    </tableViewCell>
+                                </cells>
+                            </tableViewSection>
+                        </sections>
                         <connections>
                             <outlet property="dataSource" destination="Kpc-qh-IGB" id="1Gt-Lh-wFT"/>
                             <outlet property="delegate" destination="Kpc-qh-IGB" id="Mn8-8u-BPv"/>
