@@ -19,6 +19,7 @@
 		758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A80632451E86E00BFB571 /* WeeklyViewController.swift */; };
 		758A806624546D2600BFB571 /* Task.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A806524546D2600BFB571 /* Task.swift */; };
 		759D213F2458D09600A4D2DE /* AddTaskTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */; };
+		759D2141245A2CC400A4D2DE /* ToDoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759D2140245A2CC400A4D2DE /* ToDoManager.swift */; };
 		75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */; };
 /* End PBXBuildFile section */
 
@@ -58,6 +59,7 @@
 		758A80632451E86E00BFB571 /* WeeklyViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyViewController.swift; sourceTree = "<group>"; };
 		758A806524546D2600BFB571 /* Task.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Task.swift; sourceTree = "<group>"; };
 		759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskTableViewController.swift; sourceTree = "<group>"; };
+		759D2140245A2CC400A4D2DE /* ToDoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoManager.swift; sourceTree = "<group>"; };
 		75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPageViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -109,6 +111,8 @@
 		753EFC9C2445A24500A739E3 /* To Do List */ = {
 			isa = PBXGroup;
 			children = (
+				759D2140245A2CC400A4D2DE /* ToDoManager.swift */,
+				758A806524546D2600BFB571 /* Task.swift */,
 				753EFC9D2445A24500A739E3 /* AppDelegate.swift */,
 				753EFC9F2445A24500A739E3 /* SceneDelegate.swift */,
 				753EFCA12445A24500A739E3 /* ViewController.swift */,
@@ -120,7 +124,6 @@
 				753EFCA62445A24700A739E3 /* Assets.xcassets */,
 				753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */,
 				753EFCAB2445A24700A739E3 /* Info.plist */,
-				758A806524546D2600BFB571 /* Task.swift */,
 			);
 			path = "To Do List";
 			sourceTree = "<group>";
@@ -281,6 +284,7 @@
 				759D213F2458D09600A4D2DE /* AddTaskTableViewController.swift in Sources */,
 				758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */,
 				758A806624546D2600BFB571 /* Task.swift in Sources */,
+				759D2141245A2CC400A4D2DE /* ToDoManager.swift in Sources */,
 				753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -38,7 +38,7 @@
                                     </tableViewCell>
                                 </prototypes>
                                 <connections>
-                                    <outlet property="dataSource" destination="BYZ-38-t0r" id="Dyf-Jl-dOW"/>
+                                    <outlet property="dataSource" destination="BYZ-38-t0r" id="7qA-Zn-Rb5"/>
                                     <outlet property="delegate" destination="BYZ-38-t0r" id="D9t-hJ-uXI"/>
                                 </connections>
                             </tableView>
@@ -65,7 +65,7 @@
                                     <preferredSymbolConfiguration key="preferredSymbolConfiguration" scale="large" weight="heavy"/>
                                 </state>
                                 <connections>
-                                    <segue destination="Kpc-qh-IGB" kind="show" id="JT1-nK-rLl"/>
+                                    <segue destination="Kpc-qh-IGB" kind="show" id="Ogu-FW-DkX"/>
                                 </connections>
                             </button>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="XX" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
@@ -96,6 +96,7 @@
                         <outlet property="addTaskAtHome" destination="tGT-bN-yKg" id="uwG-p2-eoP"/>
                         <outlet property="scoreButton" destination="4Mp-yu-ByE" id="VeP-wW-OZT"/>
                         <outlet property="switchState" destination="I6M-y2-kON" id="6fB-7E-Vyx"/>
+                        <outlet property="tableView" destination="ghW-4P-SJF" id="2gI-TK-Kcx"/>
                         <outlet property="todaysScoreCounter" destination="wpq-c7-3Dg" id="BLU-i1-SAD"/>
                     </connections>
                 </viewController>
@@ -266,13 +267,22 @@
                                             <rect key="frame" x="0.0" y="0.0" width="375" height="185"/>
                                             <autoresizingMask key="autoresizingMask"/>
                                             <subviews>
-                                                <textField opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" textAlignment="natural" minimumFontSize="17" clearButtonMode="always" translatesAutoresizingMaskIntoConstraints="NO" id="Peb-7P-r50">
-                                                    <rect key="frame" x="16" y="11" width="343" height="34"/>
-                                                    <autoresizingMask key="autoresizingMask"/>
+                                                <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" text="TEST" borderStyle="roundedRect" placeholder="THIS \\" textAlignment="natural" minimumFontSize="17" background="pencil" catalog="system" translatesAutoresizingMaskIntoConstraints="NO" id="H1b-ye-2k1">
+                                                    <rect key="frame" x="16" y="21" width="343" height="34"/>
                                                     <fontDescription key="fontDescription" type="system" pointSize="14"/>
                                                     <textInputTraits key="textInputTraits"/>
                                                 </textField>
+                                                <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="8es-ip-arq">
+                                                    <rect key="frame" x="172" y="100" width="30" height="30"/>
+                                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                                    <state key="normal" title="OK"/>
+                                                </button>
                                             </subviews>
+                                            <constraints>
+                                                <constraint firstItem="H1b-ye-2k1" firstAttribute="leading" secondItem="ATe-Sg-Iok" secondAttribute="leadingMargin" id="91L-NG-tYY"/>
+                                                <constraint firstAttribute="trailingMargin" secondItem="H1b-ye-2k1" secondAttribute="trailing" id="lVs-Ne-dTV"/>
+                                                <constraint firstItem="H1b-ye-2k1" firstAttribute="top" secondItem="ATe-Sg-Iok" secondAttribute="topMargin" constant="10" id="sAs-Pf-dCZ"/>
+                                            </constraints>
                                         </tableViewCellContentView>
                                     </tableViewCell>
                                 </cells>
@@ -286,10 +296,13 @@
                     <navigationItem key="navigationItem" title="Add Task" id="AMu-17-INu">
                         <barButtonItem key="rightBarButtonItem" title="Done" id="W3h-xa-CkN">
                             <connections>
-                                <action selector="done" destination="Kpc-qh-IGB" id="CYn-7u-jHW"/>
+                                <action selector="doneButtonTapped:" destination="Kpc-qh-IGB" id="qQK-LA-Acb"/>
                             </connections>
                         </barButtonItem>
                     </navigationItem>
+                    <connections>
+                        <outlet property="addTaskTextField" destination="H1b-ye-2k1" id="7zX-Aj-Nub"/>
+                    </connections>
                 </tableViewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="6km-yd-1r3" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
@@ -319,6 +332,7 @@
         <image name="addTaskIcon" width="60" height="60"/>
         <image name="calendar" catalog="system" width="64" height="52"/>
         <image name="chevron.left" catalog="system" width="48" height="64"/>
+        <image name="pencil" catalog="system" width="64" height="56"/>
         <image name="star.fill" catalog="system" width="64" height="58"/>
         <image name="tray.full.fill" catalog="system" width="64" height="44"/>
     </resources>

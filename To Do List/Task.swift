@@ -10,22 +10,13 @@ import Foundation
 
 class Task {
     
-    var name: String = "error1! You should not be seeing this!"
-    var type: TaskType = TaskType.today
-    var completed: Bool = false
+    var name: String
+    var type: TaskType
+    var completed: Bool
     var lastCompleted: NSDate?
     var taskCreationDate: NSDate?
     var priority: TaskPriority?
     
-    //remove this or take value from the textbox
-    init() {
-        self.name = "error2! You should not be seeing this!"
-        self.type = TaskType.today
-        self.completed = false
-        //self.lastCompleted =
-        //        self.taskCreationDate =
-        self.priority = TaskPriority.p2
-    }
     
     init(withName: String) {
         self.name = withName
@@ -35,6 +26,24 @@ class Task {
         //        self.taskCreationDate =
         self.priority = TaskPriority.p2
     }
+    
+    init(withName: String, withTaskType: TaskType) {
+        self.name = withName
+        self.type = withTaskType
+        self.completed = false
+        //self.lastCompleted =
+        //        self.taskCreationDate =
+        self.priority = TaskPriority.p2
+    }
+    
+    init(withName: String, withTaskType: TaskType, withPriority: TaskPriority) {
+          self.name = withName
+          self.type = withTaskType
+          self.completed = false
+          //self.lastCompleted =
+          //        self.taskCreationDate =
+          self.priority = withPriority
+      }
     
     init(withName: String, withPriority: TaskPriority) {
         self.name = withName
@@ -55,7 +64,12 @@ class Task {
         return task
     }
     
-    func calcScore(task: Task) -> Int {
+    func makeEveningTask(task: Task) -> Task {
+        task.type = .evening
+        return task
+    }
+    
+    func calcTaskScore(task: Task) -> Int {
         let priority = task.priority
         if priority == .p0 {
             return 7

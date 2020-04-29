@@ -11,14 +11,16 @@ import UIKit
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
+    // MARK: Outlets
+    
+    @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var todaysScoreCounter: UILabel!
     @IBOutlet weak var switchState: UISwitch!
     @IBOutlet weak var addTaskAtHome: UIButton!
-    
     @IBOutlet weak var scoreButton: UIBarButtonItem!
     
-    var todaysTasks = [Task]()
-    var eveningTasks = [Task]()
+//    var todaysTasks = [Task]()
+//    var eveningTasks = [Task]()
     
     //    var globalTaskList: [Task] = []
     
@@ -44,6 +46,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //        }
     //    }
     
+    
+    // MARK: View Lifecycle methods
+    
+    override func viewWillAppear(_ animated: Bool) {
+        tableView.reloadData()
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
@@ -54,19 +63,19 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         self.title = "\(calculateTodaysScore())"
         
         
-        let mTask1 = Task(withName: "Swipe me to left to complete your first task !", withPriority: TaskPriority.p0)
-        let mTask2 = Task(withName: "Create your first task by clicking on the + sign", withPriority: TaskPriority.p1)
-        let mTask3 = Task(withName: "Delete me by swiping to the right", withPriority: TaskPriority.p2)
-        
-        let mTask4 = Task(withName: "Meet Batman", withPriority: TaskPriority.p3)
-        
-        
+//        let mTask1 = Task(withName: "Swipe me to left to complete your first task !", withPriority: TaskPriority.p0)
+//        let mTask2 = Task(withName: "Create your first task by clicking on the + sign", withPriority: TaskPriority.p1)
+//        let mTask3 = Task(withName: "Delete me by swiping to the right", withPriority: TaskPriority.p2)
+//
+//        let mTask4 = Task(withName: "Meet Batman", withPriority: TaskPriority.p3)
         
         
-        todaysTasks.append(mTask1)
-        todaysTasks.append(mTask2)
-        todaysTasks.append(mTask3)
-        eveningTasks.append(mTask4)
+        print("count is: \(TodoManager.sharedInstance.count)")
+        
+//        todaysTasks.append(mTask1)
+//        todaysTasks.append(mTask2)
+//        todaysTasks.append(mTask3)
+//        eveningTasks.append(mTask4)
         
         navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
     
@@ -106,14 +115,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
      */
     func calculateTodaysScore() -> Int {
         var score = 0
-        for each in todaysTasks {
+        for each in TodoManager.sharedInstance.getMornningTasks {
             
             if each.completed {
                 
                 score = score + each.getTaskScore(task: each)
             }
         }
-        for each in eveningTasks {
+        for each in TodoManager.sharedInstance.getEveningTasks {
             if each.completed {
                 score = score + each.getTaskScore(task: each)
             }
@@ -168,9 +177,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         switch section {
         case 0:
-            return todaysTasks.count
+            return TodoManager.sharedInstance.getMornningTasks.count
         case 1:
-            return eveningTasks.count
+            return TodoManager.sharedInstance.getEveningTasks.count
         default:
             return 0;
         }
@@ -186,10 +195,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         switch indexPath.section {
         case 0:
-            //cell.imageView
-            currentTask = todaysTasks[indexPath.row]
+//            currentTask = todaysTasks[indexPath.row]
+            currentTask = TodoManager.sharedInstance.getMornningTasks[indexPath.row]
         case 1:
-            currentTask = eveningTasks[indexPath.row]
+            currentTask = TodoManager.sharedInstance.getEveningTasks[indexPath.row]
         default:
             break
         }
@@ -218,6 +227,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
     }
     
+    // MARK: Swipe Task actions
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         
@@ -225,9 +235,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             
             switch indexPath.section {
             case 0:
-                self.todaysTasks[indexPath.row].completed = true
+//                self.todaysTasks[indexPath.row].completed = true
+                TodoManager.sharedInstance.getMornningTasks[indexPath.row].completed = true
             case 1:
-                self.eveningTasks[indexPath.row].completed = true
+//                self.eveningTasks[indexPath.row].completed = true
+                TodoManager.sharedInstance.getEveningTasks[indexPath.row].completed = true
             default:
                 break
             }
@@ -254,9 +266,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 
                 switch indexPath.section {
                 case 0:
-                    self.todaysTasks.remove(at: indexPath.row)
+                    print("Deleting: \(TodoManager.sharedInstance.tasks[indexPath.row].name)")
+                    TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
                 case 1:
-                    self.eveningTasks.remove(at: indexPath.row)
+                    print("Deleting: \(TodoManager.sharedInstance.tasks[indexPath.row].name)")
+                    TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
                 default:
                     break
                 }
