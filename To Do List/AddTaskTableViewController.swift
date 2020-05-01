@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 
 class AddTaskTableViewController: UITableViewController {
 
@@ -18,9 +19,39 @@ class AddTaskTableViewController: UITableViewController {
         
        
         if addTaskTextField.text != nil && addTaskTextField.text != "" {
-            TodoManager.sharedInstance.addTaskWithName(name: addTaskTextField.text!)
+            
+            saveItem(name: addTaskTextField.text!, isComplete: false)
+            
+            OLD_TodoManager.sharedInstance.addTaskWithName(name: addTaskTextField.text!)
+            
+            
         }
     
+    }
+    
+    var people: [NSManagedObject] = []
+    
+    func saveItem(name: String, isComplete: Bool) {
+        guard let appDelegate =
+            UIApplication.shared.delegate as? AppDelegate else {
+                return
+        }
+        // 1
+        let managedContext = appDelegate.persistentContainer.viewContext
+        // 2
+        let entity = NSEntityDescription.entity(forEntityName: "NTask",
+                                                in: managedContext)!
+        let person = NSManagedObject(entity: entity,
+                                     insertInto: managedContext)
+        person.setValue(name, forKeyPath: "name")
+        person.setValue(isComplete, forKeyPath: "isComplete")
+        
+        // 4
+        do {
+            try managedContext.save()
+            people.append(person)
+        } catch let error as NSError {
+            print("ERROR ! Could not save. \(error), \(error.userInfo)") }
     }
     
     

@@ -8,22 +8,22 @@
 
 import UIKit
 
-class TodoManager {
+class OLD_TodoManager {
     // Singleon
-    static let sharedInstance = TodoManager()
+    static let sharedInstance = OLD_TodoManager()
     
-    var tasks = [Task]()
-    var eveningTasks = [Task]()
-    var mornningTasks = [Task]()
+    var tasks = [OLD_Task]()
+    var eveningTasks = [OLD_Task]()
+    var mornningTasks = [OLD_Task]()
     
     var count: Int {
         get {
             return tasks.count
         }
     }
-    var getEveningTasks: [Task] {
+    var getEveningTasks: [OLD_Task] {
         get {
-            var eveningTasks = [Task]()
+            var eveningTasks = [OLD_Task]()
             for item in tasks {
                 if item.type == .evening {
                     eveningTasks.append(item)
@@ -33,9 +33,9 @@ class TodoManager {
             return eveningTasks
         }
     }
-    var getMornningTasks: [Task] {
+    var getMornningTasks: [OLD_Task] {
         get {
-            var morningTasks = [Task]()
+            var morningTasks = [OLD_Task]()
             for item in tasks {
                 if item.type == .today {
                     morningTasks.append(item)
@@ -48,22 +48,22 @@ class TodoManager {
     
 
     
-    func taskAtIndex(index: Int) -> Task {
+    func taskAtIndex(index: Int) -> OLD_Task {
         return tasks[index]
     }
     
     func addTaskWithName(name: String) {
-        let task = Task(withName: name)
+        let task = OLD_Task(withName: name)
         tasks.append(task)
     }
     
     // MARK: Init
     
     private init() {
-        tasks.append(Task(withName: "Swipe me to left to complete your first task !", withPriority: TaskPriority.p0))
-        tasks.append(Task(withName: "Create your first task by clicking on the + sign", withPriority: TaskPriority.p1))
-        tasks.append(Task(withName: "Delete me by swiping to the right", withPriority: TaskPriority.p2))
+        tasks.append(OLD_Task(withName: "Swipe me to left to complete your first task !", withPriority: TaskPriority.p0))
+        tasks.append(OLD_Task(withName: "Create your first task by clicking on the + sign", withPriority: TaskPriority.p1))
+        tasks.append(OLD_Task(withName: "Delete me by swiping to the right", withPriority: TaskPriority.p2))
 //        tasks.append(Task(withName: "Meet Batman", withPriority: TaskPriority.p3))
-        tasks.append(Task(withName: "Meet Batman", withTaskType: TaskType.evening))
+        tasks.append(OLD_Task(withName: "Meet Batman", withTaskType: TaskType.evening))
     }
 }

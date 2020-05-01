@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
@@ -48,10 +49,27 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     
     // MARK: View Lifecycle methods
+    var people: [NSManagedObject] = []
     
     override func viewWillAppear(_ animated: Bool) {
         tableView.reloadData()
-    }
+        
+            //1
+        guard let appDelegate =
+        UIApplication.shared.delegate as? AppDelegate else {
+        return
+        }
+        let managedContext = appDelegate.persistentContainer.viewContext
+        //2
+          let fetchRequest =
+            NSFetchRequest<NSManagedObject>(entityName: "NTask")
+        //3
+        do {
+        people = try managedContext.fetch(fetchRequest)
+          } catch let error as NSError {
+        print("ERROR! Could not fetch. \(error), \(error.userInfo)") }
+        }
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -62,6 +80,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         todaysScoreCounter.text = "\(calculateTodaysScore())"
         self.title = "\(calculateTodaysScore())"
         
+        print("Task count is: \(people.count)")
+        
         
 //        let mTask1 = Task(withName: "Swipe me to left to complete your first task !", withPriority: TaskPriority.p0)
 //        let mTask2 = Task(withName: "Create your first task by clicking on the + sign", withPriority: TaskPriority.p1)
@@ -70,7 +90,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 //        let mTask4 = Task(withName: "Meet Batman", withPriority: TaskPriority.p3)
         
         
-        print("count is: \(TodoManager.sharedInstance.count)")
+        print("count is: \(OLD_TodoManager.sharedInstance.count)")
         
 //        todaysTasks.append(mTask1)
 //        todaysTasks.append(mTask2)
@@ -115,14 +135,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
      */
     func calculateTodaysScore() -> Int {
         var score = 0
-        for each in TodoManager.sharedInstance.getMornningTasks {
+        for each in OLD_TodoManager.sharedInstance.getMornningTasks {
             
             if each.completed {
                 
                 score = score + each.getTaskScore(task: each)
             }
         }
-        for each in TodoManager.sharedInstance.getEveningTasks {
+        for each in OLD_TodoManager.sharedInstance.getEveningTasks {
             if each.completed {
                 score = score + each.getTaskScore(task: each)
             }
@@ -177,9 +197,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         switch section {
         case 0:
-            return TodoManager.sharedInstance.getMornningTasks.count
+            return OLD_TodoManager.sharedInstance.getMornningTasks.count
         case 1:
-            return TodoManager.sharedInstance.getEveningTasks.count
+            return OLD_TodoManager.sharedInstance.getEveningTasks.count
         default:
             return 0;
         }
@@ -188,7 +208,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         
-        var currentTask: Task!
+        var currentTask: OLD_Task!
         let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
         let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
         
@@ -196,9 +216,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         switch indexPath.section {
         case 0:
 //            currentTask = todaysTasks[indexPath.row]
-            currentTask = TodoManager.sharedInstance.getMornningTasks[indexPath.row]
+            currentTask = OLD_TodoManager.sharedInstance.getMornningTasks[indexPath.row]
         case 1:
-            currentTask = TodoManager.sharedInstance.getEveningTasks[indexPath.row]
+            currentTask = OLD_TodoManager.sharedInstance.getEveningTasks[indexPath.row]
         default:
             break
         }
@@ -236,10 +256,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             switch indexPath.section {
             case 0:
 //                self.todaysTasks[indexPath.row].completed = true
-                TodoManager.sharedInstance.getMornningTasks[indexPath.row].completed = true
+                OLD_TodoManager.sharedInstance.getMornningTasks[indexPath.row].completed = true
             case 1:
 //                self.eveningTasks[indexPath.row].completed = true
-                TodoManager.sharedInstance.getEveningTasks[indexPath.row].completed = true
+                OLD_TodoManager.sharedInstance.getEveningTasks[indexPath.row].completed = true
             default:
                 break
             }
@@ -266,11 +286,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 
                 switch indexPath.section {
                 case 0:
-                    print("Deleting: \(TodoManager.sharedInstance.tasks[indexPath.row].name)")
-                    TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
+                    print("Deleting: \(OLD_TodoManager.sharedInstance.tasks[indexPath.row].name)")
+                    OLD_TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
                 case 1:
-                    print("Deleting: \(TodoManager.sharedInstance.tasks[indexPath.row].name)")
-                    TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
+                    print("Deleting: \(OLD_TodoManager.sharedInstance.tasks[indexPath.row].name)")
+                    OLD_TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
                 default:
                     break
                 }
