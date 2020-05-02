@@ -82,7 +82,7 @@
                     <navigationItem key="navigationItem" title="Today" id="7Lj-NY-AD8">
                         <barButtonItem key="leftBarButtonItem" style="plain" id="cmA-CJ-pdk">
                             <button key="customView" opaque="NO" contentMode="scaleToFill" horizontalCompressionResistancePriority="752" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" id="s9t-oG-jvR">
-                                <rect key="frame" x="32" y="135" width="50" height="52"/>
+                                <rect key="frame" x="16" y="0.0" width="88.666666666666671" height="44"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                 <state key="normal" title="Settings" image="gear" catalog="system">
                                     <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
@@ -269,10 +269,13 @@
                                             <rect key="frame" x="0.0" y="0.0" width="375" height="185"/>
                                             <autoresizingMask key="autoresizingMask"/>
                                             <subviews>
-                                                <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" placeholder="Type in your task &amp; tap done" textAlignment="natural" minimumFontSize="17" clearButtonMode="unlessEditing" translatesAutoresizingMaskIntoConstraints="NO" id="H1b-ye-2k1">
-                                                    <rect key="frame" x="16" y="62" width="343" height="34"/>
-                                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
-                                                    <textInputTraits key="textInputTraits"/>
+                                                <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" placeholder="Type in &amp; tap done" textAlignment="natural" adjustsFontSizeToFit="NO" minimumFontSize="17" clearButtonMode="whileEditing" translatesAutoresizingMaskIntoConstraints="NO" id="H1b-ye-2k1">
+                                                    <rect key="frame" x="16" y="62" width="343" height="41"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleTitle0"/>
+                                                    <textInputTraits key="textInputTraits" autocapitalizationType="sentences" returnKeyType="done" smartDashesType="yes" smartQuotesType="yes"/>
+                                                    <connections>
+                                                        <action selector="doneButtonTapped:" destination="Kpc-qh-IGB" eventType="editingDidEndOnExit" id="YHp-fm-gtc"/>
+                                                    </connections>
                                                 </textField>
                                                 <switch opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="vEA-92-oOU">
                                                     <rect key="frame" x="308" y="11" width="51" height="31"/>
