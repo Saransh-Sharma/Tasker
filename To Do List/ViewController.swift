@@ -62,7 +62,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         enableDarkModeIfPreset()
         todaysScoreCounter.text = "\(calculateTodaysScore())"
         self.title = "\(calculateTodaysScore())"
-        navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
+        //navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
         
         print("OLD count is: \(OLD_TodoManager.sharedInstance.count)")
         print("NEW count is: \(TaskManager.sharedInstance.count)")
