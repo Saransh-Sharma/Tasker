@@ -9,11 +9,11 @@
 import UIKit
 import CoreData
 
-class AddTaskTableViewController: UITableViewController {
+class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
     
     // MARK:- Outlets
     @IBOutlet weak var addTaskTextField: UITextField!
-    
+    @IBOutlet weak var doneButton: UIBarButtonItem!
     @IBOutlet weak var eveningTaskSwitch: UISwitch!
     @IBAction func doneButtonTapped(_ sender: Any) {
         navigationController?.popViewController(animated: true)
@@ -45,9 +45,6 @@ class AddTaskTableViewController: UITableViewController {
             return 1
         }
     }
-    
-    
-    
     
     
     override func viewDidLoad() {
@@ -91,6 +88,41 @@ class AddTaskTableViewController: UITableViewController {
         // #warning Incomplete implementation, return the number of rows
         return 1
     }
+    
+    
+    // MARK:- Text Field Delegates
+    
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+         let oldText = textField.text!
+                print("old text is: \(oldText)")
+                let stringRange = Range(range, in:oldText)!
+                let newText = oldText.replacingCharacters(in: stringRange, with: string)
+                print("new text is: \(newText)")
+                if newText.isEmpty {
+                    print("EMPTY")
+                    doneButton.isEnabled = false
+                } else {
+                    print("NOT EMPTY")
+                    doneButton.isEnabled = true }
+                return true
+    }
+    
+//    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange,
+//                   replacementString string: String) -> Bool {
+//        let oldText = textField.text!
+//        print("old text is: \(oldText)")
+//        let stringRange = Range(range, in:oldText)!
+//        let newText = oldText.replacingCharacters(in: stringRange, with: string)
+//        print("new text is: \(newText)")
+//        if newText.isEmpty {
+//            print("EMPTY")
+//            doneButton.isEnabled = false
+//        } else {
+//            print("NOT EMPTY")
+//            doneButton.isEnabled = true }
+//        return true
+//    }
+    
     
     /*
      override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {

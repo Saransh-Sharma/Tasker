@@ -275,6 +275,7 @@
                                                     <textInputTraits key="textInputTraits" autocapitalizationType="sentences" returnKeyType="done" enablesReturnKeyAutomatically="YES" smartDashesType="yes" smartQuotesType="yes"/>
                                                     <connections>
                                                         <action selector="doneButtonTapped:" destination="Kpc-qh-IGB" eventType="editingDidEndOnExit" id="YHp-fm-gtc"/>
+                                                        <outlet property="delegate" destination="Kpc-qh-IGB" id="hta-GV-61a"/>
                                                     </connections>
                                                 </textField>
                                                 <switch opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="vEA-92-oOU">
@@ -335,6 +336,7 @@
                     </navigationItem>
                     <connections>
                         <outlet property="addTaskTextField" destination="H1b-ye-2k1" id="7zX-Aj-Nub"/>
+                        <outlet property="doneButton" destination="W3h-xa-CkN" id="Rgl-Fb-4Ij"/>
                         <outlet property="eveningTaskSwitch" destination="vEA-92-oOU" id="131-f3-CfG"/>
                     </connections>
                 </tableViewController>
