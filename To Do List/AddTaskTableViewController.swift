@@ -20,9 +20,11 @@ class AddTaskTableViewController: UITableViewController {
        
         if addTaskTextField.text != nil && addTaskTextField.text != "" {
             
-            saveItem(name: addTaskTextField.text!, isComplete: false)
+            //saveItem(name: addTaskTextField.text!, isComplete: false)
             
-            OLD_TodoManager.sharedInstance.addTaskWithName(name: addTaskTextField.text!)
+            TaskManager.sharedInstance.addNewTaskWithName(name: addTaskTextField.text!)
+            
+            //OLD_TodoManager.sharedInstance.addTaskWithName(name: addTaskTextField.text!)
             
             
         }

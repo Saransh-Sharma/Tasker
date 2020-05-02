@@ -13,10 +13,24 @@ import CoreData
 class TaskManager {
     //Singleton
     static let sharedInstance = TaskManager()
-
+    
     private var tasks = [NTask]()
     let context: NSManagedObjectContext!
-
+    var count: Int {
+        get {
+            fetchTasks()
+            return tasks.count
+        }
+    }
+    var getAllTasks: [NTask] {
+        get {
+            fetchTasks()
+            return tasks
+        }
+    }
+    
+    
+    
     func addNewTaskWithName(name: String) {
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
@@ -26,6 +40,7 @@ class TaskManager {
         
         tasks.append(task)
         saveContext()
+        print("addNewTaskWithName task count now is: \(getAllTasks.count)")
     }
     
     func taskAtIndex(index: Int) -> NTask {
