@@ -9,6 +9,6 @@
 import Foundation
 import CoreData
 
-class Task {
+class Task: NSManagedObject {
     
 }
