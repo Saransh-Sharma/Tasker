@@ -158,12 +158,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         switch section {
         case 0:
             //            return OLD_TodoManager.sharedInstance.getMornningTasks.count
-            print("Items in morning: \(TaskManager.sharedInstance.count)")
-            return TaskManager.sharedInstance.count
+            print("Items in morning: \(TaskManager.sharedInstance.getMorningTasks.count)")
+            return TaskManager.sharedInstance.getMorningTasks.count
         case 1:
             //            return OLD_TodoManager.sharedInstance.getEveningTasks.count
-            print("Items in evening: \(TaskManager.sharedInstance.count)")
-            return TaskManager.sharedInstance.count
+            print("Items in evening: \(TaskManager.sharedInstance.getEveningTasks.count)")
+            return TaskManager.sharedInstance.getEveningTasks.count
         default:
             return 0;
         }
@@ -184,11 +184,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         case 0:
 //            OLD_currentTask = OLD_TodoManager.sharedInstance.getMornningTasks[indexPath.row]
             print("morning section index is: \(indexPath.row)")
-            currentTask = TaskManager.sharedInstance.getAllTasks[indexPath.row]
+            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
         case 1:
             print("evening section index is: \(indexPath.row)")
+            print("evening section index is: \(indexPath.row)")
 //            OLD_currentTask = OLD_TodoManager.sharedInstance.getEveningTasks[indexPath.row]
-            currentTask = TaskManager.sharedInstance.getAllTasks[indexPath.row]
+            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
         default:
             break
         }

@@ -15,6 +15,11 @@ class TaskManager {
     static let sharedInstance = TaskManager()
     
     private var tasks = [NTask]()
+    private var morningTasks = [NTask]()
+    private var eveningTasks = [NTask]()
+    private var upcomingTasks = [NTask]()
+    private var inboxTasks = [NTask]()
+    
     let context: NSManagedObjectContext!
     var count: Int {
         get {
@@ -26,6 +31,54 @@ class TaskManager {
         get {
             fetchTasks()
             return tasks
+        }
+    }
+    var getMorningTasks: [NTask] {
+        get {
+            fetchTasks()
+            for each in tasks {
+                // taskType 1 is morning
+                if each.taskType == 1 {
+                    morningTasks.append(each)
+                }
+            }
+            return morningTasks
+        }
+    }
+    var getEveningTasks: [NTask] {
+        get {
+            fetchTasks()
+            for each in tasks {
+                // taskType 2 is evening
+                if each.taskType == 2 {
+                    eveningTasks.append(each)
+                }
+            }
+            return eveningTasks
+        }
+    }
+    var getUpcomingTasks: [NTask] {
+        get {
+            fetchTasks()
+            for each in tasks {
+                // taskType 3 is upcoming
+                if each.taskType == 3 {
+                    upcomingTasks.append(each)
+                }
+            }
+            return upcomingTasks
+        }
+    }
+    var getInboxTasks: [NTask] {
+        get {
+            fetchTasks()
+            for each in tasks {
+                // taskType 4 is inbox
+                if each.taskType == 4 {
+                    inboxTasks.append(each)
+                }
+            }
+            return inboxTasks
         }
     }
     
