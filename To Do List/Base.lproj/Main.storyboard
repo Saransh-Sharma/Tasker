@@ -272,7 +272,7 @@
                                                 <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" placeholder="Type in &amp; tap done" textAlignment="natural" adjustsFontSizeToFit="NO" minimumFontSize="17" clearButtonMode="whileEditing" translatesAutoresizingMaskIntoConstraints="NO" id="H1b-ye-2k1">
                                                     <rect key="frame" x="16" y="62" width="343" height="41"/>
                                                     <fontDescription key="fontDescription" style="UICTFontTextStyleTitle0"/>
-                                                    <textInputTraits key="textInputTraits" autocapitalizationType="sentences" returnKeyType="done" smartDashesType="yes" smartQuotesType="yes"/>
+                                                    <textInputTraits key="textInputTraits" autocapitalizationType="sentences" returnKeyType="done" enablesReturnKeyAutomatically="YES" smartDashesType="yes" smartQuotesType="yes"/>
                                                     <connections>
                                                         <action selector="doneButtonTapped:" destination="Kpc-qh-IGB" eventType="editingDidEndOnExit" id="YHp-fm-gtc"/>
                                                     </connections>
