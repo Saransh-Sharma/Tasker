@@ -48,7 +48,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //    }
     
     
-    // MARK: View Lifecycle methods
+    // MARK:- View Lifecycle methods
     
     override func viewWillAppear(_ animated: Bool) {
         tableView.reloadData()
@@ -73,6 +73,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         self.navigationController!.navigationBar.isTranslucent = true
         self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
         self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
+
+       // self.navigationController!.navigationBar.prefersLargeTitles = true
         
         scoreButton.title = "99"
         
@@ -91,6 +93,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
     }
     
+    // MARK: calculate today's score
     /*
      Calculates daily productivity score
      */
@@ -111,12 +114,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return score;
     }
     
+    // MARK:- DID SELECT ROW AT
     /*
      Prints logs on selecting a row
      */
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         print("You selected row \(indexPath.row) from section \(indexPath.section)")
     }
+    
+    // MARK: toggle dark mode
     
     
     /*
@@ -137,6 +143,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
     }
     
+    // MARK: SECTIONS
     func numberOfSections(in tableView: UITableView) -> Int {
         
         tableView.backgroundColor = UIColor.clear
@@ -167,6 +174,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             return 0;
         }
     }
+    
+    // MARK:- CELL AT ROW
     
         func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
             
@@ -212,7 +221,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             
         }
     
-    // MARK:- Swipe Task actions
+    // MARK:- SWIPE ACTIONS
     
 //    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
 //

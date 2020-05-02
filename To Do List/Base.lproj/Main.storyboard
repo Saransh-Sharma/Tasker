@@ -16,7 +16,7 @@
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
                             <tableView clipsSubviews="YES" contentMode="scaleToFill" fixedFrame="YES" alwaysBounceVertical="YES" dataMode="prototypes" style="grouped" separatorStyle="none" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="18" sectionFooterHeight="18" translatesAutoresizingMaskIntoConstraints="NO" id="ghW-4P-SJF">
-                                <rect key="frame" x="0.0" y="88" width="375" height="530"/>
+                                <rect key="frame" x="0.0" y="142" width="375" height="524"/>
                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxY="YES"/>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                 <prototypes>
@@ -42,13 +42,7 @@
                                     <outlet property="delegate" destination="BYZ-38-t0r" id="D9t-hJ-uXI"/>
                                 </connections>
                             </tableView>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" horizontalCompressionResistancePriority="751" misplaced="YES" text="This Day's Score " textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="QJU-WQ-ngQ">
-                                <rect key="frame" x="56" y="30" width="214" height="35"/>
-                                <fontDescription key="fontDescription" type="system" pointSize="29"/>
-                                <nil key="textColor"/>
-                                <nil key="highlightedColor"/>
-                            </label>
-                            <button opaque="NO" contentMode="scaleToFill" horizontalCompressionResistancePriority="752" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="s9t-oG-jvR">
+                            <button opaque="NO" contentMode="scaleToFill" horizontalCompressionResistancePriority="752" contentHorizontalAlignment="center" contentVerticalAlignment="center" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="s9t-oG-jvR">
                                 <rect key="frame" x="20" y="36" width="13" height="22"/>
                                 <state key="normal" image="chevron.left" catalog="system">
                                     <color key="titleColor" systemColor="labelColor" cocoaTouchSystemColor="darkTextColor"/>
@@ -57,35 +51,42 @@
                                     <segue destination="xW2-Ba-zLu" kind="show" id="AYN-0J-stK"/>
                                 </connections>
                             </button>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="XX" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
+                                <rect key="frame" x="287" y="98" width="61" height="47"/>
+                                <fontDescription key="fontDescription" style="UICTFontTextStyleTitle0"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
                             <button autoresizesSubviews="NO" opaque="NO" contentMode="scaleAspectFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" reversesTitleShadowWhenHighlighted="YES" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="tGT-bN-yKg">
-                                <rect key="frame" x="306" y="652" width="54" height="53"/>
+                                <rect key="frame" x="292" y="653" width="56" height="59"/>
                                 <rect key="contentStretch" x="1" y="1" width="1" height="1"/>
                                 <color key="tintColor" cocoaTouchSystemColor="darkTextColor"/>
-                                <state key="normal" image="addTaskIcon">
-                                    <preferredSymbolConfiguration key="preferredSymbolConfiguration" scale="large" weight="heavy"/>
+                                <size key="titleShadowOffset" width="200" height="200"/>
+                                <state key="normal" image="plus" catalog="system">
+                                    <color key="titleColor" systemColor="labelColor" cocoaTouchSystemColor="darkTextColor"/>
+                                    <preferredSymbolConfiguration key="preferredSymbolConfiguration" scale="large" weight="semibold"/>
                                 </state>
                                 <connections>
                                     <segue destination="Kpc-qh-IGB" kind="show" id="Ogu-FW-DkX"/>
                                 </connections>
                             </button>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="XX" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
-                                <rect key="frame" x="278" y="26" width="61" height="47"/>
-                                <fontDescription key="fontDescription" type="system" weight="medium" pointSize="34"/>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="This day's score:" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Rtf-3C-0nA">
+                                <rect key="frame" x="63" y="113" width="227" height="21"/>
+                                <fontDescription key="fontDescription" style="UICTFontTextStyleHeadline"/>
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
                             </label>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <constraints>
-                            <constraint firstItem="QJU-WQ-ngQ" firstAttribute="leading" secondItem="s9t-oG-jvR" secondAttribute="trailing" constant="100" id="6ji-oL-YPP"/>
-                            <constraint firstItem="s9t-oG-jvR" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="8" id="AUN-a5-Uqb"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="top" secondItem="wpq-c7-3Dg" secondAttribute="top" id="R1c-8z-sUT"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="wpq-c7-3Dg" secondAttribute="trailing" constant="16" id="R4h-Hq-D76"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="tGT-bN-yKg" secondAttribute="trailing" constant="15" id="aX1-y6-Yec"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="top" secondItem="s9t-oG-jvR" secondAttribute="top" id="hLp-Jd-BYh"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="top" secondItem="QJU-WQ-ngQ" secondAttribute="top" id="lHv-pz-hX1"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="tGT-bN-yKg" secondAttribute="bottom" constant="24" id="tZ6-0v-G4f"/>
-                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="leading" secondItem="QJU-WQ-ngQ" secondAttribute="trailing" constant="8" id="zhD-gk-4bz"/>
+                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="8" id="4I7-8w-70C"/>
+                            <constraint firstItem="s9t-oG-jvR" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="20" id="AUN-a5-Uqb"/>
+                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="leading" secondItem="Rtf-3C-0nA" secondAttribute="trailing" constant="12" id="JTV-kD-QSK"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="wpq-c7-3Dg" secondAttribute="trailing" constant="27" id="MzF-gV-euB"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="tGT-bN-yKg" secondAttribute="trailing" constant="27" id="aX1-y6-Yec"/>
+                            <constraint firstItem="Rtf-3C-0nA" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="16" id="bfb-mD-6gw"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="top" secondItem="s9t-oG-jvR" secondAttribute="top" constant="52" id="hLp-Jd-BYh"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="tGT-bN-yKg" secondAttribute="bottom" constant="17" id="tZ6-0v-G4f"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                     </view>
@@ -281,13 +282,13 @@
                                                     <nil key="textColor"/>
                                                     <nil key="highlightedColor"/>
                                                 </label>
-                                                <segmentedControl opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="top" segmentControlStyle="plain" selectedSegmentIndex="0" translatesAutoresizingMaskIntoConstraints="NO" id="y2k-4R-cDh">
+                                                <segmentedControl opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="top" segmentControlStyle="plain" selectedSegmentIndex="0" translatesAutoresizingMaskIntoConstraints="NO" id="y2k-4R-cDh">
                                                     <rect key="frame" x="16" y="143" width="338" height="32"/>
                                                     <segments>
-                                                        <segment title="P0"/>
-                                                        <segment title="P1"/>
-                                                        <segment title="P2"/>
-                                                        <segment title="P3"/>
+                                                        <segment title="None"/>
+                                                        <segment title="!"/>
+                                                        <segment title="!!"/>
+                                                        <segment title="!!!"/>
                                                     </segments>
                                                 </segmentedControl>
                                                 <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Set Task Priority:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="jmp-yA-iiL">
@@ -358,9 +359,9 @@
         </scene>
     </scenes>
     <resources>
-        <image name="addTaskIcon" width="60" height="60"/>
         <image name="calendar" catalog="system" width="64" height="52"/>
         <image name="chevron.left" catalog="system" width="48" height="64"/>
+        <image name="plus" catalog="system" width="64" height="56"/>
         <image name="star.fill" catalog="system" width="64" height="58"/>
         <image name="tray.full.fill" catalog="system" width="64" height="44"/>
     </resources>
