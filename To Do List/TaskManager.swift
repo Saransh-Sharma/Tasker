@@ -15,8 +15,8 @@ class TaskManager {
     static let sharedInstance = TaskManager()
     
     private var tasks = [NTask]()
-    private var morningTasks = [NTask]()
-    private var eveningTasks = [NTask]()
+    //private var morningTasks = [NTask]()
+    //private var eveningTasks = [NTask]()
     private var upcomingTasks = [NTask]()
     private var inboxTasks = [NTask]()
     
@@ -35,6 +35,7 @@ class TaskManager {
     }
     var getMorningTasks: [NTask] {
         get {
+            var morningTasks = [NTask]()
             fetchTasks()
             for each in tasks {
                 // taskType 1 is morning
@@ -47,6 +48,7 @@ class TaskManager {
     }
     var getEveningTasks: [NTask] {
         get {
+            var eveningTasks = [NTask]()
             fetchTasks()
             for each in tasks {
                 // taskType 2 is evening
@@ -82,8 +84,22 @@ class TaskManager {
         }
     }
     
+    func addNewTask(name: String, taskType: Int, taskPriority: Int) {
+        
+        let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
+        
+        task.name = name
+        task.isComplete = false
+        task.taskDetails = "Fill in task details here"
+        task.taskType = Int32(taskType)
+        task.taskPriority = Int32(taskPriority)
+        
+        tasks.append(task)
+        saveContext()
+        print("addNewTaskWithName task count now is: \(getAllTasks.count)")
+    }
     
-    func addNewTaskWithName(name: String) {
+    func addNewMorningTaskWithName(name: String) {
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
         //set all default properties on adding a task
@@ -91,6 +107,21 @@ class TaskManager {
         task.isComplete = false
         task.taskDetails = "Fill in task details here"
         task.taskType = 1
+        task.taskPriority = 3
+        
+        tasks.append(task)
+        saveContext()
+        print("addNewTaskWithName task count now is: \(getAllTasks.count)")
+    }
+    
+    func addNewEveningTaskWithName(name: String) {
+        let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
+        
+        //set all default properties on adding a task
+        task.name = name
+        task.isComplete = false
+        task.taskDetails = "Fill in task details here"
+        task.taskType = 2
         task.taskPriority = 3
         
         tasks.append(task)

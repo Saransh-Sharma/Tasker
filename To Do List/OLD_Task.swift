@@ -85,14 +85,14 @@ class OLD_Task {
         }
        }
     
-    func getTaskScore(task: OLD_Task) -> Int {
-        if task.priority == .p0 {
+    func getTaskScore(task: NTask) -> Int {
+        if task.taskPriority == 1 {
             return 7
-        } else if task.priority == .p1 {
+        } else if task.taskPriority == 2 {
             return 4
-        } else if task.priority == .p2  {
+        } else if task.taskPriority == 3 {
             return 3
-        } else if task.priority == .p3 {
+        } else if task.taskPriority == 4 {
             return 2
         }
         else {

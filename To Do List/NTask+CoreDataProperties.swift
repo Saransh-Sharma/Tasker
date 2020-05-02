@@ -24,4 +24,18 @@ extension NTask {
     @NSManaged public var taskPriority: Int32 //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
     @NSManaged public var taskType: Int32 //1-4 where 1 is morning; 2 is evening; 3 is upcoming; 4 is inbox; default is 1(morning)
 
+    func getTaskScore(task: NTask) -> Int {
+        if task.taskPriority == 1 {
+            return 7
+        } else if task.taskPriority == 2 {
+            return 4
+        } else if task.taskPriority == 3 {
+            return 3
+        } else if task.taskPriority == 4 {
+            return 2
+        }
+        else {
+            return 1
+        }
+    }
 }

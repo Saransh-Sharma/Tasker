@@ -65,6 +65,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
         
         print("OLD count is: \(OLD_TodoManager.sharedInstance.count)")
+        print("NEW count is: \(TaskManager.sharedInstance.count)")
         
         
         //set nav bar to black with white text
@@ -95,15 +96,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
      */
     func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
         var score = 0
-        for each in OLD_TodoManager.sharedInstance.getMornningTasks {
-            
-            if each.completed {
-                
+        for each in TaskManager.sharedInstance.getMorningTasks {
+
+            if each.isComplete {
+
                 score = score + each.getTaskScore(task: each)
             }
         }
-        for each in OLD_TodoManager.sharedInstance.getEveningTasks {
-            if each.completed {
+        for each in TaskManager.sharedInstance.getEveningTasks {
+            if each.isComplete {
                 score = score + each.getTaskScore(task: each)
             }
         }
@@ -157,11 +158,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         switch section {
         case 0:
-            //            return OLD_TodoManager.sharedInstance.getMornningTasks.count
             print("Items in morning: \(TaskManager.sharedInstance.getMorningTasks.count)")
             return TaskManager.sharedInstance.getMorningTasks.count
         case 1:
-            //            return OLD_TodoManager.sharedInstance.getEveningTasks.count
             print("Items in evening: \(TaskManager.sharedInstance.getEveningTasks.count)")
             return TaskManager.sharedInstance.getEveningTasks.count
         default:
@@ -169,127 +168,120 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
     }
     
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        
-        
-//        var OLD_currentTask: OLD_Task!
-        var currentTask: NTask!
-        let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
-        let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
-        
-        print("NTASK count is: \(TaskManager.sharedInstance.count)")
-        print("morning section index is: \(indexPath.row)")
-        
-        switch indexPath.section {
-        case 0:
-//            OLD_currentTask = OLD_TodoManager.sharedInstance.getMornningTasks[indexPath.row]
+        func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+            
+            
+            var currentTask: NTask!
+            let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
+            let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
+            
+            print("NTASK count is: \(TaskManager.sharedInstance.count)")
             print("morning section index is: \(indexPath.row)")
-            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
-        case 1:
-            print("evening section index is: \(indexPath.row)")
-            print("evening section index is: \(indexPath.row)")
-//            OLD_currentTask = OLD_TodoManager.sharedInstance.getEveningTasks[indexPath.row]
-            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
-        default:
-            break
-        }
-        
-        
-        completedTaskCell.textLabel!.text = currentTask.name
-//        completedTaskCell.textLabel!.text = OLD_currentTask.name
-        completedTaskCell.backgroundColor = UIColor.clear
-
-        openTaskCell.textLabel!.text = currentTask.name
-//        openTaskCell.textLabel!.text = OLD_currentTask.name
-        openTaskCell.backgroundColor = UIColor.clear
-
-//        if OLD_currentTask.completed {
-        if currentTask.isComplete {
-            completedTaskCell.textLabel?.textColor = UIColor.lightGray
-            completedTaskCell.accessoryType = .checkmark
-
-            return completedTaskCell
-        } else {
-
-            openTaskCell.textLabel?.textColor = UIColor.black
-            //            cell.accessoryType = .detailButton
-            openTaskCell.accessoryType = .detailDisclosureButton
-            //            cell.accessoryType = .disclosureIndicator
-            return openTaskCell
-        }
-        
-    }
-    
-    // MARK:- Swipe Task actions
-    
-    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        
-        let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
             switch indexPath.section {
             case 0:
-                //                self.todaysTasks[indexPath.row].completed = true
-                OLD_TodoManager.sharedInstance.getMornningTasks[indexPath.row].completed = true
+                print("morning section index is: \(indexPath.row)")
+                currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
             case 1:
-                //                self.eveningTasks[indexPath.row].completed = true
-                OLD_TodoManager.sharedInstance.getEveningTasks[indexPath.row].completed = true
+                print("evening section index is: \(indexPath.row)")
+                currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
             default:
                 break
             }
             
-            self.todaysScoreCounter.text = "\(self.calculateTodaysScore())"
-            tableView.reloadData()
-            self.title = "\(self.calculateTodaysScore())"
-            actionPerformed(true)
+            
+            completedTaskCell.textLabel!.text = currentTask.name
+            completedTaskCell.backgroundColor = UIColor.clear
+
+            openTaskCell.textLabel!.text = currentTask.name
+            openTaskCell.backgroundColor = UIColor.clear
+
+            if currentTask.isComplete {
+                completedTaskCell.textLabel?.textColor = UIColor.lightGray
+                completedTaskCell.accessoryType = .checkmark
+
+                return completedTaskCell
+            } else {
+
+                openTaskCell.textLabel?.textColor = UIColor.black
+                //            cell.accessoryType = .detailButton
+                openTaskCell.accessoryType = .detailDisclosureButton
+                //            cell.accessoryType = .disclosureIndicator
+                return openTaskCell
+            }
+            
         }
-        
-        return UISwipeActionsConfiguration(actions: [completeTaskAction])
-    }
     
-    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        
-        let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-            
-            let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
-            
-            let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
-            {
-                (UIAlertAction) in
-                
-                switch indexPath.section {
-                case 0:
-                    print("Deleting: \(OLD_TodoManager.sharedInstance.tasks[indexPath.row].name)")
-                    OLD_TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
-                case 1:
-                    print("Deleting: \(OLD_TodoManager.sharedInstance.tasks[indexPath.row].name)")
-                    OLD_TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
-                default:
-                    break
-                }
-                
-                tableView.reloadData()
-                
-            }
-            let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
-            { (UIAlertAction) in
-                
-                print("That was a close one. No deletion.")
-            }
-            
-            //add actions to alert controller
-            confirmDelete.addAction(yesDeleteAction)
-            confirmDelete.addAction(noDeleteAction)
-            
-            //show it
-            self.present(confirmDelete ,animated: true, completion: nil)
-            
-            self.title = "\(self.calculateTodaysScore())"
-            actionPerformed(true)
-        }
-        
-        
-        return UISwipeActionsConfiguration(actions: [deleteTaskAction])
-    }
+    // MARK:- Swipe Task actions
+    
+//    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+//
+//        let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+//
+//            switch indexPath.section {
+//            case 0:
+//                //                self.todaysTasks[indexPath.row].completed = true
+//                OLD_TodoManager.sharedInstance.getMornningTasks[indexPath.row].completed = true
+//            case 1:
+//                //                self.eveningTasks[indexPath.row].completed = true
+//                OLD_TodoManager.sharedInstance.getEveningTasks[indexPath.row].completed = true
+//            default:
+//                break
+//            }
+//
+//            self.todaysScoreCounter.text = "\(self.calculateTodaysScore())"
+//            tableView.reloadData()
+//            self.title = "\(self.calculateTodaysScore())"
+//            actionPerformed(true)
+//        }
+//
+//        return UISwipeActionsConfiguration(actions: [completeTaskAction])
+//    }
+//
+//    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+//
+//        let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+//
+//            let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
+//
+//            let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
+//            {
+//                (UIAlertAction) in
+//
+//                switch indexPath.section {
+//                case 0:
+//                    print("Deleting: \(OLD_TodoManager.sharedInstance.tasks[indexPath.row].name)")
+//                    OLD_TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
+//                case 1:
+//                    print("Deleting: \(OLD_TodoManager.sharedInstance.tasks[indexPath.row].name)")
+//                    OLD_TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
+//                default:
+//                    break
+//                }
+//
+//                tableView.reloadData()
+//
+//            }
+//            let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
+//            { (UIAlertAction) in
+//
+//                print("That was a close one. No deletion.")
+//            }
+//
+//            //add actions to alert controller
+//            confirmDelete.addAction(yesDeleteAction)
+//            confirmDelete.addAction(noDeleteAction)
+//
+//            //show it
+//            self.present(confirmDelete ,animated: true, completion: nil)
+//
+//            self.title = "\(self.calculateTodaysScore())"
+//            actionPerformed(true)
+//        }
+//
+//
+//        return UISwipeActionsConfiguration(actions: [deleteTaskAction])
+//    }
     
     
     //    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
