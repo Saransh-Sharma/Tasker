@@ -34,12 +34,12 @@ class AddTaskTableViewController: UITableViewController {
         if eveningTaskSwitch.isOn {
             return 2
         }
-//        else if isInboxTask {
-//
-//        }
-//        else if isUpcomingTask {
-//
-//        }
+            //        else if isInboxTask {
+            //
+            //        }
+            //        else if isUpcomingTask {
+            //
+            //        }
         else {
             //this is morning task
             return 1
@@ -66,6 +66,12 @@ class AddTaskTableViewController: UITableViewController {
         self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
         
         
+        
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        addTaskTextField.becomeFirstResponder()
         
     }
     

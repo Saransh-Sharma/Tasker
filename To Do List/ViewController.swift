@@ -61,7 +61,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         // Do any additional setup after loading the view.
         enableDarkModeIfPreset()
         todaysScoreCounter.text = "\(calculateTodaysScore())"
-        self.title = "\(calculateTodaysScore())"
+        self.title = "This Day \(calculateTodaysScore())"
         //navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
         
         print("OLD count is: \(OLD_TodoManager.sharedInstance.count)")
@@ -74,7 +74,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
         self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
 
-       // self.navigationController!.navigationBar.prefersLargeTitles = true
+//        self.navigationController!.navigationBar.prefersLargeTitles = true
         
         scoreButton.title = "99"
         
