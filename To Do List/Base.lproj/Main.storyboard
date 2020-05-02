@@ -268,20 +268,32 @@
                                             <autoresizingMask key="autoresizingMask"/>
                                             <subviews>
                                                 <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" placeholder="Type in your task &amp; tap done" textAlignment="natural" minimumFontSize="17" clearButtonMode="unlessEditing" translatesAutoresizingMaskIntoConstraints="NO" id="H1b-ye-2k1">
-                                                    <rect key="frame" x="16" y="21" width="343" height="34"/>
+                                                    <rect key="frame" x="16" y="62" width="343" height="34"/>
                                                     <fontDescription key="fontDescription" type="system" pointSize="14"/>
                                                     <textInputTraits key="textInputTraits"/>
                                                 </textField>
-                                                <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="8es-ip-arq">
-                                                    <rect key="frame" x="172" y="100" width="30" height="30"/>
+                                                <slider opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="0.5" minValue="0.0" maxValue="1" translatesAutoresizingMaskIntoConstraints="NO" id="7Dd-65-q6p">
+                                                    <rect key="frame" x="18" y="145" width="347" height="30"/>
                                                     <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                                    <state key="normal" title="OK"/>
-                                                </button>
+                                                </slider>
+                                                <switch opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="vEA-92-oOU">
+                                                    <rect key="frame" x="308" y="11" width="51" height="31"/>
+                                                </switch>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="evening task" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="ro4-8L-5ZV">
+                                                    <rect key="frame" x="203.66666666666666" y="16" width="96.333333333333343" height="21"/>
+                                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
                                             </subviews>
                                             <constraints>
                                                 <constraint firstItem="H1b-ye-2k1" firstAttribute="leading" secondItem="ATe-Sg-Iok" secondAttribute="leadingMargin" id="91L-NG-tYY"/>
+                                                <constraint firstItem="vEA-92-oOU" firstAttribute="leading" secondItem="ro4-8L-5ZV" secondAttribute="trailing" constant="8" id="DAO-nf-lBs"/>
+                                                <constraint firstAttribute="trailing" secondItem="vEA-92-oOU" secondAttribute="trailing" constant="18" id="hJE-aq-JA4"/>
                                                 <constraint firstAttribute="trailingMargin" secondItem="H1b-ye-2k1" secondAttribute="trailing" id="lVs-Ne-dTV"/>
-                                                <constraint firstItem="H1b-ye-2k1" firstAttribute="top" secondItem="ATe-Sg-Iok" secondAttribute="topMargin" constant="10" id="sAs-Pf-dCZ"/>
+                                                <constraint firstItem="H1b-ye-2k1" firstAttribute="top" secondItem="ro4-8L-5ZV" secondAttribute="bottom" constant="25" id="pa8-Dd-RDL"/>
+                                                <constraint firstItem="vEA-92-oOU" firstAttribute="top" secondItem="ATe-Sg-Iok" secondAttribute="top" constant="11" id="qyn-Q9-Sws"/>
+                                                <constraint firstItem="ro4-8L-5ZV" firstAttribute="top" secondItem="ATe-Sg-Iok" secondAttribute="top" constant="16" id="rk5-zQ-7Cl"/>
                                             </constraints>
                                         </tableViewCellContentView>
                                     </tableViewCell>
