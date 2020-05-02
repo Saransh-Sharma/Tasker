@@ -30,13 +30,15 @@ class TaskManager {
     }
     
     
-    
     func addNewTaskWithName(name: String) {
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
         //set all default properties on adding a task
         task.name = name
         task.isComplete = false
+        task.taskDetails = "Fill in task details here"
+        task.taskType = 1
+        task.taskPriority = 3
         
         tasks.append(task)
         saveContext()

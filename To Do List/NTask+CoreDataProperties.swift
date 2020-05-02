@@ -17,7 +17,11 @@ extension NTask {
         return NSFetchRequest<NTask>(entityName: "NTask")
     }
 
-    @NSManaged public var name: String?
+    @NSManaged public var name: String
     @NSManaged public var isComplete: Bool
+    @NSManaged public var dueDate: NSDate?
+    @NSManaged public var taskDetails: String?
+    @NSManaged public var taskPriority: Int32
+    @NSManaged public var taskType: Int32
 
 }
