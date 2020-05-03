@@ -70,11 +70,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         //set nav bar to black with white text
         self.navigationController!.navigationBar.barStyle = .black
-        self.navigationController!.navigationBar.isTranslucent = true
+        self.navigationController!.navigationBar.backgroundColor = #colorLiteral(red: 0.3832732439, green: 0.2574394345, blue: 0.6453867555, alpha: 1)
+        self.navigationController!.navigationBar.isTranslucent = false
         self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
-        self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
+//        self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
 
-//        self.navigationController!.navigationBar.prefersLargeTitles = true
+        self.navigationController!.navigationBar.prefersLargeTitles = true
         
         scoreButton.title = "99"
         

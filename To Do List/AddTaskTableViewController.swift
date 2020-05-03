@@ -15,6 +15,11 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
     @IBOutlet weak var addTaskTextField: UITextField!
     @IBOutlet weak var doneButton: UIBarButtonItem!
     @IBOutlet weak var eveningTaskSwitch: UISwitch!
+    @IBOutlet weak var segmentedPriority: UISegmentedControl!
+    @IBAction func prioritySelected(_ sender: UISegmentedControl) {
+        //sender.segm
+    }
+    
     @IBAction func doneButtonTapped(_ sender: Any) {
         navigationController?.popViewController(animated: true)
         
@@ -57,11 +62,15 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
         //self.navigationItem.leftBarButtonItem = self.editButtonItem
         
         //set nav bar to black with white text
-        self.navigationController!.navigationBar.barStyle = .black
-        self.navigationController!.navigationBar.isTranslucent = true
-        self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
-        self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
         
+        self.navigationController!.navigationBar.barStyle = .black
+        self.navigationController!.navigationBar.backgroundColor = #colorLiteral(red: 0.3832732439, green: 0.2574394345, blue: 0.6453867555, alpha: 1)
+        self.navigationController!.navigationBar.isTranslucent = false
+        self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
+        
+        self.segmentedPriority.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
+        
+        self.segmentedPriority.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.red], for: UIControl.State.normal)
         
         
     }
@@ -93,35 +102,35 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
     // MARK:- Text Field Delegates
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-         let oldText = textField.text!
-                print("old text is: \(oldText)")
-                let stringRange = Range(range, in:oldText)!
-                let newText = oldText.replacingCharacters(in: stringRange, with: string)
-                print("new text is: \(newText)")
-                if newText.isEmpty {
-                    print("EMPTY")
-                    doneButton.isEnabled = false
-                } else {
-                    print("NOT EMPTY")
-                    doneButton.isEnabled = true }
-                return true
+        let oldText = textField.text!
+        print("old text is: \(oldText)")
+        let stringRange = Range(range, in:oldText)!
+        let newText = oldText.replacingCharacters(in: stringRange, with: string)
+        print("new text is: \(newText)")
+        if newText.isEmpty {
+            print("EMPTY")
+            doneButton.isEnabled = false
+        } else {
+            print("NOT EMPTY")
+            doneButton.isEnabled = true }
+        return true
     }
     
-//    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange,
-//                   replacementString string: String) -> Bool {
-//        let oldText = textField.text!
-//        print("old text is: \(oldText)")
-//        let stringRange = Range(range, in:oldText)!
-//        let newText = oldText.replacingCharacters(in: stringRange, with: string)
-//        print("new text is: \(newText)")
-//        if newText.isEmpty {
-//            print("EMPTY")
-//            doneButton.isEnabled = false
-//        } else {
-//            print("NOT EMPTY")
-//            doneButton.isEnabled = true }
-//        return true
-//    }
+    //    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange,
+    //                   replacementString string: String) -> Bool {
+    //        let oldText = textField.text!
+    //        print("old text is: \(oldText)")
+    //        let stringRange = Range(range, in:oldText)!
+    //        let newText = oldText.replacingCharacters(in: stringRange, with: string)
+    //        print("new text is: \(newText)")
+    //        if newText.isEmpty {
+    //            print("EMPTY")
+    //            doneButton.isEnabled = false
+    //        } else {
+    //            print("NOT EMPTY")
+    //            doneButton.isEnabled = true }
+    //        return true
+    //    }
     
     
     /*
