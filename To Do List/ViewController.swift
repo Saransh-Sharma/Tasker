@@ -64,7 +64,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         self.title = "This Day \(calculateTodaysScore())"
         //navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
         
-        print("OLD count is: \(OLD_TodoManager.sharedInstance.count)")
+        //        print("OLD count is: \(OLD_TodoManager.sharedInstance.count)")
         print("NEW count is: \(TaskManager.sharedInstance.count)")
         
         
@@ -87,10 +87,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func enableDarkModeIfPreset() {
         if UserDefaults.standard.bool(forKey: "isDarkModeOn") {
             //switchState.setOn(true, animated: true)
-            print("HOME: DARK ON")
+            //            print("HOME: DARK ON")
             view.backgroundColor = UIColor.darkGray
         } else {
-            print("HOME: DARK OFF !!")
+            //            print("HOME: DARK OFF !!")
         }
     }
     
@@ -166,10 +166,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         switch section {
         case 0:
-            print("Items in morning: \(TaskManager.sharedInstance.getMorningTasks.count)")
+            //            print("Items in morning: \(TaskManager.sharedInstance.getMorningTasks.count)")
             return TaskManager.sharedInstance.getMorningTasks.count
         case 1:
-            print("Items in evening: \(TaskManager.sharedInstance.getEveningTasks.count)")
+            //            print("Items in evening: \(TaskManager.sharedInstance.getEveningTasks.count)")
             return TaskManager.sharedInstance.getEveningTasks.count
         default:
             return 0;
@@ -185,15 +185,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
         let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
         
-        print("NTASK count is: \(TaskManager.sharedInstance.count)")
-        print("morning section index is: \(indexPath.row)")
+        //        print("NTASK count is: \(TaskManager.sharedInstance.count)")
+        //        print("morning section index is: \(indexPath.row)")
         
         switch indexPath.section {
         case 0:
-            print("morning section index is: \(indexPath.row)")
+            //            print("morning section index is: \(indexPath.row)")
             currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
         case 1:
-            print("evening section index is: \(indexPath.row)")
+            //            print("evening section index is: \(indexPath.row)")
             currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
         default:
             break
@@ -226,42 +226,19 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         
-      
+        
         
         let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
             switch indexPath.section {
             case 0:
-                
-//                OLD_TodoManager.sharedInstance.getMornningTasks[indexPath.row].completed = true
-                
-                var tasks = [NTask]()
-                var currentTask: NTask!
-                tasks = TaskManager.sharedInstance.getAllTasks
-                currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
-                      
-                      if let idx = tasks.firstIndex(where: { $0 === currentTask }) {
-                          
-//                        tasks.remove(at: idx)
-                        print("Marking MORNING task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
-                        TaskManager.sharedInstance.getAllTasks[idx].isComplete = true
-                      }
-                
+                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
+                TaskManager.sharedInstance.saveContext()
                 
             case 1:
-                //                self.eveningTasks[indexPath.row].completed = true
-//                OLD_TodoManager.sharedInstance.getEveningTasks[indexPath.row].completed = true
-                    var tasks = [NTask]()
-                                var currentTask: NTask!
-                                tasks = TaskManager.sharedInstance.getAllTasks
-                                currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
-                                      
-                                      if let idx = tasks.firstIndex(where: { $0 === currentTask }) {
-                                          
-                //                        tasks.remove(at: idx)
-                                        print("Marking EVENINNG task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
-                                        TaskManager.sharedInstance.getAllTasks[idx].isComplete = true
-                                      }
+                
+                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row])].isComplete = true
+                TaskManager.sharedInstance.saveContext()
                 
             default:
                 break
@@ -274,6 +251,26 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
         
         return UISwipeActionsConfiguration(actions: [completeTaskAction])
+    }
+    
+    /*
+     Pass this a morning or evening or inbox or upcoming task &
+     this will give the index of that task in the global task array
+     using that global task array index the element can then be removed
+     or modded
+     */
+    func getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: NTask) -> Int {
+        var tasks = [NTask]()
+        var idxHolder = 0
+        tasks = TaskManager.sharedInstance.getAllTasks
+        if let idx = tasks.firstIndex(where: { $0 === morningOrEveningTask }) {
+            
+            print("Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
+            print("func IDX is: \(idx)")
+            idxHolder = idx
+            
+        }
+        return idxHolder
     }
     
     //    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
