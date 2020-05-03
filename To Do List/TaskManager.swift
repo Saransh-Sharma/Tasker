@@ -136,6 +136,7 @@ class TaskManager {
     func removeTaskAtIndex(index: Int) {
         context.delete(taskAtIndex(index: index))
         tasks.remove(at: index)
+        saveContext()
     }
     
     
