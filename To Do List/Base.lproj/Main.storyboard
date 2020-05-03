@@ -15,9 +15,34 @@
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="XX" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
+                                <rect key="frame" x="287" y="98" width="61" height="47"/>
+                                <fontDescription key="fontDescription" style="UICTFontTextStyleTitle0"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <button autoresizesSubviews="NO" opaque="NO" contentMode="scaleAspectFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" reversesTitleShadowWhenHighlighted="YES" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="tGT-bN-yKg">
+                                <rect key="frame" x="300" y="666" width="46" height="46"/>
+                                <rect key="contentStretch" x="1" y="1" width="1" height="1"/>
+                                <color key="tintColor" cocoaTouchSystemColor="darkTextColor"/>
+                                <size key="titleShadowOffset" width="200" height="200"/>
+                                <state key="normal" image="addTaskIcon">
+                                    <color key="titleColor" systemColor="labelColor" cocoaTouchSystemColor="darkTextColor"/>
+                                    <preferredSymbolConfiguration key="preferredSymbolConfiguration" scale="large" weight="semibold"/>
+                                </state>
+                                <connections>
+                                    <segue destination="Kpc-qh-IGB" kind="show" id="Ogu-FW-DkX"/>
+                                </connections>
+                            </button>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="This day's score:" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Rtf-3C-0nA">
+                                <rect key="frame" x="63" y="113" width="227" height="21"/>
+                                <fontDescription key="fontDescription" style="UICTFontTextStyleHeadline"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
                             <tableView clipsSubviews="YES" contentMode="scaleToFill" fixedFrame="YES" alwaysBounceVertical="YES" dataMode="prototypes" style="grouped" separatorStyle="none" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="18" sectionFooterHeight="18" translatesAutoresizingMaskIntoConstraints="NO" id="ghW-4P-SJF">
-                                <rect key="frame" x="0.0" y="246" width="375" height="372"/>
-                                <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxY="YES"/>
+                                <rect key="frame" x="0.0" y="19" width="375" height="603"/>
+                                <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                 <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                                 <prototypes>
                                     <tableViewCell clipsSubviews="YES" tag="500" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" indentationWidth="10" reuseIdentifier="completedTaskCell" rowHeight="104" id="MQw-br-fY8">
@@ -42,54 +67,31 @@
                                     <outlet property="delegate" destination="BYZ-38-t0r" id="D9t-hJ-uXI"/>
                                 </connections>
                             </tableView>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" horizontalCompressionResistancePriority="751" misplaced="YES" text="This Day's Score " textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="QJU-WQ-ngQ">
-                                <rect key="frame" x="56" y="30" width="214" height="35"/>
-                                <fontDescription key="fontDescription" type="system" pointSize="29"/>
-                                <nil key="textColor"/>
-                                <nil key="highlightedColor"/>
-                            </label>
-                            <button opaque="NO" contentMode="scaleToFill" horizontalCompressionResistancePriority="752" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="s9t-oG-jvR">
-                                <rect key="frame" x="20" y="36" width="13" height="22"/>
-                                <state key="normal" image="chevron.left" catalog="system">
-                                    <color key="titleColor" systemColor="labelColor" cocoaTouchSystemColor="darkTextColor"/>
+                        </subviews>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <constraints>
+                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="8" id="4I7-8w-70C"/>
+                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="leading" secondItem="Rtf-3C-0nA" secondAttribute="trailing" constant="12" id="JTV-kD-QSK"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="wpq-c7-3Dg" secondAttribute="trailing" constant="27" id="MzF-gV-euB"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="tGT-bN-yKg" secondAttribute="trailing" constant="27" id="aX1-y6-Yec"/>
+                            <constraint firstItem="Rtf-3C-0nA" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="16" id="bfb-mD-6gw"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="tGT-bN-yKg" secondAttribute="bottom" constant="17" id="tZ6-0v-G4f"/>
+                        </constraints>
+                        <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
+                    </view>
+                    <navigationItem key="navigationItem" title="Today" id="7Lj-NY-AD8">
+                        <barButtonItem key="leftBarButtonItem" style="plain" id="cmA-CJ-pdk">
+                            <button key="customView" opaque="NO" contentMode="scaleToFill" horizontalCompressionResistancePriority="752" contentHorizontalAlignment="center" contentVerticalAlignment="center" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" id="s9t-oG-jvR">
+                                <rect key="frame" x="16" y="0.0" width="88.666666666666671" height="44"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <state key="normal" title="Settings" image="gear" catalog="system">
+                                    <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 </state>
                                 <connections>
                                     <segue destination="xW2-Ba-zLu" kind="show" id="AYN-0J-stK"/>
                                 </connections>
                             </button>
-                            <button autoresizesSubviews="NO" opaque="NO" contentMode="scaleAspectFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" reversesTitleShadowWhenHighlighted="YES" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="tGT-bN-yKg">
-                                <rect key="frame" x="306" y="652" width="54" height="53"/>
-                                <rect key="contentStretch" x="1" y="1" width="1" height="1"/>
-                                <color key="tintColor" cocoaTouchSystemColor="darkTextColor"/>
-                                <state key="normal" image="addTaskIcon">
-                                    <preferredSymbolConfiguration key="preferredSymbolConfiguration" scale="large" weight="heavy"/>
-                                </state>
-                                <connections>
-                                    <segue destination="Kpc-qh-IGB" kind="show" id="Ogu-FW-DkX"/>
-                                </connections>
-                            </button>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="XX" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
-                                <rect key="frame" x="278" y="26" width="61" height="47"/>
-                                <fontDescription key="fontDescription" type="system" weight="medium" pointSize="34"/>
-                                <nil key="textColor"/>
-                                <nil key="highlightedColor"/>
-                            </label>
-                        </subviews>
-                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
-                        <constraints>
-                            <constraint firstItem="QJU-WQ-ngQ" firstAttribute="leading" secondItem="s9t-oG-jvR" secondAttribute="trailing" constant="100" id="6ji-oL-YPP"/>
-                            <constraint firstItem="s9t-oG-jvR" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="8" id="AUN-a5-Uqb"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="top" secondItem="wpq-c7-3Dg" secondAttribute="top" id="R1c-8z-sUT"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="wpq-c7-3Dg" secondAttribute="trailing" constant="16" id="R4h-Hq-D76"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="tGT-bN-yKg" secondAttribute="trailing" constant="15" id="aX1-y6-Yec"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="top" secondItem="s9t-oG-jvR" secondAttribute="top" id="hLp-Jd-BYh"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="top" secondItem="QJU-WQ-ngQ" secondAttribute="top" id="lHv-pz-hX1"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="tGT-bN-yKg" secondAttribute="bottom" constant="24" id="tZ6-0v-G4f"/>
-                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="leading" secondItem="QJU-WQ-ngQ" secondAttribute="trailing" constant="8" id="zhD-gk-4bz"/>
-                        </constraints>
-                        <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
-                    </view>
-                    <navigationItem key="navigationItem" title="Today" largeTitleDisplayMode="always" id="7Lj-NY-AD8">
+                        </barButtonItem>
                         <barButtonItem key="rightBarButtonItem" title="Item" id="4Mp-yu-ByE"/>
                     </navigationItem>
                     <connections>
@@ -267,21 +269,58 @@
                                             <rect key="frame" x="0.0" y="0.0" width="375" height="185"/>
                                             <autoresizingMask key="autoresizingMask"/>
                                             <subviews>
-                                                <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="roundedRect" placeholder="Type in your task &amp; tap done" textAlignment="natural" minimumFontSize="17" clearButtonMode="unlessEditing" translatesAutoresizingMaskIntoConstraints="NO" id="H1b-ye-2k1">
-                                                    <rect key="frame" x="16" y="21" width="343" height="34"/>
-                                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
-                                                    <textInputTraits key="textInputTraits"/>
+                                                <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" placeholder="Type in &amp; tap done" textAlignment="natural" adjustsFontSizeToFit="NO" minimumFontSize="17" clearButtonMode="whileEditing" translatesAutoresizingMaskIntoConstraints="NO" id="H1b-ye-2k1">
+                                                    <rect key="frame" x="16" y="62" width="343" height="41"/>
+                                                    <fontDescription key="fontDescription" style="UICTFontTextStyleTitle0"/>
+                                                    <textInputTraits key="textInputTraits" autocapitalizationType="sentences" returnKeyType="done" enablesReturnKeyAutomatically="YES" smartDashesType="yes" smartQuotesType="yes"/>
+                                                    <connections>
+                                                        <action selector="doneButtonTapped:" destination="Kpc-qh-IGB" eventType="editingDidEndOnExit" id="YHp-fm-gtc"/>
+                                                        <outlet property="delegate" destination="Kpc-qh-IGB" id="hta-GV-61a"/>
+                                                    </connections>
                                                 </textField>
-                                                <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="8es-ip-arq">
-                                                    <rect key="frame" x="172" y="100" width="30" height="30"/>
-                                                    <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                                    <state key="normal" title="OK"/>
-                                                </button>
+                                                <switch opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" translatesAutoresizingMaskIntoConstraints="NO" id="vEA-92-oOU">
+                                                    <rect key="frame" x="308" y="11" width="51" height="31"/>
+                                                    <color key="onTintColor" red="0.36470588240000001" green="0.26274509800000001" blue="0.62352941179999999" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
+                                                </switch>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="evening task" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="ro4-8L-5ZV">
+                                                    <rect key="frame" x="203.66666666666666" y="16" width="96.333333333333343" height="21"/>
+                                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                                <segmentedControl opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="top" segmentControlStyle="bordered" selectedSegmentIndex="1" translatesAutoresizingMaskIntoConstraints="NO" id="y2k-4R-cDh">
+                                                    <rect key="frame" x="16" y="143" width="338" height="32"/>
+                                                    <segments>
+                                                        <segment title="None"/>
+                                                        <segment title="Low"/>
+                                                        <segment title="High"/>
+                                                        <segment title="Highest"/>
+                                                    </segments>
+                                                    <color key="selectedSegmentTintColor" red="0.36470588235294116" green="0.2627450980392157" blue="0.62352941176470589" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
+                                                    <connections>
+                                                        <action selector="prioritySelected:" destination="Kpc-qh-IGB" eventType="valueChanged" id="f8K-69-4Dh"/>
+                                                    </connections>
+                                                </segmentedControl>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Task Priority:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="jmp-yA-iiL">
+                                                    <rect key="frame" x="16.000000000000007" y="114" width="98.666666666666686" height="21"/>
+                                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
                                             </subviews>
                                             <constraints>
                                                 <constraint firstItem="H1b-ye-2k1" firstAttribute="leading" secondItem="ATe-Sg-Iok" secondAttribute="leadingMargin" id="91L-NG-tYY"/>
+                                                <constraint firstItem="vEA-92-oOU" firstAttribute="leading" secondItem="ro4-8L-5ZV" secondAttribute="trailing" constant="8" id="DAO-nf-lBs"/>
+                                                <constraint firstAttribute="trailing" secondItem="y2k-4R-cDh" secondAttribute="trailing" constant="21" id="G1R-gv-Bho"/>
+                                                <constraint firstAttribute="bottom" secondItem="y2k-4R-cDh" secondAttribute="bottom" constant="11" id="IZ2-ay-Ine"/>
+                                                <constraint firstAttribute="bottom" secondItem="jmp-yA-iiL" secondAttribute="bottom" constant="50" id="TVK-iQ-3Jk"/>
+                                                <constraint firstItem="y2k-4R-cDh" firstAttribute="leading" secondItem="ATe-Sg-Iok" secondAttribute="leading" constant="16" id="Vfj-WY-Jpd"/>
+                                                <constraint firstAttribute="trailing" secondItem="vEA-92-oOU" secondAttribute="trailing" constant="18" id="hJE-aq-JA4"/>
                                                 <constraint firstAttribute="trailingMargin" secondItem="H1b-ye-2k1" secondAttribute="trailing" id="lVs-Ne-dTV"/>
-                                                <constraint firstItem="H1b-ye-2k1" firstAttribute="top" secondItem="ATe-Sg-Iok" secondAttribute="topMargin" constant="10" id="sAs-Pf-dCZ"/>
+                                                <constraint firstItem="H1b-ye-2k1" firstAttribute="top" secondItem="ro4-8L-5ZV" secondAttribute="bottom" constant="25" id="pa8-Dd-RDL"/>
+                                                <constraint firstItem="jmp-yA-iiL" firstAttribute="leading" secondItem="ATe-Sg-Iok" secondAttribute="leading" constant="16" id="qxa-mo-gBG"/>
+                                                <constraint firstItem="vEA-92-oOU" firstAttribute="top" secondItem="ATe-Sg-Iok" secondAttribute="top" constant="11" id="qyn-Q9-Sws"/>
+                                                <constraint firstItem="ro4-8L-5ZV" firstAttribute="top" secondItem="ATe-Sg-Iok" secondAttribute="top" constant="16" id="rk5-zQ-7Cl"/>
                                             </constraints>
                                         </tableViewCellContentView>
                                     </tableViewCell>
@@ -302,6 +341,9 @@
                     </navigationItem>
                     <connections>
                         <outlet property="addTaskTextField" destination="H1b-ye-2k1" id="7zX-Aj-Nub"/>
+                        <outlet property="doneButton" destination="W3h-xa-CkN" id="Rgl-Fb-4Ij"/>
+                        <outlet property="eveningTaskSwitch" destination="vEA-92-oOU" id="131-f3-CfG"/>
+                        <outlet property="segmentedPriority" destination="y2k-4R-cDh" id="EU9-jL-mwZ"/>
                     </connections>
                 </tableViewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="6km-yd-1r3" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
@@ -329,9 +371,10 @@
         </scene>
     </scenes>
     <resources>
-        <image name="addTaskIcon" width="60" height="60"/>
+        <image name="addTaskIcon" width="45" height="45"/>
         <image name="calendar" catalog="system" width="64" height="52"/>
         <image name="chevron.left" catalog="system" width="48" height="64"/>
+        <image name="gear" catalog="system" width="64" height="58"/>
         <image name="star.fill" catalog="system" width="64" height="58"/>
         <image name="tray.full.fill" catalog="system" width="64" height="44"/>
     </resources>
