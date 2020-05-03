@@ -26,7 +26,7 @@
                                 <rect key="contentStretch" x="1" y="1" width="1" height="1"/>
                                 <color key="tintColor" cocoaTouchSystemColor="darkTextColor"/>
                                 <size key="titleShadowOffset" width="200" height="200"/>
-                                <state key="normal" image="purpleGreenAddTask">
+                                <state key="normal" image="addTaskIcon">
                                     <color key="titleColor" systemColor="labelColor" cocoaTouchSystemColor="darkTextColor"/>
                                     <preferredSymbolConfiguration key="preferredSymbolConfiguration" scale="large" weight="semibold"/>
                                 </state>
@@ -288,21 +288,21 @@
                                                     <nil key="textColor"/>
                                                     <nil key="highlightedColor"/>
                                                 </label>
-                                                <segmentedControl opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="top" segmentControlStyle="plain" selectedSegmentIndex="0" translatesAutoresizingMaskIntoConstraints="NO" id="y2k-4R-cDh">
+                                                <segmentedControl opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="top" segmentControlStyle="bordered" selectedSegmentIndex="1" translatesAutoresizingMaskIntoConstraints="NO" id="y2k-4R-cDh">
                                                     <rect key="frame" x="16" y="143" width="338" height="32"/>
                                                     <segments>
                                                         <segment title="None"/>
-                                                        <segment title="!"/>
-                                                        <segment title="!!"/>
-                                                        <segment title="!!!"/>
+                                                        <segment title="Low"/>
+                                                        <segment title="High"/>
+                                                        <segment title="Highest"/>
                                                     </segments>
                                                     <color key="selectedSegmentTintColor" red="0.36470588235294116" green="0.2627450980392157" blue="0.62352941176470589" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
                                                     <connections>
                                                         <action selector="prioritySelected:" destination="Kpc-qh-IGB" eventType="valueChanged" id="f8K-69-4Dh"/>
                                                     </connections>
                                                 </segmentedControl>
-                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Set Task Priority:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="jmp-yA-iiL">
-                                                    <rect key="frame" x="16" y="114" width="129" height="21"/>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Task Priority:" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="jmp-yA-iiL">
+                                                    <rect key="frame" x="16.000000000000007" y="114" width="98.666666666666686" height="21"/>
                                                     <fontDescription key="fontDescription" type="system" pointSize="17"/>
                                                     <nil key="textColor"/>
                                                     <nil key="highlightedColor"/>
@@ -371,10 +371,10 @@
         </scene>
     </scenes>
     <resources>
+        <image name="addTaskIcon" width="45" height="45"/>
         <image name="calendar" catalog="system" width="64" height="52"/>
         <image name="chevron.left" catalog="system" width="48" height="64"/>
         <image name="gear" catalog="system" width="64" height="58"/>
-        <image name="purpleGreenAddTask" width="60.333332061767578" height="60.333332061767578"/>
         <image name="star.fill" catalog="system" width="64" height="58"/>
         <image name="tray.full.fill" catalog="system" width="64" height="44"/>
     </resources>
