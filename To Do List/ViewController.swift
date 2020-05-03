@@ -273,50 +273,49 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return idxHolder
     }
     
-    //    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-    //
-    //        let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-    //
-    //            let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
-    //
-    //            let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
-    //            {
-    //                (UIAlertAction) in
-    //
-    //                switch indexPath.section {
-    //                case 0:
-    //                    print("Deleting: \(OLD_TodoManager.sharedInstance.tasks[indexPath.row].name)")
-    //                    OLD_TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
-    //                case 1:
-    //                    print("Deleting: \(OLD_TodoManager.sharedInstance.tasks[indexPath.row].name)")
-    //                    OLD_TodoManager.sharedInstance.tasks.remove(at: indexPath.row)
-    //                default:
-    //                    break
-    //                }
-    //
-    //                tableView.reloadData()
-    //
-    //            }
-    //            let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
-    //            { (UIAlertAction) in
-    //
-    //                print("That was a close one. No deletion.")
-    //            }
-    //
-    //            //add actions to alert controller
-    //            confirmDelete.addAction(yesDeleteAction)
-    //            confirmDelete.addAction(noDeleteAction)
-    //
-    //            //show it
-    //            self.present(confirmDelete ,animated: true, completion: nil)
-    //
-    //            self.title = "\(self.calculateTodaysScore())"
-    //            actionPerformed(true)
-    //        }
-    //
-    //
-    //        return UISwipeActionsConfiguration(actions: [deleteTaskAction])
-    //    }
+    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        
+        let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+            
+            let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
+            
+            let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
+            {
+                (UIAlertAction) in
+                
+                switch indexPath.section {
+                case 0:
+                    
+                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row]))
+                case 1:
+                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row]))
+                default:
+                    break
+                }
+                
+                tableView.reloadData()
+                
+            }
+            let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
+            { (UIAlertAction) in
+                
+                print("That was a close one. No deletion.")
+            }
+            
+            //add actions to alert controller
+            confirmDelete.addAction(yesDeleteAction)
+            confirmDelete.addAction(noDeleteAction)
+            
+            //show it
+            self.present(confirmDelete ,animated: true, completion: nil)
+            
+            self.title = "\(self.calculateTodaysScore())"
+            actionPerformed(true)
+        }
+        
+        
+        return UISwipeActionsConfiguration(actions: [deleteTaskAction])
+    }
     
     
     //    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
