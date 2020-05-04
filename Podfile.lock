@@ -1,20 +1,24 @@
 PODS:
   - SemiModalViewController (1.0.1)
+  - SnapKit (5.0.1)
   - TableViewReloadAnimation (0.0.5)
 
 DEPENDENCIES:
   - SemiModalViewController (~> 1.0.1)
+  - SnapKit (~> 5.0)
   - TableViewReloadAnimation (~> 0.0.5)
 
 SPEC REPOS:
   trunk:
     - SemiModalViewController
+    - SnapKit
     - TableViewReloadAnimation
 
 SPEC CHECKSUMS:
   SemiModalViewController: 13fe8b991b501c7cd6a9ec7c782ed7a5c72c12e6
+  SnapKit: 97b92857e3df3a0c71833cce143274bf6ef8e5eb
   TableViewReloadAnimation: f3a4c4048efbc56331be98075f26a2e533a14c16
 
-PODFILE CHECKSUM: d89b0d482d7f09368bc88adb45f187ae87a9ffcf
+PODFILE CHECKSUM: 389d8b70baa5e84b57b8bee22180200a6d1646cc
 
 COCOAPODS: 1.9.1

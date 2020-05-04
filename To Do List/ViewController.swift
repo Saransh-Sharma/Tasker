@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SnapKit
 import CoreData
 import SemiModalViewController
 import TableViewReloadAnimation
@@ -24,45 +25,169 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     
     @IBAction func showStuff(_ sender: Any) {
-         let view = UIView(frame: UIScreen.main.bounds)
-            view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
-            view.backgroundColor = UIColor.blue
-            
-            let options: [SemiModalOption : Any] = [
-                SemiModalOption.pushParentBack: true
-            ]
-            
-            presentSemiView(view, options: options) {
-                print("Completed!")
-            }
+        
+        semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
     }
-    //    var todaysTasks = [Task]()
-    //    var eveningTasks = [Task]()
     
-    //    var globalTaskList: [Task] = []
+    func serveSemiViewRed() -> UIView {
+        
+        let view = UIView(frame: UIScreen.main.bounds)
+        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
+        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+        
+        let mylabel = UILabel()
+        mylabel.frame = CGRect(x: 20, y: 25, width: 370, height: 50)
+        mylabel.text = "This is placeholder text"
+        mylabel.textAlignment = .center
+        mylabel.backgroundColor = .white
+        view.addSubview(mylabel)
+        
+        return view
+    }
     
-    //    func makeTask(name: String, type: TaskType, completed: Bool, lastCompleted: NSDate?, taskCreationDate: NSDate?, priority: TaskPriority? ) -> Task {
-    //        return Task(name: name, type: type, completed: completed, lastCompleted: lastCompleted, taskCreationDate: taskCreationDate, priority: priority)
-    //      }
+    func serveSemiViewBlue(task: NTask) -> UIView { //TODO: put each of this in a tableview
+        
+        let view = UIView(frame: UIScreen.main.bounds)
+        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
+        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+        let frameForView = view.bounds
+        
+        let taskName = UILabel() //Task Name
+        view.addSubview(taskName)
+        taskName.frame = CGRect(x: frameForView.minX, y: frameForView.minY, width: frameForView.width, height: frameForView.height/5)
+        taskName.text = task.name
+        taskName.textAlignment = .center
+        taskName.backgroundColor = .black
+        taskName.textColor = UIColor.white
+        
+        let eveningLabel = UILabel() //Evening Label
+        view.addSubview(eveningLabel)
+        eveningLabel.text = "evening task"
+        eveningLabel.textAlignment = .left
+        eveningLabel.textColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+        eveningLabel.frame = CGRect(x: frameForView.minX+40, y: frameForView.minY+85, width: frameForView.width-100, height: frameForView.height/8)
+        
+        let eveningSwitch = UISwitch() //Evening Switch
+        view.addSubview(eveningSwitch)
+        eveningSwitch.onTintColor = #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+
+        if(Int(task.taskType) == 2) {
+            print("Task type is evening; 2")
+            eveningSwitch.setOn(true, animated: true)
+        } else {
+            print("Task type is NOT evening;")
+            eveningSwitch.setOn(false, animated: true)
+        }
+         eveningSwitch.frame = CGRect(x: frameForView.maxX-80, y: frameForView.minY+85, width: frameForView.width-100, height: frameForView.height/8)
+        
+        
+        let p = ["None", "Low", "High", "Highest"]
+        let prioritySegmentedControl = UISegmentedControl(items: p) //Task Priority
+        view.addSubview(prioritySegmentedControl)
+        prioritySegmentedControl.selectedSegmentIndex = 1
+        prioritySegmentedControl.backgroundColor = .white
+        prioritySegmentedControl.selectedSegmentTintColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+        prioritySegmentedControl.frame = CGRect(x: frameForView.minX+20, y: frameForView.minY+150, width: frameForView.width-40, height: frameForView.height/7)
+        
+        
+        let datePicker = UIDatePicker() //DATE PICKER //there should not be a date picker here //there can be calender icon instead
+        view.addSubview(datePicker)
+        datePicker.datePickerMode = .date
+        datePicker.timeZone = NSTimeZone.local
+        datePicker.backgroundColor = UIColor.white
+        
+        //Set minimum and Maximum Dates
+        let calendar = Calendar(identifier: .gregorian)
+        var comps = DateComponents()
+        comps.month = 1
+        let maxDate = calendar.date(byAdding: comps, to: Date())
+        comps.month = 0
+        comps.day = -1
+        let minDate = calendar.date(byAdding: comps, to: Date())
+        datePicker.maximumDate = maxDate
+        datePicker.minimumDate = minDate
+        datePicker.frame = CGRect(x: frameForView.minX+30, y: frameForView.minY+230, width: frameForView.width-60, height: frameForView.height/8)
+        
+        
+        return view
+    }
     
-    //    func addTaskToGlobalTasksList(taskToBeadded: Task, globalTasks: [Task]) -> [Task] {
-    //        var mTasks: [Task]
-    //        mTasks = globalTasks
-    //        mTasks.append(taskToBeadded)
-    //        return mTasks
-    //    }
+    func serveSemiViewGreen(task: NTask) -> UIView {
+        
+        let view = UIView(frame: UIScreen.main.bounds)
+        
+        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
+        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+        let frameForView = view.bounds
+        
+        
+        let mylabel = UILabel() //Task Name
+        view.addSubview(mylabel)
+        mylabel.text = task.name
+        mylabel.textAlignment = .center
+        mylabel.backgroundColor = .black
+        mylabel.textColor = UIColor.white
+        
+        //            mylabel.frame = CGRect(x: frameForView.minX+10, y: frameForView.maxY-80, width: frameForView.width-20, height: frameForView.height/5)
+        
+        
+        
+        
+        
+        
+        //            let items = ["None", "Low", "High", "Highest"] //Priority SC
+        //            let customSC = UISegmentedControl(items: items)
+        //
+        //            customSC.selectedSegmentIndex = 1
+        //
+        //            customSC.snp.makeConstraints { (make) -> Void in
+        //                           make.width.top.equalTo(self.view)
+        //                make.height.equalTo(50)
+        //
+        //                       }
+        
+        
+        return view
+    }
     
-    //    func getTodayMorningTasks(globalTasksList: [Task]) -> [Task] {
-    //
-    //        var todayMorning: [Task]
-    //
-    //
-    //        for each in globalTasksList {
-    //           // each.lastCompleted = isToaf
-    //            let today = Calendar.current.isDateInToday(each.lastCompleted! as Date)
-    //        }
-    //    }
+    // MARK:- DID SELECT ROW AT
+    /*
+     Prints logs on selecting a row
+     */
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        print("You selected row \(indexPath.row) from section \(indexPath.section)")
+        
+        var currentTask: NTask!
+        //        semiViewDefaultOptions(viewToBePrsented: serveViewBlue())
+        switch indexPath.section {
+        case 0:
+            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
+        case 1:
+            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+        default:
+            break
+        }
+        
+        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
+        
+        semiViewDefaultOptions(viewToBePrsented: serveSemiViewBlue(task: currentTask))
+        
+        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewGreen(task: currentTask))
+        
+        
+        
+    }
     
+    func semiViewDefaultOptions(viewToBePrsented: UIView) {
+        let options: [SemiModalOption : Any] = [
+            SemiModalOption.pushParentBack: true,
+            SemiModalOption.animationDuration: 0.2
+        ]
+        
+        presentSemiView(viewToBePrsented, options: options) {
+            print("Completed!")
+        }
+    }
     
     // MARK:- View Lifecycle methods
     
@@ -70,7 +195,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         // right spring animation
         tableView.reloadData(
             with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-            constantDelay: 0))
+                          constantDelay: 0))
     }
     
     
@@ -135,13 +260,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return score;
     }
     
-    // MARK:- DID SELECT ROW AT
-    /*
-     Prints logs on selecting a row
-     */
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print("You selected row \(indexPath.row) from section \(indexPath.section)")
-    }
+    
     
     // MARK: toggle dark mode
     
@@ -181,6 +300,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             return nil
         }
     }
+    
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         
@@ -265,13 +385,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             }
             
             self.todaysScoreCounter.text = "\(self.calculateTodaysScore())"
-//            tableView.reloadData()
+            //            tableView.reloadData()
             
             // right spring animation
             tableView.reloadData(
                 with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-                constantDelay: 0))
-
+                              constantDelay: 0))
+            
             self.title = "\(self.calculateTodaysScore())"
             actionPerformed(true)
         }
@@ -319,11 +439,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                     break
                 }
                 
-//                tableView.reloadData()
+                //                tableView.reloadData()
                 tableView.reloadData(
                     with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
-                constantDelay: 0))
-
+                                  constantDelay: 0))
+                
                 
             }
             let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
