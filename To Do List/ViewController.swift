@@ -8,6 +8,7 @@
 
 import UIKit
 import CoreData
+import TableViewReloadAnimation
 
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
@@ -51,7 +52,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     // MARK:- View Lifecycle methods
     
     override func viewWillAppear(_ animated: Bool) {
-        tableView.reloadData()
+        tableView.reloadData(
+            with: .simple(duration: 0.65, direction: .rotation3D(type: .captainMarvel),
+        constantDelay: 0))
     }
     
     
@@ -246,7 +249,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             }
             
             self.todaysScoreCounter.text = "\(self.calculateTodaysScore())"
-            tableView.reloadData()
+//            tableView.reloadData()
+            tableView.reloadData(
+                with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
+            constantDelay: 0))
+
             self.title = "\(self.calculateTodaysScore())"
             actionPerformed(true)
         }
@@ -294,7 +301,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                     break
                 }
                 
-                tableView.reloadData()
+//                tableView.reloadData()
+                tableView.reloadData(
+                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
+                constantDelay: 0))
+
                 
             }
             let noDeleteAction = UIAlertAction(title: "No", style: .cancel)

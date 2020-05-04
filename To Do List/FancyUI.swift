@@ -7,3 +7,14 @@
 //
 
 import Foundation
+import UIKit
+import TableViewReloadAnimation
+
+class FancyUI {
+    
+    func reloadTable(tableView: UITableView)  {
+        tableView.reloadData(
+                   with: .simple(duration: 0.75, direction: .rotation3D(type: .ironMan),
+                   constantDelay: 0))
+    }
+}
