@@ -8,6 +8,7 @@
 
 import UIKit
 import CoreData
+import SemiModalViewController
 import TableViewReloadAnimation
 
 
@@ -21,6 +22,20 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var addTaskAtHome: UIButton!
     @IBOutlet weak var scoreButton: UIBarButtonItem!
     
+    
+    @IBAction func showStuff(_ sender: Any) {
+         let view = UIView(frame: UIScreen.main.bounds)
+            view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
+            view.backgroundColor = UIColor.blue
+            
+            let options: [SemiModalOption : Any] = [
+                SemiModalOption.pushParentBack: true
+            ]
+            
+            presentSemiView(view, options: options) {
+                print("Completed!")
+            }
+    }
     //    var todaysTasks = [Task]()
     //    var eveningTasks = [Task]()
     

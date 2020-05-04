@@ -67,12 +67,21 @@
                                     <outlet property="delegate" destination="BYZ-38-t0r" id="D9t-hJ-uXI"/>
                                 </connections>
                             </tableView>
+                            <button opaque="NO" contentMode="scaleToFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="5Yr-Di-6hj">
+                                <rect key="frame" x="164" y="666" width="93" height="30"/>
+                                <state key="normal" title="ButtonTest"/>
+                                <connections>
+                                    <action selector="showStuff:" destination="BYZ-38-t0r" eventType="touchUpInside" id="dNB-E2-x3s"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <constraints>
                             <constraint firstItem="wpq-c7-3Dg" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="8" id="4I7-8w-70C"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="5Yr-Di-6hj" secondAttribute="bottom" constant="33" id="Fhy-5J-yfV"/>
                             <constraint firstItem="wpq-c7-3Dg" firstAttribute="leading" secondItem="Rtf-3C-0nA" secondAttribute="trailing" constant="12" id="JTV-kD-QSK"/>
                             <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="wpq-c7-3Dg" secondAttribute="trailing" constant="27" id="MzF-gV-euB"/>
+                            <constraint firstItem="5Yr-Di-6hj" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="164" id="RrZ-9j-D2H"/>
                             <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="tGT-bN-yKg" secondAttribute="trailing" constant="27" id="aX1-y6-Yec"/>
                             <constraint firstItem="Rtf-3C-0nA" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="16" id="bfb-mD-6gw"/>
                             <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="tGT-bN-yKg" secondAttribute="bottom" constant="17" id="tZ6-0v-G4f"/>
