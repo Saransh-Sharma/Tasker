@@ -246,6 +246,9 @@
                     </view>
                     <tabBarItem key="tabBarItem" title="Inbox" image="tray.full.fill" catalog="system" id="Lzy-ug-dwz"/>
                     <navigationItem key="navigationItem" id="ei3-dV-Ua1"/>
+                    <connections>
+                        <outlet property="inboxTableView" destination="RKZ-0P-o7s" id="IQ8-r3-pe0"/>
+                    </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="ZaB-94-O5C" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>

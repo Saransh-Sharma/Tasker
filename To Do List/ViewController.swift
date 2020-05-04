@@ -52,9 +52,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     // MARK:- View Lifecycle methods
     
     override func viewWillAppear(_ animated: Bool) {
+        // right spring animation
         tableView.reloadData(
-            with: .simple(duration: 0.65, direction: .rotation3D(type: .captainMarvel),
-        constantDelay: 0))
+            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+            constantDelay: 0))
     }
     
     
@@ -250,9 +251,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             
             self.todaysScoreCounter.text = "\(self.calculateTodaysScore())"
 //            tableView.reloadData()
+            
+            // right spring animation
             tableView.reloadData(
-                with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
-            constantDelay: 0))
+                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+                constantDelay: 0))
 
             self.title = "\(self.calculateTodaysScore())"
             actionPerformed(true)
