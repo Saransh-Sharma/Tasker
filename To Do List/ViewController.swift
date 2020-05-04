@@ -70,7 +70,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         //set nav bar to black with white text
         self.navigationController!.navigationBar.barStyle = .black
-        self.navigationController!.navigationBar.backgroundColor = #colorLiteral(red: 0.3832732439, green: 0.2574394345, blue: 0.6453867555, alpha: 1)
+        self.navigationController!.navigationBar.backgroundColor = #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
         self.navigationController!.navigationBar.isTranslucent = false
         self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
         //        self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
@@ -91,6 +91,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             view.backgroundColor = UIColor.darkGray
         } else {
             //            print("HOME: DARK OFF !!")
+            view.backgroundColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
         }
     }
     
