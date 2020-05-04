@@ -1,0 +1,16 @@
+PODS:
+  - TableViewReloadAnimation (0.0.5)
+
+DEPENDENCIES:
+  - TableViewReloadAnimation (~> 0.0.5)
+
+SPEC REPOS:
+  trunk:
+    - TableViewReloadAnimation
+
+SPEC CHECKSUMS:
+  TableViewReloadAnimation: f3a4c4048efbc56331be98075f26a2e533a14c16
+
+PODFILE CHECKSUM: 37949903ad2db743239ead39e6b347c1d8083f4a
+
+COCOAPODS: 1.9.1
