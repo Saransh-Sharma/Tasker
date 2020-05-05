@@ -11,7 +11,10 @@ import CoreData
 
 class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
     
+    
     // MARK:- Outlets
+    @IBOutlet var addTaskTableView: UITableView!
+    @IBOutlet weak var dayPicker: UIPickerView!
     @IBOutlet weak var addTaskTextField: UITextField!
     @IBOutlet weak var doneButton: UIBarButtonItem!
     @IBOutlet weak var eveningTaskSwitch: UISwitch!
@@ -54,6 +57,8 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        self.addTaskTableView.separatorColor = UIColor.clear
+        self.addTaskTableView.alwaysBounceVertical = false
         
         // Uncomment the following line to preserve selection between presentations
         // self.clearsSelectionOnViewWillAppear = false
@@ -73,6 +78,10 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
         self.segmentedPriority.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.red], for: UIControl.State.normal)
         
         
+    }
+    
+    func buildDayPicker() {
+        //dayPicker.title
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -95,7 +104,7 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         // #warning Incomplete implementation, return the number of rows
-        return 1
+        return 4
     }
     
     
