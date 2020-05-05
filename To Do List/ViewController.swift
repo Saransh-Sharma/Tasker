@@ -23,6 +23,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var addTaskAtHome: UIButton!
     @IBOutlet weak var scoreButton: UIBarButtonItem!
     
+    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+    var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+    
     
     @IBAction func showStuff(_ sender: Any) {
         
@@ -49,7 +52,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         let view = UIView(frame: UIScreen.main.bounds)
         view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
-        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+        //        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+        view.backgroundColor = primaryColor
         let frameForView = view.bounds
         
         let taskName = UILabel() //Task Name
@@ -64,13 +68,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.addSubview(eveningLabel)
         eveningLabel.text = "evening task"
         eveningLabel.textAlignment = .left
-        eveningLabel.textColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+        eveningLabel.textColor =  secondryColor
         eveningLabel.frame = CGRect(x: frameForView.minX+40, y: frameForView.minY+85, width: frameForView.width-100, height: frameForView.height/8)
         
         let eveningSwitch = UISwitch() //Evening Switch
         view.addSubview(eveningSwitch)
-        eveningSwitch.onTintColor = #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
-
+        eveningSwitch.onTintColor = secondryColor
+        
         if(Int(task.taskType) == 2) {
             print("Task type is evening; 2")
             eveningSwitch.setOn(true, animated: true)
@@ -78,7 +82,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             print("Task type is NOT evening;")
             eveningSwitch.setOn(false, animated: true)
         }
-         eveningSwitch.frame = CGRect(x: frameForView.maxX-80, y: frameForView.minY+85, width: frameForView.width-100, height: frameForView.height/8)
+        eveningSwitch.frame = CGRect(x: frameForView.maxX-80, y: frameForView.minY+85, width: frameForView.width-100, height: frameForView.height/8)
         
         
         let p = ["None", "Low", "High", "Highest"]
@@ -86,7 +90,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.addSubview(prioritySegmentedControl)
         prioritySegmentedControl.selectedSegmentIndex = 1
         prioritySegmentedControl.backgroundColor = .white
-        prioritySegmentedControl.selectedSegmentTintColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+        prioritySegmentedControl.selectedSegmentTintColor =  secondryColor
+        
+        
+        
+        prioritySegmentedControl.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
+        
         prioritySegmentedControl.frame = CGRect(x: frameForView.minX+20, y: frameForView.minY+150, width: frameForView.width-40, height: frameForView.height/7)
         
         
@@ -118,7 +127,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
         view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
-        let frameForView = view.bounds
+        //let frameForView = view.bounds
         
         
         let mylabel = UILabel() //Task Name
