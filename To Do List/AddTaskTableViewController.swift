@@ -59,6 +59,7 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
         super.viewDidLoad()
         self.addTaskTableView.separatorColor = UIColor.clear
         self.addTaskTableView.alwaysBounceVertical = false
+        self.addTaskTableView.allowsSelection = false
         
         // Uncomment the following line to preserve selection between presentations
         // self.clearsSelectionOnViewWillAppear = false
