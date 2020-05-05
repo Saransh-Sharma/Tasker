@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import SnapKit
 import CoreData
 import SemiModalViewController
 import TableViewReloadAnimation
@@ -213,7 +212,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         // Do any additional setup after loading the view.
         enableDarkModeIfPreset()
-        todaysScoreCounter.text = "\(calculateTodaysScore())"
+//        todaysScoreCounter.text = "\(calculateTodaysScore())"
         self.title = "This Day \(calculateTodaysScore())"
         //navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
         

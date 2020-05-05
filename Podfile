@@ -9,7 +9,6 @@ target 'To Do List' do
   
 pod 'TableViewReloadAnimation', '~> 0.0.5', :modular_headers => true
 pod 'SemiModalViewController', '~> 1.0.1', :modular_headers => true
-pod 'SnapKit', '~> 5.0', :modular_headers => true
 
   target 'To Do ListTests' do
     inherit! :search_paths
