@@ -24,7 +24,8 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
     }
     
     @IBAction func doneButtonTapped(_ sender: Any) {
-        navigationController?.popViewController(animated: true)
+//        navigationController?.popViewController(animated: true)
+        dismiss(animated: true)
         
         if addTaskTextField.text != nil && addTaskTextField.text != "" {
             
@@ -69,10 +70,10 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
         
         //set nav bar to black with white text
         
-        self.navigationController!.navigationBar.barStyle = .black
-        self.navigationController!.navigationBar.backgroundColor = #colorLiteral(red: 0.3832732439, green: 0.2574394345, blue: 0.6453867555, alpha: 1)
-        self.navigationController!.navigationBar.isTranslucent = false
-        self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
+//        self.navigationController!.navigationBar.barStyle = .black
+//        self.navigationController!.navigationBar.backgroundColor = #colorLiteral(red: 0.3832732439, green: 0.2574394345, blue: 0.6453867555, alpha: 1)
+//        self.navigationController!.navigationBar.isTranslucent = false
+//        self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
         
         self.segmentedPriority.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
         

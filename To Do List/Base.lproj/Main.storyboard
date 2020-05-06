@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="15705" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="oB4-CW-Q22">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="15705" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="BYZ-38-t0r">
     <device id="retina5_9" orientation="portrait" appearance="light"/>
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="15706"/>
@@ -7,7 +7,7 @@
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
-        <!--Today-->
+        <!--View Controller-->
         <scene sceneID="tne-QT-ifu">
             <objects>
                 <viewController id="BYZ-38-t0r" customClass="ViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
@@ -15,12 +15,6 @@
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" misplaced="YES" text="XX" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="wpq-c7-3Dg">
-                                <rect key="frame" x="287" y="98" width="61" height="47"/>
-                                <fontDescription key="fontDescription" style="UICTFontTextStyleTitle0"/>
-                                <nil key="textColor"/>
-                                <nil key="highlightedColor"/>
-                            </label>
                             <button autoresizesSubviews="NO" opaque="NO" contentMode="scaleAspectFill" misplaced="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" reversesTitleShadowWhenHighlighted="YES" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="tGT-bN-yKg">
                                 <rect key="frame" x="300" y="666" width="46" height="46"/>
                                 <rect key="contentStretch" x="1" y="1" width="1" height="1"/>
@@ -64,32 +58,15 @@
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <constraints>
-                            <constraint firstItem="wpq-c7-3Dg" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="8" id="4I7-8w-70C"/>
-                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="wpq-c7-3Dg" secondAttribute="trailing" constant="27" id="MzF-gV-euB"/>
                             <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="tGT-bN-yKg" secondAttribute="trailing" constant="27" id="aX1-y6-Yec"/>
                             <constraint firstItem="6Tk-OE-BBY" firstAttribute="bottom" secondItem="tGT-bN-yKg" secondAttribute="bottom" constant="17" id="tZ6-0v-G4f"/>
                         </constraints>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                     </view>
-                    <navigationItem key="navigationItem" title="Today" id="7Lj-NY-AD8">
-                        <barButtonItem key="leftBarButtonItem" style="plain" id="cmA-CJ-pdk">
-                            <button key="customView" opaque="NO" contentMode="scaleToFill" horizontalCompressionResistancePriority="752" contentHorizontalAlignment="center" contentVerticalAlignment="center" showsTouchWhenHighlighted="YES" lineBreakMode="middleTruncation" id="s9t-oG-jvR">
-                                <rect key="frame" x="16" y="0.0" width="88.666666666666671" height="44"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                <state key="normal" title="Settings" image="gear" catalog="system">
-                                    <color key="titleColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
-                                </state>
-                                <connections>
-                                    <segue destination="xW2-Ba-zLu" kind="show" id="AYN-0J-stK"/>
-                                </connections>
-                            </button>
-                        </barButtonItem>
-                    </navigationItem>
                     <connections>
                         <outlet property="addTaskAtHome" destination="tGT-bN-yKg" id="uwG-p2-eoP"/>
                         <outlet property="switchState" destination="I6M-y2-kON" id="6fB-7E-Vyx"/>
                         <outlet property="tableView" destination="ghW-4P-SJF" id="2gI-TK-Kcx"/>
-                        <outlet property="todaysScoreCounter" destination="wpq-c7-3Dg" id="BLU-i1-SAD"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
@@ -204,7 +181,6 @@
                         <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                     </tabBar>
                     <connections>
-                        <segue destination="fdn-7y-5bJ" kind="relationship" relationship="viewControllers" id="cK7-Ws-Abs"/>
                         <segue destination="cL4-7B-bD1" kind="relationship" relationship="viewControllers" id="RdQ-Yc-SQd"/>
                         <segue destination="3VI-Ba-Eml" kind="relationship" relationship="viewControllers" id="32S-m5-wqK"/>
                     </connections>
@@ -249,7 +225,7 @@
             <objects>
                 <tableViewController id="Kpc-qh-IGB" customClass="AddTaskTableViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <tableView key="view" clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="static" style="grouped" separatorStyle="default" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="18" sectionFooterHeight="18" id="B1f-00-vD2">
-                        <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="758"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES" flexibleMaxY="YES"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <sections>
@@ -385,32 +361,11 @@
             </objects>
             <point key="canvasLocation" x="2732" y="504.67980295566502"/>
         </scene>
-        <!--Today-->
-        <scene sceneID="MTd-Hk-QH4">
-            <objects>
-                <navigationController automaticallyAdjustsScrollViewInsets="NO" id="fdn-7y-5bJ" sceneMemberID="viewController">
-                    <tabBarItem key="tabBarItem" title="Today" image="star.fill" catalog="system" id="R21-R3-4Qo"/>
-                    <toolbarItems/>
-                    <navigationBar key="navigationBar" contentMode="scaleToFill" insetsLayoutMarginsFromSafeArea="NO" id="geJ-pn-h7z">
-                        <rect key="frame" x="0.0" y="44" width="375" height="44"/>
-                        <autoresizingMask key="autoresizingMask"/>
-                    </navigationBar>
-                    <nil name="viewControllers"/>
-                    <connections>
-                        <segue destination="BYZ-38-t0r" kind="relationship" relationship="rootViewController" id="isw-qf-NIR"/>
-                    </connections>
-                </navigationController>
-                <placeholder placeholderIdentifier="IBFirstResponder" id="bcD-wB-eSf" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
-            </objects>
-            <point key="canvasLocation" x="852" y="136.69950738916256"/>
-        </scene>
     </scenes>
     <resources>
         <image name="addTaskIcon" width="45" height="45"/>
         <image name="calendar" catalog="system" width="64" height="52"/>
         <image name="chevron.left" catalog="system" width="48" height="64"/>
-        <image name="gear" catalog="system" width="64" height="58"/>
-        <image name="star.fill" catalog="system" width="64" height="58"/>
         <image name="tray.full.fill" catalog="system" width="64" height="44"/>
     </resources>
 </document>
