@@ -11,6 +11,7 @@ import CoreData
 import SemiModalViewController
 import TableViewReloadAnimation
 import CircleMenu
+//import StrikethroughLabel
 
 
 extension UIColor {
@@ -27,18 +28,20 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     let colors = [UIColor.red, UIColor.gray, UIColor.green, UIColor.purple]
     let items: [(icon: String, color: UIColor)] = [
-        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
+//        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
+        ("", .clear),
         ("icon_search", UIColor(red: 0.22, green: 0.74, blue: 0, alpha: 1)),
         ("notifications-btn", UIColor(red: 0.96, green: 0.23, blue: 0.21, alpha: 1)),
         ("settings-btn", UIColor(red: 0.51, green: 0.15, blue: 1, alpha: 1)),
-        ("nearby-btn", UIColor(red: 1, green: 0.39, blue: 0, alpha: 1))
+//        ("nearby-btn", UIColor(red: 1, green: 0.39, blue: 0, alpha: 1))
+        ("", .clear)
     ]
     
     // MARK: Outlets
     
+    @IBOutlet weak var addTaskButton: UIButton!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var switchState: UISwitch!
-    @IBOutlet weak var addTaskAtHome: UIButton!
     //    @IBOutlet weak var scoreButton: UIBarButtonItem!
     
     var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
@@ -51,17 +54,19 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.addSubview(servePageHeader())
         
         //MARK: circle menu frame
-        let button = CircleMenu(
+        let circleMenuButton = CircleMenu(
             frame: CGRect(x: 32, y: 64, width: 30, height: 30),
             normalIcon:"icon_menu",
             selectedIcon:"icon_close",
             buttonsCount: 5,
             duration: 1,
             distance: 50)
-        button.backgroundColor = primaryColor
-        button.delegate = self
-        button.layer.cornerRadius = button.frame.size.width / 2.0
-        view.addSubview(button)
+        circleMenuButton.backgroundColor = primaryColor
+        circleMenuButton.delegate = self
+        circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
+        view.addSubview(circleMenuButton)
+        
+        view.addSubview(serveAddTaskButton(addTaskButton: addTaskButton))
         
         enableDarkModeIfPreset()
     }
@@ -87,6 +92,23 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     // MARK:- Build Page Header
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .lightContent
+    }
+    
+    func serveAddTaskButton(addTaskButton: UIButton) -> UIView {
+        
+
+//        addTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX-80, y: UIScreen.main.bounds.maxY-80, width: 50, height: 50)
+            addTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-UIScreen.main.bounds.maxY/11, width: 50, height: 50)
+//        addTaskButton.titleLabel?.text = "+"
+        addTaskButton.titleLabel?.textColor = primaryColor
+        addTaskButton.titleLabel?.textAlignment = .center
+//        addTaskButton.titleLabel?.font =  UIFont(name: "HelveticaNeue-Medium", size: 40)
+        addTaskButton.titleLabel?.numberOfLines = 0
+        addTaskButton.backgroundColor = secondryColor
+        addTaskButton.layer.cornerRadius = addTaskButton.bounds.size.width/2;
+        addTaskButton.layer.masksToBounds = true
+        
+        return addTaskButton
     }
     
     func servePageHeader() -> UIView {
@@ -401,7 +423,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             
             openTaskCell.textLabel?.textColor = UIColor.black
             //            cell.accessoryType = .detailButton
-            openTaskCell.accessoryType = .detailDisclosureButton
+            openTaskCell.accessoryType = .disclosureIndicator
             //            cell.accessoryType = .disclosureIndicator
             return openTaskCell
         }
