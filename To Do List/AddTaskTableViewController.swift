@@ -25,14 +25,14 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
     
     @IBAction func doneButtonTapped(_ sender: Any) {
 //        navigationController?.popViewController(animated: true)
-        dismiss(animated: true)
+        
         
         if addTaskTextField.text != nil && addTaskTextField.text != "" {
             
             TaskManager.sharedInstance.addNewTask(name: addTaskTextField.text!, taskType: getTaskType(), taskPriority: 2)
-            
-            //OLD_TodoManager.sharedInstance.addTaskWithName(name: addTaskTextField.text!)
         }
+        
+        dismiss(animated: true)
     }
     
     func getTaskPriority() -> Int {
@@ -61,6 +61,7 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
         self.addTaskTableView.separatorColor = UIColor.clear
         self.addTaskTableView.alwaysBounceVertical = false
         self.addTaskTableView.allowsSelection = false
+        
         
         // Uncomment the following line to preserve selection between presentations
         // self.clearsSelectionOnViewWillAppear = false
@@ -127,21 +128,6 @@ class AddTaskTableViewController: UITableViewController, UITextFieldDelegate {
         return true
     }
     
-    //    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange,
-    //                   replacementString string: String) -> Bool {
-    //        let oldText = textField.text!
-    //        print("old text is: \(oldText)")
-    //        let stringRange = Range(range, in:oldText)!
-    //        let newText = oldText.replacingCharacters(in: stringRange, with: string)
-    //        print("new text is: \(newText)")
-    //        if newText.isEmpty {
-    //            print("EMPTY")
-    //            doneButton.isEnabled = false
-    //        } else {
-    //            print("NOT EMPTY")
-    //            doneButton.isEnabled = true }
-    //        return true
-    //    }
     
     
     /*
