@@ -10,9 +10,29 @@ import UIKit
 import CoreData
 import SemiModalViewController
 import TableViewReloadAnimation
+import CircleMenu
 
 
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+extension UIColor {
+    static func color(_ red: Int, green: Int, blue: Int, alpha: Float) -> UIColor {
+        return UIColor(
+            red: 1.0 / 255.0 * CGFloat(red),
+            green: 1.0 / 255.0 * CGFloat(green),
+            blue: 1.0 / 255.0 * CGFloat(blue),
+            alpha: CGFloat(alpha))
+    }
+}
+
+class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, CircleMenuDelegate {
+    
+    let colors = [UIColor.red, UIColor.gray, UIColor.green, UIColor.purple]
+    let items: [(icon: String, color: UIColor)] = [
+        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
+        ("icon_search", UIColor(red: 0.22, green: 0.74, blue: 0, alpha: 1)),
+        ("notifications-btn", UIColor(red: 0.96, green: 0.23, blue: 0.21, alpha: 1)),
+        ("settings-btn", UIColor(red: 0.51, green: 0.15, blue: 1, alpha: 1)),
+        ("nearby-btn", UIColor(red: 1, green: 0.39, blue: 0, alpha: 1))
+    ]
     
     // MARK: Outlets
     
@@ -20,7 +40,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var todaysScoreCounter: UILabel!
     @IBOutlet weak var switchState: UISwitch!
     @IBOutlet weak var addTaskAtHome: UIButton!
-    @IBOutlet weak var scoreButton: UIBarButtonItem!
+    //    @IBOutlet weak var scoreButton: UIBarButtonItem!
     
     var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
@@ -29,6 +49,27 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBAction func showStuff(_ sender: Any) {
         
         semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
+    }
+    
+    // MARK: <CircleMenuDelegate>
+    
+    func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
+        button.backgroundColor = items[atIndex].color
+        
+        button.setImage(UIImage(named: items[atIndex].icon), for: .normal)
+        
+        // set highlited image
+        let highlightedImage = UIImage(named: items[atIndex].icon)?.withRenderingMode(.alwaysTemplate)
+        button.setImage(highlightedImage, for: .highlighted)
+        button.tintColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.3)
+    }
+    
+    func circleMenu(_: CircleMenu, buttonWillSelected _: UIButton, atIndex: Int) {
+        print("button will selected: \(atIndex)")
+    }
+    
+    func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
+        print("button did selected: \(atIndex)")
     }
     
     func serveSemiViewRed() -> UIView {
@@ -210,9 +251,23 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        let button = CircleMenu(
+            //frame: CGRect(x: 200, y: 200, width: 50, height: 50),
+            frame: CGRect(x: 30, y: 30, width: 30, height: 30),
+            normalIcon:"icon_menu",
+            selectedIcon:"icon_close",
+            buttonsCount: 5,
+            duration: 1,
+            distance: 45)
+        button.backgroundColor = UIColor.lightGray
+        button.delegate = self
+//        button.layer.cornerRadius = button.frame.size.width / 2.0
+        button.layer.cornerRadius = button.frame.size.width / 2.0
+        view.addSubview(button)
+        
         // Do any additional setup after loading the view.
         enableDarkModeIfPreset()
-//        todaysScoreCounter.text = "\(calculateTodaysScore())"
+        //        todaysScoreCounter.text = "\(calculateTodaysScore())"
         self.title = "This Day \(calculateTodaysScore())"
         //navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
         
@@ -229,7 +284,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         self.navigationController!.navigationBar.prefersLargeTitles = true
         
-        scoreButton.title = "99"
+        //        scoreButton.title = "99"
         
     }
     
