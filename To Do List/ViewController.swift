@@ -51,7 +51,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
     }
     
-    // MARK: <CircleMenuDelegate>
+    // MARK:- CircleMenuDelegate
     
     func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
         button.backgroundColor = items[atIndex].color
@@ -66,6 +66,17 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     func circleMenu(_: CircleMenu, buttonWillSelected _: UIButton, atIndex: Int) {
         print("button will selected: \(atIndex)")
+        if (atIndex == 3) { //Opens settings menu
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { //adds delay
+                // your code here
+                let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+                     let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage")
+                             self.present(newViewController, animated: true, completion: nil)
+            }
+            
+     
+        }
     }
     
     func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
@@ -253,12 +264,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         let button = CircleMenu(
             //frame: CGRect(x: 200, y: 200, width: 50, height: 50),
-            frame: CGRect(x: 30, y: 30, width: 30, height: 30),
+            frame: CGRect(x: 30, y: 35, width: 30, height: 30),
             normalIcon:"icon_menu",
             selectedIcon:"icon_close",
             buttonsCount: 5,
             duration: 1,
-            distance: 45)
+            distance: 48)
         button.backgroundColor = UIColor.lightGray
         button.delegate = self
 //        button.layer.cornerRadius = button.frame.size.width / 2.0
