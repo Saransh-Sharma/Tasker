@@ -118,10 +118,28 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
 //        theTextField.rightView = button;
 //        theTextField.rightViewMode = UITextFieldViewModeWhileEditing;
         
-        let mButton = UIButton(type: .custom)
-        mButton.setImage(UIImage(named: "icon_close"), for: UIControl.State.normal)
-        textFeild.rightView = mButton
+        let clearAddTaskTextFieldButton = UIButton(type: .custom)
+        let roundedImage =  UIImage( named: "icon_close" )!.rounded!
+//        mButton.setImage(UIImage(named: "icon_close"), for: UIControl.State.normal)
+        roundedImage.withTintColor(.cyan)
+        clearAddTaskTextFieldButton.setImage(roundedImage, for: UIControl.State.normal)
+        textFeild.rightView = clearAddTaskTextFieldButton
         textFeild.rightViewMode = .whileEditing
+        
+//        mButton.addTarget(self, action: #selector(clearButtonAction), for: .touchUpInside)
+        clearAddTaskTextFieldButton.addTarget(self, action: #selector(clearButtonAction), for: .touchUpInside)
+        
+        clearAddTaskTextFieldButton.tag = 1
+        
+    
+    }
+    
+    @objc func clearButtonAction(sender: UIButton!) {
+        let buttonSenderTag = sender.tag
+        if(buttonSenderTag == 1) {
+
+            addTaskTextField.text = ""
+        }
     }
     
     
@@ -148,6 +166,17 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     
 }
 
+extension UIImage
+{
+    /// Return a version of this image cropped to a circle.
+    /// Assumes image is a square to start with
+    var rounded:UIImage? {
+        UIGraphicsBeginImageContext(size)
+        UIBezierPath( ovalIn: CGRect( origin: .zero, size: size )).addClip()
+        self.draw(at: .zero)
+        return UIGraphicsGetImageFromCurrentImageContext()
+    }
+}
 
 
 
