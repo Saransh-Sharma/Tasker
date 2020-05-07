@@ -14,6 +14,10 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
     
+    //MARK: Positioning
+    var textBoxEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
+    var topHeaderEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
+    var standardHeight: CGFloat = UIScreen.main.bounds.maxY/5
     
     let seperatorCellID = "seperator"
     // MARK:- Outlets
@@ -21,7 +25,10 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var weeklyTableView: UITableView!
     
     @IBOutlet weak var addTaskTextField: UITextField!
+    @IBOutlet weak var addTaskButton: UIButton!
     
+    @IBAction func addTaskButtonAction(_ sender: Any) {
+    }
     
     
     //    override func loadView() {
@@ -38,6 +45,7 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         weeklyTableView.dataSource = self
         
         setupAddTaskTextField(textFeild: addTaskTextField)
+        setupAddTaskButtonDone(addTaskButtonDone: addTaskButton)
         
     }
     
@@ -102,47 +110,66 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     //    }
     
     
+    // MARK: MAKE AddTask Button
+    
+    func setupAddTaskButtonDone(addTaskButtonDone: UIButton) {
+        //              addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-UIScreen.main.bounds.maxY/11, width: 50, height: 50)
+        
+        let doneButtonY = topHeaderEndY+textBoxEndY - 40
+        print("Placing done button at: \(doneButtonY)")
+        addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: 50, height: 50)
+        
+        //        addTaskButton.titleLabel?.text = "+"
+        addTaskButtonDone.titleLabel?.textColor = primaryColor
+        addTaskButtonDone.titleLabel?.textAlignment = .center
+        addTaskButtonDone.titleLabel?.numberOfLines = 0
+//        addTaskButtonDone.backgroundColor = secondryColor
+        addTaskButtonDone.backgroundColor = .red
+        addTaskButtonDone.layer.cornerRadius = addTaskButtonDone.bounds.size.width/2;
+        addTaskButtonDone.layer.masksToBounds = true
+        
+        //                return addTaskButton
+    }
+    
+    // MARK: MAKE AddTask TextFeild
+    
     func setupAddTaskTextField(textFeild: UITextField) {
         
         let placeholderString =
             NSAttributedString.init(string: "Type in & tap done", attributes: [NSAttributedString.Key.foregroundColor : primaryColor])
-        
         textFeild.attributedPlaceholder = placeholderString
         textFeild.backgroundColor = UIColor.blue
-    
-        
- 
-//        UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
-//        [button setImage:[UIImage imageNamed:@"clear_button.png"] forState:UIControlStateNormal];
-//        [button setFrame:CGRectMake(0.0f, 0.0f, 15.0f, 15.0f)]; // Required for iOS7
-//        theTextField.rightView = button;
-//        theTextField.rightViewMode = UITextFieldViewModeWhileEditing;
-        
         let clearAddTaskTextFieldButton = UIButton(type: .custom)
         let roundedImage =  UIImage( named: "icon_close" )!.rounded!
-//        mButton.setImage(UIImage(named: "icon_close"), for: UIControl.State.normal)
-        roundedImage.withTintColor(.cyan)
         clearAddTaskTextFieldButton.setImage(roundedImage, for: UIControl.State.normal)
         textFeild.rightView = clearAddTaskTextFieldButton
         textFeild.rightViewMode = .whileEditing
-        
-//        mButton.addTarget(self, action: #selector(clearButtonAction), for: .touchUpInside)
         clearAddTaskTextFieldButton.addTarget(self, action: #selector(clearButtonAction), for: .touchUpInside)
-        
         clearAddTaskTextFieldButton.tag = 1
         
-    
+        textBoxEndY = textFeild.bounds.height
+//        textBoxEndY = textFeild.bounds.maxY-textFeild.bounds.height
+        print("-------------------------------------------")
+        print("textFeild maxY: \(textFeild.bounds.maxY)")
+        print("textFeild MID: \(textFeild.bounds.midY)")
+        print("textFeild MIN: \(textFeild.bounds.minY)")
+        print("textFeild MAX + HEIGHT: \(textFeild.bounds.maxY-textFeild.bounds.height)")
+        print("textFeild HEIGHT: \(textFeild.bounds.height)")
+        print("-------------------------------------------")
     }
     
+    /*
+     Clears add task text feild on tapping the X button to the right
+     */
     @objc func clearButtonAction(sender: UIButton!) {
         let buttonSenderTag = sender.tag
         if(buttonSenderTag == 1) {
-
             addTaskTextField.text = ""
         }
     }
     
     
+    // MARK: MAKE TopHeader
     
     func setupAddTaskPageHeader() -> UIView {
         let view = UIView(frame: UIScreen.main.bounds)
@@ -159,6 +186,15 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         //            homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
         //            view.addSubview(homeTitle)
         
+        topHeaderEndY = view.bounds.height
+        print("-------------------------------------------")
+        print("topHeader maxY: \(view.bounds.maxY)")
+               print("topHeader MID: \(view.bounds.midY)")
+               print("topHeader MIN: \(view.bounds.minY)")
+               print("topHeader MAX + HEIGHT: \(view.bounds.maxY-view.bounds.height)")
+        print("topHeader HEIGHT: \(view.bounds.height)")
+        
+        print("-------------------------------------------")
         return view
     }
     

@@ -99,11 +99,20 @@
                                 <fontDescription key="fontDescription" name="HelveticaNeue" family="Helvetica Neue" pointSize="40"/>
                                 <textInputTraits key="textInputTraits" autocapitalizationType="sentences" returnKeyType="done" enablesReturnKeyAutomatically="YES" smartDashesType="yes" smartInsertDeleteType="yes" smartQuotesType="yes"/>
                             </textField>
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="eRq-x1-Yld">
+                                <rect key="frame" x="327" y="195" width="19" height="22"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <state key="normal" image="checkmark" catalog="system"/>
+                                <connections>
+                                    <action selector="addTaskButtonAction:" destination="gqW-BY-mxJ" eventType="touchUpInside" id="GFW-Gq-tkq"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <viewLayoutGuide key="safeArea" id="qXm-vK-gyW"/>
                     </view>
                     <connections>
+                        <outlet property="addTaskButton" destination="eRq-x1-Yld" id="G8t-p7-GbH"/>
                         <outlet property="addTaskTextField" destination="kq3-an-wh0" id="cbW-L8-PeX"/>
                         <outlet property="weeklyTableView" destination="SCL-BB-sKx" id="4zD-BZ-X0q"/>
                     </connections>
@@ -243,6 +252,7 @@
     </scenes>
     <resources>
         <image name="calendar" catalog="system" width="64" height="52"/>
+        <image name="checkmark" catalog="system" width="64" height="56"/>
         <image name="chevron.left" catalog="system" width="48" height="64"/>
         <image name="tray.full.fill" catalog="system" width="64" height="44"/>
     </resources>

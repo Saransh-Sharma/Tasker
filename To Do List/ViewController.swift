@@ -102,7 +102,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 //        addTaskButton.titleLabel?.text = "+"
         addTaskButton.titleLabel?.textColor = primaryColor
         addTaskButton.titleLabel?.textAlignment = .center
-//        addTaskButton.titleLabel?.font =  UIFont(name: "HelveticaNeue-Medium", size: 40)
         addTaskButton.titleLabel?.numberOfLines = 0
         addTaskButton.backgroundColor = secondryColor
         addTaskButton.layer.cornerRadius = addTaskButton.bounds.size.width/2;
