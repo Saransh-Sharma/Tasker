@@ -17,7 +17,8 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK: Positioning
     var textBoxEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
     var topHeaderEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
-    var standardHeight: CGFloat = UIScreen.main.bounds.maxY/5
+    var standardHeight: CGFloat = UIScreen.main.bounds.maxY/6
+    
     
     let seperatorCellID = "seperator"
     // MARK:- Outlets
@@ -46,13 +47,17 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         
         setupAddTaskTextField(textFeild: addTaskTextField)
         setupAddTaskButtonDone(addTaskButtonDone: addTaskButton)
+//        view.bringSubviewToFront(<#T##view: UIView##UIView#>)
+        
+        view.addSubview(setupFirstSeperator())
+        
         
     }
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         
         if (indexPath.row == 0) {
-            return view.bounds.height/10
+            return standardHeight/2
         }
         return UITableView.automaticDimension
     }
@@ -109,15 +114,38 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     //        tableView.register(UITableViewCell.self, forCellReuseIdentifier: seperatorCellID)
     //    }
     
+    // MARK: MAKE Seperator
+    
+    func setupFirstSeperator() -> UIView {
+        let mview = UIView()
+        let seperatorImage = UIImageView()
+        
+        mview.frame = CGRect(x: 0, y: standardHeight+standardHeight/2, width: UIScreen.main.bounds.width, height: standardHeight/2)
+        
+        mview.backgroundColor = .brown
+       
+        seperatorImage.frame = CGRect(x: 0, y: mview.bounds.minY, width: mview.bounds.width, height: mview.bounds.height)
+        seperatorImage.backgroundColor = .black
+        mview.addSubview(seperatorImage)
+        
+        super.view.sendSubviewToBack(mview)
+        
+        
+//        CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
+        
+        return mview
+    }
+    
     
     // MARK: MAKE AddTask Button
     
     func setupAddTaskButtonDone(addTaskButtonDone: UIButton) {
-        //              addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-UIScreen.main.bounds.maxY/11, width: 50, height: 50)
+
+        let doneButtonHeightWidth: CGFloat = 50
+        let doneButtonY = (standardHeight+standardHeight/2)-(doneButtonHeightWidth/2)
         
-        let doneButtonY = topHeaderEndY+textBoxEndY - 40
         print("Placing done button at: \(doneButtonY)")
-        addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: 50, height: 50)
+        addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: doneButtonHeightWidth, height: doneButtonHeightWidth)
         
         //        addTaskButton.titleLabel?.text = "+"
         addTaskButtonDone.titleLabel?.textColor = primaryColor
@@ -128,6 +156,9 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         addTaskButtonDone.layer.cornerRadius = addTaskButtonDone.bounds.size.width/2;
         addTaskButtonDone.layer.masksToBounds = true
         
+        super.view.bringSubviewToFront(addTaskButtonDone)
+        
+        
         //                return addTaskButton
     }
     
@@ -135,6 +166,7 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     
     func setupAddTaskTextField(textFeild: UITextField) {
         
+        textFeild.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
         let placeholderString =
             NSAttributedString.init(string: "Type in & tap done", attributes: [NSAttributedString.Key.foregroundColor : primaryColor])
         textFeild.attributedPlaceholder = placeholderString
@@ -174,7 +206,7 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     func setupAddTaskPageHeader() -> UIView {
         let view = UIView(frame: UIScreen.main.bounds)
         //        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
-        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/7+10)
+        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: standardHeight)
         //        view.backgroundColor = secondryColor
         view.backgroundColor = .green
         
