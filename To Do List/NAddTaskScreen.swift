@@ -45,11 +45,13 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         weeklyTableView.delegate = self
         weeklyTableView.dataSource = self
         
+        view.addSubview(setupFirstSeperator())
         setupAddTaskTextField(textFeild: addTaskTextField)
         setupAddTaskButtonDone(addTaskButtonDone: addTaskButton)
-//        view.bringSubviewToFront(<#T##view: UIView##UIView#>)
+        view.addSubview(setupEveningTaskSwitch())
+
         
-        view.addSubview(setupFirstSeperator())
+        
         
         
     }
@@ -103,18 +105,37 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         return cell
     }
     
-    //    func setupTableView() {
-    //        view.addSubview(tableView)
-    //        tableView.translatesAutoresizingMaskIntoConstraints = false
-    //        tableView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
-    //        tableView.leftAnchor.constraint(equalTo: view.leftAnchor).isActive = true
-    //        tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
-    //        tableView.rightAnchor.constraint(equalTo: view.rightAnchor).isActive = true
-    //
-    //        tableView.register(UITableViewCell.self, forCellReuseIdentifier: seperatorCellID)
-    //    }
+    // MARK: MAKE Eveninng Switch
     
-    // MARK: MAKE Seperator
+    func setupEveningTaskSwitch() -> UIView {
+        let mView = UIView()
+        let switchBackground = UIImageView()
+        let eveningLabel = UILabel()
+        let eveningSwitch = UISwitch()
+        
+        mView.frame = CGRect(x: 0, y: standardHeight+standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
+        
+        switchBackground.frame = CGRect(x: 0, y: mView.bounds.minY, width: mView.bounds.width, height: mView.bounds.height)
+        switchBackground.backgroundColor = .darkGray
+        mView.addSubview(switchBackground)
+        
+        eveningLabel.frame = CGRect(x: 10, y: 0, width: UIScreen.main.bounds.width/2, height: mView.bounds.maxY)
+        eveningLabel.text = "evening task"
+        eveningLabel.adjustsFontSizeToFitWidth = true
+        eveningLabel.font = eveningLabel.font.withSize(mView.bounds.height/3)
+        eveningLabel.textColor = primaryColor
+        mView.addSubview(eveningLabel)
+        
+//        eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-60, y: mView.bounds.midY-mView.bounds.midY/2, width: UIScreen.main.bounds.width/4, height: mView.bounds.height)
+        
+         eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-70, y: mView.bounds.midY-mView.bounds.midY/2, width: UIScreen.main.bounds.width/4, height: mView.bounds.height)
+        
+        mView.addSubview(eveningSwitch)
+        
+        return mView
+    }
+    
+    // MARK: MAKE First Seperator
     
     func setupFirstSeperator() -> UIView {
         let mview = UIView()
@@ -122,7 +143,7 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         
         mview.frame = CGRect(x: 0, y: standardHeight+standardHeight/2, width: UIScreen.main.bounds.width, height: standardHeight/2)
         
-        mview.backgroundColor = .brown
+    
        
         seperatorImage.frame = CGRect(x: 0, y: mview.bounds.minY, width: mview.bounds.width, height: mview.bounds.height)
         seperatorImage.backgroundColor = .black
@@ -147,7 +168,7 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         print("Placing done button at: \(doneButtonY)")
         addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: doneButtonHeightWidth, height: doneButtonHeightWidth)
         
-        //        addTaskButton.titleLabel?.text = "+"
+        
         addTaskButtonDone.titleLabel?.textColor = primaryColor
         addTaskButtonDone.titleLabel?.textAlignment = .center
         addTaskButtonDone.titleLabel?.numberOfLines = 0
@@ -155,16 +176,17 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         addTaskButtonDone.backgroundColor = .red
         addTaskButtonDone.layer.cornerRadius = addTaskButtonDone.bounds.size.width/2;
         addTaskButtonDone.layer.masksToBounds = true
-        
+
+                                
         super.view.bringSubviewToFront(addTaskButtonDone)
         
-        
-        //                return addTaskButton
     }
     
     // MARK: MAKE AddTask TextFeild
     
     func setupAddTaskTextField(textFeild: UITextField) {
+        
+//        let mView = UIView()
         
         textFeild.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
         let placeholderString =
@@ -180,7 +202,32 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         clearAddTaskTextFieldButton.tag = 1
         
         textBoxEndY = textFeild.bounds.height
-//        textBoxEndY = textFeild.bounds.maxY-textFeild.bounds.height
+        
+//        mView.addSubview(textFeild)
+        
+        //---------------
+        
+//        let addTaskButtonDone = UIButton()
+//        
+//          let doneButtonHeightWidth: CGFloat = 50
+//                let doneButtonY = (standardHeight+standardHeight/2)-(doneButtonHeightWidth/2)
+//                
+//                print("Placing done button at: \(doneButtonY)")
+//                addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: doneButtonHeightWidth, height: doneButtonHeightWidth)
+//                
+//                
+//                addTaskButtonDone.titleLabel?.textColor = primaryColor
+//                addTaskButtonDone.titleLabel?.textAlignment = .center
+//                addTaskButtonDone.titleLabel?.numberOfLines = 0
+//        //        addTaskButtonDone.backgroundColor = secondryColor
+//                addTaskButtonDone.backgroundColor = .red
+//                addTaskButtonDone.layer.cornerRadius = addTaskButtonDone.bounds.size.width/2;
+//                addTaskButtonDone.layer.masksToBounds = true
+//        
+//        mView.addSubview(addTaskButtonDone)
+        
+        
+
         print("-------------------------------------------")
         print("textFeild maxY: \(textFeild.bounds.maxY)")
         print("textFeild MID: \(textFeild.bounds.midY)")
