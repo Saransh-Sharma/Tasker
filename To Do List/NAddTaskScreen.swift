@@ -23,7 +23,7 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
        return row
     }
     
-    let dataArray = ["Today", "Tomorrow", "This Weekend", "Next Week", "Custom"]
+    let dataArray = ["Today", "Tomorrow", "Weekend", "Next Week", "Custom"]
     var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
@@ -31,7 +31,8 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK: Positioning
     var textBoxEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
     var topHeaderEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
-    var standardHeight: CGFloat = UIScreen.main.bounds.maxY/6
+//    var standardHeight: CGFloat = UIScreen.main.bounds.maxY/6
+    var standardHeight: CGFloat = UIScreen.main.bounds.maxY/10
     
     //picker
     let UIPicker: UIPickerView = UIPickerView()
@@ -77,6 +78,7 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         UIPicker.center = self.view.center
         
         view.addSubview(setupDayPicker(picker: UIPicker))
+        view.addSubview(setupFinalFiller())
         
         
         
@@ -132,7 +134,15 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         return cell
     }
     
-    
+    // MARK: MAKE final filler
+    func setupFinalFiller() -> UIView {
+        
+        let mView = UIView()
+        let diff = UIScreen.main.bounds.height-(standardHeight+standardHeight+standardHeight+standardHeight+standardHeight)
+        mView.frame = CGRect(x: 0, y: standardHeight+standardHeight+standardHeight+standardHeight+standardHeight, width: UIScreen.main.bounds.width, height: diff)
+        mView.backgroundColor = primaryColor
+        return mView
+    }
     
     
     // MARK: MAKE Day Picker
@@ -143,21 +153,9 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         mView.frame = CGRect(x: 0, y: standardHeight+standardHeight+standardHeight+standardHeight, width: UIScreen.main.bounds.width, height: standardHeight)
         mView.backgroundColor = primaryColor
         
-        //--------------------------
-        
-
-        
-        
         picker.frame = CGRect(x: 0, y: mView.bounds.minY, width: mView.bounds.width, height: mView.bounds.height)
         
         mView.addSubview(picker)
-        
-        
-        
-        
-        
-        //--------------------------
-        
         
         return mView
     }
