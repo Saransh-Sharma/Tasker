@@ -8,7 +8,8 @@
 
 import UIKit
 
-class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelegate, UIPickerViewDelegate, UIPickerViewDataSource {
+class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelegate, UIPickerViewDelegate, UIPickerViewDataSource
+{
    
     func numberOfComponents(in pickerView: UIPickerView) -> Int {
         return 1
@@ -23,7 +24,14 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
        return row
     }
     
-    let dataArray = ["Today", "Tomorrow", "Weekend", "Next Week", "Custom"]
+    func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+        
+        taskDayFromPicker = dataArray[row]
+        
+    }
+
+    
+    let dataArray = ["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
     var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
@@ -36,6 +44,7 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     
     //picker
     let UIPicker: UIPickerView = UIPickerView()
+    var taskDayFromPicker: String =  "Today"//change datatype tp task type
     
 
     
@@ -57,6 +66,8 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     ////        view.addSubview(servePageHeader())
     ////        setupTableView()
     //    }
+    
+    // MARK:- VIEW DID LOAD
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -80,6 +91,7 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         view.addSubview(setupDayPicker(picker: UIPicker))
         view.addSubview(setupFinalFiller())
         
+
         
         
         
@@ -154,6 +166,11 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         mView.backgroundColor = primaryColor
         
         picker.frame = CGRect(x: 0, y: mView.bounds.minY, width: mView.bounds.width, height: mView.bounds.height)
+        
+        picker.selectRow(1, inComponent: 0, animated: true)
+        
+//        picker.didselect
+//        picker.setva
         
         mView.addSubview(picker)
         
@@ -368,6 +385,10 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     
     
     // MARK: MAKE TopHeader
+    
+     override var preferredStatusBarStyle: UIStatusBarStyle {
+         return .lightContent
+     }
     
     func setupAddTaskPageHeader() -> UIView {
         let view = UIView(frame: UIScreen.main.bounds)
