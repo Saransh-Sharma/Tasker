@@ -11,6 +11,7 @@ import CoreData
 import SemiModalViewController
 import TableViewReloadAnimation
 import CircleMenu
+//import StrikethroughLabel
 
 
 extension UIColor {
@@ -27,28 +28,112 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     let colors = [UIColor.red, UIColor.gray, UIColor.green, UIColor.purple]
     let items: [(icon: String, color: UIColor)] = [
-        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
+//        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
+        ("", .clear),
         ("icon_search", UIColor(red: 0.22, green: 0.74, blue: 0, alpha: 1)),
         ("notifications-btn", UIColor(red: 0.96, green: 0.23, blue: 0.21, alpha: 1)),
         ("settings-btn", UIColor(red: 0.51, green: 0.15, blue: 1, alpha: 1)),
-        ("nearby-btn", UIColor(red: 1, green: 0.39, blue: 0, alpha: 1))
+//        ("nearby-btn", UIColor(red: 1, green: 0.39, blue: 0, alpha: 1))
+        ("", .clear)
     ]
     
     // MARK: Outlets
     
+    @IBOutlet weak var addTaskButton: UIButton!
     @IBOutlet weak var tableView: UITableView!
-    @IBOutlet weak var todaysScoreCounter: UILabel!
     @IBOutlet weak var switchState: UISwitch!
-    @IBOutlet weak var addTaskAtHome: UIButton!
     //    @IBOutlet weak var scoreButton: UIBarButtonItem!
     
     var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+    var scoreForTheDay: UILabel! = nil
     
-    
-    @IBAction func showStuff(_ sender: Any) {
+    override func viewDidLoad() {
+        super.viewDidLoad()
         
-        semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
+        view.addSubview(servePageHeader())
+        
+        //MARK: circle menu frame
+        let circleMenuButton = CircleMenu(
+            frame: CGRect(x: 32, y: 64, width: 30, height: 30),
+            normalIcon:"icon_menu",
+            selectedIcon:"icon_close",
+            buttonsCount: 5,
+            duration: 1,
+            distance: 50)
+        circleMenuButton.backgroundColor = primaryColor
+        circleMenuButton.delegate = self
+        circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
+        view.addSubview(circleMenuButton)
+        
+        view.addSubview(serveAddTaskButton(addTaskButton: addTaskButton))
+        
+        enableDarkModeIfPreset()
+    }
+    
+    
+    
+    func serveSemiViewRed() -> UIView {
+        
+        let view = UIView(frame: UIScreen.main.bounds)
+        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
+        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+        
+        let mylabel = UILabel()
+        mylabel.frame = CGRect(x: 20, y: 25, width: 370, height: 50)
+        mylabel.text = "This is placeholder text"
+        mylabel.textAlignment = .center
+        mylabel.backgroundColor = .white
+        view.addSubview(mylabel)
+        
+        return view
+    }
+    
+    // MARK:- Build Page Header
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .lightContent
+    }
+    
+    func serveAddTaskButton(addTaskButton: UIButton) -> UIView {
+        
+
+//        addTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX-80, y: UIScreen.main.bounds.maxY-80, width: 50, height: 50)
+            addTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-UIScreen.main.bounds.maxY/11, width: 50, height: 50)
+//        addTaskButton.titleLabel?.text = "+"
+        addTaskButton.titleLabel?.textColor = primaryColor
+        addTaskButton.titleLabel?.textAlignment = .center
+        addTaskButton.titleLabel?.numberOfLines = 0
+        addTaskButton.backgroundColor = secondryColor
+        addTaskButton.layer.cornerRadius = addTaskButton.bounds.size.width/2;
+        addTaskButton.layer.masksToBounds = true
+        
+        return addTaskButton
+    }
+    
+    func servePageHeader() -> UIView {
+        let view = UIView(frame: UIScreen.main.bounds)
+        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
+        view.backgroundColor = secondryColor
+        
+        let homeTitle = UILabel()
+//        homeTitle.frame = CGRect(x: view.frame.minX+84, y: view.frame.maxY-60, width: view.frame.width/2+20, height: 64)
+        homeTitle.frame = CGRect(x: (view.frame.minX+view.frame.maxX/5)+3, y: view.frame.maxY-60, width: view.frame.width/2+view.frame.width/8, height: 64)
+        homeTitle.text = "Today's score is "
+        homeTitle.textColor = primaryColor
+        homeTitle.textAlignment = .left
+        homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
+        view.addSubview(homeTitle)
+        
+        scoreForTheDay = UILabel()
+//        scoreForTheDay.frame = CGRect(x: view.frame.maxX-90, y: view.frame.maxY-60, width: 80, height: 64)
+        scoreForTheDay.frame = CGRect(x: (view.frame.maxX-view.frame.maxX/6)-10, y: view.frame.maxY-60, width: 80, height: 64)
+        scoreForTheDay.text = "13"
+        scoreForTheDay.textColor = primaryColor
+        scoreForTheDay.textAlignment = .center
+        scoreForTheDay.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
+        view.addSubview(scoreForTheDay)
+        
+        return view
     }
     
     // MARK:- CircleMenuDelegate
@@ -71,32 +156,16 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { //adds delay
                 // your code here
                 let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-                     let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage")
-                             self.present(newViewController, animated: true, completion: nil)
+                let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage")
+                self.present(newViewController, animated: true, completion: nil)
             }
             
-     
+            
         }
     }
     
     func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
         print("button did selected: \(atIndex)")
-    }
-    
-    func serveSemiViewRed() -> UIView {
-        
-        let view = UIView(frame: UIScreen.main.bounds)
-        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
-        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
-        
-        let mylabel = UILabel()
-        mylabel.frame = CGRect(x: 20, y: 25, width: 370, height: 50)
-        mylabel.text = "This is placeholder text"
-        mylabel.textAlignment = .center
-        mylabel.backgroundColor = .white
-        view.addSubview(mylabel)
-        
-        return view
     }
     
     func serveSemiViewBlue(task: NTask) -> UIView { //TODO: put each of this in a tableview
@@ -172,44 +241,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return view
     }
     
-    func serveSemiViewGreen(task: NTask) -> UIView {
-        
-        let view = UIView(frame: UIScreen.main.bounds)
-        
-        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
-        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
-        //let frameForView = view.bounds
-        
-        
-        let mylabel = UILabel() //Task Name
-        view.addSubview(mylabel)
-        mylabel.text = task.name
-        mylabel.textAlignment = .center
-        mylabel.backgroundColor = .black
-        mylabel.textColor = UIColor.white
-        
-        //            mylabel.frame = CGRect(x: frameForView.minX+10, y: frameForView.maxY-80, width: frameForView.width-20, height: frameForView.height/5)
-        
-        
-        
-        
-        
-        
-        //            let items = ["None", "Low", "High", "Highest"] //Priority SC
-        //            let customSC = UISegmentedControl(items: items)
-        //
-        //            customSC.selectedSegmentIndex = 1
-        //
-        //            customSC.snp.makeConstraints { (make) -> Void in
-        //                           make.width.top.equalTo(self.view)
-        //                make.height.equalTo(50)
-        //
-        //                       }
-        
-        
-        return view
-    }
-    
     // MARK:- DID SELECT ROW AT
     /*
      Prints logs on selecting a row
@@ -259,45 +290,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        
-        let button = CircleMenu(
-            //frame: CGRect(x: 200, y: 200, width: 50, height: 50),
-            frame: CGRect(x: 30, y: 35, width: 30, height: 30),
-            normalIcon:"icon_menu",
-            selectedIcon:"icon_close",
-            buttonsCount: 5,
-            duration: 1,
-            distance: 48)
-        button.backgroundColor = UIColor.lightGray
-        button.delegate = self
-//        button.layer.cornerRadius = button.frame.size.width / 2.0
-        button.layer.cornerRadius = button.frame.size.width / 2.0
-        view.addSubview(button)
-        
-        // Do any additional setup after loading the view.
-        enableDarkModeIfPreset()
-        //        todaysScoreCounter.text = "\(calculateTodaysScore())"
-        self.title = "This Day \(calculateTodaysScore())"
-        //navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
-        
-        //        print("OLD count is: \(OLD_TodoManager.sharedInstance.count)")
-        print("NEW count is: \(TaskManager.sharedInstance.count)")
-        
-        
-        //set nav bar to black with white text
-        self.navigationController!.navigationBar.barStyle = .black
-        self.navigationController!.navigationBar.backgroundColor = #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
-        self.navigationController!.navigationBar.isTranslucent = false
-        self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
-        //        self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
-        
-        self.navigationController!.navigationBar.prefersLargeTitles = true
-        
-        //        scoreButton.title = "99"
-        
-    }
+    
     
     /*
      Checks & enables dark mode if user previously set such
@@ -429,7 +422,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             
             openTaskCell.textLabel?.textColor = UIColor.black
             //            cell.accessoryType = .detailButton
-            openTaskCell.accessoryType = .detailDisclosureButton
+            openTaskCell.accessoryType = .disclosureIndicator
             //            cell.accessoryType = .disclosureIndicator
             return openTaskCell
         }
@@ -458,7 +451,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 break
             }
             
-            self.todaysScoreCounter.text = "\(self.calculateTodaysScore())"
+            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
             //            tableView.reloadData()
             
             // right spring animation
