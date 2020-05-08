@@ -8,7 +8,7 @@
 
 import UIKit
 
-class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelegate, UIPickerViewDelegate, UIPickerViewDataSource
+class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource
 {
    
     func numberOfComponents(in pickerView: UIPickerView) -> Int {
@@ -52,8 +52,6 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
     let seperatorCellID = "seperator"
     // MARK:- Outlets
     
-    @IBOutlet weak var weeklyTableView: UITableView!
-    
     @IBOutlet weak var addTaskTextField: UITextField!
     @IBOutlet weak var addTaskButton: UIButton!
     
@@ -73,8 +71,6 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         super.viewDidLoad()
         
         view.addSubview(setupAddTaskPageHeader())
-        weeklyTableView.delegate = self
-        weeklyTableView.dataSource = self
         
         view.addSubview(setupFirstSeperator())
         setupAddTaskTextField(textFeild: addTaskTextField)
@@ -105,47 +101,6 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         return UITableView.automaticDimension
     }
     
-    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
-    }
-    
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return 5
-    }
-    
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        
-        var cell = UITableViewCell()
-        cell.textLabel?.numberOfLines = 0
-        
-        
-        
-        if (indexPath.row == 0) {
-            cell = tableView.dequeueReusableCell(withIdentifier: seperatorCellID, for: indexPath)
-            cell.backgroundColor = secondryColor
-            
-            //               // cell.textLabel?.text = "This is compact \(indexPath.row)"
-            //                cell.backgroundColor = secondryColor
-            ////                addTaskTextField.placeholde
-            //
-            //                let textField = UITextField()
-            ////                textField.frame = CGRect(x: cell.bounds.minX, y: cell.bounds.minY, width: cell.bounds.width, height: cell.bounds.width)
-            
-            //                cell.addSubview(textField)
-            
-            
-            
-        } else {
-            cell.textLabel?.text = "This is a really long title that has no hope of fittinng in. blah blah blah.... blah blah blah.... blah blah blah.... \(indexPath.row)"
-        }
-        
-        
-        //        weeklyTaskTitleLabel.text = "This is weekly Cell \(indexPath.row)"
-        //inboxCell.textLabel?.text = "This is weekly cell \(indexPath.row)"
-        
-        return cell
-    }
-    
     // MARK: MAKE final filler
     func setupFinalFiller() -> UIView {
         
@@ -163,7 +118,8 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         
         let mView = UIView()
         mView.frame = CGRect(x: 0, y: standardHeight+standardHeight+standardHeight+standardHeight, width: UIScreen.main.bounds.width, height: standardHeight)
-        mView.backgroundColor = primaryColor
+//        mView.backgroundColor = primaryColor
+        mView.backgroundColor = .green
         
         picker.frame = CGRect(x: 0, y: mView.bounds.minY, width: mView.bounds.width, height: mView.bounds.height)
         
@@ -187,12 +143,13 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         let prioritySC = UISegmentedControl(items: p)
         
         //this is twice as wide so it also has the 3rd seperator built in
-        mView.frame = CGRect(x: 0, y: standardHeight+standardHeight+standardHeight, width: UIScreen.main.bounds.width, height: standardHeight)
+        mView.frame = CGRect(x: 0, y: standardHeight+standardHeight+standardHeight+standardHeight/2, width: UIScreen.main.bounds.width, height: standardHeight/2)
         
-        mView.backgroundColor = primaryColor
+//        mView.backgroundColor = primaryColor
+        mView.backgroundColor = .blue
         
         
-        prioritySC.frame = CGRect(x: 0, y: mView.bounds.minY, width: mView.bounds.width, height: mView.bounds.height/2)
+        prioritySC.frame = CGRect(x: 0, y: mView.bounds.minY, width: mView.bounds.width, height: mView.bounds.height)
         
         
         //Task Priority
@@ -225,8 +182,8 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         seperatorImage.frame = CGRect(x: 0, y: mview.bounds.minY, width: mview.bounds.width, height: mview.bounds.height)
-        //        seperatorImage.backgroundColor = .green
-        seperatorImage.backgroundColor = primaryColor
+        seperatorImage.backgroundColor = .brown
+//        seperatorImage.backgroundColor = primaryColor
         mview.addSubview(seperatorImage)
         
         super.view.sendSubviewToBack(mview)
@@ -248,8 +205,8 @@ class NAddTaskScreen: UIViewController, UITableViewDataSource, UITableViewDelega
         mView.frame = CGRect(x: 0, y: standardHeight+standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
         
         switchBackground.frame = CGRect(x: 0, y: mView.bounds.minY, width: mView.bounds.width, height: mView.bounds.height)
-        //        switchBackground.backgroundColor = .darkGray
-        switchBackground.backgroundColor = secondryColor
+                switchBackground.backgroundColor = .darkGray
+//        switchBackground.backgroundColor = secondryColor
         mView.addSubview(switchBackground)
         
         eveningLabel.frame = CGRect(x: 10, y: 0, width: UIScreen.main.bounds.width/2, height: mView.bounds.maxY)
