@@ -7,10 +7,19 @@
 //
 
 import UIKit
+import TableViewReloadAnimation
 
 class InboxViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
+    @IBOutlet weak var inboxTableView: UITableView!
     
+    
+    override func viewWillAppear(_ animated: Bool) {
+        // right spring animation
+        inboxTableView.reloadData(
+            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+            constantDelay: 0))
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()

@@ -1,0 +1,24 @@
+PODS:
+  - CircleMenu (4.1.0)
+  - SemiModalViewController (1.0.1)
+  - TableViewReloadAnimation (0.0.5)
+
+DEPENDENCIES:
+  - CircleMenu (~> 4.1.0)
+  - SemiModalViewController (~> 1.0.1)
+  - TableViewReloadAnimation (~> 0.0.5)
+
+SPEC REPOS:
+  trunk:
+    - CircleMenu
+    - SemiModalViewController
+    - TableViewReloadAnimation
+
+SPEC CHECKSUMS:
+  CircleMenu: a66095199a5e26f19acbb212f077010257767fe5
+  SemiModalViewController: 13fe8b991b501c7cd6a9ec7c782ed7a5c72c12e6
+  TableViewReloadAnimation: f3a4c4048efbc56331be98075f26a2e533a14c16
+
+PODFILE CHECKSUM: fcd30f2d1e634cd847549cabd5b366fb5aced22b
+
+COCOAPODS: 1.9.1

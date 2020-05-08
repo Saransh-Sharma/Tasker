@@ -8,78 +8,289 @@
 
 import UIKit
 import CoreData
+import SemiModalViewController
+import TableViewReloadAnimation
+import CircleMenu
+//import StrikethroughLabel
 
 
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+extension UIColor {
+    static func color(_ red: Int, green: Int, blue: Int, alpha: Float) -> UIColor {
+        return UIColor(
+            red: 1.0 / 255.0 * CGFloat(red),
+            green: 1.0 / 255.0 * CGFloat(green),
+            blue: 1.0 / 255.0 * CGFloat(blue),
+            alpha: CGFloat(alpha))
+    }
+}
+
+class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, CircleMenuDelegate {
+    
+    let colors = [UIColor.red, UIColor.gray, UIColor.green, UIColor.purple]
+    let items: [(icon: String, color: UIColor)] = [
+//        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
+        ("", .clear),
+        ("icon_search", UIColor(red: 0.22, green: 0.74, blue: 0, alpha: 1)),
+        ("notifications-btn", UIColor(red: 0.96, green: 0.23, blue: 0.21, alpha: 1)),
+        ("settings-btn", UIColor(red: 0.51, green: 0.15, blue: 1, alpha: 1)),
+//        ("nearby-btn", UIColor(red: 1, green: 0.39, blue: 0, alpha: 1))
+        ("", .clear)
+    ]
     
     // MARK: Outlets
     
+    @IBOutlet weak var addTaskButton: UIButton!
     @IBOutlet weak var tableView: UITableView!
-    @IBOutlet weak var todaysScoreCounter: UILabel!
     @IBOutlet weak var switchState: UISwitch!
-    @IBOutlet weak var addTaskAtHome: UIButton!
-    @IBOutlet weak var scoreButton: UIBarButtonItem!
+    //    @IBOutlet weak var scoreButton: UIBarButtonItem!
     
-    //    var todaysTasks = [Task]()
-    //    var eveningTasks = [Task]()
-    
-    //    var globalTaskList: [Task] = []
-    
-    //    func makeTask(name: String, type: TaskType, completed: Bool, lastCompleted: NSDate?, taskCreationDate: NSDate?, priority: TaskPriority? ) -> Task {
-    //        return Task(name: name, type: type, completed: completed, lastCompleted: lastCompleted, taskCreationDate: taskCreationDate, priority: priority)
-    //      }
-    
-    //    func addTaskToGlobalTasksList(taskToBeadded: Task, globalTasks: [Task]) -> [Task] {
-    //        var mTasks: [Task]
-    //        mTasks = globalTasks
-    //        mTasks.append(taskToBeadded)
-    //        return mTasks
-    //    }
-    
-    //    func getTodayMorningTasks(globalTasksList: [Task]) -> [Task] {
-    //
-    //        var todayMorning: [Task]
-    //
-    //
-    //        for each in globalTasksList {
-    //           // each.lastCompleted = isToaf
-    //            let today = Calendar.current.isDateInToday(each.lastCompleted! as Date)
-    //        }
-    //    }
-    
-    
-    // MARK:- View Lifecycle methods
-    
-    override func viewWillAppear(_ animated: Bool) {
-        tableView.reloadData()
-    }
-    
+    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+    var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+    var scoreForTheDay: UILabel! = nil
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Do any additional setup after loading the view.
+        view.addSubview(servePageHeader())
+        
+        //MARK: circle menu frame
+        let circleMenuButton = CircleMenu(
+            frame: CGRect(x: 32, y: 64, width: 30, height: 30),
+            normalIcon:"icon_menu",
+            selectedIcon:"icon_close",
+            buttonsCount: 5,
+            duration: 1,
+            distance: 50)
+        circleMenuButton.backgroundColor = primaryColor
+        circleMenuButton.delegate = self
+        circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
+        view.addSubview(circleMenuButton)
+        
+        view.addSubview(serveAddTaskButton(addTaskButton: addTaskButton))
+        
         enableDarkModeIfPreset()
-        todaysScoreCounter.text = "\(calculateTodaysScore())"
-        self.title = "This Day \(calculateTodaysScore())"
-        //navigationItem.prompt = NSLocalizedString("Your productivity score for the day is", comment: "")
+    }
+    
+    
+    
+    func serveSemiViewRed() -> UIView {
         
-        //        print("OLD count is: \(OLD_TodoManager.sharedInstance.count)")
-        print("NEW count is: \(TaskManager.sharedInstance.count)")
+        let view = UIView(frame: UIScreen.main.bounds)
+        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
+        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+        
+        let mylabel = UILabel()
+        mylabel.frame = CGRect(x: 20, y: 25, width: 370, height: 50)
+        mylabel.text = "This is placeholder text"
+        mylabel.textAlignment = .center
+        mylabel.backgroundColor = .white
+        view.addSubview(mylabel)
+        
+        return view
+    }
+    
+    // MARK:- Build Page Header
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .lightContent
+    }
+    
+    func serveAddTaskButton(addTaskButton: UIButton) -> UIView {
+        
+
+//        addTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX-80, y: UIScreen.main.bounds.maxY-80, width: 50, height: 50)
+            addTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-UIScreen.main.bounds.maxY/11, width: 50, height: 50)
+//        addTaskButton.titleLabel?.text = "+"
+        addTaskButton.titleLabel?.textColor = primaryColor
+        addTaskButton.titleLabel?.textAlignment = .center
+        addTaskButton.titleLabel?.numberOfLines = 0
+        addTaskButton.backgroundColor = secondryColor
+        addTaskButton.layer.cornerRadius = addTaskButton.bounds.size.width/2;
+        addTaskButton.layer.masksToBounds = true
+        
+        return addTaskButton
+    }
+    
+    func servePageHeader() -> UIView {
+        let view = UIView(frame: UIScreen.main.bounds)
+        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
+        view.backgroundColor = secondryColor
+        
+        let homeTitle = UILabel()
+//        homeTitle.frame = CGRect(x: view.frame.minX+84, y: view.frame.maxY-60, width: view.frame.width/2+20, height: 64)
+        homeTitle.frame = CGRect(x: (view.frame.minX+view.frame.maxX/5)+3, y: view.frame.maxY-60, width: view.frame.width/2+view.frame.width/8, height: 64)
+        homeTitle.text = "Today's score is "
+        homeTitle.textColor = primaryColor
+        homeTitle.textAlignment = .left
+        homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
+        view.addSubview(homeTitle)
+        
+        scoreForTheDay = UILabel()
+//        scoreForTheDay.frame = CGRect(x: view.frame.maxX-90, y: view.frame.maxY-60, width: 80, height: 64)
+        scoreForTheDay.frame = CGRect(x: (view.frame.maxX-view.frame.maxX/6)-10, y: view.frame.maxY-60, width: 80, height: 64)
+        scoreForTheDay.text = "13"
+        scoreForTheDay.textColor = primaryColor
+        scoreForTheDay.textAlignment = .center
+        scoreForTheDay.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
+        view.addSubview(scoreForTheDay)
+        
+        return view
+    }
+    
+    // MARK:- CircleMenuDelegate
+    
+    func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
+        button.backgroundColor = items[atIndex].color
+        
+        button.setImage(UIImage(named: items[atIndex].icon), for: .normal)
+        
+        // set highlited image
+        let highlightedImage = UIImage(named: items[atIndex].icon)?.withRenderingMode(.alwaysTemplate)
+        button.setImage(highlightedImage, for: .highlighted)
+        button.tintColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.3)
+    }
+    
+    func circleMenu(_: CircleMenu, buttonWillSelected _: UIButton, atIndex: Int) {
+        print("button will selected: \(atIndex)")
+        if (atIndex == 3) { //Opens settings menu
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { //adds delay
+                // your code here
+                let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+                let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage")
+                self.present(newViewController, animated: true, completion: nil)
+            }
+            
+            
+        }
+    }
+    
+    func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
+        print("button did selected: \(atIndex)")
+    }
+    
+    func serveSemiViewBlue(task: NTask) -> UIView { //TODO: put each of this in a tableview
+        
+        let view = UIView(frame: UIScreen.main.bounds)
+        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
+        //        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+        view.backgroundColor = primaryColor
+        let frameForView = view.bounds
+        
+        let taskName = UILabel() //Task Name
+        view.addSubview(taskName)
+        taskName.frame = CGRect(x: frameForView.minX, y: frameForView.minY, width: frameForView.width, height: frameForView.height/5)
+        taskName.text = task.name
+        taskName.textAlignment = .center
+        taskName.backgroundColor = .black
+        taskName.textColor = UIColor.white
+        
+        let eveningLabel = UILabel() //Evening Label
+        view.addSubview(eveningLabel)
+        eveningLabel.text = "evening task"
+        eveningLabel.textAlignment = .left
+        eveningLabel.textColor =  secondryColor
+        eveningLabel.frame = CGRect(x: frameForView.minX+40, y: frameForView.minY+85, width: frameForView.width-100, height: frameForView.height/8)
+        
+        let eveningSwitch = UISwitch() //Evening Switch
+        view.addSubview(eveningSwitch)
+        eveningSwitch.onTintColor = secondryColor
+        
+        if(Int(task.taskType) == 2) {
+            print("Task type is evening; 2")
+            eveningSwitch.setOn(true, animated: true)
+        } else {
+            print("Task type is NOT evening;")
+            eveningSwitch.setOn(false, animated: true)
+        }
+        eveningSwitch.frame = CGRect(x: frameForView.maxX-80, y: frameForView.minY+85, width: frameForView.width-100, height: frameForView.height/8)
         
         
-        //set nav bar to black with white text
-        self.navigationController!.navigationBar.barStyle = .black
-        self.navigationController!.navigationBar.backgroundColor = #colorLiteral(red: 0.3832732439, green: 0.2574394345, blue: 0.6453867555, alpha: 1)
-        self.navigationController!.navigationBar.isTranslucent = false
-        self.navigationController!.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
-        //        self.navigationController!.navigationBar.tintColor = #colorLiteral(red: 1, green: 0.99997437, blue: 0.9999912977, alpha: 1)
+        let p = ["None", "Low", "High", "Highest"]
+        let prioritySegmentedControl = UISegmentedControl(items: p) //Task Priority
+        view.addSubview(prioritySegmentedControl)
+        prioritySegmentedControl.selectedSegmentIndex = 1
+        prioritySegmentedControl.backgroundColor = .white
+        prioritySegmentedControl.selectedSegmentTintColor =  secondryColor
         
-        self.navigationController!.navigationBar.prefersLargeTitles = true
         
-        scoreButton.title = "99"
+        
+        prioritySegmentedControl.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
+        
+        prioritySegmentedControl.frame = CGRect(x: frameForView.minX+20, y: frameForView.minY+150, width: frameForView.width-40, height: frameForView.height/7)
+        
+        
+        let datePicker = UIDatePicker() //DATE PICKER //there should not be a date picker here //there can be calender icon instead
+        view.addSubview(datePicker)
+        datePicker.datePickerMode = .date
+        datePicker.timeZone = NSTimeZone.local
+        datePicker.backgroundColor = UIColor.white
+        
+        //Set minimum and Maximum Dates
+        let calendar = Calendar(identifier: .gregorian)
+        var comps = DateComponents()
+        comps.month = 1
+        let maxDate = calendar.date(byAdding: comps, to: Date())
+        comps.month = 0
+        comps.day = -1
+        let minDate = calendar.date(byAdding: comps, to: Date())
+        datePicker.maximumDate = maxDate
+        datePicker.minimumDate = minDate
+        datePicker.frame = CGRect(x: frameForView.minX+30, y: frameForView.minY+230, width: frameForView.width-60, height: frameForView.height/8)
+        
+        
+        return view
+    }
+    
+    // MARK:- DID SELECT ROW AT
+    /*
+     Prints logs on selecting a row
+     */
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        print("You selected row \(indexPath.row) from section \(indexPath.section)")
+        
+        var currentTask: NTask!
+        //        semiViewDefaultOptions(viewToBePrsented: serveViewBlue())
+        switch indexPath.section {
+        case 0:
+            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
+        case 1:
+            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+        default:
+            break
+        }
+        
+        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
+        
+        semiViewDefaultOptions(viewToBePrsented: serveSemiViewBlue(task: currentTask))
+        
+        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewGreen(task: currentTask))
+        
+        
         
     }
+    
+    func semiViewDefaultOptions(viewToBePrsented: UIView) {
+        let options: [SemiModalOption : Any] = [
+            SemiModalOption.pushParentBack: true,
+            SemiModalOption.animationDuration: 0.2
+        ]
+        
+        presentSemiView(viewToBePrsented, options: options) {
+            print("Completed!")
+        }
+    }
+    
+    // MARK:- View Lifecycle methods
+    
+    override func viewWillAppear(_ animated: Bool) {
+        // right spring animation
+        tableView.reloadData(
+            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+                          constantDelay: 0))
+    }
+    
+    
+    
     
     /*
      Checks & enables dark mode if user previously set such
@@ -91,6 +302,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             view.backgroundColor = UIColor.darkGray
         } else {
             //            print("HOME: DARK OFF !!")
+            view.backgroundColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
         }
     }
     
@@ -115,13 +327,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return score;
     }
     
-    // MARK:- DID SELECT ROW AT
-    /*
-     Prints logs on selecting a row
-     */
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print("You selected row \(indexPath.row) from section \(indexPath.section)")
-    }
+    
     
     // MARK: toggle dark mode
     
@@ -161,6 +367,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             return nil
         }
     }
+    
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         
@@ -215,7 +422,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             
             openTaskCell.textLabel?.textColor = UIColor.black
             //            cell.accessoryType = .detailButton
-            openTaskCell.accessoryType = .detailDisclosureButton
+            openTaskCell.accessoryType = .disclosureIndicator
             //            cell.accessoryType = .disclosureIndicator
             return openTaskCell
         }
@@ -244,8 +451,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 break
             }
             
-            self.todaysScoreCounter.text = "\(self.calculateTodaysScore())"
-            tableView.reloadData()
+            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
+            //            tableView.reloadData()
+            
+            // right spring animation
+            tableView.reloadData(
+                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+                              constantDelay: 0))
+            
             self.title = "\(self.calculateTodaysScore())"
             actionPerformed(true)
         }
@@ -293,7 +506,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                     break
                 }
                 
-                tableView.reloadData()
+                //                tableView.reloadData()
+                tableView.reloadData(
+                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
+                                  constantDelay: 0))
+                
                 
             }
             let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
