@@ -146,6 +146,10 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         view.bringSubviewToFront(circleMenuButton)
         
         
+//        addTaskTextField.text = "Placeholder"
+        addTaskTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
+        addTaskTextField.textColor = primaryColor
+        addTaskTextField.becomeFirstResponder()
         
         
         
@@ -350,8 +354,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         let mView = UIView()
         
-        mView.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
-        //        mView.backgroundColor = .green
+        mView.frame = CGRect(x: 0, y: standardHeight+standardHeight/4, width: UIScreen.main.bounds.width, height: standardHeight/2)
+//                mView.backgroundColor = .green
         mView.backgroundColor = secondryColor
         
         
@@ -359,11 +363,39 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         //        textFeild.frame = CGRect(x: UIScreen.main.bounds.width/4, y: standardHeight/4, width: UIScreen.main.bounds.width/2, height: standardHeight/2)
         
-        textFeild.frame = CGRect(x: UIScreen.main.bounds.width/4, y: 0, width: UIScreen.main.bounds.width/2, height: standardHeight/2)
+        textFeild.frame = CGRect(x: 36, y: 0, width: UIScreen.main.bounds.width-6, height: standardHeight/2)
         
-        let placeholderString =
+        let placeholderStringText =
             NSAttributedString.init(string: "Type in & tap done", attributes: [NSAttributedString.Key.foregroundColor : primaryColor])
-        textFeild.attributedPlaceholder = placeholderString
+        
+        //-----------------------------
+        
+        let string = "This is a test string"
+        let attributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: UIColor.white,
+            .backgroundColor: UIColor.red,
+            .font: UIFont.boldSystemFont(ofSize: 36)
+        ]
+
+        let attributedString = NSAttributedString(string: string, attributes: attributes)
+        
+//          let placeholderStringText =
+//                    NSAttributedString.init(string: "Type in & tap done", attributes: [NSAttributedString.Key.foregroundColor : primaryColor])
+//
+//        let placeholderStringShadow =
+//            NSAttributedString.init(string: "Type in & tap done", attributes: [NSAttributedString.Key.shadow : true])
+//
+//        let placeholderStringFont =
+//                   NSAttributedString.init(string: "Type in & tap done", attributes: [NSAttributedString.Key.font : 30])
+
+         
+     
+        
+        textFeild.attributedPlaceholder = placeholderStringText
+        
+        
+    
+        
         //                textFeild.backgroundColor = UIColor.black
         textFeild.backgroundColor = secondryColor
         let clearAddTaskTextFieldButton = UIButton(type: .custom)
