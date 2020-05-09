@@ -7,7 +7,11 @@ The To Do app I was always looking for.
 * Dark mode
 * Cloud Sync
 
-![ec3712a8bc6c2ad12bc511e547bd2fdb](https://user-images.githubusercontent.com/4607881/80911101-d134fe80-8d51-11ea-9869-e3fd89422ad2.gif)
+![73a31290b480ba1efa93ea44e242faee](https://user-images.githubusercontent.com/4607881/81483685-a79e3a80-925d-11ea-9415-c4a52c78c2c4.gif)
 
-![27715f7596e03ef2b6c45c6423270925](https://user-images.githubusercontent.com/4607881/80911104-d4c88580-8d51-11ea-8b9b-28a829a201d9.gif)
+![df822816f8d16b73afcf09d3001b719f](https://user-images.githubusercontent.com/4607881/81483689-aa992b00-925d-11ea-98ba-763b3137202f.gif)
+
+![d7050c2639f81f4fd8a8c413d71268a0](https://user-images.githubusercontent.com/4607881/81483694-b127a280-925d-11ea-8b79-06c0cfafe035.gif)
+
+![d47611bf3578abd81c5d99e47c6c962a](https://user-images.githubusercontent.com/4607881/81483695-b8e74700-925d-11ea-8048-3f00979c840a.gif)
 
