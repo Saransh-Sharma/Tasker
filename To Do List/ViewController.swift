@@ -57,7 +57,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         let circleMenuButton = CircleMenu(
             frame: CGRect(x: 32, y: 64, width: 30, height: 30),
             normalIcon:"icon_menu",
-            selectedIcon:"icon_close",
+//            selectedIcon:"icon_close",
+            selectedIcon:"material_close",
             buttonsCount: 5,
             duration: 1,
             distance: 50)
