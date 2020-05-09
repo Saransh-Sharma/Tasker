@@ -86,6 +86,15 @@
                                 <state key="normal" image="checkmark" catalog="system"/>
                                 <connections>
                                     <action selector="addTaskButtonAction:" destination="gqW-BY-mxJ" eventType="touchUpInside" id="GFW-Gq-tkq"/>
+                                    <action selector="doneButtonTappedAction:" destination="gqW-BY-mxJ" eventType="touchUpInside" id="1W7-it-8QV"/>
+                                </connections>
+                            </button>
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="KjY-Bp-JVj">
+                                <rect key="frame" x="309" y="62" width="30" height="32"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                <fontDescription key="fontDescription" name="HelveticaNeue" family="Helvetica Neue" pointSize="17"/>
+                                <connections>
+                                    <segue destination="BYZ-38-t0r" kind="presentation" modalPresentationStyle="fullScreen" id="eEv-LK-qfc"/>
                                 </connections>
                             </button>
                         </subviews>
@@ -95,11 +104,12 @@
                     <connections>
                         <outlet property="addTaskButton" destination="eRq-x1-Yld" id="G8t-p7-GbH"/>
                         <outlet property="addTaskTextField" destination="kq3-an-wh0" id="cbW-L8-PeX"/>
+                        <outlet property="cancelAddTaskButton" destination="KjY-Bp-JVj" id="5aw-C6-uur"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="2P4-U1-4pW" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="1861.5999999999999" y="963.54679802955673"/>
+            <point key="canvasLocation" x="1449" y="929"/>
         </scene>
         <!--Settings Page View Controller-->
         <scene sceneID="1cw-Fs-vYG">

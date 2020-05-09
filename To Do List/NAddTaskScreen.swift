@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 import CircleMenu
 
 class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate
@@ -38,6 +39,9 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
+    // MARK: TASK METADATA
+    var isThisEveningTask: Bool = false
+    
     
     //MARK: Positioning
     var textBoxEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
@@ -48,6 +52,13 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     let menuEndPoinY: CGFloat = 64
     let notchOffSet: CGFloat = 30
     
+    // MARK: CIRCLE MENU POSITIONNINNG
+    
+    let circleMenuRadius:CGFloat = 30
+    let circleMenuOuterRadius:Float = 50
+    let circleMenuStartX:CGFloat = 32
+    let circleMenuStartY:CGFloat = 40
+    
     //picker
     let UIPicker: UIPickerView = UIPickerView()
     var taskDayFromPicker: String =  "Today"//change datatype tp task type
@@ -56,12 +67,28 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     
     let seperatorCellID = "seperator" // TODO: remove
+    
+    let eveningSwitch = UISwitch()
+    
     // MARK:- Outlets
     
     @IBOutlet weak var addTaskTextField: UITextField!
     @IBOutlet weak var addTaskButton: UIButton!
     
+    @IBOutlet weak var cancelAddTaskButton: UIButton!
     @IBAction func addTaskButtonAction(_ sender: Any) {
+    }
+    
+    
+    //MARK: DONE BUTTON Tapped
+    @IBAction func doneButtonTappedAction(_ sender: UIButton) {
+        isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
+        if addTaskTextField.text != nil && addTaskTextField.text != "" {
+
+                TaskManager.sharedInstance.addNewTask(name: addTaskTextField.text!, taskType: getTaskType(), taskPriority: 2)
+            }
+
+            dismiss(animated: true)
     }
     
     
@@ -79,13 +106,9 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // MARK: CIRCLE MENU POSITIONNINNG
         
-        let circleMenuRadius:CGFloat = 30
-        let circleMenuOuterRadius:Float = 50
-        let circleMenuStartX:CGFloat = 32
-        //        let circleMenuStartY:CGFloat = 2*circleMenuStart
-        let circleMenuStartY:CGFloat = 40
+        
+
         
         
         // MARK: Add Task Title
@@ -122,15 +145,36 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             buttonsCount: 5, // 2 hidden
             duration: 1,
             distance: circleMenuOuterRadius)
+        
         circleMenuButton.backgroundColor = primaryColor
         circleMenuButton.delegate = self
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
         view.addSubview(circleMenuButton)
         
+//        cancelAddTask =
+        
+        // MARK: Cancel Add Task Button
+        cancelAddTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX - 70, y: circleMenuStartY, width: circleMenuRadius, height: circleMenuRadius)
+        cancelAddTaskButton.titleLabel?.text = ""
+        let cancelImage = UIImageView()
+        cancelImage.frame = CGRect(x: UIScreen.main.bounds.maxX - 70, y: circleMenuStartY, width: circleMenuRadius, height: circleMenuRadius)
+    
+        cancelImage.image = #imageLiteral(resourceName: "material_close")
+        cancelAddTaskButton.backgroundColor = primaryColor
+        
+        cancelAddTaskButton.layer.cornerRadius = cancelAddTaskButton.bounds.size.width/2;
+            cancelAddTaskButton.layer.masksToBounds = true
+//        cancelImage.backgroundColor = .black
+        view.addSubview(cancelImage)
+    
+        
+        
+        
+        // MARK: SETUP ALL VIEWS
         
         view.addSubview(setupFirstSeperator())
         view.addSubview(setupAddTaskTextField(textFeild: addTaskTextField))
-        setupAddTaskButtonDone(addTaskButtonDone: addTaskButton)
+        _ = setupAddTaskButtonDone(addTaskButtonDone: addTaskButton)
         view.addSubview(setupEveningTaskSwitch())
         view.addSubview(setupSecondSeperator())
         view.addSubview(setupPrioritySC())
@@ -144,10 +188,15 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         view.addSubview(setupFinalFiller())
         
         view.bringSubviewToFront(circleMenuButton)
+        view.bringSubviewToFront(addTaskButton)
+        view.bringSubviewToFront(cancelAddTaskButton)
+        view.bringSubviewToFront(cancelImage)
+
+        
         
         
 //        addTaskTextField.text = "Placeholder"
-        addTaskTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
+        addTaskTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
         addTaskTextField.textColor = primaryColor
         addTaskTextField.becomeFirstResponder()
         
@@ -256,13 +305,13 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         return mview
     }
     
-    // MARK: MAKE Eveninng Switch
+    // MARK: MAKE Evening Switch
     
     func setupEveningTaskSwitch() -> UIView {
         let mView = UIView()
         let switchBackground = UIImageView()
         let eveningLabel = UILabel()
-        let eveningSwitch = UISwitch()
+        
         
         mView.frame = CGRect(x: 0, y: standardHeight+standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
         
@@ -285,15 +334,27 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-70, y:mView.bounds.midY-((mView.bounds.midY/2)+5), width: UIScreen.main.bounds.width/4, height: mView.bounds.height-10)
         
         // Colors
-//        eveningSwitch.onTintColor = primaryColor
+        eveningSwitch.onTintColor = primaryColor
 //        eveningSwitch.tintColor = UIColor.red
 //        eveningSwitch.thumbTintColor = UIColor.white
 //        eveningSwitch.backgroundColor = UIColor.red
 //        eveningSwitch.layer.cornerRadius = 16
-        
+        eveningSwitch.addTarget(self, action: #selector(NAddTaskScreen.isEveningSwitchOn(sender:)), for: .valueChanged)
         mView.addSubview(eveningSwitch)
         
         return mView
+    }
+    
+    
+    @objc func isEveningSwitchOn(sender:UISwitch!) -> Bool {
+        if (sender.isOn == true){
+               print("SWITCH: on")
+            return true
+           }
+           else{
+               print("SWITCH: off")
+            return false
+           }
     }
     
     // MARK: MAKE First Seperator
@@ -322,13 +383,17 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     // MARK: MAKE AddTask Button
     
-    func setupAddTaskButtonDone(addTaskButtonDone: UIButton) {
+    func setupAddTaskButtonDone(addTaskButtonDone: UIButton) -> UIView{
         
         let doneButtonHeightWidth: CGFloat = 50
-        let doneButtonY = (standardHeight+standardHeight/2)-(doneButtonHeightWidth/2)
+//        let doneButtonY = (standardHeight+standardHeight/2)-(doneButtonHeightWidth/2)
+        
+        let doneButtonY = 4*(standardHeight)+standardHeight/2-(doneButtonHeightWidth/2)
         
         print("Placing done button at: \(doneButtonY)")
-        addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: doneButtonHeightWidth, height: doneButtonHeightWidth)
+//        addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: doneButtonHeightWidth, height: doneButtonHeightWidth)
+        
+         addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: doneButtonHeightWidth, height: doneButtonHeightWidth)
         
         
         addTaskButtonDone.titleLabel?.textColor = primaryColor
@@ -344,8 +409,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         //shadow(color: .gray, radius: 2, x: 0, y: 2)
         
         
-        super.view.bringSubviewToFront(addTaskButtonDone)
         
+        return addTaskButtonDone
     }
     
     // MARK: MAKE AddTask TextFeild
@@ -354,8 +419,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         let mView = UIView()
         
-        mView.frame = CGRect(x: 0, y: standardHeight+standardHeight/4, width: UIScreen.main.bounds.width, height: standardHeight/2)
-//                mView.backgroundColor = .green
+         mView.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
         mView.backgroundColor = secondryColor
         
         
@@ -363,10 +427,10 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         //        textFeild.frame = CGRect(x: UIScreen.main.bounds.width/4, y: standardHeight/4, width: UIScreen.main.bounds.width/2, height: standardHeight/2)
         
-        textFeild.frame = CGRect(x: 36, y: 0, width: UIScreen.main.bounds.width-6, height: standardHeight/2)
+        textFeild.frame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-70, height: standardHeight/2)
         
         let placeholderStringText =
-            NSAttributedString.init(string: "Type in & tap done", attributes: [NSAttributedString.Key.foregroundColor : primaryColor])
+            NSAttributedString.init(string: "add task & tap done", attributes: [NSAttributedString.Key.foregroundColor : primaryColor])
         
         //-----------------------------
         
@@ -454,22 +518,13 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         //        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: standardHeight+notchOffSet)
         
         view.backgroundColor = secondryColor
-        //        view.backgroundColor = .darkGray
-        
-        //        title.font.withSize(110)
-        
-        
-        
-        //        title.frame = CGRect(x: titleStartX, y: titleStartY, width: UIScreen.main.bounds.width/3+UIScreen.main.bounds.width/3, height: standardHeight/2)
         
         title.frame = CGRect(x: titleStartX, y: titleStartY, width: UIScreen.main.bounds.width, height: standardHeight/2)
         
-        title.text = "Add Task"
+//        title.text = "Add Task"
         title.font = UIFont(name: "HelveticaNeue-Medium", size: titleFontSize)
-        //        title.font = UIFont(name: "Zapfino", size: 30)!
         //        title.font = UIFont(name: "Thonburi-Bold", size: 20)!
         title.backgroundColor = .clear
-        //        title.textColor = .green
         title.textColor = primaryColor
         title.adjustsFontSizeToFitWidth = true
         view.addSubview(title)
@@ -531,6 +586,23 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         //        ("nearby-btn", UIColor(red: 1, green: 0.39, blue: 0, alpha: 1))
         ("", .clear)
     ]
+    
+    
+        func getTaskType() -> Int { //extend this to return for inbox & upcoming/someday
+            if eveningSwitch.isOn {
+                return 2
+            }
+                //        else if isInboxTask {
+                //
+                //        }
+                //        else if isUpcomingTask {
+                //
+                //        }
+            else {
+                //this is morning task
+                return 1
+            }
+        }
     
     
 }
