@@ -57,11 +57,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         let circleMenuButton = CircleMenu(
             frame: CGRect(x: 32, y: 64, width: 30, height: 30),
             normalIcon:"icon_menu",
-            selectedIcon:"icon_close",
+//            selectedIcon:"icon_close",
+            selectedIcon:"material_close",
             buttonsCount: 5,
             duration: 1,
             distance: 50)
         circleMenuButton.backgroundColor = primaryColor
+    
         circleMenuButton.delegate = self
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
         view.addSubview(circleMenuButton)
