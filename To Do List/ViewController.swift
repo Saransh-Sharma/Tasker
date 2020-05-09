@@ -62,6 +62,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             duration: 1,
             distance: 50)
         circleMenuButton.backgroundColor = primaryColor
+    
         circleMenuButton.delegate = self
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
         view.addSubview(circleMenuButton)
