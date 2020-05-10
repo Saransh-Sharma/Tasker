@@ -10,6 +10,7 @@ target 'To Do List' do
 pod 'TableViewReloadAnimation', '~> 0.0.5', :modular_headers => true
 pod 'SemiModalViewController', '~> 1.0.1', :modular_headers => true
 pod 'CircleMenu', '~> 4.1.0', :modular_headers => true
+pod 'MaterialComponents', '~> 109.2.0', :modular_headers => true
 
   target 'To Do ListTests' do
     inherit! :search_paths
