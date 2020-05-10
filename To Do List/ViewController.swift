@@ -11,6 +11,8 @@ import CoreData
 import SemiModalViewController
 import TableViewReloadAnimation
 import CircleMenu
+import MaterialComponents.MaterialButtons
+import MaterialComponents.MaterialButtons_Theming
 //import StrikethroughLabel
 
 
@@ -52,6 +54,33 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         super.viewDidLoad()
         
         view.addSubview(servePageHeader())
+        
+        
+             //---Floating Action Button - Material
+                let fab_AddTask = MDCFloatingButton()
+                fab_AddTask.accessibilityLabel = "Add Task"
+                fab_AddTask.minimumSize = CGSize(width: 64, height: 48)
+                let kMinimumAccessibleButtonSizeHeeight: CGFloat = 48
+                let kMinimumAccessibleButtonSizeWidth:CGFloat = 64
+                
+                let buttonVerticalInset =
+                min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_AddTask.bounds.height) / 2);
+                let buttonHorizontalInset =
+                min(0, -(kMinimumAccessibleButtonSizeWidth - fab_AddTask.bounds.width) / 2);
+                fab_AddTask.hitAreaInsets =
+                    UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
+                                 bottom: buttonVerticalInset, right: buttonHorizontalInset);
+                fab_AddTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-300, width: 50, height: 50)
+        
+        let addTaskIcon = UIImage(named: "material_add_White")
+        fab_AddTask.setImage(addTaskIcon, for: .normal)
+        fab_AddTask.backgroundColor = secondryColor
+                  fab_AddTask.sizeToFit()
+                view.addSubview(fab_AddTask)
+        
+        //---Floating Action Button - Material - DONE
+        
+        
         
         //MARK: circle menu frame
         let circleMenuButton = CircleMenu(
