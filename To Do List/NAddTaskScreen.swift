@@ -20,36 +20,12 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
-    // MARK:- DAY Picker Delegate Methods
-    func numberOfComponents(in pickerView: UIPickerView) -> Int {
-        return 1
-    }
-    
-    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
-        return dataArray.count
-    }
-    
-    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
-        let row = dataArray[row]
-        return row
-    }
-    
-    func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
-        
-        print("DAY: \(dataArray[row])")
-        print("DAY ROW: \(row)")
-        taskDayFromPicker = dataArray[row]
-        
-    }
-    
-    
     let dataArray = ["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
     
-    
     // MARK: TASK METADATA
+    var currentTaskInMaterialTextBox: String = ""
     var isThisEveningTask: Bool = false
     var taskDayFromPicker: String =  "Today"//change datatype tp task type
-    
     
     //MARK: Positioning
     var textBoxEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
@@ -65,33 +41,19 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     let circleMenuStartX:CGFloat = 32
     let circleMenuStartY:CGFloat = 40
     
-    // MARK: picker + switch init + cancel task
+    // MARK-: picker + switch init + cancel task
     let UIPicker: UIPickerView = UIPickerView()
     let eveningSwitch = UISwitch()
-    
     let fab_cancelTask = MDCFloatingButton(shape: .mini)
     let fab_doneTask = MDCFloatingButton(shape: .default)
-//    let addTaskMaterialTextBox_MDCTextField = MDCTextField()
-//    var addTaskTextBox_Material = MDCTextField() //MDCFilledTextField()
     var addTaskTextBox_Material = MDCFilledTextField()
-    var currentTaskInMaterialTextBox: String = ""
-    
-    
-    
-    
-    
-    let seperatorCellID = "seperator" // TODO: remove
-    
-    
     
     // MARK:- Outlets
-    
     @IBOutlet weak var addTaskTextField: UITextField!
     @IBOutlet weak var addTaskButton: UIButton!
     @IBOutlet weak var cancelAddTaskButton: UIButton!
     @IBAction func addTaskButtonAction(_ sender: Any) {
     }
-    
     
     //MARK: DONE BUTTON Tapped
     @IBAction func doneButtonTappedAction(_ sender: UIButton) {
@@ -105,11 +67,9 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     }
     
     // MARK:- VIEW DID LOAD
-    
     override func viewDidLoad() {
         super.viewDidLoad()
         
-//        addTaskMaterialTextBox_MDCTextField.delegate = self
         addTaskTextBox_Material.delegate = self
         
         // MARK: Add Task Title (not being used)
@@ -119,9 +79,6 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         view.addSubview(setupAddTaskPageHeader(titleStartX: addTaskTTitlePositionStartX, titleStartY: addTaskTTitlePositionStartY, titleFontSize: titleFontSize))
         
-        
-//        let circleMenuButton = CircleMenu(
-//                   frame: CGRect(x: circleMenuStartX, y: circleMenuStartY, width: circleMenuRadius, height: circleMenuRadius),
         //MARK: circle menu frame
         let circleMenuButton = CircleMenu(
             frame: CGRect(x: 10, y: circleMenuStartY, width: 38, height: 38),
@@ -136,19 +93,14 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
         view.addSubview(circleMenuButton)
         
+                
+        //MARK:--- FAB - CANCEL Task
         
         
-        
-        //---Floating Action Button MATERIAL CANCEL TASK - Material
-        
-        
-     
-        // fab_cancelTask.setMode(.normal, animated: true)
         fab_cancelTask.accessibilityLabel = "Cancel Task"
         fab_cancelTask.minimumSize = CGSize(width: 32, height: 24)
         let kMinimumAccessibleButtonSizeHeeight: CGFloat = 24
         let kMinimumAccessibleButtonSizeWidth:CGFloat = 32
-        
         let buttonVerticalInset =
             min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_cancelTask.bounds.height) / 2);
         let buttonHorizontalInset =
@@ -158,10 +110,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
                          bottom: buttonVerticalInset, right: buttonHorizontalInset);
         
         
-        //MARK: cancel button position
-        
+        // cancel button position
         fab_cancelTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/8, y: UIScreen.main.bounds.minY+40, width: 25, height: 25)
-        
         let addTaskIcon = UIImage(named: "material_close")
         fab_cancelTask.setImage(addTaskIcon, for: .normal)
         fab_cancelTask.backgroundColor = primaryColor
@@ -169,15 +119,14 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         view.addSubview(fab_cancelTask)
         fab_cancelTask.addTarget(self, action: #selector(cancelAddTaskAction), for: .touchUpInside)
         
-        
         //---Floating Action Button - Material - DONE
         
         
-        // MARK:---Floating Action Button MATERIAL DONE TASK - Material
+        // MARK:---FAB - DONE Task
         
         let doneButtonHeightWidth: CGFloat = 50
-//        let doneButtonY = 4*(standardHeight)+standardHeight/2-(doneButtonHeightWidth/2)
-          let doneButtonY = 4*(standardHeight)+standardHeight-(doneButtonHeightWidth/2)
+        //        let doneButtonY = 4*(standardHeight)+standardHeight/2-(doneButtonHeightWidth/2)
+        let doneButtonY = 4*(standardHeight)+standardHeight-(doneButtonHeightWidth/2)
         print("Placing done button at: \(doneButtonY)")
         
         fab_doneTask.mode = .expanded
@@ -188,8 +137,6 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         fab_doneTask.frame = CGRect(x: UIScreen.main.bounds.maxX-2.5*doneButtonHeightWidth, y: doneButtonY, width: 2.5*doneButtonHeightWidth, height: doneButtonHeightWidth)
         let doneTaskIconNormalImage = UIImage(named: "material_done_White")
         fab_doneTask.setImage(doneTaskIconNormalImage, for: .normal)
-        // material_evening_White
-        
         
         
         if (isEveningSwitchOn(sender: eveningSwitch)) {
@@ -206,15 +153,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         fab_doneTask.addTarget(self, action: #selector(doneAddTaskAction), for: .touchUpInside)
         
         
-        
-        //MARK:- MATERIAL TEXT FIELD  ---------
-        
-        
-        
-        
-        
-        
-        // MARK: SETUP ALL VIEWS
+        // MARK:- SETUP ALL VIEWS
         
         view.addSubview(setupFirstSeperator())
         view.addSubview(setupAddTaskTextField(textFeild: addTaskTextBox_Material))
@@ -230,22 +169,13 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         view.addSubview(setupDayPicker(picker: UIPicker))
         view.addSubview(setupFinalFiller())
         
+        //MARK:- Bring critical view to top
         view.bringSubviewToFront(circleMenuButton)
         view.bringSubviewToFront(addTaskButton)
         view.bringSubviewToFront(fab_cancelTask)
         view.bringSubviewToFront(fab_doneTask)
-        
-//        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
-//        addTaskTextBox_Material.textColor = primaryColor
         addTaskTextBox_Material.becomeFirstResponder()
         view.bringSubviewToFront(addTaskTextBox_Material)
-        
-//        addTaskMaterialTextBox_MDCTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
-//        addTaskMaterialTextBox_MDCTextField.textColor = secondryColor
-//        addTaskMaterialTextBox_MDCTextField.becomeFirstResponder()
-//        view.bringSubviewToFront(addTaskMaterialTextBox_MDCTextField)
-
-        
     }
     
     //MARK:- DONE TASK ACTION
@@ -253,49 +183,33 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     @objc func doneAddTaskAction() {
         
         //       tap DONE --> add new task + nav homeScreen
-        
-        //MARK:- ADD TASK
+        //MARK:- ADD TASK ACTION
         isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
-        
-//        if (currentTaskInMaterialTextBox.isEmpty)
-        print("Done buttonn tapped")
+        print("User tapped done button at add task")
         if currentTaskInMaterialTextBox != "" {
             
-            print("Adding task !")
-            
+            print("Adding task: \(currentTaskInMaterialTextBox)")
             TaskManager.sharedInstance.addNewTask(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2)
-            
             let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-                   let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
-                   newViewController.modalPresentationStyle = .fullScreen
-                   self.present(newViewController, animated: true, completion: nil)
+            let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
+            newViewController.modalPresentationStyle = .fullScreen
+            self.present(newViewController, animated: true, completion: nil)
             
         } else {
-            print("EMPTY TASK !")
+            print("EMPTY TASK ! - Nothing to add")
         }
-        
-       
-        
-        
-        
-        //                    dismiss(animated: true)
-        
-        
     }
     
-
-    
-    //MARK:- CALCEL TASK ACTION
-    
+    //MARK:- CANCEL TASK ACTION
     @objc func cancelAddTaskAction() {
         
         //       tap CANCEL --> homeScreen
         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
         let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
         newViewController.modalPresentationStyle = .fullScreen
-        self.present(newViewController, animated: true, completion: nil)
+//        self.present(newViewController, animated: true, completion: nil) //Doesn't look like cancel
+        dismiss(animated: true) //this looks more like cancel compared to above
     }
-    
     
     // MARK: MAKE final filler
     func setupFinalFiller() -> UIView {
@@ -309,7 +223,6 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     
     // MARK: MAKE Day Picker
-    
     func setupDayPicker(picker: UIPickerView) -> UIView {
         
         let mView = UIView()
@@ -323,7 +236,6 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     
     // MARK: MAKE Priority SC
-    
     func setupPrioritySC() -> UIView {
         
         let mView = UIView()
@@ -434,38 +346,6 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         return addTaskButtonDone
     }
     
-    // MARK: UITextFieldDelegate methods
-
-//    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-//      guard let text = textField.text,
-//      let range = Range(range, in: text),
-//      textField == addTaskMaterialTextBox_MDCTextField else {
-//        print("HOLA !")
-//        return true
-//      }
-//        print("TEXT IS: \(addTaskMaterialTextBox_MDCTextField.text)")
-//
-//
-//      return true
-//    }
-    
-    
-    
-//        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-//            let oldText = textField.text!
-//            print("old text is: \(oldText)")
-//            let stringRange = Range(range, in:oldText)!
-//            let newText = oldText.replacingCharacters(in: stringRange, with: string)
-//            print("new text is: \(newText)")
-//            if newText.isEmpty {
-//                print("EMPTY")
-//                fab_doneTask.isEnabled = false
-//            } else {
-//                print("NOT EMPTY")
-//                fab_doneTask.isEnabled = true }
-//            return true
-//        }
-    
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         let oldText = textField.text!
         print("old text is: \(oldText)")
@@ -481,97 +361,44 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         } else {
             print("NOT EMPTY")
             fab_doneTask.isEnabled = true
-
+            
         }
         return true
     }
     
     //     MARK:- Text Field Delegates
-//    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-//      guard let text = textField.text,
-//      let range = Range(range, in: text),
-//      textField == addTaskTextBox_Material else {
-//        return true
-//      }
-//
-//        currentTaskInMaterialTextBox = addTaskTextBox_Material.text!
-//        print("Current task in Material TextBox: \(currentTaskInMaterialTextBox)")
-//        print("TEXT has: \(addTaskTextBox_Material.text ?? "EMpTY !")")
-//
-//      let finishedString = text.replacingCharacters(in: range, with: string)
-//      if finishedString.rangeOfCharacter(from: CharacterSet.letters) != nil {
-//
-//      } else {
-//      }
-//
-//      return true
-//    }
 
     
-
+    
+    
     
     // MARK: MAKE AddTask TextFeild
-    
-//    func setupAddTaskTextField(textFeild: MDCFilledTextField) -> UIView {
+    func setupAddTaskTextField(textFeild: UITextField) -> UIView {
         
-     func setupAddTaskTextField(textFeild: UITextField) -> UIView {
-           
-           let mView = UIView()
-           mView.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
-           mView.backgroundColor = secondryColor
-           
-           //        textFeild.frame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-70, height: standardHeight/2)
-           
-           //--------MATERIAL TEXT FEILD
-           let estimatedFrame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
-//           let textField_MCD = MDCFilledTextField(frame: estimatedFrame)
-        
-        
-        //------------
+        let mView = UIView()
+        mView.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
+        mView.backgroundColor = secondryColor
+          
+        //--------MATERIAL TEXT FEILD
+        let estimatedFrame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
         addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
         addTaskTextBox_Material.label.text = "add task & tap done"
-        addTaskTextBox_Material.leadingAssistiveLabel.text = "This is helper text"
-        
-        //------------
-        //------------
-//        addTaskTextBox_Material = MDCTextField()
-//        addTaskTextBox_Material.frame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
-//        addTaskTextBox_Material.backgroundColor = .white
-        //------------
-        
+        addTaskTextBox_Material.leadingAssistiveLabel.text = "Always add actionable items"
+        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
         addTaskTextBox_Material.delegate = self
-        
-           addTaskTextBox_Material.clearButtonMode = .whileEditing
-           addTaskTextBox_Material.placeholder = "get coffee"
-           
-           addTaskTextBox_Material.sizeToFit()
-           mView.addSubview(addTaskTextBox_Material)
-           
-           
-           textBoxEndY = textFeild.bounds.height
-           
-           print("-------------------------------------------")
-           print("textFeild maxY: \(textFeild.bounds.maxY)")
-           print("textFeild MID: \(textFeild.bounds.midY)")
-           print("textFeild MIN: \(textFeild.bounds.minY)")
-           print("textFeild MAX + HEIGHT: \(textFeild.bounds.maxY-textFeild.bounds.height)")
-           print("textFeild HEIGHT: \(textFeild.bounds.height)")
-           print("-------------------------------------------")
-           
-           mView.addSubview(textFeild)
-           mView.bringSubviewToFront(textFeild)
-           return mView
-       }
-    
-    @objc func getTaskDraftText(sender: MDCFilledTextField!) {
-        
-
-//        sender.tex
-
-        print("Value changed !")
+        addTaskTextBox_Material.clearButtonMode = .whileEditing
+        let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
+                                    "schedule 1:1 with Shelly","grab 401k from mail box",
+        "get car serviced", "wrap Eve's birthaday gift ", "renew Gym membership",
+        "book flight tickets to Thailand", "fix the garage door",
+        "order Cake", "review subscriptions", "get coffee"]
+        addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
+        addTaskTextBox_Material.sizeToFit()
+        mView.addSubview(addTaskTextBox_Material)
+        mView.addSubview(textFeild)
+        mView.bringSubviewToFront(textFeild)
+        return mView
     }
-    
-    
     /*
      Clears add task text feild on tapping the X button to the right
      */
@@ -582,9 +409,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         }
     }
     
-    
     // MARK: MAKE TopHeader
-    
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .lightContent
     }
@@ -601,13 +426,6 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         title.adjustsFontSizeToFitWidth = true
         view.addSubview(title)
         topHeaderEndY = view.bounds.height
-//        print("-------------------------------------------")
-//        print("topHeader maxY: \(view.bounds.maxY)")
-//        print("topHeader MID: \(view.bounds.midY)")
-//        print("topHeader MIN: \(view.bounds.minY)")
-//        print("topHeader MAX + HEIGHT: \(view.bounds.maxY-view.bounds.height)")
-//        print("topHeader HEIGHT: \(view.bounds.height)")
-//        print("-------------------------------------------")
         return view
     }
     
@@ -664,9 +482,29 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     }
     
     
+    // MARK:- DAY Picker Delegate Methods
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        return 1
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        return dataArray.count
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+        let row = dataArray[row]
+        return row
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+        
+        print("DAY: \(dataArray[row])")
+        print("DAY ROW: \(row)")
+        taskDayFromPicker = dataArray[row]
+        
+    }
+    
 }
-
-
 
 extension UIImage
 {
