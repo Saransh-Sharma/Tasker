@@ -11,6 +11,8 @@ import CoreData
 import SemiModalViewController
 import TableViewReloadAnimation
 import CircleMenu
+import MaterialComponents.MaterialButtons
+import MaterialComponents.MaterialButtons_Theming
 //import StrikethroughLabel
 
 
@@ -53,6 +55,37 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         view.addSubview(servePageHeader())
         
+        
+             //---Floating Action Button - Material
+                let fab_AddTask = MDCFloatingButton()
+                fab_AddTask.accessibilityLabel = "Add Task"
+                fab_AddTask.minimumSize = CGSize(width: 64, height: 48)
+                let kMinimumAccessibleButtonSizeHeeight: CGFloat = 48
+                let kMinimumAccessibleButtonSizeWidth:CGFloat = 64
+                
+                let buttonVerticalInset =
+                min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_AddTask.bounds.height) / 2);
+                let buttonHorizontalInset =
+                min(0, -(kMinimumAccessibleButtonSizeWidth - fab_AddTask.bounds.width) / 2);
+                fab_AddTask.hitAreaInsets =
+                    UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
+                                 bottom: buttonVerticalInset, right: buttonHorizontalInset);
+                fab_AddTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-100, width: 50, height: 50)
+        
+        let addTaskIcon = UIImage(named: "material_add_White")
+        fab_AddTask.setImage(addTaskIcon, for: .normal)
+        fab_AddTask.backgroundColor = secondryColor
+                  fab_AddTask.sizeToFit()
+                view.addSubview(fab_AddTask)
+        
+        
+        
+        fab_AddTask.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
+        
+        //---Floating Action Button - Material - DONE
+        
+        
+        
         //MARK: circle menu frame
         let circleMenuButton = CircleMenu(
             frame: CGRect(x: 32, y: 64, width: 30, height: 30),
@@ -68,11 +101,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
         view.addSubview(circleMenuButton)
         
-        view.addSubview(serveAddTaskButton(addTaskButton: addTaskButton))
         
         enableDarkModeIfPreset()
     }
     
+        @objc func AddTaskAction() {
+            
+    //       tap add fab --> addTask
+            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+            let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+            newViewController.modalPresentationStyle = .fullScreen
+                    self.present(newViewController, animated: true, completion: nil)
+        }
     
     
     func serveSemiViewRed() -> UIView {
@@ -94,22 +134,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     // MARK:- Build Page Header
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .lightContent
-    }
-    
-    func serveAddTaskButton(addTaskButton: UIButton) -> UIView {
-        
-
-//        addTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX-80, y: UIScreen.main.bounds.maxY-80, width: 50, height: 50)
-            addTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-UIScreen.main.bounds.maxY/11, width: 50, height: 50)
-//        addTaskButton.titleLabel?.text = "+"
-        addTaskButton.titleLabel?.textColor = primaryColor
-        addTaskButton.titleLabel?.textAlignment = .center
-        addTaskButton.titleLabel?.numberOfLines = 0
-        addTaskButton.backgroundColor = secondryColor
-        addTaskButton.layer.cornerRadius = addTaskButton.bounds.size.width/2;
-        addTaskButton.layer.masksToBounds = true
-        
-        return addTaskButton
     }
     
     func servePageHeader() -> UIView {

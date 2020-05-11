@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 51;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -158,6 +158,7 @@
 			isa = PBXGroup;
 			children = (
 				759F18F82468B70200293A32 /* NAddTaskScreen.swift */,
+				753EFCA12445A24500A739E3 /* ViewController.swift */,
 				75F18100245C99CD004D9A69 /* TaskModel.xcdatamodeld */,
 				75F18107245CA229004D9A69 /* TaskManager.swift */,
 				759D2140245A2CC400A4D2DE /* ToDoManager.swift */,
@@ -165,7 +166,6 @@
 				75F18105245CA0BC004D9A69 /* Task.swift */,
 				753EFC9D2445A24500A739E3 /* AppDelegate.swift */,
 				753EFC9F2445A24500A739E3 /* SceneDelegate.swift */,
-				753EFCA12445A24500A739E3 /* ViewController.swift */,
 				759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */,
 				758A803F2450BFA300BFB571 /* InboxViewController.swift */,
 				758A80632451E86E00BFB571 /* WeeklyViewController.swift */,
@@ -207,6 +207,7 @@
 				753EFC962445A24500A739E3 /* Sources */,
 				753EFC972445A24500A739E3 /* Frameworks */,
 				753EFC982445A24500A739E3 /* Resources */,
+				3D2D0E93356E23CED04A4E4B /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -325,6 +326,23 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		3D2D0E93356E23CED04A4E4B /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-To Do List/Pods-To Do List-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-To Do List/Pods-To Do List-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-To Do List/Pods-To Do List-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		7637B5B9AA277021C3832108 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
