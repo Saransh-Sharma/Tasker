@@ -9,6 +9,10 @@
 import UIKit
 import CoreData
 import CircleMenu
+import MaterialComponents.MaterialTextControls_FilledTextAreas
+import MaterialComponents.MaterialTextControls_FilledTextFields
+import MaterialComponents.MaterialTextControls_OutlinedTextAreas
+import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate
 {
@@ -61,9 +65,11 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     let circleMenuStartX:CGFloat = 32
     let circleMenuStartY:CGFloat = 40
     
-    // MARK: picker + switch init
+    // MARK: picker + switch init + cancel task
     let UIPicker: UIPickerView = UIPickerView()
     let eveningSwitch = UISwitch()
+    
+      let fab_cancelTask = MDCFloatingButton(shape: .mini)
     
     
     
@@ -120,7 +126,47 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
 
         
-        // MARK: Cancel Add Task Button
+        
+        //---Floating Action Button MATERIAL CANCEL TASK - Material
+      
+        
+        let buttonB = MDCFloatingButton(shape: .default)
+//        buttonB
+        let buttonc = MDCFloatingButton(shape: .mini)
+        
+       // fab_cancelTask.setMode(.normal, animated: true)
+                     fab_cancelTask.accessibilityLabel = "Cancel Task"
+                     fab_cancelTask.minimumSize = CGSize(width: 32, height: 24)
+                     let kMinimumAccessibleButtonSizeHeeight: CGFloat = 24
+                     let kMinimumAccessibleButtonSizeWidth:CGFloat = 32
+                     
+                     let buttonVerticalInset =
+                     min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_cancelTask.bounds.height) / 2);
+                     let buttonHorizontalInset =
+                     min(0, -(kMinimumAccessibleButtonSizeWidth - fab_cancelTask.bounds.width) / 2);
+                     fab_cancelTask.hitAreaInsets =
+                         UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
+                                      bottom: buttonVerticalInset, right: buttonHorizontalInset);
+        //MARK: cancel button position
+//                     fab_cancelTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.minY+40, width: 25, height: 25)
+           
+        fab_cancelTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/8, y: UIScreen.main.bounds.minY+40, width: 25, height: 25)
+             
+             let addTaskIcon = UIImage(named: "material_close")
+             fab_cancelTask.setImage(addTaskIcon, for: .normal)
+             fab_cancelTask.backgroundColor = primaryColor
+                       fab_cancelTask.sizeToFit()
+                     view.addSubview(fab_cancelTask)
+        fab_cancelTask.addTarget(self, action: #selector(cancelAddTaskAction), for: .touchUpInside)
+    
+             
+             //---Floating Action Button - Material - DONE
+        
+        
+        
+        //--------
+        
+        // MARK: OLD Cancel Add Task Button
         cancelAddTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX - 70, y: circleMenuStartY, width: circleMenuRadius, height: circleMenuRadius)
         cancelAddTaskButton.titleLabel?.text = ""
         let cancelImage = UIImageView()
@@ -151,12 +197,30 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         view.bringSubviewToFront(circleMenuButton)
         view.bringSubviewToFront(addTaskButton)
-        view.bringSubviewToFront(cancelAddTaskButton)
-        view.bringSubviewToFront(cancelImage)
+        view.bringSubviewToFront(cancelAddTaskButton) //remove
+        view.bringSubviewToFront(cancelImage) //remove
+        view.bringSubviewToFront(fab_cancelTask)
         
         addTaskTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
         addTaskTextField.textColor = primaryColor
         addTaskTextField.becomeFirstResponder()
+        
+    }
+    
+    //MARK:- CALCEL TASK ACTION
+    
+    @objc func cancelAddTaskAction() {
+        
+//        homeScreen
+        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+        
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
+        
+        newViewController.modalPresentationStyle = .fullScreen
+        
+                self.present(newViewController, animated: true, completion: nil)
+       
+//        self.navigationController.
         
     }
     
@@ -306,20 +370,19 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
          mView.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
         mView.backgroundColor = secondryColor
 
-        textFeild.frame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-70, height: standardHeight/2)
+//        textFeild.frame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-70, height: standardHeight/2)
         
-        let placeholderStringText =
-            NSAttributedString.init(string: "add task & tap done", attributes: [NSAttributedString.Key.foregroundColor : primaryColor])
+        //--------MATERIAL TEXT FEILD
+        let estimatedFrame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
+        let textField = MDCFilledTextField(frame: estimatedFrame)
+        textField.label.text = "add task & tap done"
+        textField.clearButtonMode = .whileEditing
+        textField.placeholder = "get coffee"
+        textField.leadingAssistiveLabel.text = "This is helper text"
+        textField.sizeToFit()
+        mView.addSubview(textField)
         
-        textFeild.attributedPlaceholder = placeholderStringText
-        textFeild.backgroundColor = secondryColor
-        let clearAddTaskTextFieldButton = UIButton(type: .custom)
-        let roundedImage =  UIImage( named: "icon_close" )!.rounded!
-        clearAddTaskTextFieldButton.setImage(roundedImage, for: UIControl.State.normal)
-        textFeild.rightView = clearAddTaskTextFieldButton
-        textFeild.rightViewMode = .whileEditing
-        clearAddTaskTextFieldButton.addTarget(self, action: #selector(clearButtonAction), for: .touchUpInside)
-        clearAddTaskTextFieldButton.tag = 1
+        
         textBoxEndY = textFeild.bounds.height
  
         print("-------------------------------------------")
