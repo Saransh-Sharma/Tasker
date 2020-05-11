@@ -9,8 +9,9 @@
 import UIKit
 import CoreData
 import SemiModalViewController
-import TableViewReloadAnimation
+//import TableViewReloadAnimation
 import CircleMenu
+import ViewAnimator
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialButtons_Theming
 //import StrikethroughLabel
@@ -29,6 +30,12 @@ extension UIColor {
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, CircleMenuDelegate {
     
     let colors = [UIColor.red, UIColor.gray, UIColor.green, UIColor.purple]
+    
+    //MARK:- Tablevieew animation style
+    private let animations = [AnimationType.from(direction:.right , offset: 400.0)]
+    
+
+    
     let items: [(icon: String, color: UIColor)] = [
 //        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
         ("", .clear),
@@ -49,6 +56,19 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     var scoreForTheDay: UILabel! = nil
+    
+    func animate() {
+           // Combined animations example
+           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
+           let zoomAnimation = AnimationType.zoom(scale: 0.5)
+           let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+//           UIView.animate(views: collectionView.visibleCells,
+//                          animations: [zoomAnimation, rotateAnimation],
+//                          duration: 0.5)
+           
+           UIView.animate(views: tableView.visibleCells,
+                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
+       }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -310,9 +330,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     override func viewWillAppear(_ animated: Bool) {
         // right spring animation
-        tableView.reloadData(
-            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-                          constantDelay: 0))
+//        tableView.reloadData(
+//            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+//                          constantDelay: 0))
+        tableView.reloadData()
+        
+        animate()
+//        UIView.animate(views: tableView.visibleCells, animations: animations, completion: {
+        
+//        })
     }
     
     
@@ -478,12 +504,17 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             }
             
             self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
-            //            tableView.reloadData()
+             
+            tableView.reloadData()
+            self.animate()
+//            UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
+//
+//                   })
             
             // right spring animation
-            tableView.reloadData(
-                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-                              constantDelay: 0))
+//            tableView.reloadData(
+//                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+//                              constantDelay: 0))
             
             self.title = "\(self.calculateTodaysScore())"
             actionPerformed(true)
@@ -533,9 +564,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 }
                 
                 //                tableView.reloadData()
-                tableView.reloadData(
-                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
-                                  constantDelay: 0))
+//                tableView.reloadData(
+//                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
+//                                  constantDelay: 0))
+                
+                tableView.reloadData()
+                self.animate()
+//                UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
+//
+//                       })
                 
                 
             }
