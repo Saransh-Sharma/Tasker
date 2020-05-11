@@ -14,7 +14,7 @@ import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
-class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate
+class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate, UITextFieldDelegate
 {
     // MARK: Theming
     var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
@@ -71,6 +71,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     let fab_cancelTask = MDCFloatingButton(shape: .mini)
     let fab_doneTask = MDCFloatingButton(shape: .default)
+    let addTaskMaterialTextBox_MDCTextField = MDCTextField()
+    
     
     
     
@@ -103,6 +105,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        addTaskMaterialTextBox_MDCTextField.delegate = self
         
         // MARK: Add Task Title (not being used)
         let addTaskTTitlePositionStartX:CGFloat = circleMenuStartX+50
@@ -199,6 +203,16 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         
         
+        //MARK:- MATERIAL TEXT FIELD  ---------
+        
+//        let estimatedFrame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
+//              let addTaskMaterialTextBox = MDCFilledTextField(frame: estimatedFrame)
+        
+//        addTaskMaterialTextBox_MDCTextField.delegate.self
+        
+//        addTaskMaterialTextBox_MDCTextField.delegate?.textField?(<#T##textField: UITextField##UITextField#>, shouldChangeCharactersIn: <#T##NSRange#>, replacementString: <#T##String#>)
+        
+        ///j
         
         
         
@@ -207,8 +221,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         // MARK: SETUP ALL VIEWS
         
         view.addSubview(setupFirstSeperator())
-        view.addSubview(setupAddTaskTextField(textFeild: addTaskTextField))
-       // _ = setupAddTaskButtonDone(addTaskButtonDone: addTaskButton)
+//        view.addSubview(setupAddTaskTextField(textFeild: addTaskMaterialTextBox))
+        view.addSubview(setupAddTaskTextField(textFeild: addTaskMaterialTextBox_MDCTextField))
         view.addSubview(setupEveningTaskSwitch())
         view.addSubview(setupSecondSeperator())
         view.addSubview(setupPrioritySC())
@@ -226,9 +240,15 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         view.bringSubviewToFront(fab_cancelTask)
         view.bringSubviewToFront(fab_doneTask)
         
-        addTaskTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
-        addTaskTextField.textColor = primaryColor
-        addTaskTextField.becomeFirstResponder()
+//        addTaskTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
+//        addTaskTextField.textColor = primaryColor
+//        addTaskTextField.becomeFirstResponder()
+        
+        addTaskMaterialTextBox_MDCTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
+        addTaskMaterialTextBox_MDCTextField.textColor = secondryColor
+        addTaskMaterialTextBox_MDCTextField.becomeFirstResponder()
+        view.bringSubviewToFront(addTaskMaterialTextBox_MDCTextField)
+
         
     }
     
@@ -256,6 +276,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         
     }
+    
+
     
     //MARK:- CALCEL TASK ACTION
     
@@ -406,41 +428,91 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         return addTaskButtonDone
     }
     
+    // MARK: UITextFieldDelegate methods
+
+//    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+//      guard let text = textField.text,
+//      let range = Range(range, in: text),
+//      textField == addTaskMaterialTextBox_MDCTextField else {
+//        print("HOLA !")
+//        return true
+//      }
+//        print("TEXT IS: \(addTaskMaterialTextBox_MDCTextField.text)")
+//
+//
+//      return true
+//    }
+    
+        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+            let oldText = textField.text!
+            print("old text is: \(oldText)")
+            let stringRange = Range(range, in:oldText)!
+            let newText = oldText.replacingCharacters(in: stringRange, with: string)
+            print("new text is: \(newText)")
+            if newText.isEmpty {
+                print("EMPTY")
+                fab_doneTask.isEnabled = false
+            } else {
+                print("NOT EMPTY")
+                fab_doneTask.isEnabled = true }
+            return true
+        }
+    
     // MARK: MAKE AddTask TextFeild
     
-    func setupAddTaskTextField(textFeild: UITextField) -> UIView {
+//    func setupAddTaskTextField(textFeild: MDCFilledTextField) -> UIView {
+        
+    func setupAddTaskTextField(textFeild: MDCTextField) -> UIView {
         
         let mView = UIView()
         mView.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
-        mView.backgroundColor = secondryColor
+        mView.backgroundColor = primaryColor
         
-        //        textFeild.frame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-70, height: standardHeight/2)
+                
+        textFeild.frame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-70, height: standardHeight/2)
         
         //--------MATERIAL TEXT FEILD
-        let estimatedFrame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
-        let textField = MDCFilledTextField(frame: estimatedFrame)
-        textField.label.text = "add task & tap done"
-        textField.clearButtonMode = .whileEditing
-        textField.placeholder = "get coffee"
-        textField.leadingAssistiveLabel.text = "This is helper text"
-        textField.sizeToFit()
-        mView.addSubview(textField)
+      
+//        textFeild.label.text = "add task & tap done"
+        
+        textFeild.backgroundColor = primaryColor
+        textFeild.clearButtonMode = .whileEditing
+//        textFeild.insertText("add task & tap done")
+        textFeild.placeholder = "get coffee"
+//        textFeild.leadingAssistiveLabel.text = "This is helper text"
+        textFeild.sizeToFit()
+        
+        textFeild.addTarget(self, action: #selector(getTaskDraftText(sender:)), for: .valueChanged)
+        
+        mView.addSubview(textFeild)
+        
+        textFeild.sendActions(for: .allEditingEvents)
         
         
-        textBoxEndY = textFeild.bounds.height
-        
-        print("-------------------------------------------")
-        print("textFeild maxY: \(textFeild.bounds.maxY)")
-        print("textFeild MID: \(textFeild.bounds.midY)")
-        print("textFeild MIN: \(textFeild.bounds.minY)")
-        print("textFeild MAX + HEIGHT: \(textFeild.bounds.maxY-textFeild.bounds.height)")
-        print("textFeild HEIGHT: \(textFeild.bounds.height)")
-        print("-------------------------------------------")
+//        textBoxEndY = textFeild.bounds.height
+//
+//        print("-------------------------------------------")
+//        print("textFeild maxY: \(textFeild.bounds.maxY)")
+//        print("textFeild MID: \(textFeild.bounds.midY)")
+//        print("textFeild MIN: \(textFeild.bounds.minY)")
+//        print("textFeild MAX + HEIGHT: \(textFeild.bounds.maxY-textFeild.bounds.height)")
+//        print("textFeild HEIGHT: \(textFeild.bounds.height)")
+//        print("-------------------------------------------")
         
         mView.addSubview(textFeild)
         mView.bringSubviewToFront(textFeild)
+        
         return mView
     }
+    
+    @objc func getTaskDraftText(sender: MDCFilledTextField!) {
+        
+
+//        sender.tex
+
+        print("Value changed !")
+    }
+    
     
     /*
      Clears add task text feild on tapping the X button to the right
@@ -471,13 +543,13 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         title.adjustsFontSizeToFitWidth = true
         view.addSubview(title)
         topHeaderEndY = view.bounds.height
-        print("-------------------------------------------")
-        print("topHeader maxY: \(view.bounds.maxY)")
-        print("topHeader MID: \(view.bounds.midY)")
-        print("topHeader MIN: \(view.bounds.minY)")
-        print("topHeader MAX + HEIGHT: \(view.bounds.maxY-view.bounds.height)")
-        print("topHeader HEIGHT: \(view.bounds.height)")
-        print("-------------------------------------------")
+//        print("-------------------------------------------")
+//        print("topHeader maxY: \(view.bounds.maxY)")
+//        print("topHeader MID: \(view.bounds.midY)")
+//        print("topHeader MIN: \(view.bounds.minY)")
+//        print("topHeader MAX + HEIGHT: \(view.bounds.maxY-view.bounds.height)")
+//        print("topHeader HEIGHT: \(view.bounds.height)")
+//        print("-------------------------------------------")
         return view
     }
     
