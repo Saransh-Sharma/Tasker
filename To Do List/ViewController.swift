@@ -70,7 +70,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 fab_AddTask.hitAreaInsets =
                     UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
                                  bottom: buttonVerticalInset, right: buttonHorizontalInset);
-                fab_AddTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-300, width: 50, height: 50)
+                fab_AddTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-100, width: 50, height: 50)
         
         let addTaskIcon = UIImage(named: "material_add_White")
         fab_AddTask.setImage(addTaskIcon, for: .normal)
@@ -101,7 +101,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
         view.addSubview(circleMenuButton)
         
-        view.addSubview(serveAddTaskButton(addTaskButton: addTaskButton))
         
         enableDarkModeIfPreset()
     }
@@ -135,22 +134,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     // MARK:- Build Page Header
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .lightContent
-    }
-    
-    func serveAddTaskButton(addTaskButton: UIButton) -> UIView {
-        
-
-//        addTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX-80, y: UIScreen.main.bounds.maxY-80, width: 50, height: 50)
-            addTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-UIScreen.main.bounds.maxY/11, width: 50, height: 50)
-//        addTaskButton.titleLabel?.text = "+"
-        addTaskButton.titleLabel?.textColor = primaryColor
-        addTaskButton.titleLabel?.textAlignment = .center
-        addTaskButton.titleLabel?.numberOfLines = 0
-        addTaskButton.backgroundColor = secondryColor
-        addTaskButton.layer.cornerRadius = addTaskButton.bounds.size.width/2;
-        addTaskButton.layer.masksToBounds = true
-        
-        return addTaskButton
     }
     
     func servePageHeader() -> UIView {

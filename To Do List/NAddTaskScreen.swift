@@ -50,21 +50,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     // MARK:- Outlets
     @IBOutlet weak var addTaskTextField: UITextField!
-    @IBOutlet weak var addTaskButton: UIButton!
     @IBOutlet weak var cancelAddTaskButton: UIButton!
-    @IBAction func addTaskButtonAction(_ sender: Any) {
-    }
-    
-    //MARK: DONE BUTTON Tapped
-    @IBAction func doneButtonTappedAction(_ sender: UIButton) {
-        isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
-        if addTaskTextField.text != nil && addTaskTextField.text != "" {
-            
-            TaskManager.sharedInstance.addNewTask(name: addTaskTextField.text!, taskType: getTaskType(), taskPriority: 2)
-        }
-        
-        dismiss(animated: true)
-    }
     
     // MARK:- VIEW DID LOAD
     override func viewDidLoad() {
@@ -171,7 +157,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         //MARK:- Bring critical view to top
         view.bringSubviewToFront(circleMenuButton)
-        view.bringSubviewToFront(addTaskButton)
+//        view.bringSubviewToFront(addTaskButton)
         view.bringSubviewToFront(fab_cancelTask)
         view.bringSubviewToFront(fab_doneTask)
         addTaskTextBox_Material.becomeFirstResponder()
