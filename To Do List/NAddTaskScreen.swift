@@ -71,7 +71,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     let fab_cancelTask = MDCFloatingButton(shape: .mini)
     let fab_doneTask = MDCFloatingButton(shape: .default)
-    let addTaskMaterialTextBox_MDCTextField = MDCTextField()
+//    let addTaskMaterialTextBox_MDCTextField = MDCTextField()
+//    var addTaskTextBox_Material = MDCTextField() //MDCFilledTextField()
     var addTaskTextBox_Material = MDCFilledTextField()
     
     
@@ -204,14 +205,6 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         //MARK:- MATERIAL TEXT FIELD  ---------
         
-//        let estimatedFrame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
-//              let addTaskMaterialTextBox = MDCFilledTextField(frame: estimatedFrame)
-        
-//        addTaskMaterialTextBox_MDCTextField.delegate.self
-        
-//        addTaskMaterialTextBox_MDCTextField.delegate?.textField?(<#T##textField: UITextField##UITextField#>, shouldChangeCharactersIn: <#T##NSRange#>, replacementString: <#T##String#>)
-        
-        ///j
         
         
         
@@ -220,8 +213,6 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         // MARK: SETUP ALL VIEWS
         
         view.addSubview(setupFirstSeperator())
-//        view.addSubview(setupAddTaskTextField(textFeild: addTaskMaterialTextBox))
-//        view.addSubview(setupAddTaskTextField(textFeild: addTaskMaterialTextBox_MDCTextField))
         view.addSubview(setupAddTaskTextField(textFeild: addTaskTextBox_Material))
         view.addSubview(setupEveningTaskSwitch())
         view.addSubview(setupSecondSeperator())
@@ -240,14 +231,15 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         view.bringSubviewToFront(fab_cancelTask)
         view.bringSubviewToFront(fab_doneTask)
         
-//        addTaskTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
-//        addTaskTextField.textColor = primaryColor
-//        addTaskTextField.becomeFirstResponder()
+//        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
+//        addTaskTextBox_Material.textColor = primaryColor
+        addTaskTextBox_Material.becomeFirstResponder()
+        view.bringSubviewToFront(addTaskTextBox_Material)
         
-        addTaskMaterialTextBox_MDCTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
-        addTaskMaterialTextBox_MDCTextField.textColor = secondryColor
-        addTaskMaterialTextBox_MDCTextField.becomeFirstResponder()
-        view.bringSubviewToFront(addTaskMaterialTextBox_MDCTextField)
+//        addTaskMaterialTextBox_MDCTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
+//        addTaskMaterialTextBox_MDCTextField.textColor = secondryColor
+//        addTaskMaterialTextBox_MDCTextField.becomeFirstResponder()
+//        view.bringSubviewToFront(addTaskMaterialTextBox_MDCTextField)
 
         
     }
@@ -443,20 +435,62 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
 //      return true
 //    }
     
-        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-            let oldText = textField.text!
-            print("old text is: \(oldText)")
-            let stringRange = Range(range, in:oldText)!
-            let newText = oldText.replacingCharacters(in: stringRange, with: string)
-            print("new text is: \(newText)")
-            if newText.isEmpty {
-                print("EMPTY")
-                fab_doneTask.isEnabled = false
-            } else {
-                print("NOT EMPTY")
-                fab_doneTask.isEnabled = true }
-            return true
-        }
+    
+    
+//        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+//            let oldText = textField.text!
+//            print("old text is: \(oldText)")
+//            let stringRange = Range(range, in:oldText)!
+//            let newText = oldText.replacingCharacters(in: stringRange, with: string)
+//            print("new text is: \(newText)")
+//            if newText.isEmpty {
+//                print("EMPTY")
+//                fab_doneTask.isEnabled = false
+//            } else {
+//                print("NOT EMPTY")
+//                fab_doneTask.isEnabled = true }
+//            return true
+//        }
+    
+//    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+//        let oldText = textField.text!
+//        print("old text is: \(oldText)")
+//        let stringRange = Range(range, in:oldText)!
+//        let newText = oldText.replacingCharacters(in: stringRange, with: string)
+//        print("new text is: \(newText)")
+//        if newText.isEmpty {
+//            print("EMPTY")
+////            doneButton.isEnabled = false
+//        } else {
+//            print("NOT EMPTY")
+////            doneButton.isEnabled = true
+//
+//        }
+//        return true
+//    }
+    
+    //     MARK:- Text Field Delegates
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+      guard let text = textField.text,
+      let range = Range(range, in: text),
+      textField == addTaskTextBox_Material else {
+        return true
+      }
+      
+        print("TEXT has: \(addTaskTextBox_Material.text ?? "EMpTY !")")
+
+      let finishedString = text.replacingCharacters(in: range, with: string)
+      if finishedString.rangeOfCharacter(from: CharacterSet.letters) != nil {
+//        zipController?.setErrorText("Error: Zip can only contain numbers", errorAccessibilityValue: nil)
+      } else {
+//        zipController?.setErrorText(nil, errorAccessibilityValue: nil)
+      }
+
+      return true
+    }
+
+    
+
     
     // MARK: MAKE AddTask TextFeild
     
@@ -475,11 +509,23 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
 //           let textField_MCD = MDCFilledTextField(frame: estimatedFrame)
         
         
+        //------------
         addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
-           addTaskTextBox_Material.label.text = "add task & tap done"
+        addTaskTextBox_Material.label.text = "add task & tap done"
+        addTaskTextBox_Material.leadingAssistiveLabel.text = "This is helper text"
+        
+        //------------
+        //------------
+//        addTaskTextBox_Material = MDCTextField()
+//        addTaskTextBox_Material.frame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
+//        addTaskTextBox_Material.backgroundColor = .white
+        //------------
+        
+        addTaskTextBox_Material.delegate = self
+        
            addTaskTextBox_Material.clearButtonMode = .whileEditing
            addTaskTextBox_Material.placeholder = "get coffee"
-           addTaskTextBox_Material.leadingAssistiveLabel.text = "This is helper text"
+           
            addTaskTextBox_Material.sizeToFit()
            mView.addSubview(addTaskTextBox_Material)
            
