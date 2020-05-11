@@ -74,6 +74,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
 //    let addTaskMaterialTextBox_MDCTextField = MDCTextField()
 //    var addTaskTextBox_Material = MDCTextField() //MDCFilledTextField()
     var addTaskTextBox_Material = MDCFilledTextField()
+    var currentTaskInMaterialTextBox: String = ""
     
     
     
@@ -188,6 +189,9 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         let doneTaskIconNormalImage = UIImage(named: "material_done_White")
         fab_doneTask.setImage(doneTaskIconNormalImage, for: .normal)
         // material_evening_White
+        
+        
+        
         if (isEveningSwitchOn(sender: eveningSwitch)) {
             let doneTaskIconNormalImage = UIImage(named: "material_evening_White")
             fab_doneTask.setImage(doneTaskIconNormalImage, for: .highlighted)
@@ -252,15 +256,25 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         //MARK:- ADD TASK
         isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
-        if addTaskTextField.text != nil && addTaskTextField.text != "" {
+        
+//        if (currentTaskInMaterialTextBox.isEmpty)
+        print("Done buttonn tapped")
+        if currentTaskInMaterialTextBox != "" {
             
-            TaskManager.sharedInstance.addNewTask(name: addTaskTextField.text!, taskType: getTaskType(), taskPriority: 2)
+            print("Adding task !")
+            
+            TaskManager.sharedInstance.addNewTask(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2)
+            
+            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+                   let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
+                   newViewController.modalPresentationStyle = .fullScreen
+                   self.present(newViewController, animated: true, completion: nil)
+            
+        } else {
+            print("EMPTY TASK !")
         }
         
-        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
-        newViewController.modalPresentationStyle = .fullScreen
-        self.present(newViewController, animated: true, completion: nil)
+       
         
         
         
@@ -452,42 +466,46 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
 //            return true
 //        }
     
-//    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-//        let oldText = textField.text!
-//        print("old text is: \(oldText)")
-//        let stringRange = Range(range, in:oldText)!
-//        let newText = oldText.replacingCharacters(in: stringRange, with: string)
-//        print("new text is: \(newText)")
-//        if newText.isEmpty {
-//            print("EMPTY")
-////            doneButton.isEnabled = false
-//        } else {
-//            print("NOT EMPTY")
-////            doneButton.isEnabled = true
-//
-//        }
-//        return true
-//    }
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        let oldText = textField.text!
+        print("old text is: \(oldText)")
+        let stringRange = Range(range, in:oldText)!
+        let newText = oldText.replacingCharacters(in: stringRange, with: string)
+        print("new text is: \(newText)")
+        
+        currentTaskInMaterialTextBox = newText
+        
+        if newText.isEmpty {
+            print("EMPTY")
+            fab_doneTask.isEnabled = false
+        } else {
+            print("NOT EMPTY")
+            fab_doneTask.isEnabled = true
+
+        }
+        return true
+    }
     
     //     MARK:- Text Field Delegates
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-      guard let text = textField.text,
-      let range = Range(range, in: text),
-      textField == addTaskTextBox_Material else {
-        return true
-      }
-      
-        print("TEXT has: \(addTaskTextBox_Material.text ?? "EMpTY !")")
-
-      let finishedString = text.replacingCharacters(in: range, with: string)
-      if finishedString.rangeOfCharacter(from: CharacterSet.letters) != nil {
-//        zipController?.setErrorText("Error: Zip can only contain numbers", errorAccessibilityValue: nil)
-      } else {
-//        zipController?.setErrorText(nil, errorAccessibilityValue: nil)
-      }
-
-      return true
-    }
+//    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+//      guard let text = textField.text,
+//      let range = Range(range, in: text),
+//      textField == addTaskTextBox_Material else {
+//        return true
+//      }
+//
+//        currentTaskInMaterialTextBox = addTaskTextBox_Material.text!
+//        print("Current task in Material TextBox: \(currentTaskInMaterialTextBox)")
+//        print("TEXT has: \(addTaskTextBox_Material.text ?? "EMpTY !")")
+//
+//      let finishedString = text.replacingCharacters(in: range, with: string)
+//      if finishedString.rangeOfCharacter(from: CharacterSet.letters) != nil {
+//
+//      } else {
+//      }
+//
+//      return true
+//    }
 
     
 
