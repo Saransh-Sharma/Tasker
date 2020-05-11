@@ -72,6 +72,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     let fab_cancelTask = MDCFloatingButton(shape: .mini)
     let fab_doneTask = MDCFloatingButton(shape: .default)
     let addTaskMaterialTextBox_MDCTextField = MDCTextField()
+    var addTaskTextBox_Material = MDCFilledTextField()
     
     
     
@@ -106,7 +107,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        addTaskMaterialTextBox_MDCTextField.delegate = self
+//        addTaskMaterialTextBox_MDCTextField.delegate = self
+        addTaskTextBox_Material.delegate = self
         
         // MARK: Add Task Title (not being used)
         let addTaskTTitlePositionStartX:CGFloat = circleMenuStartX+50
@@ -138,10 +140,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         //---Floating Action Button MATERIAL CANCEL TASK - Material
         
         
-        let buttonB = MDCFloatingButton(shape: .default)
-        //        buttonB
-        let buttonc = MDCFloatingButton(shape: .mini)
-        
+     
         // fab_cancelTask.setMode(.normal, animated: true)
         fab_cancelTask.accessibilityLabel = "Cancel Task"
         fab_cancelTask.minimumSize = CGSize(width: 32, height: 24)
@@ -222,7 +221,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         view.addSubview(setupFirstSeperator())
 //        view.addSubview(setupAddTaskTextField(textFeild: addTaskMaterialTextBox))
-        view.addSubview(setupAddTaskTextField(textFeild: addTaskMaterialTextBox_MDCTextField))
+//        view.addSubview(setupAddTaskTextField(textFeild: addTaskMaterialTextBox_MDCTextField))
+        view.addSubview(setupAddTaskTextField(textFeild: addTaskTextBox_Material))
         view.addSubview(setupEveningTaskSwitch())
         view.addSubview(setupSecondSeperator())
         view.addSubview(setupPrioritySC())
@@ -472,13 +472,16 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
            
            //--------MATERIAL TEXT FEILD
            let estimatedFrame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
-           let textField = MDCFilledTextField(frame: estimatedFrame)
-           textField.label.text = "add task & tap done"
-           textField.clearButtonMode = .whileEditing
-           textField.placeholder = "get coffee"
-           textField.leadingAssistiveLabel.text = "This is helper text"
-           textField.sizeToFit()
-           mView.addSubview(textField)
+//           let textField_MCD = MDCFilledTextField(frame: estimatedFrame)
+        
+        
+        addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
+           addTaskTextBox_Material.label.text = "add task & tap done"
+           addTaskTextBox_Material.clearButtonMode = .whileEditing
+           addTaskTextBox_Material.placeholder = "get coffee"
+           addTaskTextBox_Material.leadingAssistiveLabel.text = "This is helper text"
+           addTaskTextBox_Material.sizeToFit()
+           mView.addSubview(addTaskTextBox_Material)
            
            
            textBoxEndY = textFeild.bounds.height
