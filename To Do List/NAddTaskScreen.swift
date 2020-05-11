@@ -44,7 +44,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     
     let dataArray = ["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
-
+    
     
     // MARK: TASK METADATA
     var isThisEveningTask: Bool = false
@@ -69,7 +69,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     let UIPicker: UIPickerView = UIPickerView()
     let eveningSwitch = UISwitch()
     
-      let fab_cancelTask = MDCFloatingButton(shape: .mini)
+    let fab_cancelTask = MDCFloatingButton(shape: .mini)
+    let fab_doneTask = MDCFloatingButton(shape: .default)
     
     
     
@@ -91,11 +92,11 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     @IBAction func doneButtonTappedAction(_ sender: UIButton) {
         isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
         if addTaskTextField.text != nil && addTaskTextField.text != "" {
-
-                TaskManager.sharedInstance.addNewTask(name: addTaskTextField.text!, taskType: getTaskType(), taskPriority: 2)
-            }
-
-            dismiss(animated: true)
+            
+            TaskManager.sharedInstance.addNewTask(name: addTaskTextField.text!, taskType: getTaskType(), taskPriority: 2)
+        }
+        
+        dismiss(animated: true)
     }
     
     // MARK:- VIEW DID LOAD
@@ -110,9 +111,12 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         view.addSubview(setupAddTaskPageHeader(titleStartX: addTaskTTitlePositionStartX, titleStartY: addTaskTTitlePositionStartY, titleFontSize: titleFontSize))
         
+        
+//        let circleMenuButton = CircleMenu(
+//                   frame: CGRect(x: circleMenuStartX, y: circleMenuStartY, width: circleMenuRadius, height: circleMenuRadius),
         //MARK: circle menu frame
         let circleMenuButton = CircleMenu(
-            frame: CGRect(x: circleMenuStartX, y: circleMenuStartY, width: circleMenuRadius, height: circleMenuRadius),
+            frame: CGRect(x: 10, y: circleMenuStartY, width: 38, height: 38),
             normalIcon:"icon_menu",
             selectedIcon:"material_close",
             buttonsCount: 5, // 2 hidden
@@ -124,65 +128,87 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
         view.addSubview(circleMenuButton)
         
-
+        
         
         
         //---Floating Action Button MATERIAL CANCEL TASK - Material
-      
+        
         
         let buttonB = MDCFloatingButton(shape: .default)
-//        buttonB
+        //        buttonB
         let buttonc = MDCFloatingButton(shape: .mini)
         
-       // fab_cancelTask.setMode(.normal, animated: true)
-                     fab_cancelTask.accessibilityLabel = "Cancel Task"
-                     fab_cancelTask.minimumSize = CGSize(width: 32, height: 24)
-                     let kMinimumAccessibleButtonSizeHeeight: CGFloat = 24
-                     let kMinimumAccessibleButtonSizeWidth:CGFloat = 32
-                     
-                     let buttonVerticalInset =
-                     min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_cancelTask.bounds.height) / 2);
-                     let buttonHorizontalInset =
-                     min(0, -(kMinimumAccessibleButtonSizeWidth - fab_cancelTask.bounds.width) / 2);
-                     fab_cancelTask.hitAreaInsets =
-                         UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
-                                      bottom: buttonVerticalInset, right: buttonHorizontalInset);
+        // fab_cancelTask.setMode(.normal, animated: true)
+        fab_cancelTask.accessibilityLabel = "Cancel Task"
+        fab_cancelTask.minimumSize = CGSize(width: 32, height: 24)
+        let kMinimumAccessibleButtonSizeHeeight: CGFloat = 24
+        let kMinimumAccessibleButtonSizeWidth:CGFloat = 32
+        
+        let buttonVerticalInset =
+            min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_cancelTask.bounds.height) / 2);
+        let buttonHorizontalInset =
+            min(0, -(kMinimumAccessibleButtonSizeWidth - fab_cancelTask.bounds.width) / 2);
+        fab_cancelTask.hitAreaInsets =
+            UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
+                         bottom: buttonVerticalInset, right: buttonHorizontalInset);
+        
+        
         //MARK: cancel button position
-//                     fab_cancelTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.minY+40, width: 25, height: 25)
-           
+        
         fab_cancelTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/8, y: UIScreen.main.bounds.minY+40, width: 25, height: 25)
-             
-             let addTaskIcon = UIImage(named: "material_close")
-             fab_cancelTask.setImage(addTaskIcon, for: .normal)
-             fab_cancelTask.backgroundColor = primaryColor
-                       fab_cancelTask.sizeToFit()
-                     view.addSubview(fab_cancelTask)
+        
+        let addTaskIcon = UIImage(named: "material_close")
+        fab_cancelTask.setImage(addTaskIcon, for: .normal)
+        fab_cancelTask.backgroundColor = primaryColor
+        fab_cancelTask.sizeToFit()
+        view.addSubview(fab_cancelTask)
         fab_cancelTask.addTarget(self, action: #selector(cancelAddTaskAction), for: .touchUpInside)
-    
-             
-             //---Floating Action Button - Material - DONE
+        
+        
+        //---Floating Action Button - Material - DONE
+        
+        
+        // MARK:---Floating Action Button MATERIAL DONE TASK - Material
+        
+        let doneButtonHeightWidth: CGFloat = 50
+//        let doneButtonY = 4*(standardHeight)+standardHeight/2-(doneButtonHeightWidth/2)
+          let doneButtonY = 4*(standardHeight)+standardHeight-(doneButtonHeightWidth/2)
+        print("Placing done button at: \(doneButtonY)")
+        
+        fab_doneTask.mode = .expanded
+        fab_doneTask.setTitle("done", for: .normal)
+        fab_doneTask.setTitle("nice !", for: .highlighted)
+        fab_doneTask.titleLabel?.text = "Done"
+        fab_doneTask.titleColor(for: .normal)
+        fab_doneTask.frame = CGRect(x: UIScreen.main.bounds.maxX-2.5*doneButtonHeightWidth, y: doneButtonY, width: 2.5*doneButtonHeightWidth, height: doneButtonHeightWidth)
+        let doneTaskIconNormalImage = UIImage(named: "material_done_White")
+        fab_doneTask.setImage(doneTaskIconNormalImage, for: .normal)
+        // material_evening_White
+        if (isEveningSwitchOn(sender: eveningSwitch)) {
+            let doneTaskIconNormalImage = UIImage(named: "material_evening_White")
+            fab_doneTask.setImage(doneTaskIconNormalImage, for: .highlighted)
+        } else {
+            let doneTaskIconNormalImage = UIImage(named: "material_day_White")
+            fab_doneTask.setImage(doneTaskIconNormalImage, for: .highlighted)
+        }
+        
+        fab_doneTask.backgroundColor = secondryColor
+        fab_doneTask.sizeToFit()
+        view.addSubview(fab_doneTask)
+        fab_doneTask.addTarget(self, action: #selector(doneAddTaskAction), for: .touchUpInside)
         
         
         
-        //--------
         
-        // MARK: OLD Cancel Add Task Button
-        cancelAddTaskButton.frame = CGRect(x: UIScreen.main.bounds.maxX - 70, y: circleMenuStartY, width: circleMenuRadius, height: circleMenuRadius)
-        cancelAddTaskButton.titleLabel?.text = ""
-        let cancelImage = UIImageView()
-        cancelImage.frame = CGRect(x: UIScreen.main.bounds.maxX - 70, y: circleMenuStartY, width: circleMenuRadius, height: circleMenuRadius)
-        cancelImage.image = #imageLiteral(resourceName: "material_close")
-        cancelAddTaskButton.backgroundColor = primaryColor
-        cancelAddTaskButton.layer.cornerRadius = cancelAddTaskButton.bounds.size.width/2;
-            cancelAddTaskButton.layer.masksToBounds = true
-        view.addSubview(cancelImage)
-    
+        
+        
+        
         
         // MARK: SETUP ALL VIEWS
         
         view.addSubview(setupFirstSeperator())
         view.addSubview(setupAddTaskTextField(textFeild: addTaskTextField))
-        _ = setupAddTaskButtonDone(addTaskButtonDone: addTaskButton)
+       // _ = setupAddTaskButtonDone(addTaskButtonDone: addTaskButton)
         view.addSubview(setupEveningTaskSwitch())
         view.addSubview(setupSecondSeperator())
         view.addSubview(setupPrioritySC())
@@ -197,9 +223,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         view.bringSubviewToFront(circleMenuButton)
         view.bringSubviewToFront(addTaskButton)
-        view.bringSubviewToFront(cancelAddTaskButton) //remove
-        view.bringSubviewToFront(cancelImage) //remove
         view.bringSubviewToFront(fab_cancelTask)
+        view.bringSubviewToFront(fab_doneTask)
         
         addTaskTextField.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
         addTaskTextField.textColor = primaryColor
@@ -207,21 +232,40 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
     }
     
+    //MARK:- DONE TASK ACTION
+    
+    @objc func doneAddTaskAction() {
+        
+        //       tap DONE --> add new task + nav homeScreen
+        
+        //MARK:- ADD TASK
+        isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
+        if addTaskTextField.text != nil && addTaskTextField.text != "" {
+            
+            TaskManager.sharedInstance.addNewTask(name: addTaskTextField.text!, taskType: getTaskType(), taskPriority: 2)
+        }
+        
+        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
+        newViewController.modalPresentationStyle = .fullScreen
+        self.present(newViewController, animated: true, completion: nil)
+        
+        
+        
+        //                    dismiss(animated: true)
+        
+        
+    }
+    
     //MARK:- CALCEL TASK ACTION
     
     @objc func cancelAddTaskAction() {
         
-//        homeScreen
+        //       tap CANCEL --> homeScreen
         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        
         let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
-        
         newViewController.modalPresentationStyle = .fullScreen
-        
-                self.present(newViewController, animated: true, completion: nil)
-       
-//        self.navigationController.
-        
+        self.present(newViewController, animated: true, completion: nil)
     }
     
     
@@ -318,13 +362,13 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     @objc func isEveningSwitchOn(sender:UISwitch!) -> Bool {
         if (sender.isOn == true){
-               print("SWITCH: on")
+            print("SWITCH: on")
             return true
-           }
-           else{
-               print("SWITCH: off")
+        }
+        else{
+            print("SWITCH: off")
             return false
-           }
+        }
     }
     
     // MARK: MAKE First Seperator
@@ -342,15 +386,15 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     }
     
     
-    // MARK: MAKE AddTask Button - This is Hidden
+    // MARK: OLD make AddTask Button - This is Hidden
     
     func setupAddTaskButtonDone(addTaskButtonDone: UIButton) -> UIView{
         
         let doneButtonHeightWidth: CGFloat = 50
         let doneButtonY = 4*(standardHeight)+standardHeight/2-(doneButtonHeightWidth/2)
         print("Placing done button at: \(doneButtonY)")
-
-         addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: doneButtonHeightWidth, height: doneButtonHeightWidth)
+        
+        addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: doneButtonHeightWidth, height: doneButtonHeightWidth)
         
         addTaskButtonDone.titleLabel?.textColor = primaryColor
         addTaskButtonDone.titleLabel?.textAlignment = .center
@@ -367,10 +411,10 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     func setupAddTaskTextField(textFeild: UITextField) -> UIView {
         
         let mView = UIView()
-         mView.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
+        mView.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
         mView.backgroundColor = secondryColor
-
-//        textFeild.frame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-70, height: standardHeight/2)
+        
+        //        textFeild.frame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-70, height: standardHeight/2)
         
         //--------MATERIAL TEXT FEILD
         let estimatedFrame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
@@ -384,7 +428,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         
         textBoxEndY = textFeild.bounds.height
- 
+        
         print("-------------------------------------------")
         print("textFeild maxY: \(textFeild.bounds.maxY)")
         print("textFeild MID: \(textFeild.bounds.midY)")
@@ -473,21 +517,21 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         ("", .clear)
     ]
     
-        func getTaskType() -> Int { //extend this to return for inbox & upcoming/someday
-            if eveningSwitch.isOn {
-                return 2
-            }
-                //        else if isInboxTask {
-                //
-                //        }
-                //        else if isUpcomingTask {
-                //
-                //        }
-            else {
-                //this is morning task
-                return 1
-            }
+    func getTaskType() -> Int { //extend this to return for inbox & upcoming/someday
+        if eveningSwitch.isOn {
+            return 2
         }
+            //        else if isInboxTask {
+            //
+            //        }
+            //        else if isUpcomingTask {
+            //
+            //        }
+        else {
+            //this is morning task
+            return 1
+        }
+    }
     
     
 }

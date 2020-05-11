@@ -78,6 +78,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                   fab_AddTask.sizeToFit()
                 view.addSubview(fab_AddTask)
         
+        
+        
+        fab_AddTask.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
+        
         //---Floating Action Button - Material - DONE
         
         
@@ -102,6 +106,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         enableDarkModeIfPreset()
     }
     
+        @objc func AddTaskAction() {
+            
+    //       tap add fab --> addTask
+            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+            let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+            newViewController.modalPresentationStyle = .fullScreen
+                    self.present(newViewController, animated: true, completion: nil)
+        }
     
     
     func serveSemiViewRed() -> UIView {
