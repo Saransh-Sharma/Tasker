@@ -34,15 +34,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:- Tablevieew animation style
     private let animations = [AnimationType.from(direction:.right , offset: 400.0)]
     
-
+    var headerEndY: CGFloat = 128
     
     let items: [(icon: String, color: UIColor)] = [
-//        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
+        //        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
         ("", .clear),
         ("icon_search", UIColor(red: 0.22, green: 0.74, blue: 0, alpha: 1)),
         ("notifications-btn", UIColor(red: 0.96, green: 0.23, blue: 0.21, alpha: 1)),
         ("settings-btn", UIColor(red: 0.51, green: 0.15, blue: 1, alpha: 1)),
-//        ("nearby-btn", UIColor(red: 1, green: 0.39, blue: 0, alpha: 1))
+        //        ("nearby-btn", UIColor(red: 1, green: 0.39, blue: 0, alpha: 1))
         ("", .clear)
     ]
     
@@ -57,50 +57,63 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     var scoreForTheDay: UILabel! = nil
     
-    func animate() {
-           // Combined animations example
-//           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
-           let zoomAnimation = AnimationType.zoom(scale: 0.5)
-           let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
-//           UIView.animate(views: collectionView.visibleCells,
-//                          animations: [zoomAnimation, rotateAnimation],
-//                          duration: 0.5)
+    
+    //MARK: animations
+    func animateTableViewReload() {
+        let zoomAnimation = AnimationType.zoom(scale: 0.5)
+        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
         
         UIView.animate(views: tableView.visibleCells,
-                                 animations: [zoomAnimation, rotateAnimation],
-                                 duration: 0.3)
-           
-//           UIView.animate(views: tableView.visibleCells,
-//                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
-       }
+                       animations: [zoomAnimation, rotateAnimation],
+                       duration: 0.3)
+    }
+    func animateTableCellReload() {
+        // Combined animations example
+        //           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
+        let zoomAnimation = AnimationType.zoom(scale: 0.5)
+        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+        //           UIView.animate(views: collectionView.visibleCells,
+        //                          animations: [zoomAnimation, rotateAnimation],
+        //                          duration: 0.5)
+        
+        UIView.animate(views: tableView.visibleCells,
+                       animations: [zoomAnimation, rotateAnimation],
+                       duration: 0.3)
+        
+        //           UIView.animate(views: tableView.visibleCells,
+        //                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
+    }
     
+    
+    //MARK:- View did load
     override func viewDidLoad() {
         super.viewDidLoad()
         
         view.addSubview(servePageHeader())
+        tableView.frame = CGRect(x: 0, y: headerEndY+10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         
         
-             //---Floating Action Button - Material
-                let fab_AddTask = MDCFloatingButton()
-                fab_AddTask.accessibilityLabel = "Add Task"
-                fab_AddTask.minimumSize = CGSize(width: 64, height: 48)
-                let kMinimumAccessibleButtonSizeHeeight: CGFloat = 48
-                let kMinimumAccessibleButtonSizeWidth:CGFloat = 64
-                
-                let buttonVerticalInset =
-                min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_AddTask.bounds.height) / 2);
-                let buttonHorizontalInset =
-                min(0, -(kMinimumAccessibleButtonSizeWidth - fab_AddTask.bounds.width) / 2);
-                fab_AddTask.hitAreaInsets =
-                    UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
-                                 bottom: buttonVerticalInset, right: buttonHorizontalInset);
-                fab_AddTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-100, width: 50, height: 50)
+        //---Floating Action Button - Material
+        let fab_AddTask = MDCFloatingButton()
+        fab_AddTask.accessibilityLabel = "Add Task"
+        fab_AddTask.minimumSize = CGSize(width: 64, height: 48)
+        let kMinimumAccessibleButtonSizeHeeight: CGFloat = 48
+        let kMinimumAccessibleButtonSizeWidth:CGFloat = 64
+        
+        let buttonVerticalInset =
+            min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_AddTask.bounds.height) / 2);
+        let buttonHorizontalInset =
+            min(0, -(kMinimumAccessibleButtonSizeWidth - fab_AddTask.bounds.width) / 2);
+        fab_AddTask.hitAreaInsets =
+            UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
+                         bottom: buttonVerticalInset, right: buttonHorizontalInset);
+        fab_AddTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-100, width: 50, height: 50)
         
         let addTaskIcon = UIImage(named: "material_add_White")
         fab_AddTask.setImage(addTaskIcon, for: .normal)
         fab_AddTask.backgroundColor = secondryColor
-                  fab_AddTask.sizeToFit()
-                view.addSubview(fab_AddTask)
+        fab_AddTask.sizeToFit()
+        view.addSubview(fab_AddTask)
         
         
         
@@ -114,13 +127,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         let circleMenuButton = CircleMenu(
             frame: CGRect(x: 32, y: 64, width: 30, height: 30),
             normalIcon:"icon_menu",
-//            selectedIcon:"icon_close",
+            //            selectedIcon:"icon_close",
             selectedIcon:"material_close",
             buttonsCount: 5,
             duration: 1,
             distance: 50)
         circleMenuButton.backgroundColor = primaryColor
-    
+        
         circleMenuButton.delegate = self
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
         view.addSubview(circleMenuButton)
@@ -129,14 +142,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         enableDarkModeIfPreset()
     }
     
-        @objc func AddTaskAction() {
-            
-    //       tap add fab --> addTask
-            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-            let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
-            newViewController.modalPresentationStyle = .fullScreen
-                    self.present(newViewController, animated: true, completion: nil)
-        }
+    @objc func AddTaskAction() {
+        
+        //       tap add fab --> addTask
+        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+        newViewController.modalPresentationStyle = .fullScreen
+        self.present(newViewController, animated: true, completion: nil)
+    }
     
     
     func serveSemiViewRed() -> UIView {
@@ -160,13 +173,17 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return .lightContent
     }
     
+    //MARK:- Serve Page Header
     func servePageHeader() -> UIView {
         let view = UIView(frame: UIScreen.main.bounds)
         view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
         view.backgroundColor = secondryColor
+        headerEndY = view.frame.maxY
+        
+        print("Header end point is: \(headerEndY)")
         
         let homeTitle = UILabel()
-//        homeTitle.frame = CGRect(x: view.frame.minX+84, y: view.frame.maxY-60, width: view.frame.width/2+20, height: 64)
+        //        homeTitle.frame = CGRect(x: view.frame.minX+84, y: view.frame.maxY-60, width: view.frame.width/2+20, height: 64)
         homeTitle.frame = CGRect(x: (view.frame.minX+view.frame.maxX/5)+3, y: view.frame.maxY-60, width: view.frame.width/2+view.frame.width/8, height: 64)
         homeTitle.text = "Today's score is "
         homeTitle.textColor = primaryColor
@@ -175,7 +192,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.addSubview(homeTitle)
         
         scoreForTheDay = UILabel()
-//        scoreForTheDay.frame = CGRect(x: view.frame.maxX-90, y: view.frame.maxY-60, width: 80, height: 64)
+        //        scoreForTheDay.frame = CGRect(x: view.frame.maxX-90, y: view.frame.maxY-60, width: 80, height: 64)
         scoreForTheDay.frame = CGRect(x: (view.frame.maxX-view.frame.maxX/6)-10, y: view.frame.maxY-60, width: 80, height: 64)
         scoreForTheDay.text = "13"
         scoreForTheDay.textColor = primaryColor
@@ -334,15 +351,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     override func viewWillAppear(_ animated: Bool) {
         // right spring animation
-//        tableView.reloadData(
-//            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-//                          constantDelay: 0))
+        //        tableView.reloadData(
+        //            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+        //                          constantDelay: 0))
         tableView.reloadData()
         
-        animate()
-//        UIView.animate(views: tableView.visibleCells, animations: animations, completion: {
+        animateTableViewReload()
+        //        UIView.animate(views: tableView.visibleCells, animations: animations, completion: {
         
-//        })
+        //        })
     }
     
     
@@ -411,6 +428,19 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         tableView.backgroundColor = UIColor.clear
         return 2;
+    }
+    
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        let myLabel = UILabel()
+        myLabel.frame = CGRect(x: 20, y: 0, width: UIScreen.main.bounds.width/2, height: 20)
+        //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+        myLabel.font = UIFont(name: "HelveticaNeue-Bold", size: 20)
+        myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
+        
+        let headerView = UIView()
+        headerView.addSubview(myLabel)
+        
+        return headerView
     }
     
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
@@ -508,17 +538,17 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             }
             
             self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
-             
+            
             tableView.reloadData()
-            self.animate()
-//            UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
-//
-//                   })
+            self.animateTableViewReload()
+            //            UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
+            //
+            //                   })
             
             // right spring animation
-//            tableView.reloadData(
-//                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-//                              constantDelay: 0))
+            //            tableView.reloadData(
+            //                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+            //                              constantDelay: 0))
             
             self.title = "\(self.calculateTodaysScore())"
             actionPerformed(true)
@@ -568,15 +598,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 }
                 
                 //                tableView.reloadData()
-//                tableView.reloadData(
-//                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
-//                                  constantDelay: 0))
+                //                tableView.reloadData(
+                //                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
+                //                                  constantDelay: 0))
                 
                 tableView.reloadData()
-                self.animate()
-//                UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
-//
-//                       })
+                self.animateTableViewReload()
+                //                UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
+                //
+                //                       })
                 
                 
             }
