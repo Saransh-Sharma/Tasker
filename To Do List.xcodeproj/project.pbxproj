@@ -157,8 +157,9 @@
 		753EFC9C2445A24500A739E3 /* To Do List */ = {
 			isa = PBXGroup;
 			children = (
-				759F18F82468B70200293A32 /* NAddTaskScreen.swift */,
-				753EFCA12445A24500A739E3 /* ViewController.swift */,
+				75B7121B246AF77000453AEC /* Model */,
+				75B7121A246AF74E00453AEC /* ViewControllers */,
+				75B71219246AF70300453AEC /* Storyboards */,
 				75F18100245C99CD004D9A69 /* TaskModel.xcdatamodeld */,
 				75F18107245CA229004D9A69 /* TaskManager.swift */,
 				759D2140245A2CC400A4D2DE /* ToDoManager.swift */,
@@ -167,12 +168,7 @@
 				753EFC9D2445A24500A739E3 /* AppDelegate.swift */,
 				753EFC9F2445A24500A739E3 /* SceneDelegate.swift */,
 				759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */,
-				758A803F2450BFA300BFB571 /* InboxViewController.swift */,
-				758A80632451E86E00BFB571 /* WeeklyViewController.swift */,
-				75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */,
-				753EFCA32445A24500A739E3 /* Main.storyboard */,
 				753EFCA62445A24700A739E3 /* Assets.xcassets */,
-				753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */,
 				753EFCAB2445A24700A739E3 /* Info.plist */,
 			);
 			path = "To Do List";
@@ -194,6 +190,34 @@
 				753EFCC12445A24800A739E3 /* Info.plist */,
 			);
 			path = "To Do ListUITests";
+			sourceTree = "<group>";
+		};
+		75B71219246AF70300453AEC /* Storyboards */ = {
+			isa = PBXGroup;
+			children = (
+				753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */,
+				753EFCA32445A24500A739E3 /* Main.storyboard */,
+			);
+			path = Storyboards;
+			sourceTree = "<group>";
+		};
+		75B7121A246AF74E00453AEC /* ViewControllers */ = {
+			isa = PBXGroup;
+			children = (
+				753EFCA12445A24500A739E3 /* ViewController.swift */,
+				759F18F82468B70200293A32 /* NAddTaskScreen.swift */,
+				758A80632451E86E00BFB571 /* WeeklyViewController.swift */,
+				758A803F2450BFA300BFB571 /* InboxViewController.swift */,
+				75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */,
+			);
+			path = ViewControllers;
+			sourceTree = "<group>";
+		};
+		75B7121B246AF77000453AEC /* Model */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Model;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

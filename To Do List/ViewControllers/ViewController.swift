@@ -59,15 +59,19 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     func animate() {
            // Combined animations example
-           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
+//           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
            let zoomAnimation = AnimationType.zoom(scale: 0.5)
            let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
 //           UIView.animate(views: collectionView.visibleCells,
 //                          animations: [zoomAnimation, rotateAnimation],
 //                          duration: 0.5)
+        
+        UIView.animate(views: tableView.visibleCells,
+                                 animations: [zoomAnimation, rotateAnimation],
+                                 duration: 0.3)
            
-           UIView.animate(views: tableView.visibleCells,
-                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
+//           UIView.animate(views: tableView.visibleCells,
+//                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
        }
     
     override func viewDidLoad() {
