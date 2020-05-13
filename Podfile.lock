@@ -608,14 +608,14 @@ PODS:
     - MotionInterchange (~> 1.6)
   - MotionInterchange (1.6.0)
   - SemiModalViewController (1.0.1)
-  - SwiftDate (6.1.0)
+  - Timepiece (1.3.1)
   - ViewAnimator (2.7.0)
 
 DEPENDENCIES:
   - CircleMenu (~> 4.1.0)
   - MaterialComponents (~> 109.2.0)
   - SemiModalViewController (~> 1.0.1)
-  - SwiftDate (~> 6.1.0)
+  - Timepiece (~> 1.3.1)
   - ViewAnimator (~> 2.7.0)
 
 SPEC REPOS:
@@ -627,7 +627,7 @@ SPEC REPOS:
     - MotionAnimator
     - MotionInterchange
     - SemiModalViewController
-    - SwiftDate
+    - Timepiece
     - ViewAnimator
 
 SPEC CHECKSUMS:
@@ -638,9 +638,9 @@ SPEC CHECKSUMS:
   MotionAnimator: ee16aa30567c5bae0fb2750c132915829cfaaf8a
   MotionInterchange: ead0e3ae1f3a5fb539e289debbc7ae036160a10d
   SemiModalViewController: 13fe8b991b501c7cd6a9ec7c782ed7a5c72c12e6
-  SwiftDate: fa2bb3962056bb44047b4b85a30044e5eae30b03
+  Timepiece: c0760ec0e545697d86b80424dcd2b4d5ef66cf51
   ViewAnimator: 5af1c6f3b310f012bf081259c43717aa54fbae73
 
-PODFILE CHECKSUM: 7d8c99f3b31a9efcb66972f670c5d8d56fbbc4da
+PODFILE CHECKSUM: f8a14e107657b51e45f8748589181f3118f4ee03
 
 COCOAPODS: 1.9.1

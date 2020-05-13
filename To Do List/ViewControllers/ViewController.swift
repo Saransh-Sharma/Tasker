@@ -13,6 +13,7 @@ import SemiModalViewController
 import CircleMenu
 import ViewAnimator
 import MaterialComponents.MaterialButtons
+import MaterialComponents.MaterialBottomAppBar
 import MaterialComponents.MaterialButtons_Theming
 //import StrikethroughLabel
 
@@ -57,33 +58,58 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     var scoreForTheDay: UILabel! = nil
     
+    var bottomAppBar = MDCBottomAppBarView()
     
-    //MARK: animations
-    func animateTableViewReload() {
-        let zoomAnimation = AnimationType.zoom(scale: 0.5)
-        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+    func setupBottomAppBar() {
         
-        UIView.animate(views: tableView.visibleCells,
-                       animations: [zoomAnimation, rotateAnimation],
-                       duration: 0.3)
+
+        
+                 // Image floatingButton
+                 bottomAppBar.floatingButton.setImage(UIImage(named: "material_add_White"), for: .normal)
+                 // Background color floatingButton
+        bottomAppBar.floatingButton.backgroundColor = .black
+                 
+            
+//        let size = bottomAppBar.sizeThatFits(self.containerView.bounds.size)
+        bottomAppBar.frame = CGRect(x: 0, y: UIScreen.main.bounds.maxY-(UIScreen.main.bounds.height/10+10), width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.maxY-UIScreen.main.bounds.height/10)
+        bottomAppBar.barTintColor = secondryColor
+
+                 // The following lines of code are to define the buttons on the right and left side
+                 let barButtonMenu = UIBarButtonItem(
+                     image: UIImage(named:"material_menu_White"), // Icon
+                     style: .plain,
+                     target: self,
+                     action: #selector(self.onMenuButtonTapped))
+
+                 let barButtonSearch = UIBarButtonItem(
+                     image: UIImage(named: "material_search_White"), // Icon
+                     style: .plain,
+                     target: self,
+                     action: #selector(self.onNavigationButtonTapped))
+        let barButtonInbox = UIBarButtonItem(
+                        image: UIImage(named: "material_inbox_White"), // Icon
+                        style: .plain,
+                        target: self,
+                        action: #selector(self.onNavigationButtonTapped))
+                 bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
+//                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
+        bottomAppBar.elevation = ShadowElevation(rawValue: 5)
+        bottomAppBar.floatingButtonPosition = .trailing
+        
+//        return bottomAppBar
     }
-    func animateTableCellReload() {
-        // Combined animations example
-        //           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
-        let zoomAnimation = AnimationType.zoom(scale: 0.5)
-        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
-        //           UIView.animate(views: collectionView.visibleCells,
-        //                          animations: [zoomAnimation, rotateAnimation],
-        //                          duration: 0.5)
-        
-        UIView.animate(views: tableView.visibleCells,
-                       animations: [zoomAnimation, rotateAnimation],
-                       duration: 0.3)
-        
-        //           UIView.animate(views: tableView.visibleCells,
-        //                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
+   
+    @objc
+    func onMenuButtonTapped() {
+        print("menu buttoon tapped")
     }
     
+    @objc
+       func onNavigationButtonTapped() {
+           print("nav buttoon tapped")
+       }
+    
+
     
     //MARK:- View did load
     override func viewDidLoad() {
@@ -114,6 +140,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         fab_AddTask.backgroundColor = secondryColor
         fab_AddTask.sizeToFit()
         view.addSubview(fab_AddTask)
+        
+        setupBottomAppBar()
+        view.addSubview(bottomAppBar)
+        view.bringSubviewToFront(bottomAppBar)
         
         
         
@@ -664,5 +694,32 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             //each.backgroundColor = UIColor.red
         }
     }
+    
+    //MARK: animations
+    func animateTableViewReload() {
+        let zoomAnimation = AnimationType.zoom(scale: 0.5)
+        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+        
+        UIView.animate(views: tableView.visibleCells,
+                       animations: [zoomAnimation, rotateAnimation],
+                       duration: 0.3)
+    }
+    func animateTableCellReload() {
+        // Combined animations example
+        //           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
+        let zoomAnimation = AnimationType.zoom(scale: 0.5)
+        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+        //           UIView.animate(views: collectionView.visibleCells,
+        //                          animations: [zoomAnimation, rotateAnimation],
+        //                          duration: 0.5)
+        
+        UIView.animate(views: tableView.visibleCells,
+                       animations: [zoomAnimation, rotateAnimation],
+                       duration: 0.3)
+        
+        //           UIView.animate(views: tableView.visibleCells,
+        //                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
+    }
+    
 }
 

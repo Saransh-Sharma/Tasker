@@ -8,6 +8,7 @@
 
 import Foundation
 import UIKit
+import Timepiece
 import CoreData 
 
 class TaskManager {
@@ -93,6 +94,63 @@ class TaskManager {
         task.taskDetails = "Fill in task details here"
         task.taskType = Int32(taskType)
         task.taskPriority = Int32(taskPriority)
+        
+        tasks.append(task)
+        saveContext()
+        print("addNewTaskWithName task count now is: \(getAllTasks.count)")
+    }
+    
+    func addNewTask_Today(name: String, taskType: Int, taskPriority: Int, isEveningTask: Bool) {
+        
+        let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
+        
+        task.name = name
+        task.isComplete = false
+        task.taskDetails = "Fill in task details here"
+        task.taskType = Int32(taskType)
+        task.taskPriority = Int32(taskPriority)
+        task.dateAdded = Date.today() as NSDate
+        task.dueDate = Date.today() as NSDate
+        task.isEveningTask = isEveningTask
+        
+        let today = Date.today()
+        let today2 = Date(year: 2014, month: 8, day: 14, hour: 20, minute: 25, second: 43)
+        
+        print("---------------------------------------")
+        print("Today is: \(today)")
+        print("Today is: \(today.stringIn(dateStyle: .long, timeStyle: .medium))")
+        print("Today is: \(today.stringIn(dateStyle: .short, timeStyle: .short))")
+        print("Today is: \(today.stringIn(dateStyle: .long, timeStyle: .short))")
+        print("----------------------")
+        print("TODAY_2 is: \(today2)")
+        print("TODAY_2  is: \(today2.stringIn(dateStyle: .long, timeStyle: .medium))")
+          print("TODAY_2  is: \(today2.stringIn(dateStyle: .short, timeStyle: .short))")
+          print("TODAY_2  is: \(today2.stringIn(dateStyle: .long, timeStyle: .short))")
+        print("---------------------------------------")
+//        print("TODAY_2  NSDATE: \(Date.today() as NSDate)")
+        
+//        print("Today is: \(Date.)")
+        print("---------------------------------------")
+        
+        tasks.append(task)
+        saveContext()
+        print("addNewTaskWithName task count now is: \(getAllTasks.count)")
+    }
+    
+    func addNewTask_Future(name: String, taskType: Int, taskPriority: Int, futureTaskDate: Date, isEveningTask: Bool) {
+        
+        let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
+        
+        task.name = name
+        task.isComplete = false
+        task.taskDetails = "Fill in task details here"
+        task.taskType = Int32(taskType)
+        task.taskPriority = Int32(taskPriority)
+        task.dateAdded = Date.today() as NSDate
+        task.dueDate = futureTaskDate as NSDate
+        task.isEveningTask = isEveningTask
+        
+        
         
         tasks.append(task)
         saveContext()
