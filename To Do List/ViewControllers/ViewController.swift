@@ -96,6 +96,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         bottomAppBar.elevation = ShadowElevation(rawValue: 5)
         bottomAppBar.floatingButtonPosition = .trailing
         
+
+        bottomAppBar.floatingButton.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
+
+        
 //        return bottomAppBar
     }
    
@@ -117,37 +121,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         view.addSubview(servePageHeader())
         tableView.frame = CGRect(x: 0, y: headerEndY+10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        
-        
-        //---Floating Action Button - Material
-        let fab_AddTask = MDCFloatingButton()
-        fab_AddTask.accessibilityLabel = "Add Task"
-        fab_AddTask.minimumSize = CGSize(width: 64, height: 48)
-        let kMinimumAccessibleButtonSizeHeeight: CGFloat = 48
-        let kMinimumAccessibleButtonSizeWidth:CGFloat = 64
-        
-        let buttonVerticalInset =
-            min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_AddTask.bounds.height) / 2);
-        let buttonHorizontalInset =
-            min(0, -(kMinimumAccessibleButtonSizeWidth - fab_AddTask.bounds.width) / 2);
-        fab_AddTask.hitAreaInsets =
-            UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
-                         bottom: buttonVerticalInset, right: buttonHorizontalInset);
-        fab_AddTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.maxY-100, width: 50, height: 50)
-        
-        let addTaskIcon = UIImage(named: "material_add_White")
-        fab_AddTask.setImage(addTaskIcon, for: .normal)
-        fab_AddTask.backgroundColor = secondryColor
-        fab_AddTask.sizeToFit()
-        view.addSubview(fab_AddTask)
-        
+                
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
         view.bringSubviewToFront(bottomAppBar)
         
-        
-        
-        fab_AddTask.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
         
         //---Floating Action Button - Material - DONE
         
