@@ -9,13 +9,11 @@
 import UIKit
 import CoreData
 import SemiModalViewController
-//import TableViewReloadAnimation
 import CircleMenu
 import ViewAnimator
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialBottomAppBar
 import MaterialComponents.MaterialButtons_Theming
-//import StrikethroughLabel
 
 
 extension UIColor {
@@ -30,14 +28,17 @@ extension UIColor {
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, CircleMenuDelegate {
     
-    let colors = [UIColor.red, UIColor.gray, UIColor.green, UIColor.purple]
     
     //MARK:- Tablevieew animation style
     private let animations = [AnimationType.from(direction:.right , offset: 400.0)]
     
+    //MARK:- Positioning
     var headerEndY: CGFloat = 128
     
-    let items: [(icon: String, color: UIColor)] = [
+    //MARK: Buttons + Views + Bottom bar
+    let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
+    var bottomAppBar = MDCBottomAppBarView()
+    let circleMenuItems: [(icon: String, color: UIColor)] = [
         //        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
         ("", .clear),
         ("icon_search", UIColor(red: 0.22, green: 0.74, blue: 0, alpha: 1)),
@@ -48,83 +49,83 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     ]
     
     // MARK: Outlets
-    
     @IBOutlet weak var addTaskButton: UIButton!
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var switchState: UISwitch!
-    //    @IBOutlet weak var scoreButton: UIBarButtonItem!
     
-    let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
     
-    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
-    var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+    
+    //MARK: Theming
+    //    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+    //    var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+    var primaryColor = UIColor.systemGray5
+    var secondryColor = UIColor.systemBlue
+
     var scoreForTheDay: UILabel! = nil
     
-    var bottomAppBar = MDCBottomAppBarView()
+    
     
     func setupBottomAppBar() {
         
-
+        bottomAppBar.floatingButton.setImage(UIImage(named: "material_add_White"), for: .normal)
+//        bottomAppBar.floatingButton.backgroundColor = .black
+        bottomAppBar.floatingButton.backgroundColor = .systemIndigo
+        bottomAppBar.tintColor = #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
         
-                 // Image floatingButton
-                 bottomAppBar.floatingButton.setImage(UIImage(named: "material_add_White"), for: .normal)
-                 // Background color floatingButton
-        bottomAppBar.floatingButton.backgroundColor = .black
-                 
-            
-//        let size = bottomAppBar.sizeThatFits(self.containerView.bounds.size)
+        
+        //        let size = bottomAppBar.sizeThatFits(self.containerView.bounds.size)
         bottomAppBar.frame = CGRect(x: 0, y: UIScreen.main.bounds.maxY-(UIScreen.main.bounds.height/10+10), width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.maxY-UIScreen.main.bounds.height/10)
         bottomAppBar.barTintColor = secondryColor
-
-                 // The following lines of code are to define the buttons on the right and left side
-                 let barButtonMenu = UIBarButtonItem(
-                     image: UIImage(named:"material_menu_White"), // Icon
-                     style: .plain,
-                     target: self,
-                     action: #selector(self.onMenuButtonTapped))
-
-                 let barButtonSearch = UIBarButtonItem(
-                     image: UIImage(named: "material_search_White"), // Icon
-                     style: .plain,
-                     target: self,
-                     action: #selector(self.onNavigationButtonTapped))
+        
+        // The following lines of code are to define the buttons on the right and left side
+        let barButtonMenu = UIBarButtonItem(
+            image: UIImage(named:"material_menu_White"), // Icon
+            style: .plain,
+            target: self,
+            action: #selector(self.onMenuButtonTapped))
+        
+        let barButtonSearch = UIBarButtonItem(
+            image: UIImage(named: "material_search_White"), // Icon
+            style: .plain,
+            target: self,
+            action: #selector(self.onNavigationButtonTapped))
         let barButtonInbox = UIBarButtonItem(
-                        image: UIImage(named: "material_inbox_White"), // Icon
-                        style: .plain,
-                        target: self,
-                        action: #selector(self.onNavigationButtonTapped))
-                 bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
-//                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
+            image: UIImage(named: "material_inbox_White"), // Icon
+            style: .plain,
+            target: self,
+            action: #selector(self.onNavigationButtonTapped))
+        bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
+        //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
         bottomAppBar.elevation = ShadowElevation(rawValue: 5)
         bottomAppBar.floatingButtonPosition = .trailing
         
-
-        bottomAppBar.floatingButton.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
-
         
-//        return bottomAppBar
+        bottomAppBar.floatingButton.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
+        
+        
+        //        return bottomAppBar
     }
-   
+    
     @objc
     func onMenuButtonTapped() {
         print("menu buttoon tapped")
     }
     
     @objc
-       func onNavigationButtonTapped() {
-           print("nav buttoon tapped")
-       }
+    func onNavigationButtonTapped() {
+        print("nav buttoon tapped")
+    }
     
-
+    
     
     //MARK:- View did load
     override func viewDidLoad() {
         super.viewDidLoad()
         
-//        view.addSubview(servePageHeader())
+        //        view.addSubview(servePageHeader())
         view.addSubview(serveNewPageHeader())
         tableView.frame = CGRect(x: 0, y: headerEndY+10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-                
+        
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
         view.bringSubviewToFront(bottomAppBar)
@@ -149,18 +150,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         // fab_revealCalAtHome button position
-//        fab_revealCalAtHome.frame = CGRect(x: UIScreen.main.bounds.width - UIScreen.main.bounds.width/8 , y: UIScreen.main.bounds.minY+60, width: 25, height: 25)
-
+        //        fab_revealCalAtHome.frame = CGRect(x: UIScreen.main.bounds.width - UIScreen.main.bounds.width/8 , y: UIScreen.main.bounds.minY+60, width: 25, height: 25)
+        
         fab_revealCalAtHome.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/8, y: UIScreen.main.bounds.minY+40, width: 25, height: 25)
         let addTaskIcon = UIImage(named: "material_more_toCal")
         fab_revealCalAtHome.setImage(addTaskIcon, for: .normal)
-//        fab_revealCalAtHome.backgroundColor = primaryColor //this keeps style consistent between screens
+        //        fab_revealCalAtHome.backgroundColor = primaryColor //this keeps style consistent between screens
         fab_revealCalAtHome.backgroundColor = secondryColor
         fab_revealCalAtHome.sizeToFit()
         view.addSubview(fab_revealCalAtHome)
         fab_revealCalAtHome.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
         
-//        showCalMoreButtonnAction
+        //        showCalMoreButtonnAction
         
         //MARK: circle menu frame
         let circleMenuButton = CircleMenu(
@@ -175,25 +176,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         circleMenuButton.delegate = self
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
-        view.addSubview(circleMenuButton)
+//        view.addSubview(circleMenuButton) TODO: reconsider the top circle menu
         
         
         enableDarkModeIfPreset()
     }
     
-//    showCalMoreButtonnAction
+    //    showCalMoreButtonnAction
     
     @objc func showCalMoreButtonnAction() {
-         
-         //       tap showCalMoreButtonnAction --> expand to reveal calender
-//         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-//         let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
-//         newViewController.modalPresentationStyle = .fullScreen
-//         self.present(newViewController, animated: true, completion: nil)
         
-        //----
         print("Show cal !!")
-     }
+    }
     
     @objc func AddTaskAction() {
         
@@ -222,53 +216,39 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     // MARK:- Build Page Header
-    override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .lightContent
-    }
+//    override var preferredStatusBarStyle: UIStatusBarStyle {
+//        return .lightContent
+//    }
     
     func serveNewPageHeader() -> UIView {
         let view = UIView(frame: UIScreen.main.bounds)
         view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
         view.backgroundColor = .clear
         headerEndY = view.frame.maxY
-        
-        let moreToCalButton = UIButton()
-//        moreToCalButton.image(for: .normal)
-//        moreToCalButton.imageView = UIImage(cgImage: "material_more_toCal")
-//        let moreToCalImage = UIImageView()
-//        moreToCalImage.image = UIImage(named: "material_more_toCal")
-//        moreToCalButton.imageView = moreToCalImage
-//        moreToCalButton.currentImage = moreToCalImage
-        
-        
-        
-        
-        
-        let topHeaderImage = UIImageView()
-        topHeaderImage.image = UIImage(named:"topRectangle_v1")
-        topHeaderImage.frame = CGRect(x: -5, y: 0, width: UIScreen.main.bounds.width+10, height: 128)
-//        topHeaderImage.frame = view.frame
-        view.addSubview(topHeaderImage)
-        
+
         
         print("Header end point is: \(headerEndY)")
         
         let homeTitle = UILabel()
-        //        homeTitle.frame = CGRect(x: view.frame.minX+84, y: view.frame.maxY-60, width: view.frame.width/2+20, height: 64)
-        homeTitle.frame = CGRect(x: (view.frame.minX+view.frame.maxX/5)+3, y: view.frame.maxY-60, width: view.frame.width/2+view.frame.width/8, height: 64)
-        homeTitle.text = "Today's score is "
-        homeTitle.textColor = primaryColor
+
+//        homeTitle.frame = CGRect(x: 5, y: 30, width: view.frame.width/2+view.frame.width/8, height: 64)
+        homeTitle.frame = CGRect(x: 5, y: 30, width: view.frame.width/2, height: 40)
+        homeTitle.text = "Today's score"
+        homeTitle.textColor = .label
         homeTitle.textAlignment = .left
         homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
+        homeTitle.adjustsFontSizeToFitWidth = true
         view.addSubview(homeTitle)
         
         scoreForTheDay = UILabel()
-        //        scoreForTheDay.frame = CGRect(x: view.frame.maxX-90, y: view.frame.maxY-60, width: 80, height: 64)
-        scoreForTheDay.frame = CGRect(x: (view.frame.maxX-view.frame.maxX/6)-10, y: view.frame.maxY-60, width: 80, height: 64)
+        
+        scoreForTheDay.frame = CGRect(x: homeTitle.bounds.maxX, y: homeTitle.bounds.midY, width: 80, height: 64)
         scoreForTheDay.text = "13"
-        scoreForTheDay.textColor = primaryColor
+//        scoreForTheDay.textColor = primaryColor
+        scoreForTheDay.textColor = .secondaryLabel
         scoreForTheDay.textAlignment = .center
         scoreForTheDay.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
+        scoreForTheDay.adjustsFontSizeToFitWidth = true
         view.addSubview(scoreForTheDay)
         
         return view
@@ -307,12 +287,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     // MARK:- CircleMenuDelegate
     
     func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
-        button.backgroundColor = items[atIndex].color
+        button.backgroundColor = circleMenuItems[atIndex].color
         
-        button.setImage(UIImage(named: items[atIndex].icon), for: .normal)
+        button.setImage(UIImage(named: circleMenuItems[atIndex].icon), for: .normal)
         
         // set highlited image
-        let highlightedImage = UIImage(named: items[atIndex].icon)?.withRenderingMode(.alwaysTemplate)
+        let highlightedImage = UIImage(named: circleMenuItems[atIndex].icon)?.withRenderingMode(.alwaysTemplate)
         button.setImage(highlightedImage, for: .highlighted)
         button.tintColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.3)
     }
@@ -533,9 +513,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         let myLabel = UILabel()
-        myLabel.frame = CGRect(x: 20, y: 0, width: UIScreen.main.bounds.width/2, height: 20)
+        myLabel.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/2, height: 30)
         //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
         myLabel.font = UIFont(name: "HelveticaNeue-Bold", size: 20)
+        myLabel.textColor = .secondaryLabel
         myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
         
         let headerView = UIView()
@@ -554,6 +535,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             return nil
         }
     }
+    
     
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -601,27 +583,20 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         openTaskCell.backgroundColor = UIColor.clear
         
         if currentTask.isComplete {
-            completedTaskCell.textLabel?.textColor = UIColor.lightGray
+            completedTaskCell.textLabel?.textColor = .tertiaryLabel
             completedTaskCell.accessoryType = .checkmark
-            
             return completedTaskCell
         } else {
-            
-            openTaskCell.textLabel?.textColor = UIColor.black
-            //            cell.accessoryType = .detailButton
+            openTaskCell.textLabel?.textColor = .label
             openTaskCell.accessoryType = .disclosureIndicator
-            //            cell.accessoryType = .disclosureIndicator
             return openTaskCell
         }
-        
     }
     
     // MARK:- SWIPE ACTIONS
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        
-        
-        
+                    
         let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
             switch indexPath.section {

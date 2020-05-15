@@ -17,7 +17,8 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate, UITextFieldDelegate
 {
     // MARK: Theming
-    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+//    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+    var primaryColor =  #colorLiteral(red: 1, green: 1, blue: 1, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
     let dataArray = ["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
