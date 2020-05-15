@@ -54,6 +54,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var switchState: UISwitch!
     //    @IBOutlet weak var scoreButton: UIBarButtonItem!
     
+    let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
+    
     var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     var scoreForTheDay: UILabel! = nil
@@ -119,7 +121,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        view.addSubview(servePageHeader())
+//        view.addSubview(servePageHeader())
+        view.addSubview(serveNewPageHeader())
         tableView.frame = CGRect(x: 0, y: headerEndY+10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
                 
         setupBottomAppBar()
@@ -130,6 +133,34 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         //---Floating Action Button - Material - DONE
         
         
+        //---Floating Action Button - Material - MORE CAL
+        
+        
+        fab_revealCalAtHome.minimumSize = CGSize(width: 32, height: 24)
+        let kMinimumAccessibleButtonSizeHeeight: CGFloat = 24
+        let kMinimumAccessibleButtonSizeWidth:CGFloat = 32
+        let buttonVerticalInset =
+            min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_revealCalAtHome.bounds.height) / 2);
+        let buttonHorizontalInset =
+            min(0, -(kMinimumAccessibleButtonSizeWidth - fab_revealCalAtHome.bounds.width) / 2);
+        fab_revealCalAtHome.hitAreaInsets =
+            UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
+                         bottom: buttonVerticalInset, right: buttonHorizontalInset);
+        
+        
+        // fab_revealCalAtHome button position
+//        fab_revealCalAtHome.frame = CGRect(x: UIScreen.main.bounds.width - UIScreen.main.bounds.width/8 , y: UIScreen.main.bounds.minY+60, width: 25, height: 25)
+
+        fab_revealCalAtHome.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/8, y: UIScreen.main.bounds.minY+40, width: 25, height: 25)
+        let addTaskIcon = UIImage(named: "material_more_toCal")
+        fab_revealCalAtHome.setImage(addTaskIcon, for: .normal)
+//        fab_revealCalAtHome.backgroundColor = primaryColor //this keeps style consistent between screens
+        fab_revealCalAtHome.backgroundColor = secondryColor
+        fab_revealCalAtHome.sizeToFit()
+        view.addSubview(fab_revealCalAtHome)
+        fab_revealCalAtHome.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
+        
+//        showCalMoreButtonnAction
         
         //MARK: circle menu frame
         let circleMenuButton = CircleMenu(
@@ -149,6 +180,20 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         enableDarkModeIfPreset()
     }
+    
+//    showCalMoreButtonnAction
+    
+    @objc func showCalMoreButtonnAction() {
+         
+         //       tap showCalMoreButtonnAction --> expand to reveal calender
+//         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+//         let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+//         newViewController.modalPresentationStyle = .fullScreen
+//         self.present(newViewController, animated: true, completion: nil)
+        
+        //----
+        print("Show cal !!")
+     }
     
     @objc func AddTaskAction() {
         
@@ -179,6 +224,54 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     // MARK:- Build Page Header
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .lightContent
+    }
+    
+    func serveNewPageHeader() -> UIView {
+        let view = UIView(frame: UIScreen.main.bounds)
+        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
+        view.backgroundColor = .clear
+        headerEndY = view.frame.maxY
+        
+        let moreToCalButton = UIButton()
+//        moreToCalButton.image(for: .normal)
+//        moreToCalButton.imageView = UIImage(cgImage: "material_more_toCal")
+//        let moreToCalImage = UIImageView()
+//        moreToCalImage.image = UIImage(named: "material_more_toCal")
+//        moreToCalButton.imageView = moreToCalImage
+//        moreToCalButton.currentImage = moreToCalImage
+        
+        
+        
+        
+        
+        let topHeaderImage = UIImageView()
+        topHeaderImage.image = UIImage(named:"topRectangle_v1")
+        topHeaderImage.frame = CGRect(x: -5, y: 0, width: UIScreen.main.bounds.width+10, height: 128)
+//        topHeaderImage.frame = view.frame
+        view.addSubview(topHeaderImage)
+        
+        
+        print("Header end point is: \(headerEndY)")
+        
+        let homeTitle = UILabel()
+        //        homeTitle.frame = CGRect(x: view.frame.minX+84, y: view.frame.maxY-60, width: view.frame.width/2+20, height: 64)
+        homeTitle.frame = CGRect(x: (view.frame.minX+view.frame.maxX/5)+3, y: view.frame.maxY-60, width: view.frame.width/2+view.frame.width/8, height: 64)
+        homeTitle.text = "Today's score is "
+        homeTitle.textColor = primaryColor
+        homeTitle.textAlignment = .left
+        homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
+        view.addSubview(homeTitle)
+        
+        scoreForTheDay = UILabel()
+        //        scoreForTheDay.frame = CGRect(x: view.frame.maxX-90, y: view.frame.maxY-60, width: 80, height: 64)
+        scoreForTheDay.frame = CGRect(x: (view.frame.maxX-view.frame.maxX/6)-10, y: view.frame.maxY-60, width: 80, height: 64)
+        scoreForTheDay.text = "13"
+        scoreForTheDay.textColor = primaryColor
+        scoreForTheDay.textAlignment = .center
+        scoreForTheDay.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
+        view.addSubview(scoreForTheDay)
+        
+        return view
     }
     
     //MARK:- Serve Page Header
