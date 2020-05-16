@@ -484,6 +484,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     func getTaskType() -> Int { //extend this to return for inbox & upcoming/someday
         if eveningSwitch.isOn {
+            print("Adding eveninng task")
             return 2
         }
             //        else if isInboxTask {
@@ -494,6 +495,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             //        }
         else {
             //this is morning task
+            print("adding mornig task")
             return 1
         }
     }

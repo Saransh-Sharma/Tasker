@@ -35,6 +35,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
     
+    var dateForTheView = Date.today()
+    
     //MARK: Buttons + Views + Bottom bar
     let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
     var bottomAppBar = MDCBottomAppBarView()
@@ -187,6 +189,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @objc func showCalMoreButtonnAction() {
         
         print("Show cal !!")
+        dateForTheView = Date.tomorrow()
+        
+        tableView.reloadData()
+        animateTableViewReload()
+        
     }
     
     @objc func AddTaskAction() {
@@ -400,9 +407,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         //        semiViewDefaultOptions(viewToBePrsented: serveViewBlue())
         switch indexPath.section {
         case 0:
-            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
+//            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
+            let Tasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+                      currentTask = Tasks[indexPath.row]
         case 1:
-            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+//            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+            let Tasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+                      currentTask = Tasks[indexPath.row]
         default:
             break
         }
@@ -466,14 +477,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
      */
     func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
         var score = 0
-        for each in TaskManager.sharedInstance.getMorningTasks {
+        
+        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+        
+        for each in morningTasks {
             
             if each.isComplete {
                 
                 score = score + each.getTaskScore(task: each)
             }
         }
-        for each in TaskManager.sharedInstance.getEveningTasks {
+        for each in eveningTasks {
             if each.isComplete {
                 score = score + each.getTaskScore(task: each)
             }
@@ -543,10 +558,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         switch section {
         case 0:
             //            print("Items in morning: \(TaskManager.sharedInstance.getMorningTasks.count)")
-            return TaskManager.sharedInstance.getMorningTasks.count
+//            return TaskManager.sharedInstance.getMorningTasks.count
+        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+        return morningTasks.count
         case 1:
             //            print("Items in evening: \(TaskManager.sharedInstance.getEveningTasks.count)")
-            return TaskManager.sharedInstance.getEveningTasks.count
+//            return TaskManager.sharedInstance.getEveningTasks.count
+            let eveTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+                   return eveTasks.count
         default:
             return 0;
         }
@@ -566,11 +585,25 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         switch indexPath.section {
         case 0:
-            //            print("morning section index is: \(indexPath.row)")
-            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
+                        print("morning section index is: \(indexPath.row)")
+            
+//            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: Date.today())
+//            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
+            
+            
+            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+            currentTask = morningTasks[indexPath.row]
+            
         case 1:
-            //            print("evening section index is: \(indexPath.row)")
-            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+                        print("evening section index is: \(indexPath.row)")
+            
+//            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+            
+//            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+            
+            let evenningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+            currentTask = evenningTasks[indexPath.row]
+            
         default:
             break
         }
@@ -599,14 +632,22 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                     
         let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
+            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+            let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
+            
             switch indexPath.section {
             case 0:
-                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
+                
+//                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
+                
+                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].isComplete = true
+                
                 TaskManager.sharedInstance.saveContext()
                 
             case 1:
                 
-                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row])].isComplete = true
+//                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row])].isComplete = true
+                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row])].isComplete = true
                 TaskManager.sharedInstance.saveContext()
                 
             default:
@@ -663,12 +704,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             {
                 (UIAlertAction) in
                 
+                let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+                let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
+                
                 switch indexPath.section {
                 case 0:
                     
-                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row]))
+//                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row]))
+                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row]))
                 case 1:
-                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row]))
+//                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row]))
+                    
+                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row]))
                 default:
                     break
                 }
