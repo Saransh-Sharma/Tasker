@@ -236,6 +236,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         print("Header end point is: \(headerEndY)")
         
+        
         let homeTitle = UILabel()
 
 //        homeTitle.frame = CGRect(x: 5, y: 30, width: view.frame.width/2+view.frame.width/8, height: 64)
@@ -243,18 +244,31 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         homeTitle.text = "Today's score"
         homeTitle.textColor = .label
         homeTitle.textAlignment = .left
+        
         homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
+//        homeTitle.font = UIFont.preferredFont(forTextStyle: .largeTitle)
         homeTitle.adjustsFontSizeToFitWidth = true
         view.addSubview(homeTitle)
         
-        scoreForTheDay = UILabel()
         
+        let todaysDateLabel = UILabel()
+        todaysDateLabel.frame = CGRect(x: 5, y: 70, width: view.frame.width/2, height: 40)
+        todaysDateLabel.text = dateForTheView.dateString(in: .medium)
+        todaysDateLabel.textColor = .secondaryLabel
+        todaysDateLabel.textAlignment = .left
+        todaysDateLabel.adjustsFontSizeToFitWidth = true
+        view.addSubview(todaysDateLabel)
+        
+        
+        
+        scoreForTheDay = UILabel()
         scoreForTheDay.frame = CGRect(x: homeTitle.bounds.maxX, y: homeTitle.bounds.midY, width: 80, height: 64)
         scoreForTheDay.text = "13"
 //        scoreForTheDay.textColor = primaryColor
         scoreForTheDay.textColor = .secondaryLabel
         scoreForTheDay.textAlignment = .center
-        scoreForTheDay.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
+        scoreForTheDay.font = UIFont(name: "HelveticaNeue-Medium", size: 50)
+//        scoreForTheDay.font = UIFont.preferredFont(forTextStyle: .headline)
         scoreForTheDay.adjustsFontSizeToFitWidth = true
         view.addSubview(scoreForTheDay)
         
