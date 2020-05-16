@@ -41,7 +41,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK: Buttons + Views + Bottom bar
     fileprivate weak var calendar: FSCalendar!
     let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
-    let dateButton = MDCButton()
+//    let dateButton = MDCButton()
+    var backdropNochImageView = UIImageView()
+    var backdropBackgroundImageView = UIImageView()
+    var backdropForeImageView = UIImageView()
+    let backdropForeImage = UIImage(named: "backdropFrontImage")
+    var homeTopBar = UIView()
+    
+    
     
     var bottomAppBar = MDCBottomAppBarView()
     let circleMenuItems: [(icon: String, color: UIColor)] = [
@@ -65,16 +72,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     //    var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     var primaryColor = UIColor.systemGray5
-    var secondryColor = UIColor.systemBlue
+    var secondryColor = UIColor(red: 98.0/255.0, green: 0.0/255.0, blue: 238.0/255.0, alpha: 1.0)
+    var secondaryColor_DarkerVarient = UIColor(red: 71.0/255.0, green: 2.0/255.0, blue: 193.0/255.0, alpha: 1.0)
 
     var scoreForTheDay: UILabel! = nil
     
     
     
+    
+    //MARK:- setup bottom bar
     func setupBottomAppBar() {
         
         bottomAppBar.floatingButton.setImage(UIImage(named: "material_add_White"), for: .normal)
-//        bottomAppBar.floatingButton.backgroundColor = .black
         bottomAppBar.floatingButton.backgroundColor = .systemIndigo
         bottomAppBar.tintColor = #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
         
@@ -112,6 +121,94 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         //        return bottomAppBar
     }
     
+    
+    func setupBackdropNotch() {
+        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
+        backdropNochImageView.backgroundColor = secondaryColor_DarkerVarient
+
+        view.addSubview(backdropNochImageView)
+    }
+    
+    func setupBackdropBackground() {
+//        view.backgroundColor = secondryColor
+        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+        backdropBackgroundImageView.backgroundColor = secondryColor
+        
+        homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
+//        homeTopBar.backgroundColor = .green
+        backdropBackgroundImageView.addSubview(homeTopBar)
+//        homeTopBar.
+        
+        
+       
+
+
+     // Monday, 5th May
+
+
+        let dateAtHomeLabel = UILabel()
+
+  
+        dateAtHomeLabel.text = "Monday, \n5th May"
+        
+        print("Date: \(Date.today().day)")
+        print("Date: \(Date.today().month)")
+        print("Date: \(Date.today().year)")
+        
+        print("Date: \(Date.today().dateString(in: .short))")
+        print("Date: \(Date.today().dateString(in: .medium))")
+        print("Date: \(Date.today().dateString(in: .long))")
+        print("Date: \(Date.today().dateString(in: .full))")
+        print("Date: \(Date(year: Date.today().year, month: Date.today().month, day: Date.today().day))")
+        print("Date: \(Date.today().stringIn(dateStyle: .full, timeStyle: .full))")
+        
+        let date: String = "\(Date(year: Date.today().year, month: Date.today().month, day: Date.today().day))"
+        
+        let dateArray = date.components(separatedBy: ",")
+        print("count \(dateArray.count)")
+//        print("FINAL  Date: \(dateArray[0]), \(dateArray[1])")
+        
+        dateAtHomeLabel.numberOfLines = 2
+        dateAtHomeLabel.textColor = .systemGray6
+//        dateAtHomeLabel.font = UIFont(name: "Futura Medium", size: 30)
+        dateAtHomeLabel.font =  UIFont(name: "HelveticaNeue-Medium", size: 20)
+        //NewYorkMedium-Regular
+        
+//        dateAtHomeLabel.adjustsFontSizeToFitWidth = true
+        dateAtHomeLabel.frame = CGRect(x: 5, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        
+        //----------
+        
+        homeTopBar.addSubview(dateAtHomeLabel)
+        
+        view.addSubview(backdropBackgroundImageView)
+        
+        
+    }
+    
+    func setupBackdropForeground(tableView: UITableView) {
+//    func setupBackdropForeground() {
+        
+        
+        
+        print("Backdrop starts from: \(headerEndY)")
+        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+        backdropForeImageView.image = backdropForeImage
+        backdropForeImageView.image?.withTintColor(.systemGray6, renderingMode: .alwaysTemplate)
+        
+         tableView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+        backdropForeImageView.addSubview(tableView)
+        
+//        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
+        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
+        backdropForeImageView.layer.shadowOpacity = 1
+        backdropForeImageView.layer.shadowOffset = .zero
+        backdropForeImageView.layer.shadowRadius = 20
+        
+        view.addSubview(backdropForeImageView)
+        
+    }
+    
     @objc
     func onMenuButtonTapped() {
         print("menu buttoon tapped")
@@ -130,7 +227,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         //        view.addSubview(servePageHeader())
         view.addSubview(serveNewPageHeader())
-        tableView.frame = CGRect(x: 0, y: headerEndY+10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+//        tableView.frame = CGRect(x: 0, y: headerEndY+10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+        
+        
+        //MARK: serve material backdrop
+        
+        setupBackdropBackground()
+        setupBackdropForeground(tableView: tableView)
+        setupBackdropNotch()
         
         //MARK:--top cal
         
@@ -242,9 +346,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     // MARK:- Build Page Header
-//    override var preferredStatusBarStyle: UIStatusBarStyle {
-//        return .lightContent
-//    }
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .lightContent
+    }
     
     func serveNewPageHeader() -> UIView {
         let view = UIView(frame: UIScreen.main.bounds)
