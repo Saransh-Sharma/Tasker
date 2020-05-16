@@ -11,6 +11,7 @@ import CoreData
 import SemiModalViewController
 import CircleMenu
 import ViewAnimator
+import FSCalendar
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialBottomAppBar
 import MaterialComponents.MaterialButtons_Theming
@@ -38,7 +39,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     var dateForTheView = Date.today()
     
     //MARK: Buttons + Views + Bottom bar
+    fileprivate weak var calendar: FSCalendar!
     let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
+    let dateButton = MDCButton()
+    
     var bottomAppBar = MDCBottomAppBarView()
     let circleMenuItems: [(icon: String, color: UIColor)] = [
         //        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
@@ -128,6 +132,19 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.addSubview(serveNewPageHeader())
         tableView.frame = CGRect(x: 0, y: headerEndY+10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         
+        //MARK:--top cal
+        
+        let calendar = FSCalendar(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 400))
+        calendar.dataSource = self
+        calendar.delegate = self
+        
+        self.calendar = calendar
+        self.calendar.scope = FSCalendarScope.week
+        
+//        view.addSubview(calendar)
+        
+        //--- done top cal
+        
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
         view.bringSubviewToFront(bottomAppBar)
@@ -189,7 +206,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @objc func showCalMoreButtonnAction() {
         
         print("Show cal !!")
-        dateForTheView = Date.tomorrow()
+//        dateForTheView = Date.tomorrow() //todo remove this
+        
+        view.addSubview(calendar)
         
         tableView.reloadData()
         animateTableViewReload()
@@ -248,7 +267,23 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
 //        homeTitle.font = UIFont.preferredFont(forTextStyle: .largeTitle)
         homeTitle.adjustsFontSizeToFitWidth = true
-        view.addSubview(homeTitle)
+//        view.addSubview(homeTitle)
+        
+        
+        //MARK:-- date button
+//        dateButton
+        
+//        let buttonVerticalInset =
+//        min(0, -(kMinimumAccessibleButtonSize.height - button.bounds.height) / 2);
+//        let buttonHorizontalInset =
+//        min(0, -(kMinimumAccessibleButtonSize.width - button.bounds.width) / 2);
+//        button.hitAreaInsets =
+//        UIEdgeInsetsMake(buttonVerticalInset, buttonHorizontalInset,
+//        buttonVerticalInset, buttonHorizontalInset);
+        
+        
+        //----date button done
+        
         
         
         let todaysDateLabel = UILabel()
@@ -827,6 +862,25 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         //           UIView.animate(views: tableView.visibleCells,
         //                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
     }
+    
+}
+
+extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
+    
+    func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
+              
+        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: date)
+        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
+        let allTasks = morningTasks+eveningTasks
+        
+        if(allTasks.count == 0) {
+            return "-"
+        } else {
+            return "\(allTasks.count)"
+        }
+    }
+    
+   
     
 }
 

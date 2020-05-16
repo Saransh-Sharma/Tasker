@@ -1,5 +1,6 @@
 PODS:
   - CircleMenu (4.1.0)
+  - FSCalendar (2.8.1)
   - MaterialComponents (109.2.0):
     - MaterialComponents/ActionSheet (= 109.2.0)
     - "MaterialComponents/ActionSheet+Theming (= 109.2.0)"
@@ -613,6 +614,7 @@ PODS:
 
 DEPENDENCIES:
   - CircleMenu (~> 4.1.0)
+  - FSCalendar (~> 2.8.1)
   - MaterialComponents (~> 109.2.0)
   - SemiModalViewController (~> 1.0.1)
   - Timepiece (~> 1.3.1)
@@ -621,6 +623,7 @@ DEPENDENCIES:
 SPEC REPOS:
   trunk:
     - CircleMenu
+    - FSCalendar
     - MaterialComponents
     - MDFInternationalization
     - MDFTextAccessibility
@@ -632,6 +635,7 @@ SPEC REPOS:
 
 SPEC CHECKSUMS:
   CircleMenu: a66095199a5e26f19acbb212f077010257767fe5
+  FSCalendar: 5245140456fcbcac5824c203b98bd8068bdfee1a
   MaterialComponents: 59bfbfe08fc1ac204b21ba69100beabb932e3699
   MDFInternationalization: 010097556d6b09d2c4ea38e0820ea6d37be6a314
   MDFTextAccessibility: 85c09a1bd9c321f494348e632a25063bcda35a53
@@ -641,6 +645,6 @@ SPEC CHECKSUMS:
   Timepiece: c0760ec0e545697d86b80424dcd2b4d5ef66cf51
   ViewAnimator: 5af1c6f3b310f012bf081259c43717aa54fbae73
 
-PODFILE CHECKSUM: f8a14e107657b51e45f8748589181f3118f4ee03
+PODFILE CHECKSUM: 590097420c81b5d283bf58bd7306baf8236b65b4
 
 COCOAPODS: 1.9.1
