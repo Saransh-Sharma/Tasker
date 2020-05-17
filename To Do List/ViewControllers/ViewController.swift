@@ -309,19 +309,43 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         // fab_revealCalAtHome button position
         //        fab_revealCalAtHome.frame = CGRect(x: UIScreen.main.bounds.width - UIScreen.main.bounds.width/8 , y: UIScreen.main.bounds.minY+60, width: 25, height: 25)
         
-        fab_revealCalAtHome.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+60, width: 25, height: 25)
         
-        let addTaskIcon = UIImage(named: "fab_revealCalAtHome")
+//        fab_revealCalAtHome.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+60, width: 25, height: 25)
+//        fab_revealCalAtHome.setImage(addTaskIcon, for: .normal)
+//        fab_revealCalAtHome.backgroundColor = primaryColor
+//        fab_revealCalAtHome.sizeToFit()
+        //fab_revealCalAtHome.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
+//        view.addSubview(fab_revealCalAtHome)
         
-        fab_revealCalAtHome.setImage(addTaskIcon, for: .normal)
+        let addTaskIcon = UIImage(named: "cal_Icon")
+        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+//          revealCalAtHomeButton.frame = CGRect(x: 0 , y: UIScreen.main.bounds.minY+65, width: 100, height: 50)
+        revealCalAtHomeButton.setImage(addTaskIcon, for: .normal)
+        revealCalAtHomeButton.backgroundColor = .clear
+        revealCalAtHomeButton.sizeToFit()
+        revealCalAtHomeButton.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
+        view.addSubview(revealCalAtHomeButton)
+        revealCalAtHomeButton.setTitle("CANCEL", for: .normal)
+        
+        
+        let seperatorTopLineView = UIView(frame: CGRect(x: UIScreen.main.bounds.width/2, y: backdropNochImageView.bounds.height + 10, width: 1.0, height: homeTopBar.bounds.height/2))
+        seperatorTopLineView.layer.borderWidth = 1.0
+//        seperatorTopLineView.layer.borderColor = UIColor.white.cgColor
+        seperatorTopLineView.layer.borderColor = UIColor.gray.cgColor
+        self.view.addSubview(seperatorTopLineView)
+        
+        
+        
+        
+        
+        
         //        fab_revealCalAtHome.backgroundColor = primaryColor //this keeps style consistent between screens
-        fab_revealCalAtHome.backgroundColor = primaryColor
-        fab_revealCalAtHome.sizeToFit()
-        view.addSubview(fab_revealCalAtHome)
-        fab_revealCalAtHome.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
         
-        let showCalNormalImage = UIImage(named: "cal_Icon")
-               fab_revealCalAtHome.setImage(showCalNormalImage, for: .normal)
+        
+        
+        
+//        let showCalNormalImage = UIImage(named: "cal_Icon")
+//               fab_revealCalAtHome.setImage(showCalNormalImage, for: .normal)
         
 //
         
