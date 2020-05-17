@@ -38,7 +38,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:- Buttons + Views + Bottom bar
     fileprivate weak var calendar: FSCalendar!
     let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
-    //    let dateButton = MDCButton()
+    let revealCalAtHomeButton = MDCButton()
+    
     var backdropNochImageView = UIImageView()
     var backdropBackgroundImageView = UIImageView()
     var backdropForeImageView = UIImageView()
@@ -46,6 +47,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     var homeTopBar = UIView()
     let dateAtHomeLabel = UILabel()
     var bottomAppBar = MDCBottomAppBarView()
+    var isCalDown: Bool = false
     
     //MARK:- Circle menu init
     let circleMenuItems: [(icon: String, color: UIColor)] = [
@@ -249,12 +251,33 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         //MARK:--top cal
         
-        let calendar = FSCalendar(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 400))
+        let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: 450))
+        
+
+        calendar.calendarHeaderView.backgroundColor = primaryColorDarker//UIColor.lightGray.withAlphaComponent(0.1)
+        calendar.calendarWeekdayView.backgroundColor = primaryColorDarker//UIColor.lightGray.withAlphaComponent(0.1)
+//        calendar.calendarWeekdayView.weekdayLabels
+        calendar.appearance.weekdayTextColor = .white
+        calendar.appearance.headerTitleColor = .white
+        calendar.appearance.titleWeekendColor = .red
+        calendar.appearance.caseOptions = .weekdayUsesUpperCase
+//        calendar.appearance.eventSelectionColor = secondaryAccentColor
+//        calendar.appearance.separators = .interRows
+//        calendar.appearance.selectionColor = secondaryAccentColor
+        calendar.appearance.subtitleDefaultColor = .white
+//        calendar.appearance.subtitleTodayColor
+//        calendar.appearance.todayColor = .green
+        
+        
         calendar.dataSource = self
         calendar.delegate = self
         
         self.calendar = calendar
         self.calendar.scope = FSCalendarScope.week
+//        calendar.backgroundColor = .white
+        
+        view.addSubview(calendar)
+        calendar.isHidden = true //hidden by default
         
         //        view.addSubview(calendar)
         
@@ -335,14 +358,53 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         let delay: Double = 1.0
         let duration: Double = 2.0
-
-                UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                    self.moveUp_onCalHide(view: self.tableView)
-                }) { (_) in
-        //            self.moveLeft(view: self.black4)
-                }
         
-        view.addSubview(calendar)
+        if(isCalDown) {
+            
+           UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                                    self.moveUp_hideCal(view: self.tableView)
+                                }) { (_) in
+                        //            self.moveLeft(view: self.black4)
+                                }
+                        
+                        UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                                    self.moveUp_hideCal(view: self.backdropForeImageView)
+                                }) { (_) in
+                        //            self.moveLeft(view: self.black4)
+                                }
+            calendar.isHidden = true
+            
+        } else {
+            
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                                     self.moveDown_revealCal(view: self.tableView)
+                                 }) { (_) in
+                         //            self.moveLeft(view: self.black4)
+                                 }
+                         
+                         UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                                     self.moveDown_revealCal(view: self.backdropForeImageView)
+                                 }) { (_) in
+                         //            self.moveLeft(view: self.black4)
+                                 }
+            
+            calendar.isHidden = false
+            
+        }
+
+//                UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+//                    self.moveDown_revealCal(view: self.tableView)
+//                }) { (_) in
+//        //            self.moveLeft(view: self.black4)
+//                }
+//
+//        UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+//                    self.moveDown_revealCal(view: self.backdropForeImageView)
+//                }) { (_) in
+//        //            self.moveLeft(view: self.black4)
+//                }
+        
+        
         
         tableView.reloadData()
         animateTableViewReload()
@@ -557,7 +619,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         prioritySegmentedControl.frame = CGRect(x: frameForView.minX+20, y: frameForView.minY+150, width: frameForView.width-40, height: frameForView.height/7)
         
         
-        let datePicker = UIDatePicker() //DATE PICKER //there should not be a date picker here //there can be calender icon instead
+        let datePicker = UIDatePicker() //DATE PICKER //there should not be a date picker here //there can be calendar icon instead
         view.addSubview(datePicker)
         datePicker.datePickerMode = .date
         datePicker.timeZone = NSTimeZone.local
@@ -1005,13 +1067,17 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
      func moveLeft(view: UIView) {
          view.center.x -= 300
      }
-    func moveUp_onCalHide(view: UIView) {
-        view.center.y += 300
+    func moveDown_revealCal(view: UIView) {
+        isCalDown = true
+        view.center.y += 150
     }
-    
-    func moveDown_onCalReveal(view: UIView) {
-        view.center.y -= 300
-    }
+    func moveUp_hideCal(view: UIView) {
+        isCalDown = false
+           view.center.y -= 150
+       }
+//    func moveDown_onCalReveal(view: UIView) {
+//        view.center.y -= 300
+//    }
     
 }
 
@@ -1026,10 +1092,23 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
         if(allTasks.count == 0) {
             return "-"
         } else {
-            return "\(allTasks.count)"
+            return "\(allTasks.count) tasks"
         }
     }
     
+//    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleDefaultColorFor date: Date) -> UIColor? {
+//        return .white
+//    }
+//    //titleDefaultColorForDate
+//    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, subtitleDefaultColorFor date: Date) -> UIColor? {
+//        return .white
+//    }
+    
+//    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, eventDefaultColorsFor date: Date) -> [UIColor]? {
+//        return [.white]
+//    }
+    
+//    func color
     
     
 }
