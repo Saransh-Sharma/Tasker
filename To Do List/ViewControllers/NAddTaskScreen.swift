@@ -17,7 +17,7 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate, UITextFieldDelegate
 {
     // MARK: Theming
-//    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+    //    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var primaryColor =  #colorLiteral(red: 1, green: 1, blue: 1, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
@@ -27,6 +27,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     var currentTaskInMaterialTextBox: String = ""
     var isThisEveningTask: Bool = false
     var taskDayFromPicker: String =  "Unknown"//change datatype tp task type
+    var currentTaskPriority: Int = 3
     
     //MARK: Positioning
     var textBoxEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
@@ -179,37 +180,40 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             print("Adding task: \(currentTaskInMaterialTextBox)")
             //            TaskManager.sharedInstance.addNewTask(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2)
             
+            //            let title = segm.titleForSegment(at: segment.selectedSegmentIndex)
+            
+            print("Priority is: \(currentTaskPriority)")
             
             if(taskDayFromPicker == "Unknown" || taskDayFromPicker == "") {
                 taskDueDate = Date.today()
-                TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, isEveningTask: isThisEveningTask)
+                TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
             } else if (taskDayFromPicker == "Tomorrow") { //["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
                 taskDueDate = Date.tomorrow()
-                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
+                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
             } else if (taskDayFromPicker == "Weekend") {
                 
                 //get the next weekend
                 taskDueDate = Date.today().changed(weekday: 5)!
                 
-    
-                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
+                
+                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
                 
                 
                 
             } else if (taskDayFromPicker == "Today") {
                 taskDueDate = Date.today()
-                               TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, isEveningTask: isThisEveningTask)
+                TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
             }
             
-//            else {
-//                print("EMPTY TASK ! - Nothing to add")
-//
-//            }
+            //            else {
+            //                print("EMPTY TASK ! - Nothing to add")
+            //
+            //            }
             
         }
         
         //add generic task add here which takes all input
-//        TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, isEveningTask: isThisEveningTask)
+        //        TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, isEveningTask: isThisEveningTask)
         
         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
         let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
@@ -268,9 +272,39 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         prioritySC.backgroundColor = .white
         prioritySC.selectedSegmentTintColor =  secondryColor
         prioritySC.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
+        
+        prioritySC.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
         mView.addSubview(prioritySC)
         
         return mView
+    }
+    
+    //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
+    @objc
+    func changeTaskPriority(sender: UISegmentedControl) -> Int {
+        
+        switch sender.selectedSegmentIndex {
+        case 0:
+            print("Priority is None - no priority 4")
+            currentTaskPriority = 4
+            return 4
+        case 1:
+
+            print("Priority is P2- low 3")
+            currentTaskPriority = 3
+            return 3
+        case 2:
+            print("Priority is P1- high 2")
+            currentTaskPriority = 2
+            return 2
+        case 3:
+            print("Priority is p0 - highest 1")
+            currentTaskPriority = 1
+            return 1
+        default:
+            print("Failed to get Task Priority")
+            return 3
+        }
     }
     
     // MARK: MAKE Second Seperator

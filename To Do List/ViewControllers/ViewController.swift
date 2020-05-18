@@ -13,6 +13,7 @@ import CircleMenu
 import ViewAnimator
 import FSCalendar
 import EasyPeasy
+import BEMCheckBox
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialBottomAppBar
 import MaterialComponents.MaterialButtons_Theming
@@ -29,7 +30,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     //MARK:- cuurentt task list date
     var dateForTheView = Date.today()
-    let dateToDisplay = Date.today()
+    var dateToDisplay = Date.today()
     
     //MARK:- score for day label
     var scoreForTheDay: UILabel! = nil
@@ -83,19 +84,19 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:- Elevation + Shadows:
     let bottomBarShadowElevation: ShadowElevation = ShadowElevation(rawValue: 8)
     
-
-
+    
+    
     func setupCalButton()  {
         
         
-            let calButton = UIImage(named: "cal_Icon")
-            revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
-            revealCalAtHomeButton.setImage(calButton, for: .normal)
-            revealCalAtHomeButton.backgroundColor = .clear
-            revealCalAtHomeButton.sizeToFit()
-            revealCalAtHomeButton.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
-            view.addSubview(revealCalAtHomeButton)
-
+        let calButton = UIImage(named: "cal_Icon")
+        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+        revealCalAtHomeButton.setImage(calButton, for: .normal)
+        revealCalAtHomeButton.backgroundColor = .clear
+        revealCalAtHomeButton.sizeToFit()
+        revealCalAtHomeButton.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
+        view.addSubview(revealCalAtHomeButton)
+        
     }
     
     func setupTopSeperator() {
@@ -107,7 +108,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         self.view.addSubview(seperatorTopLineView)
         
     }
-
+    
     
     
     //MARK:- View did load
@@ -156,7 +157,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         enableDarkModeIfPreset()
     }
     
-  
+    
     
     
     func serveSemiViewRed() -> UIView {
@@ -488,6 +489,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         
+        
+//        chec
+        
+    
         var currentTask: NTask!
         let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
         let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
@@ -521,19 +526,112 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
         
         
-        completedTaskCell.textLabel!.text = currentTask.name
+        completedTaskCell.textLabel!.text = "\t\(currentTask.name)"
         completedTaskCell.backgroundColor = UIColor.clear
         
-        openTaskCell.textLabel!.text = currentTask.name
+//        openTaskCell.textLabel!.text = currentTask.name
+        openTaskCell.textLabel!.text = "\t\(currentTask.name)"
         openTaskCell.backgroundColor = UIColor.clear
         
         if currentTask.isComplete {
             completedTaskCell.textLabel?.textColor = .tertiaryLabel
-            completedTaskCell.accessoryType = .checkmark
+//            completedTaskCell.accessoryType = .checkmark
+            
+            let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
+                       checkBox.lineWidth = 1.0
+                       checkBox.animationDuration = 0.45
+                       checkBox.setOn(true, animated: false)
+                       checkBox.boxType = .square
+                       checkBox.onAnimationType = .oneStroke
+                       checkBox.offAnimationType = .oneStroke
+            
+            
+                           
+                       completedTaskCell.addSubview(checkBox)
+                
+//          let priorityLineView = UIView(frame: CGRect(x: completedTaskCell.bounds.minX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
+//            priorityLineView.clipsToBounds = true
+            
+//            let priorityLineView_Right = UIView(frame: CGRect(x: completedTaskCell.bounds.maxX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
+//            priorityLineView_Right.clipsToBounds = true
+            
+                      //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
+                      if (currentTask.taskPriority == 1) { //p0
+                          
+//                          priorityLineView.backgroundColor = .systemRed
+//                        priorityLineView_Right.backgroundColor = .systemRed
+                          
+                      } else if (currentTask.taskPriority == 2) {
+                          
+//                          priorityLineView.backgroundColor = .systemOrange
+//                        priorityLineView_Right.backgroundColor = .systemOrange
+                          
+                      } else if (currentTask.taskPriority == 3) {
+                          
+//                          priorityLineView.backgroundColor = .systemYellow
+//                        priorityLineView_Right.backgroundColor = .systemYellow
+                          
+                      } else {
+//                          priorityLineView.backgroundColor = .systemGray3
+//                        priorityLineView_Right.backgroundColor = .systemGray3
+                      }
+//            completedTaskCell.addSubview(priorityLineView)
+//            completedTaskCell.addSubview(priorityLineView_Right)
+            
             return completedTaskCell
+            
         } else {
+            
+            
+            
             openTaskCell.textLabel?.textColor = .label
+//            openTaskCell.accessoryType = .detailButton
             openTaskCell.accessoryType = .disclosureIndicator
+            
+            
+            
+            let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
+            checkBox.lineWidth = 1.0
+            checkBox.animationDuration = 0.45
+            checkBox.setOn(false, animated: false)
+            checkBox.boxType = .square
+            checkBox.onAnimationType = .oneStroke
+            checkBox.offAnimationType = .oneStroke
+                
+            openTaskCell.addSubview(checkBox)
+            
+      
+            
+
+            let priorityLineView_Right = UIView() //UIView(frame: CGPoint(x: openTaskCell.bounds.maxX, y: openTaskCell.bounds.midY))//(frame: CGRect(x: openTaskCell.bounds.maxX, y: openTaskCell.bounds.minY, width: 5.0, height: openTaskCell.bounds.height))
+            
+
+            priorityLineView_Right.clipsToBounds = true
+            
+            //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
+            if (currentTask.taskPriority == 1) { //p0
+                
+                
+//                priorityLineView_Right.backgroundColor = .systemRed
+                
+            } else if (currentTask.taskPriority == 2) {
+                
+                
+//                priorityLineView_Right.backgroundColor = .systemOrange
+                
+            } else if (currentTask.taskPriority == 3) {
+                
+                
+//                priorityLineView_Right.backgroundColor = .systemYellow
+                
+            } else {
+                
+//                priorityLineView_Right.backgroundColor = .systemGray3
+            }
+                                 
+            
+//            openTaskCell.addSubview(priorityLineView_Right)
+            
             return openTaskCell
         }
     }
@@ -828,13 +926,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         let mDateThisDay: String = "\(dateToDisplay.dateString(in: .full))"
         let dateArray = mDateThisDay.components(separatedBy: ",")
+        print("this day: \(mDateThisDay)")
+        print("date 2 is : \(dateArray[0]) and \(dateArray[1])")
         let monthAndDay = (dateArray[1]).components(separatedBy: " ")
         let weekday = dateArray[0]
         let month = monthAndDay[2]
         print("\(weekday), \n\(dateToDisplay.day) \(month)")
         print("--------------------------------------------------")
         
-        dateAtHomeLabel.text = "Monday, \n5th May"
+//        dateAtHomeLabel.text = "Monday, \n5th May"
         dateAtHomeLabel.text = "\(weekday), \n\(dateToDisplay.day) \(month)"
         
         dateAtHomeLabel.numberOfLines = 2
@@ -937,73 +1037,73 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     //MARK:    showCalMoreButtonnAction
-      
-      @objc func showCalMoreButtonnAction() {
-          
-          print("Show cal !!")
-
-          let delay: Double = 0.2
-          let duration: Double = 1.2
-          
-          if(isCalDown) { //cal is out; it sldes back up
-              
-              
-              self.view.bringSubviewToFront(self.tableView)
-              self.view.sendSubviewToBack(calendar)
-              self.view.sendSubviewToBack(backdropBackgroundImageView)
-              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                  self.moveUp_hideCal(view: self.tableView)
-              }) { (_) in
-                  
-              }
-              
-              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                  self.moveUp_hideCal(view: self.backdropForeImageView)
-              }) { (_) in
-                  
-              }
-              
-              DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
-                  
-                 // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
-                  
-              }
+    
+    @objc func showCalMoreButtonnAction() {
+        
+        print("Show cal !!")
+        
+        let delay: Double = 0.2
+        let duration: Double = 1.2
+        
+        if(isCalDown) { //cal is out; it sldes back up
+            
+            
+            self.view.bringSubviewToFront(self.tableView)
+            self.view.sendSubviewToBack(calendar)
+            self.view.sendSubviewToBack(backdropBackgroundImageView)
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveUp_hideCal(view: self.tableView)
+            }) { (_) in
+                
+            }
+            
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveUp_hideCal(view: self.backdropForeImageView)
+            }) { (_) in
+                
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
+                
+                // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
+                
+            }
             
             self.view.bringSubviewToFront(self.bottomAppBar)
-              
-          } else {
-              self.view.bringSubviewToFront(self.tableView)
-              self.view.sendSubviewToBack(calendar)
-              self.view.sendSubviewToBack(backdropBackgroundImageView)
-              
-              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                  self.moveDown_revealCal(view: self.tableView)
-              }) { (_) in
-                  //            self.moveLeft(view: self.black4)
-              }
-              
-              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                  self.moveDown_revealCal(view: self.backdropForeImageView)
-              }) { (_) in
-                  //            self.moveLeft(view: self.black4)
-              }
-              
-              self.view.bringSubviewToFront(self.tableView)
+            
+        } else {
+            self.view.bringSubviewToFront(self.tableView)
+            self.view.sendSubviewToBack(calendar)
+            self.view.sendSubviewToBack(backdropBackgroundImageView)
+            
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveDown_revealCal(view: self.tableView)
+            }) { (_) in
+                //            self.moveLeft(view: self.black4)
+            }
+            
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveDown_revealCal(view: self.backdropForeImageView)
+            }) { (_) in
+                //            self.moveLeft(view: self.black4)
+            }
+            
+            self.view.bringSubviewToFront(self.tableView)
             self.view.bringSubviewToFront(self.bottomAppBar)
-              self.calendar.isHidden = false
-                          
-          }
-          tableView.reloadData()
-      }
-      
-      @objc func AddTaskAction() {
-          
-          //       tap add fab --> addTask
-          let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-          let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
-          newViewController.modalPresentationStyle = .fullScreen
-          self.present(newViewController, animated: true, completion: nil)
-      }
+            self.calendar.isHidden = false
+            
+        }
+        tableView.reloadData()
+    }
+    
+    @objc func AddTaskAction() {
+        
+        //       tap add fab --> addTask
+        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+        newViewController.modalPresentationStyle = .fullScreen
+        self.present(newViewController, animated: true, completion: nil)
+    }
     
     //Mark: Util: set font
     func setFont(fontSize: CGFloat, fontweight: UIFont.Weight, fontDesign: UIFontDescriptor.SystemDesign) -> UIFont {
@@ -1021,6 +1121,17 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
         return font
     }
+    
+    //MARK: Cal change view onn date change
+    func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
+        print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
+        dateToDisplay = date
+        dateForTheView = date
+        
+        tableView.reloadData()
+        animateTableViewReload()
+    }
+    
     
 }
 
@@ -1040,21 +1151,5 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
             return "\(allTasks.count) tasks"
         }
     }
-    
-    //    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleDefaultColorFor date: Date) -> UIColor? {
-    //        return .white
-    //    }
-    //    //titleDefaultColorForDate
-    //    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, subtitleDefaultColorFor date: Date) -> UIColor? {
-    //        return .white
-    //    }
-    
-    //    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, eventDefaultColorsFor date: Date) -> [UIColor]? {
-    //        return [.white]
-    //    }
-    
-    //    func color
-    
-    
 }
 

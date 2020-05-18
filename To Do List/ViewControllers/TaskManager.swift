@@ -101,8 +101,8 @@ class TaskManager {
                     if each.taskType == 1 && each.dueDate == date as NSDate {
                         morningTasks.append(each)
                     } else {
-                        print("task date: \(each.dueDate)")
-                        print("passed date: \(date)")
+//                        print("task date: \(each.dueDate)")
+//                        print("passed date: \(date)")
                     }
                 }
         for each in morningTasks {
