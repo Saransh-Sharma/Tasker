@@ -18,12 +18,10 @@ import MaterialComponents.MaterialBottomAppBar
 import MaterialComponents.MaterialButtons_Theming
 
 
-
-
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, CircleMenuDelegate {
     
     
-    //MARK:- Tablevieew animation style
+    //MARK:- Tableview animation style
     private let animations = [AnimationType.from(direction:.right , offset: 400.0)]
     
     //MARK:- Positioning
@@ -31,9 +29,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     //MARK:- cuurentt task list date
     var dateForTheView = Date.today()
+    let dateToDisplay = Date.today()
     
     //MARK:- score for day label
     var scoreForTheDay: UILabel! = nil
+    
     
     //MARK:- Buttons + Views + Bottom bar
     fileprivate weak var calendar: FSCalendar!
@@ -46,6 +46,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let backdropForeImage = UIImage(named: "backdropFrontImage")
     var homeTopBar = UIView()
     let dateAtHomeLabel = UILabel()
+    let scoreCounter = UILabel()
+    let scoreAtHomeLabel = UILabel()
     var bottomAppBar = MDCBottomAppBarView()
     var isCalDown: Bool = false
     
@@ -66,290 +68,74 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var switchState: UISwitch!
     
     
-    
-    
     //MARK: Theming: COLOURS
-    
     var backgroundColor = UIColor.systemGray5
     var primaryColor =  #colorLiteral(red: 0.3843137255, green: 0, blue: 0.9333333333, alpha: 1) //UIColor(red: 98.0/255.0, green: 0.0/255.0, blue: 238.0/255.0, alpha: 1.0)
     var primaryColorDarker = #colorLiteral(red: 0.2784313725, green: 0.007843137255, blue: 0.7568627451, alpha: 1) //UIColor(red: 71.0/255.0, green: 2.0/255.0, blue: 193.0/255.0, alpha: 1.0)
-    
     var secondaryAccentColor = #colorLiteral(red: 0.007843137255, green: 0.6352941176, blue: 0.6156862745, alpha: 1) //02A29D
-    
     //          var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     //          var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
+    //MARK: Fonts:
+    //    var titleFont_1:UIFont = setFont
+    //    var scoreNumberFont:UIFont = setFont(fontSize: 40, fontweight: .bold, fontDesign: .rounded)
     
+    //MARK:- Elevation + Shadows:
+    let bottomBarShadowElevation: ShadowElevation = ShadowElevation(rawValue: 8)
     
-    
-    //MARK:- setup bottom bar
-    func setupBottomAppBar() {
-        
-        bottomAppBar.floatingButton.setImage(UIImage(named: "material_add_White"), for: .normal)
-        bottomAppBar.floatingButton.backgroundColor = secondaryAccentColor //.systemIndigo
-        bottomAppBar.frame = CGRect(x: 0, y: UIScreen.main.bounds.maxY-100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.maxY-100)
-        bottomAppBar.barTintColor = primaryColor//primaryColor
-        bottomAppBar.easy.layout(Edges())
-        
 
-        // The following lines of code are to define the buttons on the right and left side
-        let barButtonMenu = UIBarButtonItem(
-            image: UIImage(named:"material_menu_White"), // Icon
-            style: .plain,
-            target: self,
-            action: #selector(self.onMenuButtonTapped))
-        
-        let barButtonSearch = UIBarButtonItem(
-            image: UIImage(named: "material_search_White"), // Icon
-            style: .plain,
-            target: self,
-            action: #selector(self.onNavigationButtonTapped))
-        let barButtonInbox = UIBarButtonItem(
-            image: UIImage(named: "material_inbox_White"), // Icon
-            style: .plain,
-            target: self,
-            action: #selector(self.onNavigationButtonTapped))
-        bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
-        //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
-        bottomAppBar.elevation = ShadowElevation(rawValue: 5)
-        bottomAppBar.floatingButtonPosition = .trailing
+
+    func setupCalButton()  {
         
         
-        bottomAppBar.floatingButton.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
-        
-        
-        //        return bottomAppBar
+            let calButton = UIImage(named: "cal_Icon")
+            revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+            revealCalAtHomeButton.setImage(calButton, for: .normal)
+            revealCalAtHomeButton.backgroundColor = .clear
+            revealCalAtHomeButton.sizeToFit()
+            revealCalAtHomeButton.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
+            view.addSubview(revealCalAtHomeButton)
+
     }
     
-    
-    func setupBackdropNotch() {
-        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
-        backdropNochImageView.backgroundColor = primaryColorDarker
+    func setupTopSeperator() {
         
-        view.addSubview(backdropNochImageView)
-    }
-    
-    func setupBackdropBackground() {
-        //        view.backgroundColor = secondryColor
-        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-        backdropBackgroundImageView.backgroundColor = primaryColor
-        
-        homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
-        //        homeTopBar.backgroundColor = .green
-        backdropBackgroundImageView.addSubview(homeTopBar)
-        //        homeTopBar.
-        
-        
-        
-        
-        
-        // Monday, 5th May
-        
-        
-        
-        
-        
-        dateAtHomeLabel.text = "Monday, \n5th May"
-        
-        print("Date: \(Date.today().day)")
-        print("Date: \(Date.today().month)")
-        print("Date: \(Date.today().year)")
-        
-        print("Date: \(Date.today().dateString(in: .short))")
-        print("Date: \(Date.today().dateString(in: .medium))")
-        print("Date: \(Date.today().dateString(in: .long))")
-        print("Date: \(Date.today().dateString(in: .full))")
-        print("Date: \(Date(year: Date.today().year, month: Date.today().month, day: Date.today().day))")
-        print("Date: \(Date.today().stringIn(dateStyle: .full, timeStyle: .full))")
-        
-        let date: String = "\(Date(year: Date.today().year, month: Date.today().month, day: Date.today().day))"
-        
-        let dateArray = date.components(separatedBy: ",")
-        print("count \(dateArray.count)")
-        //        print("FINAL  Date: \(dateArray[0]), \(dateArray[1])")
-        
-        dateAtHomeLabel.numberOfLines = 2
-        dateAtHomeLabel.textColor = .systemGray6
-        //        dateAtHomeLabel.font = UIFont(name: "Futura Medium", size: 30)
-        dateAtHomeLabel.font =  UIFont(name: "HelveticaNeue-Medium", size: 20)
-        //NewYorkMedium-Regular
-        
-        //        dateAtHomeLabel.adjustsFontSizeToFitWidth = true
-        dateAtHomeLabel.frame = CGRect(x: 5, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        
-        //----------
-        
-        homeTopBar.addSubview(dateAtHomeLabel)
-        
-        view.addSubview(backdropBackgroundImageView)
-        
+        let seperatorTopLineView = UIView(frame: CGRect(x: UIScreen.main.bounds.width/2, y: backdropNochImageView.bounds.height + 10, width: 1.0, height: homeTopBar.bounds.height/2))
+        seperatorTopLineView.layer.borderWidth = 1.0
+        //        seperatorTopLineView.layer.borderColor = UIColor.white.cgColor
+        seperatorTopLineView.layer.borderColor = UIColor.gray.cgColor
+        self.view.addSubview(seperatorTopLineView)
         
     }
-    
-    func setupBackdropForeground() {
-        //    func setupBackdropForeground() {
-        
-        
-        
-        print("Backdrop starts from: \(headerEndY)")
-        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        backdropForeImageView.image = backdropForeImage //set foredrop image
-        backdropForeImageView.image?.withTintColor(.systemGray6, renderingMode: .alwaysTemplate)
-        
-        //        //CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        //         tableView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        //        backdropForeImageView.addSubview(tableView)
-        
-        //        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
-        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
-        backdropForeImageView.layer.shadowOpacity = 1
-        backdropForeImageView.layer.shadowOffset = .zero
-        backdropForeImageView.layer.shadowRadius = 20
-        
-        view.addSubview(backdropForeImageView)
-        
-    }
-    
-    @objc
-    func onMenuButtonTapped() {
-        print("menu buttoon tapped")
-    }
-    
-    @objc
-    func onNavigationButtonTapped() {
-        print("nav buttoon tapped")
-    }
-    
+
     
     
     //MARK:- View did load
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        //        view.addSubview(servePageHeader())
-        view.addSubview(serveNewPageHeader())
-        //        tableView.frame = CGRect(x: 0, y: headerEndY+10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        
-        
         //MARK: serve material backdrop
+        headerEndY = 128
+        setupBackdropBackground() //backdrop
+        setupBackdropForeground() //foredrop
+        setupBackdropNotch() //notch
         
-        setupBackdropBackground()
-        setupBackdropForeground()
-        
-        
-        //CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        //CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        //               backdropForeImageView.addSubview(tableView)
-        
-        
-        tableView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        view.addSubview(tableView)
-        
-        
-        
-        setupBackdropNotch()
-        
-        //MARK:--top cal
-        
-        let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: 450))
-        
-
-        calendar.calendarHeaderView.backgroundColor = primaryColorDarker//UIColor.lightGray.withAlphaComponent(0.1)
-        calendar.calendarWeekdayView.backgroundColor = primaryColorDarker//UIColor.lightGray.withAlphaComponent(0.1)
-//        calendar.calendarWeekdayView.weekdayLabels
-        calendar.appearance.weekdayTextColor = .white
-        calendar.appearance.headerTitleColor = .white
-        calendar.appearance.titleWeekendColor = .red
-        calendar.appearance.caseOptions = .weekdayUsesUpperCase
-//        calendar.appearance.eventSelectionColor = secondaryAccentColor
-//        calendar.appearance.separators = .interRows
-//        calendar.appearance.selectionColor = secondaryAccentColor
-        calendar.appearance.subtitleDefaultColor = .white
-//        calendar.appearance.subtitleTodayColor
-//        calendar.appearance.todayColor = .green
-        
-        
-        calendar.dataSource = self
-        calendar.delegate = self
-        
-        self.calendar = calendar
-        self.calendar.scope = FSCalendarScope.week
-//        calendar.backgroundColor = .white
-        
+        // cal
+        setupCal()
         view.addSubview(calendar)
         calendar.isHidden = true //hidden by default
-        
-        //        view.addSubview(calendar)
-        
         //--- done top cal
+        
+        // table view
+        tableView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+        view.addSubview(tableView)
         
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
         view.bringSubviewToFront(bottomAppBar)
         
-        
-        //---Floating Action Button - Material - DONE
-        
-        
-        //---Floating Action Button - Material - MORE CAL
-        
-        
-        fab_revealCalAtHome.minimumSize = CGSize(width: 32, height: 24)
-        let kMinimumAccessibleButtonSizeHeeight: CGFloat = 24
-        let kMinimumAccessibleButtonSizeWidth:CGFloat = 32
-        let buttonVerticalInset =
-            min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_revealCalAtHome.bounds.height) / 2);
-        let buttonHorizontalInset =
-            min(0, -(kMinimumAccessibleButtonSizeWidth - fab_revealCalAtHome.bounds.width) / 2);
-        fab_revealCalAtHome.hitAreaInsets =
-            UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
-                         bottom: buttonVerticalInset, right: buttonHorizontalInset);
-        
-        
-        // fab_revealCalAtHome button position
-        //        fab_revealCalAtHome.frame = CGRect(x: UIScreen.main.bounds.width - UIScreen.main.bounds.width/8 , y: UIScreen.main.bounds.minY+60, width: 25, height: 25)
-        
-        
-//        fab_revealCalAtHome.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+60, width: 25, height: 25)
-//        fab_revealCalAtHome.setImage(addTaskIcon, for: .normal)
-//        fab_revealCalAtHome.backgroundColor = primaryColor
-//        fab_revealCalAtHome.sizeToFit()
-        //fab_revealCalAtHome.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
-//        view.addSubview(fab_revealCalAtHome)
-        
-        let addTaskIcon = UIImage(named: "cal_Icon")
-        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
-//          revealCalAtHomeButton.frame = CGRect(x: 0 , y: UIScreen.main.bounds.minY+65, width: 100, height: 50)
-        revealCalAtHomeButton.setImage(addTaskIcon, for: .normal)
-        revealCalAtHomeButton.backgroundColor = .clear
-        revealCalAtHomeButton.sizeToFit()
-        revealCalAtHomeButton.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
-        view.addSubview(revealCalAtHomeButton)
-        revealCalAtHomeButton.setTitle("CANCEL", for: .normal)
-        
-        
-        let seperatorTopLineView = UIView(frame: CGRect(x: UIScreen.main.bounds.width/2, y: backdropNochImageView.bounds.height + 10, width: 1.0, height: homeTopBar.bounds.height/2))
-        seperatorTopLineView.layer.borderWidth = 1.0
-//        seperatorTopLineView.layer.borderColor = UIColor.white.cgColor
-        seperatorTopLineView.layer.borderColor = UIColor.gray.cgColor
-        self.view.addSubview(seperatorTopLineView)
-        
-        
-        
-        
-        
-        
-        //        fab_revealCalAtHome.backgroundColor = primaryColor //this keeps style consistent between screens
-        
-        
-        
-        
-//        let showCalNormalImage = UIImage(named: "cal_Icon")
-//               fab_revealCalAtHome.setImage(showCalNormalImage, for: .normal)
-        
-//
-        
-        //        showCalMoreButtonnAction
+        setupCalButton()
+        setupTopSeperator()
         
         //MARK: circle menu frame
         let circleMenuButton = CircleMenu(
@@ -370,79 +156,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         enableDarkModeIfPreset()
     }
     
-    //    showCalMoreButtonnAction
-    
-    @objc func showCalMoreButtonnAction() {
-        
-        print("Show cal !!")
-        //        dateForTheView = Date.tomorrow() //todo remove this
-        
-        
-        
-        
-        let delay: Double = 1.0
-        let duration: Double = 2.0
-        
-        if(isCalDown) {
-            
-           UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                                    self.moveUp_hideCal(view: self.tableView)
-                                }) { (_) in
-                        //            self.moveLeft(view: self.black4)
-                                }
-                        
-                        UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                                    self.moveUp_hideCal(view: self.backdropForeImageView)
-                                }) { (_) in
-                        //            self.moveLeft(view: self.black4)
-                                }
-            calendar.isHidden = true
-            
-        } else {
-            
-            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                                     self.moveDown_revealCal(view: self.tableView)
-                                 }) { (_) in
-                         //            self.moveLeft(view: self.black4)
-                                 }
-                         
-                         UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                                     self.moveDown_revealCal(view: self.backdropForeImageView)
-                                 }) { (_) in
-                         //            self.moveLeft(view: self.black4)
-                                 }
-            
-            calendar.isHidden = false
-            
-        }
-
-//                UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                    self.moveDown_revealCal(view: self.tableView)
-//                }) { (_) in
-//        //            self.moveLeft(view: self.black4)
-//                }
-//
-//        UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                    self.moveDown_revealCal(view: self.backdropForeImageView)
-//                }) { (_) in
-//        //            self.moveLeft(view: self.black4)
-//                }
-        
-        
-        
-        tableView.reloadData()
-        animateTableViewReload()
-        
-    }
-    
-    @objc func AddTaskAction() {
-        
-        //       tap add fab --> addTask
-        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
-        newViewController.modalPresentationStyle = .fullScreen
-        self.present(newViewController, animated: true, completion: nil)
-    }
+  
     
     
     func serveSemiViewRed() -> UIView {
@@ -476,17 +190,17 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         print("Header end point is: \(headerEndY)")
         
         
-        let homeTitle = UILabel()
+        //        let homeTitle = UILabel()
+        //
+        //        //        homeTitle.frame = CGRect(x: 5, y: 30, width: view.frame.width/2+view.frame.width/8, height: 64)
+        //        homeTitle.frame = CGRect(x: 5, y: 30, width: view.frame.width/2, height: 40)
+        //        homeTitle.text = "Today's score"
+        //        homeTitle.textColor = .label
+        //        homeTitle.textAlignment = .left
         
-        //        homeTitle.frame = CGRect(x: 5, y: 30, width: view.frame.width/2+view.frame.width/8, height: 64)
-        homeTitle.frame = CGRect(x: 5, y: 30, width: view.frame.width/2, height: 40)
-        homeTitle.text = "Today's score"
-        homeTitle.textColor = .label
-        homeTitle.textAlignment = .left
-        
-        homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
+        //homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
         //        homeTitle.font = UIFont.preferredFont(forTextStyle: .largeTitle)
-        homeTitle.adjustsFontSizeToFitWidth = true
+        //homeTitle.adjustsFontSizeToFitWidth = true
         //        view.addSubview(homeTitle)
         
         
@@ -514,83 +228,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         todaysDateLabel.adjustsFontSizeToFitWidth = true
         view.addSubview(todaysDateLabel)
         
-        
-        
-        scoreForTheDay = UILabel()
-        scoreForTheDay.frame = CGRect(x: homeTitle.bounds.maxX, y: homeTitle.bounds.midY, width: 80, height: 64)
-        scoreForTheDay.text = "13"
-        //        scoreForTheDay.textColor = primaryColor
-        scoreForTheDay.textColor = .secondaryLabel
-        scoreForTheDay.textAlignment = .center
-        scoreForTheDay.font = UIFont(name: "HelveticaNeue-Medium", size: 50)
-        //        scoreForTheDay.font = UIFont.preferredFont(forTextStyle: .headline)
-        scoreForTheDay.adjustsFontSizeToFitWidth = true
-        view.addSubview(scoreForTheDay)
-        
         return view
     }
     
-    //MARK:- Serve Page Header
-    func servePageHeader() -> UIView {
-        let view = UIView(frame: UIScreen.main.bounds)
-        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
-        view.backgroundColor = primaryColor
-        headerEndY = view.frame.maxY
-        
-        print("Header end point is: \(headerEndY)")
-        
-        let homeTitle = UILabel()
-        //        homeTitle.frame = CGRect(x: view.frame.minX+84, y: view.frame.maxY-60, width: view.frame.width/2+20, height: 64)
-        homeTitle.frame = CGRect(x: (view.frame.minX+view.frame.maxX/5)+3, y: view.frame.maxY-60, width: view.frame.width/2+view.frame.width/8, height: 64)
-        homeTitle.text = "Today's score is "
-        homeTitle.textColor = backgroundColor
-        homeTitle.textAlignment = .left
-        homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
-        view.addSubview(homeTitle)
-        
-        scoreForTheDay = UILabel()
-        //        scoreForTheDay.frame = CGRect(x: view.frame.maxX-90, y: view.frame.maxY-60, width: 80, height: 64)
-        scoreForTheDay.frame = CGRect(x: (view.frame.maxX-view.frame.maxX/6)-10, y: view.frame.maxY-60, width: 80, height: 64)
-        scoreForTheDay.text = "13"
-        scoreForTheDay.textColor = backgroundColor
-        scoreForTheDay.textAlignment = .center
-        scoreForTheDay.font = UIFont(name: "HelveticaNeue-Medium", size: 40)
-        view.addSubview(scoreForTheDay)
-        
-        return view
-    }
     
-    // MARK:- CircleMenuDelegate
     
-    func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
-        button.backgroundColor = circleMenuItems[atIndex].color
-        
-        button.setImage(UIImage(named: circleMenuItems[atIndex].icon), for: .normal)
-        
-        // set highlited image
-        let highlightedImage = UIImage(named: circleMenuItems[atIndex].icon)?.withRenderingMode(.alwaysTemplate)
-        button.setImage(highlightedImage, for: .highlighted)
-        button.tintColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.3)
-    }
     
-    func circleMenu(_: CircleMenu, buttonWillSelected _: UIButton, atIndex: Int) {
-        print("button will selected: \(atIndex)")
-        if (atIndex == 3) { //Opens settings menu
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { //adds delay
-                // your code here
-                let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-                let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage")
-                self.present(newViewController, animated: true, completion: nil)
-            }
-            
-            
-        }
-    }
-    
-    func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
-        print("button did selected: \(atIndex)")
-    }
     
     func serveSemiViewBlue(task: NTask) -> UIView { //TODO: put each of this in a tableview
         
@@ -1057,6 +700,31 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
     }
     
+    //MARK: Setup calendar appearence
+    func setupCal() {
+        let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
+        calendar.calendarHeaderView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+        calendar.calendarWeekdayView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+        calendar.appearance.weekdayTextColor = .white
+        calendar.appearance.headerTitleColor = .white
+        calendar.appearance.titleWeekendColor = .red
+        calendar.appearance.caseOptions = .weekdayUsesUpperCase
+        //        calendar.appearance.eventSelectionColor = secondaryAccentColor
+        //        calendar.appearance.separators = .interRows
+        //        calendar.appearance.selectionColor = secondaryAccentColor
+        calendar.appearance.subtitleDefaultColor = .white
+        //        calendar.appearance.subtitleTodayColor
+        //        calendar.appearance.todayColor = .green
+        
+        
+        calendar.dataSource = self
+        calendar.delegate = self
+        
+        self.calendar = calendar
+        self.calendar.scope = FSCalendarScope.week
+        //        calendar.backgroundColor = .white
+    }
+    
     //MARK: animations
     func animateTableViewReload() {
         let zoomAnimation = AnimationType.zoom(scale: 0.5)
@@ -1083,27 +751,280 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         //                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
     }
     
-      
+    
+    //MARK:- Animation Move Offses
+    
     func moveRight(view: UIView) {
-         view.center.x += 300
-     }
-     
-     func moveLeft(view: UIView) {
-         view.center.x -= 300
-     }
+        view.center.x += 300
+    }
+    
+    func moveLeft(view: UIView) {
+        view.center.x -= 300
+    }
     func moveDown_revealCal(view: UIView) {
         isCalDown = true
         view.center.y += 150
     }
     func moveUp_hideCal(view: UIView) {
         isCalDown = false
-           view.center.y -= 150
-       }
-//    func moveDown_onCalReveal(view: UIView) {
-//        view.center.y -= 300
-//    }
+        view.center.y -= 150
+    }
+    //    func moveDown_onCalReveal(view: UIView) {
+    //        view.center.y -= 300
+    //    }
+    
+    //MARK:- setup bottom bar
+    func setupBottomAppBar() {
+        bottomAppBar.floatingButton.setImage(UIImage(named: "material_add_White"), for: .normal)
+        bottomAppBar.floatingButton.backgroundColor = secondaryAccentColor //.systemIndigo
+        bottomAppBar.frame = CGRect(x: 0, y: UIScreen.main.bounds.maxY-100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.maxY-100)
+        bottomAppBar.barTintColor = primaryColor//primaryColor
+        
+        // The following lines of code are to define the buttons on the right and left side
+        let barButtonMenu = UIBarButtonItem(
+            image: UIImage(named:"material_menu_White"), // Icon
+            style: .plain,
+            target: self,
+            action: #selector(self.onMenuButtonTapped))
+        
+        let barButtonSearch = UIBarButtonItem(
+            image: UIImage(named: "material_search_White"), // Icon
+            style: .plain,
+            target: self,
+            action: #selector(self.onNavigationButtonTapped))
+        let barButtonInbox = UIBarButtonItem(
+            image: UIImage(named: "material_inbox_White"), // Icon
+            style: .plain,
+            target: self,
+            action: #selector(self.onNavigationButtonTapped))
+        bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
+        //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
+        bottomAppBar.elevation = ShadowElevation(rawValue: 8)
+        bottomAppBar.floatingButtonPosition = .trailing
+        
+        
+        bottomAppBar.floatingButton.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
+    }
+    
+    //MARK:- Setup Backdrop Notch
+    func setupBackdropNotch() {
+        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
+        backdropNochImageView.backgroundColor = primaryColorDarker
+        
+        view.addSubview(backdropNochImageView)
+    }
+    
+    //MARK:- Setup Backdrop Background - Today label + Score
+    func setupBackdropBackground() {
+        
+        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+        backdropBackgroundImageView.backgroundColor = primaryColor
+        homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
+        backdropBackgroundImageView.addSubview(homeTopBar)
+        
+        // Monday, 5th May
+        
+        print("--------------------------------------------------")
+        
+        let mDateThisDay: String = "\(dateToDisplay.dateString(in: .full))"
+        let dateArray = mDateThisDay.components(separatedBy: ",")
+        let monthAndDay = (dateArray[1]).components(separatedBy: " ")
+        let weekday = dateArray[0]
+        let month = monthAndDay[2]
+        print("\(weekday), \n\(dateToDisplay.day) \(month)")
+        print("--------------------------------------------------")
+        
+        dateAtHomeLabel.text = "Monday, \n5th May"
+        dateAtHomeLabel.text = "\(weekday), \n\(dateToDisplay.day) \(month)"
+        
+        dateAtHomeLabel.numberOfLines = 2
+        dateAtHomeLabel.textColor = .systemGray6
+        dateAtHomeLabel.font =  setFont(fontSize: 28, fontweight: .medium, fontDesign: .rounded)
+        dateAtHomeLabel.frame = CGRect(x: 5, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        
+        homeTopBar.addSubview(dateAtHomeLabel)
+        
+        //---------- score at home
+        
+        scoreAtHomeLabel.text = "\n\nscore"
+        scoreAtHomeLabel.numberOfLines = 3
+        scoreAtHomeLabel.textColor = .systemGray6
+        scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .rounded)
+        
+        scoreAtHomeLabel.textAlignment = .center
+        scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        
+        homeTopBar.addSubview(scoreAtHomeLabel)
+        
+        //---- score
+        
+        scoreCounter.text = "24"
+        scoreCounter.numberOfLines = 1
+        scoreCounter.textColor = .systemGray5
+        scoreCounter.font = setFont(fontSize: 40, fontweight: .bold, fontDesign: .rounded)
+        
+        scoreCounter.textAlignment = .center
+        scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 10, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        
+        homeTopBar.addSubview(scoreCounter)
+        
+        view.addSubview(backdropBackgroundImageView)
+        
+        
+    }
+    
+    //MARK: Setup forground
+    func setupBackdropForeground() {
+        //    func setupBackdropForeground() {
+        
+        print("Backdrop starts from: \(headerEndY)")
+        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+        backdropForeImageView.image = backdropForeImage //set foredrop image
+        backdropForeImageView.image?.withTintColor(.systemGray6, renderingMode: .alwaysTemplate)
+        
+        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
+        backdropForeImageView.layer.shadowOpacity = 0.8
+        backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
+        backdropForeImageView.layer.shadowRadius = 10
+        
+        view.addSubview(backdropForeImageView)
+        
+    }
+    
+    
+    // MARK:- CircleMenuDelegate
+    
+    func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
+        button.backgroundColor = circleMenuItems[atIndex].color
+        
+        button.setImage(UIImage(named: circleMenuItems[atIndex].icon), for: .normal)
+        
+        // set highlited image
+        let highlightedImage = UIImage(named: circleMenuItems[atIndex].icon)?.withRenderingMode(.alwaysTemplate)
+        button.setImage(highlightedImage, for: .highlighted)
+        button.tintColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.3)
+    }
+    
+    func circleMenu(_: CircleMenu, buttonWillSelected _: UIButton, atIndex: Int) {
+        print("button will selected: \(atIndex)")
+        if (atIndex == 3) { //Opens settings menu
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { //adds delay
+                // your code here
+                let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+                let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage")
+                self.present(newViewController, animated: true, completion: nil)
+            }
+            
+            
+        }
+    }
+    
+    func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
+        print("button did selected: \(atIndex)")
+    }
+    
+    //------------ circle delegate end
+    
+    @objc
+    func onMenuButtonTapped() {
+        print("menu buttoon tapped")
+    }
+    
+    @objc
+    func onNavigationButtonTapped() {
+        print("nav buttoon tapped")
+    }
+    
+    //MARK:    showCalMoreButtonnAction
+      
+      @objc func showCalMoreButtonnAction() {
+          
+          print("Show cal !!")
+
+          let delay: Double = 0.2
+          let duration: Double = 1.2
+          
+          if(isCalDown) { //cal is out; it sldes back up
+              
+              
+              self.view.bringSubviewToFront(self.tableView)
+              self.view.sendSubviewToBack(calendar)
+              self.view.sendSubviewToBack(backdropBackgroundImageView)
+              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                  self.moveUp_hideCal(view: self.tableView)
+              }) { (_) in
+                  
+              }
+              
+              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                  self.moveUp_hideCal(view: self.backdropForeImageView)
+              }) { (_) in
+                  
+              }
+              
+              DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
+                  
+                 // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
+                  
+              }
+            
+            self.view.bringSubviewToFront(self.bottomAppBar)
+              
+          } else {
+              self.view.bringSubviewToFront(self.tableView)
+              self.view.sendSubviewToBack(calendar)
+              self.view.sendSubviewToBack(backdropBackgroundImageView)
+              
+              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                  self.moveDown_revealCal(view: self.tableView)
+              }) { (_) in
+                  //            self.moveLeft(view: self.black4)
+              }
+              
+              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                  self.moveDown_revealCal(view: self.backdropForeImageView)
+              }) { (_) in
+                  //            self.moveLeft(view: self.black4)
+              }
+              
+              self.view.bringSubviewToFront(self.tableView)
+            self.view.bringSubviewToFront(self.bottomAppBar)
+              self.calendar.isHidden = false
+                          
+          }
+          tableView.reloadData()
+      }
+      
+      @objc func AddTaskAction() {
+          
+          //       tap add fab --> addTask
+          let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+          let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+          newViewController.modalPresentationStyle = .fullScreen
+          self.present(newViewController, animated: true, completion: nil)
+      }
+    
+    //Mark: Util: set font
+    func setFont(fontSize: CGFloat, fontweight: UIFont.Weight, fontDesign: UIFontDescriptor.SystemDesign) -> UIFont {
+        
+        // Here we get San Francisco with the desired weight
+        let systemFont = UIFont.systemFont(ofSize: fontSize, weight: fontweight)
+        
+        // Will be SF Compact or standard SF in case of failure.
+        let font: UIFont
+        
+        if let descriptor = systemFont.fontDescriptor.withDesign(fontDesign) {
+            font = UIFont(descriptor: descriptor, size: fontSize)
+        } else {
+            font = systemFont
+        }
+        return font
+    }
     
 }
+
+
 
 extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
     
@@ -1120,19 +1041,19 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
         }
     }
     
-//    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleDefaultColorFor date: Date) -> UIColor? {
-//        return .white
-//    }
-//    //titleDefaultColorForDate
-//    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, subtitleDefaultColorFor date: Date) -> UIColor? {
-//        return .white
-//    }
+    //    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleDefaultColorFor date: Date) -> UIColor? {
+    //        return .white
+    //    }
+    //    //titleDefaultColorForDate
+    //    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, subtitleDefaultColorFor date: Date) -> UIColor? {
+    //        return .white
+    //    }
     
-//    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, eventDefaultColorsFor date: Date) -> [UIColor]? {
-//        return [.white]
-//    }
+    //    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, eventDefaultColorsFor date: Date) -> [UIColor]? {
+    //        return [.white]
+    //    }
     
-//    func color
+    //    func color
     
     
 }
