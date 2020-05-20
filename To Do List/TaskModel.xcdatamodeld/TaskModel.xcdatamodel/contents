@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="15702" systemVersion="19D76" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
     <entity name="NTask" representedClassName="NTask" syncable="YES">
+        <attribute name="alertReminderTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dateAdded" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="dueDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="isComplete" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="isEveningTask" attributeType="Boolean" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="name" attributeType="String" spotlightIndexingEnabled="YES"/>
         <attribute name="taskDetails" optional="YES" attributeType="String"/>
         <attribute name="taskPriority" optional="YES" attributeType="Integer 32" defaultValueString="3" usesScalarValueType="YES"/>
         <attribute name="taskType" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
     </entity>
     <elements>
-        <element name="NTask" positionX="-36" positionY="9" width="128" height="133"/>
+        <element name="NTask" positionX="-36" positionY="9" width="128" height="178"/>
     </elements>
 </model>

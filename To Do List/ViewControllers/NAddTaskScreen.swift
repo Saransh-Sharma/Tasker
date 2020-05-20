@@ -17,7 +17,8 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate, UITextFieldDelegate
 {
     // MARK: Theming
-    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+    //    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+    var primaryColor =  #colorLiteral(red: 1, green: 1, blue: 1, alpha: 1)
     var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
     let dataArray = ["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
@@ -25,7 +26,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     // MARK: TASK METADATA
     var currentTaskInMaterialTextBox: String = ""
     var isThisEveningTask: Bool = false
-    var taskDayFromPicker: String =  "Today"//change datatype tp task type
+    var taskDayFromPicker: String =  "Unknown"//change datatype tp task type
+    var currentTaskPriority: Int = 3
     
     //MARK: Positioning
     var textBoxEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
@@ -42,7 +44,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     let circleMenuStartY:CGFloat = 40
     
     // MARK-: picker + switch init + cancel task
-    let UIPicker: UIPickerView = UIPickerView()
+    let dateUiPicker: UIPickerView = UIPickerView()
     let eveningSwitch = UISwitch()
     let fab_cancelTask = MDCFloatingButton(shape: .mini)
     let fab_doneTask = MDCFloatingButton(shape: .default)
@@ -79,7 +81,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
         view.addSubview(circleMenuButton)
         
-                
+        
         //MARK:--- FAB - CANCEL Task
         
         
@@ -148,16 +150,16 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         view.addSubview(setupPrioritySC())
         
         
-        UIPicker.delegate = self as UIPickerViewDelegate
-        UIPicker.dataSource = self as UIPickerViewDataSource
-        UIPicker.center = self.view.center
+        dateUiPicker.delegate = self as UIPickerViewDelegate
+        dateUiPicker.dataSource = self as UIPickerViewDataSource
+        dateUiPicker.center = self.view.center
         
-        view.addSubview(setupDayPicker(picker: UIPicker))
+        view.addSubview(setupDayPicker(picker: dateUiPicker))
         view.addSubview(setupFinalFiller())
         
         //MARK:- Bring critical view to top
         view.bringSubviewToFront(circleMenuButton)
-//        view.bringSubviewToFront(addTaskButton)
+        //        view.bringSubviewToFront(addTaskButton)
         view.bringSubviewToFront(fab_cancelTask)
         view.bringSubviewToFront(fab_doneTask)
         addTaskTextBox_Material.becomeFirstResponder()
@@ -171,19 +173,52 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         //       tap DONE --> add new task + nav homeScreen
         //MARK:- ADD TASK ACTION
         isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
+        var taskDueDate = Date()
         print("User tapped done button at add task")
         if currentTaskInMaterialTextBox != "" {
             
             print("Adding task: \(currentTaskInMaterialTextBox)")
-            TaskManager.sharedInstance.addNewTask(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2)
-            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-            let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
-            newViewController.modalPresentationStyle = .fullScreen
-            self.present(newViewController, animated: true, completion: nil)
+            //            TaskManager.sharedInstance.addNewTask(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2)
             
-        } else {
-            print("EMPTY TASK ! - Nothing to add")
+            //            let title = segm.titleForSegment(at: segment.selectedSegmentIndex)
+            
+            print("Priority is: \(currentTaskPriority)")
+            
+            if(taskDayFromPicker == "Unknown" || taskDayFromPicker == "") {
+                taskDueDate = Date.today()
+                TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
+            } else if (taskDayFromPicker == "Tomorrow") { //["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
+                taskDueDate = Date.tomorrow()
+                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
+            } else if (taskDayFromPicker == "Weekend") {
+                
+                //get the next weekend
+                taskDueDate = Date.today().changed(weekday: 5)!
+                
+                
+                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
+                
+                
+                
+            } else if (taskDayFromPicker == "Today") {
+                taskDueDate = Date.today()
+                TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
+            }
+            
+            //            else {
+            //                print("EMPTY TASK ! - Nothing to add")
+            //
+            //            }
+            
         }
+        
+        //add generic task add here which takes all input
+        //        TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, isEveningTask: isThisEveningTask)
+        
+        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
+        newViewController.modalPresentationStyle = .fullScreen
+        self.present(newViewController, animated: true, completion: nil)
     }
     
     //MARK:- CANCEL TASK ACTION
@@ -193,7 +228,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
         let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
         newViewController.modalPresentationStyle = .fullScreen
-//        self.present(newViewController, animated: true, completion: nil) //Doesn't look like cancel
+        //        self.present(newViewController, animated: true, completion: nil) //Doesn't look like cancel
         dismiss(animated: true) //this looks more like cancel compared to above
     }
     
@@ -237,9 +272,39 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         prioritySC.backgroundColor = .white
         prioritySC.selectedSegmentTintColor =  secondryColor
         prioritySC.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
+        
+        prioritySC.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
         mView.addSubview(prioritySC)
         
         return mView
+    }
+    
+    //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
+    @objc
+    func changeTaskPriority(sender: UISegmentedControl) -> Int {
+        
+        switch sender.selectedSegmentIndex {
+        case 0:
+            print("Priority is None - no priority 4")
+            currentTaskPriority = 4
+            return 4
+        case 1:
+
+            print("Priority is P2- low 3")
+            currentTaskPriority = 3
+            return 3
+        case 2:
+            print("Priority is P1- high 2")
+            currentTaskPriority = 2
+            return 2
+        case 3:
+            print("Priority is p0 - highest 1")
+            currentTaskPriority = 1
+            return 1
+        default:
+            print("Failed to get Task Priority")
+            return 3
+        }
     }
     
     // MARK: MAKE Second Seperator
@@ -353,7 +418,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     }
     
     //     MARK:- Text Field Delegates
-
+    
     
     
     
@@ -364,7 +429,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         let mView = UIView()
         mView.frame = CGRect(x: 0, y: standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
         mView.backgroundColor = secondryColor
-          
+        
         //--------MATERIAL TEXT FEILD
         let estimatedFrame = CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
         addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
@@ -375,9 +440,9 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         addTaskTextBox_Material.clearButtonMode = .whileEditing
         let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
                                     "schedule 1:1 with Shelly","grab 401k from mail box",
-        "get car serviced", "wrap Eve's birthaday gift ", "renew Gym membership",
-        "book flight tickets to Thailand", "fix the garage door",
-        "order Cake", "review subscriptions", "get coffee"]
+                                    "get car serviced", "wrap Eve's birthaday gift ", "renew Gym membership",
+                                    "book flight tickets to Thailand", "fix the garage door",
+                                    "order Cake", "review subscriptions", "get coffee"]
         addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
         addTaskTextBox_Material.sizeToFit()
         mView.addSubview(addTaskTextBox_Material)
@@ -453,6 +518,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     func getTaskType() -> Int { //extend this to return for inbox & upcoming/someday
         if eveningSwitch.isOn {
+            print("Adding eveninng task")
             return 2
         }
             //        else if isInboxTask {
@@ -463,6 +529,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             //        }
         else {
             //this is morning task
+            print("adding mornig task")
             return 1
         }
     }
@@ -487,6 +554,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         print("DAY: \(dataArray[row])")
         print("DAY ROW: \(row)")
         taskDayFromPicker = dataArray[row]
+        
+        print("---- Picked task:  \(dataArray[row])")
         
     }
     
