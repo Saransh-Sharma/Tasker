@@ -10,7 +10,7 @@
         <!--View Controller-->
         <scene sceneID="tne-QT-ifu">
             <objects>
-                <viewController id="BYZ-38-t0r" customClass="ViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="homeScreen" id="BYZ-38-t0r" customClass="ViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="8bC-Xf-vdC">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -42,33 +42,38 @@
                                     <outlet property="delegate" destination="BYZ-38-t0r" id="D9t-hJ-uXI"/>
                                 </connections>
                             </tableView>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="fill" contentVerticalAlignment="fill" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="elm-Jn-wws">
-                                <rect key="frame" x="70" y="687" width="30" height="67"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                <fontDescription key="fontDescription" name="AvenirNext-Medium" family="Avenir Next" pointSize="40"/>
-                                <state key="normal" title="+"/>
-                                <connections>
-                                    <segue destination="gqW-BY-mxJ" kind="presentation" modalPresentationStyle="fullScreen" id="iIG-a5-EjJ"/>
-                                </connections>
-                            </button>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                     </view>
                     <connections>
-                        <outlet property="addTaskButton" destination="elm-Jn-wws" id="iT7-N1-mfZ"/>
                         <outlet property="switchState" destination="I6M-y2-kON" id="6fB-7E-Vyx"/>
                         <outlet property="tableView" destination="ghW-4P-SJF" id="2gI-TK-Kcx"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="1794.4000000000001" y="136.69950738916256"/>
+            <point key="canvasLocation" x="1750" y="166"/>
+        </scene>
+        <!--View Controller-->
+        <scene sceneID="yon-EU-4DC">
+            <objects>
+                <viewController id="EvP-jB-pul" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="Bou-eE-b5L">
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <viewLayoutGuide key="safeArea" id="35I-Qf-tQP"/>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="XZ1-Sy-exP" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="2745" y="180"/>
         </scene>
         <!--Add Task Screen-->
         <scene sceneID="5Nx-pA-AYS">
             <objects>
-                <viewController id="gqW-BY-mxJ" customClass="NAddTaskScreen" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="addTask" id="gqW-BY-mxJ" customClass="NAddTaskScreen" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="X6t-jz-Ajf">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -80,15 +85,6 @@
                                 <fontDescription key="fontDescription" name="HelveticaNeue" family="Helvetica Neue" pointSize="30"/>
                                 <textInputTraits key="textInputTraits" autocapitalizationType="sentences" returnKeyType="done" enablesReturnKeyAutomatically="YES" smartDashesType="yes" smartInsertDeleteType="yes" smartQuotesType="yes"/>
                             </textField>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="eRq-x1-Yld">
-                                <rect key="frame" x="327" y="195" width="19" height="22"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                <state key="normal" image="checkmark" catalog="system"/>
-                                <connections>
-                                    <action selector="addTaskButtonAction:" destination="gqW-BY-mxJ" eventType="touchUpInside" id="GFW-Gq-tkq"/>
-                                    <action selector="doneButtonTappedAction:" destination="gqW-BY-mxJ" eventType="touchUpInside" id="1W7-it-8QV"/>
-                                </connections>
-                            </button>
                             <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="KjY-Bp-JVj">
                                 <rect key="frame" x="309" y="62" width="30" height="32"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
@@ -102,14 +98,13 @@
                         <viewLayoutGuide key="safeArea" id="qXm-vK-gyW"/>
                     </view>
                     <connections>
-                        <outlet property="addTaskButton" destination="eRq-x1-Yld" id="G8t-p7-GbH"/>
                         <outlet property="addTaskTextField" destination="kq3-an-wh0" id="cbW-L8-PeX"/>
                         <outlet property="cancelAddTaskButton" destination="KjY-Bp-JVj" id="5aw-C6-uur"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="2P4-U1-4pW" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="1449" y="929"/>
+            <point key="canvasLocation" x="2697" y="-565"/>
         </scene>
         <!--Settings Page View Controller-->
         <scene sceneID="1cw-Fs-vYG">
@@ -166,7 +161,7 @@
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="mfh-TD-bmw" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="2798" y="-311"/>
+            <point key="canvasLocation" x="967" y="-306"/>
         </scene>
         <!--Week-->
         <scene sceneID="CV6-ao-UkR">
@@ -237,12 +232,11 @@
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="ZaB-94-O5C" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="817" y="847"/>
+            <point key="canvasLocation" x="241" y="944"/>
         </scene>
     </scenes>
     <resources>
         <image name="calendar" catalog="system" width="64" height="52"/>
-        <image name="checkmark" catalog="system" width="64" height="56"/>
         <image name="chevron.left" catalog="system" width="48" height="64"/>
         <image name="tray.full.fill" catalog="system" width="64" height="44"/>
     </resources>
