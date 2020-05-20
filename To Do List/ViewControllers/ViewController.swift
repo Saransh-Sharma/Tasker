@@ -1178,13 +1178,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:-                            CALENDAR
     //----------------------- *************************** -----------------------
     
-    //MARK: Cal change view onn date change
+    //MARK: Cal changes VIEW + SCORE on date change
     func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
         print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
         dateToDisplay = date
         dateForTheView = date
         
         updateHomeDate(date: dateToDisplay)
+//        (self.calculateTodaysScore()
+        self.scoreCounter.text = "\(self.calculateTodaysScore())"
         
         tableView.reloadData()
         animateTableViewReload()
