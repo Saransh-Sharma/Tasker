@@ -723,7 +723,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 break
             }
             
-            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
+//            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
+            print("SCORE IS: \(self.calculateTodaysScore())")
             
             tableView.reloadData()
             self.animateTableViewReload()
@@ -1066,6 +1067,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     //------------ circle delegate end
     
+    //----------------------- *************************** -----------------------
+    //MARK:-                ACTION: BOTTOMBAR BUTTON STUBS
+    //----------------------- *************************** -----------------------
+    
     @objc
     func onMenuButtonTapped() {
         print("menu buttoon tapped")
@@ -1075,6 +1080,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func onNavigationButtonTapped() {
         print("nav buttoon tapped")
     }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                     ACTION: SHOW CALENDAR
+    //----------------------- *************************** -----------------------
     
     //MARK:    showCalMoreButtonnAction
     
@@ -1136,6 +1145,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         tableView.reloadData()
     }
     
+    //----------------------- *************************** -----------------------
+    //MARK:-                        ACTION: ADD TASK
+    //----------------------- *************************** -----------------------
+    
     @objc func AddTaskAction() {
         
         //       tap add fab --> addTask
@@ -1144,6 +1157,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         newViewController.modalPresentationStyle = .fullScreen
         self.present(newViewController, animated: true, completion: nil)
     }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                          UTIL: text,
+    //----------------------- *************************** -----------------------
     
     //Mark: Util: set font
     func setFont(fontSize: CGFloat, fontweight: UIFont.Weight, fontDesign: UIFontDescriptor.SystemDesign) -> UIFont {
@@ -1162,18 +1179,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return font
     }
     
-    //MARK: Cal change view onn date change
-    func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
-        print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
-        dateToDisplay = date
-        dateForTheView = date
-        
-        updateHomeDate(date: dateToDisplay)
-        
-        tableView.reloadData()
-        animateTableViewReload()
-    }
+
     
+    
+
+    //----------------------- *************************** -----------------------
+    //MARK:-                            DATE
+    //----------------------- *************************** -----------------------
+    
+    //MARK: set passed date as day, week, month label text
     func updateHomeDate(date: Date) {
         
         if("\(date.day)".count < 2) {
@@ -1186,11 +1200,29 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
     }
     
+    //----------------------- *************************** -----------------------
+    //MARK:-                            CALENDAR
+    //----------------------- *************************** -----------------------
+    
+    //MARK: Cal change view onn date change
+    func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
+        print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
+        dateToDisplay = date
+        dateForTheView = date
+        
+        updateHomeDate(date: dateToDisplay)
+        
+        tableView.reloadData()
+        animateTableViewReload()
+    }
     
 }
 
+//----------------------- *************************** -----------------------
+//MARK:-                            CALENDAR DELEGATE
+//----------------------- *************************** -----------------------
 
-
+//MARK:- CAL Extention: task count as day subtext
 extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
     
     func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
