@@ -41,6 +41,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
     let revealCalAtHomeButton = MDCButton()
     
+    let homeDate_Day = UILabel()
+         let homeDate_WeekDay = UILabel()
+         let homeDate_Month = UILabel()
+    
     var seperatorTopLineView = UIView()
     var backdropNochImageView = UIImageView()
     var backdropBackgroundImageView = UIImageView()
@@ -106,9 +110,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:- TUESDAY, 5th May
     func setHomeViewDate() {
         
-        let homeDate_Day = UILabel()
-        let homeDate_WeekDay = UILabel()
-        let homeDate_Month = UILabel()
+     
         
         
         
@@ -1166,8 +1168,22 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         dateToDisplay = date
         dateForTheView = date
         
+        updateHomeDate(date: dateToDisplay)
+        
         tableView.reloadData()
         animateTableViewReload()
+    }
+    
+    func updateHomeDate(date: Date) {
+        
+        if("\(date.day)".count < 2) {
+            self.homeDate_Day.text = "0\(date.day)"
+          } else {
+            self.homeDate_Day.text = "\(date.day)"
+          }
+        self.homeDate_WeekDay.text = getWeekday(date: date)
+        self.homeDate_Month.text = getMonth(date: date)
+        
     }
     
     
