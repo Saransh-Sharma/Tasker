@@ -112,7 +112,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         
-        let today = Date() //TODO: change this with view date
+        let today = dateToDisplay //Date() //TODO: change this with view date
         
         
         if("\(today.day)".count < 2) {
@@ -1013,9 +1013,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         print("Backdrop starts from: \(headerEndY)")
         backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        backdropForeImageView.image = backdropForeImage //set foredrop image
-        backdropForeImageView.image?.withTintColor(.systemGray6, renderingMode: .alwaysTemplate)
+
+
         
+        backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
+        backdropForeImageView.tintColor = .systemGray6
+        
+                
         backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
         backdropForeImageView.layer.shadowOpacity = 0.8
         backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
