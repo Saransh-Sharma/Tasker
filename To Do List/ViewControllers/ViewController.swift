@@ -41,6 +41,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
     let revealCalAtHomeButton = MDCButton()
     
+    var seperatorTopLineView = UIView()
     var backdropNochImageView = UIImageView()
     var backdropBackgroundImageView = UIImageView()
     var backdropForeImageView = UIImageView()
@@ -71,9 +72,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     //MARK: Theming: COLOURS
     var backgroundColor = UIColor.systemGray5
-    var primaryColor =  #colorLiteral(red: 0.3843137255, green: 0, blue: 0.9333333333, alpha: 1) //UIColor(red: 98.0/255.0, green: 0.0/255.0, blue: 238.0/255.0, alpha: 1.0)
-    var primaryColorDarker = #colorLiteral(red: 0.2784313725, green: 0.007843137255, blue: 0.7568627451, alpha: 1) //UIColor(red: 71.0/255.0, green: 2.0/255.0, blue: 193.0/255.0, alpha: 1.0)
-    var secondaryAccentColor = #colorLiteral(red: 0.007843137255, green: 0.6352941176, blue: 0.6156862745, alpha: 1) //02A29D
+    var primaryColor = UIColor.systemIndigo // #colorLiteral(red: 0.3843137255, green: 0, blue: 0.9333333333, alpha: 1) //UIColor(red: 98.0/255.0, green: 0.0/255.0, blue: 238.0/255.0, alpha: 1.0)
+    var primaryColorDarker = UIColor.black//#colorLiteral(red: 0.2784313725, green: 0.007843137255, blue: 0.7568627451, alpha: 1) //UIColor(red: 71.0/255.0, green: 2.0/255.0, blue: 193.0/255.0, alpha: 1.0)
+    var secondaryAccentColor = UIColor.systemOrange// #colorLiteral(red: 0.007843137255, green: 0.6352941176, blue: 0.6156862745, alpha: 1) //02A29D
     //          var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     //          var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
@@ -84,15 +85,100 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:- Elevation + Shadows:
     let bottomBarShadowElevation: ShadowElevation = ShadowElevation(rawValue: 8)
     
+    //MARK: get name of the month
+    func getMonth(date: Date) -> String {
+        
+        let dateFormatter_Month = DateFormatter()
+        dateFormatter_Month.dateFormat = "LLL" //try MMM
+        let nameOfMonth = dateFormatter_Month.string(from: date)
+        return nameOfMonth
+    }
     
+    //MARK: get name of the weekday
+    func getWeekday(date: Date) -> String {
+        
+        let dateFormatter_Weekday = DateFormatter()
+        dateFormatter_Weekday.dateFormat = "EEE"
+        let nameOfWeekday = dateFormatter_Weekday.string(from: date)
+        return nameOfWeekday
+    }
     
+    //MARK:- TUESDAY, 5th May
+    func setHomeViewDate() {
+        
+        let homeDate_Day = UILabel()
+        let homeDate_WeekDay = UILabel()
+        let homeDate_Month = UILabel()
+        
+        
+        
+        let today = Date() //TODO: change this with view date
+        
+        
+        if("\(today.day)".count < 2) {
+            homeDate_Day.text = "0\(today.day)"
+        } else {
+            homeDate_Day.text = "\(today.day)"
+        }
+        homeDate_WeekDay.text = getWeekday(date: today)
+        homeDate_Month.text = getMonth(date: today)
+        
+        
+        homeDate_Day.numberOfLines = 1
+        homeDate_WeekDay.numberOfLines = 1
+        homeDate_Month.numberOfLines = 1
+        
+        homeDate_Day.textColor = .systemGray6
+        homeDate_WeekDay.textColor = .systemGray6
+        homeDate_Month.textColor = .systemGray6
+        
+        homeDate_Day.font =  setFont(fontSize: 50, fontweight: .medium, fontDesign: .rounded)
+        homeDate_WeekDay.font =  setFont(fontSize: 24, fontweight: .thin, fontDesign: .rounded)
+        homeDate_Month.font =  setFont(fontSize: 24, fontweight: .regular, fontDesign: .rounded)
+        
+        homeDate_Day.textAlignment = .left
+        homeDate_WeekDay.textAlignment = .left
+        homeDate_Month.textAlignment = .left
+        
+        
+        homeDate_Day.frame = CGRect(x: 5, y: 18, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        homeDate_WeekDay.frame = CGRect(x: 70, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
+        homeDate_Month.frame = CGRect(x: 70, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
+ 
+        
+        homeDate_WeekDay.adjustsFontSizeToFitWidth = true
+        homeDate_Month.adjustsFontSizeToFitWidth = true
+        
+        homeTopBar.addSubview(homeDate_Day)
+        homeTopBar.addSubview(homeDate_WeekDay)
+        homeTopBar.addSubview(homeDate_Month)
+        
+//        homeDate_WeekDay.translatesAutoresizingMaskIntoConstraints = false
+//        homeDate_WeekDay.centerXAnchor.constraint(equalTo: homeDate_Day.centerXAnchor, constant: 20).isActive = true
+//        homeDate_WeekDay.leadingAnchor.constraint(equalTo: homeDate_Day.trailingAnchor, constant: 20).isActive = true
+//        homeDate_WeekDay.widthAnchor.constraint(equalToConstant: homeTopBar.bounds.width/2).isActive = true
+//        homeDate_WeekDay.heightAnchor.constraint(equalToConstant: homeTopBar.bounds.height/4).isActive = true
+ 
+    }
+    
+    //MARK:- setup cal button
     func setupCalButton()  {
         
         
-        let calButton = UIImage(named: "cal_Icon")
-        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+//        let configuration = UIImage.SymbolConfiguration(scale: .large)
+        let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .regular, scale: .large)
+        let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
+        let colouredCalPullDownImage = smallSymbolImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
+        
+        let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
+//        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+//        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/2)-20 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+//        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-50 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-60 , y: UIScreen.main.bounds.minY+55, width: 200, height: 200)
         revealCalAtHomeButton.setImage(calButton, for: .normal)
         revealCalAtHomeButton.backgroundColor = .clear
+        revealCalAtHomeButton.titleLabel?.text = "GREEN"
+        
         revealCalAtHomeButton.sizeToFit()
         revealCalAtHomeButton.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
         view.addSubview(revealCalAtHomeButton)
@@ -101,7 +187,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     func setupTopSeperator() {
         
-        let seperatorTopLineView = UIView(frame: CGRect(x: UIScreen.main.bounds.width/2, y: backdropNochImageView.bounds.height + 10, width: 1.0, height: homeTopBar.bounds.height/2))
+        seperatorTopLineView = UIView(frame: CGRect(x: UIScreen.main.bounds.width/2, y: backdropNochImageView.bounds.height + 10, width: 1.0, height: homeTopBar.bounds.height/2))
         seperatorTopLineView.layer.borderWidth = 1.0
         //        seperatorTopLineView.layer.borderColor = UIColor.white.cgColor
         seperatorTopLineView.layer.borderColor = UIColor.gray.cgColor
@@ -133,6 +219,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
+        setHomeViewDate()
         view.bringSubviewToFront(bottomAppBar)
         
         setupCalButton()
@@ -189,37 +276,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         print("Header end point is: \(headerEndY)")
-        
-        
-        //        let homeTitle = UILabel()
-        //
-        //        //        homeTitle.frame = CGRect(x: 5, y: 30, width: view.frame.width/2+view.frame.width/8, height: 64)
-        //        homeTitle.frame = CGRect(x: 5, y: 30, width: view.frame.width/2, height: 40)
-        //        homeTitle.text = "Today's score"
-        //        homeTitle.textColor = .label
-        //        homeTitle.textAlignment = .left
-        
-        //homeTitle.font = UIFont(name: "HelveticaNeue-Medium", size: 30)
-        //        homeTitle.font = UIFont.preferredFont(forTextStyle: .largeTitle)
-        //homeTitle.adjustsFontSizeToFitWidth = true
-        //        view.addSubview(homeTitle)
-        
-        
-        //MARK:-- date button
-        //        dateButton
-        
-        //        let buttonVerticalInset =
-        //        min(0, -(kMinimumAccessibleButtonSize.height - button.bounds.height) / 2);
-        //        let buttonHorizontalInset =
-        //        min(0, -(kMinimumAccessibleButtonSize.width - button.bounds.width) / 2);
-        //        button.hitAreaInsets =
-        //        UIEdgeInsetsMake(buttonVerticalInset, buttonHorizontalInset,
-        //        buttonVerticalInset, buttonHorizontalInset);
-        
-        
-        //----date button done
-        
-        
+         
         
         let todaysDateLabel = UILabel()
         todaysDateLabel.frame = CGRect(x: 5, y: 70, width: view.frame.width/2, height: 40)
@@ -490,9 +547,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         
-//        chec
+        //        chec
         
-    
+        
         var currentTask: NTask!
         let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
         let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
@@ -529,54 +586,54 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         completedTaskCell.textLabel!.text = "\t\(currentTask.name)"
         completedTaskCell.backgroundColor = UIColor.clear
         
-//        openTaskCell.textLabel!.text = currentTask.name
+        //        openTaskCell.textLabel!.text = currentTask.name
         openTaskCell.textLabel!.text = "\t\(currentTask.name)"
         openTaskCell.backgroundColor = UIColor.clear
         
         if currentTask.isComplete {
             completedTaskCell.textLabel?.textColor = .tertiaryLabel
-//            completedTaskCell.accessoryType = .checkmark
+            //            completedTaskCell.accessoryType = .checkmark
             
             let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
-                       checkBox.lineWidth = 1.0
-                       checkBox.animationDuration = 0.45
-                       checkBox.setOn(true, animated: false)
-                       checkBox.boxType = .square
-                       checkBox.onAnimationType = .oneStroke
-                       checkBox.offAnimationType = .oneStroke
+            checkBox.lineWidth = 1.0
+            checkBox.animationDuration = 0.45
+            checkBox.setOn(true, animated: false)
+            checkBox.boxType = .square
+            checkBox.onAnimationType = .oneStroke
+            checkBox.offAnimationType = .oneStroke
             
             
-                           
-                       completedTaskCell.addSubview(checkBox)
+            
+            completedTaskCell.addSubview(checkBox)
+            
+            //          let priorityLineView = UIView(frame: CGRect(x: completedTaskCell.bounds.minX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
+            //            priorityLineView.clipsToBounds = true
+            
+            //            let priorityLineView_Right = UIView(frame: CGRect(x: completedTaskCell.bounds.maxX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
+            //            priorityLineView_Right.clipsToBounds = true
+            
+            //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
+            if (currentTask.taskPriority == 1) { //p0
                 
-//          let priorityLineView = UIView(frame: CGRect(x: completedTaskCell.bounds.minX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
-//            priorityLineView.clipsToBounds = true
-            
-//            let priorityLineView_Right = UIView(frame: CGRect(x: completedTaskCell.bounds.maxX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
-//            priorityLineView_Right.clipsToBounds = true
-            
-                      //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
-                      if (currentTask.taskPriority == 1) { //p0
-                          
-//                          priorityLineView.backgroundColor = .systemRed
-//                        priorityLineView_Right.backgroundColor = .systemRed
-                          
-                      } else if (currentTask.taskPriority == 2) {
-                          
-//                          priorityLineView.backgroundColor = .systemOrange
-//                        priorityLineView_Right.backgroundColor = .systemOrange
-                          
-                      } else if (currentTask.taskPriority == 3) {
-                          
-//                          priorityLineView.backgroundColor = .systemYellow
-//                        priorityLineView_Right.backgroundColor = .systemYellow
-                          
-                      } else {
-//                          priorityLineView.backgroundColor = .systemGray3
-//                        priorityLineView_Right.backgroundColor = .systemGray3
-                      }
-//            completedTaskCell.addSubview(priorityLineView)
-//            completedTaskCell.addSubview(priorityLineView_Right)
+                //                          priorityLineView.backgroundColor = .systemRed
+                //                        priorityLineView_Right.backgroundColor = .systemRed
+                
+            } else if (currentTask.taskPriority == 2) {
+                
+                //                          priorityLineView.backgroundColor = .systemOrange
+                //                        priorityLineView_Right.backgroundColor = .systemOrange
+                
+            } else if (currentTask.taskPriority == 3) {
+                
+                //                          priorityLineView.backgroundColor = .systemYellow
+                //                        priorityLineView_Right.backgroundColor = .systemYellow
+                
+            } else {
+                //                          priorityLineView.backgroundColor = .systemGray3
+                //                        priorityLineView_Right.backgroundColor = .systemGray3
+            }
+            //            completedTaskCell.addSubview(priorityLineView)
+            //            completedTaskCell.addSubview(priorityLineView_Right)
             
             return completedTaskCell
             
@@ -585,7 +642,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             
             
             openTaskCell.textLabel?.textColor = .label
-//            openTaskCell.accessoryType = .detailButton
+            //            openTaskCell.accessoryType = .detailButton
             openTaskCell.accessoryType = .disclosureIndicator
             
             
@@ -597,40 +654,40 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             checkBox.boxType = .square
             checkBox.onAnimationType = .oneStroke
             checkBox.offAnimationType = .oneStroke
-                
+            
             openTaskCell.addSubview(checkBox)
             
-      
             
-
+            
+            
             let priorityLineView_Right = UIView() //UIView(frame: CGPoint(x: openTaskCell.bounds.maxX, y: openTaskCell.bounds.midY))//(frame: CGRect(x: openTaskCell.bounds.maxX, y: openTaskCell.bounds.minY, width: 5.0, height: openTaskCell.bounds.height))
             
-
+            
             priorityLineView_Right.clipsToBounds = true
             
             //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
             if (currentTask.taskPriority == 1) { //p0
                 
                 
-//                priorityLineView_Right.backgroundColor = .systemRed
+                //                priorityLineView_Right.backgroundColor = .systemRed
                 
             } else if (currentTask.taskPriority == 2) {
                 
                 
-//                priorityLineView_Right.backgroundColor = .systemOrange
+                //                priorityLineView_Right.backgroundColor = .systemOrange
                 
             } else if (currentTask.taskPriority == 3) {
                 
                 
-//                priorityLineView_Right.backgroundColor = .systemYellow
+                //                priorityLineView_Right.backgroundColor = .systemYellow
                 
             } else {
                 
-//                priorityLineView_Right.backgroundColor = .systemGray3
+                //                priorityLineView_Right.backgroundColor = .systemGray3
             }
-                                 
             
-//            openTaskCell.addSubview(priorityLineView_Right)
+            
+            //            openTaskCell.addSubview(priorityLineView_Right)
             
             return openTaskCell
         }
@@ -920,36 +977,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
         backdropBackgroundImageView.addSubview(homeTopBar)
         
-        // Monday, 5th May
-        
-        print("--------------------------------------------------")
-        
-        let mDateThisDay: String = "\(dateToDisplay.dateString(in: .full))"
-        let dateArray = mDateThisDay.components(separatedBy: ",")
-        print("this day: \(mDateThisDay)")
-        print("date 2 is : \(dateArray[0]) and \(dateArray[1])")
-        let monthAndDay = (dateArray[1]).components(separatedBy: " ")
-        let weekday = dateArray[0]
-        let month = monthAndDay[2]
-        print("\(weekday), \n\(dateToDisplay.day) \(month)")
-        print("--------------------------------------------------")
-        
-//        dateAtHomeLabel.text = "Monday, \n5th May"
-        dateAtHomeLabel.text = "\(weekday), \n\(dateToDisplay.day) \(month)"
-        
-        dateAtHomeLabel.numberOfLines = 2
-        dateAtHomeLabel.textColor = .systemGray6
-        dateAtHomeLabel.font =  setFont(fontSize: 28, fontweight: .medium, fontDesign: .rounded)
-        dateAtHomeLabel.frame = CGRect(x: 5, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        
-        homeTopBar.addSubview(dateAtHomeLabel)
         
         //---------- score at home
         
         scoreAtHomeLabel.text = "\n\nscore"
         scoreAtHomeLabel.numberOfLines = 3
         scoreAtHomeLabel.textColor = .systemGray6
-        scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .rounded)
+        scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
         
         scoreAtHomeLabel.textAlignment = .center
         scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
@@ -961,10 +995,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         scoreCounter.text = "24"
         scoreCounter.numberOfLines = 1
         scoreCounter.textColor = .systemGray5
-        scoreCounter.font = setFont(fontSize: 40, fontweight: .bold, fontDesign: .rounded)
+        scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
         
         scoreCounter.textAlignment = .center
-        scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 10, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
         
         homeTopBar.addSubview(scoreCounter)
         
