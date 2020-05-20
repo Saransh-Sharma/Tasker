@@ -19,7 +19,7 @@ import MaterialComponents.MaterialBottomAppBar
 import MaterialComponents.MaterialButtons_Theming
 
 
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, CircleMenuDelegate {
+class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     
     
     //MARK:- Tableview animation style
@@ -725,6 +725,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             
 //            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
             print("SCORE IS: \(self.calculateTodaysScore())")
+            self.scoreCounter.text = "\(self.calculateTodaysScore())"
             
             tableView.reloadData()
             self.animateTableViewReload()
@@ -995,7 +996,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         //---- score
         
-        scoreCounter.text = "24"
+        scoreCounter.text = "\(self.calculateTodaysScore())"
         scoreCounter.numberOfLines = 1
         scoreCounter.textColor = .systemGray5
         scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
@@ -1009,6 +1010,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
     }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-              BACKDROP PATTERN: SETUP FOREGROUND
+    //----------------------- *************************** -----------------------
     
     //MARK: Setup forground
     func setupBackdropForeground() {
@@ -1032,38 +1037,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
     }
     
-    
-    // MARK:- CircleMenuDelegate
-    
-    func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
-        button.backgroundColor = circleMenuItems[atIndex].color
-        
-        button.setImage(UIImage(named: circleMenuItems[atIndex].icon), for: .normal)
-        
-        // set highlited image
-        let highlightedImage = UIImage(named: circleMenuItems[atIndex].icon)?.withRenderingMode(.alwaysTemplate)
-        button.setImage(highlightedImage, for: .highlighted)
-        button.tintColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.3)
-    }
-    
-    func circleMenu(_: CircleMenu, buttonWillSelected _: UIButton, atIndex: Int) {
-        print("button will selected: \(atIndex)")
-        if (atIndex == 3) { //Opens settings menu
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { //adds delay
-                // your code here
-                let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-                let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage")
-                self.present(newViewController, animated: true, completion: nil)
-            }
-            
-            
-        }
-    }
-    
-    func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
-        print("button did selected: \(atIndex)")
-    }
+
     
     //------------ circle delegate end
     
@@ -1236,6 +1210,41 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
         } else {
             return "\(allTasks.count) tasks"
         }
+    }
+}
+
+extension ViewController: CircleMenuDelegate {
+    // MARK:- CircleMenuDelegate
+    
+    func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
+        button.backgroundColor = circleMenuItems[atIndex].color
+        
+        button.setImage(UIImage(named: circleMenuItems[atIndex].icon), for: .normal)
+        
+        // set highlited image
+        let highlightedImage = UIImage(named: circleMenuItems[atIndex].icon)?.withRenderingMode(.alwaysTemplate)
+        button.setImage(highlightedImage, for: .highlighted)
+        button.tintColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.3)
+    }
+    
+    func circleMenu(_: CircleMenu, buttonWillSelected _: UIButton, atIndex: Int) {
+        print("button will selected: \(atIndex)")
+        if (atIndex == 3) { //Opens settings menu
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { //adds delay
+                // your code here
+                let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+                let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage")
+                self.present(newViewController, animated: true, completion: nil)
+            }
+            
+            
+        }
+    }
+    
+    
+    func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
+        print("button did selected: \(atIndex)")
     }
 }
 
