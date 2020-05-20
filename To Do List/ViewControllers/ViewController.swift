@@ -243,6 +243,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         //        view.addSubview(circleMenuButton) TODO: reconsider the top circle menu
         
         
+        //MARK: NOTCH CHECK
+        if (UIDevice.current.hasNotch) {
+            print("I SEE NOTCH !!")
+        } else {
+            print("NO NOTCH !")
+        }
+        
+        
         enableDarkModeIfPreset()
     }
     
@@ -498,18 +506,79 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return 2;
     }
     
+    //----------------------- *************************** -----------------------
+    //MARK:-                  TABLEVIEW: HEADER VIEW
+    //TODO: build filter here
+    // has today, yesterday, tomorrw, project A, Prject B
+    //
+    //----------------------- *************************** -----------------------
+    
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        let myLabel = UILabel()
-        myLabel.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/2, height: 30)
-        //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
-        myLabel.font = UIFont(name: "HelveticaNeue-Bold", size: 20)
-        myLabel.textColor = .secondaryLabel
-        myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
-        
         let headerView = UIView()
-        headerView.addSubview(myLabel)
         
-        return headerView
+        if section == 0 {
+            let myLabel = UILabel()
+            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
+            
+            //line.horizontal.3.decrease.circle
+            let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 30, weight: .regular, scale: .default)
+            let filterIconImage = UIImage(systemName: "line.horizontal.3.decrease.circle", withConfiguration: filterIconConfiguration)
+            let colouredCalPullDownImage = filterIconImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
+//
+//            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
+            let filterMenuHomeButton = UIButton()
+//            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
+                        filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
+            filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
+            
+            headerView.addSubview(filterMenuHomeButton)
+            
+            
+            
+ 
+                   //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+                   myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .serif)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+                   myLabel.textAlignment = .right
+                   myLabel.adjustsFontSizeToFitWidth = true
+                   myLabel.textColor = .label
+                   myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
+                   
+//                   let headerView = UIView()
+                   headerView.addSubview(myLabel)
+                   
+                   return headerView
+        } else if section == 1 {
+            
+            let myLabel2 = UILabel()
+                         myLabel2.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/3, height: 30)
+                         //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+                         myLabel2.font = setFont(fontSize: 20, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+                         myLabel2.textAlignment = .left
+                         myLabel2.adjustsFontSizeToFitWidth = true
+                         myLabel2.textColor = .secondaryLabel
+                         myLabel2.text = self.tableView(tableView, titleForHeaderInSection: section)
+            
+            headerView.addSubview(myLabel2)
+            
+           
+        }
+        
+        
+//        let myLabel = UILabel()
+//        myLabel.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/3, height: 30)
+//        //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+//        myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .serif)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+//        myLabel.textAlignment = .right
+//        myLabel.adjustsFontSizeToFitWidth = true
+//        myLabel.textColor = .secondaryLabel
+//        myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
+//
+//        let headerView = UIView()
+//        headerView.addSubview(myLabel)
+//
+//        return headerView
+        
+         return headerView
     }
     
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
@@ -825,23 +894,31 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return UISwipeActionsConfiguration(actions: [deleteTaskAction])
     }
     
+    //----------------------- *************************** -----------------------
+    //MARK:-                  TABLEVIEW: HEADER VIEW
+    //TODO: build filter here
+    // has today, yesterday, tomorrw, project A, Prject B
+    //
+    //----------------------- *************************** -----------------------
     
-    //    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-    //        // We'll assume that there is only one section for now.
-    //
-    //          if section == 0 {
-    //
-    //              let imageView: UIImageView = UIImageView()
-    //              //imageView.clipsToBounds = true
-    //              //imageView.contentMode = .scaleAspectFill
-    //            imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 50)
-    //              imageView.image =  UIImage(named: "Star")!
-    //              return imageView
-    //          }
-    //
-    //          return nil
-    //    }
-    //
+//        func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+//            // We'll assume that there is only one section for now.
+//
+//              if section == 0 {
+//
+////                  let imageView: UIImageView = UIImageView()
+//                  //imageView.clipsToBounds = true
+//                  //imageView.contentMode = .scaleAspectFill
+//                let filterHeaderView = UIView()
+//
+////                imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 50)
+////                  imageView.image =  UIImage(named: "Star")!
+////                  return imageView
+//              }
+//
+//              return nil
+//        }
+    
     
     @IBAction func changeBackground(_ sender: Any) {
         view.backgroundColor = UIColor.black
@@ -859,57 +936,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
     }
     
-    //MARK: Setup calendar appearence
-    func setupCal() {
-        let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
-        calendar.calendarHeaderView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        calendar.calendarWeekdayView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        calendar.appearance.weekdayTextColor = .white
-        calendar.appearance.headerTitleColor = .white
-        calendar.appearance.titleWeekendColor = .red
-        calendar.appearance.caseOptions = .weekdayUsesUpperCase
-        //        calendar.appearance.eventSelectionColor = secondaryAccentColor
-        //        calendar.appearance.separators = .interRows
-        //        calendar.appearance.selectionColor = secondaryAccentColor
-        calendar.appearance.subtitleDefaultColor = .white
-        //        calendar.appearance.subtitleTodayColor
-        //        calendar.appearance.todayColor = .green
-        
-        
-        calendar.dataSource = self
-        calendar.delegate = self
-        
-        self.calendar = calendar
-        self.calendar.scope = FSCalendarScope.week
-        //        calendar.backgroundColor = .white
-    }
     
-    //MARK: animations
-    func animateTableViewReload() {
-        let zoomAnimation = AnimationType.zoom(scale: 0.5)
-        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
-        
-        UIView.animate(views: tableView.visibleCells,
-                       animations: [zoomAnimation, rotateAnimation],
-                       duration: 0.3)
-    }
-    func animateTableCellReload() {
-        // Combined animations example
-        //           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
-        let zoomAnimation = AnimationType.zoom(scale: 0.5)
-        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
-        //           UIView.animate(views: collectionView.visibleCells,
-        //                          animations: [zoomAnimation, rotateAnimation],
-        //                          duration: 0.5)
-        
-        UIView.animate(views: tableView.visibleCells,
-                       animations: [zoomAnimation, rotateAnimation],
-                       duration: 0.3)
-        
-        //           UIView.animate(views: tableView.visibleCells,
-        //                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
-    }
+ 
     
+    //----------------------- *************************** -----------------------
+    //MARK:-                  ANIMATION: MOVE BY OFFSETS
+    //----------------------- *************************** -----------------------
     
     //MARK:- Animation Move Offses
     
@@ -928,9 +960,47 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         isCalDown = false
         view.center.y -= 150
     }
-    //    func moveDown_onCalReveal(view: UIView) {
-    //        view.center.y -= 300
-    //    }
+  
+    //----------------------- *************************** -----------------------
+    //MARK:-                ANIMATION: WHOLE TABLE VIEW RELOAD
+    //----------------------- *************************** -----------------------
+    
+    
+    //MARK: animations
+      func animateTableViewReload() {
+          let zoomAnimation = AnimationType.zoom(scale: 0.5)
+          let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+          
+          UIView.animate(views: tableView.visibleCells,
+                         animations: [zoomAnimation, rotateAnimation],
+                         duration: 0.3)
+      }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                ANIMATION: TABLE CELL RELOAD
+    //----------------------- *************************** -----------------------
+    
+      func animateTableCellReload() {
+          // Combined animations example
+          //           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
+          let zoomAnimation = AnimationType.zoom(scale: 0.5)
+          let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+          //           UIView.animate(views: collectionView.visibleCells,
+          //                          animations: [zoomAnimation, rotateAnimation],
+          //                          duration: 0.5)
+          
+          UIView.animate(views: tableView.visibleCells,
+                         animations: [zoomAnimation, rotateAnimation],
+                         duration: 0.3)
+          
+          //           UIView.animate(views: tableView.visibleCells,
+          //                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
+      }
+    
+    
+    //----------------------- *************************** -----------------------
+     //MARK:-                        BOTTOM BAR + FAB
+     //----------------------- *************************** -----------------------
     
     //MARK:- setup bottom bar
     func setupBottomAppBar() {
@@ -965,81 +1035,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         bottomAppBar.floatingButton.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
     }
     
-    //MARK:- Setup Backdrop Notch
-    func setupBackdropNotch() {
-        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
-        backdropNochImageView.backgroundColor = primaryColorDarker
-        
-        view.addSubview(backdropNochImageView)
-    }
+   
     
-    //MARK:- Setup Backdrop Background - Today label + Score
-    func setupBackdropBackground() {
-        
-        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-        backdropBackgroundImageView.backgroundColor = primaryColor
-        homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
-        backdropBackgroundImageView.addSubview(homeTopBar)
-        
-        
-        //---------- score at home
-        
-        scoreAtHomeLabel.text = "\n\nscore"
-        scoreAtHomeLabel.numberOfLines = 3
-        scoreAtHomeLabel.textColor = .systemGray6
-        scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
-        
-        scoreAtHomeLabel.textAlignment = .center
-        scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        
-        homeTopBar.addSubview(scoreAtHomeLabel)
-        
-        //---- score
-        
-        scoreCounter.text = "\(self.calculateTodaysScore())"
-        scoreCounter.numberOfLines = 1
-        scoreCounter.textColor = .systemGray5
-        scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
-        
-        scoreCounter.textAlignment = .center
-        scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        
-        homeTopBar.addSubview(scoreCounter)
-        
-        view.addSubview(backdropBackgroundImageView)
-        
-        
-    }
-    
-    //----------------------- *************************** -----------------------
-    //MARK:-              BACKDROP PATTERN: SETUP FOREGROUND
-    //----------------------- *************************** -----------------------
-    
-    //MARK: Setup forground
-    func setupBackdropForeground() {
-        //    func setupBackdropForeground() {
-        
-        print("Backdrop starts from: \(headerEndY)")
-        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-
-
-        
-        backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
-        backdropForeImageView.tintColor = .systemGray6
-        
-                
-        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
-        backdropForeImageView.layer.shadowOpacity = 0.8
-        backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
-        backdropForeImageView.layer.shadowRadius = 10
-        
-        view.addSubview(backdropForeImageView)
-        
-    }
-    
-
-    
-    //------------ circle delegate end
     
     //----------------------- *************************** -----------------------
     //MARK:-                ACTION: BOTTOMBAR BUTTON STUBS
@@ -1175,6 +1172,118 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     //----------------------- *************************** -----------------------
+       //MARK:-              BACKDROP PATTERN 1.1 : SETUP NOTCH BACKDROP
+       //----------------------- *************************** -----------------------
+       
+       //MARK:- Setup Backdrop Notch
+       func setupBackdropNotch() {
+           backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
+           backdropNochImageView.backgroundColor = primaryColorDarker
+           
+           view.addSubview(backdropNochImageView)
+       }
+       
+       //----------------------- *************************** -----------------------
+       //MARK:-              BACKDROP PATTERN 1: SETUP BACKGROUND
+       //----------------------- *************************** -----------------------
+       
+       //MARK:- Setup Backdrop Background - Today label + Score
+       func setupBackdropBackground() {
+           
+           backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+           backdropBackgroundImageView.backgroundColor = primaryColor
+           homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
+           backdropBackgroundImageView.addSubview(homeTopBar)
+           
+           
+           //---------- score at home
+           
+           scoreAtHomeLabel.text = "\n\nscore"
+           scoreAtHomeLabel.numberOfLines = 3
+           scoreAtHomeLabel.textColor = .systemGray6
+           scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
+           
+           scoreAtHomeLabel.textAlignment = .center
+           scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+           
+           homeTopBar.addSubview(scoreAtHomeLabel)
+           
+           //---- score
+           
+           scoreCounter.text = "\(self.calculateTodaysScore())"
+           scoreCounter.numberOfLines = 1
+           scoreCounter.textColor = .systemGray5
+           scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
+           
+           scoreCounter.textAlignment = .center
+           scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+           
+           homeTopBar.addSubview(scoreCounter)
+           
+           view.addSubview(backdropBackgroundImageView)
+           
+           
+       }
+       
+       //----------------------- *************************** -----------------------
+       //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
+       //----------------------- *************************** -----------------------
+       
+       //MARK: Setup forground
+       func setupBackdropForeground() {
+           //    func setupBackdropForeground() {
+           
+           print("Backdrop starts from: \(headerEndY)")
+           backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+
+
+           
+           backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
+           backdropForeImageView.tintColor = .systemGray6
+           
+                   
+           backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
+           backdropForeImageView.layer.shadowOpacity = 0.8
+           backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
+           backdropForeImageView.layer.shadowRadius = 10
+           
+           view.addSubview(backdropForeImageView)
+           
+       }
+       
+    
+    //----------------------- *************************** -----------------------
+     //MARK:-                       CALENNDAR:SETUP
+     //----------------------- *************************** -----------------------
+     
+     //MARK: Setup calendar appearence
+     func setupCal() {
+         let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
+         calendar.calendarHeaderView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+         calendar.calendarWeekdayView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+         calendar.appearance.weekdayTextColor = .white
+         calendar.appearance.headerTitleColor = .white
+         calendar.appearance.titleWeekendColor = .red
+         calendar.appearance.caseOptions = .weekdayUsesUpperCase
+         //        calendar.appearance.eventSelectionColor = secondaryAccentColor
+         //        calendar.appearance.separators = .interRows
+         //        calendar.appearance.selectionColor = secondaryAccentColor
+         calendar.appearance.subtitleDefaultColor = .white
+         //        calendar.appearance.subtitleTodayColor
+         //        calendar.appearance.todayColor = .green
+         
+         
+         calendar.dataSource = self
+         calendar.delegate = self
+         
+         self.calendar = calendar
+         self.calendar.scope = FSCalendarScope.week
+         //        calendar.backgroundColor = .white
+     }
+
+       
+    
+    //----------------------- *************************** -----------------------
     //MARK:-                            CALENDAR
     //----------------------- *************************** -----------------------
     
@@ -1215,6 +1324,10 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
     }
 }
 
+//----------------------- *************************** -----------------------
+//MARK:-                      CIRCLE MENU DELEGATE
+//----------------------- *************************** -----------------------
+
 extension ViewController: CircleMenuDelegate {
     // MARK:- CircleMenuDelegate
     
@@ -1247,6 +1360,30 @@ extension ViewController: CircleMenuDelegate {
     
     func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
         print("button did selected: \(atIndex)")
+    }
+}
+
+//----------------------- *************************** -----------------------
+//MARK:-                        DETECT NOTCH
+//----------------------- *************************** -----------------------
+
+//extension UIDevice {
+//    var hasNotch: Bool {
+//        let bottom = UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0
+//        return bottom > 0
+//    }
+//}
+
+extension UIDevice {
+    var hasNotch: Bool {
+        if #available(iOS 11.0, *) {
+            if UIApplication.shared.windows.count == 0 { return false }          // Should never occur, but…
+            let top = UIApplication.shared.windows[0].safeAreaInsets.top
+            return top > 20          // That seem to be the minimum top when no notch…
+        } else {
+            // Fallback on earlier versions
+            return false
+        }
     }
 }
 
