@@ -1,5 +1,8 @@
 PODS:
   - BEMCheckBox (1.4.1)
+  - Charts (3.5.0):
+    - Charts/Core (= 3.5.0)
+  - Charts/Core (3.5.0)
   - CircleMenu (4.1.0)
   - EasyPeasy (1.9.0)
   - FSCalendar (2.8.1)
@@ -616,6 +619,7 @@ PODS:
 
 DEPENDENCIES:
   - BEMCheckBox (~> 1.4.1)
+  - Charts (~> 3.5.0)
   - CircleMenu (~> 4.1.0)
   - EasyPeasy (~> 1.9.0)
   - FSCalendar (~> 2.8.1)
@@ -627,6 +631,7 @@ DEPENDENCIES:
 SPEC REPOS:
   trunk:
     - BEMCheckBox
+    - Charts
     - CircleMenu
     - EasyPeasy
     - FSCalendar
@@ -641,6 +646,7 @@ SPEC REPOS:
 
 SPEC CHECKSUMS:
   BEMCheckBox: 5ba6e37ade3d3657b36caecc35c8b75c6c2b1a4e
+  Charts: 40a08591df1f8ad5c223ddedfb1a06da92f24f7c
   CircleMenu: a66095199a5e26f19acbb212f077010257767fe5
   EasyPeasy: 19a84ef8f8bbcf925b9fecc29d1d78b7dab96718
   FSCalendar: 5245140456fcbcac5824c203b98bd8068bdfee1a
@@ -653,6 +659,6 @@ SPEC CHECKSUMS:
   Timepiece: c0760ec0e545697d86b80424dcd2b4d5ef66cf51
   ViewAnimator: 5af1c6f3b310f012bf081259c43717aa54fbae73
 
-PODFILE CHECKSUM: a348b8a0d7a8ca0332219c06f2883cc4856ac0d7
+PODFILE CHECKSUM: af1f8a3dba39f29e6e6fa605d0fc48e885b27591
 
 COCOAPODS: 1.9.1

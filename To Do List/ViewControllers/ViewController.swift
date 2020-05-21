@@ -14,12 +14,13 @@ import ViewAnimator
 import FSCalendar
 import EasyPeasy
 import BEMCheckBox
+import Charts
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialBottomAppBar
 import MaterialComponents.MaterialButtons_Theming
 
 
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, ChartViewDelegate {
     
     
     //MARK:- Tableview animation style
@@ -40,10 +41,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     fileprivate weak var calendar: FSCalendar!
     let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
     let revealCalAtHomeButton = MDCButton()
+    let revealChartsAtHomeButton = MDCButton()
     
     let homeDate_Day = UILabel()
-         let homeDate_WeekDay = UILabel()
-         let homeDate_Month = UILabel()
+    let homeDate_WeekDay = UILabel()
+    let homeDate_Month = UILabel()
+    
+    let chartView = PieChartView()
+    var shouldHideData: Bool = false
+    var sliderX: UISlider!
+     var sliderY: UISlider!
+     var sliderTextX: UITextField!
+     var sliderTextY: UITextField!
     
     var seperatorTopLineView = UIView()
     var backdropNochImageView = UIImageView()
@@ -110,7 +119,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:- TUESDAY, 5th May
     func setHomeViewDate() {
         
-     
+        
         
         
         
@@ -144,9 +153,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         homeDate_Day.frame = CGRect(x: 5, y: 18, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        homeDate_WeekDay.frame = CGRect(x: 70, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
-        homeDate_Month.frame = CGRect(x: 70, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
- 
+        homeDate_WeekDay.frame = CGRect(x: 60, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
+        homeDate_Month.frame = CGRect(x: 60, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
+        
         
         homeDate_WeekDay.adjustsFontSizeToFitWidth = true
         homeDate_Month.adjustsFontSizeToFitWidth = true
@@ -155,28 +164,28 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         homeTopBar.addSubview(homeDate_WeekDay)
         homeTopBar.addSubview(homeDate_Month)
         
-//        homeDate_WeekDay.translatesAutoresizingMaskIntoConstraints = false
-//        homeDate_WeekDay.centerXAnchor.constraint(equalTo: homeDate_Day.centerXAnchor, constant: 20).isActive = true
-//        homeDate_WeekDay.leadingAnchor.constraint(equalTo: homeDate_Day.trailingAnchor, constant: 20).isActive = true
-//        homeDate_WeekDay.widthAnchor.constraint(equalToConstant: homeTopBar.bounds.width/2).isActive = true
-//        homeDate_WeekDay.heightAnchor.constraint(equalToConstant: homeTopBar.bounds.height/4).isActive = true
- 
+        //        homeDate_WeekDay.translatesAutoresizingMaskIntoConstraints = false
+        //        homeDate_WeekDay.centerXAnchor.constraint(equalTo: homeDate_Day.centerXAnchor, constant: 20).isActive = true
+        //        homeDate_WeekDay.leadingAnchor.constraint(equalTo: homeDate_Day.trailingAnchor, constant: 20).isActive = true
+        //        homeDate_WeekDay.widthAnchor.constraint(equalToConstant: homeTopBar.bounds.width/2).isActive = true
+        //        homeDate_WeekDay.heightAnchor.constraint(equalToConstant: homeTopBar.bounds.height/4).isActive = true
+        
     }
     
     //MARK:- setup cal button
     func setupCalButton()  {
         
         
-//        let configuration = UIImage.SymbolConfiguration(scale: .large)
-        let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .regular, scale: .large)
+        //        let configuration = UIImage.SymbolConfiguration(scale: .large)
+        let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .large)
         let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
         let colouredCalPullDownImage = smallSymbolImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
         
         let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
-//        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
-//        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/2)-20 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
-//        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-50 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
-        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-60 , y: UIScreen.main.bounds.minY+55, width: 200, height: 200)
+        //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+        //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/2)-20 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+        //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-50 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-65 , y: UIScreen.main.bounds.minY+55, width: 200, height: 200)
         revealCalAtHomeButton.setImage(calButton, for: .normal)
         revealCalAtHomeButton.backgroundColor = .clear
         revealCalAtHomeButton.titleLabel?.text = "GREEN"
@@ -184,6 +193,30 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         revealCalAtHomeButton.sizeToFit()
         revealCalAtHomeButton.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
         view.addSubview(revealCalAtHomeButton)
+        
+    }
+    
+    func setupChartButton()  {
+        
+        
+        //        let configuration = UIImage.SymbolConfiguration(scale: .large)
+        let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .large)
+//        let smallSymbolImage = UIImage(systemName: "chart.pie", withConfiguration: configuration)
+        let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
+        let colouredCalPullDownImage = smallSymbolImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
+        
+        let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
+        //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+        //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/2)-20 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+        //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-50 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
+        revealChartsAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2) , y: UIScreen.main.bounds.minY+55, width: 200, height: 200)
+        revealChartsAtHomeButton.setImage(calButton, for: .normal)
+        revealChartsAtHomeButton.backgroundColor = .clear
+        revealChartsAtHomeButton.titleLabel?.text = "GREEN"
+        
+        revealChartsAtHomeButton.sizeToFit()
+        revealChartsAtHomeButton.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
+        view.addSubview(revealChartsAtHomeButton)
         
     }
     
@@ -225,6 +258,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.bringSubviewToFront(bottomAppBar)
         
         setupCalButton()
+        setupChartButton()
         setupTopSeperator()
         
         //MARK: circle menu frame
@@ -250,9 +284,251 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             print("NO NOTCH !")
         }
         
+        //---------- VIEW LOAD: CHART
+        
+        
+        
+        self.setup(pieChartView: chartView)
+        
+        updateChartData()
+        
+        chartView.delegate = self
+        
+//        let l = chartView.legend
+//        l.horizontalAlignment = .right
+//        l.verticalAlignment = .top
+//        l.orientation = .vertical
+//        l.xEntrySpace = 7
+//        l.yEntrySpace = 0
+//        l.yOffset = 0
+        
+//                chartView.legend = l
+        
+        // entry label styling
+        chartView.entryLabelColor = .brown
+        chartView.entryLabelFont = .systemFont(ofSize: 12, weight: .black)
+        
+//        sliderX.value = 4
+//        sliderY.value = 100
+//        self.slidersValueChanged(nil)
+        
+//        chartView.frame = CGRect(x: (UIScreen.main.bounds.width)-140, y: 15, width: (UIScreen.main.bounds.width/3)+40, height: (UIScreen.main.bounds.width/3)+40)
+        
+        chartView.frame = CGRect(x: (UIScreen.main.bounds.width)-(UIScreen.main.bounds.width/3), y: 18, width: (UIScreen.main.bounds.width/3)+35, height: (UIScreen.main.bounds.width/3)+35)
+        
+//             chartView.frame = CGRect(x: (UIScreen.main.bounds.width/2), y: 50, width: (UIScreen.main.bounds.width/2)+40, height: (UIScreen.main.bounds.width/2)+40)
+        
+        
+        
+
+        
+//        chartView.maxAngle = 180 // Half chart
+//               chartView.rotationAngle = 180 // Rotate to make the half on the upper side
+//               chartView.centerTextOffset = CGPoint(x: 0, y: -20)
+
+//        chartView.isUsePercentValuesEnabled = false
+//        chartView.value
+        
+                              
+//        chartView.entryLabelColor = .black
+//        chartView.setNeedsDisplay()
+        
+        view.addSubview(chartView)
+        
+        chartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+        
+        
+        
+        
+        //---------- VIEW LOAD: CHART DONE
+        
         
         enableDarkModeIfPreset()
     }
+    
+    //---------- SETUP: CHART
+    
+         func updateChartData() {
+            if self.shouldHideData {
+                chartView.data = nil
+                return
+            }
+            print("--------------------------")
+            print("X: \(10)")//print("X: \(Int(sliderX.value))")
+            print("Y: \(40)")//print("Y: \(UInt32(sliderY.value))")
+            print("--------------------------")
+    
+//            self.setDataCount(Int(sliderX.value), range: UInt32(sliderY.value))
+            self.setDataCount(4, range: 40)
+        }
+    
+    //setup chart
+        func setup(pieChartView chartView: PieChartView) {
+//            chartView.usePercentValuesEnabled = false
+            chartView.drawSlicesUnderHoleEnabled = true
+            chartView.holeRadiusPercent = 0.85
+            chartView.holeColor = primaryColor
+//            chartView.holeRadiusPercent = 0.10
+            chartView.transparentCircleRadiusPercent = 0.41
+//            chartView.chartDescription?.enabled = true
+            
+            chartView.setExtraOffsets(left: 5, top: 5, right: 5, bottom: 5)
+            
+//            chartView.chartDescription?.text = "HOLA"
+            chartView.drawCenterTextEnabled = true
+            
+            let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
+            paragraphStyle.lineBreakMode = .byTruncatingTail
+            paragraphStyle.alignment = .center
+            
+//            let centerText = NSMutableAttributedString(string: "Charts\nby Daniel Cohen Gindi")
+//            centerText.setAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 13)!,
+//                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+//            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
+//                                      .foregroundColor : UIColor.gray], range: NSRange(location: 10, length: centerText.length - 10))
+//            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
+//                                      .foregroundColor : UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)], range: NSRange(location: centerText.length - 19, length: 19))
+//            chartView.centerAttributedText = centerText;
+            
+//            chartView.centerText = "24"
+            
+            
+        
+            let scoreNumber = "\(self.calculateTodaysScore())"
+//            let centerText = NSMutableAttributedString(string: "\(scoreNumber)\nscore")
+            let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
+            centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
+                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+//            centerText.addAttributes([.font : setFont(fontSize: 16, fontweight: .regular, fontDesign: .monospaced),
+//                                      .foregroundColor : UIColor.secondaryLabel], range: NSRange(location: scoreNumber.count+1, length: centerText.length - (scoreNumber.count+1)))
+            chartView.centerAttributedText = centerText;
+            
+            
+//            chartView.drawEntryLabelsEnabled = false
+//        chartView.usePercentValuesEnabled = false
+//                      chartView.setNeedsDisplay()
+            
+            chartView.drawHoleEnabled = true
+            chartView.rotationAngle = 0
+            chartView.rotationEnabled = true
+            chartView.highlightPerTapEnabled = true
+            
+//            let l = chartView.legend
+//            l.horizontalAlignment = .right
+//            l.verticalAlignment = .top
+//            l.orientation = .vertical
+//            l.drawInside = false
+//            l.xEntrySpace = 7
+//            l.yEntrySpace = 0
+//            l.yOffset = 0
+            
+    //        chartView.legend = l
+            
+            
+            
+        }
+//    let parties = ["Party A", "Party B", "Party C", "Party D", "Party E", "Party F",
+//                      "Party G", "Party H", "Party I", "Party J", "Party K", "Party L",
+//                      "Party M", "Party N", "Party O", "Party P", "Party Q", "Party R",
+//                      "Party S", "Party T", "Party U", "Party V", "Party W", "Party X",
+//                      "Party Y", "Party Z"]
+    let parties = ["P0", "P1", "P2", "P3"]
+    
+    //MARK:-GET THIS 1
+        func setDataCount(_ count: Int, range: UInt32) {
+            let entries = (0..<count).map { (i) -> PieChartDataEntry in
+                // IMPORTANT: In a PieChart, no values (Entry) should have the same xIndex (even if from different DataSets), since no values can be drawn above each other.
+                return PieChartDataEntry(value: Double(arc4random_uniform(range) + range / 5),
+                                         label: parties[i % parties.count],
+                                         icon: #imageLiteral(resourceName: "material_done_White"))
+            }
+    
+//            let set = PieChartDataSet(entries: entries, label: "Election Results")
+            let set = PieChartDataSet(entries: entries)
+            set.drawIconsEnabled = false
+            set.drawValuesEnabled = false
+            set.sliceSpace = 2
+            
+//            for set2 in set {
+//                                      set2.drawValuesEnabled = !set2.drawValuesEnabled
+//                                  }
+    
+    
+            set.colors = ChartColorTemplates.vordiplom()
+                + ChartColorTemplates.joyful()
+                + ChartColorTemplates.colorful()
+                + ChartColorTemplates.liberty()
+                + ChartColorTemplates.pastel()
+                + [UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)]
+    
+            let data = PieChartData(dataSet: set)
+    
+//            let pFormatter = NumberFormatter()
+//            pFormatter.numberStyle = .none
+//            pFormatter.maximumFractionDigits = 1
+//            pFormatter.multiplier = 1
+//            pFormatter.percentSymbol = " %"
+//            data.setValueFormatter(DefaultValueFormatter(formatter: pFormatter))
+    
+//            data.setValueFont(.systemFont(ofSize: 24, weight: .regular))
+//            data.setValueTextColor(.black)
+            
+           
+    
+            chartView.drawEntryLabelsEnabled = false
+            chartView.data = data
+//            chartView.highlightValues(nil)
+        }
+    
+    //    //MARK:-GET THIS 2 //IMPORT COMMENNTED
+    //    override func optionTapped(_ option: Option) {
+    //        switch option {
+    //        case .toggleXValues:
+    //            chartView.drawEntryLabelsEnabled = !chartView.drawEntryLabelsEnabled
+    //            chartView.setNeedsDisplay()
+    //
+    //        case .togglePercent:
+    //            chartView.usePercentValuesEnabled = !chartView.usePercentValuesEnabled
+    //            chartView.setNeedsDisplay()
+    //
+    //        case .toggleHole:
+    //            chartView.drawHoleEnabled = !chartView.drawHoleEnabled
+    //            chartView.setNeedsDisplay()
+    //
+    //        case .drawCenter:
+    //            chartView.drawCenterTextEnabled = !chartView.drawCenterTextEnabled
+    //            chartView.setNeedsDisplay()
+    //
+    //        case .animateX:
+    //            chartView.animate(xAxisDuration: 1.4)
+    //
+    //        case .animateY:
+    //            chartView.animate(yAxisDuration: 1.4)
+    //
+    //        case .animateXY:
+    //            chartView.animate(xAxisDuration: 1.4, yAxisDuration: 1.4)
+    //
+    //        case .spin:
+    //            chartView.spin(duration: 2,
+    //                           fromAngle: chartView.rotationAngle,
+    //                           toAngle: chartView.rotationAngle + 360,
+    //                           easingOption: .easeInCubic)
+    //
+    //        default:
+    //            handleOption(option, forChartView: chartView)
+    //        }
+    //    }
+    //
+    //    // MARK: - Actions //MARK:-GET THIS 3 //import commennted
+    //    @IBAction func slidersValueChanged(_ sender: Any?) {
+    //        sliderTextX.text = "\(Int(sliderX.value))"
+    //        sliderTextY.text = "\(Int(sliderY.value))"
+    //
+    //        self.updateChartData()
+    //    }
+    
+    //-----------
+    //---------- SETUP: CHART DONE
     
     
     
@@ -286,7 +562,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         print("Header end point is: \(headerEndY)")
-         
+        
         
         let todaysDateLabel = UILabel()
         todaysDateLabel.frame = CGRect(x: 5, y: 70, width: view.frame.width/2, height: 40)
@@ -521,70 +797,77 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
             
             //line.horizontal.3.decrease.circle
-            let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 30, weight: .regular, scale: .default)
+            let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
             let filterIconImage = UIImage(systemName: "line.horizontal.3.decrease.circle", withConfiguration: filterIconConfiguration)
             let colouredCalPullDownImage = filterIconImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
-//
-//            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
+            //
+            //            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
             let filterMenuHomeButton = UIButton()
-//            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
-                        filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
+            //            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
+            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
             filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
             
             headerView.addSubview(filterMenuHomeButton)
             
             
             
- 
-                   //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
-                   myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .serif)//UIFont(name: "HelveticaNeue-Bold", size: 20)
-                   myLabel.textAlignment = .right
-                   myLabel.adjustsFontSizeToFitWidth = true
-                   myLabel.textColor = .label
-                   myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
-                   
-//                   let headerView = UIView()
-                   headerView.addSubview(myLabel)
-                   
-                   return headerView
+            
+            //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+            myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+            myLabel.textAlignment = .right
+            myLabel.adjustsFontSizeToFitWidth = true
+            myLabel.textColor = .label
+            myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
+            
+            //                   let headerView = UIView()
+            headerView.addSubview(myLabel)
+            
+            return headerView
         } else if section == 1 {
             
             let myLabel2 = UILabel()
-                         myLabel2.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/3, height: 30)
-                         //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
-                         myLabel2.font = setFont(fontSize: 20, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
-                         myLabel2.textAlignment = .left
-                         myLabel2.adjustsFontSizeToFitWidth = true
-                         myLabel2.textColor = .secondaryLabel
-                         myLabel2.text = self.tableView(tableView, titleForHeaderInSection: section)
+            myLabel2.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/3, height: 30)
+            //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+            myLabel2.font = setFont(fontSize: 20, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+            myLabel2.textAlignment = .left
+            myLabel2.adjustsFontSizeToFitWidth = true
+            myLabel2.textColor = .secondaryLabel
+            myLabel2.text = self.tableView(tableView, titleForHeaderInSection: section)
             
             headerView.addSubview(myLabel2)
             
-           
+            
         }
         
         
-//        let myLabel = UILabel()
-//        myLabel.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/3, height: 30)
-//        //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
-//        myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .serif)//UIFont(name: "HelveticaNeue-Bold", size: 20)
-//        myLabel.textAlignment = .right
-//        myLabel.adjustsFontSizeToFitWidth = true
-//        myLabel.textColor = .secondaryLabel
-//        myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
-//
-//        let headerView = UIView()
-//        headerView.addSubview(myLabel)
-//
-//        return headerView
+        //        let myLabel = UILabel()
+        //        myLabel.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/3, height: 30)
+        //        //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+        //        myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .serif)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+        //        myLabel.textAlignment = .right
+        //        myLabel.adjustsFontSizeToFitWidth = true
+        //        myLabel.textColor = .secondaryLabel
+        //        myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
+        //
+        //        let headerView = UIView()
+        //        headerView.addSubview(myLabel)
+        //
+        //        return headerView
         
-         return headerView
+        return headerView
     }
     
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch section {
         case 0:
-            return "Today's Tasks"
+            let now = Date.today
+            if (dateForTheView == now()) {
+                return "Today's Tasks"
+            } else {
+                return "NOT TODAY"
+            }
+            
+        //            return "Today's Tasks"
         case 1:
             return "Evening"
         default:
@@ -792,7 +1075,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 break
             }
             
-//            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
+            //            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
             print("SCORE IS: \(self.calculateTodaysScore())")
             self.scoreCounter.text = "\(self.calculateTodaysScore())"
             
@@ -901,23 +1184,23 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //
     //----------------------- *************************** -----------------------
     
-//        func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-//            // We'll assume that there is only one section for now.
-//
-//              if section == 0 {
-//
-////                  let imageView: UIImageView = UIImageView()
-//                  //imageView.clipsToBounds = true
-//                  //imageView.contentMode = .scaleAspectFill
-//                let filterHeaderView = UIView()
-//
-////                imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 50)
-////                  imageView.image =  UIImage(named: "Star")!
-////                  return imageView
-//              }
-//
-//              return nil
-//        }
+    //        func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+    //            // We'll assume that there is only one section for now.
+    //
+    //              if section == 0 {
+    //
+    ////                  let imageView: UIImageView = UIImageView()
+    //                  //imageView.clipsToBounds = true
+    //                  //imageView.contentMode = .scaleAspectFill
+    //                let filterHeaderView = UIView()
+    //
+    ////                imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 50)
+    ////                  imageView.image =  UIImage(named: "Star")!
+    ////                  return imageView
+    //              }
+    //
+    //              return nil
+    //        }
     
     
     @IBAction func changeBackground(_ sender: Any) {
@@ -937,7 +1220,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     
- 
+    
     
     //----------------------- *************************** -----------------------
     //MARK:-                  ANIMATION: MOVE BY OFFSETS
@@ -960,47 +1243,47 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         isCalDown = false
         view.center.y -= 150
     }
-  
+    
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: WHOLE TABLE VIEW RELOAD
     //----------------------- *************************** -----------------------
     
     
     //MARK: animations
-      func animateTableViewReload() {
-          let zoomAnimation = AnimationType.zoom(scale: 0.5)
-          let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
-          
-          UIView.animate(views: tableView.visibleCells,
-                         animations: [zoomAnimation, rotateAnimation],
-                         duration: 0.3)
-      }
+    func animateTableViewReload() {
+        let zoomAnimation = AnimationType.zoom(scale: 0.5)
+        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+        
+        UIView.animate(views: tableView.visibleCells,
+                       animations: [zoomAnimation, rotateAnimation],
+                       duration: 0.3)
+    }
     
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: TABLE CELL RELOAD
     //----------------------- *************************** -----------------------
     
-      func animateTableCellReload() {
-          // Combined animations example
-          //           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
-          let zoomAnimation = AnimationType.zoom(scale: 0.5)
-          let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
-          //           UIView.animate(views: collectionView.visibleCells,
-          //                          animations: [zoomAnimation, rotateAnimation],
-          //                          duration: 0.5)
-          
-          UIView.animate(views: tableView.visibleCells,
-                         animations: [zoomAnimation, rotateAnimation],
-                         duration: 0.3)
-          
-          //           UIView.animate(views: tableView.visibleCells,
-          //                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
-      }
+    func animateTableCellReload() {
+        // Combined animations example
+        //           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
+        let zoomAnimation = AnimationType.zoom(scale: 0.5)
+        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+        //           UIView.animate(views: collectionView.visibleCells,
+        //                          animations: [zoomAnimation, rotateAnimation],
+        //                          duration: 0.5)
+        
+        UIView.animate(views: tableView.visibleCells,
+                       animations: [zoomAnimation, rotateAnimation],
+                       duration: 0.3)
+        
+        //           UIView.animate(views: tableView.visibleCells,
+        //                          animations: [fromAnimation, zoomAnimation], delay: 0.3)
+    }
     
     
     //----------------------- *************************** -----------------------
-     //MARK:-                        BOTTOM BAR + FAB
-     //----------------------- *************************** -----------------------
+    //MARK:-                        BOTTOM BAR + FAB
+    //----------------------- *************************** -----------------------
     
     //MARK:- setup bottom bar
     func setupBottomAppBar() {
@@ -1035,7 +1318,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         bottomAppBar.floatingButton.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
     }
     
-   
+    
     
     
     //----------------------- *************************** -----------------------
@@ -1150,10 +1433,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return font
     }
     
-
     
     
-
+    
+    
     //----------------------- *************************** -----------------------
     //MARK:-                            DATE
     //----------------------- *************************** -----------------------
@@ -1163,125 +1446,127 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         if("\(date.day)".count < 2) {
             self.homeDate_Day.text = "0\(date.day)"
-          } else {
+        } else {
             self.homeDate_Day.text = "\(date.day)"
-          }
+        }
         self.homeDate_WeekDay.text = getWeekday(date: date)
         self.homeDate_Month.text = getMonth(date: date)
         
     }
     
     //----------------------- *************************** -----------------------
-       //MARK:-              BACKDROP PATTERN 1.1 : SETUP NOTCH BACKDROP
-       //----------------------- *************************** -----------------------
-       
-       //MARK:- Setup Backdrop Notch
-       func setupBackdropNotch() {
-           backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
-           backdropNochImageView.backgroundColor = primaryColorDarker
-           
-           view.addSubview(backdropNochImageView)
-       }
-       
-       //----------------------- *************************** -----------------------
-       //MARK:-              BACKDROP PATTERN 1: SETUP BACKGROUND
-       //----------------------- *************************** -----------------------
-       
-       //MARK:- Setup Backdrop Background - Today label + Score
-       func setupBackdropBackground() {
-           
-           backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-           backdropBackgroundImageView.backgroundColor = primaryColor
-           homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
-           backdropBackgroundImageView.addSubview(homeTopBar)
-           
-           
-           //---------- score at home
-           
-           scoreAtHomeLabel.text = "\n\nscore"
-           scoreAtHomeLabel.numberOfLines = 3
-           scoreAtHomeLabel.textColor = .systemGray6
-           scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
-           
-           scoreAtHomeLabel.textAlignment = .center
-           scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-           
-           homeTopBar.addSubview(scoreAtHomeLabel)
-           
-           //---- score
-           
-           scoreCounter.text = "\(self.calculateTodaysScore())"
-           scoreCounter.numberOfLines = 1
-           scoreCounter.textColor = .systemGray5
-           scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
-           
-           scoreCounter.textAlignment = .center
-           scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-           
-           homeTopBar.addSubview(scoreCounter)
-           
-           view.addSubview(backdropBackgroundImageView)
-           
-           
-       }
-       
-       //----------------------- *************************** -----------------------
-       //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
-       //----------------------- *************************** -----------------------
-       
-       //MARK: Setup forground
-       func setupBackdropForeground() {
-           //    func setupBackdropForeground() {
-           
-           print("Backdrop starts from: \(headerEndY)")
-           backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-
-
-           
-           backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
-           backdropForeImageView.tintColor = .systemGray6
-           
-                   
-           backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
-           backdropForeImageView.layer.shadowOpacity = 0.8
-           backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
-           backdropForeImageView.layer.shadowRadius = 10
-           
-           view.addSubview(backdropForeImageView)
-           
-       }
-       
+    //MARK:-              BACKDROP PATTERN 1.1 : SETUP NOTCH BACKDROP
+    //----------------------- *************************** -----------------------
+    
+    //MARK:- Setup Backdrop Notch
+    func setupBackdropNotch() {
+        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
+        backdropNochImageView.backgroundColor = primaryColorDarker
+        
+        view.addSubview(backdropNochImageView)
+    }
     
     //----------------------- *************************** -----------------------
-     //MARK:-                       CALENNDAR:SETUP
-     //----------------------- *************************** -----------------------
-     
-     //MARK: Setup calendar appearence
-     func setupCal() {
-         let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
-         calendar.calendarHeaderView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-         calendar.calendarWeekdayView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-         calendar.appearance.weekdayTextColor = .white
-         calendar.appearance.headerTitleColor = .white
-         calendar.appearance.titleWeekendColor = .red
-         calendar.appearance.caseOptions = .weekdayUsesUpperCase
-         //        calendar.appearance.eventSelectionColor = secondaryAccentColor
-         //        calendar.appearance.separators = .interRows
-         //        calendar.appearance.selectionColor = secondaryAccentColor
-         calendar.appearance.subtitleDefaultColor = .white
-         //        calendar.appearance.subtitleTodayColor
-         //        calendar.appearance.todayColor = .green
-         
-         
-         calendar.dataSource = self
-         calendar.delegate = self
-         
-         self.calendar = calendar
-         self.calendar.scope = FSCalendarScope.week
-         //        calendar.backgroundColor = .white
-     }
-
-       
+    //MARK:-              BACKDROP PATTERN 1: SETUP BACKGROUND
+    //----------------------- *************************** -----------------------
+    
+    //MARK:- Setup Backdrop Background - Today label + Score
+    func setupBackdropBackground() {
+        
+        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+        backdropBackgroundImageView.backgroundColor = primaryColor
+        homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
+        backdropBackgroundImageView.addSubview(homeTopBar)
+        
+        
+        //---------- score at home
+        
+        scoreAtHomeLabel.text = "\n\nscore"
+        scoreAtHomeLabel.numberOfLines = 3
+        scoreAtHomeLabel.textColor = .systemGray6
+        scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
+        
+        scoreAtHomeLabel.textAlignment = .center
+        scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        
+//        homeTopBar.addSubview(scoreAtHomeLabel)
+        
+        //---- score
+        
+        scoreCounter.text = "\(self.calculateTodaysScore())"
+        scoreCounter.numberOfLines = 1
+        scoreCounter.textColor = .systemGray5
+        scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
+        
+        scoreCounter.textAlignment = .center
+        scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        
+//        homeTopBar.addSubview(scoreCounter)
+        
+        view.addSubview(backdropBackgroundImageView)
+        
+        
+    }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
+    //----------------------- *************************** -----------------------
+    
+    //MARK: Setup forground
+    func setupBackdropForeground() {
+        //    func setupBackdropForeground() {
+        
+        print("Backdrop starts from: \(headerEndY)")
+        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+        
+        
+        
+        backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
+        backdropForeImageView.tintColor = .systemGray6
+        
+        
+        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
+        backdropForeImageView.layer.shadowOpacity = 0.8
+        backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
+        backdropForeImageView.layer.shadowRadius = 10
+        
+        view.addSubview(backdropForeImageView)
+        
+    }
+    
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                       CALENNDAR:SETUP
+    //----------------------- *************************** -----------------------
+    
+    //MARK: Setup calendar appearence
+    func setupCal() {
+        let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
+        calendar.calendarHeaderView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+        calendar.calendarWeekdayView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+        calendar.appearance.weekdayTextColor = .white
+        calendar.appearance.headerTitleColor = .white
+        calendar.appearance.titleWeekendColor = .red
+        calendar.appearance.caseOptions = .weekdayUsesUpperCase
+        //        calendar.appearance.eventSelectionColor = secondaryAccentColor
+        //        calendar.appearance.separators = .interRows
+        //        calendar.appearance.selectionColor = secondaryAccentColor
+        calendar.appearance.subtitleDefaultColor = .white
+        //        calendar.appearance.subtitleTodayColor
+        //        calendar.appearance.todayColor = .green
+        
+        
+        calendar.dataSource = self
+        calendar.delegate = self
+        
+        self.calendar = calendar
+        self.calendar.scope = FSCalendarScope.week
+        //        calendar.backgroundColor = .white
+    }
+    
+    
+    
+    
     
     //----------------------- *************************** -----------------------
     //MARK:-                            CALENDAR
@@ -1294,8 +1579,32 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         dateForTheView = date
         
         updateHomeDate(date: dateToDisplay)
-//        (self.calculateTodaysScore()
+        //        (self.calculateTodaysScore()
         self.scoreCounter.text = "\(self.calculateTodaysScore())"
+        
+        let scoreNumber = "\(self.calculateTodaysScore())"
+        let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
+                   paragraphStyle.lineBreakMode = .byTruncatingTail
+                   paragraphStyle.alignment = .center
+        
+        //            let centerText = NSMutableAttributedString(string: "\(scoreNumber)\nscore")
+                    let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
+        if scoreNumber.count == 1 {
+            centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
+            .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+        } else if scoreNumber.count == 2 {
+            centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
+            .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+        } else {
+            centerText.setAttributes([.font : setFont(fontSize: 28, fontweight: .medium, fontDesign: .rounded),
+                       .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+            
+        }
+                    
+        //            centerText.addAttributes([.font : setFont(fontSize: 16, fontweight: .regular, fontDesign: .monospaced),
+        //                                      .foregroundColor : UIColor.secondaryLabel], range: NSRange(location: scoreNumber.count+1, length: centerText.length - (scoreNumber.count+1)))
+        self.chartView.centerAttributedText = centerText;
+        self.chartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
         
         tableView.reloadData()
         animateTableViewReload()
