@@ -47,6 +47,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let homeDate_WeekDay = UILabel()
     let homeDate_Month = UILabel()
     
+    //MARK: charts
     let chartView = PieChartView()
     var shouldHideData: Bool = false
     var sliderX: UISlider!
@@ -65,6 +66,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let scoreAtHomeLabel = UILabel()
     var bottomAppBar = MDCBottomAppBarView()
     var isCalDown: Bool = false
+    var isChartsDown: Bool = false
+    
     
     //MARK:- Circle menu init
     let circleMenuItems: [(icon: String, color: UIColor)] = [
@@ -177,16 +180,22 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         //        let configuration = UIImage.SymbolConfiguration(scale: .large)
-        let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .large)
-        let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
+        let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
+//        let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
+        let smallSymbolImage = UIImage(systemName: "chevron.down", withConfiguration: configuration)
         let colouredCalPullDownImage = smallSymbolImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
         
+        let smallSymbolImage_Active = UIImage(systemName: "chevron.up", withConfiguration: configuration)
+        let colouredCalPullDownImage_Active = smallSymbolImage_Active?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
+        
         let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
+        let calButton_Active = colouredCalPullDownImage_Active
         //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
         //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/2)-20 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
         //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-50 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
-        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-65 , y: UIScreen.main.bounds.minY+55, width: 200, height: 200)
+        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-65 , y: UIScreen.main.bounds.minY+75, width: 200, height: 200)
         revealCalAtHomeButton.setImage(calButton, for: .normal)
+        revealCalAtHomeButton.setImage(calButton_Active, for: .selected)
         revealCalAtHomeButton.backgroundColor = .clear
         revealCalAtHomeButton.titleLabel?.text = "GREEN"
         
@@ -195,6 +204,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.addSubview(revealCalAtHomeButton)
         
     }
+    
+    //MARK:- CHARTS Button
     
     func setupChartButton()  {
         
@@ -210,16 +221,25 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/2)-20 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
         //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-50 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
         revealChartsAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2) , y: UIScreen.main.bounds.minY+55, width: 200, height: 200)
+        
+        //TODO: - maximise button to makeripple tab
+        
+        //1 increase buttton size
+        //2 add ink/ripple to the whole tab
+        //3 fix image in frame CGRect at original position
+        
+        
         revealChartsAtHomeButton.setImage(calButton, for: .normal)
         revealChartsAtHomeButton.backgroundColor = .clear
-        revealChartsAtHomeButton.titleLabel?.text = "GREEN"
+        revealChartsAtHomeButton.titleLabel?.text = "GREEN 2"
         
         revealChartsAtHomeButton.sizeToFit()
-        revealChartsAtHomeButton.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
+        revealChartsAtHomeButton.addTarget(self, action: #selector(showChartsHHomeButton_Action), for: .touchUpInside)
         view.addSubview(revealChartsAtHomeButton)
         
     }
     
+    //MARK: TOP SEPERATOR
     func setupTopSeperator() {
         
         seperatorTopLineView = UIView(frame: CGRect(x: UIScreen.main.bounds.width/2, y: backdropNochImageView.bounds.height + 10, width: 1.0, height: homeTopBar.bounds.height/2))
@@ -241,6 +261,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         setupBackdropBackground() //backdrop
         setupBackdropForeground() //foredrop
         setupBackdropNotch() //notch
+        
+        isBackdropDown() // get intit //refetch this n view reload
         
         // cal
         setupCal()
@@ -1047,136 +1069,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
     }
     
-    // MARK:- SWIPE ACTIONS
-    
-    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        
-        let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-            
-            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
-            let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
-            
-            switch indexPath.section {
-            case 0:
-                
-                //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
-                
-                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].isComplete = true
-                
-                TaskManager.sharedInstance.saveContext()
-                
-            case 1:
-                
-                //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row])].isComplete = true
-                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row])].isComplete = true
-                TaskManager.sharedInstance.saveContext()
-                
-            default:
-                break
-            }
-            
-            //            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
-            print("SCORE IS: \(self.calculateTodaysScore())")
-            self.scoreCounter.text = "\(self.calculateTodaysScore())"
-            
-            tableView.reloadData()
-            self.animateTableViewReload()
-            //            UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
-            //
-            //                   })
-            
-            // right spring animation
-            //            tableView.reloadData(
-            //                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-            //                              constantDelay: 0))
-            
-            self.title = "\(self.calculateTodaysScore())"
-            actionPerformed(true)
-        }
-        
-        return UISwipeActionsConfiguration(actions: [completeTaskAction])
-    }
-    
-    /*
-     Pass this a morning or evening or inbox or upcoming task &
-     this will give the index of that task in the global task array
-     using that global task array index the element can then be removed
-     or modded
-     */
-    func getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: NTask) -> Int {
-        var tasks = [NTask]()
-        var idxHolder = 0
-        tasks = TaskManager.sharedInstance.getAllTasks
-        if let idx = tasks.firstIndex(where: { $0 === morningOrEveningTask }) {
-            
-            print("Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
-            print("func IDX is: \(idx)")
-            idxHolder = idx
-            
-        }
-        return idxHolder
-    }
-    
-    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        
-        let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-            
-            let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
-            
-            let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
-            {
-                (UIAlertAction) in
-                
-                let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
-                let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
-                
-                switch indexPath.section {
-                case 0:
-                    
-                    //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row]))
-                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row]))
-                case 1:
-                    //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row]))
-                    
-                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row]))
-                default:
-                    break
-                }
-                
-                //                tableView.reloadData()
-                //                tableView.reloadData(
-                //                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
-                //                                  constantDelay: 0))
-                
-                tableView.reloadData()
-                self.animateTableViewReload()
-                //                UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
-                //
-                //                       })
-                
-                
-            }
-            let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
-            { (UIAlertAction) in
-                
-                print("That was a close one. No deletion.")
-            }
-            
-            //add actions to alert controller
-            confirmDelete.addAction(yesDeleteAction)
-            confirmDelete.addAction(noDeleteAction)
-            
-            //show it
-            self.present(confirmDelete ,animated: true, completion: nil)
-            
-            self.title = "\(self.calculateTodaysScore())"
-            actionPerformed(true)
-        }
-        
-        
-        return UISwipeActionsConfiguration(actions: [deleteTaskAction])
-    }
-    
+  
     //----------------------- *************************** -----------------------
     //MARK:-                  TABLEVIEW: HEADER VIEW
     //TODO: build filter here
@@ -1235,6 +1128,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func moveLeft(view: UIView) {
         view.center.x -= 300
     }
+    //----------------------- *************************** -----------------------
+      //MARK:-                ANIMATION: MOVE FOR CAL
+      //----------------------- *************************** -----------------------
     func moveDown_revealCal(view: UIView) {
         isCalDown = true
         view.center.y += 150
@@ -1243,6 +1139,17 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         isCalDown = false
         view.center.y -= 150
     }
+    //----------------------- *************************** -----------------------
+      //MARK:-                ANIMATION: MOVE FOR CHARTS
+      //----------------------- *************************** -----------------------
+    func moveDown_revealCharts(view: UIView) {
+          isCalDown = true
+          view.center.y += 150
+      }
+      func moveUp_hideCharts(view: UIView) {
+          isCalDown = false
+          view.center.y -= 150
+      }
     
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: WHOLE TABLE VIEW RELOAD
@@ -1336,6 +1243,117 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     //----------------------- *************************** -----------------------
+    //MARK:-                     IS BACKDROP DOWN
+    //----------------------- *************************** -----------------------
+    //TODO: Improve this; make more resilient; if this breaks, the view breaks
+    func isBackdropDown() -> Bool{
+        print("backdrop midY:\(backdropForeImageView.bounds.midY)")
+        print("backdrop minY:\(backdropForeImageView.bounds.minY)")
+        print("backdrop maxY:\(backdropForeImageView.bounds.maxY)")
+        print("backdrop screen height:\(UIScreen.main.bounds.height-headerEndY)")
+        print("backdrop headerEndY:\(headerEndY)")
+        
+        if backdropForeImageView.bounds.maxY == UIScreen.main.bounds.height-headerEndY {
+            
+            print("isBackdropDown: NOT DOWN - Header INIT positio exact match !")
+            return false
+            
+        } else {
+             print("isBackdropDown: YES DOWN -  !")
+            return true
+        }
+    }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                     ACTION: SHOW CHARTS
+    //----------------------- *************************** -----------------------
+    
+    @objc func showChartsHHomeButton_Action() {
+          
+          print("Show CHARTS !!")
+                  let delay: Double = 0.2
+                  let duration: Double = 1.2
+        
+        if (!isBackdropDown()) { //if backdrop is up
+//            isBackdropDown()
+            print("Reveal Charts - Cal is hidden")
+            
+              self.view.bringSubviewToFront(self.tableView)
+                          self.view.sendSubviewToBack(calendar)
+                          self.view.sendSubviewToBack(backdropBackgroundImageView)
+                          UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                              self.moveDown_revealCharts(view: self.tableView)
+                          }) { (_) in
+            
+                          }
+            
+                          UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                              self.moveDown_revealCharts(view: self.backdropForeImageView)
+                          }) { (_) in
+            
+                          }
+            
+            self.view.bringSubviewToFront(self.bottomAppBar)
+            
+            
+        } else {
+            print("Charts + CAL")
+        }
+          
+
+          
+//          if(isCalDown) { //cal is out; it sldes back up
+//
+//
+//              self.view.bringSubviewToFront(self.tableView)
+//              self.view.sendSubviewToBack(calendar)
+//              self.view.sendSubviewToBack(backdropBackgroundImageView)
+//              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+//                  self.moveUp_hideCal(view: self.tableView)
+//              }) { (_) in
+//
+//              }
+//
+//              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+//                  self.moveUp_hideCal(view: self.backdropForeImageView)
+//              }) { (_) in
+//
+//              }
+//
+//              DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
+//
+//                  // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
+//
+//              }
+//
+//              self.view.bringSubviewToFront(self.bottomAppBar)
+//
+//          } else {
+//              self.view.bringSubviewToFront(self.tableView)
+//              self.view.sendSubviewToBack(calendar)
+//              self.view.sendSubviewToBack(backdropBackgroundImageView)
+//
+//              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+//                  self.moveDown_revealCal(view: self.tableView)
+//              }) { (_) in
+//                  //            self.moveLeft(view: self.black4)
+//              }
+//
+//              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+//                  self.moveDown_revealCal(view: self.backdropForeImageView)
+//              }) { (_) in
+//                  //            self.moveLeft(view: self.black4)
+//              }
+//
+//              self.view.bringSubviewToFront(self.tableView)
+//              self.view.bringSubviewToFront(self.bottomAppBar)
+//              self.calendar.isHidden = false
+//
+//          }
+          tableView.reloadData()
+      }
+    
+    //----------------------- *************************** -----------------------
     //MARK:-                     ACTION: SHOW CALENDAR
     //----------------------- *************************** -----------------------
     
@@ -1374,7 +1392,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             
             self.view.bringSubviewToFront(self.bottomAppBar)
             
-        } else {
+        } else { //cal is covered; reveal it
             self.view.bringSubviewToFront(self.tableView)
             self.view.sendSubviewToBack(calendar)
             self.view.sendSubviewToBack(backdropBackgroundImageView)
@@ -1516,7 +1534,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func setupBackdropForeground() {
         //    func setupBackdropForeground() {
         
-        print("Backdrop starts from: \(headerEndY)")
+        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
         backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         
         
@@ -1610,6 +1628,143 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         animateTableViewReload()
     }
     
+      
+    //----------------------- *************************** -----------------------
+      //MARK:-                      GET GLOBAL TASK
+      //----------------------- *************************** -----------------------
+      /*
+       Pass this a morning or evening or inbox or upcoming task &
+       this will give the index of that task in the global task array
+       using that global task array index the element can then be removed
+       or modded
+       */
+      func getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: NTask) -> Int {
+          var tasks = [NTask]()
+          var idxHolder = 0
+          tasks = TaskManager.sharedInstance.getAllTasks
+          if let idx = tasks.firstIndex(where: { $0 === morningOrEveningTask }) {
+              
+              print("Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
+              print("func IDX is: \(idx)")
+              idxHolder = idx
+              
+          }
+          return idxHolder
+      }
+      
+    
+    //----------------------- *************************** -----------------------
+       //MARK:-                      TABLE SWIPE ACTIONS
+       //----------------------- *************************** -----------------------
+         
+         func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+             
+             let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+                 
+                 let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+                 let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
+                 
+                 switch indexPath.section {
+                 case 0:
+                     
+                     //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
+                     
+                     TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].isComplete = true
+                     
+                     TaskManager.sharedInstance.saveContext()
+                     
+                 case 1:
+                     
+                     //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row])].isComplete = true
+                     TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row])].isComplete = true
+                     TaskManager.sharedInstance.saveContext()
+                     
+                 default:
+                     break
+                 }
+                 
+                 //            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
+                 print("SCORE IS: \(self.calculateTodaysScore())")
+                 self.scoreCounter.text = "\(self.calculateTodaysScore())"
+                 
+                 tableView.reloadData()
+                 self.animateTableViewReload()
+                 //            UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
+                 //
+                 //                   })
+                 
+                 // right spring animation
+                 //            tableView.reloadData(
+                 //                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+                 //                              constantDelay: 0))
+                 
+                 self.title = "\(self.calculateTodaysScore())"
+                 actionPerformed(true)
+             }
+             
+             return UISwipeActionsConfiguration(actions: [completeTaskAction])
+         }
+       
+       func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+                
+                let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+                    
+                    let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
+                    
+                    let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
+                    {
+                        (UIAlertAction) in
+                        
+                        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+                        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
+                        
+                        switch indexPath.section {
+                        case 0:
+                            
+                            //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row]))
+                            TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row]))
+                        case 1:
+                            //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row]))
+                            
+                            TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row]))
+                        default:
+                            break
+                        }
+                        
+                        //                tableView.reloadData()
+                        //                tableView.reloadData(
+                        //                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
+                        //                                  constantDelay: 0))
+                        
+                        tableView.reloadData()
+                        self.animateTableViewReload()
+                        //                UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
+                        //
+                        //                       })
+                        
+                        
+                    }
+                    let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
+                    { (UIAlertAction) in
+                        
+                        print("That was a close one. No deletion.")
+                    }
+                    
+                    //add actions to alert controller
+                    confirmDelete.addAction(yesDeleteAction)
+                    confirmDelete.addAction(noDeleteAction)
+                    
+                    //show it
+                    self.present(confirmDelete ,animated: true, completion: nil)
+                    
+                    self.title = "\(self.calculateTodaysScore())"
+                    actionPerformed(true)
+                }
+                
+                
+                return UISwipeActionsConfiguration(actions: [deleteTaskAction])
+            }
+    
 }
 
 //----------------------- *************************** -----------------------
@@ -1670,6 +1825,11 @@ extension ViewController: CircleMenuDelegate {
     func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
         print("button did selected: \(atIndex)")
     }
+    
+   
+
+     
+      
 }
 
 //----------------------- *************************** -----------------------
