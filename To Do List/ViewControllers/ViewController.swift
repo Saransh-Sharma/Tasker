@@ -286,6 +286,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         set01.mode = .cubicBezier
         set01.setColor(secondaryAccentColor)
         set01.lineWidth = 3
+        set01.fill = Fill(color: .systemGray)
+        set01.fillAlpha = 0.8
+        set01.drawFilledEnabled = true
+        
         
 
         
