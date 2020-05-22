@@ -1261,48 +1261,43 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: MOVE FOR CAL
     //----------------------- *************************** -----------------------
-    func moveDown_revealCal(view: UIView) {
+    func moveDown_revealJustCal(view: UIView) {
         isCalDown = true
-        view.center.y += 150
+        print("move: Cal SHOW - down: \(UIScreen.main.bounds.height/6)")
+        view.center.y += UIScreen.main.bounds.height/6
     }
-    func moveUp_hideCal(view: UIView) {
+    func moveUp_toHideCal(view: UIView) {
         isCalDown = false
-        view.center.y -= 150
+        print("move: Cal HIDE - up: \(UIScreen.main.bounds.height/6)")
+        view.center.y -= UIScreen.main.bounds.height/6
     }
     
-    func moveUp_hideCalFurther(view: UIView) {
-           isCalDown = false
-           view.center.y -= (150+50)
-       }
+//    func moveUp_hideCalFurther(view: UIView) { //
+//           isCalDown = false
+//           view.center.y -= (150+50)
+//       }
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: MOVE FOR CHARTS
     //----------------------- *************************** -----------------------
     func moveDown_revealCharts(view: UIView) {
-        //        isCalDown = true
-        
         isChartsDown = true
-        //        view.center.y += 300
+        print("move: CHARTS SHOW - down: \(UIScreen.main.bounds.height/2)")
         view.center.y += UIScreen.main.bounds.height/2
     }
+    func moveDown_revealChartsKeepCal(view: UIView) {
+         isChartsDown = true
+         print("move: CHARTS SHOW, CAL SHOW - down some: \(UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12)")
+         view.center.y += (UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12)
+     }
     func moveUp_hideCharts(view: UIView) {
-        //        isCalDown = false
         isChartsDown = false
-        //        view.center.y -= 300
+        print("move: CHARTS HIDE - up: \(UIScreen.main.bounds.height/2)")
         view.center.y -= UIScreen.main.bounds.height/2
     }
-    
-    //        func moveDown_revealCharts(view: UIView) {
-    //    //        isCalDown = true
-    //
-    //            isChartsDown = true
-    //    //        view.center.y += 300
-    //            view.center.y += UIScreen.main.bounds.height/2
-    //        }
     func moveUp_hideChartsKeepCal(view: UIView) {
-        //        isCalDown = false
         isChartsDown = false
-        //        view.center.y -= 300
-        view.center.y -= ((UIScreen.main.bounds.height/2)-200)
+        print("move: CHARTS HIDE, CAL SHOW - up some: \(UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/4)")
+        view.center.y -= (UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/4)
     }
     
     //----------------------- *************************** -----------------------
@@ -1440,7 +1435,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         let delay: Double = 0.2
         let duration: Double = 1.2
         
-        if (!isChartsDown) { //if backdrop is up; then push down & show charts
+        if (!isChartsDown && !isCalDown) { //if backdrop is up; then push down & show charts
             
             print("charts: Case RED")
             //--------------------
@@ -1486,13 +1481,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             self.view.sendSubviewToBack(lineChartView)
             self.view.sendSubviewToBack(backdropBackgroundImageView)
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                self.moveUp_hideCharts(view: self.tableView)
+                self.moveDown_revealChartsKeepCal(view: self.tableView)
             }) { (_) in
                 
             }
             
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                self.moveUp_hideCharts(view: self.backdropForeImageView)
+                self.moveDown_revealChartsKeepCal(view: self.backdropForeImageView)
             }) { (_) in
                 
             }
@@ -1586,14 +1581,21 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 
                 // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
                 
+                
+                
                 if (self.isChartsDown) { //todo replace with addtarget observer on foredropimagview
                     
                     print("KEEP SHWING CHARTS")
                     self.lineChartView.isHidden = false
+                    
+//                    self.calendar.isHidden
+                    
                     self.isChartsDown = true
                 } else {
                     print("backdrop is up; HIDE CHARTS")
                     self.lineChartView.isHidden = true
+                    self.calendar.isHidden = true
+                    self.isCalDown = false
                     self.isChartsDown = false
                 }
                 
@@ -1688,13 +1690,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             self.view.sendSubviewToBack(calendar)
             self.view.sendSubviewToBack(backdropBackgroundImageView)
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                self.moveUp_hideCal(view: self.tableView)
+                self.moveUp_toHideCal(view: self.tableView)
             }) { (_) in
                 
             }
             
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                self.moveUp_hideCal(view: self.backdropForeImageView)
+                self.moveUp_toHideCal(view: self.backdropForeImageView)
             }) { (_) in
                 
             }
@@ -1768,13 +1770,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             self.view.sendSubviewToBack(backdropBackgroundImageView)
             
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                self.moveDown_revealCal(view: self.tableView)
+                self.moveDown_revealJustCal(view: self.tableView)
             }) { (_) in
                 //            self.moveLeft(view: self.black4)
             }
             
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                self.moveDown_revealCal(view: self.backdropForeImageView)
+                self.moveDown_revealJustCal(view: self.backdropForeImageView)
             }) { (_) in
                 //            self.moveLeft(view: self.black4)
             }
