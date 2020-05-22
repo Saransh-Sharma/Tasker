@@ -33,24 +33,31 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:- LINE CHART
     lazy var lineChartView: LineChartView = {
         let chartView = LineChartView()
-        chartView.backgroundColor = .systemBlue
+        chartView.backgroundColor = .clear
+        //        chartView.legend.form = .empty
+        chartView.legend.form = .default
+        
         
         chartView.rightAxis.enabled = false
         
         let yAxis = chartView.leftAxis
         yAxis.labelFont = .boldSystemFont(ofSize: 12)
-        yAxis.setLabelCount(7, force: false)
-        yAxis.labelTextColor = .white
-        yAxis.axisLineColor = .white
+        //        yAxis.setLabelCount(7, force: false)
+        yAxis.labelTextColor = .secondaryLabel
+        yAxis.axisLineColor = .tertiaryLabel
         yAxis.labelPosition = .outsideChart
+        
+        //        yAxis
+        //        yAxis.
         
         chartView.xAxis.labelPosition = .bottom
         chartView.xAxis.labelFont = .boldSystemFont(ofSize: 12)
-        chartView.xAxis.axisLineColor = .systemBlue
+        chartView.xAxis.axisLineColor = .tertiaryLabel
+        chartView.xAxis.labelTextColor = .secondaryLabel
         
-//        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInBack)
+        //        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInBack)
         chartView.animate(yAxisDuration: 1.1, easingOption: .easeInOutBack)
-//        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInCubic)
+        //        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInCubic)
         
         
         return chartView
@@ -75,7 +82,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let homeDate_Month = UILabel()
     
     //MARK: charts
-    let chartView = PieChartView()
+    let tinyPieChartView = PieChartView()
     var shouldHideData: Bool = false
     var sliderX: UISlider!
     var sliderY: UISlider!
@@ -150,6 +157,16 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func setHomeViewDate() {
         
         
+        //            let centerText = NSMutableAttributedString(string: "Charts\nby Daniel Cohen Gindi")
+        //            centerText.setAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 13)!,
+        //                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+        //            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
+        //                                      .foregroundColor : UIColor.gray], range: NSRange(location: 10, length: centerText.length - 10))
+        //            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
+        //                                      .foregroundColor : UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)], range: NSRange(location: centerText.length - 19, length: 19))
+        //            chartView.centerAttributedText = centerText;
+        
+        //            chartView.centerText = "24"
         
         
         
@@ -173,7 +190,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         homeDate_WeekDay.textColor = .systemGray6
         homeDate_Month.textColor = .systemGray6
         
-        homeDate_Day.font =  setFont(fontSize: 50, fontweight: .medium, fontDesign: .rounded)
+        homeDate_Day.font =  setFont(fontSize: 52, fontweight: .medium, fontDesign: .rounded)
         homeDate_WeekDay.font =  setFont(fontSize: 24, fontweight: .thin, fontDesign: .rounded)
         homeDate_Month.font =  setFont(fontSize: 24, fontweight: .regular, fontDesign: .rounded)
         
@@ -183,8 +200,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         homeDate_Day.frame = CGRect(x: 5, y: 18, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        homeDate_WeekDay.frame = CGRect(x: 60, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
-        homeDate_Month.frame = CGRect(x: 60, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
+        homeDate_WeekDay.frame = CGRect(x: 68, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
+        homeDate_Month.frame = CGRect(x: 68, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
         
         
         homeDate_WeekDay.adjustsFontSizeToFitWidth = true
@@ -277,49 +294,43 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
     }
     
-
+    
     //MARK:- SET CHART DATA - LINE
     func setLineChartData() {
         let set01 = LineChartDataSet(entries: generateLineChartData(), label: "Score for the day")
+        //        let set01 = LineChartDataSet(entries: generateLineChartData())
         
-//        set01.drawCirclesEnabled = false
+        //        set01.drawCirclesEnabled = false
+        set01.drawCirclesEnabled = false
         set01.mode = .cubicBezier
         set01.setColor(secondaryAccentColor)
         set01.lineWidth = 3
-        set01.fill = Fill(color: .systemGray)
+        set01.fill = Fill(color: primaryColorDarker)
         set01.fillAlpha = 0.8
         set01.drawFilledEnabled = true
         
         
-
+        
         
         let lineChartData_01 = LineChartData(dataSet: set01)
         lineChartView.data = lineChartData_01
+        
     }
     
-//    func generateRandomLineChartData() -> [ChartDataEntry] {
-//        let daysOfWeek = [1,2,3,4,5,6,7]
-//
-//        var yValues: [ChartDataEntry] = []
-//        for day in daysOfWeek {
-//            let mEntry = ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10)))
-//            yValues.append(ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10))))
-//            print("Set data for day \(day): \(mEntry)")
-//            print("----------------")
-//        }
-//        return yValues
-//    }
     
     func generateLineChartData() -> [ChartDataEntry] {
-//        let daysOfWeek = [1,2,3,4,5,6,7]
+        //        let daysOfWeek = [1,2,3,4,5,6,7]
         
         var yValues: [ChartDataEntry] = []
-//        for day in daysOfWeek {
-//            let mEntry = ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10)))
-//            yValues.append(ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10))))
-//            print("Set data for day \(day): \(mEntry)")
-//            print("----------------")
-//        }
+        //        for day in daysOfWeek {
+        //            let mEntry = ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10)))
+        //            yValues.append(ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10))))
+        //            print("Set data for day \(day): \(mEntry)")
+        //            print("----------------")
+        //        }
+        
+        //TODO: This cal should show this week + last week in default view
+        // so if today is wednesday show: last 7 days from last week + this week up till today(mon, tue, wed)
         
         yValues.append(ChartDataEntry(x: Double(1), y: Double(4)))
         yValues.append(ChartDataEntry(x: Double(2.0), y: Double(5)))
@@ -328,6 +339,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         yValues.append(ChartDataEntry(x: Double(5.0), y: Double(7.5)))
         yValues.append(ChartDataEntry(x: Double(6.0), y: Double(8)))
         yValues.append(ChartDataEntry(x: Double(7.0), y: Double(9)))
+        yValues.append(ChartDataEntry(x: Double(8.0), y: Double(4.0)))
+        yValues.append(ChartDataEntry(x: Double(9.0), y: Double(6)))
+        yValues.append(ChartDataEntry(x: Double(10.0), y: Double(7)))
+        
+        //        yValues.append(ChartDataEntry(x: Double(1), y: Double(4), data: "HOLA !"))
+        //                yValues.append(ChartDataEntry(x: Double(2.0), y: Double(5), data: "HOLA ! 1"))
+        //                yValues.append(ChartDataEntry(x: Double(3.0), y: Double(7), data: "HOLA ! 2"))
+        //                yValues.append(ChartDataEntry(x: Double(4.0), y: Double(3), data: "HOLA ! 3"))
+        //                yValues.append(ChartDataEntry(x: Double(5.0), y: Double(7.5), data: "HOLA ! 4"))
         
         return yValues
     }
@@ -341,9 +361,17 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func setupLineChartView() {
         
         view.addSubview(lineChartView)
+        //        lineChartView.centerInSuperview()
+        //        lineChartView.width(to: view)
+        //        lineChartView.heightToWidth(of: view)
+        
         lineChartView.centerInSuperview()
-        lineChartView.width(to: view)
-        lineChartView.heightToWidth(of: view)
+        lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: 2*headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
+        
+        //        lineChartView.width(200)
+        //        lineChartView.height(200)
+        
+        
     }
     
     //MARK:- View did load
@@ -356,9 +384,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         setupBackdropForeground() //foredrop
         setupBackdropNotch() //notch
         
-        
+        //MARK:- LOAD LINE CHART
         setupLineChartView()
         setLineChartData()
+        lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
         
         
         
@@ -411,11 +440,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         
-        self.setup(pieChartView: chartView)
+        self.setup(pieChartView: tinyPieChartView)
         
         updateChartData()
         
-        chartView.delegate = self
+        tinyPieChartView.delegate = self
         
         //        let l = chartView.legend
         //        l.horizontalAlignment = .right
@@ -428,8 +457,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         //                chartView.legend = l
         
         // entry label styling
-        chartView.entryLabelColor = .brown
-        chartView.entryLabelFont = .systemFont(ofSize: 12, weight: .black)
+        tinyPieChartView.entryLabelColor = .brown
+        tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .black)
         
         //        sliderX.value = 4
         //        sliderY.value = 100
@@ -437,7 +466,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         //        chartView.frame = CGRect(x: (UIScreen.main.bounds.width)-140, y: 15, width: (UIScreen.main.bounds.width/3)+40, height: (UIScreen.main.bounds.width/3)+40)
         
-        chartView.frame = CGRect(x: (UIScreen.main.bounds.width)-(UIScreen.main.bounds.width/3), y: 18, width: (UIScreen.main.bounds.width/3)+35, height: (UIScreen.main.bounds.width/3)+35)
+        tinyPieChartView.frame = CGRect(x: (UIScreen.main.bounds.width)-(UIScreen.main.bounds.width/3)+10, y: 18, width: (UIScreen.main.bounds.width/3)+25, height: (UIScreen.main.bounds.width/3)+25)
+        
+        
+        
+        //        lineChartView.centerInSuperview()
+        //               lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: 2*headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
+        
+        //        chartView.centerInSuperview()
+        //        chartView.edges(to: homeTopBar, insets: TinyEdgeInsets(top: 5, left: 20, bottom: 5, right: 20))
+        //        chartView.width(50)
+        //        chartView.height(50)
+        
         
         //             chartView.frame = CGRect(x: (UIScreen.main.bounds.width/2), y: 50, width: (UIScreen.main.bounds.width/2)+40, height: (UIScreen.main.bounds.width/2)+40)
         
@@ -456,9 +496,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         //        chartView.entryLabelColor = .black
         //        chartView.setNeedsDisplay()
         
-        view.addSubview(chartView)
+        view.addSubview(tinyPieChartView)
         
-        chartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
         
         
         
@@ -473,7 +513,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     func updateChartData() {
         if self.shouldHideData {
-            chartView.data = nil
+            tinyPieChartView.data = nil
             return
         }
         print("--------------------------")
@@ -518,12 +558,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         let scoreNumber = "\(self.calculateTodaysScore())"
-        //            let centerText = NSMutableAttributedString(string: "\(scoreNumber)\nscore")
         let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
         centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
                                   .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-        //            centerText.addAttributes([.font : setFont(fontSize: 16, fontweight: .regular, fontDesign: .monospaced),
-        //                                      .foregroundColor : UIColor.secondaryLabel], range: NSRange(location: scoreNumber.count+1, length: centerText.length - (scoreNumber.count+1)))
         chartView.centerAttributedText = centerText;
         
         
@@ -535,17 +572,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         chartView.rotationAngle = 0
         chartView.rotationEnabled = true
         chartView.highlightPerTapEnabled = true
-        
-        //            let l = chartView.legend
-        //            l.horizontalAlignment = .right
-        //            l.verticalAlignment = .top
-        //            l.orientation = .vertical
-        //            l.drawInside = false
-        //            l.xEntrySpace = 7
-        //            l.yEntrySpace = 0
-        //            l.yOffset = 0
-        
-        //        chartView.legend = l
+        chartView.legend.form = .none
         
         
         
@@ -555,7 +582,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //                      "Party M", "Party N", "Party O", "Party P", "Party Q", "Party R",
     //                      "Party S", "Party T", "Party U", "Party V", "Party W", "Party X",
     //                      "Party Y", "Party Z"]
-    let parties = ["P0", "P1", "P2", "P3"]
+    //    let parties = ["P0", "P1", "P2", "P3"]
+    let parties = [""]
     
     //MARK:-GET THIS 1
     func setDataCount(_ count: Int, range: UInt32) {
@@ -573,10 +601,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
         
         //            let set = PieChartDataSet(entries: entries, label: "Election Results")
-        let set = PieChartDataSet(entries: entries)
+        let set = PieChartDataSet(entries: entries, label: "")
         set.drawIconsEnabled = false
         set.drawValuesEnabled = false
+        
         set.sliceSpace = 2
+        
+        //        let set01 = LineChartDataSet(entries: generateLineChartData(), label: "Score for the day")
         
         //            for set2 in set {
         //                                      set2.drawValuesEnabled = !set2.drawValuesEnabled
@@ -596,8 +627,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         
-        chartView.drawEntryLabelsEnabled = false
-        chartView.data = data
+        tinyPieChartView.drawEntryLabelsEnabled = false
+        tinyPieChartView.data = data
         //            chartView.highlightValues(nil)
     }
     
@@ -1238,21 +1269,54 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         isCalDown = false
         view.center.y -= 150
     }
+    
+    func moveUp_hideCalFurther(view: UIView) {
+           isCalDown = false
+           view.center.y -= (150+50)
+       }
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: MOVE FOR CHARTS
     //----------------------- *************************** -----------------------
     func moveDown_revealCharts(view: UIView) {
-        isCalDown = true
-        view.center.y += 150
+        //        isCalDown = true
+        
+        isChartsDown = true
+        //        view.center.y += 300
+        view.center.y += UIScreen.main.bounds.height/2
     }
     func moveUp_hideCharts(view: UIView) {
-        isCalDown = false
-        view.center.y -= 150
+        //        isCalDown = false
+        isChartsDown = false
+        //        view.center.y -= 300
+        view.center.y -= UIScreen.main.bounds.height/2
+    }
+    
+    //        func moveDown_revealCharts(view: UIView) {
+    //    //        isCalDown = true
+    //
+    //            isChartsDown = true
+    //    //        view.center.y += 300
+    //            view.center.y += UIScreen.main.bounds.height/2
+    //        }
+    func moveUp_hideChartsKeepCal(view: UIView) {
+        //        isCalDown = false
+        isChartsDown = false
+        //        view.center.y -= 300
+        view.center.y -= ((UIScreen.main.bounds.height/2)-200)
     }
     
     //----------------------- *************************** -----------------------
+      //MARK:-                ANIMATION: LINE CHAR ANIMATION
+      //----------------------- *************************** -----------------------
+    
+    
+    func animateLineChart(chartView: LineChartView) {
+            chartView.animate(yAxisDuration: 1.1, easingOption: .easeInOutBack)
+    }
+    //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: WHOLE TABLE VIEW RELOAD
     //----------------------- *************************** -----------------------
+
     
     
     //MARK: animations
@@ -1345,23 +1409,26 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:-                     IS BACKDROP DOWN
     //----------------------- *************************** -----------------------
     //TODO: Improve this; make more resilient; if this breaks, the view breaks
-    func isBackdropDown() -> Bool{
-        print("backdrop midY:\(backdropForeImageView.bounds.midY)")
-        print("backdrop minY:\(backdropForeImageView.bounds.minY)")
-        print("backdrop maxY:\(backdropForeImageView.bounds.maxY)")
-        print("backdrop screen height:\(UIScreen.main.bounds.height-headerEndY)")
-        print("backdrop headerEndY:\(headerEndY)")
-        
-        if backdropForeImageView.bounds.maxY == UIScreen.main.bounds.height-headerEndY {
-            
-            print("isBackdropDown: NOT DOWN - Header INIT positio exact match !")
-            return false
-            
-        } else {
-            print("isBackdropDown: YES DOWN -  !")
-            return true
-        }
-    }
+    //    func isBackdropDown() -> Bool{
+    //        print("---------------------------------------------")
+    //        print("backdrop midY:\(backdropForeImageView.bounds.midY)")
+    //        print("backdrop minY:\(backdropForeImageView.bounds.minY)")
+    //        print("backdrop maxY:\(backdropForeImageView.bounds.maxY)")
+    //        print("backdrop screen height:\(UIScreen.main.bounds.height-headerEndY)")
+    //        print("backdrop headerEndY:\(headerEndY)")
+    //
+    ////        if backdropForeImageView.bounds.maxY == UIScreen.main.bounds.height-headerEndY {
+    ////
+    ////            print("isBackdropDown: NOT DOWN - Header INIT positio exact match !")
+    ////            return false
+    ////
+    ////        } else {
+    ////            print("isBackdropDown: YES DOWN -  !")
+    ////            return true
+    ////        }
+    //
+    //
+    //    }
     
     //----------------------- *************************** -----------------------
     //MARK:-                     ACTION: SHOW CHARTS
@@ -1373,33 +1440,174 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         let delay: Double = 0.2
         let duration: Double = 1.2
         
-        if (!isBackdropDown()) { //if backdrop is up
-            //            isBackdropDown()
-            print("Reveal Charts - Cal is hidden")
+        if (!isChartsDown) { //if backdrop is up; then push down & show charts
+            
+            print("charts: Case RED")
+            //--------------------
+            
+            print("ShowChartsButton: backdrop is UP; pushing down to show charts")
             
             self.view.bringSubviewToFront(self.tableView)
-            self.view.sendSubviewToBack(calendar)
+            self.view.sendSubviewToBack(lineChartView)
             self.view.sendSubviewToBack(backdropBackgroundImageView)
+            
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
                 self.moveDown_revealCharts(view: self.tableView)
             }) { (_) in
-                
+                //            self.moveLeft(view: self.black4)
             }
             
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
                 self.moveDown_revealCharts(view: self.backdropForeImageView)
             }) { (_) in
+                //            self.moveLeft(view: self.black4)
+            }
+            
+            self.view.bringSubviewToFront(self.tableView)
+            self.view.bringSubviewToFront(self.bottomAppBar)
+            self.lineChartView.isHidden = false
+            self.animateLineChart(chartView: self.lineChartView)
+            
+            
+            //            tableView.reloadData()
+            
+            
+            //-------
+            
+            
+        } else if (!isChartsDown && isCalDown){ //charts hidden & cal shown
+            //            print("Charts + CAL")
+            
+            print("ShowChartsButton: backdrop is DOWN; + CAL is SHOWING; pushing down FURTHER to show charts")
+            
+            print("charts: Case BLUE")
+            //                        print("***************** Charts are hidden; foredrop ginng DOWN; reveal charts")
+            self.view.bringSubviewToFront(self.tableView)
+            self.view.sendSubviewToBack(lineChartView)
+            self.view.sendSubviewToBack(backdropBackgroundImageView)
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveUp_hideCharts(view: self.tableView)
+            }) { (_) in
                 
             }
             
-            self.lineChartView.isHidden = false
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveUp_hideCharts(view: self.backdropForeImageView)
+            }) { (_) in
+                
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
+                
+                // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
+                
+                if (self.isChartsDown) { //todo replace with addtarget observer on foredropimagview
+                    
+                    print("KEEP SHWING CHARTS")
+                    self.lineChartView.isHidden = false
+                    self.isChartsDown = true
+                    self.animateLineChart(chartView: self.lineChartView)
+                    
+                } else {
+                    print("backdrop is up; HIDE CHARTS")
+                    self.lineChartView.isHidden = true
+                }
+                
+            }
+            
+            
+            
+            
             self.view.bringSubviewToFront(self.bottomAppBar)
             
             
-        } else {
-            print("Charts + CAL")
+        } else if (isChartsDown && !isCalDown) {//pull it back up // charts shown + cal hidden
+            print("charts: Case YELLOW")
+            print("ShowChartsButton: backdrop is DOWN; + CAL is HIDDEN; pushing down to show charts")
+            
+            //                        print("***************** Charts are hidden; foredrop ginng DOWN; reveal charts")
+            self.view.bringSubviewToFront(self.tableView)
+            self.view.sendSubviewToBack(lineChartView)
+            self.view.sendSubviewToBack(backdropBackgroundImageView)
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveUp_hideCharts(view: self.tableView)
+            }) { (_) in
+                
+            }
+            
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveUp_hideCharts(view: self.backdropForeImageView)
+            }) { (_) in
+                
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
+                
+                // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
+                
+                if (self.isChartsDown) { //todo replace with addtarget observer on foredropimagview
+                    
+                    print("KEEP SHWING CHARTS")
+                    self.lineChartView.isHidden = false
+                    self.isChartsDown = true
+                } else {
+                    print("backdrop is up; HIDE CHARTS")
+                    self.lineChartView.isHidden = true
+                    self.isChartsDown = false
+                }
+                
+            }
             
             
+            
+            
+            self.view.bringSubviewToFront(self.bottomAppBar)
+        }
+            
+        else if (isChartsDown && isCalDown) { //pull back to hide charts --> keep showing cal
+            print("charts: Case GREEN")
+            print("charts: charts & cal are shown; --> hiding charts")
+            self.view.bringSubviewToFront(self.tableView)
+            self.view.sendSubviewToBack(lineChartView)
+            self.view.sendSubviewToBack(backdropBackgroundImageView)
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveUp_hideChartsKeepCal(view: self.tableView)
+            }) { (_) in
+                
+            }
+            
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveUp_hideChartsKeepCal(view: self.backdropForeImageView)
+            }) { (_) in
+                
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
+                
+                // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
+                
+                if (self.isChartsDown) { //todo replace with addtarget observer on foredropimagview
+                    
+                    print("KEEP SHWING CHARTS")
+                    self.lineChartView.isHidden = false
+                    self.isChartsDown = true
+                } else {
+                    print("backdrop is up; HIDE CHARTS")
+                    self.lineChartView.isHidden = true
+                    self.isChartsDown = false
+                }
+                
+            }
+            
+            
+            
+            
+            self.view.bringSubviewToFront(self.bottomAppBar)
+            
+        }
+            
+        else {
+            print("ERROR LAYOUT - SHOW CHARTS")
         }
         
         
@@ -1468,9 +1676,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         let delay: Double = 0.2
         let duration: Double = 1.2
         
-        if(isCalDown) { //cal is out; it sldes back up
+        //isChartsDown && !isCalDown
+        
+        if(isCalDown && !isChartsDown) { //cal is out; it sldes back up
+//            wewed
             
+//            moveUp_hideCalFurther
             
+            print("***************** Cal is out; frodrop ging up")
             self.view.bringSubviewToFront(self.tableView)
             self.view.sendSubviewToBack(calendar)
             self.view.sendSubviewToBack(backdropBackgroundImageView)
@@ -1490,11 +1703,66 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                 
                 // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
                 
+                if (self.isCalDown) { //todo replace with addtarget observer on foredropimagview
+                    
+                    print("KEEP SHWING CAL")
+                    self.calendar.isHidden = false
+                    self.isCalDown = true
+                } else {
+                    print("backdrop is up; Hidinng CAL")
+                    self.calendar.isHidden = true
+                    self.isCalDown = false
+                }
+                
             }
+            
+            
+            print("cal CASE: BLUE")
             
             self.view.bringSubviewToFront(self.bottomAppBar)
             
-        } else { //cal is covered; reveal it
+        } else if (isCalDown && isChartsDown) { //cal is shown & charts are shown --> hide cal
+            
+            //            isChartsDown && !isCalDown
+            
+            print("cal CASE: GREEN")
+            print("cal isCalDown: \(isCalDown)")
+            print("cal isChartsDown: \(isChartsDown)")
+            print("Cal is downn & charts are down !")
+            
+            self.calendar.isHidden = true
+            isCalDown = false
+            
+        }
+        else if (!isCalDown && isChartsDown) { //cal hidden & charts show --> show cal without moving foredrop
+            
+            //            isChartsDown && !isCalDown
+            print("cal CASE: YELLOW")
+            
+            print("cal isCalDown: \(isCalDown)")
+            print("cal isChartsDown: \(isChartsDown)")
+            print("Cal is downn & charts are down !")
+            
+            self.calendar.isHidden = false
+            isCalDown = true
+            
+        }
+            
+            //            else if (!isCalDown && isChartsDown) { //cal is hidden & charts are shown --> hide cal
+            //            print("cal isCalDown: \(isCalDown)")
+            //            print("cal isChartsDown: \(isChartsDown)")
+            //            print("Cal is HIDDEN & charts are SHOWN !")
+            //
+            //            self.calendar.isHidden = t
+            //        }
+            
+//
+        else { //cal is covered; reveal it
+            
+            print("Cal ELSE !")
+            print("cal isCalDown: \(isCalDown)")
+            print("cal isChartsDown: \(isChartsDown)")
+            
             self.view.bringSubviewToFront(self.tableView)
             self.view.sendSubviewToBack(calendar)
             self.view.sendSubviewToBack(backdropBackgroundImageView)
@@ -1723,8 +1991,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         //            centerText.addAttributes([.font : setFont(fontSize: 16, fontweight: .regular, fontDesign: .monospaced),
         //                                      .foregroundColor : UIColor.secondaryLabel], range: NSRange(location: scoreNumber.count+1, length: centerText.length - (scoreNumber.count+1)))
-        self.chartView.centerAttributedText = centerText;
-        self.chartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+        self.tinyPieChartView.centerAttributedText = centerText;
+        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
         
         tableView.reloadData()
         animateTableViewReload()
