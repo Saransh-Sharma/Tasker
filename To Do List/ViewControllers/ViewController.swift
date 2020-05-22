@@ -15,6 +15,7 @@ import FSCalendar
 import EasyPeasy
 import BEMCheckBox
 import Charts
+import TinyConstraints
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialBottomAppBar
 import MaterialComponents.MaterialButtons_Theming
@@ -28,6 +29,32 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
+    
+    //MARK:- LINE CHART
+    lazy var lineChartView: LineChartView = {
+        let chartView = LineChartView()
+        chartView.backgroundColor = .systemBlue
+        
+        chartView.rightAxis.enabled = false
+        
+        let yAxis = chartView.leftAxis
+        yAxis.labelFont = .boldSystemFont(ofSize: 12)
+        yAxis.setLabelCount(7, force: false)
+        yAxis.labelTextColor = .white
+        yAxis.axisLineColor = .white
+        yAxis.labelPosition = .outsideChart
+        
+        chartView.xAxis.labelPosition = .bottom
+        chartView.xAxis.labelFont = .boldSystemFont(ofSize: 12)
+        chartView.xAxis.axisLineColor = .systemBlue
+        
+//        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInBack)
+        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInOutBack)
+//        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInCubic)
+        
+        
+        return chartView
+    }()
     
     //MARK:- cuurentt task list date
     var dateForTheView = Date.today()
@@ -51,9 +78,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let chartView = PieChartView()
     var shouldHideData: Bool = false
     var sliderX: UISlider!
-     var sliderY: UISlider!
-     var sliderTextX: UITextField!
-     var sliderTextY: UITextField!
+    var sliderY: UISlider!
+    var sliderTextX: UITextField!
+    var sliderTextY: UITextField!
     
     var seperatorTopLineView = UIView()
     var backdropNochImageView = UIImageView()
@@ -181,7 +208,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         //        let configuration = UIImage.SymbolConfiguration(scale: .large)
         let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
-//        let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
+        //        let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
         let smallSymbolImage = UIImage(systemName: "chevron.down", withConfiguration: configuration)
         let colouredCalPullDownImage = smallSymbolImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
         
@@ -212,7 +239,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         //        let configuration = UIImage.SymbolConfiguration(scale: .large)
         let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .large)
-//        let smallSymbolImage = UIImage(systemName: "chart.pie", withConfiguration: configuration)
+        //        let smallSymbolImage = UIImage(systemName: "chart.pie", withConfiguration: configuration)
         let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
         let colouredCalPullDownImage = smallSymbolImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
         
@@ -250,7 +277,70 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
     }
     
+
+    //MARK:- SET CHART DATA - LINE
+    func setLineChartData() {
+        let set01 = LineChartDataSet(entries: generateLineChartData(), label: "Score for the day")
+        
+//        set01.drawCirclesEnabled = false
+        set01.mode = .cubicBezier
+        set01.setColor(secondaryAccentColor)
+        set01.lineWidth = 3
+        
+
+        
+        let lineChartData_01 = LineChartData(dataSet: set01)
+        lineChartView.data = lineChartData_01
+    }
     
+//    func generateRandomLineChartData() -> [ChartDataEntry] {
+//        let daysOfWeek = [1,2,3,4,5,6,7]
+//
+//        var yValues: [ChartDataEntry] = []
+//        for day in daysOfWeek {
+//            let mEntry = ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10)))
+//            yValues.append(ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10))))
+//            print("Set data for day \(day): \(mEntry)")
+//            print("----------------")
+//        }
+//        return yValues
+//    }
+    
+    func generateLineChartData() -> [ChartDataEntry] {
+//        let daysOfWeek = [1,2,3,4,5,6,7]
+        
+        var yValues: [ChartDataEntry] = []
+//        for day in daysOfWeek {
+//            let mEntry = ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10)))
+//            yValues.append(ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10))))
+//            print("Set data for day \(day): \(mEntry)")
+//            print("----------------")
+//        }
+        
+        yValues.append(ChartDataEntry(x: Double(1), y: Double(4)))
+        yValues.append(ChartDataEntry(x: Double(2.0), y: Double(5)))
+        yValues.append(ChartDataEntry(x: Double(3.0), y: Double(7)))
+        yValues.append(ChartDataEntry(x: Double(4.0), y: Double(3)))
+        yValues.append(ChartDataEntry(x: Double(5.0), y: Double(7.5)))
+        yValues.append(ChartDataEntry(x: Double(6.0), y: Double(8)))
+        yValues.append(ChartDataEntry(x: Double(7.0), y: Double(9)))
+        
+        return yValues
+    }
+    
+    func chartValueSelected(_ chartView: ChartViewBase, entry: ChartDataEntry, highlight: Highlight) {
+        
+        print("You selected data: \(entry)")
+    }
+    
+    //MARK: setup line chart
+    func setupLineChartView() {
+        
+        view.addSubview(lineChartView)
+        lineChartView.centerInSuperview()
+        lineChartView.width(to: view)
+        lineChartView.heightToWidth(of: view)
+    }
     
     //MARK:- View did load
     override func viewDidLoad() {
@@ -262,7 +352,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         setupBackdropForeground() //foredrop
         setupBackdropNotch() //notch
         
-        isBackdropDown() // get intit //refetch this n view reload
+        
+        setupLineChartView()
+        setLineChartData()
+        
+        
+        
+        
+        //        isBackdropDown() // get intit //refetch this n view reload
         
         // cal
         setupCal()
@@ -316,44 +413,44 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         chartView.delegate = self
         
-//        let l = chartView.legend
-//        l.horizontalAlignment = .right
-//        l.verticalAlignment = .top
-//        l.orientation = .vertical
-//        l.xEntrySpace = 7
-//        l.yEntrySpace = 0
-//        l.yOffset = 0
+        //        let l = chartView.legend
+        //        l.horizontalAlignment = .right
+        //        l.verticalAlignment = .top
+        //        l.orientation = .vertical
+        //        l.xEntrySpace = 7
+        //        l.yEntrySpace = 0
+        //        l.yOffset = 0
         
-//                chartView.legend = l
+        //                chartView.legend = l
         
         // entry label styling
         chartView.entryLabelColor = .brown
         chartView.entryLabelFont = .systemFont(ofSize: 12, weight: .black)
         
-//        sliderX.value = 4
-//        sliderY.value = 100
-//        self.slidersValueChanged(nil)
+        //        sliderX.value = 4
+        //        sliderY.value = 100
+        //        self.slidersValueChanged(nil)
         
-//        chartView.frame = CGRect(x: (UIScreen.main.bounds.width)-140, y: 15, width: (UIScreen.main.bounds.width/3)+40, height: (UIScreen.main.bounds.width/3)+40)
+        //        chartView.frame = CGRect(x: (UIScreen.main.bounds.width)-140, y: 15, width: (UIScreen.main.bounds.width/3)+40, height: (UIScreen.main.bounds.width/3)+40)
         
         chartView.frame = CGRect(x: (UIScreen.main.bounds.width)-(UIScreen.main.bounds.width/3), y: 18, width: (UIScreen.main.bounds.width/3)+35, height: (UIScreen.main.bounds.width/3)+35)
         
-//             chartView.frame = CGRect(x: (UIScreen.main.bounds.width/2), y: 50, width: (UIScreen.main.bounds.width/2)+40, height: (UIScreen.main.bounds.width/2)+40)
+        //             chartView.frame = CGRect(x: (UIScreen.main.bounds.width/2), y: 50, width: (UIScreen.main.bounds.width/2)+40, height: (UIScreen.main.bounds.width/2)+40)
         
         
         
-
         
-//        chartView.maxAngle = 180 // Half chart
-//               chartView.rotationAngle = 180 // Rotate to make the half on the upper side
-//               chartView.centerTextOffset = CGPoint(x: 0, y: -20)
-
-//        chartView.isUsePercentValuesEnabled = false
-//        chartView.value
         
-                              
-//        chartView.entryLabelColor = .black
-//        chartView.setNeedsDisplay()
+        //        chartView.maxAngle = 180 // Half chart
+        //               chartView.rotationAngle = 180 // Rotate to make the half on the upper side
+        //               chartView.centerTextOffset = CGPoint(x: 0, y: -20)
+        
+        //        chartView.isUsePercentValuesEnabled = false
+        //        chartView.value
+        
+        
+        //        chartView.entryLabelColor = .black
+        //        chartView.setNeedsDisplay()
         
         view.addSubview(chartView)
         
@@ -370,137 +467,135 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     //---------- SETUP: CHART
     
-         func updateChartData() {
-            if self.shouldHideData {
-                chartView.data = nil
-                return
-            }
-            print("--------------------------")
-            print("X: \(10)")//print("X: \(Int(sliderX.value))")
-            print("Y: \(40)")//print("Y: \(UInt32(sliderY.value))")
-            print("--------------------------")
-    
-//            self.setDataCount(Int(sliderX.value), range: UInt32(sliderY.value))
-            self.setDataCount(4, range: 40)
+    func updateChartData() {
+        if self.shouldHideData {
+            chartView.data = nil
+            return
         }
+        print("--------------------------")
+        print("X: \(10)")//print("X: \(Int(sliderX.value))")
+        print("Y: \(40)")//print("Y: \(UInt32(sliderY.value))")
+        print("--------------------------")
+        
+        //            self.setDataCount(Int(sliderX.value), range: UInt32(sliderY.value))
+        self.setDataCount(4, range: 40)
+    }
     
     //setup chart
-        func setup(pieChartView chartView: PieChartView) {
-//            chartView.usePercentValuesEnabled = false
-            chartView.drawSlicesUnderHoleEnabled = true
-            chartView.holeRadiusPercent = 0.85
-            chartView.holeColor = primaryColor
-//            chartView.holeRadiusPercent = 0.10
-            chartView.transparentCircleRadiusPercent = 0.41
-//            chartView.chartDescription?.enabled = true
-            
-            chartView.setExtraOffsets(left: 5, top: 5, right: 5, bottom: 5)
-            
-//            chartView.chartDescription?.text = "HOLA"
-            chartView.drawCenterTextEnabled = true
-            
-            let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
-            paragraphStyle.lineBreakMode = .byTruncatingTail
-            paragraphStyle.alignment = .center
-            
-//            let centerText = NSMutableAttributedString(string: "Charts\nby Daniel Cohen Gindi")
-//            centerText.setAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 13)!,
-//                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-//            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
-//                                      .foregroundColor : UIColor.gray], range: NSRange(location: 10, length: centerText.length - 10))
-//            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
-//                                      .foregroundColor : UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)], range: NSRange(location: centerText.length - 19, length: 19))
-//            chartView.centerAttributedText = centerText;
-            
-//            chartView.centerText = "24"
-            
-            
+    func setup(pieChartView chartView: PieChartView) {
+        //            chartView.usePercentValuesEnabled = false
+        chartView.drawSlicesUnderHoleEnabled = true
+        chartView.holeRadiusPercent = 0.85
+        chartView.holeColor = primaryColor
+        //            chartView.holeRadiusPercent = 0.10
+        chartView.transparentCircleRadiusPercent = 0.41
+        //            chartView.chartDescription?.enabled = true
         
-            let scoreNumber = "\(self.calculateTodaysScore())"
-//            let centerText = NSMutableAttributedString(string: "\(scoreNumber)\nscore")
-            let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
-            centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
-                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-//            centerText.addAttributes([.font : setFont(fontSize: 16, fontweight: .regular, fontDesign: .monospaced),
-//                                      .foregroundColor : UIColor.secondaryLabel], range: NSRange(location: scoreNumber.count+1, length: centerText.length - (scoreNumber.count+1)))
-            chartView.centerAttributedText = centerText;
-            
-            
-//            chartView.drawEntryLabelsEnabled = false
-//        chartView.usePercentValuesEnabled = false
-//                      chartView.setNeedsDisplay()
-            
-            chartView.drawHoleEnabled = true
-            chartView.rotationAngle = 0
-            chartView.rotationEnabled = true
-            chartView.highlightPerTapEnabled = true
-            
-//            let l = chartView.legend
-//            l.horizontalAlignment = .right
-//            l.verticalAlignment = .top
-//            l.orientation = .vertical
-//            l.drawInside = false
-//            l.xEntrySpace = 7
-//            l.yEntrySpace = 0
-//            l.yOffset = 0
-            
-    //        chartView.legend = l
-            
-            
-            
-        }
-//    let parties = ["Party A", "Party B", "Party C", "Party D", "Party E", "Party F",
-//                      "Party G", "Party H", "Party I", "Party J", "Party K", "Party L",
-//                      "Party M", "Party N", "Party O", "Party P", "Party Q", "Party R",
-//                      "Party S", "Party T", "Party U", "Party V", "Party W", "Party X",
-//                      "Party Y", "Party Z"]
+        chartView.setExtraOffsets(left: 5, top: 5, right: 5, bottom: 5)
+        
+        //            chartView.chartDescription?.text = "HOLA"
+        chartView.drawCenterTextEnabled = true
+        
+        let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
+        paragraphStyle.lineBreakMode = .byTruncatingTail
+        paragraphStyle.alignment = .center
+        
+        //            let centerText = NSMutableAttributedString(string: "Charts\nby Daniel Cohen Gindi")
+        //            centerText.setAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 13)!,
+        //                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+        //            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
+        //                                      .foregroundColor : UIColor.gray], range: NSRange(location: 10, length: centerText.length - 10))
+        //            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
+        //                                      .foregroundColor : UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)], range: NSRange(location: centerText.length - 19, length: 19))
+        //            chartView.centerAttributedText = centerText;
+        
+        //            chartView.centerText = "24"
+        
+        
+        
+        let scoreNumber = "\(self.calculateTodaysScore())"
+        //            let centerText = NSMutableAttributedString(string: "\(scoreNumber)\nscore")
+        let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
+        centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
+                                  .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+        //            centerText.addAttributes([.font : setFont(fontSize: 16, fontweight: .regular, fontDesign: .monospaced),
+        //                                      .foregroundColor : UIColor.secondaryLabel], range: NSRange(location: scoreNumber.count+1, length: centerText.length - (scoreNumber.count+1)))
+        chartView.centerAttributedText = centerText;
+        
+        
+        //            chartView.drawEntryLabelsEnabled = false
+        //        chartView.usePercentValuesEnabled = false
+        //                      chartView.setNeedsDisplay()
+        
+        chartView.drawHoleEnabled = true
+        chartView.rotationAngle = 0
+        chartView.rotationEnabled = true
+        chartView.highlightPerTapEnabled = true
+        
+        //            let l = chartView.legend
+        //            l.horizontalAlignment = .right
+        //            l.verticalAlignment = .top
+        //            l.orientation = .vertical
+        //            l.drawInside = false
+        //            l.xEntrySpace = 7
+        //            l.yEntrySpace = 0
+        //            l.yOffset = 0
+        
+        //        chartView.legend = l
+        
+        
+        
+    }
+    //    let parties = ["Party A", "Party B", "Party C", "Party D", "Party E", "Party F",
+    //                      "Party G", "Party H", "Party I", "Party J", "Party K", "Party L",
+    //                      "Party M", "Party N", "Party O", "Party P", "Party Q", "Party R",
+    //                      "Party S", "Party T", "Party U", "Party V", "Party W", "Party X",
+    //                      "Party Y", "Party Z"]
     let parties = ["P0", "P1", "P2", "P3"]
     
     //MARK:-GET THIS 1
-        func setDataCount(_ count: Int, range: UInt32) {
-            let entries = (0..<count).map { (i) -> PieChartDataEntry in
-                // IMPORTANT: In a PieChart, no values (Entry) should have the same xIndex (even if from different DataSets), since no values can be drawn above each other.
-                return PieChartDataEntry(value: Double(arc4random_uniform(range) + range / 5),
-                                         label: parties[i % parties.count],
-                                         icon: #imageLiteral(resourceName: "material_done_White"))
-            }
-    
-//            let set = PieChartDataSet(entries: entries, label: "Election Results")
-            let set = PieChartDataSet(entries: entries)
-            set.drawIconsEnabled = false
-            set.drawValuesEnabled = false
-            set.sliceSpace = 2
+    func setDataCount(_ count: Int, range: UInt32) {
+        let entries = (0..<count).map { (i) -> PieChartDataEntry in
+            // IMPORTANT: In a PieChart, no values (Entry) should have the same xIndex (even if from different DataSets), since no values can be drawn above each other.
             
-//            for set2 in set {
-//                                      set2.drawValuesEnabled = !set2.drawValuesEnabled
-//                                  }
-    
-    
-            set.colors = ChartColorTemplates.vordiplom()
-                + ChartColorTemplates.joyful()
-                + ChartColorTemplates.colorful()
-                + ChartColorTemplates.liberty()
-                + ChartColorTemplates.pastel()
-                + [UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)]
-    
-            let data = PieChartData(dataSet: set)
-    
-//            let pFormatter = NumberFormatter()
-//            pFormatter.numberStyle = .none
-//            pFormatter.maximumFractionDigits = 1
-//            pFormatter.multiplier = 1
-//            pFormatter.percentSymbol = " %"
-//            data.setValueFormatter(DefaultValueFormatter(formatter: pFormatter))
-    
-//            data.setValueFont(.systemFont(ofSize: 24, weight: .regular))
-//            data.setValueTextColor(.black)
+            return PieChartDataEntry(value: Double(arc4random_uniform(range) + range / 5),
+                                     label: parties[i % parties.count],
+                                     icon: #imageLiteral(resourceName: "material_done_White"))
             
-           
-    
-            chartView.drawEntryLabelsEnabled = false
-            chartView.data = data
-//            chartView.highlightValues(nil)
+            //                return PieChartDataEntry(value: 25, label: "25_1")
+            //                return PieChartDataEntry(value: 25, label: "25_2")
+            //                return PieChartDataEntry(value: 25, label: "25_3")
+            //                return PieChartDataEntry(value: 25, label: "25_4")
         }
+        
+        //            let set = PieChartDataSet(entries: entries, label: "Election Results")
+        let set = PieChartDataSet(entries: entries)
+        set.drawIconsEnabled = false
+        set.drawValuesEnabled = false
+        set.sliceSpace = 2
+        
+        //            for set2 in set {
+        //                                      set2.drawValuesEnabled = !set2.drawValuesEnabled
+        //                                  }
+        
+        
+        set.colors = ChartColorTemplates.vordiplom()
+            + ChartColorTemplates.joyful()
+            + ChartColorTemplates.colorful()
+            + ChartColorTemplates.liberty()
+            + ChartColorTemplates.pastel()
+            + [UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)]
+        
+        let data = PieChartData(dataSet: set)
+        
+        
+        
+        
+        
+        chartView.drawEntryLabelsEnabled = false
+        chartView.data = data
+        //            chartView.highlightValues(nil)
+    }
     
     //    //MARK:-GET THIS 2 //IMPORT COMMENNTED
     //    override func optionTapped(_ option: Option) {
@@ -1069,7 +1164,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
     }
     
-  
+    
     //----------------------- *************************** -----------------------
     //MARK:-                  TABLEVIEW: HEADER VIEW
     //TODO: build filter here
@@ -1129,8 +1224,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.center.x -= 300
     }
     //----------------------- *************************** -----------------------
-      //MARK:-                ANIMATION: MOVE FOR CAL
-      //----------------------- *************************** -----------------------
+    //MARK:-                ANIMATION: MOVE FOR CAL
+    //----------------------- *************************** -----------------------
     func moveDown_revealCal(view: UIView) {
         isCalDown = true
         view.center.y += 150
@@ -1140,16 +1235,16 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.center.y -= 150
     }
     //----------------------- *************************** -----------------------
-      //MARK:-                ANIMATION: MOVE FOR CHARTS
-      //----------------------- *************************** -----------------------
+    //MARK:-                ANIMATION: MOVE FOR CHARTS
+    //----------------------- *************************** -----------------------
     func moveDown_revealCharts(view: UIView) {
-          isCalDown = true
-          view.center.y += 150
-      }
-      func moveUp_hideCharts(view: UIView) {
-          isCalDown = false
-          view.center.y -= 150
-      }
+        isCalDown = true
+        view.center.y += 150
+    }
+    func moveUp_hideCharts(view: UIView) {
+        isCalDown = false
+        view.center.y -= 150
+    }
     
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: WHOLE TABLE VIEW RELOAD
@@ -1259,7 +1354,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             return false
             
         } else {
-             print("isBackdropDown: YES DOWN -  !")
+            print("isBackdropDown: YES DOWN -  !")
             return true
         }
     }
@@ -1269,89 +1364,92 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //----------------------- *************************** -----------------------
     
     @objc func showChartsHHomeButton_Action() {
-          
-          print("Show CHARTS !!")
-                  let delay: Double = 0.2
-                  let duration: Double = 1.2
+        
+        print("Show CHARTS !!")
+        let delay: Double = 0.2
+        let duration: Double = 1.2
         
         if (!isBackdropDown()) { //if backdrop is up
-//            isBackdropDown()
+            //            isBackdropDown()
             print("Reveal Charts - Cal is hidden")
             
-              self.view.bringSubviewToFront(self.tableView)
-                          self.view.sendSubviewToBack(calendar)
-                          self.view.sendSubviewToBack(backdropBackgroundImageView)
-                          UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                              self.moveDown_revealCharts(view: self.tableView)
-                          }) { (_) in
+            self.view.bringSubviewToFront(self.tableView)
+            self.view.sendSubviewToBack(calendar)
+            self.view.sendSubviewToBack(backdropBackgroundImageView)
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveDown_revealCharts(view: self.tableView)
+            }) { (_) in
+                
+            }
             
-                          }
+            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+                self.moveDown_revealCharts(view: self.backdropForeImageView)
+            }) { (_) in
+                
+            }
             
-                          UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                              self.moveDown_revealCharts(view: self.backdropForeImageView)
-                          }) { (_) in
-            
-                          }
-            
+            self.lineChartView.isHidden = false
             self.view.bringSubviewToFront(self.bottomAppBar)
             
             
         } else {
             print("Charts + CAL")
+            
+            
         }
-          
-
-          
-//          if(isCalDown) { //cal is out; it sldes back up
-//
-//
-//              self.view.bringSubviewToFront(self.tableView)
-//              self.view.sendSubviewToBack(calendar)
-//              self.view.sendSubviewToBack(backdropBackgroundImageView)
-//              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                  self.moveUp_hideCal(view: self.tableView)
-//              }) { (_) in
-//
-//              }
-//
-//              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                  self.moveUp_hideCal(view: self.backdropForeImageView)
-//              }) { (_) in
-//
-//              }
-//
-//              DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
-//
-//                  // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
-//
-//              }
-//
-//              self.view.bringSubviewToFront(self.bottomAppBar)
-//
-//          } else {
-//              self.view.bringSubviewToFront(self.tableView)
-//              self.view.sendSubviewToBack(calendar)
-//              self.view.sendSubviewToBack(backdropBackgroundImageView)
-//
-//              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                  self.moveDown_revealCal(view: self.tableView)
-//              }) { (_) in
-//                  //            self.moveLeft(view: self.black4)
-//              }
-//
-//              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                  self.moveDown_revealCal(view: self.backdropForeImageView)
-//              }) { (_) in
-//                  //            self.moveLeft(view: self.black4)
-//              }
-//
-//              self.view.bringSubviewToFront(self.tableView)
-//              self.view.bringSubviewToFront(self.bottomAppBar)
-//              self.calendar.isHidden = false
-//
-//          }
-          tableView.reloadData()
-      }
+        
+        
+        
+        //          if(isCalDown) { //cal is out; it sldes back up
+        //
+        //
+        //              self.view.bringSubviewToFront(self.tableView)
+        //              self.view.sendSubviewToBack(calendar)
+        //              self.view.sendSubviewToBack(backdropBackgroundImageView)
+        //              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+        //                  self.moveUp_hideCal(view: self.tableView)
+        //              }) { (_) in
+        //
+        //              }
+        //
+        //              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+        //                  self.moveUp_hideCal(view: self.backdropForeImageView)
+        //              }) { (_) in
+        //
+        //              }
+        //
+        //              DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
+        //
+        //                  // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
+        //
+        //              }
+        //
+        //              self.view.bringSubviewToFront(self.bottomAppBar)
+        //
+        //          } else {
+        //              self.view.bringSubviewToFront(self.tableView)
+        //              self.view.sendSubviewToBack(calendar)
+        //              self.view.sendSubviewToBack(backdropBackgroundImageView)
+        //
+        //              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+        //                  self.moveDown_revealCal(view: self.tableView)
+        //              }) { (_) in
+        //                  //            self.moveLeft(view: self.black4)
+        //              }
+        //
+        //              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
+        //                  self.moveDown_revealCal(view: self.backdropForeImageView)
+        //              }) { (_) in
+        //                  //            self.moveLeft(view: self.black4)
+        //              }
+        //
+        //              self.view.bringSubviewToFront(self.tableView)
+        //              self.view.bringSubviewToFront(self.bottomAppBar)
+        //              self.calendar.isHidden = false
+        //
+        //          }
+        tableView.reloadData()
+    }
     
     //----------------------- *************************** -----------------------
     //MARK:-                     ACTION: SHOW CALENDAR
@@ -1507,7 +1605,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         scoreAtHomeLabel.textAlignment = .center
         scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
         
-//        homeTopBar.addSubview(scoreAtHomeLabel)
+        //        homeTopBar.addSubview(scoreAtHomeLabel)
         
         //---- score
         
@@ -1519,7 +1617,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         scoreCounter.textAlignment = .center
         scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
         
-//        homeTopBar.addSubview(scoreCounter)
+        //        homeTopBar.addSubview(scoreCounter)
         
         view.addSubview(backdropBackgroundImageView)
         
@@ -1602,23 +1700,23 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         let scoreNumber = "\(self.calculateTodaysScore())"
         let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
-                   paragraphStyle.lineBreakMode = .byTruncatingTail
-                   paragraphStyle.alignment = .center
+        paragraphStyle.lineBreakMode = .byTruncatingTail
+        paragraphStyle.alignment = .center
         
         //            let centerText = NSMutableAttributedString(string: "\(scoreNumber)\nscore")
-                    let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
+        let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
         if scoreNumber.count == 1 {
             centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
-            .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
         } else if scoreNumber.count == 2 {
             centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
-            .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
         } else {
             centerText.setAttributes([.font : setFont(fontSize: 28, fontweight: .medium, fontDesign: .rounded),
-                       .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
             
         }
-                    
+        
         //            centerText.addAttributes([.font : setFont(fontSize: 16, fontweight: .regular, fontDesign: .monospaced),
         //                                      .foregroundColor : UIColor.secondaryLabel], range: NSRange(location: scoreNumber.count+1, length: centerText.length - (scoreNumber.count+1)))
         self.chartView.centerAttributedText = centerText;
@@ -1628,142 +1726,142 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         animateTableViewReload()
     }
     
-      
-    //----------------------- *************************** -----------------------
-      //MARK:-                      GET GLOBAL TASK
-      //----------------------- *************************** -----------------------
-      /*
-       Pass this a morning or evening or inbox or upcoming task &
-       this will give the index of that task in the global task array
-       using that global task array index the element can then be removed
-       or modded
-       */
-      func getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: NTask) -> Int {
-          var tasks = [NTask]()
-          var idxHolder = 0
-          tasks = TaskManager.sharedInstance.getAllTasks
-          if let idx = tasks.firstIndex(where: { $0 === morningOrEveningTask }) {
-              
-              print("Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
-              print("func IDX is: \(idx)")
-              idxHolder = idx
-              
-          }
-          return idxHolder
-      }
-      
     
     //----------------------- *************************** -----------------------
-       //MARK:-                      TABLE SWIPE ACTIONS
-       //----------------------- *************************** -----------------------
-         
-         func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-             
-             let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-                 
-                 let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
-                 let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
-                 
-                 switch indexPath.section {
-                 case 0:
-                     
-                     //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
-                     
-                     TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].isComplete = true
-                     
-                     TaskManager.sharedInstance.saveContext()
-                     
-                 case 1:
-                     
-                     //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row])].isComplete = true
-                     TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row])].isComplete = true
-                     TaskManager.sharedInstance.saveContext()
-                     
-                 default:
-                     break
-                 }
-                 
-                 //            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
-                 print("SCORE IS: \(self.calculateTodaysScore())")
-                 self.scoreCounter.text = "\(self.calculateTodaysScore())"
-                 
-                 tableView.reloadData()
-                 self.animateTableViewReload()
-                 //            UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
-                 //
-                 //                   })
-                 
-                 // right spring animation
-                 //            tableView.reloadData(
-                 //                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-                 //                              constantDelay: 0))
-                 
-                 self.title = "\(self.calculateTodaysScore())"
-                 actionPerformed(true)
-             }
-             
-             return UISwipeActionsConfiguration(actions: [completeTaskAction])
-         }
-       
-       func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+    //MARK:-                      GET GLOBAL TASK
+    //----------------------- *************************** -----------------------
+    /*
+     Pass this a morning or evening or inbox or upcoming task &
+     this will give the index of that task in the global task array
+     using that global task array index the element can then be removed
+     or modded
+     */
+    func getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: NTask) -> Int {
+        var tasks = [NTask]()
+        var idxHolder = 0
+        tasks = TaskManager.sharedInstance.getAllTasks
+        if let idx = tasks.firstIndex(where: { $0 === morningOrEveningTask }) {
+            
+            print("Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
+            print("func IDX is: \(idx)")
+            idxHolder = idx
+            
+        }
+        return idxHolder
+    }
+    
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                      TABLE SWIPE ACTIONS
+    //----------------------- *************************** -----------------------
+    
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        
+        let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+            
+            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+            let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
+            
+            switch indexPath.section {
+            case 0:
                 
-                let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+                //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
+                
+                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].isComplete = true
+                
+                TaskManager.sharedInstance.saveContext()
+                
+            case 1:
+                
+                //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row])].isComplete = true
+                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row])].isComplete = true
+                TaskManager.sharedInstance.saveContext()
+                
+            default:
+                break
+            }
+            
+            //            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
+            print("SCORE IS: \(self.calculateTodaysScore())")
+            self.scoreCounter.text = "\(self.calculateTodaysScore())"
+            
+            tableView.reloadData()
+            self.animateTableViewReload()
+            //            UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
+            //
+            //                   })
+            
+            // right spring animation
+            //            tableView.reloadData(
+            //                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+            //                              constantDelay: 0))
+            
+            self.title = "\(self.calculateTodaysScore())"
+            actionPerformed(true)
+        }
+        
+        return UISwipeActionsConfiguration(actions: [completeTaskAction])
+    }
+    
+    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        
+        let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+            
+            let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
+            
+            let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
+            {
+                (UIAlertAction) in
+                
+                let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+                let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
+                
+                switch indexPath.section {
+                case 0:
                     
-                    let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
+                    //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row]))
+                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row]))
+                case 1:
+                    //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row]))
                     
-                    let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
-                    {
-                        (UIAlertAction) in
-                        
-                        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
-                        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
-                        
-                        switch indexPath.section {
-                        case 0:
-                            
-                            //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row]))
-                            TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row]))
-                        case 1:
-                            //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row]))
-                            
-                            TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row]))
-                        default:
-                            break
-                        }
-                        
-                        //                tableView.reloadData()
-                        //                tableView.reloadData(
-                        //                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
-                        //                                  constantDelay: 0))
-                        
-                        tableView.reloadData()
-                        self.animateTableViewReload()
-                        //                UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
-                        //
-                        //                       })
-                        
-                        
-                    }
-                    let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
-                    { (UIAlertAction) in
-                        
-                        print("That was a close one. No deletion.")
-                    }
-                    
-                    //add actions to alert controller
-                    confirmDelete.addAction(yesDeleteAction)
-                    confirmDelete.addAction(noDeleteAction)
-                    
-                    //show it
-                    self.present(confirmDelete ,animated: true, completion: nil)
-                    
-                    self.title = "\(self.calculateTodaysScore())"
-                    actionPerformed(true)
+                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row]))
+                default:
+                    break
                 }
                 
+                //                tableView.reloadData()
+                //                tableView.reloadData(
+                //                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
+                //                                  constantDelay: 0))
                 
-                return UISwipeActionsConfiguration(actions: [deleteTaskAction])
+                tableView.reloadData()
+                self.animateTableViewReload()
+                //                UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
+                //
+                //                       })
+                
+                
             }
+            let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
+            { (UIAlertAction) in
+                
+                print("That was a close one. No deletion.")
+            }
+            
+            //add actions to alert controller
+            confirmDelete.addAction(yesDeleteAction)
+            confirmDelete.addAction(noDeleteAction)
+            
+            //show it
+            self.present(confirmDelete ,animated: true, completion: nil)
+            
+            self.title = "\(self.calculateTodaysScore())"
+            actionPerformed(true)
+        }
+        
+        
+        return UISwipeActionsConfiguration(actions: [deleteTaskAction])
+    }
     
 }
 
@@ -1826,10 +1924,10 @@ extension ViewController: CircleMenuDelegate {
         print("button did selected: \(atIndex)")
     }
     
-   
-
-     
-      
+    
+    
+    
+    
 }
 
 //----------------------- *************************** -----------------------
