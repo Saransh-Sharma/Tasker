@@ -21,7 +21,7 @@ import MaterialComponents.MaterialBottomAppBar
 import MaterialComponents.MaterialButtons_Theming
 
 
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, ChartViewDelegate {
+class ViewController: UIViewController, ChartViewDelegate {
     
     
     //MARK:- Tableview animation style
@@ -440,9 +440,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         
-        self.setup(pieChartView: tinyPieChartView)
+        self.setupPieChartView(pieChartView: tinyPieChartView)
         
-        updateChartData()
+        updateTinyPieChartData()
         
         tinyPieChartView.delegate = self
         
@@ -510,174 +510,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     //---------- SETUP: CHART
+    let tinyPieChartSections = [""]
     
-    func updateChartData() {
-        if self.shouldHideData {
-            tinyPieChartView.data = nil
-            return
-        }
-        print("--------------------------")
-        print("X: \(10)")//print("X: \(Int(sliderX.value))")
-        print("Y: \(40)")//print("Y: \(UInt32(sliderY.value))")
-        print("--------------------------")
-        
-        //            self.setDataCount(Int(sliderX.value), range: UInt32(sliderY.value))
-        self.setDataCount(4, range: 40)
-    }
     
-    //setup chart
-    func setup(pieChartView chartView: PieChartView) {
-        //            chartView.usePercentValuesEnabled = false
-        chartView.drawSlicesUnderHoleEnabled = true
-        chartView.holeRadiusPercent = 0.85
-        chartView.holeColor = primaryColor
-        //            chartView.holeRadiusPercent = 0.10
-        chartView.transparentCircleRadiusPercent = 0.41
-        //            chartView.chartDescription?.enabled = true
-        
-        chartView.setExtraOffsets(left: 5, top: 5, right: 5, bottom: 5)
-        
-        //            chartView.chartDescription?.text = "HOLA"
-        chartView.drawCenterTextEnabled = true
-        
-        let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
-        paragraphStyle.lineBreakMode = .byTruncatingTail
-        paragraphStyle.alignment = .center
-        
-        //            let centerText = NSMutableAttributedString(string: "Charts\nby Daniel Cohen Gindi")
-        //            centerText.setAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 13)!,
-        //                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-        //            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
-        //                                      .foregroundColor : UIColor.gray], range: NSRange(location: 10, length: centerText.length - 10))
-        //            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
-        //                                      .foregroundColor : UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)], range: NSRange(location: centerText.length - 19, length: 19))
-        //            chartView.centerAttributedText = centerText;
-        
-        //            chartView.centerText = "24"
-        
-        
-        
-        let scoreNumber = "\(self.calculateTodaysScore())"
-        let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
-        centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
-                                  .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-        chartView.centerAttributedText = centerText;
-        
-        
-        //            chartView.drawEntryLabelsEnabled = false
-        //        chartView.usePercentValuesEnabled = false
-        //                      chartView.setNeedsDisplay()
-        
-        chartView.drawHoleEnabled = true
-        chartView.rotationAngle = 0
-        chartView.rotationEnabled = true
-        chartView.highlightPerTapEnabled = true
-        chartView.legend.form = .none
-        
-        
-        
-    }
-    //    let parties = ["Party A", "Party B", "Party C", "Party D", "Party E", "Party F",
-    //                      "Party G", "Party H", "Party I", "Party J", "Party K", "Party L",
-    //                      "Party M", "Party N", "Party O", "Party P", "Party Q", "Party R",
-    //                      "Party S", "Party T", "Party U", "Party V", "Party W", "Party X",
-    //                      "Party Y", "Party Z"]
-    //    let parties = ["P0", "P1", "P2", "P3"]
-    let parties = [""]
-    
-    //MARK:-GET THIS 1
-    func setDataCount(_ count: Int, range: UInt32) {
-        let entries = (0..<count).map { (i) -> PieChartDataEntry in
-            // IMPORTANT: In a PieChart, no values (Entry) should have the same xIndex (even if from different DataSets), since no values can be drawn above each other.
-            
-            return PieChartDataEntry(value: Double(arc4random_uniform(range) + range / 5),
-                                     label: parties[i % parties.count],
-                                     icon: #imageLiteral(resourceName: "material_done_White"))
-            
-            //                return PieChartDataEntry(value: 25, label: "25_1")
-            //                return PieChartDataEntry(value: 25, label: "25_2")
-            //                return PieChartDataEntry(value: 25, label: "25_3")
-            //                return PieChartDataEntry(value: 25, label: "25_4")
-        }
-        
-        //            let set = PieChartDataSet(entries: entries, label: "Election Results")
-        let set = PieChartDataSet(entries: entries, label: "")
-        set.drawIconsEnabled = false
-        set.drawValuesEnabled = false
-        
-        set.sliceSpace = 2
-        
-        //        let set01 = LineChartDataSet(entries: generateLineChartData(), label: "Score for the day")
-        
-        //            for set2 in set {
-        //                                      set2.drawValuesEnabled = !set2.drawValuesEnabled
-        //                                  }
-        
-        
-        set.colors = ChartColorTemplates.vordiplom()
-            + ChartColorTemplates.joyful()
-            + ChartColorTemplates.colorful()
-            + ChartColorTemplates.liberty()
-            + ChartColorTemplates.pastel()
-            + [UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)]
-        
-        let data = PieChartData(dataSet: set)
-        
-        
-        
-        
-        
-        tinyPieChartView.drawEntryLabelsEnabled = false
-        tinyPieChartView.data = data
-        //            chartView.highlightValues(nil)
-    }
-    
-    //    //MARK:-GET THIS 2 //IMPORT COMMENNTED
-    //    override func optionTapped(_ option: Option) {
-    //        switch option {
-    //        case .toggleXValues:
-    //            chartView.drawEntryLabelsEnabled = !chartView.drawEntryLabelsEnabled
-    //            chartView.setNeedsDisplay()
-    //
-    //        case .togglePercent:
-    //            chartView.usePercentValuesEnabled = !chartView.usePercentValuesEnabled
-    //            chartView.setNeedsDisplay()
-    //
-    //        case .toggleHole:
-    //            chartView.drawHoleEnabled = !chartView.drawHoleEnabled
-    //            chartView.setNeedsDisplay()
-    //
-    //        case .drawCenter:
-    //            chartView.drawCenterTextEnabled = !chartView.drawCenterTextEnabled
-    //            chartView.setNeedsDisplay()
-    //
-    //        case .animateX:
-    //            chartView.animate(xAxisDuration: 1.4)
-    //
-    //        case .animateY:
-    //            chartView.animate(yAxisDuration: 1.4)
-    //
-    //        case .animateXY:
-    //            chartView.animate(xAxisDuration: 1.4, yAxisDuration: 1.4)
-    //
-    //        case .spin:
-    //            chartView.spin(duration: 2,
-    //                           fromAngle: chartView.rotationAngle,
-    //                           toAngle: chartView.rotationAngle + 360,
-    //                           easingOption: .easeInCubic)
-    //
-    //        default:
-    //            handleOption(option, forChartView: chartView)
-    //        }
-    //    }
-    //
-    //    // MARK: - Actions //MARK:-GET THIS 3 //import commennted
-    //    @IBAction func slidersValueChanged(_ sender: Any?) {
-    //        sliderTextX.text = "\(Int(sliderX.value))"
-    //        sliderTextY.text = "\(Int(sliderY.value))"
-    //
-    //        self.updateChartData()
-    //    }
+
     
     //-----------
     //---------- SETUP: CHART DONE
@@ -950,278 +786,281 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //
     //----------------------- *************************** -----------------------
     
-    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        let headerView = UIView()
-        
-        if section == 0 {
-            let myLabel = UILabel()
-            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
-            
-            //line.horizontal.3.decrease.circle
-            let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
-            let filterIconImage = UIImage(systemName: "line.horizontal.3.decrease.circle", withConfiguration: filterIconConfiguration)
-            let colouredCalPullDownImage = filterIconImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
-            //
-            //            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
-            let filterMenuHomeButton = UIButton()
-            //            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
-            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
-            filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
-            
-            headerView.addSubview(filterMenuHomeButton)
-            
-            
-            
-            
-            //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
-            myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
-            myLabel.textAlignment = .right
-            myLabel.adjustsFontSizeToFitWidth = true
-            myLabel.textColor = .label
-            myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
-            
-            //                   let headerView = UIView()
-            headerView.addSubview(myLabel)
-            
-            return headerView
-        } else if section == 1 {
-            
-            let myLabel2 = UILabel()
-            myLabel2.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/3, height: 30)
-            //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
-            myLabel2.font = setFont(fontSize: 20, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
-            myLabel2.textAlignment = .left
-            myLabel2.adjustsFontSizeToFitWidth = true
-            myLabel2.textColor = .secondaryLabel
-            myLabel2.text = self.tableView(tableView, titleForHeaderInSection: section)
-            
-            headerView.addSubview(myLabel2)
-            
-            
-        }
-        
-        
-        //        let myLabel = UILabel()
-        //        myLabel.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/3, height: 30)
-        //        //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
-        //        myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .serif)//UIFont(name: "HelveticaNeue-Bold", size: 20)
-        //        myLabel.textAlignment = .right
-        //        myLabel.adjustsFontSizeToFitWidth = true
-        //        myLabel.textColor = .secondaryLabel
-        //        myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
-        //
-        //        let headerView = UIView()
-        //        headerView.addSubview(myLabel)
-        //
-        //        return headerView
-        
-        return headerView
-    }
-    
-    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        switch section {
-        case 0:
-            let now = Date.today
-            if (dateForTheView == now()) {
-                return "Today's Tasks"
-            } else {
-                return "NOT TODAY"
-            }
-            
-        //            return "Today's Tasks"
-        case 1:
-            return "Evening"
-        default:
-            return nil
-        }
-    }
-    
-    
-    
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        
-        switch section {
-        case 0:
-            //            print("Items in morning: \(TaskManager.sharedInstance.getMorningTasks.count)")
-            //            return TaskManager.sharedInstance.getMorningTasks.count
-            
-//            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
-            let morningTasks: [NTask]
-                       if(dateForTheView == Date.today()) {
-                            morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-                       } else { //get morning tasks without rollover
-                            morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-                       }
-            
-            return morningTasks.count
-        case 1:
-            //            print("Items in evening: \(TaskManager.sharedInstance.getEveningTasks.count)")
-            //            return TaskManager.sharedInstance.getEveningTasks.count
-            let eveTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-            return eveTasks.count
-        default:
-            return 0;
-        }
-    }
-    
-    // MARK:- CELL AT ROW
-    
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        
-        
-        
-        //        chec
-        
-        
-        var currentTask: NTask!
-        let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
-        let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
-        
-        //        print("NTASK count is: \(TaskManager.sharedInstance.count)")
-        //        print("morning section index is: \(indexPath.row)")
-        
-        switch indexPath.section {
-        case 0:
-            print("morning section index is: \(indexPath.row)")
-            
-            //            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: Date.today())
-            //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
-            
-//            getMorningTasksForToday
-            let morningTasks: [NTask]
-            if(dateForTheView == Date.today()) {
-                 morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-            } else { //get morning tasks without rollover
-                 morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-            }
-            
-            currentTask = morningTasks[indexPath.row]
-            
-        case 1:
-            print("evening section index is: \(indexPath.row)")
-            
-            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
-            
-            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
-            
-            let evenningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-            currentTask = evenningTasks[indexPath.row]
-            
-        default:
-            break
-        }
-        
-        
-        completedTaskCell.textLabel!.text = "\t\(currentTask.name)"
-        completedTaskCell.backgroundColor = UIColor.clear
-        
-        //        openTaskCell.textLabel!.text = currentTask.name
-        openTaskCell.textLabel!.text = "\t\(currentTask.name)"
-        openTaskCell.backgroundColor = UIColor.clear
-        
-        if currentTask.isComplete {
-            completedTaskCell.textLabel?.textColor = .tertiaryLabel
-            //            completedTaskCell.accessoryType = .checkmark
-            
-            let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
-            checkBox.lineWidth = 1.0
-            checkBox.animationDuration = 0.45
-            checkBox.setOn(true, animated: false)
-            checkBox.boxType = .square
-            checkBox.onAnimationType = .oneStroke
-            checkBox.offAnimationType = .oneStroke
-            
-            
-            
-            completedTaskCell.addSubview(checkBox)
-            
-            //          let priorityLineView = UIView(frame: CGRect(x: completedTaskCell.bounds.minX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
-            //            priorityLineView.clipsToBounds = true
-            
-            //            let priorityLineView_Right = UIView(frame: CGRect(x: completedTaskCell.bounds.maxX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
-            //            priorityLineView_Right.clipsToBounds = true
-            
-            //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
-            if (currentTask.taskPriority == 1) { //p0
-                
-                //                          priorityLineView.backgroundColor = .systemRed
-                //                        priorityLineView_Right.backgroundColor = .systemRed
-                
-            } else if (currentTask.taskPriority == 2) {
-                
-                //                          priorityLineView.backgroundColor = .systemOrange
-                //                        priorityLineView_Right.backgroundColor = .systemOrange
-                
-            } else if (currentTask.taskPriority == 3) {
-                
-                //                          priorityLineView.backgroundColor = .systemYellow
-                //                        priorityLineView_Right.backgroundColor = .systemYellow
-                
-            } else {
-                //                          priorityLineView.backgroundColor = .systemGray3
-                //                        priorityLineView_Right.backgroundColor = .systemGray3
-            }
-            //            completedTaskCell.addSubview(priorityLineView)
-            //            completedTaskCell.addSubview(priorityLineView_Right)
-            
-            return completedTaskCell
-            
-        } else {
-            
-            
-            
-            openTaskCell.textLabel?.textColor = .label
-            //            openTaskCell.accessoryType = .detailButton
-            openTaskCell.accessoryType = .disclosureIndicator
-            
-            
-            
-            let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
-            checkBox.lineWidth = 1.0
-            checkBox.animationDuration = 0.45
-            checkBox.setOn(false, animated: false)
-            checkBox.boxType = .square
-            checkBox.onAnimationType = .oneStroke
-            checkBox.offAnimationType = .oneStroke
-            
-            openTaskCell.addSubview(checkBox)
-            
-            
-            
-            
-            let priorityLineView_Right = UIView() //UIView(frame: CGPoint(x: openTaskCell.bounds.maxX, y: openTaskCell.bounds.midY))//(frame: CGRect(x: openTaskCell.bounds.maxX, y: openTaskCell.bounds.minY, width: 5.0, height: openTaskCell.bounds.height))
-            
-            
-            priorityLineView_Right.clipsToBounds = true
-            
-            //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
-            if (currentTask.taskPriority == 1) { //p0
-                
-                
-                //                priorityLineView_Right.backgroundColor = .systemRed
-                
-            } else if (currentTask.taskPriority == 2) {
-                
-                
-                //                priorityLineView_Right.backgroundColor = .systemOrange
-                
-            } else if (currentTask.taskPriority == 3) {
-                
-                
-                //                priorityLineView_Right.backgroundColor = .systemYellow
-                
-            } else {
-                
-                //                priorityLineView_Right.backgroundColor = .systemGray3
-            }
-            
-            
-            //            openTaskCell.addSubview(priorityLineView_Right)
-            
-            return openTaskCell
-        }
-    }
-    
+//        //mark:- move this ---------
+//
+//    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+//        let headerView = UIView()
+//
+//        if section == 0 {
+//            let myLabel = UILabel()
+//            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
+//
+//            //line.horizontal.3.decrease.circle
+//            let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
+//            let filterIconImage = UIImage(systemName: "line.horizontal.3.decrease.circle", withConfiguration: filterIconConfiguration)
+//            let colouredCalPullDownImage = filterIconImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
+//            //
+//            //            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
+//            let filterMenuHomeButton = UIButton()
+//            //            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
+//            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
+//            filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
+//
+//            headerView.addSubview(filterMenuHomeButton)
+//
+//
+//
+//
+//            //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+//            myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+//            myLabel.textAlignment = .right
+//            myLabel.adjustsFontSizeToFitWidth = true
+//            myLabel.textColor = .label
+//            myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
+//
+//            //                   let headerView = UIView()
+//            headerView.addSubview(myLabel)
+//
+//            return headerView
+//        } else if section == 1 {
+//
+//            let myLabel2 = UILabel()
+//            myLabel2.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/3, height: 30)
+//            //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+//            myLabel2.font = setFont(fontSize: 20, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+//            myLabel2.textAlignment = .left
+//            myLabel2.adjustsFontSizeToFitWidth = true
+//            myLabel2.textColor = .secondaryLabel
+//            myLabel2.text = self.tableView(tableView, titleForHeaderInSection: section)
+//
+//            headerView.addSubview(myLabel2)
+//
+//
+//        }
+//
+//
+//        //        let myLabel = UILabel()
+//        //        myLabel.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/3, height: 30)
+//        //        //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+//        //        myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .serif)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+//        //        myLabel.textAlignment = .right
+//        //        myLabel.adjustsFontSizeToFitWidth = true
+//        //        myLabel.textColor = .secondaryLabel
+//        //        myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
+//        //
+//        //        let headerView = UIView()
+//        //        headerView.addSubview(myLabel)
+//        //
+//        //        return headerView
+//
+//        return headerView
+//    }
+//
+//    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+//        switch section {
+//        case 0:
+//            let now = Date.today
+//            if (dateForTheView == now()) {
+//                return "Today's Tasks"
+//            } else {
+//                return "NOT TODAY"
+//            }
+//
+//        //            return "Today's Tasks"
+//        case 1:
+//            return "Evening"
+//        default:
+//            return nil
+//        }
+//    }
+//
+//
+//
+//    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+//
+//        switch section {
+//        case 0:
+//            //            print("Items in morning: \(TaskManager.sharedInstance.getMorningTasks.count)")
+//            //            return TaskManager.sharedInstance.getMorningTasks.count
+//
+////            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+//            let morningTasks: [NTask]
+//                       if(dateForTheView == Date.today()) {
+//                            morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+//                       } else { //get morning tasks without rollover
+//                            morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+//                       }
+//
+//            return morningTasks.count
+//        case 1:
+//            //            print("Items in evening: \(TaskManager.sharedInstance.getEveningTasks.count)")
+//            //            return TaskManager.sharedInstance.getEveningTasks.count
+//            let eveTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+//            return eveTasks.count
+//        default:
+//            return 0;
+//        }
+//    }
+//
+//    // MARK:- CELL AT ROW
+//
+//    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+//
+//
+//
+//        //        chec
+//
+//
+//        var currentTask: NTask!
+//        let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
+//        let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
+//
+//        //        print("NTASK count is: \(TaskManager.sharedInstance.count)")
+//        //        print("morning section index is: \(indexPath.row)")
+//
+//        switch indexPath.section {
+//        case 0:
+//            print("morning section index is: \(indexPath.row)")
+//
+//            //            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: Date.today())
+//            //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
+//
+////            getMorningTasksForToday
+//            let morningTasks: [NTask]
+//            if(dateForTheView == Date.today()) {
+//                 morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+//            } else { //get morning tasks without rollover
+//                 morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+//            }
+//
+//            currentTask = morningTasks[indexPath.row]
+//
+//        case 1:
+//            print("evening section index is: \(indexPath.row)")
+//
+//            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+//
+//            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+//
+//            let evenningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+//            currentTask = evenningTasks[indexPath.row]
+//
+//        default:
+//            break
+//        }
+//
+//
+//        completedTaskCell.textLabel!.text = "\t\(currentTask.name)"
+//        completedTaskCell.backgroundColor = UIColor.clear
+//
+//        //        openTaskCell.textLabel!.text = currentTask.name
+//        openTaskCell.textLabel!.text = "\t\(currentTask.name)"
+//        openTaskCell.backgroundColor = UIColor.clear
+//
+//        if currentTask.isComplete {
+//            completedTaskCell.textLabel?.textColor = .tertiaryLabel
+//            //            completedTaskCell.accessoryType = .checkmark
+//
+//            let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
+//            checkBox.lineWidth = 1.0
+//            checkBox.animationDuration = 0.45
+//            checkBox.setOn(true, animated: false)
+//            checkBox.boxType = .square
+//            checkBox.onAnimationType = .oneStroke
+//            checkBox.offAnimationType = .oneStroke
+//
+//
+//
+//            completedTaskCell.addSubview(checkBox)
+//
+//            //          let priorityLineView = UIView(frame: CGRect(x: completedTaskCell.bounds.minX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
+//            //            priorityLineView.clipsToBounds = true
+//
+//            //            let priorityLineView_Right = UIView(frame: CGRect(x: completedTaskCell.bounds.maxX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
+//            //            priorityLineView_Right.clipsToBounds = true
+//
+//            //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
+//            if (currentTask.taskPriority == 1) { //p0
+//
+//                //                          priorityLineView.backgroundColor = .systemRed
+//                //                        priorityLineView_Right.backgroundColor = .systemRed
+//
+//            } else if (currentTask.taskPriority == 2) {
+//
+//                //                          priorityLineView.backgroundColor = .systemOrange
+//                //                        priorityLineView_Right.backgroundColor = .systemOrange
+//
+//            } else if (currentTask.taskPriority == 3) {
+//
+//                //                          priorityLineView.backgroundColor = .systemYellow
+//                //                        priorityLineView_Right.backgroundColor = .systemYellow
+//
+//            } else {
+//                //                          priorityLineView.backgroundColor = .systemGray3
+//                //                        priorityLineView_Right.backgroundColor = .systemGray3
+//            }
+//            //            completedTaskCell.addSubview(priorityLineView)
+//            //            completedTaskCell.addSubview(priorityLineView_Right)
+//
+//            return completedTaskCell
+//
+//        } else {
+//
+//
+//
+//            openTaskCell.textLabel?.textColor = .label
+//            //            openTaskCell.accessoryType = .detailButton
+//            openTaskCell.accessoryType = .disclosureIndicator
+//
+//
+//
+//            let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
+//            checkBox.lineWidth = 1.0
+//            checkBox.animationDuration = 0.45
+//            checkBox.setOn(false, animated: false)
+//            checkBox.boxType = .square
+//            checkBox.onAnimationType = .oneStroke
+//            checkBox.offAnimationType = .oneStroke
+//
+//            openTaskCell.addSubview(checkBox)
+//
+//
+//
+//
+//            let priorityLineView_Right = UIView() //UIView(frame: CGPoint(x: openTaskCell.bounds.maxX, y: openTaskCell.bounds.midY))//(frame: CGRect(x: openTaskCell.bounds.maxX, y: openTaskCell.bounds.minY, width: 5.0, height: openTaskCell.bounds.height))
+//
+//
+//            priorityLineView_Right.clipsToBounds = true
+//
+//            //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
+//            if (currentTask.taskPriority == 1) { //p0
+//
+//
+//                //                priorityLineView_Right.backgroundColor = .systemRed
+//
+//            } else if (currentTask.taskPriority == 2) {
+//
+//
+//                //                priorityLineView_Right.backgroundColor = .systemOrange
+//
+//            } else if (currentTask.taskPriority == 3) {
+//
+//
+//                //                priorityLineView_Right.backgroundColor = .systemYellow
+//
+//            } else {
+//
+//                //                priorityLineView_Right.backgroundColor = .systemGray3
+//            }
+//
+//
+//            //            openTaskCell.addSubview(priorityLineView_Right)
+//
+//            return openTaskCell
+//        }
+//    }
+//
+//    //mark:- move this END ---------
     
     //----------------------- *************************** -----------------------
     //MARK:-                  TABLEVIEW: HEADER VIEW
@@ -1980,48 +1819,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     
     
     
-    
-    //----------------------- *************************** -----------------------
-    //MARK:-                            CALENDAR
-    //----------------------- *************************** -----------------------
-    
-    //MARK: Cal changes VIEW + SCORE on date change
-    func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
-        print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
-        dateToDisplay = date
-        dateForTheView = date
-        
-        updateHomeDate(date: dateToDisplay)
-        //        (self.calculateTodaysScore()
-        self.scoreCounter.text = "\(self.calculateTodaysScore())"
-        
-        let scoreNumber = "\(self.calculateTodaysScore())"
-        let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
-        paragraphStyle.lineBreakMode = .byTruncatingTail
-        paragraphStyle.alignment = .center
-        
-        //            let centerText = NSMutableAttributedString(string: "\(scoreNumber)\nscore")
-        let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
-        if scoreNumber.count == 1 {
-            centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
-                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-        } else if scoreNumber.count == 2 {
-            centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
-                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-        } else {
-            centerText.setAttributes([.font : setFont(fontSize: 28, fontweight: .medium, fontDesign: .rounded),
-                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-            
-        }
-        
-        //            centerText.addAttributes([.font : setFont(fontSize: 16, fontweight: .regular, fontDesign: .monospaced),
-        //                                      .foregroundColor : UIColor.secondaryLabel], range: NSRange(location: scoreNumber.count+1, length: centerText.length - (scoreNumber.count+1)))
-        self.tinyPieChartView.centerAttributedText = centerText;
-        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-        
-        tableView.reloadData()
-        animateTableViewReload()
-    }
+
     
     
     //----------------------- *************************** -----------------------
@@ -2180,29 +1978,29 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 //----------------------- *************************** -----------------------
 
 //MARK:- CAL Extention: task count as day subtext
-extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
-    
-    func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
-        
-//        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: date)
-        let morningTasks: [NTask]
-//                   if(dateForTheView == Date.today()) {
-//                        morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-//                   } else { //get morning tasks without rollover
-//                        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-//                   }
-         
-        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
-        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
-        let allTasks = morningTasks+eveningTasks
-        
-        if(allTasks.count == 0) {
-            return "-"
-        } else {
-            return "\(allTasks.count) tasks"
-        }
-    }
-}
+//extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
+//
+//    func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
+//        
+////        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: date)
+//        let morningTasks: [NTask]
+////                   if(dateForTheView == Date.today()) {
+////                        morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+////                   } else { //get morning tasks without rollover
+////                        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+////                   }
+//
+//        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
+//        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
+//        let allTasks = morningTasks+eveningTasks
+//
+//        if(allTasks.count == 0) {
+//            return "-"
+//        } else {
+//            return "\(allTasks.count) tasks"
+//        }
+//    }
+//}
 
 //----------------------- *************************** -----------------------
 //MARK:-                      CIRCLE MENU DELEGATE
