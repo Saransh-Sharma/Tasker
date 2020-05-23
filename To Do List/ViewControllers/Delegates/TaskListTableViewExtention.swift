@@ -304,6 +304,10 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
                     TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].isComplete = true
                     TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].dateCompleted = Date.today() as NSDate
                     
+                    self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+                    self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+                    
+                    
                     TaskManager.sharedInstance.saveContext()
                     
                 case 1:

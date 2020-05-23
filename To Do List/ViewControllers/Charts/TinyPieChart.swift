@@ -35,6 +35,7 @@ extension ViewController {
         
 
         chartView.centerAttributedText = setTinyPieChartScoreText(pieChartView: chartView);
+//        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
         
         
 
