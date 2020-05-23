@@ -148,8 +148,11 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
                 } else { //get morning tasks without rollover; these are tasks when view is not today
                      morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
                 }
+//                currentTask = morningTasks[indexPath.row]
                 
-                currentTask = morningTasks[indexPath.row]
+                let sortedMorningTask = morningTasks.sorted(by: { !$0.isComplete && $1.isComplete })
+                currentTask = sortedMorningTask[indexPath.row]
+                
                 
             case 1:
                 print("evening section index is: \(indexPath.row)")
@@ -159,7 +162,10 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
                 //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
                 
                 let evenningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-                currentTask = evenningTasks[indexPath.row]
+//                currentTask = evenningTasks[indexPath.row]
+                
+                let sortedEveningTask = evenningTasks.sorted(by: { !$0.isComplete && $1.isComplete })
+                            currentTask = sortedEveningTask[indexPath.row]
                 
             default:
                 break
