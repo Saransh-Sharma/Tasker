@@ -85,7 +85,7 @@ class TaskManager {
         }
     }
     
-    func getMorningTaskByDate(date: Date) -> [NTask] {
+    func getMorningTasksForDate(date: Date) -> [NTask] {
            
         print("-----------------------")
                  
@@ -137,6 +137,71 @@ class TaskManager {
               print("Evenning Task Size = \(eveningTasks.count)")
                  return eveningTasks
     }
+    
+    //usee this at home view t get todays tasks  with all unfished
+      func getMorningTasksForToday() -> [NTask] {
+               
+            print("-----------------------")
+                     
+            print("Fetching MORNINNG tasks")
+            
+                    var morningTasks = [NTask]()
+                    fetchTasks()
+            
+            print("getMorningTaskByDate: task count is: \(tasks.count)")
+        let today = Date.today()
+                    for each in tasks {
+                        // taskType 1 is morning
+                        //task.dateAdded = Date.today() as NSDate
+                        if each.taskType == 1 && each.dueDate == today as NSDate { //get finnisshed & unfinished tasks today
+                            morningTasks.append(each)
+                            
+                        } else if (each.taskType == 1 && each.isComplete == false) { //get older unfinished tasks
+                            morningTasks.append(each)
+                        }
+                            else {
+    //                        print("task date: \(each.dueDate)")
+    //                        print("passed date: \(date)")
+                        }
+                    }
+            for each in morningTasks {
+                print("Fetched: "+each.name)
+            }
+            print("Morning Task Size = \(morningTasks.count)")
+                     return morningTasks
+        }
+    
+     func getEveningTasksForToday() -> [NTask] {
+               
+            print("-----------------------")
+                     
+            print("Fetching EVENING tasks")
+            
+                    var eveningTasks = [NTask]()
+                    fetchTasks()
+            
+            print("getMorningTaskByDate: task count is: \(tasks.count)")
+        let today = Date.today()
+                    for each in tasks {
+                        // taskType 1 is morning
+                        //task.dateAdded = Date.today() as NSDate
+                        if each.taskType == 2 && each.dueDate == today as NSDate { //get finnisshed & unfinished tasks today
+                            eveningTasks.append(each)
+                            
+                        } else if (each.taskType == 2 && each.isComplete == false) { //get older unfinished tasks
+                            eveningTasks.append(each)
+                        }
+                            else {
+    //                        print("task date: \(each.dueDate)")
+    //                        print("passed date: \(date)")
+                        }
+                    }
+            for each in eveningTasks {
+                print("Fetched: "+each.name)
+            }
+            print("eveningTasks  Size = \(eveningTasks.count)")
+                     return eveningTasks
+        }
     
     func addNewTask(name: String, taskType: Int, taskPriority: Int) {
         

@@ -816,7 +816,16 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         switch indexPath.section {
         case 0:
             //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
-            let Tasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+//            let Tasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+            
+            let Tasks: [NTask]
+                       if(dateForTheView == Date.today()) {
+                            Tasks = TaskManager.sharedInstance.getMorningTasksForToday()
+                       } else { //get morning tasks without rollover
+                            Tasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+                       }
+            
+            
             currentTask = Tasks[indexPath.row]
         case 1:
             //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
@@ -886,7 +895,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
         var score = 0
         
-        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
         let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
         
         for each in morningTasks {
@@ -1035,7 +1044,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         case 0:
             //            print("Items in morning: \(TaskManager.sharedInstance.getMorningTasks.count)")
             //            return TaskManager.sharedInstance.getMorningTasks.count
-            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+            
+//            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+            let morningTasks: [NTask]
+                       if(dateForTheView == Date.today()) {
+                            morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+                       } else { //get morning tasks without rollover
+                            morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+                       }
+            
             return morningTasks.count
         case 1:
             //            print("Items in evening: \(TaskManager.sharedInstance.getEveningTasks.count)")
@@ -1070,8 +1087,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             //            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: Date.today())
             //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
             
+//            getMorningTasksForToday
+            let morningTasks: [NTask]
+            if(dateForTheView == Date.today()) {
+                 morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+            } else { //get morning tasks without rollover
+                 morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+            }
             
-            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
             currentTask = morningTasks[indexPath.row]
             
         case 1:
@@ -2033,7 +2056,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
-            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+//            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+            let morningTasks: [NTask]
+            if(self.dateForTheView == Date.today()) {
+                            morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+                       } else { //get morning tasks without rollover
+                morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: self.dateForTheView)
+                       }
+            
             let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
             
             switch indexPath.section {
@@ -2087,7 +2117,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             {
                 (UIAlertAction) in
                 
-                let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+//                let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+                let morningTasks: [NTask]
+                if(self.dateForTheView == Date.today()) {
+                                morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+                           } else { //get morning tasks without rollover
+                    morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: self.dateForTheView)
+                           }
                 let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
                 
                 switch indexPath.section {
@@ -2148,7 +2184,15 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
     
     func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
         
-        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: date)
+//        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: date)
+        let morningTasks: [NTask]
+//                   if(dateForTheView == Date.today()) {
+//                        morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+//                   } else { //get morning tasks without rollover
+//                        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+//                   }
+         
+        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
         let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
         let allTasks = morningTasks+eveningTasks
         
