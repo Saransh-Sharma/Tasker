@@ -12,6 +12,8 @@ import Charts
 
 extension ViewController {
     
+    
+    
     //setup chart
     func setupPieChartView(pieChartView chartView: PieChartView) {
         //            chartView.usePercentValuesEnabled = false
@@ -48,6 +50,7 @@ extension ViewController {
         let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
         centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
                                   .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+        centerText.addAttribute(NSAttributedString.Key.foregroundColor, value: scoreInTinyPieChartColor, range: NSRange(location: 0, length: centerText.length)) //addAttribute(NSForegroundColorAttributeName, value: UIColor.redColor() , range: range)
         chartView.centerAttributedText = centerText;
         
         

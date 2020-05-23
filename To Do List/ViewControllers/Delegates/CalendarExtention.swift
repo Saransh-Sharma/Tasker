@@ -19,7 +19,7 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
     
     func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
         
-//        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: date)
+
         let morningTasks: [NTask]
 //                   if(dateForTheView == Date.today()) {
 //                        morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
@@ -37,6 +37,16 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
             return "\(allTasks.count) tasks"
         }
     }
+    
+
+    
+//    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, borderDefaultColorFor date: Date) -> UIColor? {
+//        .blue
+//    }
+    
+//    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, fillDefaultColorFor date: Date) -> UIColor? {
+//        .black
+//    }
     
     //----------------------- *************************** -----------------------
     //MARK:-                            CALENDAR
@@ -56,6 +66,7 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
         let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
         paragraphStyle.lineBreakMode = .byTruncatingTail
         paragraphStyle.alignment = .center
+        
         
         //            let centerText = NSMutableAttributedString(string: "\(scoreNumber)\nscore")
         let centerText = NSMutableAttributedString(string: "\(scoreNumber)")

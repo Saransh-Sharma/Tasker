@@ -287,4 +287,130 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         }
         
         //mark:- move this END ---------
+    
+      //----------------------- *************************** -----------------------
+        //MARK:-                      TABLE SWIPE ACTIONS
+        //----------------------- *************************** -----------------------
+        
+        func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+            
+            let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+                
+    //            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+                let morningTasks: [NTask]
+                if(self.dateForTheView == Date.today()) {
+                                morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+                           } else { //get morning tasks without rollover
+                    morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: self.dateForTheView)
+                           }
+                
+                let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
+                
+                switch indexPath.section {
+                case 0:
+                    
+                    //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
+                    
+                    TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].isComplete = true
+                    
+                    TaskManager.sharedInstance.saveContext()
+                    
+                case 1:
+                    
+                    //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row])].isComplete = true
+                    TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row])].isComplete = true
+                    TaskManager.sharedInstance.saveContext()
+                    
+                default:
+                    break
+                }
+                
+                //            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
+                print("SCORE IS: \(self.calculateTodaysScore())")
+                self.scoreCounter.text = "\(self.calculateTodaysScore())"
+                
+                tableView.reloadData()
+                self.animateTableViewReload()
+                //            UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
+                //
+                //                   })
+                
+                // right spring animation
+                //            tableView.reloadData(
+                //                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+                //                              constantDelay: 0))
+                
+                self.title = "\(self.calculateTodaysScore())"
+                actionPerformed(true)
+            }
+            
+            return UISwipeActionsConfiguration(actions: [completeTaskAction])
+        }
+        
+        func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+            
+            let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+                
+                let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
+                
+                let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
+                {
+                    (UIAlertAction) in
+                    
+    //                let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
+                    let morningTasks: [NTask]
+                    if(self.dateForTheView == Date.today()) {
+                                    morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+                               } else { //get morning tasks without rollover
+                        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: self.dateForTheView)
+                               }
+                    let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
+                    
+                    switch indexPath.section {
+                    case 0:
+                        
+                        //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row]))
+                        TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row]))
+                    case 1:
+                        //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row]))
+                        
+                        TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row]))
+                    default:
+                        break
+                    }
+                    
+                    //                tableView.reloadData()
+                    //                tableView.reloadData(
+                    //                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
+                    //                                  constantDelay: 0))
+                    
+                    tableView.reloadData()
+                    self.animateTableViewReload()
+                    //                UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
+                    //
+                    //                       })
+                    
+                    
+                }
+                let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
+                { (UIAlertAction) in
+                    
+                    print("That was a close one. No deletion.")
+                }
+                
+                //add actions to alert controller
+                confirmDelete.addAction(yesDeleteAction)
+                confirmDelete.addAction(noDeleteAction)
+                
+                //show it
+                self.present(confirmDelete ,animated: true, completion: nil)
+                
+                self.title = "\(self.calculateTodaysScore())"
+                actionPerformed(true)
+            }
+            
+            
+            return UISwipeActionsConfiguration(actions: [deleteTaskAction])
+        }
+        
 }

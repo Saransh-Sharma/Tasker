@@ -30,6 +30,8 @@ class ViewController: UIViewController, ChartViewDelegate {
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
     
+    
+    
     //MARK:- LINE CHART
     lazy var lineChartView: LineChartView = {
         let chartView = LineChartView()
@@ -55,13 +57,16 @@ class ViewController: UIViewController, ChartViewDelegate {
         chartView.xAxis.axisLineColor = .tertiaryLabel
         chartView.xAxis.labelTextColor = .secondaryLabel
         
-        //        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInBack)
-        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInOutBack)
-        //        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInCubic)
+        
+//        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInOutBack)
+        
         
         
         return chartView
     }()
+    
+    //MARK: Pie Chart Data Sections
+     let tinyPieChartSections = [""]
     
     //MARK:- cuurentt task list date
     var dateForTheView = Date.today()
@@ -119,12 +124,29 @@ class ViewController: UIViewController, ChartViewDelegate {
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var switchState: UISwitch!
     
+    //MARK: Theming: text color
+    var scoreInTinyPieChartColor:UIColor = UIColor.white
+    
     
     //MARK: Theming: COLOURS
+    //Original theme
     var backgroundColor = UIColor.systemGray5
-    var primaryColor = UIColor.systemIndigo // #colorLiteral(red: 0.3843137255, green: 0, blue: 0.9333333333, alpha: 1) //UIColor(red: 98.0/255.0, green: 0.0/255.0, blue: 238.0/255.0, alpha: 1.0)
-    var primaryColorDarker = UIColor.black//#colorLiteral(red: 0.2784313725, green: 0.007843137255, blue: 0.7568627451, alpha: 1) //UIColor(red: 71.0/255.0, green: 2.0/255.0, blue: 193.0/255.0, alpha: 1.0)
-    var secondaryAccentColor = UIColor.systemOrange// #colorLiteral(red: 0.007843137255, green: 0.6352941176, blue: 0.6156862745, alpha: 1) //02A29D
+    var primaryColor = UIColor.systemIndigo
+    var primaryColorDarker = UIColor.black
+    var secondaryAccentColor = UIColor.systemOrange
+    
+    //Black + Red theme
+//    var backgroundColor = UIColor.systemGray5
+//    var primaryColor = UIColor.black
+//    var primaryColorDarker = UIColor.black
+//    var secondaryAccentColor = UIColor.systemRed
+    
+    
+    
+//    var backgroundColor = UIColor.systemGray5
+//    var primaryColor = UIColor.systemIndigo // #colorLiteral(red: 0.3843137255, green: 0, blue: 0.9333333333, alpha: 1) //UIColor(red: 98.0/255.0, green: 0.0/255.0, blue: 238.0/255.0, alpha: 1.0)
+//    var primaryColorDarker = UIColor.black//#colorLiteral(red: 0.2784313725, green: 0.007843137255, blue: 0.7568627451, alpha: 1) //UIColor(red: 71.0/255.0, green: 2.0/255.0, blue: 193.0/255.0, alpha: 1.0)
+//    var secondaryAccentColor = UIColor.systemOrange// #colorLiteral(red: 0.007843137255, green: 0.6352941176, blue: 0.6156862745, alpha: 1) //02A29D
     //          var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     //          var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
@@ -510,7 +532,7 @@ class ViewController: UIViewController, ChartViewDelegate {
     }
     
     //---------- SETUP: CHART
-    let tinyPieChartSections = [""]
+   
     
     
 
@@ -1735,8 +1757,9 @@ class ViewController: UIViewController, ChartViewDelegate {
         
         scoreAtHomeLabel.text = "\n\nscore"
         scoreAtHomeLabel.numberOfLines = 3
-        scoreAtHomeLabel.textColor = .systemGray6
+        scoreAtHomeLabel.textColor = .label
         scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
+    
         
         scoreAtHomeLabel.textAlignment = .center
         scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
@@ -1846,131 +1869,7 @@ class ViewController: UIViewController, ChartViewDelegate {
     }
     
     
-    //----------------------- *************************** -----------------------
-    //MARK:-                      TABLE SWIPE ACTIONS
-    //----------------------- *************************** -----------------------
-    
-    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        
-        let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-            
-//            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
-            let morningTasks: [NTask]
-            if(self.dateForTheView == Date.today()) {
-                            morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-                       } else { //get morning tasks without rollover
-                morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: self.dateForTheView)
-                       }
-            
-            let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
-            
-            switch indexPath.section {
-            case 0:
-                
-                //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
-                
-                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].isComplete = true
-                
-                TaskManager.sharedInstance.saveContext()
-                
-            case 1:
-                
-                //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row])].isComplete = true
-                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row])].isComplete = true
-                TaskManager.sharedInstance.saveContext()
-                
-            default:
-                break
-            }
-            
-            //            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
-            print("SCORE IS: \(self.calculateTodaysScore())")
-            self.scoreCounter.text = "\(self.calculateTodaysScore())"
-            
-            tableView.reloadData()
-            self.animateTableViewReload()
-            //            UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
-            //
-            //                   })
-            
-            // right spring animation
-            //            tableView.reloadData(
-            //                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-            //                              constantDelay: 0))
-            
-            self.title = "\(self.calculateTodaysScore())"
-            actionPerformed(true)
-        }
-        
-        return UISwipeActionsConfiguration(actions: [completeTaskAction])
-    }
-    
-    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        
-        let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-            
-            let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
-            
-            let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
-            {
-                (UIAlertAction) in
-                
-//                let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
-                let morningTasks: [NTask]
-                if(self.dateForTheView == Date.today()) {
-                                morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-                           } else { //get morning tasks without rollover
-                    morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: self.dateForTheView)
-                           }
-                let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
-                
-                switch indexPath.section {
-                case 0:
-                    
-                    //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row]))
-                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row]))
-                case 1:
-                    //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row]))
-                    
-                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row]))
-                default:
-                    break
-                }
-                
-                //                tableView.reloadData()
-                //                tableView.reloadData(
-                //                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
-                //                                  constantDelay: 0))
-                
-                tableView.reloadData()
-                self.animateTableViewReload()
-                //                UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
-                //
-                //                       })
-                
-                
-            }
-            let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
-            { (UIAlertAction) in
-                
-                print("That was a close one. No deletion.")
-            }
-            
-            //add actions to alert controller
-            confirmDelete.addAction(yesDeleteAction)
-            confirmDelete.addAction(noDeleteAction)
-            
-            //show it
-            self.present(confirmDelete ,animated: true, completion: nil)
-            
-            self.title = "\(self.calculateTodaysScore())"
-            actionPerformed(true)
-        }
-        
-        
-        return UISwipeActionsConfiguration(actions: [deleteTaskAction])
-    }
-    
+  
 }
 
 //----------------------- *************************** -----------------------
