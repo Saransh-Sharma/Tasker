@@ -12,7 +12,6 @@ import SemiModalViewController
 import CircleMenu
 import ViewAnimator
 import FSCalendar
-import EasyPeasy
 import BEMCheckBox
 import Charts
 import TinyConstraints
@@ -25,7 +24,7 @@ class ViewController: UIViewController, ChartViewDelegate {
     
     
     //MARK:- Tableview animation style
-    private let animations = [AnimationType.from(direction:.right , offset: 400.0)]
+//    private let animations = [AnimationType.from(direction:.right , offset: 400.0)]
     
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
@@ -134,6 +133,13 @@ class ViewController: UIViewController, ChartViewDelegate {
     var primaryColor = UIColor.systemIndigo
     var primaryColorDarker = UIColor.black
     var secondaryAccentColor = UIColor.systemOrange
+    
+    
+    //purple #2
+//    var backgroundColor = UIColor.systemGray5
+//       var primaryColor = #colorLiteral(red: 0.1254901961, green: 0.06666666667, blue: 0.3568627451, alpha: 1) //UIColor.systemIndigo
+//    var primaryColorDarker = #colorLiteral(red: 0.003921568627, green: 0.003921568627, blue: 0.03137254902, alpha: 1) //UIColor.black
+//       var secondaryAccentColor = UIColor.systemOrange
     
     //Black + Red theme
 //    var backgroundColor = UIColor.systemGray5
@@ -1819,16 +1825,36 @@ class ViewController: UIViewController, ChartViewDelegate {
         let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
         calendar.calendarHeaderView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
         calendar.calendarWeekdayView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        calendar.appearance.weekdayTextColor = .white
+        
+        
         calendar.appearance.headerTitleColor = .white
-        calendar.appearance.titleWeekendColor = .red
+        calendar.appearance.headerTitleFont = setFont(fontSize: 16, fontweight: .light, fontDesign: .default)
+    
+        
+        //weekday title
+        calendar.appearance.weekdayTextColor = .lightGray//.lightGray
+        calendar.appearance.weekdayFont = setFont(fontSize: 14, fontweight: .light, fontDesign: .rounded)
+        
+        //weekend
+        calendar.appearance.titleWeekendColor = .systemRed
+        
+        //date
+        calendar.appearance.titleFont = setFont(fontSize: 16, fontweight: .regular, fontDesign: .rounded)
+        calendar.appearance.titleDefaultColor = .white
         calendar.appearance.caseOptions = .weekdayUsesUpperCase
-        //        calendar.appearance.eventSelectionColor = secondaryAccentColor
-        //        calendar.appearance.separators = .interRows
-        //        calendar.appearance.selectionColor = secondaryAccentColor
+        
+        //selection
+        calendar.appearance.selectionColor = secondaryAccentColor
         calendar.appearance.subtitleDefaultColor = .white
-        //        calendar.appearance.subtitleTodayColor
-        //        calendar.appearance.todayColor = .green
+        
+        //today
+        calendar.appearance.todayColor = primaryColorDarker
+        calendar.appearance.titleTodayColor = secondaryAccentColor
+        calendar.appearance.titleSelectionColor = primaryColorDarker
+        calendar.appearance.subtitleSelectionColor = primaryColorDarker
+        calendar.appearance.subtitleFont = setFont(fontSize: 10, fontweight: .regular, fontDesign: .rounded)
+        calendar.appearance.borderSelectionColor = primaryColorDarker
+        
         
         
         calendar.dataSource = self
@@ -1872,34 +1898,6 @@ class ViewController: UIViewController, ChartViewDelegate {
   
 }
 
-//----------------------- *************************** -----------------------
-//MARK:-                            CALENDAR DELEGATE
-//----------------------- *************************** -----------------------
-
-//MARK:- CAL Extention: task count as day subtext
-//extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
-//
-//    func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
-//        
-////        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: date)
-//        let morningTasks: [NTask]
-////                   if(dateForTheView == Date.today()) {
-////                        morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-////                   } else { //get morning tasks without rollover
-////                        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-////                   }
-//
-//        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
-//        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
-//        let allTasks = morningTasks+eveningTasks
-//
-//        if(allTasks.count == 0) {
-//            return "-"
-//        } else {
-//            return "\(allTasks.count) tasks"
-//        }
-//    }
-//}
 
 //----------------------- *************************** -----------------------
 //MARK:-                      CIRCLE MENU DELEGATE
@@ -1933,7 +1931,6 @@ extension ViewController: CircleMenuDelegate {
             
         }
     }
-    
     
     func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
         print("button did selected: \(atIndex)")

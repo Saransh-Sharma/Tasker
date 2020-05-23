@@ -84,7 +84,8 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
         
         //            centerText.addAttributes([.font : setFont(fontSize: 16, fontweight: .regular, fontDesign: .monospaced),
         //                                      .foregroundColor : UIColor.secondaryLabel], range: NSRange(location: scoreNumber.count+1, length: centerText.length - (scoreNumber.count+1)))
-        self.tinyPieChartView.centerAttributedText = centerText;
+//        self.tinyPieChartView.centerAttributedText = centerText;
+        self.tinyPieChartView.centerAttributedText = setTinyPieChartScoreText(pieChartView: self.tinyPieChartView)
         self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
         
         tableView.reloadData()

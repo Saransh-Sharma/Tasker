@@ -26,46 +26,40 @@ extension ViewController {
         
         chartView.setExtraOffsets(left: 5, top: 5, right: 5, bottom: 5)
         
-        //            chartView.chartDescription?.text = "HOLA"
+   
         chartView.drawCenterTextEnabled = true
         
         let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
         paragraphStyle.lineBreakMode = .byTruncatingTail
         paragraphStyle.alignment = .center
         
-        //            let centerText = NSMutableAttributedString(string: "Charts\nby Daniel Cohen Gindi")
-        //            centerText.setAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 13)!,
-        //                                      .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-        //            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
-        //                                      .foregroundColor : UIColor.gray], range: NSRange(location: 10, length: centerText.length - 10))
-        //            centerText.addAttributes([.font : UIFont(name: "HelveticaNeue-Light", size: 11)!,
-        //                                      .foregroundColor : UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)], range: NSRange(location: centerText.length - 19, length: 19))
-        //            chartView.centerAttributedText = centerText;
-        
-        //            chartView.centerText = "24"
+
+        chartView.centerAttributedText = setTinyPieChartScoreText(pieChartView: chartView);
         
         
-        
-        let scoreNumber = "\(self.calculateTodaysScore())"
-        let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
-        centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
-                                  .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-        centerText.addAttribute(NSAttributedString.Key.foregroundColor, value: scoreInTinyPieChartColor, range: NSRange(location: 0, length: centerText.length)) //addAttribute(NSForegroundColorAttributeName, value: UIColor.redColor() , range: range)
-        chartView.centerAttributedText = centerText;
-        
-        
-        //            chartView.drawEntryLabelsEnabled = false
-        //        chartView.usePercentValuesEnabled = false
-        //                      chartView.setNeedsDisplay()
-        
+
         chartView.drawHoleEnabled = true
         chartView.rotationAngle = 0
         chartView.rotationEnabled = true
-        chartView.highlightPerTapEnabled = true
+        chartView.highlightPerTapEnabled = false
         chartView.legend.form = .none
+    
         
         
         
+    }
+    
+    func setTinyPieChartScoreText(pieChartView chartView: PieChartView) -> NSAttributedString {
+        let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
+        paragraphStyle.lineBreakMode = .byTruncatingTail
+        paragraphStyle.alignment = .center
+         let scoreNumber = "\(self.calculateTodaysScore())"
+               let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
+               centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
+                                         .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
+               centerText.addAttribute(NSAttributedString.Key.foregroundColor, value: scoreInTinyPieChartColor, range: NSRange(location: 0, length: centerText.length)) //addAttribute(NSForegroundColorAttributeName, value: UIColor.redColor() , range: range)
+               chartView.centerAttributedText = centerText;
+        return centerText
     }
     
     //---------- SETUP: CHART

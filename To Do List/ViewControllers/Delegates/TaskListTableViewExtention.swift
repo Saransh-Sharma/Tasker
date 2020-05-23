@@ -8,6 +8,7 @@
 
 import Foundation
 import UIKit
+import Timepiece
 import BEMCheckBox
 
 extension ViewController: UITableViewDataSource, UITableViewDelegate {
@@ -131,31 +132,20 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         // MARK:- CELL AT ROW
         
         func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-            
-            
-            
-            //        chec
-            
-            
+
             var currentTask: NTask!
             let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
             let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
             
-            //        print("NTASK count is: \(TaskManager.sharedInstance.count)")
-            //        print("morning section index is: \(indexPath.row)")
-            
             switch indexPath.section {
             case 0:
                 print("morning section index is: \(indexPath.row)")
-                
-                //            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: Date.today())
-                //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
-                
-    //            getMorningTasksForToday
+                                                
+                //getMorningTasksForToday
                 let morningTasks: [NTask]
                 if(dateForTheView == Date.today()) {
                      morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-                } else { //get morning tasks without rollover
+                } else { //get morning tasks without rollover; these are tasks when view is not today
                      morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
                 }
                 
@@ -312,6 +302,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
                     //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
                     
                     TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].isComplete = true
+                    TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].dateCompleted = Date.today() as NSDate
                     
                     TaskManager.sharedInstance.saveContext()
                     

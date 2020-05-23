@@ -153,10 +153,12 @@ class TaskManager {
                     for each in tasks {
                         // taskType 1 is morning
                         //task.dateAdded = Date.today() as NSDate
-                        if each.taskType == 1 && each.dueDate == today as NSDate { //get finnisshed & unfinished tasks today
+                        if each.taskType == 1 && each.dueDate == today as NSDate { //get finished & unfinished tasks today // Morning + tasks added today
                             morningTasks.append(each)
                             
-                        } else if (each.taskType == 1 && each.isComplete == false) { //get older unfinished tasks
+                        } else if (each.taskType == 1 && each.isComplete == false) { //get older unfinished tasks // Morninng + incomplete
+                            morningTasks.append(each)
+                        } else if (each.taskType == 1 && each.dateCompleted == today as NSDate) { //get tasks that were completed today
                             morningTasks.append(each)
                         }
                             else {
