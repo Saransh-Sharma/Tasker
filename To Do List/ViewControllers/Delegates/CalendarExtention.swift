@@ -20,14 +20,14 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
     func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
         
 
-        let morningTasks: [NTask]
+//        let morningTasks: [NTask]
 //                   if(dateForTheView == Date.today()) {
 //                        morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
 //                   } else { //get morning tasks without rollover
 //                        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
 //                   }
          
-        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
+       let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
         let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
         let allTasks = morningTasks+eveningTasks
         

@@ -759,7 +759,14 @@ class ViewController: UIViewController, ChartViewDelegate {
     func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
         var score = 0
         
-        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+        let morningTasks: [NTask]
+                           if(dateForTheView == Date.today()) {
+                                morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+                           } else { //get morning tasks without rollover
+                                morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+                           }
+        
+//        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
         let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
         
         for each in morningTasks {
