@@ -185,11 +185,12 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
                 
                 let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
                 checkBox.lineWidth = 1.0
-                checkBox.animationDuration = 0.45
+                checkBox.animationDuration = 0.40
                 checkBox.setOn(true, animated: false)
                 checkBox.boxType = .square
                 checkBox.onAnimationType = .oneStroke
                 checkBox.offAnimationType = .oneStroke
+                checkBox.onTintColor = primaryColor
                 
                 
                 
@@ -238,11 +239,12 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
                 
                 let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
                 checkBox.lineWidth = 1.0
-                checkBox.animationDuration = 0.45
+                checkBox.animationDuration = 0.40
                 checkBox.setOn(false, animated: false)
                 checkBox.boxType = .square
                 checkBox.onAnimationType = .oneStroke
                 checkBox.offAnimationType = .oneStroke
+                checkBox.onTintColor = primaryColor
                 
                 openTaskCell.addSubview(checkBox)
                 

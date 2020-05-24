@@ -110,12 +110,28 @@ extension ViewController {
         //                                  }
         
         
-        set.colors = ChartColorTemplates.vordiplom()
-            + ChartColorTemplates.joyful()
-            + ChartColorTemplates.colorful()
-            + ChartColorTemplates.liberty()
-            + ChartColorTemplates.pastel()
-            + [UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)]
+        //let scoreNumber = "\(self.calculateTodaysScore())"
+        
+        //todo: change set color for 0 score day
+//        print("hool: score is: \(self.calculateTodaysScore())")
+//        if (self.calculateTodaysScore() > 0) {
+//            print("hool: GREEN")
+//            set.colors = ChartColorTemplates.material()
+//        } else {
+//            print("hool: BLUE")
+//            set.colors = ChartColorTemplates.vordiplom()
+//        }
+        
+        
+        set.colors = ChartColorTemplates.material()
+        
+        
+//        set.colors = ChartColorTemplates.vordiplom()
+//            + ChartColorTemplates.joyful()
+//            + ChartColorTemplates.colorful()
+//            + ChartColorTemplates.liberty()
+//            + ChartColorTemplates.pastel()
+//            + [UIColor(red: 51/255, green: 181/255, blue: 229/255, alpha: 1)]
         
         let data = PieChartData(dataSet: set)
         
