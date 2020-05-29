@@ -19,7 +19,7 @@ extension ViewController {
         //            chartView.usePercentValuesEnabled = false
         chartView.drawSlicesUnderHoleEnabled = true
         chartView.holeRadiusPercent = 0.85
-        chartView.holeColor = primaryColor
+        chartView.holeColor = todoColors.primaryColor
         //            chartView.holeRadiusPercent = 0.10
         chartView.transparentCircleRadiusPercent = 0.41
         //            chartView.chartDescription?.enabled = true
@@ -115,15 +115,16 @@ extension ViewController {
         //todo: change set color for 0 score day
 //        print("hool: score is: \(self.calculateTodaysScore())")
 //        if (self.calculateTodaysScore() > 0) {
-//            print("hool: GREEN")
-//            set.colors = ChartColorTemplates.material()
-//        } else {
-//            print("hool: BLUE")
+////            print("hool: GREEN")
 //            set.colors = ChartColorTemplates.vordiplom()
+//
+//        } else {
+////            print("hool: BLUE")
+//            set.colors = ChartColorTemplates.liberty()
 //        }
         
         
-        set.colors = ChartColorTemplates.material()
+        set.colors = ChartColorTemplates.vordiplom()
         
         
 //        set.colors = ChartColorTemplates.vordiplom()

@@ -12,7 +12,6 @@ import SemiModalViewController
 import CircleMenu
 import ViewAnimator
 import FSCalendar
-import BEMCheckBox
 import Charts
 import TinyConstraints
 import MaterialComponents.MaterialButtons
@@ -30,13 +29,14 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
     
+    var todoColors = ToDoColors()
+    
     
     
     //MARK:- LINE CHART
     lazy var lineChartView: LineChartView = {
         let chartView = LineChartView()
         chartView.backgroundColor = .clear
-        //        chartView.legend.form = .empty
         chartView.legend.form = .default
         
         
@@ -44,14 +44,10 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         
         let yAxis = chartView.leftAxis
         yAxis.labelFont = .boldSystemFont(ofSize: 12)
-        //        yAxis.setLabelCount(7, force: false)
         yAxis.labelTextColor = .secondaryLabel
         yAxis.axisLineColor = .tertiaryLabel
         yAxis.labelPosition = .outsideChart
-        
-        //        yAxis
-        //        yAxis.
-        
+ 
         chartView.xAxis.labelPosition = .bottom
         chartView.xAxis.labelFont = .boldSystemFont(ofSize: 12)
         chartView.xAxis.axisLineColor = .tertiaryLabel
@@ -128,13 +124,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     var scoreInTinyPieChartColor:UIColor = UIColor.white
     
     
-    //MARK: Theming: COLOURS
-    //Original theme
-    var backgroundColor = UIColor.systemGray5
-    var primaryColor = UIColor.systemIndigo
-    var primaryColorDarker = UIColor.black
-    var secondaryAccentColor = UIColor.systemOrange
-    
+  
     
     //purple #2
 //    var backgroundColor = UIColor.systemGray5
@@ -256,10 +246,10 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
         //        let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
         let smallSymbolImage = UIImage(systemName: "chevron.down", withConfiguration: configuration)
-        let colouredCalPullDownImage = smallSymbolImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
+        let colouredCalPullDownImage = smallSymbolImage?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
         
         let smallSymbolImage_Active = UIImage(systemName: "chevron.up", withConfiguration: configuration)
-        let colouredCalPullDownImage_Active = smallSymbolImage_Active?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
+        let colouredCalPullDownImage_Active = smallSymbolImage_Active?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
         
         let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
         let calButton_Active = colouredCalPullDownImage_Active
@@ -299,7 +289,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .large)
         //        let smallSymbolImage = UIImage(systemName: "chart.pie", withConfiguration: configuration)
         let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
-        let colouredCalPullDownImage = smallSymbolImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
+        let colouredCalPullDownImage = smallSymbolImage?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
         
         let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
         //        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
@@ -364,9 +354,9 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         //        set01.drawCirclesEnabled = false
         set01.drawCirclesEnabled = false
         set01.mode = .cubicBezier
-        set01.setColor(secondaryAccentColor)
+        set01.setColor(todoColors.secondaryAccentColor)
         set01.lineWidth = 3
-        set01.fill = Fill(color: primaryColorDarker)
+        set01.fill = Fill(color: todoColors.primaryColorDarker)
         set01.fillAlpha = 0.8
         set01.drawFilledEnabled = true
         
@@ -439,6 +429,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        
         //MARK: serve material backdrop
         headerEndY = 128
         setupBackdropBackground() //backdrop
@@ -487,7 +478,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
             buttonsCount: 5,
             duration: 1,
             distance: 50)
-        circleMenuButton.backgroundColor = backgroundColor
+        circleMenuButton.backgroundColor = todoColors.backgroundColor
         
         circleMenuButton.delegate = self
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
@@ -511,21 +502,14 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         
         tinyPieChartView.delegate = self
         
-        //        let l = chartView.legend
-        //        l.horizontalAlignment = .right
-        //        l.verticalAlignment = .top
-        //        l.orientation = .vertical
-        //        l.xEntrySpace = 7
-        //        l.yEntrySpace = 0
-        //        l.yOffset = 0
-        
-        //                chartView.legend = l
+
         
         // entry label styling
         tinyPieChartView.entryLabelColor = .clear
         tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .bold)
         
-        
+         
+        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
        
         
         //MARK: try this for a thinner top bar // do this after containers
@@ -561,7 +545,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         
 //        view.addSubview(tinyPieChartView) //moved this up//remove this here
         
-        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+       
         
         
         
@@ -635,7 +619,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         let view = UIView(frame: UIScreen.main.bounds)
         view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
         //        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
-        view.backgroundColor = backgroundColor
+        view.backgroundColor = todoColors.backgroundColor
         let frameForView = view.bounds
         
         let taskName = UILabel() //Task Name
@@ -650,12 +634,12 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         view.addSubview(eveningLabel)
         eveningLabel.text = "evening task"
         eveningLabel.textAlignment = .left
-        eveningLabel.textColor =  primaryColor
+        eveningLabel.textColor =  todoColors.primaryColor
         eveningLabel.frame = CGRect(x: frameForView.minX+40, y: frameForView.minY+85, width: frameForView.width-100, height: frameForView.height/8)
         
         let eveningSwitch = UISwitch() //Evening Switch
         view.addSubview(eveningSwitch)
-        eveningSwitch.onTintColor = primaryColor
+        eveningSwitch.onTintColor = todoColors.primaryColor
         
         if(Int(task.taskType) == 2) {
             print("Task type is evening; 2")
@@ -672,7 +656,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         view.addSubview(prioritySegmentedControl)
         prioritySegmentedControl.selectedSegmentIndex = 1
         prioritySegmentedControl.backgroundColor = .white
-        prioritySegmentedControl.selectedSegmentTintColor =  primaryColor
+        prioritySegmentedControl.selectedSegmentTintColor =  todoColors.primaryColor
         
         
         
@@ -783,7 +767,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
             view.backgroundColor = UIColor.darkGray
         } else {
             //            print("HOME: DARK OFF !!")
-            view.backgroundColor =  backgroundColor
+            view.backgroundColor =  todoColors.backgroundColor
         }
     }
     
@@ -800,9 +784,15 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
                            } else { //get morning tasks without rollover
                                 morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
                            }
+        let eveningTasks: [NTask]
+                            if(dateForTheView == Date.today()) {
+                                 eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
+                            } else { //get morning tasks without rollover
+                                 eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+                            }
         
 //        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+//        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
         
         for each in morningTasks {
             
@@ -975,6 +965,20 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
                        duration: 0.3)
     }
     
+    func animateTableViewReloadSingleCell(cellAtIndexPathRow: Int) {
+         let zoomAnimation = AnimationType.zoom(scale: 0.5)
+         let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+         
+        print("Only animating cell at: \(cellAtIndexPathRow)")
+        UIView.animate(views: tableView.visibleCells(in: cellAtIndexPathRow),
+                        animations: [zoomAnimation, rotateAnimation],
+                        duration: 0.3)
+        
+//        UIView.animate(views: tableView.cellForRow(at: <#T##IndexPath#>),
+//                               animations: [zoomAnimation, rotateAnimation],
+//                               duration: 0.3)
+     }
+    
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: TABLE CELL RELOAD
     //----------------------- *************************** -----------------------
@@ -1004,9 +1008,9 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     //MARK:- setup bottom bar
     func setupBottomAppBar() {
         bottomAppBar.floatingButton.setImage(UIImage(named: "material_add_White"), for: .normal)
-        bottomAppBar.floatingButton.backgroundColor = secondaryAccentColor //.systemIndigo
+        bottomAppBar.floatingButton.backgroundColor = todoColors.secondaryAccentColor //.systemIndigo
         bottomAppBar.frame = CGRect(x: 0, y: UIScreen.main.bounds.maxY-100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.maxY-100)
-        bottomAppBar.barTintColor = primaryColor//primaryColor
+        bottomAppBar.barTintColor = todoColors.primaryColor//primaryColor
         
         // The following lines of code are to define the buttons on the right and left side
         let barButtonMenu = UIBarButtonItem(
@@ -1502,7 +1506,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     //MARK:- Setup Backdrop Notch
     func setupBackdropNotch() {
         backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
-        backdropNochImageView.backgroundColor = primaryColorDarker
+        backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
         
         view.addSubview(backdropNochImageView)
     }
@@ -1515,7 +1519,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     func setupBackdropBackground() {
         
         backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-        backdropBackgroundImageView.backgroundColor = primaryColor
+        backdropBackgroundImageView.backgroundColor = todoColors.primaryColor
         homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
         backdropBackgroundImageView.addSubview(homeTopBar)
         
@@ -1584,8 +1588,8 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     //MARK: Setup calendar appearence
     func setupCal() {
         let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
-        calendar.calendarHeaderView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        calendar.calendarWeekdayView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+        calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+        calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
         
         
         calendar.appearance.headerTitleColor = .white
@@ -1605,16 +1609,16 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         calendar.appearance.caseOptions = .weekdayUsesUpperCase
         
         //selection
-        calendar.appearance.selectionColor = secondaryAccentColor
+        calendar.appearance.selectionColor = todoColors.secondaryAccentColor
         calendar.appearance.subtitleDefaultColor = .white
         
         //today
-        calendar.appearance.todayColor = primaryColorDarker
-        calendar.appearance.titleTodayColor = secondaryAccentColor
-        calendar.appearance.titleSelectionColor = primaryColorDarker
-        calendar.appearance.subtitleSelectionColor = primaryColorDarker
+        calendar.appearance.todayColor = todoColors.primaryColorDarker
+        calendar.appearance.titleTodayColor = todoColors.secondaryAccentColor
+        calendar.appearance.titleSelectionColor = todoColors.primaryColorDarker
+        calendar.appearance.subtitleSelectionColor = todoColors.primaryColorDarker
         calendar.appearance.subtitleFont = setFont(fontSize: 10, fontweight: .regular, fontDesign: .rounded)
-        calendar.appearance.borderSelectionColor = primaryColorDarker
+        calendar.appearance.borderSelectionColor = todoColors.primaryColorDarker
         
         
         
@@ -1647,8 +1651,10 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         tasks = TaskManager.sharedInstance.getAllTasks
         if let idx = tasks.firstIndex(where: { $0 === morningOrEveningTask }) {
             
+            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
             print("Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
             print("func IDX is: \(idx)")
+            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
             idxHolder = idx
             
         }
