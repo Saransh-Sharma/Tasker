@@ -55,10 +55,10 @@ extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDe
     //MARK: Cal changes VIEW + SCORE on date change
     func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
         print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
-        dateToDisplay = date
+//        dateToDisplay = date
         dateForTheView = date
         
-        updateHomeDate(date: dateToDisplay)
+        updateHomeDate(date: dateForTheView)
         //        (self.calculateTodaysScore()
         self.scoreCounter.text = "\(self.calculateTodaysScore())"
         

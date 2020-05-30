@@ -21,4 +21,25 @@ class ToDoColors {
         var secondaryAccentColor = UIColor.systemOrange
         
     
+        //purple #2
+    //    var backgroundColor = UIColor.systemGray5
+    //       var primaryColor = #colorLiteral(red: 0.1254901961, green: 0.06666666667, blue: 0.3568627451, alpha: 1) //UIColor.systemIndigo
+    //    var primaryColorDarker = #colorLiteral(red: 0.003921568627, green: 0.003921568627, blue: 0.03137254902, alpha: 1) //UIColor.black
+    //       var secondaryAccentColor = UIColor.systemOrange
+        
+        //Black + Red theme
+    //    var backgroundColor = UIColor.systemGray5
+    //    var primaryColor = UIColor.black
+    //    var primaryColorDarker = UIColor.black
+    //    var secondaryAccentColor = UIColor.systemRed
+        
+        
+        
+    //    var backgroundColor = UIColor.systemGray5
+    //    var primaryColor = UIColor.systemIndigo // #colorLiteral(red: 0.3843137255, green: 0, blue: 0.9333333333, alpha: 1) //UIColor(red: 98.0/255.0, green: 0.0/255.0, blue: 238.0/255.0, alpha: 1.0)
+    //    var primaryColorDarker = UIColor.black//#colorLiteral(red: 0.2784313725, green: 0.007843137255, blue: 0.7568627451, alpha: 1) //UIColor(red: 71.0/255.0, green: 2.0/255.0, blue: 193.0/255.0, alpha: 1.0)
+    //    var secondaryAccentColor = UIColor.systemOrange// #colorLiteral(red: 0.007843137255, green: 0.6352941176, blue: 0.6156862745, alpha: 1) //02A29D
+        //          var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
+        //          var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+    
 }
