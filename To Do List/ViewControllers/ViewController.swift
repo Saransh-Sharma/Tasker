@@ -13,6 +13,7 @@ import CircleMenu
 import ViewAnimator
 import FSCalendar
 import Charts
+import UserNotifications
 import TinyConstraints
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialBottomAppBar
@@ -23,17 +24,17 @@ import MaterialComponents.MaterialRipple
 class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate {
     
     
-    //MARK:- Tableview animation style
-//    private let animations = [AnimationType.from(direction:.right , offset: 400.0)]
-    
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
-    
     var todoColors = ToDoColors()
     
     var backdropContainer = UIView()
     var foredropContainer = UIView()
     var bottomBarContainer = UIView()
+    
+    
+    //init notification badge counter
+    var notificationBadgeNumber:Int = 0
     
     
     //MARK:- LINE CHART
@@ -55,10 +56,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         chartView.xAxis.labelFont = .boldSystemFont(ofSize: 12)
         chartView.xAxis.axisLineColor = .tertiaryLabel
         chartView.xAxis.labelTextColor = .secondaryLabel
-        
-        
-//        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInOutBack)
-                        
+                                        
         return chartView
     }()
     
@@ -67,12 +65,10 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     
     //MARK:- cuurentt task list date
     var dateForTheView = Date.today()
-//    var dateToDisplay = Date.today()
     
     //MARK:- score for day label
     var scoreForTheDay: UILabel! = nil
-    
-    
+        
     //MARK:- Buttons + Views + Bottom bar
     var calendar: FSCalendar!
     let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
@@ -124,22 +120,12 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     //MARK: Theming: text color
     var scoreInTinyPieChartColor:UIColor = UIColor.white
     
-    
-  
-    
-
-    
     //MARK: Fonts:
     //    var titleFont_1:UIFont = setFont
     //    var scoreNumberFont:UIFont = setFont(fontSize: 40, fontweight: .bold, fontDesign: .rounded)
     
     //MARK:- Elevation + Shadows:
     let bottomBarShadowElevation: ShadowElevation = ShadowElevation(rawValue: 8)
-    
-
-        
-
-    
     
     //MARK:- SET CHART DATA - LINE
     func setLineChartData() {
@@ -155,17 +141,23 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         set01.fillAlpha = 0.8
         set01.drawFilledEnabled = true
         
-        
-        
-        
         let lineChartData_01 = LineChartData(dataSet: set01)
         lineChartView.data = lineChartData_01
         
     }
     
+    func getTaskForTodayCount() -> Int {
+        var morningTasks = [NTask]()
+        var eveTasks = [NTask]()
+        
+        morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+        eveTasks = TaskManager.sharedInstance.getEveningTasksForToday()
+        
+        return morningTasks.count + eveTasks.count
+    }
+    
     
     func generateLineChartData() -> [ChartDataEntry] {
-        //        let daysOfWeek = [1,2,3,4,5,6,7]
         
         var yValues: [ChartDataEntry] = []
         //        for day in daysOfWeek {
@@ -189,12 +181,6 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         yValues.append(ChartDataEntry(x: Double(9.0), y: Double(6)))
         yValues.append(ChartDataEntry(x: Double(10.0), y: Double(7)))
         
-        //        yValues.append(ChartDataEntry(x: Double(1), y: Double(4), data: "HOLA !"))
-        //                yValues.append(ChartDataEntry(x: Double(2.0), y: Double(5), data: "HOLA ! 1"))
-        //                yValues.append(ChartDataEntry(x: Double(3.0), y: Double(7), data: "HOLA ! 2"))
-        //                yValues.append(ChartDataEntry(x: Double(4.0), y: Double(3), data: "HOLA ! 3"))
-        //                yValues.append(ChartDataEntry(x: Double(5.0), y: Double(7.5), data: "HOLA ! 4"))
-        
         return yValues
     }
     
@@ -207,16 +193,8 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     func setupLineChartView() {
         
         view.addSubview(lineChartView)
-        //        lineChartView.centerInSuperview()
-        //        lineChartView.width(to: view)
-        //        lineChartView.heightToWidth(of: view)
-        
         lineChartView.centerInSuperview()
         lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: 2*headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
-        
-        //        lineChartView.width(200)
-        //        lineChartView.height(200)
-        
         
     }
     
@@ -307,45 +285,25 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
        
         
-        //MARK: try this for a thinner top bar // do this after containers
-//         tinyPieChartView.frame = CGRect(x: (UIScreen.main.bounds.width)-(UIScreen.main.bounds.width/3)+10, y: 15, width: (homeTopBar.bounds.width/3)+20, height: (homeTopBar.bounds.width/3)+20)
+
+        //Badge number //BUG: badge is rest only after killing the app
+        let application = UIApplication.shared
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.badge, .alert, .sound]) { (OnSuccess, OnError) in
+            print("Success !")
+        }
+        if(getTaskForTodayCount() > 0) {
+        
+            application.applicationIconBadgeNumber = getTaskForTodayCount()
+        } else {
+            application.applicationIconBadgeNumber =  0
+        }
+        
+        application.registerForRemoteNotifications()
         
         
         
-        //        lineChartView.centerInSuperview()
-        //               lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: 2*headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
-        
-        //        chartView.centerInSuperview()
-        //        chartView.edges(to: homeTopBar, insets: TinyEdgeInsets(top: 5, left: 20, bottom: 5, right: 20))
-        //        chartView.width(50)
-        //        chartView.height(50)
-        
-        
-        //             chartView.frame = CGRect(x: (UIScreen.main.bounds.width/2), y: 50, width: (UIScreen.main.bounds.width/2)+40, height: (UIScreen.main.bounds.width/2)+40)
-        
-        
-        
-        
-        
-        //        chartView.maxAngle = 180 // Half chart
-        //               chartView.rotationAngle = 180 // Rotate to make the half on the upper side
-        //               chartView.centerTextOffset = CGPoint(x: 0, y: -20)
-        
-        //        chartView.isUsePercentValuesEnabled = false
-        //        chartView.value
-        
-        
-        //        chartView.entryLabelColor = .black
-        //        chartView.setNeedsDisplay()
-        
-//        view.addSubview(tinyPieChartView) //moved this up//remove this here
-        
-       
-        
-        
-        
-        
-        //---------- VIEW LOAD: CHART DONE
+
         
         
         enableDarkModeIfPreset()
@@ -874,371 +832,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     //
     //
     //    }
-    
-//    //----------------------- *************************** -----------------------
-//    //MARK:-                     ACTION: SHOW CHARTS
-//    //----------------------- *************************** -----------------------
-//    
-//    @objc func showChartsHHomeButton_Action() {
-//        
-//        print("Show CHARTS !!")
-//        let delay: Double = 0.2
-//        let duration: Double = 1.2
-//        
-//        if (!isChartsDown && !isCalDown) { //if backdrop is up; then push down & show charts
-//            
-//            print("charts: Case RED")
-//            //--------------------
-//            
-//            print("ShowChartsButton: backdrop is UP; pushing down to show charts")
-//            
-//            self.view.bringSubviewToFront(self.tableView)
-//            self.view.sendSubviewToBack(lineChartView)
-//            self.view.sendSubviewToBack(backdropBackgroundImageView)
-//            
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveDown_revealCharts(view: self.tableView)
-//            }) { (_) in
-//                //            self.moveLeft(view: self.black4)
-//            }
-//            
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveDown_revealCharts(view: self.backdropForeImageView)
-//            }) { (_) in
-//                //            self.moveLeft(view: self.black4)
-//            }
-//            
-//            self.view.bringSubviewToFront(self.tableView)
-//            self.view.bringSubviewToFront(self.bottomAppBar)
-//            self.lineChartView.isHidden = false
-//            self.animateLineChart(chartView: self.lineChartView)
-//            
-//            
-//            //            tableView.reloadData()
-//            
-//            
-//            //-------
-//            
-//            
-//        } else if (!isChartsDown && isCalDown){ //charts hidden & cal shown
-//            //            print("Charts + CAL")
-//            
-//            print("ShowChartsButton: backdrop is DOWN; + CAL is SHOWING; pushing down FURTHER to show charts")
-//            
-//            print("charts: Case BLUE")
-//            //                        print("***************** Charts are hidden; foredrop ginng DOWN; reveal charts")
-//            self.view.bringSubviewToFront(self.tableView)
-//            self.view.sendSubviewToBack(lineChartView)
-//            self.view.sendSubviewToBack(backdropBackgroundImageView)
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveDown_revealChartsKeepCal(view: self.tableView)
-//            }) { (_) in
-//                
-//            }
-//            
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveDown_revealChartsKeepCal(view: self.backdropForeImageView)
-//            }) { (_) in
-//                
-//            }
-//            
-//            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
-//                
-//                // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
-//                
-//                if (self.isChartsDown) { //todo replace with addtarget observer on foredropimagview
-//                    
-//                    print("KEEP SHWING CHARTS")
-//                    self.lineChartView.isHidden = false
-//                    self.isChartsDown = true
-//                    self.animateLineChart(chartView: self.lineChartView)
-//                    
-//                } else {
-//                    print("backdrop is up; HIDE CHARTS")
-//                    self.lineChartView.isHidden = true
-//                }
-//                
-//            }
-//            
-//            
-//            
-//            
-//            self.view.bringSubviewToFront(self.bottomAppBar)
-//            
-//            
-//        } else if (isChartsDown && !isCalDown) {//pull it back up // charts shown + cal hidden
-//            print("charts: Case YELLOW")
-//            print("ShowChartsButton: backdrop is DOWN; + CAL is HIDDEN; pushing down to show charts")
-//            
-//            //                        print("***************** Charts are hidden; foredrop ginng DOWN; reveal charts")
-//            self.view.bringSubviewToFront(self.tableView)
-//            self.view.sendSubviewToBack(lineChartView)
-//            self.view.sendSubviewToBack(backdropBackgroundImageView)
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveUp_hideCharts(view: self.tableView)
-//            }) { (_) in
-//                
-//            }
-//            
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveUp_hideCharts(view: self.backdropForeImageView)
-//            }) { (_) in
-//                
-//            }
-//            
-//            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
-//                
-//                // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
-//                
-//                if (self.isChartsDown) { //todo replace with addtarget observer on foredropimagview
-//                    
-//                    print("KEEP SHWING CHARTS")
-//                    self.lineChartView.isHidden = false
-//                    self.isChartsDown = true
-//                } else {
-//                    print("backdrop is up; HIDE CHARTS")
-//                    self.lineChartView.isHidden = true
-//                    self.isChartsDown = false
-//                }
-//                
-//            }
-//            
-//            
-//            
-//            
-//            self.view.bringSubviewToFront(self.bottomAppBar)
-//        }
-//            
-//        else if (isChartsDown && isCalDown) { //pull back to hide charts --> keep showing cal
-//            print("charts: Case GREEN")
-//            print("charts: charts & cal are shown; --> hiding charts")
-//            self.view.bringSubviewToFront(self.tableView)
-//            self.view.sendSubviewToBack(lineChartView)
-//            self.view.sendSubviewToBack(backdropBackgroundImageView)
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveUp_hideChartsKeepCal(view: self.tableView)
-//            }) { (_) in
-//                
-//            }
-//            
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveUp_hideChartsKeepCal(view: self.backdropForeImageView)
-//            }) { (_) in
-//                
-//            }
-//            
-//            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
-//                
-//                // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
-//                
-//                
-//                
-//                if (self.isChartsDown) { //todo replace with addtarget observer on foredropimagview
-//                    
-//                    print("KEEP SHWING CHARTS")
-//                    self.lineChartView.isHidden = false
-//                    
-////                    self.calendar.isHidden
-//                    
-//                    self.isChartsDown = true
-//                } else {
-//                    print("backdrop is up; HIDE CHARTS")
-//                    self.lineChartView.isHidden = true
-//                    self.calendar.isHidden = true
-//                    self.isCalDown = false
-//                    self.isChartsDown = false
-//                }
-//                
-//            }
-//            
-//            
-//            
-//            
-//            self.view.bringSubviewToFront(self.bottomAppBar)
-//            
-//        }
-//            
-//        else {
-//            print("ERROR LAYOUT - SHOW CHARTS")
-//        }
-//        
-//        
-//        
-//        //          if(isCalDown) { //cal is out; it sldes back up
-//        //
-//        //
-//        //              self.view.bringSubviewToFront(self.tableView)
-//        //              self.view.sendSubviewToBack(calendar)
-//        //              self.view.sendSubviewToBack(backdropBackgroundImageView)
-//        //              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//        //                  self.moveUp_hideCal(view: self.tableView)
-//        //              }) { (_) in
-//        //
-//        //              }
-//        //
-//        //              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//        //                  self.moveUp_hideCal(view: self.backdropForeImageView)
-//        //              }) { (_) in
-//        //
-//        //              }
-//        //
-//        //              DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
-//        //
-//        //                  // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
-//        //
-//        //              }
-//        //
-//        //              self.view.bringSubviewToFront(self.bottomAppBar)
-//        //
-//        //          } else {
-//        //              self.view.bringSubviewToFront(self.tableView)
-//        //              self.view.sendSubviewToBack(calendar)
-//        //              self.view.sendSubviewToBack(backdropBackgroundImageView)
-//        //
-//        //              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//        //                  self.moveDown_revealCal(view: self.tableView)
-//        //              }) { (_) in
-//        //                  //            self.moveLeft(view: self.black4)
-//        //              }
-//        //
-//        //              UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//        //                  self.moveDown_revealCal(view: self.backdropForeImageView)
-//        //              }) { (_) in
-//        //                  //            self.moveLeft(view: self.black4)
-//        //              }
-//        //
-//        //              self.view.bringSubviewToFront(self.tableView)
-//        //              self.view.bringSubviewToFront(self.bottomAppBar)
-//        //              self.calendar.isHidden = false
-//        //
-//        //          }
-//        tableView.reloadData()
-//    }
-//    
-//    //----------------------- *************************** -----------------------
-//    //MARK:-                     ACTION: SHOW CALENDAR
-//    //----------------------- *************************** -----------------------
-//    
-//    //MARK:    showCalMoreButtonnAction
-//    
-//    @objc func showCalMoreButtonnAction() {
-//        
-//        print("Show cal !!")
-//        
-//        let delay: Double = 0.2
-//        let duration: Double = 1.2
-//        
-//        //isChartsDown && !isCalDown
-//        
-//        if(isCalDown && !isChartsDown) { //cal is out; it sldes back up
-////            wewed
-//            
-////            moveUp_hideCalFurther
-//            
-//            print("***************** Cal is out; frodrop ging up")
-//            self.view.bringSubviewToFront(self.tableView)
-//            self.view.sendSubviewToBack(calendar)
-//            self.view.sendSubviewToBack(backdropBackgroundImageView)
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveUp_toHideCal(view: self.tableView)
-//            }) { (_) in
-//                
-//            }
-//            
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveUp_toHideCal(view: self.backdropForeImageView)
-//            }) { (_) in
-//                
-//            }
-//            
-//            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
-//                
-//                // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
-//                
-//                if (self.isCalDown) { //todo replace with addtarget observer on foredropimagview
-//                    
-//                    print("KEEP SHWING CAL")
-//                    self.calendar.isHidden = false
-//                    self.isCalDown = true
-//                } else {
-//                    print("backdrop is up; Hidinng CAL")
-//                    self.calendar.isHidden = true
-//                    self.isCalDown = false
-//                }
-//                
-//            }
-//            
-//            
-//            print("cal CASE: BLUE")
-//            
-//            self.view.bringSubviewToFront(self.bottomAppBar)
-//            
-//        } else if (isCalDown && isChartsDown) { //cal is shown & charts are shown --> hide cal
-//            
-//            //            isChartsDown && !isCalDown
-//            
-//            print("cal CASE: GREEN")
-//            print("cal isCalDown: \(isCalDown)")
-//            print("cal isChartsDown: \(isChartsDown)")
-//            print("Cal is downn & charts are down !")
-//            
-//            self.calendar.isHidden = true
-//            isCalDown = false
-//            
-//        }
-//        else if (!isCalDown && isChartsDown) { //cal hidden & charts show --> show cal without moving foredrop
-//            
-//            //            isChartsDown && !isCalDown
-//            print("cal CASE: YELLOW")
-//            
-//            print("cal isCalDown: \(isCalDown)")
-//            print("cal isChartsDown: \(isChartsDown)")
-//            print("Cal is downn & charts are down !")
-//            
-//            self.calendar.isHidden = false
-//            isCalDown = true
-//            
-//        }
-//            
-//            //            else if (!isCalDown && isChartsDown) { //cal is hidden & charts are shown --> hide cal
-//            //            print("cal isCalDown: \(isCalDown)")
-//            //            print("cal isChartsDown: \(isChartsDown)")
-//            //            print("Cal is HIDDEN & charts are SHOWN !")
-//            //
-//            //            self.calendar.isHidden = t
-//            //        }
-//            
-////
-//        else { //cal is covered; reveal it
-//            
-//            print("Cal ELSE !")
-//            print("cal isCalDown: \(isCalDown)")
-//            print("cal isChartsDown: \(isChartsDown)")
-//            
-//            self.view.bringSubviewToFront(self.tableView)
-//            self.view.sendSubviewToBack(calendar)
-//            self.view.sendSubviewToBack(backdropBackgroundImageView)
-//            
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveDown_revealJustCal(view: self.tableView)
-//            }) { (_) in
-//                //            self.moveLeft(view: self.black4)
-//            }
-//            
-//            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-//                self.moveDown_revealJustCal(view: self.backdropForeImageView)
-//            }) { (_) in
-//                //            self.moveLeft(view: self.black4)
-//            }
-//            
-//            self.view.bringSubviewToFront(self.tableView)
-//            self.view.bringSubviewToFront(self.bottomAppBar)
-//            self.calendar.isHidden = false
-//            
-//        }
-//        tableView.reloadData()
-//    }
-//    
+
     //----------------------- *************************** -----------------------
     //MARK:-                        ACTION: ADD TASK
     //----------------------- *************************** -----------------------

@@ -110,6 +110,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
             let morningTasks: [NTask]
             if(dateForTheView == Date.today()) { //morning tasks today: rollover unfinished tasks + tasks added today + tasks completed today
                 morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+                
             } else { //get morning tasks without rollover
                 morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
             }
@@ -123,10 +124,12 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
             if(dateForTheView == Date.today()) {
                 eveTasks = TaskManager.sharedInstance.getEveningTasksForToday()
                 
+                
             } else { //get morning tasks without rollover
                 eveTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
             }
             print("Evening ROW COUNT:  \(eveTasks.count)")
+            
             return eveTasks.count
         default:
             return 0;
