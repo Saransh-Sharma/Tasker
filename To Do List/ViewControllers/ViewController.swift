@@ -53,9 +53,13 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         yAxis.labelPosition = .outsideChart
  
         chartView.xAxis.labelPosition = .bottom
-        chartView.xAxis.labelFont = .boldSystemFont(ofSize: 12)
+        chartView.xAxis.labelFont = .systemFont(ofSize: 8) //.boldSystemFont(ofSize: 8)
         chartView.xAxis.axisLineColor = .tertiaryLabel
-        chartView.xAxis.labelTextColor = .secondaryLabel
+        chartView.xAxis.labelTextColor = .label
+        chartView.xAxis.setLabelCount(10, force: true)
+        chartView.xAxis.labelRotationAngle = 0
+//        chartView.xAxis.text
+        chartView.xAxis.valueFormatter = DayAxisValueFormatter(chart: chartView) //replace date labels here
                                         
         return chartView
     }()
@@ -141,8 +145,11 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         set01.fillAlpha = 0.8
         set01.drawFilledEnabled = true
         
+        
+        
         let lineChartData_01 = LineChartData(dataSet: set01)
         lineChartView.data = lineChartData_01
+        
         
     }
     
@@ -170,8 +177,9 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         //TODO: This cal should show this week + last week in default view
         // so if today is wednesday show: last 7 days from last week + this week up till today(mon, tue, wed)
         
-        yValues.append(ChartDataEntry(x: Double(1), y: Double(4)))
-        yValues.append(ChartDataEntry(x: Double(2.0), y: Double(5)))
+        
+        yValues.append(ChartDataEntry(x: Double(1.0), y: Double(3)))
+        yValues.append(ChartDataEntry(x: Double(2.0), y: Double(3)))
         yValues.append(ChartDataEntry(x: Double(3.0), y: Double(7)))
         yValues.append(ChartDataEntry(x: Double(4.0), y: Double(3)))
         yValues.append(ChartDataEntry(x: Double(5.0), y: Double(7.5)))
@@ -180,6 +188,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         yValues.append(ChartDataEntry(x: Double(8.0), y: Double(4.0)))
         yValues.append(ChartDataEntry(x: Double(9.0), y: Double(6)))
         yValues.append(ChartDataEntry(x: Double(10.0), y: Double(7)))
+        
         
         return yValues
     }
@@ -286,7 +295,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
        
         
 
-        //Badge number //BUG: badge is rest only after killing the app
+        //Badge number //BUG: badge is rest only after killing the app; minimising doesnt reset badge to correct value
         let application = UIApplication.shared
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.badge, .alert, .sound]) { (OnSuccess, OnError) in
@@ -695,7 +704,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     }
     
     //----------------------- *************************** -----------------------
-      //MARK:-                ANIMATION: LINE CHAR ANIMATION
+      //MARK:-                ANIMATION: LINE CHART ANIMATION
       //----------------------- *************************** -----------------------
     
     
