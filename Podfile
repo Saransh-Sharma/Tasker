@@ -16,6 +16,8 @@ pod 'Timepiece', '~> 1.3.1', :modular_headers => true
 pod 'FSCalendar', '~> 2.8.1', :modular_headers => true
 pod 'EasyPeasy', '~> 1.9.0', :modular_headers => true
 pod 'BEMCheckBox', '~> 1.4.1', :modular_headers => true
+pod 'Charts', '~> 3.5.0', :modular_headers => true
+pod 'TinyConstraints', '~> 4.0.1', :modular_headers => true
 
   target 'To Do ListTests' do
     inherit! :search_paths

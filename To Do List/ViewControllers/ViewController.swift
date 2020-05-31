@@ -12,34 +12,84 @@ import SemiModalViewController
 import CircleMenu
 import ViewAnimator
 import FSCalendar
-import EasyPeasy
-import BEMCheckBox
+import Charts
+import UserNotifications
+import TinyConstraints
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialBottomAppBar
 import MaterialComponents.MaterialButtons_Theming
+import MaterialComponents.MaterialRipple
 
 
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, CircleMenuDelegate {
+class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate {
     
-    
-    //MARK:- Tableview animation style
-    private let animations = [AnimationType.from(direction:.right , offset: 400.0)]
     
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
+    var todoColors = ToDoColors()
+    
+    var backdropContainer = UIView()
+    var foredropContainer = UIView()
+    var bottomBarContainer = UIView()
+    
+    
+    //init notification badge counter
+    var notificationBadgeNumber:Int = 0
+    
+    
+    //MARK:- LINE CHART
+    lazy var lineChartView: LineChartView = {
+        let chartView = LineChartView()
+        chartView.backgroundColor = .clear
+        chartView.legend.form = .default
+        
+        
+        chartView.rightAxis.enabled = false
+        
+        let yAxis = chartView.leftAxis
+        yAxis.labelFont = .boldSystemFont(ofSize: 12)
+        yAxis.labelTextColor = .secondaryLabel
+        yAxis.axisLineColor = .tertiaryLabel
+        yAxis.labelPosition = .outsideChart
+ 
+        chartView.xAxis.labelPosition = .bottom
+        chartView.xAxis.labelFont = .systemFont(ofSize: 8) //.boldSystemFont(ofSize: 8)
+        chartView.xAxis.axisLineColor = .tertiaryLabel
+        chartView.xAxis.labelTextColor = .label
+        chartView.xAxis.setLabelCount(10, force: true)
+        chartView.xAxis.labelRotationAngle = 0
+//        chartView.xAxis.text
+        chartView.xAxis.valueFormatter = DayAxisValueFormatter(chart: chartView) //replace date labels here
+                                        
+        return chartView
+    }()
+    
+    //MARK: Pie Chart Data Sections
+     let tinyPieChartSections = [""]
     
     //MARK:- cuurentt task list date
     var dateForTheView = Date.today()
-    var dateToDisplay = Date.today()
     
     //MARK:- score for day label
     var scoreForTheDay: UILabel! = nil
-    
-    
+        
     //MARK:- Buttons + Views + Bottom bar
-    fileprivate weak var calendar: FSCalendar!
+    var calendar: FSCalendar!
     let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
     let revealCalAtHomeButton = MDCButton()
+    let revealChartsAtHomeButton = MDCButton()
+    
+    let homeDate_Day = UILabel()
+    let homeDate_WeekDay = UILabel()
+    let homeDate_Month = UILabel()
+    
+    //MARK: charts
+    let tinyPieChartView = PieChartView()
+    var shouldHideData: Bool = false
+    var sliderX: UISlider!
+    var sliderY: UISlider!
+    var sliderTextX: UITextField!
+    var sliderTextY: UITextField!
     
     var seperatorTopLineView = UIView()
     var backdropNochImageView = UIImageView()
@@ -52,6 +102,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let scoreAtHomeLabel = UILabel()
     var bottomAppBar = MDCBottomAppBarView()
     var isCalDown: Bool = false
+    var isChartsDown: Bool = false
+    
     
     //MARK:- Circle menu init
     let circleMenuItems: [(icon: String, color: UIColor)] = [
@@ -69,14 +121,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var switchState: UISwitch!
     
-    
-    //MARK: Theming: COLOURS
-    var backgroundColor = UIColor.systemGray5
-    var primaryColor = UIColor.systemIndigo // #colorLiteral(red: 0.3843137255, green: 0, blue: 0.9333333333, alpha: 1) //UIColor(red: 98.0/255.0, green: 0.0/255.0, blue: 238.0/255.0, alpha: 1.0)
-    var primaryColorDarker = UIColor.black//#colorLiteral(red: 0.2784313725, green: 0.007843137255, blue: 0.7568627451, alpha: 1) //UIColor(red: 71.0/255.0, green: 2.0/255.0, blue: 193.0/255.0, alpha: 1.0)
-    var secondaryAccentColor = UIColor.systemOrange// #colorLiteral(red: 0.007843137255, green: 0.6352941176, blue: 0.6156862745, alpha: 1) //02A29D
-    //          var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
-    //          var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
+    //MARK: Theming: text color
+    var scoreInTinyPieChartColor:UIColor = UIColor.white
     
     //MARK: Fonts:
     //    var titleFont_1:UIFont = setFont
@@ -85,127 +131,106 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     //MARK:- Elevation + Shadows:
     let bottomBarShadowElevation: ShadowElevation = ShadowElevation(rawValue: 8)
     
-    //MARK: get name of the month
-    func getMonth(date: Date) -> String {
+    //MARK:- SET CHART DATA - LINE
+    func setLineChartData() {
+        let set01 = LineChartDataSet(entries: generateLineChartData(), label: "Score for the day")
+        //        let set01 = LineChartDataSet(entries: generateLineChartData())
         
-        let dateFormatter_Month = DateFormatter()
-        dateFormatter_Month.dateFormat = "LLL" //try MMM
-        let nameOfMonth = dateFormatter_Month.string(from: date)
-        return nameOfMonth
-    }
-    
-    //MARK: get name of the weekday
-    func getWeekday(date: Date) -> String {
-        
-        let dateFormatter_Weekday = DateFormatter()
-        dateFormatter_Weekday.dateFormat = "EEE"
-        let nameOfWeekday = dateFormatter_Weekday.string(from: date)
-        return nameOfWeekday
-    }
-    
-    //MARK:- TUESDAY, 5th May
-    func setHomeViewDate() {
-        
-        let homeDate_Day = UILabel()
-        let homeDate_WeekDay = UILabel()
-        let homeDate_Month = UILabel()
+        //        set01.drawCirclesEnabled = false
+        set01.drawCirclesEnabled = false
+        set01.mode = .cubicBezier
+        set01.setColor(todoColors.secondaryAccentColor)
+        set01.lineWidth = 3
+        set01.fill = Fill(color: todoColors.primaryColorDarker)
+        set01.fillAlpha = 0.8
+        set01.drawFilledEnabled = true
         
         
         
-        let today = dateToDisplay //Date() //TODO: change this with view date
+        let lineChartData_01 = LineChartData(dataSet: set01)
+        lineChartView.data = lineChartData_01
         
-        
-        if("\(today.day)".count < 2) {
-            homeDate_Day.text = "0\(today.day)"
-        } else {
-            homeDate_Day.text = "\(today.day)"
-        }
-        homeDate_WeekDay.text = getWeekday(date: today)
-        homeDate_Month.text = getMonth(date: today)
-        
-        
-        homeDate_Day.numberOfLines = 1
-        homeDate_WeekDay.numberOfLines = 1
-        homeDate_Month.numberOfLines = 1
-        
-        homeDate_Day.textColor = .systemGray6
-        homeDate_WeekDay.textColor = .systemGray6
-        homeDate_Month.textColor = .systemGray6
-        
-        homeDate_Day.font =  setFont(fontSize: 50, fontweight: .medium, fontDesign: .rounded)
-        homeDate_WeekDay.font =  setFont(fontSize: 24, fontweight: .thin, fontDesign: .rounded)
-        homeDate_Month.font =  setFont(fontSize: 24, fontweight: .regular, fontDesign: .rounded)
-        
-        homeDate_Day.textAlignment = .left
-        homeDate_WeekDay.textAlignment = .left
-        homeDate_Month.textAlignment = .left
-        
-        
-        homeDate_Day.frame = CGRect(x: 5, y: 18, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        homeDate_WeekDay.frame = CGRect(x: 70, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
-        homeDate_Month.frame = CGRect(x: 70, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
- 
-        
-        homeDate_WeekDay.adjustsFontSizeToFitWidth = true
-        homeDate_Month.adjustsFontSizeToFitWidth = true
-        
-        homeTopBar.addSubview(homeDate_Day)
-        homeTopBar.addSubview(homeDate_WeekDay)
-        homeTopBar.addSubview(homeDate_Month)
-        
-//        homeDate_WeekDay.translatesAutoresizingMaskIntoConstraints = false
-//        homeDate_WeekDay.centerXAnchor.constraint(equalTo: homeDate_Day.centerXAnchor, constant: 20).isActive = true
-//        homeDate_WeekDay.leadingAnchor.constraint(equalTo: homeDate_Day.trailingAnchor, constant: 20).isActive = true
-//        homeDate_WeekDay.widthAnchor.constraint(equalToConstant: homeTopBar.bounds.width/2).isActive = true
-//        homeDate_WeekDay.heightAnchor.constraint(equalToConstant: homeTopBar.bounds.height/4).isActive = true
- 
-    }
-    
-    //MARK:- setup cal button
-    func setupCalButton()  {
-        
-        
-//        let configuration = UIImage.SymbolConfiguration(scale: .large)
-        let configuration = UIImage.SymbolConfiguration(pointSize: 30, weight: .regular, scale: .large)
-        let smallSymbolImage = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: configuration)
-        let colouredCalPullDownImage = smallSymbolImage?.withTintColor(secondaryAccentColor, renderingMode: .alwaysOriginal)
-        
-        let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
-//        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/4)+10 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
-//        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.minX+UIScreen.main.bounds.width/2)-20 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
-//        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-50 , y: UIScreen.main.bounds.minY+65, width: 50, height: 50)
-        revealCalAtHomeButton.frame = CGRect(x: (UIScreen.main.bounds.width/2)-60 , y: UIScreen.main.bounds.minY+55, width: 200, height: 200)
-        revealCalAtHomeButton.setImage(calButton, for: .normal)
-        revealCalAtHomeButton.backgroundColor = .clear
-        revealCalAtHomeButton.titleLabel?.text = "GREEN"
-        
-        revealCalAtHomeButton.sizeToFit()
-        revealCalAtHomeButton.addTarget(self, action: #selector(showCalMoreButtonnAction), for: .touchUpInside)
-        view.addSubview(revealCalAtHomeButton)
         
     }
     
-    func setupTopSeperator() {
+    func getTaskForTodayCount() -> Int {
+        var morningTasks = [NTask]()
+        var eveTasks = [NTask]()
         
-        seperatorTopLineView = UIView(frame: CGRect(x: UIScreen.main.bounds.width/2, y: backdropNochImageView.bounds.height + 10, width: 1.0, height: homeTopBar.bounds.height/2))
-        seperatorTopLineView.layer.borderWidth = 1.0
-        //        seperatorTopLineView.layer.borderColor = UIColor.white.cgColor
-        seperatorTopLineView.layer.borderColor = UIColor.gray.cgColor
-        self.view.addSubview(seperatorTopLineView)
+        morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+        eveTasks = TaskManager.sharedInstance.getEveningTasksForToday()
         
+        return morningTasks.count + eveTasks.count
     }
     
     
+    func generateLineChartData() -> [ChartDataEntry] {
+        
+        var yValues: [ChartDataEntry] = []
+        //        for day in daysOfWeek {
+        //            let mEntry = ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10)))
+        //            yValues.append(ChartDataEntry(x: Double(Int.random(in: 0 ..< 10)), y: Double(Int.random(in: 0 ..< 10))))
+        //            print("Set data for day \(day): \(mEntry)")
+        //            print("----------------")
+        //        }
+        
+        //TODO: This cal should show this week + last week in default view
+        // so if today is wednesday show: last 7 days from last week + this week up till today(mon, tue, wed)
+        
+        
+        yValues.append(ChartDataEntry(x: Double(1.0), y: Double(3)))
+        yValues.append(ChartDataEntry(x: Double(2.0), y: Double(3)))
+        yValues.append(ChartDataEntry(x: Double(3.0), y: Double(7)))
+        yValues.append(ChartDataEntry(x: Double(4.0), y: Double(3)))
+        yValues.append(ChartDataEntry(x: Double(5.0), y: Double(7.5)))
+        yValues.append(ChartDataEntry(x: Double(6.0), y: Double(8)))
+        yValues.append(ChartDataEntry(x: Double(7.0), y: Double(9)))
+        yValues.append(ChartDataEntry(x: Double(8.0), y: Double(4.0)))
+        yValues.append(ChartDataEntry(x: Double(9.0), y: Double(6)))
+        yValues.append(ChartDataEntry(x: Double(10.0), y: Double(7)))
+        
+        
+        return yValues
+    }
+    
+    func chartValueSelected(_ chartView: ChartViewBase, entry: ChartDataEntry, highlight: Highlight) {
+        
+        print("You selected data: \(entry)")
+    }
+    
+    //MARK: setup line chart
+    func setupLineChartView() {
+        
+        view.addSubview(lineChartView)
+        lineChartView.centerInSuperview()
+        lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: 2*headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
+        
+    }
     
     //MARK:- View did load
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        
         //MARK: serve material backdrop
         headerEndY = 128
         setupBackdropBackground() //backdrop
+        
+        tinyPieChartView.frame = CGRect(x: (UIScreen.main.bounds.width)-(homeTopBar.bounds.height+15), y: 15, width: (homeTopBar.bounds.height)+45, height: (homeTopBar.bounds.height)+45)                   
+        view.addSubview(tinyPieChartView)
+        
         setupBackdropForeground() //foredrop
         setupBackdropNotch() //notch
+        
+        //MARK:- LOAD LINE CHART
+        setupLineChartView()
+        setLineChartData()
+        lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
+        
+        
+        
+        
+        //        isBackdropDown() // get intit //refetch this n view reload
         
         // cal
         setupCal()
@@ -223,6 +248,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.bringSubviewToFront(bottomAppBar)
         
         setupCalButton()
+        setupChartButton()
         setupTopSeperator()
         
         //MARK: circle menu frame
@@ -234,15 +260,72 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             buttonsCount: 5,
             duration: 1,
             distance: 50)
-        circleMenuButton.backgroundColor = backgroundColor
+        circleMenuButton.backgroundColor = todoColors.backgroundColor
         
         circleMenuButton.delegate = self
         circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
         //        view.addSubview(circleMenuButton) TODO: reconsider the top circle menu
         
         
+        //MARK: NOTCH CHECK
+        if (UIDevice.current.hasNotch) {
+            print("I SEE NOTCH !!")
+        } else {
+            print("NO NOTCH !")
+        }
+        
+        //---------- VIEW LOAD: CHART
+        
+        
+        
+        self.setupPieChartView(pieChartView: tinyPieChartView)
+        
+        updateTinyPieChartData()
+        
+        tinyPieChartView.delegate = self
+        
+
+        
+        // entry label styling
+        tinyPieChartView.entryLabelColor = .clear
+        tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .bold)
+        
+         
+        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+       
+        
+
+        //Badge number //BUG: badge is rest only after killing the app; minimising doesnt reset badge to correct value
+        let application = UIApplication.shared
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.badge, .alert, .sound]) { (OnSuccess, OnError) in
+            print("Success !")
+        }
+        if(getTaskForTodayCount() > 0) {
+        
+            application.applicationIconBadgeNumber = getTaskForTodayCount()
+        } else {
+            application.applicationIconBadgeNumber =  0
+        }
+        
+        application.registerForRemoteNotifications()
+        
+        
+        
+
+        
+        
         enableDarkModeIfPreset()
     }
+    
+    //---------- SETUP: CHART
+   
+    
+    
+
+    
+    //-----------
+    //---------- SETUP: CHART DONE
     
     
     
@@ -276,7 +359,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         
         print("Header end point is: \(headerEndY)")
-         
+        
         
         let todaysDateLabel = UILabel()
         todaysDateLabel.frame = CGRect(x: 5, y: 70, width: view.frame.width/2, height: 40)
@@ -298,7 +381,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         let view = UIView(frame: UIScreen.main.bounds)
         view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
         //        view.backgroundColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
-        view.backgroundColor = backgroundColor
+        view.backgroundColor = todoColors.backgroundColor
         let frameForView = view.bounds
         
         let taskName = UILabel() //Task Name
@@ -313,12 +396,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.addSubview(eveningLabel)
         eveningLabel.text = "evening task"
         eveningLabel.textAlignment = .left
-        eveningLabel.textColor =  primaryColor
+        eveningLabel.textColor =  todoColors.primaryColor
         eveningLabel.frame = CGRect(x: frameForView.minX+40, y: frameForView.minY+85, width: frameForView.width-100, height: frameForView.height/8)
         
         let eveningSwitch = UISwitch() //Evening Switch
         view.addSubview(eveningSwitch)
-        eveningSwitch.onTintColor = primaryColor
+        eveningSwitch.onTintColor = todoColors.primaryColor
         
         if(Int(task.taskType) == 2) {
             print("Task type is evening; 2")
@@ -335,7 +418,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         view.addSubview(prioritySegmentedControl)
         prioritySegmentedControl.selectedSegmentIndex = 1
         prioritySegmentedControl.backgroundColor = .white
-        prioritySegmentedControl.selectedSegmentTintColor =  primaryColor
+        prioritySegmentedControl.selectedSegmentTintColor =  todoColors.primaryColor
         
         
         
@@ -378,7 +461,16 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         switch indexPath.section {
         case 0:
             //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
-            let Tasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+//            let Tasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+            
+            let Tasks: [NTask]
+                       if(dateForTheView == Date.today()) {
+                            Tasks = TaskManager.sharedInstance.getMorningTasksForToday()
+                       } else { //get morning tasks without rollover
+                            Tasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+                       }
+            
+            
             currentTask = Tasks[indexPath.row]
         case 1:
             //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
@@ -437,7 +529,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             view.backgroundColor = UIColor.darkGray
         } else {
             //            print("HOME: DARK OFF !!")
-            view.backgroundColor =  backgroundColor
+            view.backgroundColor =  todoColors.backgroundColor
         }
     }
     
@@ -448,8 +540,21 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
         var score = 0
         
-        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
-        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+        let morningTasks: [NTask]
+                           if(dateForTheView == Date.today()) {
+                                morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+                           } else { //get morning tasks without rollover
+                                morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+                           }
+        let eveningTasks: [NTask]
+                            if(dateForTheView == Date.today()) {
+                                 eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
+                            } else { //get morning tasks without rollover
+                                 eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+                            }
+        
+//        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+//        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
         
         for each in morningTasks {
             
@@ -496,348 +601,33 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return 2;
     }
     
-    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        let myLabel = UILabel()
-        myLabel.frame = CGRect(x:5, y: 0, width: UIScreen.main.bounds.width/2, height: 30)
-        //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
-        myLabel.font = UIFont(name: "HelveticaNeue-Bold", size: 20)
-        myLabel.textColor = .secondaryLabel
-        myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
-        
-        let headerView = UIView()
-        headerView.addSubview(myLabel)
-        
-        return headerView
-    }
+
     
-    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        switch section {
-        case 0:
-            return "Today's Tasks"
-        case 1:
-            return "Evening"
-        default:
-            return nil
-        }
-    }
-    
-    
-    
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        
-        switch section {
-        case 0:
-            //            print("Items in morning: \(TaskManager.sharedInstance.getMorningTasks.count)")
-            //            return TaskManager.sharedInstance.getMorningTasks.count
-            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
-            return morningTasks.count
-        case 1:
-            //            print("Items in evening: \(TaskManager.sharedInstance.getEveningTasks.count)")
-            //            return TaskManager.sharedInstance.getEveningTasks.count
-            let eveTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-            return eveTasks.count
-        default:
-            return 0;
-        }
-    }
-    
-    // MARK:- CELL AT ROW
-    
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        
-        
-        
-        //        chec
-        
-        
-        var currentTask: NTask!
-        let completedTaskCell = tableView.dequeueReusableCell(withIdentifier: "completedTaskCell", for: indexPath)
-        let openTaskCell = tableView.dequeueReusableCell(withIdentifier: "openTaskCell", for: indexPath)
-        
-        //        print("NTASK count is: \(TaskManager.sharedInstance.count)")
-        //        print("morning section index is: \(indexPath.row)")
-        
-        switch indexPath.section {
-        case 0:
-            print("morning section index is: \(indexPath.row)")
-            
-            //            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: Date.today())
-            //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
-            
-            
-            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
-            currentTask = morningTasks[indexPath.row]
-            
-        case 1:
-            print("evening section index is: \(indexPath.row)")
-            
-            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
-            
-            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
-            
-            let evenningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-            currentTask = evenningTasks[indexPath.row]
-            
-        default:
-            break
-        }
-        
-        
-        completedTaskCell.textLabel!.text = "\t\(currentTask.name)"
-        completedTaskCell.backgroundColor = UIColor.clear
-        
-        //        openTaskCell.textLabel!.text = currentTask.name
-        openTaskCell.textLabel!.text = "\t\(currentTask.name)"
-        openTaskCell.backgroundColor = UIColor.clear
-        
-        if currentTask.isComplete {
-            completedTaskCell.textLabel?.textColor = .tertiaryLabel
-            //            completedTaskCell.accessoryType = .checkmark
-            
-            let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
-            checkBox.lineWidth = 1.0
-            checkBox.animationDuration = 0.45
-            checkBox.setOn(true, animated: false)
-            checkBox.boxType = .square
-            checkBox.onAnimationType = .oneStroke
-            checkBox.offAnimationType = .oneStroke
-            
-            
-            
-            completedTaskCell.addSubview(checkBox)
-            
-            //          let priorityLineView = UIView(frame: CGRect(x: completedTaskCell.bounds.minX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
-            //            priorityLineView.clipsToBounds = true
-            
-            //            let priorityLineView_Right = UIView(frame: CGRect(x: completedTaskCell.bounds.maxX, y: completedTaskCell.bounds.minY, width: 5.0, height: completedTaskCell.bounds.height))
-            //            priorityLineView_Right.clipsToBounds = true
-            
-            //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
-            if (currentTask.taskPriority == 1) { //p0
-                
-                //                          priorityLineView.backgroundColor = .systemRed
-                //                        priorityLineView_Right.backgroundColor = .systemRed
-                
-            } else if (currentTask.taskPriority == 2) {
-                
-                //                          priorityLineView.backgroundColor = .systemOrange
-                //                        priorityLineView_Right.backgroundColor = .systemOrange
-                
-            } else if (currentTask.taskPriority == 3) {
-                
-                //                          priorityLineView.backgroundColor = .systemYellow
-                //                        priorityLineView_Right.backgroundColor = .systemYellow
-                
-            } else {
-                //                          priorityLineView.backgroundColor = .systemGray3
-                //                        priorityLineView_Right.backgroundColor = .systemGray3
-            }
-            //            completedTaskCell.addSubview(priorityLineView)
-            //            completedTaskCell.addSubview(priorityLineView_Right)
-            
-            return completedTaskCell
-            
-        } else {
-            
-            
-            
-            openTaskCell.textLabel?.textColor = .label
-            //            openTaskCell.accessoryType = .detailButton
-            openTaskCell.accessoryType = .disclosureIndicator
-            
-            
-            
-            let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: openTaskCell.bounds.minX+5, y: openTaskCell.bounds.minY+10, width: 20, height: 25))
-            checkBox.lineWidth = 1.0
-            checkBox.animationDuration = 0.45
-            checkBox.setOn(false, animated: false)
-            checkBox.boxType = .square
-            checkBox.onAnimationType = .oneStroke
-            checkBox.offAnimationType = .oneStroke
-            
-            openTaskCell.addSubview(checkBox)
-            
-            
-            
-            
-            let priorityLineView_Right = UIView() //UIView(frame: CGPoint(x: openTaskCell.bounds.maxX, y: openTaskCell.bounds.midY))//(frame: CGRect(x: openTaskCell.bounds.maxX, y: openTaskCell.bounds.minY, width: 5.0, height: openTaskCell.bounds.height))
-            
-            
-            priorityLineView_Right.clipsToBounds = true
-            
-            //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
-            if (currentTask.taskPriority == 1) { //p0
-                
-                
-                //                priorityLineView_Right.backgroundColor = .systemRed
-                
-            } else if (currentTask.taskPriority == 2) {
-                
-                
-                //                priorityLineView_Right.backgroundColor = .systemOrange
-                
-            } else if (currentTask.taskPriority == 3) {
-                
-                
-                //                priorityLineView_Right.backgroundColor = .systemYellow
-                
-            } else {
-                
-                //                priorityLineView_Right.backgroundColor = .systemGray3
-            }
-            
-            
-            //            openTaskCell.addSubview(priorityLineView_Right)
-            
-            return openTaskCell
-        }
-    }
-    
-    // MARK:- SWIPE ACTIONS
-    
-    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        
-        let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-            
-            let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
-            let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
-            
-            switch indexPath.section {
-            case 0:
-                
-                //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row])].isComplete = true
-                
-                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row])].isComplete = true
-                
-                TaskManager.sharedInstance.saveContext()
-                
-            case 1:
-                
-                //                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row])].isComplete = true
-                TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row])].isComplete = true
-                TaskManager.sharedInstance.saveContext()
-                
-            default:
-                break
-            }
-            
-            self.scoreForTheDay.text = "\(self.calculateTodaysScore())"
-            
-            tableView.reloadData()
-            self.animateTableViewReload()
-            //            UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
-            //
-            //                   })
-            
-            // right spring animation
-            //            tableView.reloadData(
-            //                with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-            //                              constantDelay: 0))
-            
-            self.title = "\(self.calculateTodaysScore())"
-            actionPerformed(true)
-        }
-        
-        return UISwipeActionsConfiguration(actions: [completeTaskAction])
-    }
-    
-    /*
-     Pass this a morning or evening or inbox or upcoming task &
-     this will give the index of that task in the global task array
-     using that global task array index the element can then be removed
-     or modded
-     */
-    func getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: NTask) -> Int {
-        var tasks = [NTask]()
-        var idxHolder = 0
-        tasks = TaskManager.sharedInstance.getAllTasks
-        if let idx = tasks.firstIndex(where: { $0 === morningOrEveningTask }) {
-            
-            print("Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
-            print("func IDX is: \(idx)")
-            idxHolder = idx
-            
-        }
-        return idxHolder
-    }
-    
-    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        
-        let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-            
-            let confirmDelete = UIAlertController(title: "Are you sure?", message: "This will delete this task", preferredStyle: .alert)
-            
-            let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
-            {
-                (UIAlertAction) in
-                
-                let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
-                let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
-                
-                switch indexPath.section {
-                case 0:
-                    
-                    //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getMorningTasks[indexPath.row]))
-                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: morningTasks[indexPath.row]))
-                case 1:
-                    //                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: TaskManager.sharedInstance.getEveningTasks[indexPath.row]))
-                    
-                    TaskManager.sharedInstance.removeTaskAtIndex(index: self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: eveningTasks[indexPath.row]))
-                default:
-                    break
-                }
-                
-                //                tableView.reloadData()
-                //                tableView.reloadData(
-                //                    with: .simple(duration: 0.45, direction: .rotation3D(type: .captainMarvel),
-                //                                  constantDelay: 0))
-                
-                tableView.reloadData()
-                self.animateTableViewReload()
-                //                UIView.animate(views: tableView.visibleCells, animations: self.animations, completion: {
-                //
-                //                       })
-                
-                
-            }
-            let noDeleteAction = UIAlertAction(title: "No", style: .cancel)
-            { (UIAlertAction) in
-                
-                print("That was a close one. No deletion.")
-            }
-            
-            //add actions to alert controller
-            confirmDelete.addAction(yesDeleteAction)
-            confirmDelete.addAction(noDeleteAction)
-            
-            //show it
-            self.present(confirmDelete ,animated: true, completion: nil)
-            
-            self.title = "\(self.calculateTodaysScore())"
-            actionPerformed(true)
-        }
-        
-        
-        return UISwipeActionsConfiguration(actions: [deleteTaskAction])
-    }
-    
-    
-    //    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-    //        // We'll assume that there is only one section for now.
+    //----------------------- *************************** -----------------------
+    //MARK:-                  TABLEVIEW: HEADER VIEW
+    //TODO: build filter here
+    // has today, yesterday, tomorrw, project A, Prject B
     //
-    //          if section == 0 {
+    //----------------------- *************************** -----------------------
+    
+    //        func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+    //            // We'll assume that there is only one section for now.
     //
-    //              let imageView: UIImageView = UIImageView()
-    //              //imageView.clipsToBounds = true
-    //              //imageView.contentMode = .scaleAspectFill
-    //            imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 50)
-    //              imageView.image =  UIImage(named: "Star")!
-    //              return imageView
-    //          }
+    //              if section == 0 {
     //
-    //          return nil
-    //    }
+    ////                  let imageView: UIImageView = UIImageView()
+    //                  //imageView.clipsToBounds = true
+    //                  //imageView.contentMode = .scaleAspectFill
+    //                let filterHeaderView = UIView()
     //
+    ////                imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 50)
+    ////                  imageView.image =  UIImage(named: "Star")!
+    ////                  return imageView
+    //              }
+    //
+    //              return nil
+    //        }
+    
     
     @IBAction func changeBackground(_ sender: Any) {
         view.backgroundColor = UIColor.black
@@ -855,30 +645,77 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
     }
     
-    //MARK: Setup calendar appearence
-    func setupCal() {
-        let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
-        calendar.calendarHeaderView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        calendar.calendarWeekdayView.backgroundColor = primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        calendar.appearance.weekdayTextColor = .white
-        calendar.appearance.headerTitleColor = .white
-        calendar.appearance.titleWeekendColor = .red
-        calendar.appearance.caseOptions = .weekdayUsesUpperCase
-        //        calendar.appearance.eventSelectionColor = secondaryAccentColor
-        //        calendar.appearance.separators = .interRows
-        //        calendar.appearance.selectionColor = secondaryAccentColor
-        calendar.appearance.subtitleDefaultColor = .white
-        //        calendar.appearance.subtitleTodayColor
-        //        calendar.appearance.todayColor = .green
-        
-        
-        calendar.dataSource = self
-        calendar.delegate = self
-        
-        self.calendar = calendar
-        self.calendar.scope = FSCalendarScope.week
-        //        calendar.backgroundColor = .white
+    
+    
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                  ANIMATION: MOVE BY OFFSETS
+    //----------------------- *************************** -----------------------
+    
+    //MARK:- Animation Move Offses
+    
+    func moveRight(view: UIView) {
+        view.center.x += 300
     }
+    
+    func moveLeft(view: UIView) {
+        view.center.x -= 300
+    }
+    //----------------------- *************************** -----------------------
+    //MARK:-                ANIMATION: MOVE FOR CAL
+    //----------------------- *************************** -----------------------
+    func moveDown_revealJustCal(view: UIView) {
+        isCalDown = true
+        print("move: Cal SHOW - down: \(UIScreen.main.bounds.height/6)")
+        view.center.y += UIScreen.main.bounds.height/6
+    }
+    func moveUp_toHideCal(view: UIView) {
+        isCalDown = false
+        print("move: Cal HIDE - up: \(UIScreen.main.bounds.height/6)")
+        view.center.y -= UIScreen.main.bounds.height/6
+    }
+    
+//    func moveUp_hideCalFurther(view: UIView) { //
+//           isCalDown = false
+//           view.center.y -= (150+50)
+//       }
+    //----------------------- *************************** -----------------------
+    //MARK:-                ANIMATION: MOVE FOR CHARTS
+    //----------------------- *************************** -----------------------
+    func moveDown_revealCharts(view: UIView) {
+        isChartsDown = true
+        print("move: CHARTS SHOW - down: \(UIScreen.main.bounds.height/2)")
+        view.center.y += UIScreen.main.bounds.height/2
+    }
+    func moveDown_revealChartsKeepCal(view: UIView) {
+         isChartsDown = true
+         print("move: CHARTS SHOW, CAL SHOW - down some: \(UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12)")
+         view.center.y += (UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12)
+     }
+    func moveUp_hideCharts(view: UIView) {
+        isChartsDown = false
+        print("move: CHARTS HIDE - up: \(UIScreen.main.bounds.height/2)")
+        view.center.y -= UIScreen.main.bounds.height/2
+    }
+    func moveUp_hideChartsKeepCal(view: UIView) {
+        isChartsDown = false
+        print("move: CHARTS HIDE, CAL SHOW - up some: \(UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/4)")
+        view.center.y -= (UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/4)
+    }
+    
+    //----------------------- *************************** -----------------------
+      //MARK:-                ANIMATION: LINE CHART ANIMATION
+      //----------------------- *************************** -----------------------
+    
+    
+    func animateLineChart(chartView: LineChartView) {
+            chartView.animate(yAxisDuration: 1.1, easingOption: .easeInOutBack)
+    }
+    //----------------------- *************************** -----------------------
+    //MARK:-                ANIMATION: WHOLE TABLE VIEW RELOAD
+    //----------------------- *************************** -----------------------
+
+    
     
     //MARK: animations
     func animateTableViewReload() {
@@ -889,6 +726,25 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                        animations: [zoomAnimation, rotateAnimation],
                        duration: 0.3)
     }
+    
+    func animateTableViewReloadSingleCell(cellAtIndexPathRow: Int) {
+         let zoomAnimation = AnimationType.zoom(scale: 0.5)
+         let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+         
+        print("Only animating cell at: \(cellAtIndexPathRow)")
+        UIView.animate(views: tableView.visibleCells(in: cellAtIndexPathRow),
+                        animations: [zoomAnimation, rotateAnimation],
+                        duration: 0.3)
+        
+//        UIView.animate(views: tableView.cellForRow(at: <#T##IndexPath#>),
+//                               animations: [zoomAnimation, rotateAnimation],
+//                               duration: 0.3)
+     }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                ANIMATION: TABLE CELL RELOAD
+    //----------------------- *************************** -----------------------
+    
     func animateTableCellReload() {
         // Combined animations example
         //           let fromAnimation = AnimationType.from(direction: .right, offset: 70.0)
@@ -907,33 +763,16 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     
-    //MARK:- Animation Move Offses
-    
-    func moveRight(view: UIView) {
-        view.center.x += 300
-    }
-    
-    func moveLeft(view: UIView) {
-        view.center.x -= 300
-    }
-    func moveDown_revealCal(view: UIView) {
-        isCalDown = true
-        view.center.y += 150
-    }
-    func moveUp_hideCal(view: UIView) {
-        isCalDown = false
-        view.center.y -= 150
-    }
-    //    func moveDown_onCalReveal(view: UIView) {
-    //        view.center.y -= 300
-    //    }
+    //----------------------- *************************** -----------------------
+    //MARK:-                        BOTTOM BAR + FAB
+    //----------------------- *************************** -----------------------
     
     //MARK:- setup bottom bar
     func setupBottomAppBar() {
         bottomAppBar.floatingButton.setImage(UIImage(named: "material_add_White"), for: .normal)
-        bottomAppBar.floatingButton.backgroundColor = secondaryAccentColor //.systemIndigo
+        bottomAppBar.floatingButton.backgroundColor = todoColors.secondaryAccentColor //.systemIndigo
         bottomAppBar.frame = CGRect(x: 0, y: UIScreen.main.bounds.maxY-100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.maxY-100)
-        bottomAppBar.barTintColor = primaryColor//primaryColor
+        bottomAppBar.barTintColor = todoColors.primaryColor//primaryColor
         
         // The following lines of code are to define the buttons on the right and left side
         let barButtonMenu = UIBarButtonItem(
@@ -961,19 +800,124 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         bottomAppBar.floatingButton.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
     }
     
+    
+    
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                ACTION: BOTTOMBAR BUTTON STUBS
+    //----------------------- *************************** -----------------------
+    
+    @objc
+    func onMenuButtonTapped() {
+        print("menu buttoon tapped")
+    }
+    
+    @objc
+    func onNavigationButtonTapped() {
+        print("nav buttoon tapped")
+    }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                     IS BACKDROP DOWN
+    //----------------------- *************************** -----------------------
+    //TODO: Improve this; make more resilient; if this breaks, the view breaks
+    //    func isBackdropDown() -> Bool{
+    //        print("---------------------------------------------")
+    //        print("backdrop midY:\(backdropForeImageView.bounds.midY)")
+    //        print("backdrop minY:\(backdropForeImageView.bounds.minY)")
+    //        print("backdrop maxY:\(backdropForeImageView.bounds.maxY)")
+    //        print("backdrop screen height:\(UIScreen.main.bounds.height-headerEndY)")
+    //        print("backdrop headerEndY:\(headerEndY)")
+    //
+    ////        if backdropForeImageView.bounds.maxY == UIScreen.main.bounds.height-headerEndY {
+    ////
+    ////            print("isBackdropDown: NOT DOWN - Header INIT positio exact match !")
+    ////            return false
+    ////
+    ////        } else {
+    ////            print("isBackdropDown: YES DOWN -  !")
+    ////            return true
+    ////        }
+    //
+    //
+    //    }
+
+    //----------------------- *************************** -----------------------
+    //MARK:-                        ACTION: ADD TASK
+    //----------------------- *************************** -----------------------
+    
+    @objc func AddTaskAction() {
+        
+        //       tap add fab --> addTask
+        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+        newViewController.modalPresentationStyle = .fullScreen
+        self.present(newViewController, animated: true, completion: nil)
+    }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                          UTIL: text,
+    //----------------------- *************************** -----------------------
+    
+    //Mark: Util: set font
+    func setFont(fontSize: CGFloat, fontweight: UIFont.Weight, fontDesign: UIFontDescriptor.SystemDesign) -> UIFont {
+        
+        // Here we get San Francisco with the desired weight
+        let systemFont = UIFont.systemFont(ofSize: fontSize, weight: fontweight)
+        
+        // Will be SF Compact or standard SF in case of failure.
+        let font: UIFont
+        
+        if let descriptor = systemFont.fontDescriptor.withDesign(fontDesign) {
+            font = UIFont(descriptor: descriptor, size: fontSize)
+        } else {
+            font = systemFont
+        }
+        return font
+    }
+    
+    
+    
+    
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                            DATE
+    //----------------------- *************************** -----------------------
+    
+    //MARK: set passed date as day, week, month label text
+    func updateHomeDate(date: Date) {
+        
+        if("\(date.day)".count < 2) {
+            self.homeDate_Day.text = "0\(date.day)"
+        } else {
+            self.homeDate_Day.text = "\(date.day)"
+        }
+        self.homeDate_WeekDay.text = getWeekday(date: date)
+        self.homeDate_Month.text = getMonth(date: date)
+        
+    }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-              BACKDROP PATTERN 1.1 : SETUP NOTCH BACKDROP
+    //----------------------- *************************** -----------------------
+    
     //MARK:- Setup Backdrop Notch
     func setupBackdropNotch() {
         backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
-        backdropNochImageView.backgroundColor = primaryColorDarker
+        backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
         
         view.addSubview(backdropNochImageView)
     }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-              BACKDROP PATTERN 1: SETUP BACKGROUND
+    //----------------------- *************************** -----------------------
     
     //MARK:- Setup Backdrop Background - Today label + Score
     func setupBackdropBackground() {
         
         backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-        backdropBackgroundImageView.backgroundColor = primaryColor
+        backdropBackgroundImageView.backgroundColor = todoColors.primaryColor
         homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
         backdropBackgroundImageView.addSubview(homeTopBar)
         
@@ -982,17 +926,18 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         
         scoreAtHomeLabel.text = "\n\nscore"
         scoreAtHomeLabel.numberOfLines = 3
-        scoreAtHomeLabel.textColor = .systemGray6
+        scoreAtHomeLabel.textColor = .label
         scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
+    
         
         scoreAtHomeLabel.textAlignment = .center
         scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
         
-        homeTopBar.addSubview(scoreAtHomeLabel)
+        //        homeTopBar.addSubview(scoreAtHomeLabel)
         
         //---- score
         
-        scoreCounter.text = "24"
+        scoreCounter.text = "\(self.calculateTodaysScore())"
         scoreCounter.numberOfLines = 1
         scoreCounter.textColor = .systemGray5
         scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
@@ -1000,26 +945,30 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         scoreCounter.textAlignment = .center
         scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
         
-        homeTopBar.addSubview(scoreCounter)
+        //        homeTopBar.addSubview(scoreCounter)
         
         view.addSubview(backdropBackgroundImageView)
         
         
     }
     
+    //----------------------- *************************** -----------------------
+    //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
+    //----------------------- *************************** -----------------------
+    
     //MARK: Setup forground
     func setupBackdropForeground() {
         //    func setupBackdropForeground() {
         
-        print("Backdrop starts from: \(headerEndY)")
+        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
         backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-
-
+        
+        
         
         backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
         backdropForeImageView.tintColor = .systemGray6
         
-                
+        
         backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
         backdropForeImageView.layer.shadowOpacity = 0.8
         backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
@@ -1030,6 +979,96 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     
     
+    //----------------------- *************************** -----------------------
+    //MARK:-                       CALENNDAR:SETUP
+    //----------------------- *************************** -----------------------
+    
+    //MARK: Setup calendar appearence
+    func setupCal() {
+        let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
+        calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+        calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+        
+        
+        calendar.appearance.headerTitleColor = .white
+        calendar.appearance.headerTitleFont = setFont(fontSize: 16, fontweight: .light, fontDesign: .default)
+    
+        
+        //weekday title
+        calendar.appearance.weekdayTextColor = .lightGray//.lightGray
+        calendar.appearance.weekdayFont = setFont(fontSize: 14, fontweight: .light, fontDesign: .rounded)
+        
+        //weekend
+        calendar.appearance.titleWeekendColor = .systemRed
+        
+        //date
+        calendar.appearance.titleFont = setFont(fontSize: 16, fontweight: .regular, fontDesign: .rounded)
+        calendar.appearance.titleDefaultColor = .white
+        calendar.appearance.caseOptions = .weekdayUsesUpperCase
+        
+        //selection
+        calendar.appearance.selectionColor = todoColors.secondaryAccentColor
+        calendar.appearance.subtitleDefaultColor = .white
+        
+        //today
+        calendar.appearance.todayColor = todoColors.primaryColorDarker
+        calendar.appearance.titleTodayColor = todoColors.secondaryAccentColor
+        calendar.appearance.titleSelectionColor = todoColors.primaryColorDarker
+        calendar.appearance.subtitleSelectionColor = todoColors.primaryColorDarker
+        calendar.appearance.subtitleFont = setFont(fontSize: 10, fontweight: .regular, fontDesign: .rounded)
+        calendar.appearance.borderSelectionColor = todoColors.primaryColorDarker
+        
+        
+        
+        calendar.dataSource = self
+        calendar.delegate = self
+        
+        self.calendar = calendar
+        self.calendar.scope = FSCalendarScope.week
+        //        calendar.backgroundColor = .white
+    }
+    
+    
+    
+    
+
+    
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                      GET GLOBAL TASK
+    //----------------------- *************************** -----------------------
+    /*
+     Pass this a morning or evening or inbox or upcoming task &
+     this will give the index of that task in the global task array
+     using that global task array index the element can then be removed
+     or modded
+     */
+    func getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: NTask) -> Int {
+        var tasks = [NTask]()
+        var idxHolder = 0
+        tasks = TaskManager.sharedInstance.getAllTasks
+        if let idx = tasks.firstIndex(where: { $0 === morningOrEveningTask }) {
+            
+            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+            print("Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
+            print("func IDX is: \(idx)")
+            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+            idxHolder = idx
+            
+        }
+        return idxHolder
+    }
+    
+    
+  
+}
+
+
+//----------------------- *************************** -----------------------
+//MARK:-                      CIRCLE MENU DELEGATE
+//----------------------- *************************** -----------------------
+
+extension ViewController: CircleMenuDelegate {
     // MARK:- CircleMenuDelegate
     
     func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
@@ -1062,131 +1101,32 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         print("button did selected: \(atIndex)")
     }
     
-    //------------ circle delegate end
     
-    @objc
-    func onMenuButtonTapped() {
-        print("menu buttoon tapped")
-    }
     
-    @objc
-    func onNavigationButtonTapped() {
-        print("nav buttoon tapped")
-    }
-    
-    //MARK:    showCalMoreButtonnAction
-    
-    @objc func showCalMoreButtonnAction() {
-        
-        print("Show cal !!")
-        
-        let delay: Double = 0.2
-        let duration: Double = 1.2
-        
-        if(isCalDown) { //cal is out; it sldes back up
-            
-            
-            self.view.bringSubviewToFront(self.tableView)
-            self.view.sendSubviewToBack(calendar)
-            self.view.sendSubviewToBack(backdropBackgroundImageView)
-            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                self.moveUp_hideCal(view: self.tableView)
-            }) { (_) in
-                
-            }
-            
-            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                self.moveUp_hideCal(view: self.backdropForeImageView)
-            }) { (_) in
-                
-            }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
-                
-                // self.calendar.isHidden = true //todo: hide this after you are sure to do list is back up; commentig this fixes doubta tap cal hide bug
-                
-            }
-            
-            self.view.bringSubviewToFront(self.bottomAppBar)
-            
-        } else {
-            self.view.bringSubviewToFront(self.tableView)
-            self.view.sendSubviewToBack(calendar)
-            self.view.sendSubviewToBack(backdropBackgroundImageView)
-            
-            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                self.moveDown_revealCal(view: self.tableView)
-            }) { (_) in
-                //            self.moveLeft(view: self.black4)
-            }
-            
-            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-                self.moveDown_revealCal(view: self.backdropForeImageView)
-            }) { (_) in
-                //            self.moveLeft(view: self.black4)
-            }
-            
-            self.view.bringSubviewToFront(self.tableView)
-            self.view.bringSubviewToFront(self.bottomAppBar)
-            self.calendar.isHidden = false
-            
-        }
-        tableView.reloadData()
-    }
-    
-    @objc func AddTaskAction() {
-        
-        //       tap add fab --> addTask
-        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
-        newViewController.modalPresentationStyle = .fullScreen
-        self.present(newViewController, animated: true, completion: nil)
-    }
-    
-    //Mark: Util: set font
-    func setFont(fontSize: CGFloat, fontweight: UIFont.Weight, fontDesign: UIFontDescriptor.SystemDesign) -> UIFont {
-        
-        // Here we get San Francisco with the desired weight
-        let systemFont = UIFont.systemFont(ofSize: fontSize, weight: fontweight)
-        
-        // Will be SF Compact or standard SF in case of failure.
-        let font: UIFont
-        
-        if let descriptor = systemFont.fontDescriptor.withDesign(fontDesign) {
-            font = UIFont(descriptor: descriptor, size: fontSize)
-        } else {
-            font = systemFont
-        }
-        return font
-    }
-    
-    //MARK: Cal change view onn date change
-    func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
-        print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
-        dateToDisplay = date
-        dateForTheView = date
-        
-        tableView.reloadData()
-        animateTableViewReload()
-    }
     
     
 }
 
+//----------------------- *************************** -----------------------
+//MARK:-                        DETECT NOTCH
+//----------------------- *************************** -----------------------
 
+//extension UIDevice {
+//    var hasNotch: Bool {
+//        let bottom = UIApplication.shared.keyWindow?.safeAreaInsets.bottom ?? 0
+//        return bottom > 0
+//    }
+//}
 
-extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
-    
-    func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
-        
-        let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: date)
-        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
-        let allTasks = morningTasks+eveningTasks
-        
-        if(allTasks.count == 0) {
-            return "-"
+extension UIDevice {
+    var hasNotch: Bool {
+        if #available(iOS 11.0, *) {
+            if UIApplication.shared.windows.count == 0 { return false }          // Should never occur, but…
+            let top = UIApplication.shared.windows[0].safeAreaInsets.top
+            return top > 20          // That seem to be the minimum top when no notch…
         } else {
-            return "\(allTasks.count) tasks"
+            // Fallback on earlier versions
+            return false
         }
     }
 }

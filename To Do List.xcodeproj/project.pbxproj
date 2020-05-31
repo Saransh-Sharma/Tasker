@@ -16,6 +16,11 @@
 		753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */; };
 		753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */; };
 		753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCBF2445A24800A739E3 /* To_Do_ListUITests.swift */; };
+		755FE8D72479159200A71A75 /* CalendarExtention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8D62479159200A71A75 /* CalendarExtention.swift */; };
+		755FE8D92479169400A71A75 /* TaskListTableViewExtention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8D82479169400A71A75 /* TaskListTableViewExtention.swift */; };
+		755FE8DC2479220700A71A75 /* LineChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8DB2479220700A71A75 /* LineChart.swift */; };
+		755FE8DE2479227A00A71A75 /* TinyPieChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8DD2479227A00A71A75 /* TinyPieChart.swift */; };
+		755FE8E22479EA5400A71A75 /* RippleDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8E12479EA5300A71A75 /* RippleDelegate.swift */; };
 		758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A803F2450BFA300BFB571 /* InboxViewController.swift */; };
 		758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A80632451E86E00BFB571 /* WeeklyViewController.swift */; };
 		758A806624546D2600BFB571 /* OLD_Task.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A806524546D2600BFB571 /* OLD_Task.swift */; };
@@ -29,6 +34,8 @@
 		75F18108245CA229004D9A69 /* TaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F18107245CA229004D9A69 /* TaskManager.swift */; };
 		75F1810B245CA7DF004D9A69 /* NTask+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F18109245CA7DF004D9A69 /* NTask+CoreDataClass.swift */; };
 		75F1810C245CA7DF004D9A69 /* NTask+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F1810A245CA7DF004D9A69 /* NTask+CoreDataProperties.swift */; };
+		75F9937224815BF600C340EB /* ToDoColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937124815BF600C340EB /* ToDoColors.swift */; };
+		75F993742482487C00C340EB /* BackdropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F993732482487C00C340EB /* BackdropView.swift */; };
 		7AF7DACF5D7CCC8C33AAB30D /* libPods-To Do List.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2E01068480292EC6979AE330 /* libPods-To Do List.a */; };
 /* End PBXBuildFile section */
 
@@ -66,6 +73,11 @@
 		753EFCBB2445A24800A739E3 /* To Do ListUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "To Do ListUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCBF2445A24800A739E3 /* To_Do_ListUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = To_Do_ListUITests.swift; sourceTree = "<group>"; };
 		753EFCC12445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		755FE8D62479159200A71A75 /* CalendarExtention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarExtention.swift; sourceTree = "<group>"; };
+		755FE8D82479169400A71A75 /* TaskListTableViewExtention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListTableViewExtention.swift; sourceTree = "<group>"; };
+		755FE8DB2479220700A71A75 /* LineChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineChart.swift; sourceTree = "<group>"; };
+		755FE8DD2479227A00A71A75 /* TinyPieChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinyPieChart.swift; sourceTree = "<group>"; };
+		755FE8E12479EA5300A71A75 /* RippleDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RippleDelegate.swift; sourceTree = "<group>"; };
 		758A803F2450BFA300BFB571 /* InboxViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViewController.swift; sourceTree = "<group>"; };
 		758A80632451E86E00BFB571 /* WeeklyViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyViewController.swift; sourceTree = "<group>"; };
 		758A806524546D2600BFB571 /* OLD_Task.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLD_Task.swift; sourceTree = "<group>"; };
@@ -79,6 +91,8 @@
 		75F18107245CA229004D9A69 /* TaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskManager.swift; sourceTree = "<group>"; };
 		75F18109245CA7DF004D9A69 /* NTask+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NTask+CoreDataClass.swift"; path = "To Do List/NTask+CoreDataClass.swift"; sourceTree = "<group>"; };
 		75F1810A245CA7DF004D9A69 /* NTask+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NTask+CoreDataProperties.swift"; path = "To Do List/NTask+CoreDataProperties.swift"; sourceTree = "<group>"; };
+		75F9937124815BF600C340EB /* ToDoColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoColors.swift; sourceTree = "<group>"; };
+		75F993732482487C00C340EB /* BackdropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackdropView.swift; sourceTree = "<group>"; };
 		A0ED935F9A49AC1EFF9094E8 /* Pods-To Do ListTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-To Do ListTests.debug.xcconfig"; path = "Target Support Files/Pods-To Do ListTests/Pods-To Do ListTests.debug.xcconfig"; sourceTree = "<group>"; };
 		DAD5ED103FDBC2A7604AF481 /* Pods-To Do ListTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-To Do ListTests.release.xcconfig"; path = "Target Support Files/Pods-To Do ListTests/Pods-To Do ListTests.release.xcconfig"; sourceTree = "<group>"; };
 		EDC83CA4D6D253A8AA43EBB0 /* Pods-To Do List.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-To Do List.debug.xcconfig"; path = "Target Support Files/Pods-To Do List/Pods-To Do List.debug.xcconfig"; sourceTree = "<group>"; };
@@ -159,6 +173,7 @@
 		753EFC9C2445A24500A739E3 /* To Do List */ = {
 			isa = PBXGroup;
 			children = (
+				755FE8DF2479E60200A71A75 /* View */,
 				758286A9246C12D500F306E8 /* OLD */,
 				75B7121B246AF77000453AEC /* Model */,
 				75B7121A246AF74E00453AEC /* ViewControllers */,
@@ -190,6 +205,43 @@
 			path = "To Do ListUITests";
 			sourceTree = "<group>";
 		};
+		755FE8D52479154B00A71A75 /* Delegates */ = {
+			isa = PBXGroup;
+			children = (
+				755FE8D62479159200A71A75 /* CalendarExtention.swift */,
+				755FE8D82479169400A71A75 /* TaskListTableViewExtention.swift */,
+			);
+			path = Delegates;
+			sourceTree = "<group>";
+		};
+		755FE8DA247921E200A71A75 /* Charts */ = {
+			isa = PBXGroup;
+			children = (
+				755FE8DB2479220700A71A75 /* LineChart.swift */,
+				755FE8DD2479227A00A71A75 /* TinyPieChart.swift */,
+			);
+			path = Charts;
+			sourceTree = "<group>";
+		};
+		755FE8DF2479E60200A71A75 /* View */ = {
+			isa = PBXGroup;
+			children = (
+				75F9937524824E7E00C340EB /* Animation */,
+				755FE8E02479E61600A71A75 /* Theme */,
+				75F993732482487C00C340EB /* BackdropView.swift */,
+			);
+			path = View;
+			sourceTree = "<group>";
+		};
+		755FE8E02479E61600A71A75 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				755FE8E12479EA5300A71A75 /* RippleDelegate.swift */,
+				75F9937124815BF600C340EB /* ToDoColors.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
 		758286A9246C12D500F306E8 /* OLD */ = {
 			isa = PBXGroup;
 			children = (
@@ -212,6 +264,8 @@
 		75B7121A246AF74E00453AEC /* ViewControllers */ = {
 			isa = PBXGroup;
 			children = (
+				755FE8DA247921E200A71A75 /* Charts */,
+				755FE8D52479154B00A71A75 /* Delegates */,
 				75F18107245CA229004D9A69 /* TaskManager.swift */,
 				753EFCA12445A24500A739E3 /* ViewController.swift */,
 				759F18F82468B70200293A32 /* NAddTaskScreen.swift */,
@@ -229,6 +283,13 @@
 				75F18105245CA0BC004D9A69 /* Task.swift */,
 			);
 			path = Model;
+			sourceTree = "<group>";
+		};
+		75F9937524824E7E00C340EB /* Animation */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Animation;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -435,13 +496,20 @@
 				75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */,
 				758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */,
 				753EFCA22445A24500A739E3 /* ViewController.swift in Sources */,
+				755FE8D72479159200A71A75 /* CalendarExtention.swift in Sources */,
+				755FE8DC2479220700A71A75 /* LineChart.swift in Sources */,
 				75F18106245CA0BC004D9A69 /* Task.swift in Sources */,
+				75F993742482487C00C340EB /* BackdropView.swift in Sources */,
 				753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */,
 				75F18108245CA229004D9A69 /* TaskManager.swift in Sources */,
 				759D213F2458D09600A4D2DE /* AddTaskTableViewController.swift in Sources */,
 				75B7121D246AFF5B00453AEC /* UpcominngTasksViewController.swift in Sources */,
+				755FE8DE2479227A00A71A75 /* TinyPieChart.swift in Sources */,
+				755FE8D92479169400A71A75 /* TaskListTableViewExtention.swift in Sources */,
 				759F18F92468B70200293A32 /* NAddTaskScreen.swift in Sources */,
 				758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */,
+				75F9937224815BF600C340EB /* ToDoColors.swift in Sources */,
+				755FE8E22479EA5400A71A75 /* RippleDelegate.swift in Sources */,
 				758A806624546D2600BFB571 /* OLD_Task.swift in Sources */,
 				759D2141245A2CC400A4D2DE /* ToDoManager.swift in Sources */,
 				753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */,

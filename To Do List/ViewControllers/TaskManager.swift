@@ -34,32 +34,32 @@ class TaskManager {
             return tasks
         }
     }
-//    var getMorningTasks: [NTask] {
-//        get {
-//            var morningTasks = [NTask]()
-//            fetchTasks()
-//            for each in tasks {
-//                // taskType 1 is morning
-//                if each.taskType == 1 {
-//                    morningTasks.append(each)
-//                }
-//            }
-//            return morningTasks
-//        }
-//    }
-//    var getEveningTasks: [NTask] {
-//        get {
-//            var eveningTasks = [NTask]()
-//            fetchTasks()
-//            for each in tasks {
-//                // taskType 2 is evening
-//                if each.taskType == 2 {
-//                    eveningTasks.append(each)
-//                }
-//            }
-//            return eveningTasks
-//        }
-//    }
+    //    var getMorningTasks: [NTask] {
+    //        get {
+    //            var morningTasks = [NTask]()
+    //            fetchTasks()
+    //            for each in tasks {
+    //                // taskType 1 is morning
+    //                if each.taskType == 1 {
+    //                    morningTasks.append(each)
+    //                }
+    //            }
+    //            return morningTasks
+    //        }
+    //    }
+    //    var getEveningTasks: [NTask] {
+    //        get {
+    //            var eveningTasks = [NTask]()
+    //            fetchTasks()
+    //            for each in tasks {
+    //                // taskType 2 is evening
+    //                if each.taskType == 2 {
+    //                    eveningTasks.append(each)
+    //                }
+    //            }
+    //            return eveningTasks
+    //        }
+    //    }
     var getUpcomingTasks: [NTask] {
         get {
             fetchTasks()
@@ -85,57 +85,89 @@ class TaskManager {
         }
     }
     
-    func getMorningTaskByDate(date: Date) -> [NTask] {
-           
-        print("-----------------------")
-                 
-        print("Fetching MORNINNG tasks by date")
+    func getMorningTasksForDate(date: Date) -> [NTask] {
+
+        var morningTasks = [NTask]()
+        fetchTasks()
         
-                var morningTasks = [NTask]()
-                fetchTasks()
-        
-        print("getMorningTaskByDate: task count is: \(tasks.count)")
-                for each in tasks {
-                    // taskType 1 is morning
-                    //task.dateAdded = Date.today() as NSDate
-                    if each.taskType == 1 && each.dueDate == date as NSDate {
-                        morningTasks.append(each)
-                    } else {
-//                        print("task date: \(each.dueDate)")
-//                        print("passed date: \(date)")
-                    }
-                }
-        for each in morningTasks {
-            print("Fetched: "+each.name)
+        for each in tasks {
+            // taskType 1 is morning
+            //task.dateAdded = Date.today() as NSDate
+            if each.taskType == 1 && each.dueDate == date as NSDate {
+                morningTasks.append(each)
+            } else {
+                //                        print("task date: \(each.dueDate)")
+                //                        print("passed date: \(date)")
+            }
         }
-        print("Morning Task Size = \(morningTasks.count)")
-                 return morningTasks
+        return morningTasks
     }
     
     func getEveningTaskByDate(date: Date) -> [NTask] {
-           
-        print("-----------------------")
-                 
-        print("Fetching EVENING tasks by date")
         
-                var eveningTasks = [NTask]()
-                fetchTasks()
-        print("getEveningTaskByDate: task count is: \(tasks.count)")
-                for each in tasks {
-                    // taskType 1 is morning
-                    //task.dateAdded = Date.today() as NSDate
-                    if each.taskType == 2 && each.dueDate == date as NSDate {
-                        eveningTasks.append(each)
-                    } else {
-                          print("task date: \(each.dueDate)")
-                                              print("passed date: \(date)")
-                    }
-                }
-        for each in eveningTasks {
-                  print("Fetched: "+each.name)
-              }
-              print("Evenning Task Size = \(eveningTasks.count)")
-                 return eveningTasks
+        var eveningTasks = [NTask]()
+        fetchTasks()
+        for each in tasks {
+            // taskType 1 is morning
+            //task.dateAdded = Date.today() as NSDate
+            if each.taskType == 2 && each.dueDate == date as NSDate {
+                eveningTasks.append(each)
+            } else {
+                //                          print("task date: \(each.dueDate)")
+                //                                              print("passed date: \(date)")
+            }
+        }
+        return eveningTasks
+    }
+    
+    //usee this at home view t get todays tasks  with all unfished
+    func getMorningTasksForToday() -> [NTask] {
+        
+        
+        var morningTasks = [NTask]()
+        fetchTasks()
+        
+//        print("getMorningTaskByDate: task count is: \(tasks.count)")
+        let today = Date.today()
+        for each in tasks {
+            // taskType 1 is morning
+            if each.taskType == 1 && each.dueDate == today as NSDate { //get morning tasks added today
+                morningTasks.append(each)
+            } else if (each.taskType == 1 && each.isComplete == false) { //get older unfinished tasks // Morninng + incomplete
+                morningTasks.append(each)
+            } else if (each.taskType == 1 && each.dateCompleted == today as NSDate) { //get rollover tasks that were completed today
+                morningTasks.append(each)
+            }
+            else {
+                //                        print("task date: \(each.dueDate)")
+                //                        print("passed date: \(date)")
+            }
+        }
+        return morningTasks
+    }
+    
+    func getEveningTasksForToday() -> [NTask] {
+        
+        var eveningTasks = [NTask]()
+        fetchTasks()
+
+        let today = Date.today()
+        for each in tasks {
+            // taskType 2 is evenning
+            //task.dateAdded = Date.today() as NSDate
+            if each.taskType == 2 && each.dueDate == today as NSDate { //get evening tasks added today
+                eveningTasks.append(each)
+            } else if (each.taskType == 2 && each.isComplete == false) { //get older unfinished tasks
+                eveningTasks.append(each)
+            }else if (each.taskType == 2 && each.dateCompleted == today as NSDate) { //get rollover tasks that were completed today
+                eveningTasks.append(each)
+            }
+            else {
+                //                        print("task date: \(each.dueDate)")
+                //                        print("passed date: \(date)")
+            }
+        }
+        return eveningTasks
     }
     
     func addNewTask(name: String, taskType: Int, taskPriority: Int) {
@@ -177,12 +209,12 @@ class TaskManager {
         print("----------------------")
         print("TODAY_2 is: \(today2)")
         print("TODAY_2  is: \(today2.stringIn(dateStyle: .long, timeStyle: .medium))")
-          print("TODAY_2  is: \(today2.stringIn(dateStyle: .short, timeStyle: .short))")
-          print("TODAY_2  is: \(today2.stringIn(dateStyle: .long, timeStyle: .short))")
+        print("TODAY_2  is: \(today2.stringIn(dateStyle: .short, timeStyle: .short))")
+        print("TODAY_2  is: \(today2.stringIn(dateStyle: .long, timeStyle: .short))")
         print("---------------------------------------")
-//        print("TODAY_2  NSDATE: \(Date.today() as NSDate)")
+        //        print("TODAY_2  NSDATE: \(Date.today() as NSDate)")
         
-//        print("Today is: \(Date.)")
+        //        print("Today is: \(Date.)")
         print("---------------------------------------")
         
         tasks.append(task)

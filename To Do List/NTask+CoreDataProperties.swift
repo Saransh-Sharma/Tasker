@@ -26,6 +26,7 @@ extension NTask {
     @NSManaged public var alertReminderTime: NSDate?
     @NSManaged public var dateAdded: NSDate?
     @NSManaged public var isEveningTask: Bool
+    @NSManaged public var dateCompleted: NSDate?
     
 
     func getTaskScore(task: NTask) -> Int {

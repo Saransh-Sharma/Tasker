@@ -1,5 +1,8 @@
 PODS:
   - BEMCheckBox (1.4.1)
+  - Charts (3.5.0):
+    - Charts/Core (= 3.5.0)
+  - Charts/Core (3.5.0)
   - CircleMenu (4.1.0)
   - EasyPeasy (1.9.0)
   - FSCalendar (2.8.1)
@@ -612,21 +615,25 @@ PODS:
   - MotionInterchange (1.6.0)
   - SemiModalViewController (1.0.1)
   - Timepiece (1.3.1)
+  - TinyConstraints (4.0.1)
   - ViewAnimator (2.7.0)
 
 DEPENDENCIES:
   - BEMCheckBox (~> 1.4.1)
+  - Charts (~> 3.5.0)
   - CircleMenu (~> 4.1.0)
   - EasyPeasy (~> 1.9.0)
   - FSCalendar (~> 2.8.1)
   - MaterialComponents (~> 109.2.0)
   - SemiModalViewController (~> 1.0.1)
   - Timepiece (~> 1.3.1)
+  - TinyConstraints (~> 4.0.1)
   - ViewAnimator (~> 2.7.0)
 
 SPEC REPOS:
   trunk:
     - BEMCheckBox
+    - Charts
     - CircleMenu
     - EasyPeasy
     - FSCalendar
@@ -637,10 +644,12 @@ SPEC REPOS:
     - MotionInterchange
     - SemiModalViewController
     - Timepiece
+    - TinyConstraints
     - ViewAnimator
 
 SPEC CHECKSUMS:
   BEMCheckBox: 5ba6e37ade3d3657b36caecc35c8b75c6c2b1a4e
+  Charts: 40a08591df1f8ad5c223ddedfb1a06da92f24f7c
   CircleMenu: a66095199a5e26f19acbb212f077010257767fe5
   EasyPeasy: 19a84ef8f8bbcf925b9fecc29d1d78b7dab96718
   FSCalendar: 5245140456fcbcac5824c203b98bd8068bdfee1a
@@ -651,8 +660,9 @@ SPEC CHECKSUMS:
   MotionInterchange: ead0e3ae1f3a5fb539e289debbc7ae036160a10d
   SemiModalViewController: 13fe8b991b501c7cd6a9ec7c782ed7a5c72c12e6
   Timepiece: c0760ec0e545697d86b80424dcd2b4d5ef66cf51
+  TinyConstraints: 8dd91295e56797648c7bc335dd20e1d91ec4c192
   ViewAnimator: 5af1c6f3b310f012bf081259c43717aa54fbae73
 
-PODFILE CHECKSUM: a348b8a0d7a8ca0332219c06f2883cc4856ac0d7
+PODFILE CHECKSUM: a5a573c96609f91e061502badeb9bf0de774ebb1
 
 COCOAPODS: 1.9.1
