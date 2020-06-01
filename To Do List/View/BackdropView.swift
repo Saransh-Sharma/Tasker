@@ -7,11 +7,97 @@
 //
 
 import Foundation
+import TinyConstraints
 import MaterialComponents.MaterialRipple
 import UIKit
 
 
 extension ViewController {
+    
+    func setupBackdrop() {
+        
+        headerEndY = 128
+        setupBackdropBackground()
+        addTinyChartToBackdrop()
+        setupBackdropNotch()
+        setupLineChartView()
+        setLineChartData()
+        lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
+        // cal
+        setupCal()
+        backdropContainer.addSubview(calendar)
+        calendar.isHidden = true //hidden by default //remove this from here hadle elsewhere in a fuc that hides all
+        
+        //call private methods to setup
+        //background view
+        //home date
+        //top sperator
+        //cal & charts buttons
+        
+    }
+    
+    
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-              BACKDROP PATTERN 1: SETUP BACKGROUND
+    //----------------------- *************************** -----------------------
+    
+    //MARK:- Setup Backdrop Background - Today label + Score
+    func setupBackdropBackground() {
+        
+        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+        backdropBackgroundImageView.backgroundColor = todoColors.primaryColor
+        homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
+        backdropBackgroundImageView.addSubview(homeTopBar)
+        
+        
+        //---------- score at home
+        
+        scoreAtHomeLabel.text = "\n\nscore"
+        scoreAtHomeLabel.numberOfLines = 3
+        scoreAtHomeLabel.textColor = .label
+        scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
+        
+        
+        scoreAtHomeLabel.textAlignment = .center
+        scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        
+        //        homeTopBar.addSubview(scoreAtHomeLabel)
+        
+        //---- score
+        
+        scoreCounter.text = "\(self.calculateTodaysScore())"
+        scoreCounter.numberOfLines = 1
+        scoreCounter.textColor = .systemGray5
+        scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
+        
+        scoreCounter.textAlignment = .center
+        scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        
+        //        homeTopBar.addSubview(scoreCounter)
+        
+        //        view.addSubview(backdropBackgroundImageView)
+        backdropContainer.addSubview(backdropBackgroundImageView)
+        
+        
+    }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-              BACKDROP PATTERN 1.1 : SETUP NOTCH BACKDROP
+    //----------------------- *************************** -----------------------
+    
+    //MARK:- Setup Backdrop Notch
+    func setupBackdropNotch() {
+        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
+        backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
+        
+        backdropContainer.addSubview(backdropNochImageView)
+    }
+    
+    func addTinyChartToBackdrop() {
+        tinyPieChartView.frame = CGRect(x: (UIScreen.main.bounds.width)-(homeTopBar.bounds.height+15), y: 15, width: (homeTopBar.bounds.height)+45, height: (homeTopBar.bounds.height)+45)
+        view.addSubview(tinyPieChartView)
+    }
     
     //----------------------- *************************** -----------------------
     //MARK:-                    SETUP HOME DATE VIEW
@@ -74,7 +160,7 @@ extension ViewController {
     
     //----------------------- *************************** -----------------------
     //MARK:-                    SETUP CALENDAR BUTTON
-    //                          sub:homeTopBar
+    //                          sub:backdrop view
     //----------------------- *************************** -----------------------
     func setupCalButton()  {
         revealCalAtHomeButton.backgroundColor = .clear
@@ -83,10 +169,10 @@ extension ViewController {
         let CalButtonRippleDelegate = DateViewRippleDelegate()
         let calButtonRippleController = MDCRippleTouchController(view: revealCalAtHomeButton)
         calButtonRippleController.delegate = CalButtonRippleDelegate
-//        homeTopBar.addSubview(revealCalAtHomeButton)
+        //        homeTopBar.addSubview(revealCalAtHomeButton)
         view.addSubview(revealCalAtHomeButton)
     }
-   
+    
     //----------------------- *************************** -----------------------
     //MARK:-                     CHARTS BUTTON
     //----------------------- *************************** -----------------------
@@ -99,7 +185,7 @@ extension ViewController {
         chartsButtonRippleController.delegate = ChartsButtonRippleDelegate
         revealChartsAtHomeButton.addTarget(self, action: #selector(showChartsHHomeButton_Action), for: .touchUpInside)
         view.addSubview(revealChartsAtHomeButton)
-//        homeTopBar.addSubview(revealChartsAtHomeButton)
+        //        homeTopBar.addSubview(revealChartsAtHomeButton)
     }
     
     //----------------------- *************************** -----------------------
@@ -143,7 +229,7 @@ extension ViewController {
                     self.isCalDown = false
                 }
             }
-                        
+            
             print("cal CASE: BLUE")
             self.view.bringSubviewToFront(self.bottomAppBar)
             
@@ -378,7 +464,7 @@ extension ViewController {
         
         tableView.reloadData()
     }
-        
+    
     
     //----------------------- *************************** -----------------------
     //MARK:-                    get name of the month
@@ -390,7 +476,7 @@ extension ViewController {
         let nameOfMonth = dateFormatter_Month.string(from: date)
         return nameOfMonth
     }
-
+    
     //----------------------- *************************** -----------------------
     //MARK:-                    get name of the weekday
     //----------------------- *************************** -----------------------
@@ -400,6 +486,17 @@ extension ViewController {
         dateFormatter_Weekday.dateFormat = "EEE"
         let nameOfWeekday = dateFormatter_Weekday.string(from: date)
         return nameOfWeekday
+    }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                    setup line chart
+    //----------------------- *************************** -----------------------
+    func setupLineChartView() {
+        
+        backdropContainer.addSubview(lineChartView)
+        lineChartView.centerInSuperview()
+        lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: 2*headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
+        
     }
     
 }
