@@ -20,6 +20,7 @@ extension ViewController {
         setupBackdropBackground()
         addTinyChartToBackdrop()
         setupBackdropNotch()
+           setHomeViewDate()
         setupLineChartView()
         setLineChartData()
         lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
@@ -27,12 +28,32 @@ extension ViewController {
         setupCal()
         backdropContainer.addSubview(calendar)
         calendar.isHidden = true //hidden by default //remove this from here hadle elsewhere in a fuc that hides all
+     
+        setupCalButton()
+        setupChartButton()
+        setupTopSeperator()
+        
+        self.setupPieChartView(pieChartView: tinyPieChartView)
+        
+        updateTinyPieChartData()
+        
+        tinyPieChartView.delegate = self
+        
+        
+        
+        // entry label styling
+        tinyPieChartView.entryLabelColor = .clear
+        tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .bold)
+        
+        
+        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
         
         //call private methods to setup
         //background view
         //home date
         //top sperator
         //cal & charts buttons
+        
         
     }
     
@@ -88,6 +109,11 @@ extension ViewController {
     
     //MARK:- Setup Backdrop Notch
     func setupBackdropNotch() {
+              if (UIDevice.current.hasNotch) {
+                  print("I SEE NOTCH !!")
+              } else {
+                  print("NO NOTCH !")
+              }
         backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
         backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
         

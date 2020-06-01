@@ -136,7 +136,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         }
     }
     
-    // MARK:- CELL AT ROW
+    // MARK:- CELL AT ROWUITableViewRowAction
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
@@ -376,6 +376,14 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
             actionPerformed(true)
         }
         
+        completeTaskAction.backgroundColor = todoColors.completeTaskSwipeColor
+        
+//        NSUIColor(red: 192/255.0, green: 255/255.0, blue: 140/255.0, alpha: 1.0), green
+//                 NSUIColor(red: 255/255.0, green: 247/255.0, blue: 140/255.0, alpha: 1.0), yellow
+//                 NSUIColor(red: 255/255.0, green: 208/255.0, blue: 140/255.0, alpha: 1.0), orange
+//                 NSUIColor(red: 140/255.0, green: 234/255.0, blue: 255/255.0, alpha: 1.0), blue
+//                 NSUIColor(red: 255/255.0, green: 140/255.0, blue: 157/255.0, alpha: 1.0) red
+        
         return UISwipeActionsConfiguration(actions: [completeTaskAction])
     }
     
@@ -473,6 +481,47 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         
         
         return UISwipeActionsConfiguration(actions: [deleteTaskAction])
+    }
+    
+    // MARK:- DID SELECT ROW AT
+    /*
+     Prints logs on selecting a row
+     */
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        print("You selected row \(indexPath.row) from section \(indexPath.section)")
+        
+        var currentTask: NTask!
+        //        semiViewDefaultOptions(viewToBePrsented: serveViewBlue())
+        switch indexPath.section {
+        case 0:
+            //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
+            //            let Tasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+            
+            let Tasks: [NTask]
+            if(dateForTheView == Date.today()) {
+                Tasks = TaskManager.sharedInstance.getMorningTasksForToday()
+            } else { //get morning tasks without rollover
+                Tasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+            }
+            
+            
+            currentTask = Tasks[indexPath.row]
+        case 1:
+            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+            let Tasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+            currentTask = Tasks[indexPath.row]
+        default:
+            break
+        }
+        
+        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
+        
+        semiViewDefaultOptions(viewToBePrsented: serveSemiViewBlue(task: currentTask))
+        
+        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewGreen(task: currentTask))
+        
+        
+        
     }
     
 }

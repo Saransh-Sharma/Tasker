@@ -186,106 +186,43 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        
-        
-        //--------
+      //--------
         view.addSubview(backdropContainer)
         setupBackdrop()
         setupFordrop()
         
-        //--------
-        
-        
-        
-        
-        
-        //MARK: serve material backdrop
-//        headerEndY = 128
-//        setupBackdropBackground() //backdrop
-        
-//        tinyPieChartView.frame = CGRect(x: (UIScreen.main.bounds.width)-(homeTopBar.bounds.height+15), y: 15, width: (homeTopBar.bounds.height)+45, height: (homeTopBar.bounds.height)+45)                   
-//        view.addSubview(tinyPieChartView)
-        
-//        setupBackdropForeground() //foredrop
-      
-        
-//        setupBackdropNotch() //notch
-        
-        //MARK:- LOAD LINE CHART
-//        setupLineChartView()
-//        setLineChartData()
-        
-        
-        
-        
-        
-        
-        
-//        // cal
-//        setupCal()
-//        view.addSubview(calendar)
-//        calendar.isHidden = true //hidden by default
-//        //--- done top cal
-        
-      // table view
-//            tableView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-//            view.addSubview(tableView)
-        
-        
-        
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
-        setHomeViewDate()
         view.bringSubviewToFront(bottomAppBar)
+
+        setupBadgeCount()
+        enableDarkModeIfPreset()
+    }
+    
+    // MARK:- View Lifecycle methods
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(true)
+        // right spring animation
+        //        tableView.reloadData(
+        //            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+        //                          constantDelay: 0))
+        tableView.reloadData()
         
-        setupCalButton()
-        setupChartButton()
-        setupTopSeperator()
+        animateTableViewReload()
+        //        UIView.animate(views: tableView.visibleCells, animations: animations, completion: {
         
-        //MARK: circle menu frame
-        let circleMenuButton = CircleMenu(
-            frame: CGRect(x: 32, y: 64, width: 30, height: 30),
-            normalIcon:"icon_menu",
-            //            selectedIcon:"icon_close",
-            selectedIcon:"material_close",
-            buttonsCount: 5,
-            duration: 1,
-            distance: 50)
-        circleMenuButton.backgroundColor = todoColors.backgroundColor
-        
-        circleMenuButton.delegate = self
-        circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
-        //        view.addSubview(circleMenuButton) TODO: reconsider the top circle menu
-        
-        
-        //MARK: NOTCH CHECK
-        if (UIDevice.current.hasNotch) {
-            print("I SEE NOTCH !!")
-        } else {
-            print("NO NOTCH !")
-        }
-        
-        //---------- VIEW LOAD: CHART
-        
-        
-        
-        self.setupPieChartView(pieChartView: tinyPieChartView)
-        
-        updateTinyPieChartData()
-        
-        tinyPieChartView.delegate = self
-        
-        
-        
-        // entry label styling
-        tinyPieChartView.entryLabelColor = .clear
-        tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .bold)
-        
-        
-        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
-        
-        
-        
+        //        })
+    }
+    
+    // MARK:- Build Page Header
+     override var preferredStatusBarStyle: UIStatusBarStyle {
+         return .lightContent
+     }
+
+    
+    
+    func setupBadgeCount()  {
         //Badge number //BUG: badge is rest only after killing the app; minimising doesnt reset badge to correct value
         let application = UIApplication.shared
         let center = UNUserNotificationCenter.current()
@@ -300,24 +237,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         }
         
         application.registerForRemoteNotifications()
-        
-        
-        
-        
-        
-        
-        enableDarkModeIfPreset()
     }
-    
-    //---------- SETUP: CHART
-    
-    
-    
-    
-    
-    //-----------
-    //---------- SETUP: CHART DONE
-    
     
     
     
@@ -337,10 +257,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         return view
     }
     
-    // MARK:- Build Page Header
-    override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .lightContent
-    }
+ 
     
     func serveNewPageHeader() -> UIView {
         let view = UIView(frame: UIScreen.main.bounds)
@@ -440,46 +357,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         return view
     }
     
-    // MARK:- DID SELECT ROW AT
-    /*
-     Prints logs on selecting a row
-     */
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print("You selected row \(indexPath.row) from section \(indexPath.section)")
-        
-        var currentTask: NTask!
-        //        semiViewDefaultOptions(viewToBePrsented: serveViewBlue())
-        switch indexPath.section {
-        case 0:
-            //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
-            //            let Tasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
-            
-            let Tasks: [NTask]
-            if(dateForTheView == Date.today()) {
-                Tasks = TaskManager.sharedInstance.getMorningTasksForToday()
-            } else { //get morning tasks without rollover
-                Tasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-            }
-            
-            
-            currentTask = Tasks[indexPath.row]
-        case 1:
-            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
-            let Tasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-            currentTask = Tasks[indexPath.row]
-        default:
-            break
-        }
-        
-        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
-        
-        semiViewDefaultOptions(viewToBePrsented: serveSemiViewBlue(task: currentTask))
-        
-        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewGreen(task: currentTask))
-        
-        
-        
-    }
+
     
     func semiViewDefaultOptions(viewToBePrsented: UIView) {
         let options: [SemiModalOption : Any] = [
@@ -492,20 +370,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         }
     }
     
-    // MARK:- View Lifecycle methods
-    
-    override func viewWillAppear(_ animated: Bool) {
-        // right spring animation
-        //        tableView.reloadData(
-        //            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-        //                          constantDelay: 0))
-        tableView.reloadData()
-        
-        animateTableViewReload()
-        //        UIView.animate(views: tableView.visibleCells, animations: animations, completion: {
-        
-        //        })
-    }
+
     
     
     
