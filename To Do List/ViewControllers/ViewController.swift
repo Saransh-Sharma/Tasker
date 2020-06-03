@@ -189,6 +189,9 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
       //--------
         view.addSubview(backdropContainer)
         setupBackdrop()
+        
+        
+        view.addSubview(foredropContainer)
         setupFordrop()
         
         setupBottomAppBar()
@@ -389,43 +392,44 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         }
     }
     
+
     // MARK: calculate today's score
-    /*
-     Calculates daily productivity score
-     */
-    func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
-        var score = 0
-        
-        let morningTasks: [NTask]
-        if(dateForTheView == Date.today()) {
-            morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-        } else { //get morning tasks without rollover
-            morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-        }
-        let eveningTasks: [NTask]
-        if(dateForTheView == Date.today()) {
-            eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
-        } else { //get morning tasks without rollover
-            eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-        }
-        
-        //        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-        //        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-        
-        for each in morningTasks {
-            
-            if each.isComplete {
-                
-                score = score + each.getTaskScore(task: each)
-            }
-        }
-        for each in eveningTasks {
-            if each.isComplete {
-                score = score + each.getTaskScore(task: each)
-            }
-        }
-        return score;
-    }
+     /*
+      Calculates daily productivity score
+      */
+     func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
+         var score = 0
+         
+         let morningTasks: [NTask]
+         if(dateForTheView == Date.today()) {
+             morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+         } else { //get morning tasks without rollover
+             morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+         }
+         let eveningTasks: [NTask]
+         if(dateForTheView == Date.today()) {
+             eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
+         } else { //get morning tasks without rollover
+             eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+         }
+         
+         //        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+         //        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+         
+         for each in morningTasks {
+             
+             if each.isComplete {
+                 
+                 score = score + each.getTaskScore(task: each)
+             }
+         }
+         for each in eveningTasks {
+             if each.isComplete {
+                 score = score + each.getTaskScore(task: each)
+             }
+         }
+         return score;
+     }
     
     
     
@@ -801,7 +805,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
 //    //----------------------- *************************** -----------------------
 //    //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
 //    //----------------------- *************************** -----------------------
-//    
+//
 //    //MARK: Setup forground
 //    func setupBackdropForeground() {
 //        //    func setupBackdropForeground() {
@@ -824,55 +828,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
 //
 //    }
     
-    
-    //----------------------- *************************** -----------------------
-    //MARK:-                       CALENNDAR:SETUP
-    //----------------------- *************************** -----------------------
-    
-    //MARK: Setup calendar appearence
-    func setupCal() {
-        let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
-        calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        
-        
-        calendar.appearance.headerTitleColor = .white
-        calendar.appearance.headerTitleFont = setFont(fontSize: 16, fontweight: .light, fontDesign: .default)
-        
-        
-        //weekday title
-        calendar.appearance.weekdayTextColor = .lightGray//.lightGray
-        calendar.appearance.weekdayFont = setFont(fontSize: 14, fontweight: .light, fontDesign: .rounded)
-        
-        //weekend
-        calendar.appearance.titleWeekendColor = .systemRed
-        
-        //date
-        calendar.appearance.titleFont = setFont(fontSize: 16, fontweight: .regular, fontDesign: .rounded)
-        calendar.appearance.titleDefaultColor = .white
-        calendar.appearance.caseOptions = .weekdayUsesUpperCase
-        
-        //selection
-        calendar.appearance.selectionColor = todoColors.secondaryAccentColor
-        calendar.appearance.subtitleDefaultColor = .white
-        
-        //today
-        calendar.appearance.todayColor = todoColors.primaryColorDarker
-        calendar.appearance.titleTodayColor = todoColors.secondaryAccentColor
-        calendar.appearance.titleSelectionColor = todoColors.primaryColorDarker
-        calendar.appearance.subtitleSelectionColor = todoColors.primaryColorDarker
-        calendar.appearance.subtitleFont = setFont(fontSize: 10, fontweight: .regular, fontDesign: .rounded)
-        calendar.appearance.borderSelectionColor = todoColors.primaryColorDarker
-        
-        
-        
-        calendar.dataSource = self
-        calendar.delegate = self
-        
-        self.calendar = calendar
-        self.calendar.scope = FSCalendarScope.week
-        //        calendar.backgroundColor = .white
-    }
+   
     
     
     

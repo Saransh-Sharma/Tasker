@@ -14,8 +14,12 @@ extension ViewController {
 
     func setupFordrop() {
         
+        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
+        foredropContainer.frame =  CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         setupBackdropForeground()
         setupTableView()
+        foredropContainer.backgroundColor = .clear
+        foredropContainer.bringSubviewToFront(tableView)
     }
     
     //----------------------- *************************** -----------------------
@@ -24,13 +28,8 @@ extension ViewController {
     
     //MARK: Setup forground
     func setupBackdropForeground() {
-        //    func setupBackdropForeground() {
-        
-        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
-        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        
-        
-        
+
+        backdropForeImageView.frame =  CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height:  UIScreen.main.bounds.height)
         backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
         backdropForeImageView.tintColor = .systemGray6
         
@@ -40,14 +39,17 @@ extension ViewController {
         backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
         backdropForeImageView.layer.shadowRadius = 10
         
-        view.addSubview(backdropForeImageView)
+//        view.addSubview(backdropForeImageView)
+        foredropContainer.addSubview(backdropForeImageView)
         
     }
     
+    
     func setupTableView() {
         // table view
-                   tableView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-                   view.addSubview(tableView)
+
+        tableView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height:  UIScreen.main.bounds.height)
+        foredropContainer.addSubview(tableView)
     }
     
     

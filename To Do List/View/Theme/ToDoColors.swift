@@ -15,8 +15,8 @@ class ToDoColors {
         //Original theme
         var backgroundColor = UIColor.systemGray5
     //    var primaryColor = UIColor.systemIndigo
-//            var primaryColor =  #colorLiteral(red: 0.5490196078, green: 0.5450980392, blue: 0.8196078431, alpha: 1)
-        var primaryColor = #colorLiteral(red: 0.1333333333, green: 0.1960784314, blue: 0.2980392157, alpha: 1)
+            var primaryColor =  #colorLiteral(red: 0.5490196078, green: 0.5450980392, blue: 0.8196078431, alpha: 1)
+//        var primaryColor = #colorLiteral(red: 0.1333333333, green: 0.1960784314, blue: 0.2980392157, alpha: 1)
         var primaryColorDarker = UIColor.black //UIColor.systemFill
         var secondaryAccentColor = UIColor.systemOrange
         

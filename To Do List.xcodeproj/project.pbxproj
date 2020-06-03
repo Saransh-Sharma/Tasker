@@ -39,6 +39,7 @@
 		75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F993792483764C00C340EB /* DayAxisValueFormatter.swift */; };
 		75F9937C2485994E00C340EB /* ForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937B2485994E00C340EB /* ForedropView.swift */; };
 		75F9937E24859ADB00C340EB /* BottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937D24859ADB00C340EB /* BottomBarView.swift */; };
+		75F993802485B04200C340EB /* Score.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937F2485B04200C340EB /* Score.swift */; };
 		7AF7DACF5D7CCC8C33AAB30D /* libPods-To Do List.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2E01068480292EC6979AE330 /* libPods-To Do List.a */; };
 /* End PBXBuildFile section */
 
@@ -99,6 +100,7 @@
 		75F993792483764C00C340EB /* DayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayAxisValueFormatter.swift; sourceTree = "<group>"; };
 		75F9937B2485994E00C340EB /* ForedropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForedropView.swift; sourceTree = "<group>"; };
 		75F9937D24859ADB00C340EB /* BottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomBarView.swift; sourceTree = "<group>"; };
+		75F9937F2485B04200C340EB /* Score.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Score.swift; sourceTree = "<group>"; };
 		A0ED935F9A49AC1EFF9094E8 /* Pods-To Do ListTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-To Do ListTests.debug.xcconfig"; path = "Target Support Files/Pods-To Do ListTests/Pods-To Do ListTests.debug.xcconfig"; sourceTree = "<group>"; };
 		DAD5ED103FDBC2A7604AF481 /* Pods-To Do ListTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-To Do ListTests.release.xcconfig"; path = "Target Support Files/Pods-To Do ListTests/Pods-To Do ListTests.release.xcconfig"; sourceTree = "<group>"; };
 		EDC83CA4D6D253A8AA43EBB0 /* Pods-To Do List.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-To Do List.debug.xcconfig"; path = "Target Support Files/Pods-To Do List/Pods-To Do List.debug.xcconfig"; sourceTree = "<group>"; };
@@ -216,6 +218,7 @@
 			children = (
 				755FE8D62479159200A71A75 /* CalendarExtention.swift */,
 				755FE8D82479169400A71A75 /* ToDoList.swift */,
+				75F9937F2485B04200C340EB /* Score.swift */,
 			);
 			path = Delegates;
 			sourceTree = "<group>";
@@ -506,6 +509,7 @@
 				758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */,
 				75F9937C2485994E00C340EB /* ForedropView.swift in Sources */,
 				753EFCA22445A24500A739E3 /* ViewController.swift in Sources */,
+				75F993802485B04200C340EB /* Score.swift in Sources */,
 				755FE8D72479159200A71A75 /* CalendarExtention.swift in Sources */,
 				755FE8DC2479220700A71A75 /* LineChart.swift in Sources */,
 				75F18106245CA0BC004D9A69 /* Task.swift in Sources */,
