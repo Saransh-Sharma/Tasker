@@ -21,7 +21,7 @@ import MaterialComponents.MaterialButtons_Theming
 import MaterialComponents.MaterialRipple
 
 
-class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate {
+class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate {
     
     //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()
@@ -870,7 +870,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
 //MARK:-                      CIRCLE MENU DELEGATE
 //----------------------- *************************** -----------------------
 
-extension ViewController: CircleMenuDelegate {
+extension HomeViewController: CircleMenuDelegate {
     // MARK:- CircleMenuDelegate
     
     func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
