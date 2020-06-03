@@ -10,7 +10,7 @@ import Foundation
 import Charts
 
 
-extension ViewController {
+extension HomeViewController {
 
     
     //MARK:- SET CHART DATA - LINE

@@ -30,6 +30,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
+//    var headerEndY: CGFloat = UIScreen.main.bounds.height/6
     var todoColors = ToDoColors()
     
     
@@ -261,27 +262,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
     
  
-    
-    func serveNewPageHeader() -> UIView {
-        let view = UIView(frame: UIScreen.main.bounds)
-        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
-        view.backgroundColor = .clear
-        headerEndY = view.frame.maxY
-        
-        
-        print("Header end point is: \(headerEndY)")
-        
-        
-        let todaysDateLabel = UILabel()
-        todaysDateLabel.frame = CGRect(x: 5, y: 70, width: view.frame.width/2, height: 40)
-        todaysDateLabel.text = dateForTheView.dateString(in: .medium)
-        todaysDateLabel.textColor = .secondaryLabel
-        todaysDateLabel.textAlignment = .left
-        todaysDateLabel.adjustsFontSizeToFitWidth = true
-        view.addSubview(todaysDateLabel)
-        
-        return view
-    }
+
     
     
     

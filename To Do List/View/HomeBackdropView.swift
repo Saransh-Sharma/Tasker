@@ -4,7 +4,7 @@
 //
 //  Created by Saransh Sharma on 30/05/20.
 //  Copyright © 2020 saransh1337. All rights reserved.
-//
+
 
 import Foundation
 import TinyConstraints
@@ -13,14 +13,15 @@ import MaterialComponents.MaterialRipple
 import UIKit
 
 
-extension ViewController {
+extension HomeViewController {
     
     func setupBackdrop() {
         
         backdropContainer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
 //         CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
         
-        headerEndY = 128
+//        headerEndY = 128
+        headerEndY = UIScreen.main.bounds.height/7.3
         setupBackdropBackground()
         addTinyChartToBackdrop()
         setupBackdropNotch()
@@ -32,8 +33,7 @@ extension ViewController {
         setupCal()
 
 
-//        backdropContainer.addSubview(calendar)
-        view.addSubview(calendar)
+        backdropContainer.addSubview(calendar)
         
         
         
@@ -67,6 +67,28 @@ extension ViewController {
         
         
     }
+    
+    
+//    func serveNewPageHeader() -> UIView {
+//        let view = UIView(frame: UIScreen.main.bounds)
+//        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
+//        view.backgroundColor = .clear
+//        headerEndY = view.frame.maxY
+//
+//
+//        print("Header end point is: \(headerEndY)")
+//
+//
+//        let todaysDateLabel = UILabel()
+//        todaysDateLabel.frame = CGRect(x: 5, y: 70, width: view.frame.width/2, height: 40)
+//        todaysDateLabel.text = dateForTheView.dateString(in: .medium)
+//        todaysDateLabel.textColor = .secondaryLabel
+//        todaysDateLabel.textAlignment = .left
+//        todaysDateLabel.adjustsFontSizeToFitWidth = true
+//        view.addSubview(todaysDateLabel)
+//
+//        return view
+//    }
     
     
     
@@ -159,18 +181,23 @@ extension ViewController {
         homeDate_WeekDay.textColor = .systemGray6
         homeDate_Month.textColor = .systemGray6
         
-        homeDate_Day.font =  setFont(fontSize: 52, fontweight: .medium, fontDesign: .rounded)
-        homeDate_WeekDay.font =  setFont(fontSize: 24, fontweight: .thin, fontDesign: .rounded)
-        homeDate_Month.font =  setFont(fontSize: 24, fontweight: .regular, fontDesign: .rounded)
+//        homeDate_Day.font =  setFont(fontSize: 52, fontweight: .medium, fontDesign: .rounded)
+//        homeDate_WeekDay.font =  setFont(fontSize: 24, fontweight: .thin, fontDesign: .rounded)
+//        homeDate_Month.font =  setFont(fontSize: 24, fontweight: .regular, fontDesign: .rounded)
+//
         
+        homeDate_Day.font =  setFont(fontSize: 58, fontweight: .medium, fontDesign: .rounded)
+              homeDate_WeekDay.font =  setFont(fontSize: 26, fontweight: .thin, fontDesign: .rounded)
+              homeDate_Month.font =  setFont(fontSize: 26, fontweight: .regular, fontDesign: .rounded)
+              
         homeDate_Day.textAlignment = .left
         homeDate_WeekDay.textAlignment = .left
         homeDate_Month.textAlignment = .left
         
         
         homeDate_Day.frame = CGRect(x: 5, y: 18, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        homeDate_WeekDay.frame = CGRect(x: 68, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
-        homeDate_Month.frame = CGRect(x: 68, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
+        homeDate_WeekDay.frame = CGRect(x: 76, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
+        homeDate_Month.frame = CGRect(x: 76, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
         
         
         homeDate_WeekDay.adjustsFontSizeToFitWidth = true
@@ -180,7 +207,32 @@ extension ViewController {
         homeTopBar.addSubview(homeDate_WeekDay)
         homeTopBar.addSubview(homeDate_Month)
         
+        
+        homeDate_Day.layer.shadowColor =  todoColors.primaryColorDarker.cgColor//todoColors.primaryColorDarker.cgColor
+        homeDate_Day.layer.shadowOpacity = 0.6
+        homeDate_Day.layer.shadowOffset = .zero //CGSize(width: -2.0, height: -2.0) //.zero
+        homeDate_Day.layer.shadowRadius = 8
+        
+        homeDate_WeekDay.layer.shadowColor = todoColors.primaryColorDarker.cgColor
+              homeDate_WeekDay.layer.shadowOpacity = 0.6
+              homeDate_WeekDay.layer.shadowOffset = .zero //CGSize(width: -2.0, height: -2.0) //.zero
+              homeDate_WeekDay.layer.shadowRadius = 8
+        
+        homeDate_Month.layer.shadowColor = todoColors.primaryColorDarker.cgColor
+              homeDate_Month.layer.shadowOpacity = 0.6
+              homeDate_Month.layer.shadowOffset = .zero //CGSize(width: -2.0, height: -2.0) //.zero
+              homeDate_Month.layer.shadowRadius = 8
+        
     }
+    
+//    func setTinyChartShadow(chartView: PieChartView) {
+//          //        chartView.layer.shadowColor = UIColor.black.cgColor
+//            chartView.layer.shadowColor = todoColors.primaryColorDarker.cgColor
+//
+//            chartView.layer.shadowOpacity = 0.3
+//            chartView.layer.shadowOffset = CGSize(width: -2.0, height: -2.0) //.zero
+//            chartView.layer.shadowRadius = 2
+//      }
     
     //----------------------- *************************** -----------------------
     //MARK:-                         TOP SEPERATOR

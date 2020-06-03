@@ -11,7 +11,7 @@ import UIKit
 import Timepiece
 import BEMCheckBox
 
-extension ViewController: UITableViewDataSource, UITableViewDelegate {
+extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
     
     
     

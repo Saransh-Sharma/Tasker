@@ -15,7 +15,7 @@ import FSCalendar
 //----------------------- *************************** -----------------------
 
 //MARK:- CAL Extention: task count as day subtext
-extension ViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
+extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
     
     func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
         
