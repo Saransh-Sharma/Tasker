@@ -22,6 +22,12 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     var foredropContainer = UIView()
     var bottomBarContainer = UIView()
     
+    // MARK: TASK METADATA
+    var currentTaskInMaterialTextBox: String = ""
+    var isThisEveningTask: Bool = false
+    var taskDayFromPicker: String =  "Unknown"//change datatype tp task type
+    var currentTaskPriority: Int = 3
+    
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
     
@@ -35,8 +41,16 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     let scoreCounter = UILabel()
     let scoreAtHomeLabel = UILabel()
     let cancelButton = UIView()
+      let eveningSwitch = UISwitch()
+    var prioritySC =  UISegmentedControl()
+    
+    let switchSetContainer = UIView()
+           let switchBackground = UIView()
+           let eveningLabel = UILabel()
     
      var addTaskTextBox_Material = MDCFilledTextField()
+    let fab_cancelTask = MDCFloatingButton(shape: .mini)
+    let fab_doneTask = MDCFloatingButton(shape: .default)
     
     var todoColors = ToDoColors()
     var todoFont = ToDoFont()

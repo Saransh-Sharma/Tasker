@@ -32,6 +32,7 @@ extension HomeViewController {
         backdropForeImageView.frame =  CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height:  UIScreen.main.bounds.height)
         backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
         backdropForeImageView.tintColor = .systemGray6
+//        backdropForeImageView.tintColor = UIColor(red: 37.0/255.0, green: 41.0/255.0, blue: 41.0/255.0, alpha: 1.0)//.systemGray5
         
         
         backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
