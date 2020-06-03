@@ -169,8 +169,8 @@ extension HomeViewController {
         } else {
             homeDate_Day.text = "\(today.day)"
         }
-        homeDate_WeekDay.text = getWeekday(date: today)
-        homeDate_Month.text = getMonth(date: today)
+        homeDate_WeekDay.text = todoTimeUtils.getWeekday(date: today)
+        homeDate_Month.text = todoTimeUtils.getMonth(date: today)
         
         
         homeDate_Day.numberOfLines = 1
@@ -559,27 +559,7 @@ extension HomeViewController {
     }
     
     
-    //----------------------- *************************** -----------------------
-    //MARK:-                    get name of the month
-    //----------------------- *************************** -----------------------
-    func getMonth(date: Date) -> String {
-        
-        let dateFormatter_Month = DateFormatter()
-        dateFormatter_Month.dateFormat = "LLL" //try MMM
-        let nameOfMonth = dateFormatter_Month.string(from: date)
-        return nameOfMonth
-    }
-    
-    //----------------------- *************************** -----------------------
-    //MARK:-                    get name of the weekday
-    //----------------------- *************************** -----------------------
-    func getWeekday(date: Date) -> String {
-        
-        let dateFormatter_Weekday = DateFormatter()
-        dateFormatter_Weekday.dateFormat = "EEE"
-        let nameOfWeekday = dateFormatter_Weekday.string(from: date)
-        return nameOfWeekday
-    }
+
     
     //----------------------- *************************** -----------------------
     //MARK:-                    setup line chart

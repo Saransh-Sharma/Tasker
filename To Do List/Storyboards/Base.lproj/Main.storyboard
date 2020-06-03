@@ -70,6 +70,21 @@
             </objects>
             <point key="canvasLocation" x="2745" y="180"/>
         </scene>
+        <!--Add Task View Controller-->
+        <scene sceneID="fxl-B0-QoV">
+            <objects>
+                <viewController storyboardIdentifier="addNewTask" id="qh1-uo-rZH" customClass="AddTaskViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="gFu-sN-at2">
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <viewLayoutGuide key="safeArea" id="7Wi-Zv-sjW"/>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="k9n-Wi-HVD" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="1866" y="-565"/>
+        </scene>
         <!--Add Task Screen-->
         <scene sceneID="5Nx-pA-AYS">
             <objects>

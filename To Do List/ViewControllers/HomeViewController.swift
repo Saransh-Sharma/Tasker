@@ -32,6 +32,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var headerEndY: CGFloat = 128
 //    var headerEndY: CGFloat = UIScreen.main.bounds.height/6
     var todoColors = ToDoColors()
+    var todoTimeUtils = ToDoTimeUtils()
     
     
     
@@ -691,7 +692,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         //       tap add fab --> addTask
         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+//        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as! AddTaskViewController
         newViewController.modalPresentationStyle = .fullScreen
         self.present(newViewController, animated: true, completion: nil)
     }
@@ -733,8 +735,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         } else {
             self.homeDate_Day.text = "\(date.day)"
         }
-        self.homeDate_WeekDay.text = getWeekday(date: date)
-        self.homeDate_Month.text = getMonth(date: date)
+        self.homeDate_WeekDay.text = todoTimeUtils.getWeekday(date: date)
+        self.homeDate_Month.text = todoTimeUtils.getMonth(date: date)
         
     }
     
