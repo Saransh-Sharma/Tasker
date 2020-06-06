@@ -11,16 +11,18 @@ import UIKit
 import Timepiece
 import BEMCheckBox
 
-extension ViewController: UITableViewDataSource, UITableViewDelegate {
+extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
     
     
     
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         let headerView = UIView()
+        let lineSeparator = UIView()
         
         if section == 0 {
             let myLabel = UILabel()
-            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
+//            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
+            myLabel.frame = CGRect(x:5, y: 8, width: (UIScreen.main.bounds.width), height: 30)
             
             //line.horizontal.3.decrease.circle
             let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
@@ -30,7 +32,8 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
             //            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
             let filterMenuHomeButton = UIButton()
             //            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
-            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
+//            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
+             filterMenuHomeButton.frame = CGRect(x:5, y: 8 , width: 30, height: 30)
             filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
             
             headerView.addSubview(filterMenuHomeButton)
@@ -40,12 +43,17 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
             
             //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
             myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
-            myLabel.textAlignment = .right
+            myLabel.textAlignment = .center
             myLabel.adjustsFontSizeToFitWidth = true
             myLabel.textColor = .label
             myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
             
             //                   let headerView = UIView()
+            
+            lineSeparator.frame = CGRect(x: 0, y: 45, width: UIScreen.main.bounds.width, height: 1)
+            lineSeparator.backgroundColor = UIColor.black
+            
+            headerView.addSubview(lineSeparator)
             headerView.addSubview(myLabel)
             
             return headerView
@@ -88,9 +96,14 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         case 0:
             let now = Date.today
             if (dateForTheView == now()) {
-                return "Today's Tasks"
-            } else {
-                return "NOT TODAY"
+                return "Today"
+            } else if (dateForTheView == Date.tomorrow()){
+                return "Tomorrow"
+            } else if (dateForTheView == Date.yesterday()) {
+                return "Yeserday"
+                }
+            else {
+                return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
             }
             
         //            return "Today's Tasks"
@@ -136,7 +149,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         }
     }
     
-    // MARK:- CELL AT ROW
+    // MARK:- CELL AT ROWUITableViewRowAction
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
@@ -376,6 +389,14 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
             actionPerformed(true)
         }
         
+        completeTaskAction.backgroundColor = todoColors.completeTaskSwipeColor
+        
+//        NSUIColor(red: 192/255.0, green: 255/255.0, blue: 140/255.0, alpha: 1.0), green
+//                 NSUIColor(red: 255/255.0, green: 247/255.0, blue: 140/255.0, alpha: 1.0), yellow
+//                 NSUIColor(red: 255/255.0, green: 208/255.0, blue: 140/255.0, alpha: 1.0), orange
+//                 NSUIColor(red: 140/255.0, green: 234/255.0, blue: 255/255.0, alpha: 1.0), blue
+//                 NSUIColor(red: 255/255.0, green: 140/255.0, blue: 157/255.0, alpha: 1.0) red
+        
         return UISwipeActionsConfiguration(actions: [completeTaskAction])
     }
     
@@ -473,6 +494,47 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         
         
         return UISwipeActionsConfiguration(actions: [deleteTaskAction])
+    }
+    
+    // MARK:- DID SELECT ROW AT
+    /*
+     Prints logs on selecting a row
+     */
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        print("You selected row \(indexPath.row) from section \(indexPath.section)")
+        
+        var currentTask: NTask!
+        //        semiViewDefaultOptions(viewToBePrsented: serveViewBlue())
+        switch indexPath.section {
+        case 0:
+            //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
+            //            let Tasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
+            
+            let Tasks: [NTask]
+            if(dateForTheView == Date.today()) {
+                Tasks = TaskManager.sharedInstance.getMorningTasksForToday()
+            } else { //get morning tasks without rollover
+                Tasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+            }
+            
+            
+            currentTask = Tasks[indexPath.row]
+        case 1:
+            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
+            let Tasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+            currentTask = Tasks[indexPath.row]
+        default:
+            break
+        }
+        
+        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
+        
+        semiViewDefaultOptions(viewToBePrsented: serveSemiViewBlue(task: currentTask))
+        
+        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewGreen(task: currentTask))
+        
+        
+        
     }
     
 }

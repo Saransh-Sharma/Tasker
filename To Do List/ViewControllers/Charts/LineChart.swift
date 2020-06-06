@@ -10,8 +10,29 @@ import Foundation
 import Charts
 
 
-extension ViewController {
+extension HomeViewController {
 
     
+    //MARK:- SET CHART DATA - LINE
+    func setLineChartData() {
+        let set01 = LineChartDataSet(entries: generateLineChartData(), label: "Score for the day")
+        //        let set01 = LineChartDataSet(entries: generateLineChartData())
+        
+        //        set01.drawCirclesEnabled = false
+        set01.drawCirclesEnabled = false
+        set01.mode = .cubicBezier
+        set01.setColor(todoColors.secondaryAccentColor)
+        set01.lineWidth = 3
+        set01.fill = Fill(color: todoColors.primaryColorDarker)
+        set01.fillAlpha = 0.8
+        set01.drawFilledEnabled = true
+        
+        
+        
+        let lineChartData_01 = LineChartData(dataSet: set01)
+        lineChartView.data = lineChartData_01
+        
+        
+    }
     
 }

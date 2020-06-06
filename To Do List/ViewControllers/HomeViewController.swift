@@ -21,16 +21,22 @@ import MaterialComponents.MaterialButtons_Theming
 import MaterialComponents.MaterialRipple
 
 
-class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate {
+class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate {
     
-    
-    //MARK:- Positioning
-    var headerEndY: CGFloat = 128
-    var todoColors = ToDoColors()
-    
+    //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()
     var foredropContainer = UIView()
     var bottomBarContainer = UIView()
+    
+     let notificationCenter = NotificationCenter.default
+    
+    //MARK:- Positioning
+    var headerEndY: CGFloat = 128
+//    var headerEndY: CGFloat = UIScreen.main.bounds.height/6
+    var todoColors = ToDoColors()
+    var todoTimeUtils = ToDoTimeUtils()
+    
+    
     
     
     //init notification badge counter
@@ -51,28 +57,28 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         yAxis.labelTextColor = .secondaryLabel
         yAxis.axisLineColor = .tertiaryLabel
         yAxis.labelPosition = .outsideChart
- 
+        
         chartView.xAxis.labelPosition = .bottom
         chartView.xAxis.labelFont = .systemFont(ofSize: 8) //.boldSystemFont(ofSize: 8)
         chartView.xAxis.axisLineColor = .tertiaryLabel
         chartView.xAxis.labelTextColor = .label
         chartView.xAxis.setLabelCount(10, force: true)
         chartView.xAxis.labelRotationAngle = 0
-//        chartView.xAxis.text
+        //        chartView.xAxis.text
         chartView.xAxis.valueFormatter = DayAxisValueFormatter(chart: chartView) //replace date labels here
-                                        
+        
         return chartView
     }()
     
     //MARK: Pie Chart Data Sections
-     let tinyPieChartSections = [""]
+    let tinyPieChartSections = [""]
     
     //MARK:- cuurentt task list date
     var dateForTheView = Date.today()
     
     //MARK:- score for day label
     var scoreForTheDay: UILabel! = nil
-        
+    
     //MARK:- Buttons + Views + Bottom bar
     var calendar: FSCalendar!
     let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
@@ -104,6 +110,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     var isCalDown: Bool = false
     var isChartsDown: Bool = false
     
+    let toDoAnimations:ToDoAnimations = ToDoAnimations()
     
     //MARK:- Circle menu init
     let circleMenuItems: [(icon: String, color: UIColor)] = [
@@ -131,27 +138,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     //MARK:- Elevation + Shadows:
     let bottomBarShadowElevation: ShadowElevation = ShadowElevation(rawValue: 8)
     
-    //MARK:- SET CHART DATA - LINE
-    func setLineChartData() {
-        let set01 = LineChartDataSet(entries: generateLineChartData(), label: "Score for the day")
-        //        let set01 = LineChartDataSet(entries: generateLineChartData())
-        
-        //        set01.drawCirclesEnabled = false
-        set01.drawCirclesEnabled = false
-        set01.mode = .cubicBezier
-        set01.setColor(todoColors.secondaryAccentColor)
-        set01.lineWidth = 3
-        set01.fill = Fill(color: todoColors.primaryColorDarker)
-        set01.fillAlpha = 0.8
-        set01.drawFilledEnabled = true
-        
-        
-        
-        let lineChartData_01 = LineChartData(dataSet: set01)
-        lineChartView.data = lineChartData_01
-        
-        
-    }
+
     
     func getTaskForTodayCount() -> Int {
         var morningTasks = [NTask]()
@@ -198,103 +185,91 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         print("You selected data: \(entry)")
     }
     
-    //MARK: setup line chart
-    func setupLineChartView() {
-        
-        view.addSubview(lineChartView)
-        lineChartView.centerInSuperview()
-        lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: 2*headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
-        
-    }
+
     
     //MARK:- View did load
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        
-        //MARK: serve material backdrop
-        headerEndY = 128
-        setupBackdropBackground() //backdrop
-        
-        tinyPieChartView.frame = CGRect(x: (UIScreen.main.bounds.width)-(homeTopBar.bounds.height+15), y: 15, width: (homeTopBar.bounds.height)+45, height: (homeTopBar.bounds.height)+45)                   
-        view.addSubview(tinyPieChartView)
-        
-        setupBackdropForeground() //foredrop
-        setupBackdropNotch() //notch
-        
-        //MARK:- LOAD LINE CHART
-        setupLineChartView()
-        setLineChartData()
-        lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
+      //--------
+        view.addSubview(backdropContainer)
+        setupBackdrop()
         
         
-        
-        
-        //        isBackdropDown() // get intit //refetch this n view reload
-        
-        // cal
-        setupCal()
-        view.addSubview(calendar)
-        calendar.isHidden = true //hidden by default
-        //--- done top cal
-        
-        // table view
-        tableView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        view.addSubview(tableView)
+        view.addSubview(foredropContainer)
+        setupFordrop()
         
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
-        setHomeViewDate()
         view.bringSubviewToFront(bottomAppBar)
-        
-        setupCalButton()
-        setupChartButton()
-        setupTopSeperator()
-        
-        //MARK: circle menu frame
-        let circleMenuButton = CircleMenu(
-            frame: CGRect(x: 32, y: 64, width: 30, height: 30),
-            normalIcon:"icon_menu",
-            //            selectedIcon:"icon_close",
-            selectedIcon:"material_close",
-            buttonsCount: 5,
-            duration: 1,
-            distance: 50)
-        circleMenuButton.backgroundColor = todoColors.backgroundColor
-        
-        circleMenuButton.delegate = self
-        circleMenuButton.layer.cornerRadius = circleMenuButton.frame.size.width / 2.0
-        //        view.addSubview(circleMenuButton) TODO: reconsider the top circle menu
-        
-        
-        //MARK: NOTCH CHECK
-        if (UIDevice.current.hasNotch) {
-            print("I SEE NOTCH !!")
-        } else {
-            print("NO NOTCH !")
-        }
-        
-        //---------- VIEW LOAD: CHART
-        
-        
-        
-        self.setupPieChartView(pieChartView: tinyPieChartView)
-        
-        updateTinyPieChartData()
-        
-        tinyPieChartView.delegate = self
+
+//        setupBadgeCount()
+        enableDarkModeIfPreset()
         
 
         
-        // entry label styling
-        tinyPieChartView.entryLabelColor = .clear
-        tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .bold)
-        
-         
-        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
        
+        notificationCenter.addObserver(self, selector: #selector(appMovedToForeground), name:UIApplication.willEnterForegroundNotification, object: nil)
         
+        notificationCenter.addObserver(self, selector: #selector(appMovedToBackground), name:UIApplication.didEnterBackgroundNotification, object: nil)
+        
+//          notificationCenter.addObserver(self, selector: #selector(appTerminated), name:UIApplication.willTerminateNotification, object: nil)
 
+    }
+    @objc
+    func appMovedToForeground() {
+        print("App moved to ForeGround!")
+        toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView)
+//        self.tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+//        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+//        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+    }
+    @objc
+    func appMovedToBackground() {
+        print("App moved to Background!")
+               setupBadgeCount()
+        
+    }
+    
+    @objc
+       func appTerminated() {
+           print("App moved to DED !")
+           
+       }
+    
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        NotificationCenter.default.removeObserver(self, name:UIApplication.willResignActiveNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name:UIApplication.willEnterForegroundNotification, object: nil)
+    }
+    
+
+    
+    // MARK:- View Lifecycle methods
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(true)
+        // right spring animation
+        //        tableView.reloadData(
+        //            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
+        //                          constantDelay: 0))
+        tableView.reloadData()
+        
+        animateTableViewReload()
+        //        UIView.animate(views: tableView.visibleCells, animations: animations, completion: {
+        
+        //        })
+    }
+    
+    // MARK:- Build Page Header
+     override var preferredStatusBarStyle: UIStatusBarStyle {
+         return .lightContent
+     }
+
+    
+    
+    func setupBadgeCount()  {
         //Badge number //BUG: badge is rest only after killing the app; minimising doesnt reset badge to correct value
         let application = UIApplication.shared
         let center = UNUserNotificationCenter.current()
@@ -302,31 +277,14 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
             print("Success !")
         }
         if(getTaskForTodayCount() > 0) {
-        
+            
             application.applicationIconBadgeNumber = getTaskForTodayCount()
         } else {
             application.applicationIconBadgeNumber =  0
         }
         
         application.registerForRemoteNotifications()
-        
-        
-        
-
-        
-        
-        enableDarkModeIfPreset()
     }
-    
-    //---------- SETUP: CHART
-   
-    
-    
-
-    
-    //-----------
-    //---------- SETUP: CHART DONE
-    
     
     
     
@@ -346,31 +304,8 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         return view
     }
     
-    // MARK:- Build Page Header
-    override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .lightContent
-    }
-    
-    func serveNewPageHeader() -> UIView {
-        let view = UIView(frame: UIScreen.main.bounds)
-        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
-        view.backgroundColor = .clear
-        headerEndY = view.frame.maxY
-        
-        
-        print("Header end point is: \(headerEndY)")
-        
-        
-        let todaysDateLabel = UILabel()
-        todaysDateLabel.frame = CGRect(x: 5, y: 70, width: view.frame.width/2, height: 40)
-        todaysDateLabel.text = dateForTheView.dateString(in: .medium)
-        todaysDateLabel.textColor = .secondaryLabel
-        todaysDateLabel.textAlignment = .left
-        todaysDateLabel.adjustsFontSizeToFitWidth = true
-        view.addSubview(todaysDateLabel)
-        
-        return view
-    }
+ 
+
     
     
     
@@ -449,46 +384,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         return view
     }
     
-    // MARK:- DID SELECT ROW AT
-    /*
-     Prints logs on selecting a row
-     */
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print("You selected row \(indexPath.row) from section \(indexPath.section)")
-        
-        var currentTask: NTask!
-        //        semiViewDefaultOptions(viewToBePrsented: serveViewBlue())
-        switch indexPath.section {
-        case 0:
-            //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
-//            let Tasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
-            
-            let Tasks: [NTask]
-                       if(dateForTheView == Date.today()) {
-                            Tasks = TaskManager.sharedInstance.getMorningTasksForToday()
-                       } else { //get morning tasks without rollover
-                            Tasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-                       }
-            
-            
-            currentTask = Tasks[indexPath.row]
-        case 1:
-            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
-            let Tasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-            currentTask = Tasks[indexPath.row]
-        default:
-            break
-        }
-        
-        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
-        
-        semiViewDefaultOptions(viewToBePrsented: serveSemiViewBlue(task: currentTask))
-        
-        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewGreen(task: currentTask))
-        
-        
-        
-    }
+
     
     func semiViewDefaultOptions(viewToBePrsented: UIView) {
         let options: [SemiModalOption : Any] = [
@@ -501,20 +397,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         }
     }
     
-    // MARK:- View Lifecycle methods
-    
-    override func viewWillAppear(_ animated: Bool) {
-        // right spring animation
-        //        tableView.reloadData(
-        //            with: .spring(duration: 0.45, damping: 0.65, velocity: 1, direction: .right(useCellsFrame: false),
-        //                          constantDelay: 0))
-        tableView.reloadData()
-        
-        animateTableViewReload()
-        //        UIView.animate(views: tableView.visibleCells, animations: animations, completion: {
-        
-        //        })
-    }
+
     
     
     
@@ -533,43 +416,44 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         }
     }
     
+
     // MARK: calculate today's score
-    /*
-     Calculates daily productivity score
-     */
-    func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
-        var score = 0
-        
-        let morningTasks: [NTask]
-                           if(dateForTheView == Date.today()) {
-                                morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-                           } else { //get morning tasks without rollover
-                                morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-                           }
-        let eveningTasks: [NTask]
-                            if(dateForTheView == Date.today()) {
-                                 eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
-                            } else { //get morning tasks without rollover
-                                 eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-                            }
-        
-//        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-//        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-        
-        for each in morningTasks {
-            
-            if each.isComplete {
-                
-                score = score + each.getTaskScore(task: each)
-            }
-        }
-        for each in eveningTasks {
-            if each.isComplete {
-                score = score + each.getTaskScore(task: each)
-            }
-        }
-        return score;
-    }
+     /*
+      Calculates daily productivity score
+      */
+     func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
+         var score = 0
+         
+         let morningTasks: [NTask]
+         if(dateForTheView == Date.today()) {
+             morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+         } else { //get morning tasks without rollover
+             morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+         }
+         let eveningTasks: [NTask]
+         if(dateForTheView == Date.today()) {
+             eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
+         } else { //get morning tasks without rollover
+             eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+         }
+         
+         //        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+         //        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+         
+         for each in morningTasks {
+             
+             if each.isComplete {
+                 
+                 score = score + each.getTaskScore(task: each)
+             }
+         }
+         for each in eveningTasks {
+             if each.isComplete {
+                 score = score + each.getTaskScore(task: each)
+             }
+         }
+         return score;
+     }
     
     
     
@@ -601,7 +485,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         return 2;
     }
     
-
+    
     
     //----------------------- *************************** -----------------------
     //MARK:-                  TABLEVIEW: HEADER VIEW
@@ -675,10 +559,10 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         view.center.y -= UIScreen.main.bounds.height/6
     }
     
-//    func moveUp_hideCalFurther(view: UIView) { //
-//           isCalDown = false
-//           view.center.y -= (150+50)
-//       }
+    //    func moveUp_hideCalFurther(view: UIView) { //
+    //           isCalDown = false
+    //           view.center.y -= (150+50)
+    //       }
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: MOVE FOR CHARTS
     //----------------------- *************************** -----------------------
@@ -688,10 +572,10 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         view.center.y += UIScreen.main.bounds.height/2
     }
     func moveDown_revealChartsKeepCal(view: UIView) {
-         isChartsDown = true
-         print("move: CHARTS SHOW, CAL SHOW - down some: \(UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12)")
-         view.center.y += (UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12)
-     }
+        isChartsDown = true
+        print("move: CHARTS SHOW, CAL SHOW - down some: \(UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12)")
+        view.center.y += (UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12)
+    }
     func moveUp_hideCharts(view: UIView) {
         isChartsDown = false
         print("move: CHARTS HIDE - up: \(UIScreen.main.bounds.height/2)")
@@ -704,17 +588,17 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     }
     
     //----------------------- *************************** -----------------------
-      //MARK:-                ANIMATION: LINE CHART ANIMATION
-      //----------------------- *************************** -----------------------
+    //MARK:-                ANIMATION: LINE CHART ANIMATION
+    //----------------------- *************************** -----------------------
     
     
     func animateLineChart(chartView: LineChartView) {
-            chartView.animate(yAxisDuration: 1.1, easingOption: .easeInOutBack)
+        chartView.animate(yAxisDuration: 1.1, easingOption: .easeInOutBack)
     }
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: WHOLE TABLE VIEW RELOAD
     //----------------------- *************************** -----------------------
-
+    
     
     
     //MARK: animations
@@ -728,18 +612,18 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     }
     
     func animateTableViewReloadSingleCell(cellAtIndexPathRow: Int) {
-         let zoomAnimation = AnimationType.zoom(scale: 0.5)
-         let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
-         
+        let zoomAnimation = AnimationType.zoom(scale: 0.5)
+        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
+        
         print("Only animating cell at: \(cellAtIndexPathRow)")
         UIView.animate(views: tableView.visibleCells(in: cellAtIndexPathRow),
-                        animations: [zoomAnimation, rotateAnimation],
-                        duration: 0.3)
+                       animations: [zoomAnimation, rotateAnimation],
+                       duration: 0.3)
         
-//        UIView.animate(views: tableView.cellForRow(at: <#T##IndexPath#>),
-//                               animations: [zoomAnimation, rotateAnimation],
-//                               duration: 0.3)
-     }
+        //        UIView.animate(views: tableView.cellForRow(at: <#T##IndexPath#>),
+        //                               animations: [zoomAnimation, rotateAnimation],
+        //                               duration: 0.3)
+    }
     
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: TABLE CELL RELOAD
@@ -841,7 +725,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     //
     //
     //    }
-
+    
     //----------------------- *************************** -----------------------
     //MARK:-                        ACTION: ADD TASK
     //----------------------- *************************** -----------------------
@@ -850,7 +734,8 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         
         //       tap add fab --> addTask
         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+//        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as! AddTaskViewController
         newViewController.modalPresentationStyle = .fullScreen
         self.present(newViewController, animated: true, completion: nil)
     }
@@ -892,146 +777,88 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
         } else {
             self.homeDate_Day.text = "\(date.day)"
         }
-        self.homeDate_WeekDay.text = getWeekday(date: date)
-        self.homeDate_Month.text = getMonth(date: date)
+        self.homeDate_WeekDay.text = todoTimeUtils.getWeekday(date: date)
+        self.homeDate_Month.text = todoTimeUtils.getMonth(date: date)
         
     }
-    
-    //----------------------- *************************** -----------------------
-    //MARK:-              BACKDROP PATTERN 1.1 : SETUP NOTCH BACKDROP
-    //----------------------- *************************** -----------------------
-    
-    //MARK:- Setup Backdrop Notch
-    func setupBackdropNotch() {
-        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
-        backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
-        
-        view.addSubview(backdropNochImageView)
-    }
-    
-    //----------------------- *************************** -----------------------
-    //MARK:-              BACKDROP PATTERN 1: SETUP BACKGROUND
-    //----------------------- *************************** -----------------------
-    
-    //MARK:- Setup Backdrop Background - Today label + Score
-    func setupBackdropBackground() {
-        
-        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-        backdropBackgroundImageView.backgroundColor = todoColors.primaryColor
-        homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
-        backdropBackgroundImageView.addSubview(homeTopBar)
-        
-        
-        //---------- score at home
-        
-        scoreAtHomeLabel.text = "\n\nscore"
-        scoreAtHomeLabel.numberOfLines = 3
-        scoreAtHomeLabel.textColor = .label
-        scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
-    
-        
-        scoreAtHomeLabel.textAlignment = .center
-        scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        
-        //        homeTopBar.addSubview(scoreAtHomeLabel)
-        
-        //---- score
-        
-        scoreCounter.text = "\(self.calculateTodaysScore())"
-        scoreCounter.numberOfLines = 1
-        scoreCounter.textColor = .systemGray5
-        scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
-        
-        scoreCounter.textAlignment = .center
-        scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        
-        //        homeTopBar.addSubview(scoreCounter)
-        
-        view.addSubview(backdropBackgroundImageView)
-        
-        
-    }
-    
-    //----------------------- *************************** -----------------------
-    //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
-    //----------------------- *************************** -----------------------
-    
-    //MARK: Setup forground
-    func setupBackdropForeground() {
-        //    func setupBackdropForeground() {
-        
-        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
-        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-        
-        
-        
-        backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
-        backdropForeImageView.tintColor = .systemGray6
-        
-        
-        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
-        backdropForeImageView.layer.shadowOpacity = 0.8
-        backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
-        backdropForeImageView.layer.shadowRadius = 10
-        
-        view.addSubview(backdropForeImageView)
-        
-    }
-    
-    
-    //----------------------- *************************** -----------------------
-    //MARK:-                       CALENNDAR:SETUP
-    //----------------------- *************************** -----------------------
-    
-    //MARK: Setup calendar appearence
-    func setupCal() {
-        let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
-        calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        
-        
-        calendar.appearance.headerTitleColor = .white
-        calendar.appearance.headerTitleFont = setFont(fontSize: 16, fontweight: .light, fontDesign: .default)
-    
-        
-        //weekday title
-        calendar.appearance.weekdayTextColor = .lightGray//.lightGray
-        calendar.appearance.weekdayFont = setFont(fontSize: 14, fontweight: .light, fontDesign: .rounded)
-        
-        //weekend
-        calendar.appearance.titleWeekendColor = .systemRed
-        
-        //date
-        calendar.appearance.titleFont = setFont(fontSize: 16, fontweight: .regular, fontDesign: .rounded)
-        calendar.appearance.titleDefaultColor = .white
-        calendar.appearance.caseOptions = .weekdayUsesUpperCase
-        
-        //selection
-        calendar.appearance.selectionColor = todoColors.secondaryAccentColor
-        calendar.appearance.subtitleDefaultColor = .white
-        
-        //today
-        calendar.appearance.todayColor = todoColors.primaryColorDarker
-        calendar.appearance.titleTodayColor = todoColors.secondaryAccentColor
-        calendar.appearance.titleSelectionColor = todoColors.primaryColorDarker
-        calendar.appearance.subtitleSelectionColor = todoColors.primaryColorDarker
-        calendar.appearance.subtitleFont = setFont(fontSize: 10, fontweight: .regular, fontDesign: .rounded)
-        calendar.appearance.borderSelectionColor = todoColors.primaryColorDarker
-        
-        
-        
-        calendar.dataSource = self
-        calendar.delegate = self
-        
-        self.calendar = calendar
-        self.calendar.scope = FSCalendarScope.week
-        //        calendar.backgroundColor = .white
-    }
-    
-    
-    
     
 
+    
+    //    //----------------------- *************************** -----------------------
+    //    //MARK:-              BACKDROP PATTERN 1: SETUP BACKGROUND
+    //    //----------------------- *************************** -----------------------
+    //
+    //    //MARK:- Setup Backdrop Background - Today label + Score
+    //    func setupBackdropBackground() {
+    //
+    //        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+    //        backdropBackgroundImageView.backgroundColor = todoColors.primaryColor
+    //        homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
+    //        backdropBackgroundImageView.addSubview(homeTopBar)
+    //
+    //
+    //        //---------- score at home
+    //
+    //        scoreAtHomeLabel.text = "\n\nscore"
+    //        scoreAtHomeLabel.numberOfLines = 3
+    //        scoreAtHomeLabel.textColor = .label
+    //        scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
+    //
+    //
+    //        scoreAtHomeLabel.textAlignment = .center
+    //        scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+    //
+    //        //        homeTopBar.addSubview(scoreAtHomeLabel)
+    //
+    //        //---- score
+    //
+    //        scoreCounter.text = "\(self.calculateTodaysScore())"
+    //        scoreCounter.numberOfLines = 1
+    //        scoreCounter.textColor = .systemGray5
+    //        scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
+    //
+    //        scoreCounter.textAlignment = .center
+    //        scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+    //
+    //        //        homeTopBar.addSubview(scoreCounter)
+    //
+    //        view.addSubview(backdropBackgroundImageView)
+    //
+    //
+    //    }
+    
+//    //----------------------- *************************** -----------------------
+//    //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
+//    //----------------------- *************************** -----------------------
+//
+//    //MARK: Setup forground
+//    func setupBackdropForeground() {
+//        //    func setupBackdropForeground() {
+//
+//        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
+//        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+//
+//
+//
+//        backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
+//        backdropForeImageView.tintColor = .systemGray6
+//
+//
+//        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
+//        backdropForeImageView.layer.shadowOpacity = 0.8
+//        backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
+//        backdropForeImageView.layer.shadowRadius = 10
+//
+//        view.addSubview(backdropForeImageView)
+//
+//    }
+    
+   
+    
+    
+    
+    
+    
     
     
     //----------------------- *************************** -----------------------
@@ -1060,7 +887,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
     }
     
     
-  
+    
 }
 
 
@@ -1068,7 +895,7 @@ class ViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControl
 //MARK:-                      CIRCLE MENU DELEGATE
 //----------------------- *************************** -----------------------
 
-extension ViewController: CircleMenuDelegate {
+extension HomeViewController: CircleMenuDelegate {
     // MARK:- CircleMenuDelegate
     
     func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {

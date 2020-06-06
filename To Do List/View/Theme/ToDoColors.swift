@@ -16,10 +16,43 @@ class ToDoColors {
         var backgroundColor = UIColor.systemGray5
     //    var primaryColor = UIColor.systemIndigo
             var primaryColor =  #colorLiteral(red: 0.5490196078, green: 0.5450980392, blue: 0.8196078431, alpha: 1)
-    //    var primaryColor = #colorLiteral(red: 0.1333333333, green: 0.1960784314, blue: 0.2980392157, alpha: 1)
+//    var primaryColor =  #colorLiteral(red: 0.2279829348, green: 0.4250875221, blue: 0.6562256581, alpha: 1)
+    //69C9D0
+//    UIColor(red: 37.0/255.0, green: 41.0/255.0, blue: 41.0/255.0, alpha: 1.0)
+//        var primaryColor = #colorLiteral(red: 0.1333333333, green: 0.1960784314, blue: 0.2980392157, alpha: 1)
         var primaryColorDarker = UIColor.black //UIColor.systemFill
         var secondaryAccentColor = UIColor.systemOrange
         
+        var completeTaskSwipeColor = UIColor(red: 46/255.0, green: 204/255.0, blue: 113/255.0, alpha: 1.0)
+//        var deleteTaskSwipeColor = UIColor(red: 46/255.0, green: 204/255.0, blue: 113/255.0, alpha: 1.0)
+    
+    
+    
+    
+    
+//    darkmodee background from things app
+//    backdropForeImageView.tintColor = UIColor(red: 37.0/255.0, green: 41.0/255.0, blue: 41.0/255.0, alpha: 1.0)
+    
+    
+    
+//    material
+//    NSUIColor(red: 46/255.0, green: 204/255.0, blue: 113/255.0, alpha: 1.0), blue
+//           NSUIColor(red: 241/255.0, green: 196/255.0, blue: 15/255.0, alpha: 1.0), yellow
+//           NSUIColor(red: 231/255.0, green: 76/255.0, blue: 60/255.0, alpha: 1.0), orange
+//           NSUIColor(red: 52/255.0, green: 152/255.0, blue: 219/255.0, alpha: 1.0) blue
+    
+    
+    
+    //        NSUIColor(red: 192/255.0, green: 255/255.0, blue: 140/255.0, alpha: 1.0), green
+    //                 NSUIColor(red: 255/255.0, green: 247/255.0, blue: 140/255.0, alpha: 1.0), yellow
+    //                 NSUIColor(red: 255/255.0, green: 208/255.0, blue: 140/255.0, alpha: 1.0), orange
+    //                 NSUIColor(red: 140/255.0, green: 234/255.0, blue: 255/255.0, alpha: 1.0), blue
+    //                 NSUIColor(red: 255/255.0, green: 140/255.0, blue: 157/255.0, alpha: 1.0) red
+            
+    
+    
+    
+    
     
         //purple #2
     //    var backgroundColor = UIColor.systemGray5

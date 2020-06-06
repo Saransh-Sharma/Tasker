@@ -216,7 +216,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         //        TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, isEveningTask: isThisEveningTask)
         
         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
         newViewController.modalPresentationStyle = .fullScreen
         self.present(newViewController, animated: true, completion: nil)
     }
@@ -226,7 +226,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         //       tap CANCEL --> homeScreen
         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! ViewController
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
         newViewController.modalPresentationStyle = .fullScreen
         //        self.present(newViewController, animated: true, completion: nil) //Doesn't look like cancel
         dismiss(animated: true) //this looks more like cancel compared to above
