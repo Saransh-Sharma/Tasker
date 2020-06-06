@@ -17,10 +17,12 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         let headerView = UIView()
+        let lineSeparator = UIView()
         
         if section == 0 {
             let myLabel = UILabel()
-            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
+//            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
+            myLabel.frame = CGRect(x:5, y: 8, width: (UIScreen.main.bounds.width), height: 30)
             
             //line.horizontal.3.decrease.circle
             let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
@@ -30,7 +32,8 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
             //            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
             let filterMenuHomeButton = UIButton()
             //            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
-            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
+//            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
+             filterMenuHomeButton.frame = CGRect(x:5, y: 8 , width: 30, height: 30)
             filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
             
             headerView.addSubview(filterMenuHomeButton)
@@ -40,12 +43,17 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
             
             //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
             myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
-            myLabel.textAlignment = .right
+            myLabel.textAlignment = .center
             myLabel.adjustsFontSizeToFitWidth = true
             myLabel.textColor = .label
             myLabel.text = self.tableView(tableView, titleForHeaderInSection: section)
             
             //                   let headerView = UIView()
+            
+            lineSeparator.frame = CGRect(x: 0, y: 45, width: UIScreen.main.bounds.width, height: 1)
+            lineSeparator.backgroundColor = UIColor.black
+            
+            headerView.addSubview(lineSeparator)
             headerView.addSubview(myLabel)
             
             return headerView
@@ -88,9 +96,14 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
         case 0:
             let now = Date.today
             if (dateForTheView == now()) {
-                return "Today's Tasks"
-            } else {
-                return "NOT TODAY"
+                return "Today"
+            } else if (dateForTheView == Date.tomorrow()){
+                return "Tomorrow"
+            } else if (dateForTheView == Date.yesterday()) {
+                return "Yeserday"
+                }
+            else {
+                return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
             }
             
         //            return "Today's Tasks"

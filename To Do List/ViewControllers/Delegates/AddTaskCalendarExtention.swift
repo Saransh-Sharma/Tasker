@@ -11,6 +11,26 @@ import FSCalendar
 
 extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
 
+        func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
+            
+
+    //        let morningTasks: [NTask]
+    //                   if(dateForTheView == Date.today()) {
+    //                        morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+    //                   } else { //get morning tasks without rollover
+    //                        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+    //                   }
+             
+           let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
+            let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
+            let allTasks = morningTasks+eveningTasks
+            
+            if(allTasks.count == 0) {
+                return "-"
+            } else {
+                return "\(allTasks.count) tasks"
+            }
+        }
     
     //----------------------- *************************** -----------------------
         //MARK:-                       CALENNDAR:SETUP
@@ -18,7 +38,8 @@ extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCal
         
         //MARK: Setup calendar appearence
         func setupCalAtAddTask() {
-            let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
+            let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.frame.maxY-6, width: UIScreen.main.bounds.width, height:
+            homeTopBar.frame.maxY*3.5))//FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
             calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
             calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
             

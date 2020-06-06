@@ -97,4 +97,23 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     }
     */
 
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        let oldText = textField.text!
+        print("old text is: \(oldText)")
+        let stringRange = Range(range, in:oldText)!
+        let newText = oldText.replacingCharacters(in: stringRange, with: string)
+        print("new text is: \(newText)")
+        
+        currentTaskInMaterialTextBox = newText
+        
+        if newText.isEmpty {
+            print("EMPTY")
+            fab_doneTask.isEnabled = false
+        } else {
+            print("NOT EMPTY")
+            fab_doneTask.isEnabled = true
+            
+        }
+        return true
+    }
 }

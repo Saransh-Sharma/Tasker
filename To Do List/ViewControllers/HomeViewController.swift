@@ -28,6 +28,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var foredropContainer = UIView()
     var bottomBarContainer = UIView()
     
+     let notificationCenter = NotificationCenter.default
+    
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
 //    var headerEndY: CGFloat = UIScreen.main.bounds.height/6
@@ -108,6 +110,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var isCalDown: Bool = false
     var isChartsDown: Bool = false
     
+    let toDoAnimations:ToDoAnimations = ToDoAnimations()
     
     //MARK:- Circle menu init
     let circleMenuItems: [(icon: String, color: UIColor)] = [
@@ -200,9 +203,48 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         view.addSubview(bottomAppBar)
         view.bringSubviewToFront(bottomAppBar)
 
-        setupBadgeCount()
+//        setupBadgeCount()
         enableDarkModeIfPreset()
+        
+
+        
+       
+        notificationCenter.addObserver(self, selector: #selector(appMovedToForeground), name:UIApplication.willEnterForegroundNotification, object: nil)
+        
+        notificationCenter.addObserver(self, selector: #selector(appMovedToBackground), name:UIApplication.didEnterBackgroundNotification, object: nil)
+        
+//          notificationCenter.addObserver(self, selector: #selector(appTerminated), name:UIApplication.willTerminateNotification, object: nil)
+
     }
+    @objc
+    func appMovedToForeground() {
+        print("App moved to ForeGround!")
+        toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView)
+//        self.tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+//        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+//        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+    }
+    @objc
+    func appMovedToBackground() {
+        print("App moved to Background!")
+               setupBadgeCount()
+        
+    }
+    
+    @objc
+       func appTerminated() {
+           print("App moved to DED !")
+           
+       }
+    
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        NotificationCenter.default.removeObserver(self, name:UIApplication.willResignActiveNotification, object: nil)
+        NotificationCenter.default.removeObserver(self, name:UIApplication.willEnterForegroundNotification, object: nil)
+    }
+    
+
     
     // MARK:- View Lifecycle methods
     

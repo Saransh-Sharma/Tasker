@@ -33,6 +33,7 @@
 		759D213F2458D09600A4D2DE /* AddTaskTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */; };
 		759D2141245A2CC400A4D2DE /* ToDoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759D2140245A2CC400A4D2DE /* ToDoManager.swift */; };
 		759F18F92468B70200293A32 /* NAddTaskScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759F18F82468B70200293A32 /* NAddTaskScreen.swift */; };
+		75A400FD248C57DD002F0E7A /* ToDoAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A400FC248C57DC002F0E7A /* ToDoAnimations.swift */; };
 		75B7121D246AFF5B00453AEC /* UpcominngTasksViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75B7121C246AFF5B00453AEC /* UpcominngTasksViewController.swift */; };
 		75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */; };
 		75F18102245C99CD004D9A69 /* TaskModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 75F18100245C99CD004D9A69 /* TaskModel.xcdatamodeld */; };
@@ -100,6 +101,7 @@
 		759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskTableViewController.swift; sourceTree = "<group>"; };
 		759D2140245A2CC400A4D2DE /* ToDoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoManager.swift; sourceTree = "<group>"; };
 		759F18F82468B70200293A32 /* NAddTaskScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NAddTaskScreen.swift; sourceTree = "<group>"; };
+		75A400FC248C57DC002F0E7A /* ToDoAnimations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoAnimations.swift; sourceTree = "<group>"; };
 		75B7121C246AFF5B00453AEC /* UpcominngTasksViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcominngTasksViewController.swift; sourceTree = "<group>"; };
 		75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPageViewController.swift; sourceTree = "<group>"; };
 		75F18101245C99CD004D9A69 /* TaskModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModel.xcdatamodel; sourceTree = "<group>"; };
@@ -326,6 +328,7 @@
 		75F9937524824E7E00C340EB /* Animation */ = {
 			isa = PBXGroup;
 			children = (
+				75A400FC248C57DC002F0E7A /* ToDoAnimations.swift */,
 			);
 			path = Animation;
 			sourceTree = "<group>";
@@ -558,6 +561,7 @@
 				758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */,
 				75F9937224815BF600C340EB /* ToDoColors.swift in Sources */,
 				755FE8E22479EA5400A71A75 /* RippleDelegate.swift in Sources */,
+				75A400FD248C57DD002F0E7A /* ToDoAnimations.swift in Sources */,
 				758A806624546D2600BFB571 /* OLD_Task.swift in Sources */,
 				759D2141245A2CC400A4D2DE /* ToDoManager.swift in Sources */,
 				753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */,
