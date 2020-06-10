@@ -289,7 +289,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             currentTaskPriority = 4
             return 4
         case 1:
-
+            
             print("Priority is P2- low 3")
             currentTaskPriority = 3
             return 3

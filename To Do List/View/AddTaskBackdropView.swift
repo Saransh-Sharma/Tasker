@@ -132,7 +132,7 @@ extension AddTaskViewController {
     //                          sub:homeTopBar
     //----------------------- *************************** -----------------------
     func setHomeViewDate() {
-        let today = dateForTheView
+        let today = dateForAddTaskView
         if("\(today.day)".count < 2) {
             homeDate_Day.text = "0\(today.day)"
         } else {

@@ -35,7 +35,7 @@ extension HomeViewController {
         
         setupCalView()
         setupCalAppearence()
-//        setupCalAppearence()
+        //        setupCalAppearence()
         
         
         backdropContainer.addSubview(calendar)
@@ -61,7 +61,7 @@ extension HomeViewController {
         tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .bold)
         
         
-//        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+        //        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
         
         backdropContainer.bringSubviewToFront(calendar)
         //call private methods to setup
@@ -172,11 +172,11 @@ extension HomeViewController {
     //----------------------- *************************** -----------------------
     func setupHomeDateView() {
         homeDate_WeekDay.adjustsFontSizeToFitWidth = true
-             homeDate_Month.adjustsFontSizeToFitWidth = true
-             
-             homeDate_Day.frame = CGRect(x: 5, y: 18, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-                homeDate_WeekDay.frame = CGRect(x: 76, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
-                homeDate_Month.frame = CGRect(x: 76, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
+        homeDate_Month.adjustsFontSizeToFitWidth = true
+        
+        homeDate_Day.frame = CGRect(x: 5, y: 18, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+        homeDate_WeekDay.frame = CGRect(x: 76, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
+        homeDate_Month.frame = CGRect(x: 76, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
     }
     
     func updateHomeViewDate(dateToDisplay: Date) {
@@ -198,7 +198,7 @@ extension HomeViewController {
         homeDate_WeekDay.textColor = .systemGray6
         homeDate_Month.textColor = .systemGray6
         
- 
+        
         
         homeDate_Day.font =  setFont(fontSize: 58, fontweight: .medium, fontDesign: .rounded)
         homeDate_WeekDay.font =  setFont(fontSize: 26, fontweight: .thin, fontDesign: .rounded)

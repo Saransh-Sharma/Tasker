@@ -15,12 +15,13 @@ import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 class AddTaskViewController: UIViewController, UITextFieldDelegate {
-
+    
     
     //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()
     var foredropContainer = UIView()
     var bottomBarContainer = UIView()
+    
     
     // MARK: TASK METADATA
     var currentTaskInMaterialTextBox: String = ""
@@ -41,14 +42,14 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     let scoreCounter = UILabel()
     let scoreAtHomeLabel = UILabel()
     let cancelButton = UIView()
-      let eveningSwitch = UISwitch()
+    let eveningSwitch = UISwitch()
     var prioritySC =  UISegmentedControl()
     
     let switchSetContainer = UIView()
-           let switchBackground = UIView()
-           let eveningLabel = UILabel()
+    let switchBackground = UIView()
+    let eveningLabel = UILabel()
     
-     var addTaskTextBox_Material = MDCFilledTextField()
+    var addTaskTextBox_Material = MDCFilledTextField()
     let fab_cancelTask = MDCFloatingButton(shape: .mini)
     let fab_doneTask = MDCFloatingButton(shape: .default)
     
@@ -57,21 +58,21 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     var todoTimeUtils = ToDoTimeUtils()
     
     let homeDate_Day = UILabel()
-     let homeDate_WeekDay = UILabel()
-     let homeDate_Month = UILabel()
+    let homeDate_WeekDay = UILabel()
+    let homeDate_Month = UILabel()
     
     //MARK:- Buttons + Views + Bottom bar
     var calendar: FSCalendar!
-//    let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
-//    let revealCalAtHomeButton = MDCButton()
-//    let revealChartsAtHomeButton = MDCButton()
+    //    let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
+    //    let revealCalAtHomeButton = MDCButton()
+    //    let revealChartsAtHomeButton = MDCButton()
     
     //MARK:- cuurentt task list date
-    var dateForTheView = Date.today()
+    var dateForAddTaskView = Date.today()
     
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        
         view.addSubview(backdropContainer)
         setupBackdrop()
         
@@ -82,21 +83,21 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     }
     
     // MARK:- Build Page Header
-      override var preferredStatusBarStyle: UIStatusBarStyle {
-          return .lightContent
-      }
-
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .lightContent
     }
-    */
-
+    
+    
+    /*
+     // MARK: - Navigation
+     
+     // In a storyboard-based application, you will often want to do a little preparation before navigation
+     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+     // Get the new view controller using segue.destination.
+     // Pass the selected object to the new view controller.
+     }
+     */
+    
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         let oldText = textField.text!
         print("old text is: \(oldText)")

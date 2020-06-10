@@ -86,7 +86,7 @@ class TaskManager {
     }
     
     func getMorningTasksForDate(date: Date) -> [NTask] {
-
+        
         var morningTasks = [NTask]()
         fetchTasks()
         
@@ -127,16 +127,31 @@ class TaskManager {
         var morningTasks = [NTask]()
         fetchTasks()
         
-//        print("getMorningTaskByDate: task count is: \(tasks.count)")
+        //        print("getMorningTaskByDate: task count is: \(tasks.count)")
         let today = Date.today()
         for each in tasks {
             // taskType 1 is morning
             if each.taskType == 1 && each.dueDate == today as NSDate { //get morning tasks added today
                 morningTasks.append(each)
+                print("Green 1: \(each.name)")
             } else if (each.taskType == 1 && each.isComplete == false) { //get older unfinished tasks // Morninng + incomplete
-                morningTasks.append(each)
+                //                morningTasks.append(each)
+                //                print("Green 2: \(each.name)")
+                
+                if ((each.dueDate! as Date) < today) {
+                    morningTasks.append(each)
+                }
+                
+                //                if (each.dueDate! as Date > today) {
+                //                    print("Green 2: SKIP")
+                //                } else {
+                //                    print("Green 2: Add Old task \(each.name)")
+                //                    morningTasks.append(each)
+                //                }
+                
             } else if (each.taskType == 1 && each.dateCompleted == today as NSDate) { //get rollover tasks that were completed today
                 morningTasks.append(each)
+                print("Green 3: \(each.name)")
             }
             else {
                 //                        print("task date: \(each.dueDate)")
@@ -150,7 +165,7 @@ class TaskManager {
         
         var eveningTasks = [NTask]()
         fetchTasks()
-
+        
         let today = Date.today()
         for each in tasks {
             // taskType 2 is evenning
@@ -235,7 +250,7 @@ class TaskManager {
         task.dueDate = futureTaskDate as NSDate
         task.isEveningTask = isEveningTask
         
-        
+        print("addNewTask_Future: \(futureTaskDate.stringIn(dateStyle: .full, timeStyle: .none))")
         
         tasks.append(task)
         saveContext()

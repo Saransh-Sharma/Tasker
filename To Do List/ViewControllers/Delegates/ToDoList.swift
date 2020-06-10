@@ -8,11 +8,11 @@
 
 import Foundation
 import UIKit
+import FluentUI
 import Timepiece
 import BEMCheckBox
 
 extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
-    
     
     
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
@@ -21,7 +21,7 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
         
         if section == 0 {
             let myLabel = UILabel()
-//            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
+            //            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
             myLabel.frame = CGRect(x:5, y: 8, width: (UIScreen.main.bounds.width), height: 30)
             
             //line.horizontal.3.decrease.circle
@@ -32,8 +32,8 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
             //            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
             let filterMenuHomeButton = UIButton()
             //            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
-//            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
-             filterMenuHomeButton.frame = CGRect(x:5, y: 8 , width: 30, height: 30)
+            //            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
+            filterMenuHomeButton.frame = CGRect(x:5, y: 8 , width: 30, height: 30)
             filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
             
             headerView.addSubview(filterMenuHomeButton)
@@ -101,7 +101,7 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
                 return "Tomorrow"
             } else if (dateForTheView == Date.yesterday()) {
                 return "Yesterday"
-                }
+            }
             else {
                 return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
             }
@@ -322,7 +322,7 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         
         let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-                    
+            
             let morningTasks: [NTask]
             let eveningTasks: [NTask]
             let dateForTheView = self.dateForTheView
@@ -333,14 +333,14 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
                 morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: self.dateForTheView)
             }
             let sortedMorningTask = morningTasks.sorted(by: { !$0.isComplete && $1.isComplete })
-                                    
+            
             if(dateForTheView == Date.today()) {
                 eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
             } else { //get evening tasks without rollover
                 eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
             }
             let sortedEveningTask = eveningTasks.sorted(by: { !$0.isComplete && $1.isComplete })
-                        
+            
             switch indexPath.section {
             case 0:
                 TaskManager.sharedInstance
@@ -357,7 +357,7 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
                 
                 tableView.reloadData()
                 self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-            
+                
             case 1:
                 TaskManager.sharedInstance
                     .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: sortedEveningTask[indexPath.row])]
@@ -376,26 +376,26 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
             default:
                 break
             }
-                        
+            
             print("SCORE IS: \(self.calculateTodaysScore())")
             self.scoreCounter.text = "\(self.calculateTodaysScore())"
             self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
             self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-                        
-//            tableView.reloadData()
-//            self.animateTableViewReload()
-  
+            
+            //            tableView.reloadData()
+            //            self.animateTableViewReload()
+            
             self.title = "\(self.calculateTodaysScore())"
             actionPerformed(true)
         }
         
         completeTaskAction.backgroundColor = todoColors.completeTaskSwipeColor
         
-//        NSUIColor(red: 192/255.0, green: 255/255.0, blue: 140/255.0, alpha: 1.0), green
-//                 NSUIColor(red: 255/255.0, green: 247/255.0, blue: 140/255.0, alpha: 1.0), yellow
-//                 NSUIColor(red: 255/255.0, green: 208/255.0, blue: 140/255.0, alpha: 1.0), orange
-//                 NSUIColor(red: 140/255.0, green: 234/255.0, blue: 255/255.0, alpha: 1.0), blue
-//                 NSUIColor(red: 255/255.0, green: 140/255.0, blue: 157/255.0, alpha: 1.0) red
+        //        NSUIColor(red: 192/255.0, green: 255/255.0, blue: 140/255.0, alpha: 1.0), green
+        //                 NSUIColor(red: 255/255.0, green: 247/255.0, blue: 140/255.0, alpha: 1.0), yellow
+        //                 NSUIColor(red: 255/255.0, green: 208/255.0, blue: 140/255.0, alpha: 1.0), orange
+        //                 NSUIColor(red: 140/255.0, green: 234/255.0, blue: 255/255.0, alpha: 1.0), blue
+        //                 NSUIColor(red: 255/255.0, green: 140/255.0, blue: 157/255.0, alpha: 1.0) red
         
         return UISwipeActionsConfiguration(actions: [completeTaskAction])
     }
@@ -405,47 +405,47 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
         
         
         let morningTasks: [NTask]
-                let eveningTasks: [NTask]
-                let dateForTheView = self.dateForTheView
-                
-                if(dateForTheView == Date.today()) {
-                    morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-                } else { //get morning tasks without rollover
-                    morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: self.dateForTheView)
-                }
-                let sortedMorningTask = morningTasks.sorted(by: { !$0.isComplete && $1.isComplete })
-                                        
-                if(dateForTheView == Date.today()) {
-                    eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
-                } else { //get evening tasks without rollover
-                    eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
-                }
-                let sortedEveningTask = eveningTasks.sorted(by: { !$0.isComplete && $1.isComplete })
+        let eveningTasks: [NTask]
+        let dateForTheView = self.dateForTheView
+        
+        if(dateForTheView == Date.today()) {
+            morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+        } else { //get morning tasks without rollover
+            morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: self.dateForTheView)
+        }
+        let sortedMorningTask = morningTasks.sorted(by: { !$0.isComplete && $1.isComplete })
+        
+        if(dateForTheView == Date.today()) {
+            eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
+        } else { //get evening tasks without rollover
+            eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: self.dateForTheView)
+        }
+        let sortedEveningTask = eveningTasks.sorted(by: { !$0.isComplete && $1.isComplete })
         
         //                let morningTasks = TaskManager.sharedInstance.getMorningTaskByDate(date: self.dateForTheView)
-           
+        
         
         let deleteTaskAction = UIContextualAction(style: .destructive, title: "Delete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
-        
+            
             
             var taskName: String = ""
             switch indexPath.section {
-                         case 0:
-                             
-                            taskName = sortedMorningTask[indexPath.row].name
-                         case 1:
-                          taskName = sortedEveningTask[indexPath.row].name
-                         default:
-                             break
-                         }
+            case 0:
+                
+                taskName = sortedMorningTask[indexPath.row].name
+            case 1:
+                taskName = sortedEveningTask[indexPath.row].name
+            default:
+                break
+            }
             
-                let confirmDelete = UIAlertController(title: "Are you sure?", message: "\nThis will delete this task\n\n \(taskName)", preferredStyle: .alert)
+            let confirmDelete = UIAlertController(title: "Are you sure?", message: "\nThis will delete this task\n\n \(taskName)", preferredStyle: .alert)
             let yesDeleteAction = UIAlertAction(title: "Yes", style: .destructive)
             {
                 (UIAlertAction) in
                 
-            
+                
                 
                 switch indexPath.section {
                 case 0:
@@ -462,9 +462,11 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
                 //                                  constantDelay: 0))
                 
                 print("SCORE IS: \(self.calculateTodaysScore())")
-                   self.scoreCounter.text = "\(self.calculateTodaysScore())"
-                   self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
-                   self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+                HUD.shared.showFailure(from: self, with: "Deleted")
+                
+                self.scoreCounter.text = "\(self.calculateTodaysScore())"
+                self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+                self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
                 
                 tableView.reloadData()
                 self.animateTableViewReload()

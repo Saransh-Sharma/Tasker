@@ -610,6 +610,7 @@ PODS:
     - MaterialComponents/private/Math
   - MDFInternationalization (2.0.0)
   - MDFTextAccessibility (2.0.0)
+  - MicrosoftFluentUI (0.1.0)
   - MotionAnimator (2.8.1):
     - MotionInterchange (~> 1.6)
   - MotionInterchange (1.6.0)
@@ -625,6 +626,7 @@ DEPENDENCIES:
   - EasyPeasy (~> 1.9.0)
   - FSCalendar (~> 2.8.1)
   - MaterialComponents (~> 109.2.0)
+  - MicrosoftFluentUI (~> 0.1.0)
   - SemiModalViewController (~> 1.0.1)
   - Timepiece (~> 1.3.1)
   - TinyConstraints (~> 4.0.1)
@@ -640,6 +642,7 @@ SPEC REPOS:
     - MaterialComponents
     - MDFInternationalization
     - MDFTextAccessibility
+    - MicrosoftFluentUI
     - MotionAnimator
     - MotionInterchange
     - SemiModalViewController
@@ -656,6 +659,7 @@ SPEC CHECKSUMS:
   MaterialComponents: 59bfbfe08fc1ac204b21ba69100beabb932e3699
   MDFInternationalization: 010097556d6b09d2c4ea38e0820ea6d37be6a314
   MDFTextAccessibility: 85c09a1bd9c321f494348e632a25063bcda35a53
+  MicrosoftFluentUI: af79c4113c52b86a61a8b73051f65debe6228859
   MotionAnimator: ee16aa30567c5bae0fb2750c132915829cfaaf8a
   MotionInterchange: ead0e3ae1f3a5fb539e289debbc7ae036160a10d
   SemiModalViewController: 13fe8b991b501c7cd6a9ec7c782ed7a5c72c12e6
@@ -663,6 +667,6 @@ SPEC CHECKSUMS:
   TinyConstraints: 8dd91295e56797648c7bc335dd20e1d91ec4c192
   ViewAnimator: 5af1c6f3b310f012bf081259c43717aa54fbae73
 
-PODFILE CHECKSUM: a5a573c96609f91e061502badeb9bf0de774ebb1
+PODFILE CHECKSUM: 58272e90770af5debd5df7802c616e986b4903a2
 
 COCOAPODS: 1.9.1

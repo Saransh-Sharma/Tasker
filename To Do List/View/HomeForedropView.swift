@@ -43,7 +43,7 @@ extension HomeViewController {
         
         
         foredropContainer.addSubview(backdropForeImageView)
-
+        
         
     }
     

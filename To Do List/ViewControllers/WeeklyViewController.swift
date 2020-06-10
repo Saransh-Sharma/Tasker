@@ -24,10 +24,10 @@ class WeeklyViewController: UIViewController, UITableViewDataSource, UITableView
     }
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-    
+        
         return UITableView.automaticDimension
     }
-
+    
     func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
         return UITableView.automaticDimension
     }
@@ -47,7 +47,7 @@ class WeeklyViewController: UIViewController, UITableViewDataSource, UITableView
         }
         
         cell.textLabel?.numberOfLines = 0
-//        weeklyTaskTitleLabel.text = "This is weekly Cell \(indexPath.row)"
+        //        weeklyTaskTitleLabel.text = "This is weekly Cell \(indexPath.row)"
         //inboxCell.textLabel?.text = "This is weekly cell \(indexPath.row)"
         
         return cell

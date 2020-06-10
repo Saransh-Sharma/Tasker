@@ -10,6 +10,7 @@ import Foundation
 import UIKit
 import CoreData
 import Timepiece
+import FluentUI
 import MaterialComponents.MaterialTextControls_FilledTextAreas
 import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
@@ -218,6 +219,7 @@ extension AddTaskViewController {
         fab_doneTask.sizeToFit()
         foredropContainer.addSubview(fab_doneTask)
         fab_doneTask.addTarget(self, action: #selector(doneAddTaskAction), for: .touchUpInside)
+        
     }
     
     //MARK:- DONE TASK ACTION
@@ -227,7 +229,7 @@ extension AddTaskViewController {
         //       tap DONE --> add new task + nav homeScreen
         //MARK:- ADD TASK ACTION
         isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
-        var taskDueDate = Date()
+        //        var taskDueDate = Date()
         print("task: User tapped done button at add task")
         if currentTaskInMaterialTextBox != "" {
             
@@ -240,8 +242,11 @@ extension AddTaskViewController {
             
             //--//onnly adds task ttoday fix this
             
-            taskDueDate = Date.today()
-            TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
+            print("Addig task for date: \(dateForAddTaskView.stringIn(dateStyle: .full, timeStyle: .none))")
+            
+            //            taskDueDate = dateForAddTaskView
+            //            TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
+            TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: dateForAddTaskView, isEveningTask: isThisEveningTask)
             
             //---
         } else {
@@ -280,10 +285,25 @@ extension AddTaskViewController {
         //add generic task add here which takes all input
         //        TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, isEveningTask: isThisEveningTask)
         
-        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
-        newViewController.modalPresentationStyle = .fullScreen
-        self.present(newViewController, animated: true, completion: nil)
+        HUD.shared.showSuccess(from: self, with: "Task Added")
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // your code here
+            
+            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+            let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
+            newViewController.modalPresentationStyle = .fullScreen
+            //        self.present(newViewController, animated: true, completion: nil)
+            self.present(newViewController, animated: true, completion: { () in
+                print("SUCCESS !!!")
+                HUD.shared.showSuccess(from: self, with: "Success")
+                
+            })
+            
+            
+        }
+        
+        
     }
     
     //MARK:- CANCEL TASK ACTION
