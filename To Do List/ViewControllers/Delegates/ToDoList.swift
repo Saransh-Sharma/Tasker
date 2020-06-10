@@ -100,7 +100,7 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
             } else if (dateForTheView == Date.tomorrow()){
                 return "Tomorrow"
             } else if (dateForTheView == Date.yesterday()) {
-                return "Yeserday"
+                return "Yesterday"
                 }
             else {
                 return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"

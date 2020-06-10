@@ -43,12 +43,18 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
        //----------------------- *************************** -----------------------
        //MARK:-                       CALENNDAR:SETUP
        //----------------------- *************************** -----------------------
+    
+    func setupCalView() {
+        calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.frame.maxY-6, width: UIScreen.main.bounds.width, height:
+                homeTopBar.frame.maxY*3.5))
+    }
+    
+
        
        //MARK: Setup calendar appearence
-       func setupCal() {
+       func setupCalAppearence() {
 //           let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
-         let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.frame.maxY-6, width: UIScreen.main.bounds.width, height:
-            homeTopBar.frame.maxY*3.5))
+        
 //            UIScreen.main.bounds.height/2))
            calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
            calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
@@ -81,13 +87,14 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
            calendar.appearance.subtitleSelectionColor = todoColors.primaryColorDarker
            calendar.appearance.subtitleFont = setFont(fontSize: 10, fontweight: .regular, fontDesign: .rounded)
            calendar.appearance.borderSelectionColor = todoColors.primaryColorDarker
-           
-           
+        
+     
+//        calendar.clipsToBounds = true
            
            calendar.dataSource = self
            calendar.delegate = self
            
-           self.calendar = calendar
+//           self.calendar = calendar
            self.calendar.scope = FSCalendarScope.week
            //        calendar.backgroundColor = .white
        }
@@ -120,7 +127,6 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
 
 
         updateHomeDate(date: dateForTheView)
-        //        (self.calculateTodaysScore()
         self.scoreCounter.text = "\(self.calculateTodaysScore())"
 
         let scoreNumber = "\(self.calculateTodaysScore())"
@@ -128,8 +134,6 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         paragraphStyle.lineBreakMode = .byTruncatingTail
         paragraphStyle.alignment = .center
 
-
-        //            let centerText = NSMutableAttributedString(string: "\(scoreNumber)\nscore")
         let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
         if scoreNumber.count == 1 {
             centerText.setAttributes([.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded),
@@ -142,10 +146,6 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
                                       .paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
 
         }
-
-        //            centerText.addAttributes([.font : setFont(fontSize: 16, fontweight: .regular, fontDesign: .monospaced),
-        //                                      .foregroundColor : UIColor.secondaryLabel], range: NSRange(location: scoreNumber.count+1, length: centerText.length - (scoreNumber.count+1)))
-//        self.tinyPieChartView.centerAttributedText = centerText;
 
         self.tinyPieChartView.centerAttributedText = setTinyPieChartScoreText(pieChartView: self.tinyPieChartView)
         self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)

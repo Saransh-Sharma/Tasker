@@ -26,12 +26,16 @@ extension HomeViewController {
         setupBackdropBackground()
         addTinyChartToBackdrop()
         setupBackdropNotch()
-        setHomeViewDate()
+        setupHomeDateView()
+        updateHomeViewDate(dateToDisplay: dateForTheView)
         setupLineChartView()
         setLineChartData()
         lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
         // cal
-        setupCal()
+        
+        setupCalView()
+        setupCalAppearence()
+//        setupCalAppearence()
         
         
         backdropContainer.addSubview(calendar)
@@ -166,8 +170,17 @@ extension HomeViewController {
     //MARK:-                    SETUP HOME DATE VIEW
     //                          sub:homeTopBar
     //----------------------- *************************** -----------------------
-    func setHomeViewDate() {
-        let today = dateForTheView
+    func setupHomeDateView() {
+        homeDate_WeekDay.adjustsFontSizeToFitWidth = true
+             homeDate_Month.adjustsFontSizeToFitWidth = true
+             
+             homeDate_Day.frame = CGRect(x: 5, y: 18, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
+                homeDate_WeekDay.frame = CGRect(x: 76, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
+                homeDate_Month.frame = CGRect(x: 76, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
+    }
+    
+    func updateHomeViewDate(dateToDisplay: Date) {
+        let today = dateToDisplay
         if("\(today.day)".count < 2) {
             homeDate_Day.text = "0\(today.day)"
         } else {
@@ -185,10 +198,7 @@ extension HomeViewController {
         homeDate_WeekDay.textColor = .systemGray6
         homeDate_Month.textColor = .systemGray6
         
-        homeDate_Day.font =  setFont(fontSize: 52, fontweight: .medium, fontDesign: .rounded)
-        //        homeDate_WeekDay.font =  setFont(fontSize: 24, fontweight: .thin, fontDesign: .rounded)
-        //        homeDate_Month.font =  setFont(fontSize: 24, fontweight: .regular, fontDesign: .rounded)
-        //
+ 
         
         homeDate_Day.font =  setFont(fontSize: 58, fontweight: .medium, fontDesign: .rounded)
         homeDate_WeekDay.font =  setFont(fontSize: 26, fontweight: .thin, fontDesign: .rounded)
@@ -197,15 +207,6 @@ extension HomeViewController {
         homeDate_Day.textAlignment = .left
         homeDate_WeekDay.textAlignment = .left
         homeDate_Month.textAlignment = .left
-        
-        
-        homeDate_Day.frame = CGRect(x: 5, y: 18, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-        homeDate_WeekDay.frame = CGRect(x: 76, y: homeTopBar.bounds.minY+30, width: (homeTopBar.bounds.width/2)-100, height: homeTopBar.bounds.height)
-        homeDate_Month.frame = CGRect(x: 76, y: homeTopBar.bounds.minY+10, width: (homeTopBar.bounds.width/2)-80, height: homeTopBar.bounds.height)
-        
-        
-        homeDate_WeekDay.adjustsFontSizeToFitWidth = true
-        homeDate_Month.adjustsFontSizeToFitWidth = true
         
         homeTopBar.addSubview(homeDate_Day)
         homeTopBar.addSubview(homeDate_WeekDay)
