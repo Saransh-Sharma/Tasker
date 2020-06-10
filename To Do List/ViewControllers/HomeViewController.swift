@@ -28,11 +28,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var foredropContainer = UIView()
     var bottomBarContainer = UIView()
     
-     let notificationCenter = NotificationCenter.default
+    let notificationCenter = NotificationCenter.default
     
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
-//    var headerEndY: CGFloat = UIScreen.main.bounds.height/6
+    //    var headerEndY: CGFloat = UIScreen.main.bounds.height/6
     var todoColors = ToDoColors()
     var todoTimeUtils = ToDoTimeUtils()
     
@@ -75,6 +75,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     //MARK:- cuurentt task list date
     var dateForTheView = Date.today()
+    var firstDay = Date.today()
+    var nextDay = Date.today()
     
     //MARK:- score for day label
     var scoreForTheDay: UILabel! = nil
@@ -138,7 +140,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //MARK:- Elevation + Shadows:
     let bottomBarShadowElevation: ShadowElevation = ShadowElevation(rawValue: 8)
     
-
+    
     
     func getTaskForTodayCount() -> Int {
         var morningTasks = [NTask]()
@@ -185,13 +187,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         print("You selected data: \(entry)")
     }
     
-
+    
     
     //MARK:- View did load
     override func viewDidLoad() {
         super.viewDidLoad()
         
-      //--------
+        //--------
         view.addSubview(backdropContainer)
         setupBackdrop()
         
@@ -202,40 +204,71 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
         view.bringSubviewToFront(bottomAppBar)
-
-//        setupBadgeCount()
+        
+        //        setupBadgeCount()
         enableDarkModeIfPreset()
         
-
         
-       
+        
+        
         notificationCenter.addObserver(self, selector: #selector(appMovedToForeground), name:UIApplication.willEnterForegroundNotification, object: nil)
         
         notificationCenter.addObserver(self, selector: #selector(appMovedToBackground), name:UIApplication.didEnterBackgroundNotification, object: nil)
         
-//          notificationCenter.addObserver(self, selector: #selector(appTerminated), name:UIApplication.willTerminateNotification, object: nil)
-
+        //          notificationCenter.addObserver(self, selector: #selector(appTerminated), name:UIApplication.willTerminateNotification, object: nil)
+        
     }
     @objc
     func appMovedToForeground() {
         print("App moved to ForeGround!")
         toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView)
-//        self.tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
-//        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
-//        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
+        
+        updateHomeDate(date: dateForTheView)
+        
+        if dateForTheView == Date.today() {
+            print("###### Today !")
+            
+            
+        } else if dateForTheView != Date.today() {
+            print("###### NOT TODAY")
+            
+            
+            updateHomeDate(date: dateForTheView)
+            calendar.reloadData()
+            setupCalAppearence()
+            calendar.appearance.calendar.reloadData()
+            tableView.reloadData()
+            
+            
+        }
+        
+        self.calendar.today = nil; // 1 this call order ensures today's circle moves
+        self.calendar.today = Date.today() // 2 on date change a 12 AM
+        
+        
     }
-    @objc
-    func appMovedToBackground() {
-        print("App moved to Background!")
-               setupBadgeCount()
+    
+    func updateViewForDate(date: Date) {
+        dateForTheView = date
+        updateHomeDate(date: date)
+        tableView.reloadData()
         
     }
     
     @objc
-       func appTerminated() {
-           print("App moved to DED !")
-           
-       }
+    func appMovedToBackground() {
+        print("App moved to Background!")
+        setupBadgeCount()
+        
+        
+        
+    }
+    
+    @objc
+    func appTerminated() {
+        print("App moved to DED !")
+        
+    }
     
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -244,7 +277,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         NotificationCenter.default.removeObserver(self, name:UIApplication.willEnterForegroundNotification, object: nil)
     }
     
-
+    
     
     // MARK:- View Lifecycle methods
     
@@ -263,10 +296,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
     
     // MARK:- Build Page Header
-     override var preferredStatusBarStyle: UIStatusBarStyle {
-         return .lightContent
-     }
-
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .lightContent
+    }
+    
     
     
     func setupBadgeCount()  {
@@ -304,8 +337,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         return view
     }
     
- 
-
+    
+    
     
     
     
@@ -384,7 +417,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         return view
     }
     
-
+    
     
     func semiViewDefaultOptions(viewToBePrsented: UIView) {
         let options: [SemiModalOption : Any] = [
@@ -397,7 +430,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         }
     }
     
-
+    
     
     
     
@@ -416,44 +449,44 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         }
     }
     
-
+    
     // MARK: calculate today's score
-     /*
-      Calculates daily productivity score
-      */
-     func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
-         var score = 0
-         
-         let morningTasks: [NTask]
-         if(dateForTheView == Date.today()) {
-             morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-         } else { //get morning tasks without rollover
-             morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-         }
-         let eveningTasks: [NTask]
-         if(dateForTheView == Date.today()) {
-             eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
-         } else { //get morning tasks without rollover
-             eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-         }
-         
-         //        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-         //        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
-         
-         for each in morningTasks {
-             
-             if each.isComplete {
-                 
-                 score = score + each.getTaskScore(task: each)
-             }
-         }
-         for each in eveningTasks {
-             if each.isComplete {
-                 score = score + each.getTaskScore(task: each)
-             }
-         }
-         return score;
-     }
+    /*
+     Calculates daily productivity score
+     */
+    func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
+        var score = 0
+        
+        let morningTasks: [NTask]
+        if(dateForTheView == Date.today()) {
+            morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+        } else { //get morning tasks without rollover
+            morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+        }
+        let eveningTasks: [NTask]
+        if(dateForTheView == Date.today()) {
+            eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
+        } else { //get morning tasks without rollover
+            eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+        }
+        
+        //        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+        //        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+        
+        for each in morningTasks {
+            
+            if each.isComplete {
+                
+                score = score + each.getTaskScore(task: each)
+            }
+        }
+        for each in eveningTasks {
+            if each.isComplete {
+                score = score + each.getTaskScore(task: each)
+            }
+        }
+        return score;
+    }
     
     
     
@@ -734,7 +767,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         //       tap add fab --> addTask
         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-//        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+        //        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
         let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as! AddTaskViewController
         newViewController.modalPresentationStyle = .fullScreen
         self.present(newViewController, animated: true, completion: nil)
@@ -782,7 +815,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
     }
     
-
+    
     
     //    //----------------------- *************************** -----------------------
     //    //MARK:-              BACKDROP PATTERN 1: SETUP BACKGROUND
@@ -827,33 +860,33 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //
     //    }
     
-//    //----------------------- *************************** -----------------------
-//    //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
-//    //----------------------- *************************** -----------------------
-//
-//    //MARK: Setup forground
-//    func setupBackdropForeground() {
-//        //    func setupBackdropForeground() {
-//
-//        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
-//        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-//
-//
-//
-//        backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
-//        backdropForeImageView.tintColor = .systemGray6
-//
-//
-//        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
-//        backdropForeImageView.layer.shadowOpacity = 0.8
-//        backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
-//        backdropForeImageView.layer.shadowRadius = 10
-//
-//        view.addSubview(backdropForeImageView)
-//
-//    }
+    //    //----------------------- *************************** -----------------------
+    //    //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
+    //    //----------------------- *************************** -----------------------
+    //
+    //    //MARK: Setup forground
+    //    func setupBackdropForeground() {
+    //        //    func setupBackdropForeground() {
+    //
+    //        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
+    //        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+    //
+    //
+    //
+    //        backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
+    //        backdropForeImageView.tintColor = .systemGray6
+    //
+    //
+    //        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
+    //        backdropForeImageView.layer.shadowOpacity = 0.8
+    //        backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
+    //        backdropForeImageView.layer.shadowRadius = 10
+    //
+    //        view.addSubview(backdropForeImageView)
+    //
+    //    }
     
-   
+    
     
     
     
