@@ -7,13 +7,10 @@ The To Do app I was always looking for.
 * Dark mode
 * Cloud Sync
 
-![04ee2ea13b2cb813fd64a0d383d80435](https://user-images.githubusercontent.com/4607881/82734874-4f763680-9d3b-11ea-8672-379a0aef70d5.gif)
+![001](https://user-images.githubusercontent.com/4607881/84248757-81eba600-ab27-11ea-9b9e-bab409a6fedc.gif)
 
-![516ab5acce22bbc6bc9309315905dc4a](https://user-images.githubusercontent.com/4607881/82784123-86ecfc00-9e7d-11ea-8a92-61a3bfdd330c.gif)
+![002](https://user-images.githubusercontent.com/4607881/84248763-84e69680-ab27-11ea-986a-82ec6419916e.gif)
 
-![b9dc6512e6d613c3f20ec824597140ad](https://user-images.githubusercontent.com/4607881/82489147-c5da2500-9afe-11ea-87f7-5644a1dc6301.gif)
+![003](https://user-images.githubusercontent.com/4607881/84249030-dc850200-ab27-11ea-9736-7eaa6979bc3d.gif)
 
-
-![f390236dd7154e8e86821cb7f4b591a1](https://user-images.githubusercontent.com/4607881/82489160-cb376f80-9afe-11ea-8ac7-1b1e10933bc9.gif)
-
-
+![004](https://user-images.githubusercontent.com/4607881/84249226-1e15ad00-ab28-11ea-85c3-27f5320bcab1.gif)
