@@ -13,6 +13,7 @@ import CircleMenu
 import ViewAnimator
 import FSCalendar
 import Charts
+import FluentUI
 import UserNotifications
 import TinyConstraints
 import MaterialComponents.MaterialButtons
@@ -21,7 +22,21 @@ import MaterialComponents.MaterialButtons_Theming
 import MaterialComponents.MaterialRipple
 
 
-class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate {
+class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate {
+    
+    func didSelectBadge(_ badge: BadgeView) {
+    
+    }
+    
+    func didTapSelectedBadge(_ badge: BadgeView) {
+          badge.isSelected = false
+              let alert = UIAlertController(title: "A selected badge was tapped", message: nil, preferredStyle: .alert)
+              let action = UIAlertAction(title: "OK", style: .default)
+              alert.addAction(action)
+              present(alert, animated: true)
+    }
+    
+    var shouldAnimateCells = true
     
     //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()
@@ -188,10 +203,16 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
     
     
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        shouldAnimateCells = false
+    }
+    
     
     //MARK:- View did load
     override func viewDidLoad() {
         super.viewDidLoad()
+        
         
         //--------
         view.addSubview(backdropContainer)
@@ -300,7 +321,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         return .lightContent
     }
     
-    
+    func createBadge(text: String, style: BadgeView.Style, size: BadgeView.Size, isEnabled: Bool) -> BadgeView {
+        let badge = BadgeView(dataSource: BadgeViewDataSource(text: text, style: style, size: size))
+        badge.delegate = self
+        badge.isActive = isEnabled
+        return badge
+    }
     
     func setupBadgeCount()  {
         //Badge number //BUG: badge is rest only after killing the app; minimising doesnt reset badge to correct value
@@ -734,31 +760,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         print("nav buttoon tapped")
     }
     
-    //----------------------- *************************** -----------------------
-    //MARK:-                     IS BACKDROP DOWN
-    //----------------------- *************************** -----------------------
-    //TODO: Improve this; make more resilient; if this breaks, the view breaks
-    //    func isBackdropDown() -> Bool{
-    //        print("---------------------------------------------")
-    //        print("backdrop midY:\(backdropForeImageView.bounds.midY)")
-    //        print("backdrop minY:\(backdropForeImageView.bounds.minY)")
-    //        print("backdrop maxY:\(backdropForeImageView.bounds.maxY)")
-    //        print("backdrop screen height:\(UIScreen.main.bounds.height-headerEndY)")
-    //        print("backdrop headerEndY:\(headerEndY)")
-    //
-    ////        if backdropForeImageView.bounds.maxY == UIScreen.main.bounds.height-headerEndY {
-    ////
-    ////            print("isBackdropDown: NOT DOWN - Header INIT positio exact match !")
-    ////            return false
-    ////
-    ////        } else {
-    ////            print("isBackdropDown: YES DOWN -  !")
-    ////            return true
-    ////        }
-    //
-    //
-    //    }
-    
+
     //----------------------- *************************** -----------------------
     //MARK:-                        ACTION: ADD TASK
     //----------------------- *************************** -----------------------
@@ -814,82 +816,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         self.homeDate_Month.text = todoTimeUtils.getMonth(date: date)
         
     }
-    
-    
-    
-    //    //----------------------- *************************** -----------------------
-    //    //MARK:-              BACKDROP PATTERN 1: SETUP BACKGROUND
-    //    //----------------------- *************************** -----------------------
-    //
-    //    //MARK:- Setup Backdrop Background - Today label + Score
-    //    func setupBackdropBackground() {
-    //
-    //        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-    //        backdropBackgroundImageView.backgroundColor = todoColors.primaryColor
-    //        homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
-    //        backdropBackgroundImageView.addSubview(homeTopBar)
-    //
-    //
-    //        //---------- score at home
-    //
-    //        scoreAtHomeLabel.text = "\n\nscore"
-    //        scoreAtHomeLabel.numberOfLines = 3
-    //        scoreAtHomeLabel.textColor = .label
-    //        scoreAtHomeLabel.font = setFont(fontSize: 20, fontweight: .regular, fontDesign: .monospaced)
-    //
-    //
-    //        scoreAtHomeLabel.textAlignment = .center
-    //        scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-    //
-    //        //        homeTopBar.addSubview(scoreAtHomeLabel)
-    //
-    //        //---- score
-    //
-    //        scoreCounter.text = "\(self.calculateTodaysScore())"
-    //        scoreCounter.numberOfLines = 1
-    //        scoreCounter.textColor = .systemGray5
-    //        scoreCounter.font = setFont(fontSize: 52, fontweight: .bold, fontDesign: .rounded)
-    //
-    //        scoreCounter.textAlignment = .center
-    //        scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
-    //
-    //        //        homeTopBar.addSubview(scoreCounter)
-    //
-    //        view.addSubview(backdropBackgroundImageView)
-    //
-    //
-    //    }
-    
-    //    //----------------------- *************************** -----------------------
-    //    //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
-    //    //----------------------- *************************** -----------------------
-    //
-    //    //MARK: Setup forground
-    //    func setupBackdropForeground() {
-    //        //    func setupBackdropForeground() {
-    //
-    //        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
-    //        backdropForeImageView.frame = CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
-    //
-    //
-    //
-    //        backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
-    //        backdropForeImageView.tintColor = .systemGray6
-    //
-    //
-    //        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
-    //        backdropForeImageView.layer.shadowOpacity = 0.8
-    //        backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
-    //        backdropForeImageView.layer.shadowRadius = 10
-    //
-    //        view.addSubview(backdropForeImageView)
-    //
-    //    }
-    
-    
-    
-    
-    
+
     
     
     

@@ -208,6 +208,14 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
         openTaskCell.textLabel!.text = "\t\(currentTask.name)"
         openTaskCell.backgroundColor = UIColor.clear
         
+        //-----
+        var mImage = UIImageView()
+        mImage.frame = openTaskCell.frame
+        mImage.backgroundColor = .black
+        openTaskCell.addSubview(mImage)
+        
+        //-----
+        
         if currentTask.isComplete {
             completedTaskCell.textLabel?.textColor = .tertiaryLabel
             //            completedTaskCell.accessoryType = .checkmark
@@ -504,39 +512,24 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
      */
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         print("You selected row \(indexPath.row) from section \(indexPath.section)")
-        
         var currentTask: NTask!
-        //        semiViewDefaultOptions(viewToBePrsented: serveViewBlue())
         switch indexPath.section {
         case 0:
-            //            currentTask = TaskManager.sharedInstance.getMorningTasks[indexPath.row]
-            //            let Tasks = TaskManager.sharedInstance.getMorningTaskByDate(date: dateForTheView)
-            
             let Tasks: [NTask]
             if(dateForTheView == Date.today()) {
                 Tasks = TaskManager.sharedInstance.getMorningTasksForToday()
             } else { //get morning tasks without rollover
                 Tasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
             }
-            
-            
             currentTask = Tasks[indexPath.row]
         case 1:
-            //            currentTask = TaskManager.sharedInstance.getEveningTasks[indexPath.row]
             let Tasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
             currentTask = Tasks[indexPath.row]
         default:
             break
         }
-        
-        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewRed())
-        
         semiViewDefaultOptions(viewToBePrsented: serveSemiViewBlue(task: currentTask))
-        
-        //        semiViewDefaultOptions(viewToBePrsented: serveSemiViewGreen(task: currentTask))
-        
-        
-        
+     
     }
     
 }

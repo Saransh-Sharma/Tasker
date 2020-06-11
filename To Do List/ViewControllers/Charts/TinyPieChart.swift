@@ -173,8 +173,9 @@ extension HomeViewController {
         //        }
         
         
-//        set.colors = ChartColorTemplates.vordiplom()
+//        set.colors = ChartColorTemplates.material()
          set.colors = ChartColorTemplates.vordiplom()
+
         
         
         //        set.colors = ChartColorTemplates.vordiplom()
