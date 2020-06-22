@@ -78,12 +78,12 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, UICollection
     
     let collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
-        layout.scrollDirection = .vertical
-        layout.minimumLineSpacing = 30
+        layout.scrollDirection = .horizontal
+        layout.minimumLineSpacing = 15
         layout.sectionInset.top = 20
         layout.sectionInset.bottom = 20
 
-        let cv = UICollectionView(frame: CGRect(x: 0, y: 100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.width), collectionViewLayout: layout)
+        let cv = UICollectionView(frame: CGRect(x: 0, y: 100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.width/3), collectionViewLayout: layout)
         cv.translatesAutoresizingMaskIntoConstraints = false
         cv.backgroundColor = UIColor(named: "background")
         cv.register(TeamCell.self, forCellWithReuseIdentifier: "cellId")
@@ -91,7 +91,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, UICollection
     }()
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return 6
+        return 16
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
@@ -107,7 +107,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, UICollection
         
         collectionView.delegate = self
         collectionView.dataSource = self
-        view.addSubview(collectionView)
+//        view.addSubview(collectionView)
         
         
         
@@ -117,7 +117,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, UICollection
         view.addSubview(foredropContainer)
         setupFordrop()
         
-        view.bringSubviewToFront(collectionView)
+//        view.bringSubviewToFront(collectionView)
         
         
         
@@ -172,6 +172,7 @@ class TeamCell: UICollectionViewCell {
     
     func setup() {
         self.backgroundColor = .red
+      
     }
     
     required init?(coder: NSCoder) {

@@ -34,7 +34,14 @@ extension AddTaskViewController {
         setupEveningTaskSwitch()
         setupPrioritySC()
         setupDoneButton()
+        
+        setupProjectsCollection()
         //            foredropContainer.bringSubviewToFront(tableView)
+    }
+    
+    func setupProjectsCollection() {
+        collectionView.frame = CGRect(x: 50, y: prioritySC.frame.maxY+18, width: prioritySC.frame.width, height: prioritySC.frame.height)
+        foredropContainer.addSubview(collectionView)
     }
     
     //----------------------- *************************** -----------------------
