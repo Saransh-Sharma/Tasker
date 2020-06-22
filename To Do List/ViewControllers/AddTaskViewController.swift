@@ -14,7 +14,10 @@ import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
-class AddTaskViewController: UIViewController, UITextFieldDelegate {
+class AddTaskViewController: UIViewController, UITextFieldDelegate, UICollectionViewDataSource, UICollectionViewDelegate {
+
+    
+    
     
     
     //MARK:- Backdrop & Fordrop parent containers
@@ -61,6 +64,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     let homeDate_WeekDay = UILabel()
     let homeDate_Month = UILabel()
     
+    let cellId = "cellId"
+    
     //MARK:- Buttons + Views + Bottom bar
     var calendar: FSCalendar!
     //    let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
@@ -70,14 +75,52 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     //MARK:- cuurentt task list date
     var dateForAddTaskView = Date.today()
     
+    
+    let collectionView: UICollectionView = {
+        let layout = UICollectionViewFlowLayout()
+        layout.scrollDirection = .vertical
+        layout.minimumLineSpacing = 30
+        layout.sectionInset.top = 20
+        layout.sectionInset.bottom = 20
+
+        let cv = UICollectionView(frame: CGRect(x: 0, y: 100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.width), collectionViewLayout: layout)
+        cv.translatesAutoresizingMaskIntoConstraints = false
+        cv.backgroundColor = UIColor(named: "background")
+        cv.register(TeamCell.self, forCellWithReuseIdentifier: "cellId")
+        return cv
+    }()
+    
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return 6
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellId, for: indexPath) as! TeamCell
+        return cell
+    }
+
+    
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+
+        
+        collectionView.delegate = self
+        collectionView.dataSource = self
+        view.addSubview(collectionView)
+        
+        
         
         view.addSubview(backdropContainer)
         setupBackdrop()
         
         view.addSubview(foredropContainer)
         setupFordrop()
+        
+        view.bringSubviewToFront(collectionView)
+        
+        
+        
         
         // Do any additional setup after loading the view.
     }
@@ -116,5 +159,22 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
             
         }
         return true
+    }
+
+}
+
+class TeamCell: UICollectionViewCell {
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setup()
+    }
+    
+    func setup() {
+        self.backgroundColor = .red
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("FATAL Error on my collectionview")
     }
 }

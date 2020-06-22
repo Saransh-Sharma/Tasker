@@ -114,7 +114,32 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
         }
     }
     
-    
+//    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+//        return 44
+//
+////        switch <#value#> {
+////        case <#pattern#>:
+////            <#code#>
+////        default:
+////            <#code#>
+////        }
+//
+////        switch indexPath.section {
+////               case 0:
+////                   print("morning height: \(indexPath.row)")
+////
+////                  return 40
+////
+////
+////               case 1:
+////                   print("evening height: \(indexPath.row)")
+////
+////                return 44
+////
+////               default:
+////                return 20
+////               }
+//    }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         
@@ -209,10 +234,10 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
         openTaskCell.backgroundColor = UIColor.clear
         
         //-----
-        var mImage = UIImageView()
-        mImage.frame = openTaskCell.frame
-        mImage.backgroundColor = .black
-        openTaskCell.addSubview(mImage)
+//        var mImage = UIImageView()
+//        mImage.frame = openTaskCell.frame
+//        mImage.backgroundColor = .black
+//        openTaskCell.addSubview(mImage)
         
         //-----
         
