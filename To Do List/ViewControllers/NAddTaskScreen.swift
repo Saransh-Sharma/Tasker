@@ -138,7 +138,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         fab_doneTask.backgroundColor = secondryColor
         fab_doneTask.sizeToFit()
         view.addSubview(fab_doneTask)
-        fab_doneTask.addTarget(self, action: #selector(doneAddTaskAction), for: .touchUpInside)
+        fab_doneTask.addTarget(self, action: #selector(OLD_doneAddTaskAction), for: .touchUpInside)
         
         
         // MARK:- SETUP ALL VIEWS
@@ -168,7 +168,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     //MARK:- DONE TASK ACTION
     
-    @objc func doneAddTaskAction() {
+    @objc func OLD_doneAddTaskAction() {
         
         //       tap DONE --> add new task + nav homeScreen
         //MARK:- ADD TASK ACTION

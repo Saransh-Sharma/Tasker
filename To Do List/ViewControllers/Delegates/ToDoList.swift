@@ -174,6 +174,9 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
         }
     }
     
+    
+//    tableView.register(TableViewCell.self, forCellReuseIdentifier: "openTaskCell")
+    
     // MARK:- CELL AT ROWUITableViewRowAction
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {

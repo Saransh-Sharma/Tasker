@@ -12,7 +12,7 @@ import UIKit
 extension HomeViewController {
     
     
-    func setupFordrop() {
+    func setupHomeFordrop() {
         
         print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
         foredropContainer.frame =  CGRect(x: 0, y: homeTopBar.frame.maxY-5, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)//CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)

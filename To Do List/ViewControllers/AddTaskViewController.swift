@@ -26,6 +26,12 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     var foredropContainer = UIView()
     var bottomBarContainer = UIView()
     
+    let foredropStackContainer: UIStackView = createVerticalContainer()
+//    let foredropStackContainerChild: UIStackView = createVerticalContainer()
+    
+    static let verticalSpacing: CGFloat = 16
+    static let margin: CGFloat = 16
+    
     
     // MARK: TASK METADATA
     var currentTaskInMaterialTextBox: String = ""
@@ -68,18 +74,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     let existingProjectCellID = "existingProject"
     let newProjectCellID = "newProject"
     
-//    var controlLabels = [SegmentedControl: Label]() {
-//         didSet {
-//             controlLabels.forEach { updateLabel(forControl: $0.key) }
-//         }
-//     }
-
-    
     //MARK:- Buttons + Views + Bottom bar
     var calendar: FSCalendar!
-    //    let fab_revealCalAtHome = MDCFloatingButton(shape: .mini)
-    //    let revealCalAtHomeButton = MDCButton()
-    //    let revealChartsAtHomeButton = MDCButton()
     
     //MARK:- cuurentt task list date
     var dateForAddTaskView = Date.today()
@@ -96,70 +92,38 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     
     var filledBar: UIView?
     
-    
- 
-    
-    //    let collectionView: UICollectionView = {
-    //        let layout = UICollectionViewFlowLayout()
-    //        layout.scrollDirection = .horizontal
-    //        layout.minimumLineSpacing = 5
-    //        layout.sectionInset.top = 10
-    //        layout.sectionInset.bottom = 10
-    //
-    //        let cv = UICollectionView(frame: CGRect(x: 0, y: 100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.width/3), collectionViewLayout: layout)
-    //        cv.translatesAutoresizingMaskIntoConstraints = false
-    //        cv.backgroundColor = .clear
-    //        cv.register(ProjectCell.self, forCellWithReuseIdentifier: "existingProject")
-    //        cv.register(AddNewProjectCell.self, forCellWithReuseIdentifier: "newProject")
-    //        return cv
-    //    }()
-    //
-    //    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-    //        return 16
-    //    }
-    //
-    //    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-    //        //        let existingProjectCell = collectionView.dequeueReusableCell(withReuseIdentifier: existingProjectCellID, for: indexPath) as! ProjectCell
-    //        //        let newProjectCell = collectionView.dequeueReusableCell(withReuseIdentifier: newProjectCellID, for: indexPath) as! AddNewProjectCell
-    //
-    //        //        print("Index cell is: \(indexPath.row)")
-    //
-    //        switch indexPath.row {
-    //        case 0:
-    //            let newProjectCell = collectionView.dequeueReusableCell(withReuseIdentifier: newProjectCellID, for: indexPath) as! AddNewProjectCell
-    //            return newProjectCell
-    //        default:
-    //            let existingProjectCell = collectionView.dequeueReusableCell(withReuseIdentifier: existingProjectCellID, for: indexPath) as! ProjectCell
-    //            return existingProjectCell
-    //        }
-    //
-    //
-    //        //        return existingProjectCell
-    //    }
-    
-    
+    // This function is called when you click return key in the text field.
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        
+        print("textFieldShouldReturn")
+        
+        // Resign the first responder from textField to close the keyboard.
+        textField.resignFirstResponder()
+        doneAddTaskAction()
+        
+        return true
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-    
-        
-        
-        
-        
-        
+
         view.addSubview(backdropContainer)
         setupBackdrop()
+
+        view.addSubview(foredropStackContainer)
+        setupAddTaskForedrop()
         
-        view.addSubview(foredropContainer)
-        setupFordrop()
+        addTaskTextBox_Material.becomeFirstResponder()
+        addTaskTextBox_Material.keyboardType = .webSearch
+//        addTaskTextBox_Material.returnKeyType = .done
+        addTaskTextBox_Material.autocorrectionType = .yes
+        addTaskTextBox_Material.smartDashesType = .yes
+        addTaskTextBox_Material.smartQuotesType = .yes
+        addTaskTextBox_Material.smartInsertDeleteType = .yes
         
+        addTaskTextBox_Material.delegate = self
         
-//        view.bringSubviewToFront(filledBar)
-        
-        
-        
-        
-        // Do any additional setup after loading the view.
+
     }
     
     // MARK:- Build Page Header
@@ -198,6 +162,14 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
         return true
     }
     
+    class func createVerticalContainer() -> UIStackView {
+        let container = UIStackView(frame: .zero)
+        container.axis = .vertical
+        container.layoutMargins = UIEdgeInsets(top: margin, left: margin, bottom: margin, right: margin)
+        container.isLayoutMarginsRelativeArrangement = true
+        container.spacing = verticalSpacing
+        return container
+    }
 }
 
 // MARK: - PillButtonBarDemoController: PillButtonBarDelegate
@@ -340,3 +312,5 @@ extension UIView {
     }
     
 }
+
+

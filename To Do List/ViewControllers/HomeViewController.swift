@@ -203,6 +203,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
     
     
+    
+    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         shouldAnimateCells = false
@@ -220,7 +222,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         
         view.addSubview(foredropContainer)
-        setupFordrop()
+        setupHomeFordrop()
         
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
@@ -918,3 +920,81 @@ extension UIDevice {
     }
 }
 
+class openTask: UITableViewCell {
+    
+    var todoFont = ToDoFont()
+    
+//    override init(frame: CGRect) {
+//        super.init(frame: frame)
+//        setup()
+//    }
+    
+     // MARK: - Initialization
+     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+         super.init(style: style, reuseIdentifier: reuseIdentifier)
+     }
+     
+     required init?(coder: NSCoder) {
+         fatalError("init(coder:) has not been implemented")
+     }
+     
+     override func layoutSubviews() {
+         setupUI()
+     }
+     
+     // MARK: - Properties
+     lazy var titleLabel: UILabel = {
+         let label = UILabel()
+         label.font = UIFont(name: "HelveticaNeue", size: 20)
+         label.textColor = .systemBlue
+         label.translatesAutoresizingMaskIntoConstraints = false
+         return label
+     }()
+     
+    
+    
+    
+    
+    func setupUI() {
+        self.backgroundColor = .blue
+
+        self.addSubview(addProjectImageView)
+        self.addSubview(addProjectLabel)
+
+        addProjectImageView.anchor(top: topAnchor, left: leftAnchor, bottom: nil, right: rightAnchor, paddingTop: 0, paddingLeft: 5, paddingBottom: 5, paddingRight: 5, width: 0, height: 30)
+
+        addProjectLabel.anchor(top: nil, left: leftAnchor, bottom: bottomAnchor, right: rightAnchor, paddingTop: 5, paddingLeft: 5, paddingBottom: 0, paddingRight: 5, width: 0, height: 20)
+    }
+    
+    let addProjectImageView: UIImageView = {
+        let iv = UIImageView()
+        iv.contentMode = .scaleAspectFit
+        iv.backgroundColor = .green
+        iv.image = #imageLiteral(resourceName: "selection-on")
+        return iv
+    }()
+    
+    let addProjectLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Add Project !!"
+        label.textColor = .label
+        label.font = UIFont.boldSystemFont(ofSize: 16)
+        label.textAlignment = .center
+        return label
+    }()
+    
+   
+}
+
+//// MARK: - UI Setup
+//extension TableViewCell {
+//    private func setupUI() {
+//        self.contentView.addSubview(titleLabel)
+//
+//        NSLayoutConstraint.activate([
+//            titleLabel.centerXAnchor.constraint(equalTo: self.contentView.centerXAnchor),
+//            titleLabel.centerYAnchor.constraint(equalTo: self.contentView.centerYAnchor)
+//        ])
+//
+//    }
+//}

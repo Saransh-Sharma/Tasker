@@ -23,7 +23,7 @@ class ToDoColors {
 //    UIColor(red: 37.0/255.0, green: 41.0/255.0, blue: 41.0/255.0, alpha: 1.0)
 //        var primaryColor = #colorLiteral(red: 0.1333333333, green: 0.1960784314, blue: 0.2980392157, alpha: 1)
         var primaryColorDarker = UIColor.black //UIColor.systemFill
-        var secondaryAccentColor = UIColor.systemOrange
+        var secondaryAccentColor = #colorLiteral(red: 0.9824339747, green: 0.5298179388, blue: 0.176022768, alpha: 1)//UIColor.systemOrange
         
         var completeTaskSwipeColor = UIColor(red: 46/255.0, green: 204/255.0, blue: 113/255.0, alpha: 1.0)
 //        var deleteTaskSwipeColor = UIColor(red: 46/255.0, green: 204/255.0, blue: 113/255.0, alpha: 1.0)

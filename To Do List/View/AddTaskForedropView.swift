@@ -19,31 +19,36 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 extension AddTaskViewController {
     
-    func setupFordrop() {
+    func setupAddTaskForedrop() {
         
-        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
-        foredropContainer.frame = CGRect(x: 0, y: homeTopBar.frame.maxY*2.2, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal,
+        foredropStackContainer.frame = CGRect(x: 0, y: homeTopBar.frame.maxY*2.2, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         
-        //        CGRect(x: 0, y: homeTopBar.frame.maxY-5, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         
-        //CGRect(x: 0, y: homeTopBar.frame.maxY-5, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         setupBackdropForeground()
-        //            setupTableView()
-        foredropContainer.backgroundColor = .clear
-        setupAddTaskTextField()
-        setupEveningTaskSwitch()
-        setupPrioritySC()
-        setupProjectsPillBar()
-        setupDoneButton()
+        foredropStackContainer.backgroundColor = .black
         
-//        setupProjectsCollection() //replace with MS pill menu instead
-        //            foredropContainer.bringSubviewToFront(tableView)
+        setupAddTaskTextField()
+        foredropStackContainer.addArrangedSubview(UIView())
+        
+        
+        
+        setupProjectsPillBar()
+        foredropStackContainer.addArrangedSubview(UIView())
+        
+        setupPrioritySC()
+        foredropStackContainer.addArrangedSubview(UIView())
+        
+        //        setupPrioritySC()
+        //        foredropStackContainer.addArrangedSubview(UIView())
+        //
+        //        setupProjectsPillBar()
+        //        foredropStackContainer.addArrangedSubview(UIView())
+        
+        setupDoneButton()
+        foredropStackContainer.addArrangedSubview(UIView())
+        
     }
-    
-//    func setupProjectsCollection() {
-//        collectionView.frame = CGRect(x: 50, y: prioritySC.frame.maxY+18, width: prioritySC.frame.width, height: prioritySC.frame.height + prioritySC.frame.height/2)
-//        foredropContainer.addSubview(collectionView)
-//    }
     
     //----------------------- *************************** -----------------------
     //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
@@ -62,8 +67,7 @@ extension AddTaskViewController {
         backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
         backdropForeImageView.layer.shadowRadius = 10
         
-        //        view.addSubview(backdropForeImageView)
-        foredropContainer.addSubview(backdropForeImageView)
+        foredropStackContainer.addSubview(backdropForeImageView)
         
     }
     
@@ -72,57 +76,50 @@ extension AddTaskViewController {
     //----------------------- *************************** -----------------------
     
     func setupProjectsPillBar() {
-            let filledBar = createProjectsBar(items: items, style: .outline)
-                filledBar.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
-                self.filledBar = filledBar
-                foredropContainer.addSubview(filledBar)
-        //        filledBar.backgroundColor = #colorLiteral(red: 0.001987296622, green: 0.4724045992, blue: 0.8296610117, alpha: 1)
-                
-                filledBar.backgroundColor = UIColor.tertiarySystemFill
+        let filledBar = createProjectsBar(items: items, style: .outline)
+        filledBar.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
+        self.filledBar = filledBar
+        foredropStackContainer.addArrangedSubview(filledBar)
+        filledBar.backgroundColor = .clear
     }
     
     func createProjectsBar(items: [PillButtonBarItem], style: PillButtonStyle = .outline, centerAligned: Bool = false) -> UIView {
-         let bar = PillButtonBar(pillButtonStyle: style)
-         bar.items = items
-         _ = bar.selectItem(atIndex: 1)
-         bar.barDelegate = self
-         bar.centerAligned = centerAligned
-
-         let backgroundView = UIView()
-         if style == .outline {
-             backgroundView.backgroundColor = .clear//Colors.Navigation.System.background
-         }
-         backgroundView.addSubview(bar)
-         let margins = UIEdgeInsets(top: 16.0, left: 0, bottom: 16.0, right: 0.0)
-         fitViewIntoSuperview(bar, margins: margins)
-         return backgroundView
-     }
-     
-     func fitViewIntoSuperview(_ view: UIView, margins: UIEdgeInsets) {
-         guard let superview = view.superview else {
-             return
-         }
-
-         view.translatesAutoresizingMaskIntoConstraints = false
-         let constraints = [view.leadingAnchor.constraint(equalTo: superview.leadingAnchor, constant: margins.left),
-                            view.trailingAnchor.constraint(equalTo: superview.trailingAnchor, constant: -margins.right),
-                            view.topAnchor.constraint(equalTo: superview.topAnchor, constant: margins.top),
-                            view.bottomAnchor.constraint(equalTo: superview.bottomAnchor, constant: -margins.bottom)]
-
-         NSLayoutConstraint.activate(constraints)
-     }
+        let bar = PillButtonBar(pillButtonStyle: style)
+        bar.items = items
+        _ = bar.selectItem(atIndex: 1)
+        bar.barDelegate = self
+        bar.centerAligned = centerAligned
+        
+        let backgroundView = UIView()
+        if style == .outline {
+            backgroundView.backgroundColor = .clear//Colors.Navigation.System.background
+        }
+        backgroundView.addSubview(bar)
+        let margins = UIEdgeInsets(top: 16.0, left: 0, bottom: 16.0, right: 0.0)
+        fitViewIntoSuperview(bar, margins: margins)
+        return backgroundView
+    }
+    
+    func fitViewIntoSuperview(_ view: UIView, margins: UIEdgeInsets) {
+        guard let superview = view.superview else {
+            return
+        }
+        
+        view.translatesAutoresizingMaskIntoConstraints = false
+        let constraints = [view.leadingAnchor.constraint(equalTo: superview.leadingAnchor, constant: margins.left),
+                           view.trailingAnchor.constraint(equalTo: superview.trailingAnchor, constant: -margins.right),
+                           view.topAnchor.constraint(equalTo: superview.topAnchor, constant: margins.top),
+                           view.bottomAnchor.constraint(equalTo: superview.bottomAnchor, constant: -margins.bottom)]
+        
+        NSLayoutConstraint.activate(constraints)
+    }
     
     // MARK: MAKE AddTask TextFeild
     func setupAddTaskTextField() {
         
-        //        let mView = UIView()
-        //        mView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/8)
-        
-        //        mView.backgroundColor = todoColors.backgroundColor
-        //        view.center.y += UIScreen.main.bounds.height/6
-        //--------MATERIAL TEXT FEILD
-        let estimatedFrame = CGRect(x: 0, y: 14, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/8)//CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
+        let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
+        addTaskTextBox_Material.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         addTaskTextBox_Material.label.text = "add task & tap done"
         addTaskTextBox_Material.leadingAssistiveLabel.text = "Always add actionable items"
         addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
@@ -135,43 +132,39 @@ extension AddTaskViewController {
                                     "order Cake", "review subscriptions", "get coffee"]
         addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
         addTaskTextBox_Material.sizeToFit()
-        //        mView.addSubview(addTaskTextBox_Material)
-        //        mView.addSubview(textFeild)
-        //        mView.bringSubviewToFront(textFeild)
-        foredropContainer.addSubview(addTaskTextBox_Material)
-        //        return mView
+        
+        addTaskTextBox_Material.backgroundColor = .clear
+        
+        
+        foredropStackContainer.addArrangedSubview(addTaskTextBox_Material)
+        
+        
     }
     
     func setupEveningTaskSwitch() {
         
         
-        switchSetContainer.frame = CGRect(x: 0, y: addTaskTextBox_Material.frame.maxY+10, width: UIScreen.main.bounds.width, height: 50)
+        switchSetContainer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         switchSetContainer.backgroundColor = .clear
         switchBackground.frame = CGRect(x: 0, y: addTaskTextBox_Material.frame.maxY+10, width: UIScreen.main.bounds.width, height: switchSetContainer.frame.height)
         switchBackground.backgroundColor = .clear//todoColors.secondaryAccentColor
         foredropContainer.addSubview(switchSetContainer)
         foredropContainer.addSubview(switchBackground)
         
-        eveningLabel.frame = CGRect(x: 10, y: addTaskTextBox_Material.frame.maxY+10, width: UIScreen.main.bounds.width/2, height: switchBackground.bounds.maxY)
+        eveningLabel.frame = CGRect(x: 10, y: 0, width: UIScreen.main.bounds.width/2, height: switchBackground.bounds.maxY)
         eveningLabel.text = "evening task"
         eveningLabel.adjustsFontSizeToFitWidth = true
         eveningLabel.font = eveningLabel.font.withSize(switchSetContainer.bounds.height/2)
         eveningLabel.textColor = UIColor.label
         foredropContainer.addSubview(eveningLabel)
         
-        //         eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-70, y:switchSetContainer.bounds.midY-((switchSetContainer.bounds.midY/2)+5), width: UIScreen.main.bounds.width/4, height: switchSetContainer.bounds.height-10)
-        eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-70, y:addTaskTextBox_Material.frame.maxY+18, width: UIScreen.main.bounds.width/4, height: switchSetContainer.frame.height-10)
-        //         eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-70, y:switchSetContainer.bounds.midY-((switchSetContainer.bounds.midY/2)+5), width: UIScreen.main.bounds.width/4, height: switchSetContainer.bounds.height-10)
         
-        foredropContainer.addSubview(eveningSwitch)
+        eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-70, y:18, width: UIScreen.main.bounds.width/4, height: switchSetContainer.frame.height-10)
         
         // Colors
         eveningSwitch.onTintColor = todoColors.primaryColor
         eveningSwitch.addTarget(self, action: #selector(NAddTaskScreen.isEveningSwitchOn(sender:)), for: .valueChanged)
-        //         foredropContainer.addSubview(eveningSwitch)
         
-        
-        //         return mView
     }
     
     
@@ -190,42 +183,19 @@ extension AddTaskViewController {
     // MARK: MAKE Priority SC
     func setupPrioritySC() {
         
-        //        let mView = UIView()
         let p = ["None", "Low", "High", "Highest"]
-//        prioritySC = UISegmentedControl(items: p)
-//        prioritySC.frame = CGRect(x: 50, y: switchSetContainer.frame.maxY+18, width: UIScreen.main.bounds.width-100, height: switchSetContainer.frame.height) //mView.frame
-//        prioritySC.selectedSegmentIndex = 1
-//        prioritySC.backgroundColor = .white
-//        prioritySC.selectedSegmentTintColor =  todoColors.secondaryAccentColor
-//        prioritySC.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
-//
-//        prioritySC.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
-//        foredropContainer.addSubview(prioritySC)
         
         let tabsSegmentedControl = SegmentedControl(items: p)
-        
-        tabsSegmentedControl.frame = CGRect(x: 50, y: switchSetContainer.frame.maxY+18, width: UIScreen.main.bounds.width-100, height: switchSetContainer.frame.height)
-        
+        tabsSegmentedControl.frame = CGRect(x: 50, y: 50, width: UIScreen.main.bounds.width-100, height: 50)
         tabsSegmentedControl.selectedSegmentIndex = 1
         
-              tabsSegmentedControl.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
-        foredropContainer.addSubview(tabsSegmentedControl)
-//              controlLabels[tabsSegmentedControl] = addDescription(text: "", textAlignment: .center)
-              
+        tabsSegmentedControl.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
         
-        
+        foredropStackContainer.addArrangedSubview(tabsSegmentedControl)
         
     }
     
-//    @discardableResult
-//     func addDescription(text: String, textAlignment: NSTextAlignment = .natural) -> Label {
-//         let description = Label(style: .subhead, colorStyle: .regular)
-//         description.numberOfLines = 0
-//         description.text = text
-//         description.textAlignment = textAlignment
-//         container.addArrangedSubview(description)
-//         return description
-//     }
+    
     
     //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
     @objc
@@ -267,6 +237,7 @@ extension AddTaskViewController {
         fab_doneTask.setTitle("done", for: .normal)
         fab_doneTask.setTitle("nice !", for: .highlighted)
         fab_doneTask.titleLabel?.text = "Done"
+        
         fab_doneTask.titleColor(for: .normal)
         fab_doneTask.frame = CGRect(x: UIScreen.main.bounds.maxX-2.5*doneButtonHeightWidth, y: doneButtonY, width: 2.5*doneButtonHeightWidth, height: doneButtonHeightWidth)
         let doneTaskIconNormalImage = UIImage(named: "material_done_White")
@@ -283,7 +254,10 @@ extension AddTaskViewController {
         
         fab_doneTask.backgroundColor = todoColors.secondaryAccentColor
         fab_doneTask.sizeToFit()
-        foredropContainer.addSubview(fab_doneTask)
+        //        foredropContainer.addSubview(fab_doneTask)
+        //        fab_doneTask.contentHorizontalAlignment = .trailing
+        fab_doneTask.titleLabel?.textAlignment = .center
+        foredropStackContainer.addArrangedSubview(fab_doneTask)
         fab_doneTask.addTarget(self, action: #selector(doneAddTaskAction), for: .touchUpInside)
         
     }
