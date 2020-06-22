@@ -33,16 +33,17 @@ extension AddTaskViewController {
         setupAddTaskTextField()
         setupEveningTaskSwitch()
         setupPrioritySC()
+        setupProjectsPillBar()
         setupDoneButton()
         
-        setupProjectsCollection()
+//        setupProjectsCollection() //replace with MS pill menu instead
         //            foredropContainer.bringSubviewToFront(tableView)
     }
     
-    func setupProjectsCollection() {
-        collectionView.frame = CGRect(x: 50, y: prioritySC.frame.maxY+18, width: prioritySC.frame.width, height: prioritySC.frame.height)
-        foredropContainer.addSubview(collectionView)
-    }
+//    func setupProjectsCollection() {
+//        collectionView.frame = CGRect(x: 50, y: prioritySC.frame.maxY+18, width: prioritySC.frame.width, height: prioritySC.frame.height + prioritySC.frame.height/2)
+//        foredropContainer.addSubview(collectionView)
+//    }
     
     //----------------------- *************************** -----------------------
     //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
@@ -65,6 +66,51 @@ extension AddTaskViewController {
         foredropContainer.addSubview(backdropForeImageView)
         
     }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                    Setup Projects Pill Bar
+    //----------------------- *************************** -----------------------
+    
+    func setupProjectsPillBar() {
+            let filledBar = createProjectsBar(items: items, style: .outline)
+                filledBar.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
+                self.filledBar = filledBar
+                foredropContainer.addSubview(filledBar)
+        //        filledBar.backgroundColor = #colorLiteral(red: 0.001987296622, green: 0.4724045992, blue: 0.8296610117, alpha: 1)
+                
+                filledBar.backgroundColor = UIColor.tertiarySystemFill
+    }
+    
+    func createProjectsBar(items: [PillButtonBarItem], style: PillButtonStyle = .outline, centerAligned: Bool = false) -> UIView {
+         let bar = PillButtonBar(pillButtonStyle: style)
+         bar.items = items
+         _ = bar.selectItem(atIndex: 1)
+         bar.barDelegate = self
+         bar.centerAligned = centerAligned
+
+         let backgroundView = UIView()
+         if style == .outline {
+             backgroundView.backgroundColor = .clear//Colors.Navigation.System.background
+         }
+         backgroundView.addSubview(bar)
+         let margins = UIEdgeInsets(top: 16.0, left: 0, bottom: 16.0, right: 0.0)
+         fitViewIntoSuperview(bar, margins: margins)
+         return backgroundView
+     }
+     
+     func fitViewIntoSuperview(_ view: UIView, margins: UIEdgeInsets) {
+         guard let superview = view.superview else {
+             return
+         }
+
+         view.translatesAutoresizingMaskIntoConstraints = false
+         let constraints = [view.leadingAnchor.constraint(equalTo: superview.leadingAnchor, constant: margins.left),
+                            view.trailingAnchor.constraint(equalTo: superview.trailingAnchor, constant: -margins.right),
+                            view.topAnchor.constraint(equalTo: superview.topAnchor, constant: margins.top),
+                            view.bottomAnchor.constraint(equalTo: superview.bottomAnchor, constant: -margins.bottom)]
+
+         NSLayoutConstraint.activate(constraints)
+     }
     
     // MARK: MAKE AddTask TextFeild
     func setupAddTaskTextField() {
@@ -146,27 +192,40 @@ extension AddTaskViewController {
         
         //        let mView = UIView()
         let p = ["None", "Low", "High", "Highest"]
-        prioritySC = UISegmentedControl(items: p)
+//        prioritySC = UISegmentedControl(items: p)
+//        prioritySC.frame = CGRect(x: 50, y: switchSetContainer.frame.maxY+18, width: UIScreen.main.bounds.width-100, height: switchSetContainer.frame.height) //mView.frame
+//        prioritySC.selectedSegmentIndex = 1
+//        prioritySC.backgroundColor = .white
+//        prioritySC.selectedSegmentTintColor =  todoColors.secondaryAccentColor
+//        prioritySC.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
+//
+//        prioritySC.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
+//        foredropContainer.addSubview(prioritySC)
         
-        //        mView.frame = CGRect(x: 0, y: switchSetContainer.frame.maxY, width: UIScreen.main.bounds.width, height: switchSetContainer.frame.height)
+        let tabsSegmentedControl = SegmentedControl(items: p)
         
-        //        mView.backgroundColor = todoColors.primaryColor
-        prioritySC.frame = CGRect(x: 50, y: switchSetContainer.frame.maxY+18, width: UIScreen.main.bounds.width-100, height: switchSetContainer.frame.height) //mView.frame
-        //Task Priority
-        prioritySC.selectedSegmentIndex = 1
-        prioritySC.backgroundColor = .white
-        prioritySC.selectedSegmentTintColor =  todoColors.secondaryAccentColor
-        prioritySC.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
+        tabsSegmentedControl.frame = CGRect(x: 50, y: switchSetContainer.frame.maxY+18, width: UIScreen.main.bounds.width-100, height: switchSetContainer.frame.height)
         
-        prioritySC.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
-        //        mView.addSubview(prioritySC)
+        tabsSegmentedControl.selectedSegmentIndex = 1
+        
+              tabsSegmentedControl.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
+        foredropContainer.addSubview(tabsSegmentedControl)
+//              controlLabels[tabsSegmentedControl] = addDescription(text: "", textAlignment: .center)
+              
         
         
-        foredropContainer.addSubview(prioritySC)
         
-        
-        //        return mView
     }
+    
+//    @discardableResult
+//     func addDescription(text: String, textAlignment: NSTextAlignment = .natural) -> Label {
+//         let description = Label(style: .subhead, colorStyle: .regular)
+//         description.numberOfLines = 0
+//         description.text = text
+//         description.textAlignment = textAlignment
+//         container.addArrangedSubview(description)
+//         return description
+//     }
     
     //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
     @objc

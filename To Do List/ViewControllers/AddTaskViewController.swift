@@ -9,13 +9,14 @@
 import UIKit
 import CoreData
 import FSCalendar
+import FluentUI
 import MaterialComponents.MaterialTextControls_FilledTextAreas
 import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
-class AddTaskViewController: UIViewController, UITextFieldDelegate, UICollectionViewDataSource, UICollectionViewDelegate {
-
+class AddTaskViewController: UIViewController, UITextFieldDelegate {
+    
     
     
     
@@ -64,7 +65,15 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, UICollection
     let homeDate_WeekDay = UILabel()
     let homeDate_Month = UILabel()
     
-    let cellId = "cellId"
+    let existingProjectCellID = "existingProject"
+    let newProjectCellID = "newProject"
+    
+//    var controlLabels = [SegmentedControl: Label]() {
+//         didSet {
+//             controlLabels.forEach { updateLabel(forControl: $0.key) }
+//         }
+//     }
+
     
     //MARK:- Buttons + Views + Bottom bar
     var calendar: FSCalendar!
@@ -75,39 +84,66 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, UICollection
     //MARK:- cuurentt task list date
     var dateForAddTaskView = Date.today()
     
+    var items: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project +"),
+                                      PillButtonBarItem(title: "Inbox"),
+                                      PillButtonBarItem(title: "People"),
+                                      PillButtonBarItem(title: "Other"),
+                                      PillButtonBarItem(title: "Templates"),
+                                      PillButtonBarItem(title: "Actions"),
+                                      PillButtonBarItem(title: "More")]
     
-    let collectionView: UICollectionView = {
-        let layout = UICollectionViewFlowLayout()
-        layout.scrollDirection = .horizontal
-        layout.minimumLineSpacing = 15
-        layout.sectionInset.top = 20
-        layout.sectionInset.bottom = 20
-
-        let cv = UICollectionView(frame: CGRect(x: 0, y: 100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.width/3), collectionViewLayout: layout)
-        cv.translatesAutoresizingMaskIntoConstraints = false
-        cv.backgroundColor = UIColor(named: "background")
-        cv.register(TeamCell.self, forCellWithReuseIdentifier: "cellId")
-        return cv
-    }()
     
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return 16
-    }
     
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellId, for: indexPath) as! TeamCell
-        return cell
-    }
-
+    var filledBar: UIView?
+    
+    
+ 
+    
+    //    let collectionView: UICollectionView = {
+    //        let layout = UICollectionViewFlowLayout()
+    //        layout.scrollDirection = .horizontal
+    //        layout.minimumLineSpacing = 5
+    //        layout.sectionInset.top = 10
+    //        layout.sectionInset.bottom = 10
+    //
+    //        let cv = UICollectionView(frame: CGRect(x: 0, y: 100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.width/3), collectionViewLayout: layout)
+    //        cv.translatesAutoresizingMaskIntoConstraints = false
+    //        cv.backgroundColor = .clear
+    //        cv.register(ProjectCell.self, forCellWithReuseIdentifier: "existingProject")
+    //        cv.register(AddNewProjectCell.self, forCellWithReuseIdentifier: "newProject")
+    //        return cv
+    //    }()
+    //
+    //    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+    //        return 16
+    //    }
+    //
+    //    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+    //        //        let existingProjectCell = collectionView.dequeueReusableCell(withReuseIdentifier: existingProjectCellID, for: indexPath) as! ProjectCell
+    //        //        let newProjectCell = collectionView.dequeueReusableCell(withReuseIdentifier: newProjectCellID, for: indexPath) as! AddNewProjectCell
+    //
+    //        //        print("Index cell is: \(indexPath.row)")
+    //
+    //        switch indexPath.row {
+    //        case 0:
+    //            let newProjectCell = collectionView.dequeueReusableCell(withReuseIdentifier: newProjectCellID, for: indexPath) as! AddNewProjectCell
+    //            return newProjectCell
+    //        default:
+    //            let existingProjectCell = collectionView.dequeueReusableCell(withReuseIdentifier: existingProjectCellID, for: indexPath) as! ProjectCell
+    //            return existingProjectCell
+    //        }
+    //
+    //
+    //        //        return existingProjectCell
+    //    }
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-
+    
         
-        collectionView.delegate = self
-        collectionView.dataSource = self
-//        view.addSubview(collectionView)
+        
         
         
         
@@ -117,7 +153,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, UICollection
         view.addSubview(foredropContainer)
         setupFordrop()
         
-//        view.bringSubviewToFront(collectionView)
+        
+//        view.bringSubviewToFront(filledBar)
         
         
         
@@ -160,10 +197,21 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, UICollection
         }
         return true
     }
-
+    
 }
 
-class TeamCell: UICollectionViewCell {
+// MARK: - PillButtonBarDemoController: PillButtonBarDelegate
+
+extension AddTaskViewController: PillButtonBarDelegate {
+    func pillBar(_ pillBar: PillButtonBar, didSelectItem item: PillButtonBarItem, atIndex index: Int) {
+        let alert = UIAlertController(title: "Item \(item.title) was selected", message: nil, preferredStyle: .alert)
+        let action = UIAlertAction(title: "OK", style: .default)
+        alert.addAction(action)
+        present(alert, animated: true)
+    }
+}
+
+class ProjectCell: UICollectionViewCell {
     
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -172,10 +220,123 @@ class TeamCell: UICollectionViewCell {
     
     func setup() {
         self.backgroundColor = .red
-      
+        
     }
     
     required init?(coder: NSCoder) {
         fatalError("FATAL Error on my collectionview")
     }
+}
+
+class AddNewProjectCell: UICollectionViewCell {
+    
+    var todoFont = ToDoFont()
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setup()
+    }
+    
+    
+    
+    func setup() {
+        self.backgroundColor = .blue
+        
+        self.addSubview(addProjectImageView)
+        self.addSubview(addProjectLabel)
+        
+        addProjectImageView.anchor(top: topAnchor, left: leftAnchor, bottom: nil, right: rightAnchor, paddingTop: 0, paddingLeft: 5, paddingBottom: 5, paddingRight: 5, width: 0, height: 30)
+        
+        addProjectLabel.anchor(top: nil, left: leftAnchor, bottom: bottomAnchor, right: rightAnchor, paddingTop: 5, paddingLeft: 5, paddingBottom: 0, paddingRight: 5, width: 0, height: 20)
+    }
+    
+    let addProjectImageView: UIImageView = {
+        let iv = UIImageView()
+        iv.contentMode = .scaleAspectFit
+        iv.backgroundColor = .green
+        iv.image = #imageLiteral(resourceName: "material_add_White")
+        return iv
+    }()
+    
+    let addProjectLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Add \nProject"
+        label.textColor = .label
+        label.font = UIFont.boldSystemFont(ofSize: 16)
+        label.textAlignment = .center
+        return label
+    }()
+    
+    required init?(coder: NSCoder) {
+        fatalError("FATAL Error on my collectionview")
+    }
+}
+
+extension UIView {
+    func anchor(
+        top: NSLayoutYAxisAnchor?,
+        left: NSLayoutXAxisAnchor?,
+        bottom: NSLayoutYAxisAnchor?,
+        right: NSLayoutXAxisAnchor?,
+        paddingTop: CGFloat, paddingLeft: CGFloat,
+        paddingBottom: CGFloat,
+        paddingRight: CGFloat,
+        width: CGFloat = 0,
+        height: CGFloat = 0) {
+        
+        self.translatesAutoresizingMaskIntoConstraints = false
+        
+        if let top = top {
+            self.topAnchor.constraint(equalTo: top, constant: paddingTop).isActive = true
+        }
+        
+        if let left = left {
+            self.leftAnchor.constraint(equalTo: left, constant: paddingLeft).isActive = true
+        }
+        
+        if let bottom = bottom {
+            self.bottomAnchor.constraint(equalTo: bottom, constant: paddingBottom).isActive = true
+        }
+        
+        if let right = right {
+            self.rightAnchor.constraint(equalTo: right, constant: -paddingRight).isActive = true
+        }
+        
+        if width != 0 {
+            self.widthAnchor.constraint(equalToConstant: width).isActive = true
+        }
+        
+        if height != 0 {
+            self.heightAnchor.constraint(equalToConstant: height).isActive = true
+        }
+    }
+    
+    var safeTopAnchor: NSLayoutYAxisAnchor {
+        if #available(iOS 11.0, *) {
+            return safeAreaLayoutGuide.topAnchor
+        }
+        return topAnchor
+    }
+    
+    var safeLeftAnchor: NSLayoutXAxisAnchor {
+        if #available(iOS 11.0, *) {
+            return safeAreaLayoutGuide.leftAnchor
+        }
+        return leftAnchor
+    }
+    
+    var safeBottomAnchor: NSLayoutYAxisAnchor {
+        if #available(iOS 11.0, *) {
+            return safeAreaLayoutGuide.bottomAnchor
+        }
+        return bottomAnchor
+    }
+    
+    var safeRightAnchor: NSLayoutXAxisAnchor {
+        if #available(iOS 11.0, *) {
+            return safeAreaLayoutGuide.rightAnchor
+        }
+        return rightAnchor
+    }
+    
 }
