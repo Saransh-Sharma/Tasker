@@ -68,7 +68,7 @@ extension AddTaskViewController {
     //----------------------- *************************** -----------------------
     
     func setupProjectsPillBar() {
-        let filledBar = createProjectsBar(items: items, style: .outline)
+        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
         filledBar.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
         self.filledBar = filledBar
         foredropStackContainer.addArrangedSubview(filledBar)
@@ -305,7 +305,7 @@ extension AddTaskViewController {
             //            let title = segm.titleForSegment(at: segment.selectedSegmentIndex)
             
             print("Priority is: \(currentTaskPriority)")
-            print("Add ask projet is: \(project)")
+            print("Add ask projet is: \(currenttProjectForAddTaskView)")
             
             //--//onnly adds task ttoday fix this
             
@@ -316,9 +316,9 @@ extension AddTaskViewController {
             
         
             
-            TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: dateForAddTaskView, isEveningTask: isThisEveningTask, project: project)
+            TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: dateForAddTaskView, isEveningTask: isThisEveningTask, project: currenttProjectForAddTaskView)
             
-            HUD.shared.showSuccess(from: self, with: "Added to\n\(project)")
+            HUD.shared.showSuccess(from: self, with: "Added to\n\(currenttProjectForAddTaskView)")
             
             //---
         } else {

@@ -82,14 +82,14 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     //MARK:- cuurentt task list date
     var dateForAddTaskView = Date.today()
     
-    var items: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project"),
+    var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project"),
                                       PillButtonBarItem(title: "Inbox")]
-    
+        var currenttProjectForAddTaskView = "inbox"
     
     
     var filledBar: UIView?
     
-    var project = "inbox"
+
     
 //    func changeProject() --> {
 //        v
@@ -187,8 +187,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
 
 extension AddTaskViewController: PillButtonBarDelegate {
     func pillBar(_ pillBar: PillButtonBar, didSelectItem item: PillButtonBarItem, atIndex index: Int) {
-        project = item.title
-        print("Project is: \(project)")
+        currenttProjectForAddTaskView = item.title
+        print("Project is: \(currenttProjectForAddTaskView)")
         
         if(item.title.contains(addProjectString)) {
             

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4ACDC58D4DF7CF10BC8A928D /* libPods-To Do ListTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FC938B6829AEC62C478F9F53 /* libPods-To Do ListTests.a */; };
+		7537B62324A2AF0800B978E5 /* NewProjectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */; };
 		753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFC9D2445A24500A739E3 /* AppDelegate.swift */; };
 		753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFC9F2445A24500A739E3 /* SceneDelegate.swift */; };
 		753EFCA22445A24500A739E3 /* HomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCA12445A24500A739E3 /* HomeViewController.swift */; };
@@ -70,6 +71,7 @@
 /* Begin PBXFileReference section */
 		2E01068480292EC6979AE330 /* libPods-To Do List.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-To Do List.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2F10ABF4BFD63AB68A89E8CE /* Pods-To Do List.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-To Do List.release.xcconfig"; path = "Target Support Files/Pods-To Do List/Pods-To Do List.release.xcconfig"; sourceTree = "<group>"; };
+		7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewProjectViewController.swift; sourceTree = "<group>"; };
 		753EFC9A2445A24500A739E3 /* This Day.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "This Day.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFC9D2445A24500A739E3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		753EFC9F2445A24500A739E3 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -308,11 +310,12 @@
 				75F18107245CA229004D9A69 /* TaskManager.swift */,
 				753EFCA12445A24500A739E3 /* HomeViewController.swift */,
 				7551DA0324882A78005CF826 /* AddTaskViewController.swift */,
+				7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */,
+				75B7121C246AFF5B00453AEC /* UpcominngTasksViewController.swift */,
 				759F18F82468B70200293A32 /* NAddTaskScreen.swift */,
 				758A80632451E86E00BFB571 /* WeeklyViewController.swift */,
 				758A803F2450BFA300BFB571 /* InboxViewController.swift */,
 				75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */,
-				75B7121C246AFF5B00453AEC /* UpcominngTasksViewController.swift */,
 			);
 			path = ViewControllers;
 			sourceTree = "<group>";
@@ -555,6 +558,7 @@
 				7551DA0024880D8E005CF826 /* AddTaskBackdropView.swift in Sources */,
 				7551DA0424882A78005CF826 /* AddTaskViewController.swift in Sources */,
 				755FE8DE2479227A00A71A75 /* TinyPieChart.swift in Sources */,
+				7537B62324A2AF0800B978E5 /* NewProjectViewController.swift in Sources */,
 				75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */,
 				755FE8D92479169400A71A75 /* ToDoList.swift in Sources */,
 				759F18F92468B70200293A32 /* NAddTaskScreen.swift in Sources */,
