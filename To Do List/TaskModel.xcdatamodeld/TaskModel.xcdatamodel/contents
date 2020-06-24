@@ -8,11 +8,12 @@
         <attribute name="isComplete" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="isEveningTask" attributeType="Boolean" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="name" attributeType="String" spotlightIndexingEnabled="YES"/>
+        <attribute name="project" optional="YES" attributeType="String"/>
         <attribute name="taskDetails" optional="YES" attributeType="String"/>
         <attribute name="taskPriority" optional="YES" attributeType="Integer 32" defaultValueString="3" usesScalarValueType="YES"/>
         <attribute name="taskType" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
     </entity>
     <elements>
-        <element name="NTask" positionX="-36" positionY="9" width="128" height="193"/>
+        <element name="NTask" positionX="-36" positionY="9" width="128" height="208"/>
     </elements>
 </model>

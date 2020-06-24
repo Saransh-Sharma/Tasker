@@ -86,6 +86,21 @@
             </objects>
             <point key="canvasLocation" x="1866" y="-565"/>
         </scene>
+        <!--New Project View Controller-->
+        <scene sceneID="nQe-hD-fHU">
+            <objects>
+                <viewController storyboardIdentifier="newProject" id="0PQ-Hy-Wl5" customClass="NewProjectViewController" customModule="This_Day" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="7Rr-ia-Ucc">
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="812"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
+                        <viewLayoutGuide key="safeArea" id="xBf-OR-qYv"/>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="Efq-Sv-7Oo" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="2572" y="-821"/>
+        </scene>
         <!--Add Task Screen-->
         <scene sceneID="5Nx-pA-AYS">
             <objects>
@@ -145,7 +160,7 @@
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="2P4-U1-4pW" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
             </objects>
-            <point key="canvasLocation" x="2696.8000000000002" y="-565.27093596059115"/>
+            <point key="canvasLocation" x="3319" y="-528"/>
         </scene>
         <!--Settings Page View Controller-->
         <scene sceneID="1cw-Fs-vYG">

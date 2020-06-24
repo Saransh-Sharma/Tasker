@@ -237,9 +237,11 @@ class TaskManager {
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
     }
     
-    func addNewTask_Future(name: String, taskType: Int, taskPriority: Int, futureTaskDate: Date, isEveningTask: Bool) {
+    func addNewTask_Future(name: String, taskType: Int, taskPriority: Int, futureTaskDate: Date, isEveningTask: Bool, project: String) {
         
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
+        
+        
         
         task.name = name
         task.isComplete = false
@@ -249,6 +251,13 @@ class TaskManager {
         task.dateAdded = Date.today() as NSDate
         task.dueDate = futureTaskDate as NSDate
         task.isEveningTask = isEveningTask
+        
+        
+        if(project.isEmpty) {
+            task.project = "inbox"
+        } else {
+            task.project = project
+        }
         
         print("addNewTask_Future: \(futureTaskDate.stringIn(dateStyle: .full, timeStyle: .none))")
         

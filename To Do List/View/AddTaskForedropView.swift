@@ -26,24 +26,16 @@ extension AddTaskViewController {
         
         
         setupBackdropForeground()
-        foredropStackContainer.backgroundColor = .black
+//        foredropStackContainer.backgroundColor = .black
         
         setupAddTaskTextField()
         foredropStackContainer.addArrangedSubview(UIView())
-        
-        
         
         setupProjectsPillBar()
         foredropStackContainer.addArrangedSubview(UIView())
         
         setupPrioritySC()
         foredropStackContainer.addArrangedSubview(UIView())
-        
-        //        setupPrioritySC()
-        //        foredropStackContainer.addArrangedSubview(UIView())
-        //
-        //        setupProjectsPillBar()
-        //        foredropStackContainer.addArrangedSubview(UIView())
         
         setupDoneButton()
         foredropStackContainer.addArrangedSubview(UIView())
@@ -81,7 +73,41 @@ extension AddTaskViewController {
         self.filledBar = filledBar
         foredropStackContainer.addArrangedSubview(filledBar)
         filledBar.backgroundColor = .clear
+        
+//        filledBar.selected
+//        filledBar.addTarget(self, action: #selector(changeProject))
+        
     }
+    
+
+//    @objc
+//    func changeProject(sender: UIView) -> Int {
+//
+//        switch sender.selectedSegmentIndex {
+//        case 0:
+//            print("Priority is None - no priority 4")
+//            currentTaskPriority = 4
+//            return 4
+//        case 1:
+//
+//            print("Priority is P2- low 3")
+//            currentTaskPriority = 3
+//            return 3
+//        case 2:
+//            print("Priority is P1- high 2")
+//            currentTaskPriority = 2
+//            return 2
+//        case 3:
+//            print("Priority is p0 - highest 1")
+//            currentTaskPriority = 1
+//            return 1
+//        default:
+//            print("Failed to get Task Priority")
+//            return 3
+//        }
+//    }
+    
+    
     
     func createProjectsBar(items: [PillButtonBarItem], style: PillButtonStyle = .outline, centerAligned: Bool = false) -> UIView {
         let bar = PillButtonBar(pillButtonStyle: style)
@@ -279,6 +305,7 @@ extension AddTaskViewController {
             //            let title = segm.titleForSegment(at: segment.selectedSegmentIndex)
             
             print("Priority is: \(currentTaskPriority)")
+            print("Add ask projet is: \(project)")
             
             //--//onnly adds task ttoday fix this
             
@@ -286,46 +313,30 @@ extension AddTaskViewController {
             
             //            taskDueDate = dateForAddTaskView
             //            TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
-            TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: dateForAddTaskView, isEveningTask: isThisEveningTask)
+            
+        
+            
+            TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: dateForAddTaskView, isEveningTask: isThisEveningTask, project: project)
+            
+            HUD.shared.showSuccess(from: self, with: "Added to\n\(project)")
             
             //---
         } else {
-            print("task: nothing to add - doone ")
+//            print("task: nothing to add - doone ")
+//             let iv = UIImageView()
+//               iv.contentMode = .scaleAspectFit
+//               iv.backgroundColor = .green
+//               iv.image = #imageLiteral(resourceName: "ic_arrow_back_ios")
+//            HUD.shared.showFailure(in: iv, with: "Nothing Added")
+            
+            HUD.shared.showFailure(from: self, with: "Nothing Added")
+            
+//            HUD.shared.show(in: iv, with: "Nothing Added")
         }
         
+   
         
-        //              if(taskDayFromPicker == "Unknown" || taskDayFromPicker == "") {
-        //                  taskDueDate = Date.today()
-        //                  TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
-        //              } else if (taskDayFromPicker == "Tomorrow") { //["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
-        //                  taskDueDate = Date.tomorrow()
-        //                  TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
-        //              } else if (taskDayFromPicker == "Weekend") {
-        //
-        //                  //get the next weekend
-        //                  taskDueDate = Date.today().changed(weekday: 5)!
-        //
-        //
-        //                  TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
-        //
-        //
-        //
-        //              } else if (taskDayFromPicker == "Today") {
-        //                  taskDueDate = Date.today()
-        //                  TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
-        //              }
-        //
-        //                          else {
-        //                              print("EMPTY TASK ! - Nothing to add")
-        //
-        //                          }
         
-        //          }
-        
-        //add generic task add here which takes all input
-        //        TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, isEveningTask: isThisEveningTask)
-        
-        HUD.shared.showSuccess(from: self, with: "Task Added")
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             // your code here
@@ -336,7 +347,7 @@ extension AddTaskViewController {
             //        self.present(newViewController, animated: true, completion: nil)
             self.present(newViewController, animated: true, completion: { () in
                 print("SUCCESS !!!")
-                HUD.shared.showSuccess(from: self, with: "Success")
+//                HUD.shared.showSuccess(from: self, with: "Success")
                 
             })
             

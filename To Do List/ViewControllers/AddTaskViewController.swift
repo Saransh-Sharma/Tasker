@@ -39,6 +39,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     var taskDayFromPicker: String =  "Unknown"//change datatype tp task type
     var currentTaskPriority: Int = 3
     
+    let addProjectString = "Add Project"
+    
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
     
@@ -80,17 +82,26 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     //MARK:- cuurentt task list date
     var dateForAddTaskView = Date.today()
     
-    var items: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project +"),
-                                      PillButtonBarItem(title: "Inbox"),
-                                      PillButtonBarItem(title: "People"),
-                                      PillButtonBarItem(title: "Other"),
-                                      PillButtonBarItem(title: "Templates"),
-                                      PillButtonBarItem(title: "Actions"),
-                                      PillButtonBarItem(title: "More")]
+    var items: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project"),
+                                      PillButtonBarItem(title: "Inbox")]
     
     
     
     var filledBar: UIView?
+    
+    var project = "inbox"
+    
+//    func changeProject() --> {
+//        v
+//    }
+    
+//    func setProject() {
+//        if project.isEmpty || project == nil {
+//            project == "inbox"
+//        } else {
+//            project =
+//        }
+//    }
     
     // This function is called when you click return key in the text field.
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -176,10 +187,32 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
 
 extension AddTaskViewController: PillButtonBarDelegate {
     func pillBar(_ pillBar: PillButtonBar, didSelectItem item: PillButtonBarItem, atIndex index: Int) {
-        let alert = UIAlertController(title: "Item \(item.title) was selected", message: nil, preferredStyle: .alert)
-        let action = UIAlertAction(title: "OK", style: .default)
-        alert.addAction(action)
-        present(alert, animated: true)
+        project = item.title
+        print("Project is: \(project)")
+        
+        if(item.title.contains(addProjectString)) {
+            
+//            medmel//Open add project VC
+            
+             let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+                                let newViewController = storyBoard.instantiateViewController(withIdentifier: "newProject") as! NewProjectViewController
+            newViewController.modalPresentationStyle = .popover
+                                //        self.present(newViewController, animated: true, completion: nil)
+                                self.present(newViewController, animated: true, completion: { () in
+                                    print("SUCCESS !!!")
+                    //                HUD.shared.showSuccess(from: self, with: "Success")
+                                    
+                                })
+            
+        } else {
+            
+            let alert = UIAlertController(title: "Item \(item.title) was selected", message: nil, preferredStyle: .alert)
+                 let action = UIAlertAction(title: "OK", style: .default)
+                 alert.addAction(action)
+                 present(alert, animated: true)
+        }
+        
+     
     }
 }
 

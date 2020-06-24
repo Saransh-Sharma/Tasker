@@ -23,6 +23,8 @@ extension NTask {
     @NSManaged public var taskDetails: String?
     @NSManaged public var taskPriority: Int32 //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
     @NSManaged public var taskType: Int32 //1-4 where 1 is morning; 2 is evening; 3 is upcoming; 4 is inbox; default is 1(morning)
+//    project
+    @NSManaged public var project: String?
     @NSManaged public var alertReminderTime: NSDate?
     @NSManaged public var dateAdded: NSDate?
     @NSManaged public var isEveningTask: Bool
@@ -43,4 +45,8 @@ extension NTask {
             return 1
         }
     }
+    
+//    func getProjectScore(task: NTask) -> Int {
+//
+//     }
 }
