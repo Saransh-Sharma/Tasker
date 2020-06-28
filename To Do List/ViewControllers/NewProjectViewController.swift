@@ -8,12 +8,25 @@
 
 import UIKit
 import FluentUI
+import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
-class NewProjectViewController: UIViewController {
-
+class NewProjectViewController: UIViewController, UITextFieldDelegate {
+    
     var peoplePickers: [PeoplePicker] = []
+    
+    //    var description = Label(style: .subhead, colorStyle: .regular)
+    
     static let verticalSpacing: CGFloat = 16
     static let margin: CGFloat = 16
+    
+    var projectNameTextField = MDCOutlinedTextField()
+    var projecDescriptionTextField = MDCOutlinedTextField()
+    
+    let button = Button(style: .primaryFilled)
+    
+    var currentProjectInTexField = ""
+    var currentDescriptionInTexField = ""
+    //    var projecDescriptionTextField = MDCOutlinedTextField()
     
     
     let addProjectContainer: UIStackView = createVerticalContainer()
@@ -22,57 +35,159 @@ class NewProjectViewController: UIViewController {
         super.viewDidLoad()
         let yVal = 200
         
-//        view.backgroundColor = .green
+        //        view.backgroundColor = .green
         
-        addProjectContainer.frame =  CGRect(x: 0, y: 200, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+        addProjectContainer.frame =  CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
         //CGRect(x: 0, y: yVal , width: Int(UIScreen.main.bounds.width), height: Int(UIScreen.main.bounds.height))
         
         view.addSubview(addProjectContainer)
         addProjectContainer.backgroundColor = .black
         addProjectContainer.addArrangedSubview(UIView())
         
-        addPeoplePicker()
+        addLabel(text: "Add new project", style: .title1, colorStyle: .regular)
+        
+        //        addProjectContainer.addArrangedSubview(addDescription(text: "Add project here: "))
+        addDescription(text: "Add new project & set it's description")
+        //        addProjectContainer.addArrangedSubview(UIView())
+        
+        //        addPeoplePicker()
+        //        addProjectContainer.addArrangedSubview(UIView())
+        
+        addProjectContainer.addArrangedSubview(Separator())
         addProjectContainer.addArrangedSubview(UIView())
         
-
+        
+        addProjectNameTexField()
+        addProjectContainer.addArrangedSubview(UIView())
+        //        addProjectContainer.addArrangedSubview(Separator())
+        //        addProjectContainer.addArrangedSubview(UIView())
+        
+        
+        addProjectDesccriptionTexField()
+        addProjectContainer.addArrangedSubview(UIView())
+        addProjectContainer.addArrangedSubview(Separator())
+        addProjectContainer.addArrangedSubview(UIView())
+        
+        
+        addProjectDoneButton()
+        addProjectContainer.addArrangedSubview(UIView())
+        
+        projectNameTextField.becomeFirstResponder()
+        
+        
+        
+        
         // Do any additional setup after loading the view.
     }
     
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destination.
-        // Pass the selected object to the new view controller.
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        let oldText = textField.text!
+        print("old text is: \(oldText)")
+        let stringRange = Range(range, in:oldText)!
+        let newText = oldText.replacingCharacters(in: stringRange, with: string)
+        print("new text is: \(newText)")
+        
+        
+        if textField.tag == 0 {
+            currentProjectInTexField = newText
+        } else if textField.tag == 1 {
+            currentDescriptionInTexField = newText
+        }
+        
+        if newText.isEmpty {
+            print("EMPTY")
+            button.isEnabled = false
+        } else {
+            print("NOT EMPTY")
+            button.isEnabled = true
+            
+        }
+        return true
     }
-    */
     
+    func addProjectDoneButton() {
+        
+        button.setTitle("Add Project", for: .normal)
+        button.titleLabel?.numberOfLines = 0
+        button.addTarget(self, action: #selector(addOrModProject), for: .touchUpInside)
+        
+        addProjectContainer.addArrangedSubview(button)
+        
+    }
     
-    func addPeoplePicker() {
-        let peoplePicker = PeoplePicker()
-        peoplePicker.label = "New Project Name:"
-        peoplePicker.availablePersonas = samplePersonas
-//        peoplePicker.pickedPersonas = variant.pickedPersonas
-//        peoplePicker.showsSearchDirectoryButton = variant.showsSearchDirectoryButton
-        peoplePicker.numberOfLines = 1 //variant.numberOfLines
-        peoplePicker.allowsPickedPersonasToAppearAsSuggested = true//variant.allowsPickedPersonasToAppearAsSuggested
-        peoplePicker.showsSearchDirectoryButton = false//variant.showsSearchDirectoryButton
-        peoplePicker.delegate = self
-        peoplePickers.append(peoplePicker)
-        peoplePicker.becomeFirstResponder()
-        addProjectContainer.addArrangedSubview(peoplePicker)
+    @objc func addOrModProject() {
+        if currentProjectInTexField != "" {
+            
+            
+            button.isEnabled = true
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                
+            }
+            
+            HUD.shared.showSuccess(from: self, with: "New Project\n\(currentProjectInTexField)")
+            
+            //---
+        } else {
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                
+            }
+            
+            HUD.shared.showFailure(from: self, with: "No New Project")
+            
+            
+        }
         
         
         
         
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // your code here
+            
+            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+            let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as! AddTaskViewController
+            newViewController.modalPresentationStyle = .fullScreen
+            //        self.present(newViewController, animated: true, completion: nil)
+            self.present(newViewController, animated: true, completion: { () in
+                print("SUCCESS !!!")
+                //                HUD.shared.showSuccess(from: self, with: "Success")
+                
+            })
+            
+            
+        }
+        
+        
+    }
+    
+    @discardableResult
+    func addDescription(text: String, textAlignment: NSTextAlignment = .natural) -> Label {
+        let description = Label(style: .subhead, colorStyle: .regular)
+        description.numberOfLines = 0
+        description.text = text
+        description.textAlignment = textAlignment
+        addProjectContainer.addArrangedSubview(description)
+        return description
+    }
+    
+    @discardableResult
+    func addLabel(text: String, style: TextStyle, colorStyle: TextColorStyle) -> Label {
+        let label = Label(style: style, colorStyle: colorStyle)
+        label.text = text
+        label.numberOfLines = 0
+        if colorStyle == .white {
+            label.backgroundColor = .black
+        }
+        addProjectContainer.addArrangedSubview(label)
+        return label
     }
     
     func showMessage(_ message: String, autoDismiss: Bool = true, completion: (() -> Void)? = nil) {
         let alert = UIAlertController(title: message, message: nil, preferredStyle: .alert)
         present(alert, animated: true)
-
+        
         if autoDismiss {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                 self.dismiss(animated: true)
@@ -85,42 +200,67 @@ class NewProjectViewController: UIViewController {
             alert.addAction(okAction)
             alert.addAction(cancelAction)
         }
-
+        
     }
     
-    let samplePersonas: [PersonaData] = [
-        PersonaData(name: "Kat Larrson", email: "kat.larrson@contoso.com", subtitle: "Designer", avatarImage: UIImage(named: "avatar_kat_larsson")),
-        PersonaData(name: "Kristin Patterson", email: "kristin.patterson@contoso.com", subtitle: "Software Engineer"),
-        PersonaData(name: "Ashley McCarthy", avatarImage: UIImage(named: "avatar_ashley_mccarthy")),
-        PersonaData(name: "Carole Poland", email: "carole.poland@contoso.com", subtitle: "Software Engineer"),
-        PersonaData(name: "Allan Munger", email: "allan.munger@contoso.com", subtitle: "Designer", avatarImage: UIImage(named: "avatar_allan_munger")),
-        PersonaData(name: "Amanda Brady", subtitle: "Program Manager", avatarImage: UIImage(named: "avatar_amanda_brady")),
-        PersonaData(name: "Kevin Sturgis", email: "kevin.sturgis@contoso.com", subtitle: "Software Engineeer"),
-        PersonaData(name: "Lydia Bauer", email: "lydia.bauer@contoso.com", avatarImage: UIImage(named: "avatar_lydia_bauer")),
-        PersonaData(name: "Robin Counts", subtitle: "Program Manager", avatarImage: UIImage(named: "avatar_robin_counts")),
-        PersonaData(name: "Tim Deboer", email: "tim.deboer@contoso.com", subtitle: "Designer", avatarImage: UIImage(named: "avatar_tim_deboer")),
-        PersonaData(email: "wanda.howard@contoso.com", subtitle: "Director"),
-        PersonaData(name: "Daisy Phillips", email: "daisy.phillips@contoso.com", subtitle: "Software Engineer", avatarImage: UIImage(named: "avatar_daisy_phillips")),
-        PersonaData(name: "Katri Ahokas", subtitle: "Program Manager", avatarImage: UIImage(named: "avatar_katri_ahokas")),
-        PersonaData(name: "Colin Ballinger", email: "colin.ballinger@contoso.com", subtitle: "Software Engineer", avatarImage: UIImage(named: "avatar_colin_ballinger")),
-        PersonaData(name: "Mona Kane", email: "mona.kane@contoso.com", subtitle: "Designer"),
-        PersonaData(name: "Elvia Atkins", email: "elvia.atkins@contoso.com", subtitle: "Software Engineer", avatarImage: UIImage(named: "avatar_elvia_atkins")),
-        PersonaData(name: "Johnie McConnell", subtitle: "Designer", avatarImage: UIImage(named: "avatar_johnie_mcconnell")),
-        PersonaData(name: "Charlotte Waltsson", email: "charlotte.waltsson@contoso.com", subtitle: "Software Engineer"),
-        PersonaData(name: "Mauricio August", email: "mauricio.august@contoso.com", subtitle: "Program Manager", avatarImage: UIImage(named: "avatar_mauricio_august")),
-        PersonaData(name: "Robert Tolbert", email: "robert.tolbert@contoso.com", subtitle: "Software Engineer", avatarImage: UIImage(named: "avatar_robert_tolbert")),
-        PersonaData(name: "Isaac Fielder", subtitle: "Designer", avatarImage: UIImage(named: "avatar_isaac_fielder")),
-        PersonaData(name: "Elliot Woodward", subtitle: "Designer"),
-        PersonaData(email: "carlos.slattery@contoso.com", subtitle: "Software Engineer"),
-        PersonaData(name: "Henry Brill", subtitle: "Software Engineer", avatarImage: UIImage(named: "avatar_henry_brill")),
-        PersonaData(name: "Cecil Folk", subtitle: "Program Manager", avatarImage: UIImage(named: "avatar_cecil_folk"))
-    ]
+    // MARK: MAKE project name text field
+    func addProjectNameTexField() {
+        
+        let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
+        projectNameTextField = MDCOutlinedTextField(frame: estimatedFrame)
+        projectNameTextField.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
+        projectNameTextField.label.text = "project name"
+        projectNameTextField.leadingAssistiveLabel.text = "Always add actionable items"
+        projectNameTextField.font = UIFont(name: "HelveticaNeue", size: 18)
+        projectNameTextField.delegate = self
+        projectNameTextField.clearButtonMode = .whileEditing
+        let placeholderTextArray = ["New York Trip",
+                                    "Finances",
+                                    "To Watch",
+                                    "Reading List",
+                                    "Writing"]
+        projectNameTextField.placeholder = placeholderTextArray.randomElement()!
+        projectNameTextField.sizeToFit()
+        
+        projectNameTextField.tag = 0
+        
+        projectNameTextField.backgroundColor = .clear
+        
+        
+        addProjectContainer.addArrangedSubview(projectNameTextField)
+        
+        
+    }
     
-    let searchDirectoryPersonas: [PersonaData] = [
-        PersonaData(name: "Celeste Burton", email: "celeste.burton@contoso.com", subtitle: "Program Manager", avatarImage: UIImage(named: "avatar_celeste_burton")),
-        PersonaData(name: "Erik Nason", email: "erik.nason@contoso.com", subtitle: "Designer"),
-        PersonaData(name: "Miguel Garcia", email: "miguel.garcia@contoso.com", subtitle: "Software Engineer", avatarImage: UIImage(named: "avatar_miguel_garcia"))
-    ]
+    // MARK: MAKE project description ext field
+    func addProjectDesccriptionTexField() {
+        
+        let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
+        projecDescriptionTextField = MDCOutlinedTextField(frame: estimatedFrame)
+        projecDescriptionTextField.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
+        projecDescriptionTextField.label.text = "add description"
+        projecDescriptionTextField.leadingAssistiveLabel.text = "Always add actionable items"
+        projecDescriptionTextField.font = UIFont(name: "HelveticaNeue", size: 18)
+        projecDescriptionTextField.delegate = self
+        projecDescriptionTextField.clearButtonMode = .whileEditing
+        //          let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
+        //                                      "schedule 1:1 with Shelly","grab 401k from mail box",
+        //                                      "get car serviced", "wrap Eve's birthaday gift ", "renew Gym membership",
+        //                                      "book flight tickets to Thailand", "fix the garage door",
+        //                                      "order Cake", "review subscriptions", "get coffee"]
+        //          projecDescriptionTextField.placeholder = placeholderTextArray.randomElement()!
+        projecDescriptionTextField.sizeToFit()
+        
+        projecDescriptionTextField.tag = 1
+        
+        projecDescriptionTextField.backgroundColor = .clear
+        
+        
+        addProjectContainer.addArrangedSubview(projecDescriptionTextField)
+        
+        
+    }
+    
     
     
     class func createVerticalContainer() -> UIStackView {
@@ -133,51 +273,7 @@ class NewProjectViewController: UIViewController {
     }
     
     
-
+    
+    
+    
 }
-
-// MARK: - NewProjectViewController: PeoplePickerDelegate
-
-extension NewProjectViewController: PeoplePickerDelegate {
-    func peoplePicker(_ peoplePicker: PeoplePicker, personaFromText text: String) -> Persona {
-        return samplePersonas.first { return $0.name.lowercased() == text.lowercased() } ?? PersonaData(name: text)
-    }
-
-    func peoplePicker(_ peoplePicker: PeoplePicker, personaIsValid persona: Persona) -> Bool {
-        let availablePersonas = samplePersonas + searchDirectoryPersonas
-//        return availablePersonas.contains { $0.name == persona.name }
-//        if (availablePersonas.contains(persona.name)) {
-        if (availablePersonas.contains { $0.name == persona.name }) {
-            showMessage("\(persona.name) already exists !")
-//            project = (persona.name)
-        } else {
-            showMessage("Added new project \(persona.name) ")
-//            add & set project
-            
-            return true
-        }
-        return true
-    }
-
-    func peoplePicker(_ peoplePicker: PeoplePicker, didPickPersona persona: Persona) {
-        if peoplePicker == peoplePickers.last {
-            showMessage("\(persona.name) was picked")
-        }
-    }
-
-    func peoplePicker(_ peoplePicker: PeoplePicker, didTapSelectedPersona persona: Persona) {
-        peoplePicker.badge(for: persona)?.isSelected = false
-        showMessage("\(persona.name) was tapped")
-    }
-
-    func peoplePicker(_ peoplePicker: PeoplePicker, searchDirectoryWithCompletion completion: @escaping ([Persona], Bool) -> Void) {
-        // Delay added for 2 seconds to demo activity indicator
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            let text = peoplePicker.textFieldContent.lowercased()
-            let personas = self.searchDirectoryPersonas.filter { $0.name.lowercased().contains(text) }
-            completion(personas, true)
-        }
-    }
-}
-
-

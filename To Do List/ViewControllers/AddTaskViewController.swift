@@ -90,6 +90,9 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     var filledBar: UIView?
     
 
+    func setProjecForView(name: String) {
+//        currenttProjectForAddTaskView = name
+    }
     
 //    func changeProject() --> {
 //        v
@@ -114,6 +117,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
         
         return true
     }
+    
+//    func 
 
     override func viewDidLoad() {
         super.viewDidLoad()
