@@ -35,6 +35,7 @@ class TaskManager {
             return tasks
         }
     }
+    
     //    var getMorningTasks: [NTask] {
     //        get {
     //            var morningTasks = [NTask]()
@@ -331,6 +332,29 @@ class TaskManager {
         }
     }
     
+    func fixMissingTasksDataWithDefaults() {
+        fetchTasks()
+        ProjectManager.sharedInstance.fetchProjects()
+        
+        //FIX inbox as a defaukt added project in projects
+        
+        
+        //FIX default project to 'inbox'
+            for each in tasks {
+        //                if each.project!.isEmpty || each.project == "" || each.project == nil {
+                        if each.project?.isEmpty ?? true {
+                            
+                            print("**** FORCE PROJECT **** \(each.name) --- to --- inbox")
+                            
+                            each.project = "inbox"
+                            saveContext() 
+                            
+                        } else {
+                            print("**** PROJECT is \(each.project! as String)")
+                        }
+                    }
+    }
+    
     func fetchTasks() {
         
         let fetchRequest =
@@ -339,6 +363,9 @@ class TaskManager {
         do {
             let results = try context.fetch(fetchRequest)
             tasks = results as! [NTask]
+            
+        
+            
         } catch let error as NSError {
             print("TaskManager could not fetch tasks ! \(error), \(error.userInfo)")
             

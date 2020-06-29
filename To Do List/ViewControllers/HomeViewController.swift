@@ -22,7 +22,7 @@ import MaterialComponents.MaterialButtons_Theming
 import MaterialComponents.MaterialRipple
 
 
-class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate, PillButtonBarDelegate {
+class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate {
     
     func didSelectBadge(_ badge: BadgeView) {
         
@@ -47,8 +47,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     var filterProjectsPillBar: UIView?
     var bar = PillButtonBar(pillButtonStyle: .filled)
+    var currenttProjectForAddTaskView = "inbox"
     
-    var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Inbox")]
+    var pillBarProjectList: [PillButtonBarItem] = []
     
     static let margin: CGFloat = 16
       static let horizontalSpacing: CGFloat = 40
@@ -307,6 +308,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         //        print("POST DELETE Project count: \(ProjectManager.sharedInstance.count)")
         
+//        fixMissingDataWithDefaults
+        TaskManager.sharedInstance.fixMissingTasksDataWithDefaults()
+        ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
+        
         print("---------- DONE VIEW LOAD ------------")
         
         
@@ -339,6 +344,29 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         self.calendar.today = Date.today() // 2 on date change a 12 AM
         
         
+    }
+    
+    func createButton(title: String, action: Selector) -> Button {
+        let button = Button()
+        button.titleLabel?.textAlignment = .center
+        button.titleLabel?.numberOfLines = 0
+        button.setTitle(title, for: .normal)
+        button.addTarget(self, action: action, for: .touchUpInside)
+        return button
+    }
+
+    func fitViewIntoSuperview(_ view: UIView, margins: UIEdgeInsets) {
+        guard let superview = view.superview else {
+            return
+        }
+        
+        view.translatesAutoresizingMaskIntoConstraints = false
+        let constraints = [view.leadingAnchor.constraint(equalTo: superview.leadingAnchor, constant: margins.left),
+                           view.trailingAnchor.constraint(equalTo: superview.trailingAnchor, constant: -margins.right),
+                           view.topAnchor.constraint(equalTo: superview.topAnchor, constant: margins.top),
+                           view.bottomAnchor.constraint(equalTo: superview.bottomAnchor, constant: -margins.bottom)]
+        
+        NSLayoutConstraint.activate(constraints)
     }
     
     func updateViewForDate(date: Date) {

@@ -25,6 +25,8 @@ class ProjectManager {
             return projects.count
         }
     }
+    var defaultProject = "Inbox"
+    var defaultProjectDescription = "Catch all project for all tasks no attached to a project"
     
     func projectAtIndex(index: Int) -> Projects {
         return projects[index]
@@ -33,10 +35,9 @@ class ProjectManager {
     var getAllProjects: [Projects] {
         get {
             fetchProjects()
-            //            getProjects()
-            for eaxh in projects {
-                print("ProjectManager: Found Project: \(String(describing: eaxh.projectName))")
-            }
+            //            for eaxh in projects {
+            //                print("ProjectManager: Found Project: \(String(describing: eaxh.projectName))")
+            //            }
             return projects
         }
     }
@@ -56,6 +57,49 @@ class ProjectManager {
         saveContext()
     }
     
+    func fixMissingProjecsDataWithDefaults() {
+        fetchProjects()
+        
+        
+        //FIX inbox as a defaukt added project in projects
+        
+        
+        //FIX default project to 'inbox'
+        var isThereInbox = false
+        for each in projects {
+            
+            if each.projectName?.lowercased() == defaultProject.lowercased() {
+                print("FOUND INBOX !")
+                isThereInbox = true
+            }
+        }
+        
+        if isThereInbox {
+            print("YES THERE IS INBOX !!")
+        } else {
+            print("No inbox ! Intilizing projeccts with default project 'inbox'")
+            
+            let proj = NSEntityDescription.insertNewObject( forEntityName: "Projects", into: context) as! Projects
+
+                proj.projectName = defaultProject
+                proj.projecDescription = defaultProjectDescription
+                  
+            projects.insert(proj, at: 0)
+            saveContext()
+            // SAVE context !!
+        }
+        
+        for each in projects {
+                
+                if each.projectName?.lowercased() == defaultProject.lowercased() {
+                    print("FOUND INBOX ! 2nd time round !")
+                    isThereInbox = true
+                }
+            }
+        
+        
+    }
+    
     func deleteAllProjects() {
         
         fetchProjects()
@@ -64,12 +108,12 @@ class ProjectManager {
         print("mCount is: \(mCount)")
         
         var ticker = 0
-    
+        
         while mCount>ticker {
-                        
+            
             context.delete(projectAtIndex(index: ticker))
             projects.remove(at: ticker)
-                        
+            
             ticker = ticker+1
             print("Deleted at : \(ticker)")
             saveContext()
@@ -120,20 +164,20 @@ class ProjectManager {
         return true
     }
     
-//    func getAllProjeects(with name: String, and description: String) {
-//
-//        let proj = NSEntityDescription.insertNewObject( forEntityName: "Projects", into: context) as! Projects
-//
-//
-//        proj.projectName = name
-//        proj.projecDescription = description
-//
-//
-//        projects.append(proj)
-//        saveContext()
-//
-//        print("addNewProject task count now is: \(getAllProjects.count)")
-//    }
+    //    func getAllProjeects(with name: String, and description: String) {
+    //
+    //        let proj = NSEntityDescription.insertNewObject( forEntityName: "Projects", into: context) as! Projects
+    //
+    //
+    //        proj.projectName = name
+    //        proj.projecDescription = description
+    //
+    //
+    //        projects.append(proj)
+    //        saveContext()
+    //
+    //        print("addNewProject task count now is: \(getAllProjects.count)")
+    //    }
     
     
     

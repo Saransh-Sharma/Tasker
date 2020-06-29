@@ -15,231 +15,15 @@ import BEMCheckBox
 extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
     
     
-    @objc private func changeContentHeightButtonTapped(sender: UIButton) {
-        if let spacer = (sender.superview as? UIStackView)?.arrangedSubviews.last,
-            let heightConstraint = spacer.constraints.first {
-            heightConstraint.constant = heightConstraint.constant == 20 ? 100 : 20
-        }
-    }
-    
-    //            if let spacer = (projectButton.superview as? UIStackView)?.arrangedSubviews.last,
-    //                                  let heightConstraint = spacer.constraints.first {
-    //                                  heightConstraint.constant = heightConstraint.constant == 20 ? 100 : 20
-    //                              }
-    
-        @objc private func changeProjectFromFilter(sender: UIButton) {
-                     if let spacer = (sender.superview as? UIStackView)?.arrangedSubviews.last,
-                         let heightConstraint = spacer.constraints.first {
-                         heightConstraint.constant = heightConstraint.constant == 20 ? 100 : 20
-                     }
-
-        }
-    
-    @objc private func changeDateFromFilter(sender: UIButton) {
-        //         if let spacer = (sender.superview as? UIStackView)?.arrangedSubviews.last,
-        //             let heightConstraint = spacer.constraints.first {
-        //             heightConstraint.constant = heightConstraint.constant == 20 ? 100 : 20
-        //         }
-        let today = Date.today()
-        let tomorrow = Date.tomorrow()
-        //        let upcoming = Date.today()
-//        updateHomeDate(date: today)
-        
-        switch sender.titleLabel?.text?.lowercased() {
-        case "today":
-            
-            dateForTheView = today
-            updateHomeDate(date: today)
-            
-            tableView.reloadData()
-        case "tomorrow":
-            dateForTheView = tomorrow
-            updateHomeDate(date: tomorrow)
-            tableView.reloadData()
-        case "upcoming":
-            //
-            print("Build upcoming filter")
-        default:
-            updateHomeDate(date: today)
-        }
-        
-        dismiss(animated: true)
-    }
-    
-    @objc private func expandButtonTapped(sender: UIButton) {
-        guard let drawer = presentedViewController as? DrawerController else {
-            return
-        }
-        drawer.isExpanded = !drawer.isExpanded
-        sender.setTitle(drawer.isExpanded ? "Return to normal" : "Expand", for: .normal)
-    }
-    
-    @objc private func dismissButtonTapped() {
-        dismiss(animated: true)
-    }
-    
-    @objc private func dismissNotAnimatedButtonTapped() {
-        dismiss(animated: false)
-    }
-    
-    func createButton(title: String, action: Selector) -> Button {
-        let button = Button()
-        button.titleLabel?.textAlignment = .center
-        button.titleLabel?.numberOfLines = 0
-        button.setTitle(title, for: .normal)
-        button.addTarget(self, action: action, for: .touchUpInside)
-        return button
-    }
-    
-
-     
-     func fitViewIntoSuperview(_ view: UIView, margins: UIEdgeInsets) {
-         guard let superview = view.superview else {
-             return
-         }
-         
-         view.translatesAutoresizingMaskIntoConstraints = false
-         let constraints = [view.leadingAnchor.constraint(equalTo: superview.leadingAnchor, constant: margins.left),
-                            view.trailingAnchor.constraint(equalTo: superview.trailingAnchor, constant: -margins.right),
-                            view.topAnchor.constraint(equalTo: superview.topAnchor, constant: margins.top),
-                            view.bottomAnchor.constraint(equalTo: superview.bottomAnchor, constant: -margins.bottom)]
-         
-         NSLayoutConstraint.activate(constraints)
-     }
-    
-        //----------------------- *************************** -----------------------
-        //MARK:-                    Setup Projects Pill Bar
-        //----------------------- *************************** -----------------------
-        
-//        func setupProjectsPillBarAtHome() {
-//
-//            buildProojectsPillBarData()
-//
-//    //        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
-//             filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
-//            filledBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
-//    //        self.filledBar = filledBar
-//            foredropStackContainer.addArrangedSubview(filledBar!)
-//            filledBar!.backgroundColor = .clear
-//        }
-
-        func buildProojectsPillBarData() {
-
-            let allProjects = ProjectManager.sharedInstance.getAllProjects
-
-            for each in allProjects {
-    //            print("added to pill bar, prject: \(String(describing: each.projectName! as String))")
-                pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
-            }
-        }
-    
-    
-    private func actionViews(drawerHasFlexibleHeight: Bool) -> [UIView] {
-        let spacer = UIView()
-        spacer.backgroundColor = .orange
-        spacer.layer.borderWidth = 1
-        spacer.heightAnchor.constraint(greaterThanOrEqualToConstant: 20).isActive = true
-        
-        var views = [UIView]()
-        if drawerHasFlexibleHeight {
-
-            views.append(addLabel(text: "Days", style: .headline, colorStyle: .regular))
-            
-            views.append(createButton(title: "Today", action: #selector(changeDateFromFilter)))
-            views.append(createButton(title: "Tomorrow", action: #selector(changeDateFromFilter)))
-            views.append(createButton(title: "Upcoming", action: #selector(changeDateFromFilter)))
-            
-       
-            
-            //addProjectContainer.addArrangedSubview(Separator())
-            
-            views.append(Separator())
-            
-//            let mProjects = ProjectManager.sharedInstance.getAllProjects
-   
-            views.append(addLabel(text: "Projects", style: .headline, colorStyle: .regular))
-            buildProojectsPillBarData()
-            filterProjectsPillBar = createProjectsBar(items: pillBarProjectList, style: .filled)
-                    filterProjectsPillBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
-            _ = bar.selectItem(atIndex: 0)
-            views.append(filterProjectsPillBar!)
-            views.append(Separator())
-   
-        }
-        return views
-    }
-    
-    @discardableResult
-    func addLabel(text: String, style: TextStyle, colorStyle: TextColorStyle) -> Label {
-        let label = Label(style: style, colorStyle: colorStyle)
-        label.text = text
-        label.numberOfLines = 0
-        if colorStyle == .white {
-            label.backgroundColor = .black
-        }
-        //        addProjectContainer.addArrangedSubview(label)
-        return label
-    }
-    
-    
-    private func containerForActionViews(drawerHasFlexibleHeight: Bool = true) -> UIView {
-        let container = HomeViewController.createVerticalContainer()
-        for view in actionViews(drawerHasFlexibleHeight: drawerHasFlexibleHeight) {
-            container.addArrangedSubview(view)
-        }
-        return container
-    }
-    
-    @discardableResult
-    private func presentDrawer(sourceView: UIView? = nil, barButtonItem: UIBarButtonItem? = nil, presentationOrigin: CGFloat = -1, presentationDirection: DrawerPresentationDirection, presentationStyle: DrawerPresentationStyle = .automatic, presentationOffset: CGFloat = 0, presentationBackground: DrawerPresentationBackground = .black, presentingGesture: UIPanGestureRecognizer? = nil, permittedArrowDirections: UIPopoverArrowDirection = [.left, .right], contentController: UIViewController? = nil, contentView: UIView? = nil, resizingBehavior: DrawerResizingBehavior = .none, adjustHeightForKeyboard: Bool = false, animated: Bool = true, customWidth: Bool = false) -> DrawerController {
-        let controller: DrawerController
-        if let sourceView = sourceView {
-            controller = DrawerController(sourceView: sourceView, sourceRect: sourceView.bounds.insetBy(dx: sourceView.bounds.width / 2, dy: 0), presentationOrigin: presentationOrigin, presentationDirection: presentationDirection)
-        } else if let barButtonItem = barButtonItem {
-            controller = DrawerController(barButtonItem: barButtonItem, presentationOrigin: presentationOrigin, presentationDirection: presentationDirection)
-        } else {
-            preconditionFailure("Presenting a drawer requires either a sourceView or a barButtonItem")
-        }
-        
-        controller.presentationStyle = presentationStyle
-        controller.presentationOffset = presentationOffset
-        controller.presentationBackground = presentationBackground
-        controller.presentingGesture = presentingGesture
-        controller.permittedArrowDirections = permittedArrowDirections
-        controller.resizingBehavior = resizingBehavior
-        controller.adjustsHeightForKeyboard = adjustHeightForKeyboard
-        controller.backgroundColor = .systemGray6
-        
-        if let contentView = contentView {
-            // `preferredContentSize` can be used to specify the preferred size of a drawer,
-            // but here we just define the width and allow it to calculate height automatically
-            controller.preferredContentSize.width = 360
-            controller.contentView = contentView
-            if customWidth {
-                //                controller.shouldUseWindowFullWidthInLandscape = false
-                //                controller.landsc
-            }
-        } else {
-            controller.contentController = contentController
-        }
-        
-        present(controller, animated: animated)
-        
-        return controller
-    }
-    
-    //    @objc private func showTopDrawerButtonTapped(sender: UIButton) {
-    //        presentDrawer(sourceView: sender, presentationDirection: .down, contentView: containerForActionViews(), resizingBehavior: .dismissOrExpand)
-    //    }
     
     @objc private func showTopDrawerButtonTapped(sender: UIButton) {
         let rect = sender.superview!.convert(sender.frame, to: nil)
-//        let rect2 = lineSeparator.frame
+        //        let rect2 = lineSeparator.frame
         //         presentDrawer(sourceView: sender, presentationOrigin: rect.maxY, presentationDirection: .down, contentView: containerForActionViews(), customWidth: true)
         
         presentDrawer(sourceView: sender, presentationOrigin: rect.maxY+8, presentationDirection: .down, contentView: containerForActionViews(), customWidth: true)
     }
-    
+
     
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         let headerView = UIView()
@@ -344,33 +128,6 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
             return nil
         }
     }
-    
-    //    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-    //        return 44
-    //
-    ////        switch <#value#> {
-    ////        case <#pattern#>:
-    ////            <#code#>
-    ////        default:
-    ////            <#code#>
-    ////        }
-    //
-    ////        switch indexPath.section {
-    ////               case 0:
-    ////                   print("morning height: \(indexPath.row)")
-    ////
-    ////                  return 40
-    ////
-    ////
-    ////               case 1:
-    ////                   print("evening height: \(indexPath.row)")
-    ////
-    ////                return 44
-    ////
-    ////               default:
-    ////                return 20
-    ////               }
-    //    }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         
@@ -790,5 +547,8 @@ extension HomeViewController: UITableViewDataSource, UITableViewDelegate {
         semiViewDefaultOptions(viewToBePrsented: serveSemiViewBlue(task: currentTask))
         
     }
+    
+    
+
     
 }
