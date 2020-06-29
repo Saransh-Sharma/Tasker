@@ -21,6 +21,7 @@ class TaskManager {
     private var upcomingTasks = [NTask]()
     private var inboxTasks = [NTask]()
     
+    
     let context: NSManagedObjectContext!
     var count: Int {
         get {
@@ -84,6 +85,21 @@ class TaskManager {
             return inboxTasks
         }
     }
+    
+    func getTasksForProjectByName(projectName: String) -> [NTask] {
+        
+        var tasks = [NTask]()
+        fetchTasks()
+        
+        for each in tasks {
+            let currentProjectName = each.project?.lowercased()
+            if currentProjectName!.contains("\(projectName)") {
+                tasks.append(each)
+            }
+        }
+        return tasks
+    }
+    
     
     func getMorningTasksForDate(date: Date) -> [NTask] {
         

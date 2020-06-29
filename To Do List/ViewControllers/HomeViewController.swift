@@ -25,15 +25,15 @@ import MaterialComponents.MaterialRipple
 class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate {
     
     func didSelectBadge(_ badge: BadgeView) {
-    
+        
     }
     
     func didTapSelectedBadge(_ badge: BadgeView) {
-          badge.isSelected = false
-              let alert = UIAlertController(title: "A selected badge was tapped", message: nil, preferredStyle: .alert)
-              let action = UIAlertAction(title: "OK", style: .default)
-              alert.addAction(action)
-              present(alert, animated: true)
+        badge.isSelected = false
+        let alert = UIAlertController(title: "A selected badge was tapped", message: nil, preferredStyle: .alert)
+        let action = UIAlertAction(title: "OK", style: .default)
+        alert.addAction(action)
+        present(alert, animated: true)
     }
     
     var shouldAnimateCells = true
@@ -239,6 +239,36 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         notificationCenter.addObserver(self, selector: #selector(appMovedToBackground), name:UIApplication.didEnterBackgroundNotification, object: nil)
         
         //          notificationCenter.addObserver(self, selector: #selector(appTerminated), name:UIApplication.willTerminateNotification, object: nil)
+        
+        ProjectManager.sharedInstance.fetchProjects()
+        
+        print("Project count is: \(ProjectManager.sharedInstance.count)")
+        
+        
+        //        ProjectManager.sharedInstance.deleteAllProjects()
+        
+        //        ProjectManager.sharedInstance.fetchProjects()
+        
+        //        ProjectManager.sharedInstance.addNewProject(with: "blue51", and: "blah blah blah 72ff93")
+        
+        ProjectManager.sharedInstance.fetchProjects()
+        
+        //        ProjectManager.sharedInstance.removeProjectAtIndex(index: ProjectManager.sharedInstance.count-1)
+        let mProjects = ProjectManager.sharedInstance.getAllProjects
+        
+        print("----------")
+        for each in mProjects {
+            
+            print("project is: \(each.projectName! as String)")
+            
+        }
+        print("----------")
+        
+        
+        //        print("POST DELETE Project count: \(ProjectManager.sharedInstance.count)")
+        
+        print("---------- DONE VIEW LOAD ------------")
+        
         
     }
     @objc
@@ -762,7 +792,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         print("nav buttoon tapped")
     }
     
-
+    
     //----------------------- *************************** -----------------------
     //MARK:-                        ACTION: ADD TASK
     //----------------------- *************************** -----------------------
@@ -818,7 +848,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         self.homeDate_Month.text = todoTimeUtils.getMonth(date: date)
         
     }
-
+    
     
     
     
@@ -924,45 +954,45 @@ class openTask: UITableViewCell {
     
     var todoFont = ToDoFont()
     
-//    override init(frame: CGRect) {
-//        super.init(frame: frame)
-//        setup()
-//    }
+    //    override init(frame: CGRect) {
+    //        super.init(frame: frame)
+    //        setup()
+    //    }
     
-     // MARK: - Initialization
-     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-         super.init(style: style, reuseIdentifier: reuseIdentifier)
-     }
-     
-     required init?(coder: NSCoder) {
-         fatalError("init(coder:) has not been implemented")
-     }
-     
-     override func layoutSubviews() {
-         setupUI()
-     }
-     
-     // MARK: - Properties
-     lazy var titleLabel: UILabel = {
-         let label = UILabel()
-         label.font = UIFont(name: "HelveticaNeue", size: 20)
-         label.textColor = .systemBlue
-         label.translatesAutoresizingMaskIntoConstraints = false
-         return label
-     }()
-     
+    // MARK: - Initialization
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func layoutSubviews() {
+        setupUI()
+    }
+    
+    // MARK: - Properties
+    lazy var titleLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont(name: "HelveticaNeue", size: 20)
+        label.textColor = .systemBlue
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
     
     
     
     
     func setupUI() {
         self.backgroundColor = .blue
-
+        
         self.addSubview(addProjectImageView)
         self.addSubview(addProjectLabel)
-
+        
         addProjectImageView.anchor(top: topAnchor, left: leftAnchor, bottom: nil, right: rightAnchor, paddingTop: 0, paddingLeft: 5, paddingBottom: 5, paddingRight: 5, width: 0, height: 30)
-
+        
         addProjectLabel.anchor(top: nil, left: leftAnchor, bottom: bottomAnchor, right: rightAnchor, paddingTop: 5, paddingLeft: 5, paddingBottom: 0, paddingRight: 5, width: 0, height: 20)
     }
     
@@ -983,7 +1013,7 @@ class openTask: UITableViewCell {
         return label
     }()
     
-   
+    
 }
 
 //// MARK: - UI Setup

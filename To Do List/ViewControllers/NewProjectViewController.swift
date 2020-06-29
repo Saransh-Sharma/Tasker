@@ -45,13 +45,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         addProjectContainer.addArrangedSubview(UIView())
         
         addLabel(text: "Add new project", style: .title1, colorStyle: .regular)
-        
-        //        addProjectContainer.addArrangedSubview(addDescription(text: "Add project here: "))
         addDescription(text: "Add new project & set it's description")
-        //        addProjectContainer.addArrangedSubview(UIView())
-        
-        //        addPeoplePicker()
-        //        addProjectContainer.addArrangedSubview(UIView())
         
         addProjectContainer.addArrangedSubview(Separator())
         addProjectContainer.addArrangedSubview(UIView())
@@ -125,7 +119,15 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
                 
             }
             
-            HUD.shared.showSuccess(from: self, with: "New Project\n\(currentProjectInTexField)")
+            let success = ProjectManager.sharedInstance.addNewProject(with: currentProjectInTexField, and: currentProjectInTexField)
+            
+            if (success) {
+                
+                HUD.shared.showSuccess(from: self, with: "New Project\n\(currentProjectInTexField)")
+            } else {
+                HUD.shared.showFailure(from: self, with: "\(currentProjectInTexField) already exists 1")
+            }
+            
             
             //---
         } else {

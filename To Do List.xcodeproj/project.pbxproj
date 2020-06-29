@@ -31,6 +31,9 @@
 		758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A803F2450BFA300BFB571 /* InboxViewController.swift */; };
 		758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A80632451E86E00BFB571 /* WeeklyViewController.swift */; };
 		758A806624546D2600BFB571 /* OLD_Task.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A806524546D2600BFB571 /* OLD_Task.swift */; };
+		758D4D7824A93FB300AB57A8 /* ProjectManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758D4D7724A93FB300AB57A8 /* ProjectManager.swift */; };
+		758D4D7A24A940BD00AB57A8 /* Projects+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758D4D7924A940BD00AB57A8 /* Projects+CoreDataProperties.swift */; };
+		758D4D7C24A940C300AB57A8 /* Projects+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758D4D7B24A940C300AB57A8 /* Projects+CoreDataClass.swift */; };
 		759D213F2458D09600A4D2DE /* AddTaskTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */; };
 		759D2141245A2CC400A4D2DE /* ToDoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759D2140245A2CC400A4D2DE /* ToDoManager.swift */; };
 		759F18F92468B70200293A32 /* NAddTaskScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759F18F82468B70200293A32 /* NAddTaskScreen.swift */; };
@@ -100,6 +103,9 @@
 		758A803F2450BFA300BFB571 /* InboxViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViewController.swift; sourceTree = "<group>"; };
 		758A80632451E86E00BFB571 /* WeeklyViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyViewController.swift; sourceTree = "<group>"; };
 		758A806524546D2600BFB571 /* OLD_Task.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OLD_Task.swift; sourceTree = "<group>"; };
+		758D4D7724A93FB300AB57A8 /* ProjectManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManager.swift; sourceTree = "<group>"; };
+		758D4D7924A940BD00AB57A8 /* Projects+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Projects+CoreDataProperties.swift"; path = "/Users/saransh1337/codeMonkey/Projects/To Do List/Projects+CoreDataProperties.swift"; sourceTree = "<absolute>"; };
+		758D4D7B24A940C300AB57A8 /* Projects+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Projects+CoreDataClass.swift"; path = "/Users/saransh1337/codeMonkey/Projects/To Do List/Projects+CoreDataClass.swift"; sourceTree = "<absolute>"; };
 		759D213E2458D09600A4D2DE /* AddTaskTableViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskTableViewController.swift; sourceTree = "<group>"; };
 		759D2140245A2CC400A4D2DE /* ToDoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoManager.swift; sourceTree = "<group>"; };
 		759F18F82468B70200293A32 /* NAddTaskScreen.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NAddTaskScreen.swift; sourceTree = "<group>"; };
@@ -173,6 +179,8 @@
 		753EFC912445A24500A739E3 = {
 			isa = PBXGroup;
 			children = (
+				758D4D7B24A940C300AB57A8 /* Projects+CoreDataClass.swift */,
+				758D4D7924A940BD00AB57A8 /* Projects+CoreDataProperties.swift */,
 				75F18109245CA7DF004D9A69 /* NTask+CoreDataClass.swift */,
 				75F1810A245CA7DF004D9A69 /* NTask+CoreDataProperties.swift */,
 				753EFC9C2445A24500A739E3 /* To Do List */,
@@ -308,6 +316,7 @@
 				755FE8DA247921E200A71A75 /* Charts */,
 				755FE8D52479154B00A71A75 /* Delegates */,
 				75F18107245CA229004D9A69 /* TaskManager.swift */,
+				758D4D7724A93FB300AB57A8 /* ProjectManager.swift */,
 				753EFCA12445A24500A739E3 /* HomeViewController.swift */,
 				7551DA0324882A78005CF826 /* AddTaskViewController.swift */,
 				7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */,
@@ -537,6 +546,8 @@
 				75F1810B245CA7DF004D9A69 /* NTask+CoreDataClass.swift in Sources */,
 				75F1810C245CA7DF004D9A69 /* NTask+CoreDataProperties.swift in Sources */,
 				75F18102245C99CD004D9A69 /* TaskModel.xcdatamodeld in Sources */,
+				758D4D7C24A940C300AB57A8 /* Projects+CoreDataClass.swift in Sources */,
+				758D4D7A24A940BD00AB57A8 /* Projects+CoreDataProperties.swift in Sources */,
 				75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */,
 				7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */,
 				758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */,
@@ -547,6 +558,7 @@
 				755FE8D72479159200A71A75 /* HomeCalendarExtention.swift in Sources */,
 				755FE8DC2479220700A71A75 /* LineChart.swift in Sources */,
 				75F18106245CA0BC004D9A69 /* Task.swift in Sources */,
+				758D4D7824A93FB300AB57A8 /* ProjectManager.swift in Sources */,
 				75F993742482487C00C340EB /* HomeBackdropView.swift in Sources */,
 				75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */,
 				753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */,

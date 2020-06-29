@@ -68,15 +68,29 @@ extension AddTaskViewController {
     //----------------------- *************************** -----------------------
     
     func setupProjectsPillBar() {
-        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
-        filledBar.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
-        self.filledBar = filledBar
-        foredropStackContainer.addArrangedSubview(filledBar)
-        filledBar.backgroundColor = .clear
+        
+        buildProojectsPillBarData()
+        
+//        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
+         filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
+        filledBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
+//        self.filledBar = filledBar
+        foredropStackContainer.addArrangedSubview(filledBar!)
+        filledBar!.backgroundColor = .clear
         
 //        filledBar.selected
 //        filledBar.addTarget(self, action: #selector(changeProject))
         
+    }
+    
+    func buildProojectsPillBarData() {
+        
+        let allProjects = ProjectManager.sharedInstance.getAllProjects
+        
+        for each in allProjects {
+//            print("added to pill bar, prject: \(String(describing: each.projectName! as String))")
+            pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
+        }
     }
     
 
