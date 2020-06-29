@@ -22,10 +22,46 @@ import MaterialComponents.MaterialButtons_Theming
 import MaterialComponents.MaterialRipple
 
 
-class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate {
+class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate, PillButtonBarDelegate {
     
     func didSelectBadge(_ badge: BadgeView) {
         
+    }
+    
+    func createProjectsBar(items: [PillButtonBarItem], style: PillButtonStyle = .outline, centerAligned: Bool = false) -> UIView {
+          bar = PillButtonBar(pillButtonStyle: style)
+         bar.items = items
+         _ = bar.selectItem(atIndex: 1)
+         bar.barDelegate = self
+         bar.centerAligned = centerAligned
+         
+         let backgroundView = UIView()
+         if style == .outline {
+             backgroundView.backgroundColor = .clear//Colors.Navigation.System.background
+         }
+         backgroundView.addSubview(bar)
+         let margins = UIEdgeInsets(top: 16.0, left: 0, bottom: 16.0, right: 0.0)
+         fitViewIntoSuperview(bar, margins: margins)
+         return backgroundView
+     }
+    
+    var filterProjectsPillBar: UIView?
+    var bar = PillButtonBar(pillButtonStyle: .filled)
+    
+    var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Inbox")]
+    
+    static let margin: CGFloat = 16
+      static let horizontalSpacing: CGFloat = 40
+      static let verticalSpacing: CGFloat = 16
+      static let rowTextWidth: CGFloat = 75
+    
+    class func createVerticalContainer() -> UIStackView {
+        let container = UIStackView(frame: .zero)
+        container.axis = .vertical
+        container.layoutMargins = UIEdgeInsets(top: margin, left: margin, bottom: margin, right: margin)
+        container.isLayoutMarginsRelativeArrangement = true
+        container.spacing = verticalSpacing
+        return container
     }
     
     func didTapSelectedBadge(_ badge: BadgeView) {
@@ -43,6 +79,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var foredropContainer = UIView()
     var bottomBarContainer = UIView()
     
+    let lineSeparator = UIView()
+    
     let notificationCenter = NotificationCenter.default
     
     //MARK:- Positioning
@@ -52,6 +90,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var todoTimeUtils = ToDoTimeUtils()
     
     
+    var filledBar: UIView?
+    var pillBarProjectList2: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project"),PillButtonBarItem(title: "Inbox")]
     
     
     //init notification badge counter
