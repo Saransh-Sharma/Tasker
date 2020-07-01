@@ -24,6 +24,37 @@ import MaterialComponents.MaterialRipple
 
 class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate {
     
+    let sections: [TableViewSampleData.Section] = TableViewCellSampleData.sections
+    
+    public var isGrouped: Bool = true {
+        didSet {
+            updateTableView()
+        }
+    }
+    
+    public var isInSelectionMode: Bool = true {
+         didSet {
+             tableView.allowsMultipleSelection = isInSelectionMode
+
+             for indexPath in tableView?.indexPathsForVisibleRows ?? [] {
+                 if !sections[indexPath.section].allowsMultipleSelection {
+                     continue
+                 }
+
+                 if let cell = tableView.cellForRow(at: indexPath) as? TableViewCell {
+                     cell.setIsInSelectionMode(isInSelectionMode, animated: true)
+                 }
+             }
+
+             tableView.indexPathsForSelectedRows?.forEach {
+                 tableView.deselectRow(at: $0, animated: false)
+             }
+
+//             updateNavigationTitle()
+             navigationItem.rightBarButtonItem?.title = isInSelectionMode ? "Done" : "Select"
+         }
+     }
+    
     func didSelectBadge(_ badge: BadgeView) {
         
     }
@@ -183,8 +214,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     // MARK: Outlets
     @IBOutlet weak var addTaskButton: UIButton!
-    @IBOutlet weak var tableView: UITableView!
+//    @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var switchState: UISwitch!
+    
+     public var tableView: UITableView!
     
     //MARK: Theming: text color
     var scoreInTinyPieChartColor:UIColor = UIColor.white
@@ -262,8 +295,23 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         setupBackdrop()
         
         
+        
+        tableView = UITableView(frame: view.bounds, style: .grouped)
+                    tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                    tableView.register(TableViewCell.self, forCellReuseIdentifier: TableViewCell.identifier)
+                    tableView.register(TableViewHeaderFooterView.self, forHeaderFooterViewReuseIdentifier: TableViewHeaderFooterView.identifier)
+                    tableView.dataSource = self
+                    tableView.delegate = self
+                    tableView.separatorStyle = .none
+                    tableView.sectionFooterHeight = 0
+                    updateTableView()
+        
+        
+        
         view.addSubview(foredropContainer)
         setupHomeFordrop()
+        
+      
         
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
@@ -637,12 +685,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         }
     }
     
-    // MARK: SECTIONS
-    func numberOfSections(in tableView: UITableView) -> Int {
-        
-        tableView.backgroundColor = UIColor.clear
-        return 2;
-    }
+//    // MARK: SECTIONS
+//    func numberOfSections(in tableView: UITableView) -> Int {
+//
+//        tableView.backgroundColor = UIColor.clear
+//        return 2;
+//    }
     
     
     

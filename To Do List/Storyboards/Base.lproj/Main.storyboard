@@ -38,10 +38,6 @@
                                         </tableViewCellContentView>
                                     </tableViewCell>
                                 </prototypes>
-                                <connections>
-                                    <outlet property="dataSource" destination="BYZ-38-t0r" id="7qA-Zn-Rb5"/>
-                                    <outlet property="delegate" destination="BYZ-38-t0r" id="D9t-hJ-uXI"/>
-                                </connections>
                             </tableView>
                         </subviews>
                         <color key="backgroundColor" systemColor="systemBackgroundColor" cocoaTouchSystemColor="whiteColor"/>
@@ -49,7 +45,6 @@
                     </view>
                     <connections>
                         <outlet property="switchState" destination="I6M-y2-kON" id="6fB-7E-Vyx"/>
-                        <outlet property="tableView" destination="ghW-4P-SJF" id="2gI-TK-Kcx"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>
