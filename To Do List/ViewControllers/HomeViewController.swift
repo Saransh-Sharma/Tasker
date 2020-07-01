@@ -26,7 +26,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     let sections: [TableViewSampleData.Section] = TableViewCellSampleData.sections
     
-    public var isGrouped: Bool = true {
+    public var isGrouped: Bool = false {
         didSet {
             updateTableView()
         }
@@ -95,6 +95,15 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         container.spacing = verticalSpacing
         return container
     }
+    
+    class func createTopHeaderVerticalContainer() -> UIStackView {
+         let container = UIStackView(frame: .zero)
+         container.axis = .vertical
+         container.layoutMargins = UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
+         container.isLayoutMarginsRelativeArrangement = true
+         container.spacing = verticalSpacing
+         return container
+     }
     
     func didTapSelectedBadge(_ badge: BadgeView) {
         badge.isSelected = false

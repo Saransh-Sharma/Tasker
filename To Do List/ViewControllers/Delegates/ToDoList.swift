@@ -164,28 +164,28 @@ extension HomeViewController {
     //        return headerView
     //    }
     //
-    //    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-    //        switch section {
-    //        case 0:
-    //            let now = Date.today
-    //            if (dateForTheView == now()) {
-    //                return "Today"
-    //            } else if (dateForTheView == Date.tomorrow()){
-    //                return "Tomorrow"
-    //            } else if (dateForTheView == Date.yesterday()) {
-    //                return "Yesterday"
-    //            }
-    //            else {
-    //                return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
-    //            }
-    //
-    //        //            return "Today's Tasks"
-    //        case 1:
-    //            return "Evening"
-    //        default:
-    //            return nil
-    //        }
-    //    }
+//        func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+//            switch section {
+//            case 0:
+//                let now = Date.today
+//                if (dateForTheView == now()) {
+//                    return "Today"
+//                } else if (dateForTheView == Date.tomorrow()){
+//                    return "Tomorrow"
+//                } else if (dateForTheView == Date.yesterday()) {
+//                    return "Yesterday"
+//                }
+//                else {
+//                    return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
+//                }
+//
+//            //            return "Today's Tasks"
+//            case 1:
+//                return "Evening"
+//            default:
+//                return "DEFAULT HOLA !!"
+//            }
+//        }
     //
     //    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
     //
@@ -623,11 +623,142 @@ extension HomeViewController: UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        if section == 0 {
+            return 0
+        } else {
         return TableViewCellSampleData.numberOfItemsInSection
+        }
+//        return TableViewCellSampleData.numberOfItemsInSection
+        
     }
     
+//        func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+//            switch section {
+//            case 0:
+//                let now = Date.today
+//                if (dateForTheView == now()) {
+//                    return "Today"
+//                } else if (dateForTheView == Date.tomorrow()){
+//                    return "Tomorrow"
+//                } else if (dateForTheView == Date.yesterday()) {
+//                    return "Yesterday"
+//                }
+//                else {
+//                    return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
+//                }
+//
+//            //            return "Today's Tasks"
+//            case 1:
+//                return "Evening"
+//            default:
+//                return "DEFAULT HOLA !!"
+//            }
+//        }
+    
     //build 5 types of cells here in 5 functions; tthis returns a UITableViewCell
-    //
+    
+    //open inbox
+    func buildOpenInboxCell(checkBox: BEMCheckBox) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
+        cell.setup(
+            title: "Open cell type for INBOX project (added today)",
+            subtitle: "",
+            footer: "",
+            customView: checkBox,
+            accessoryType: .none
+        )
+        cell.customViewSize = .small
+         cell.titleNumberOfLines = 0
+        cell.titleLeadingAccessoryView = .none
+        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        
+        return cell
+    }
+    //open inbox overdue
+    func buildOpenInboxCell_Overdue(checkBox: BEMCheckBox) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
+        cell.setup(
+            title: "Open cell type for INBOX Overdue !",
+            subtitle: "",
+            footer: "",
+            customView: checkBox,
+            customAccessoryView: TableViewCellSampleData.customAccessoryView,
+            accessoryType: .none
+        )
+        cell.customViewSize = .small
+        cell.titleNumberOfLines = 0
+
+        //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
+        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
+        
+        return cell
+    }
+    //open inbox overdue
+    func buildCompleteInbox(checkBox: BEMCheckBox) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
+       cell.setup(
+                            title: "Complete task Cell",
+                            subtitle: "",
+                            footer: "",
+                            //                    customView: TableViewSampleData.createCustomView(imageName: item.image),
+                            customView: checkBox,
+                            //                                            customAccessoryView: TableViewCellSampleData.customAccessoryView,
+                            accessoryType: .checkmark
+                        )
+                        checkBox.setOn(true, animated: true)
+                        cell.customViewSize = .small
+        cell.titleNumberOfLines = 0
+
+        //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
+//        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
+        
+        return cell
+    }
+        //open NON inbox
+        func buildNonInbox(checkBox: BEMCheckBox) -> UITableViewCell {
+            let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
+               cell.setup(
+                          title: "Open cell type for NON_INBOX project",
+                          subtitle: "Work",
+                          footer: "",
+                          customView: checkBox
+                          //                                           rcustomAccessoryView: TableViewCellSampleData.customAccessoryView,
+                          //                    accessoryType: TableViewCellSampleData.accessoryType(for: indexPath)
+                      )
+                      cell.customViewSize = .small
+                      cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+                      cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+            cell.titleNumberOfLines = 0
+
+            //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
+    //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
+            
+            return cell
+        }    //open inbox overdue
+            func buildNonInbox_Overdue(checkBox: BEMCheckBox) -> UITableViewCell {
+                let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
+        cell.setup(
+                                  title: "Open cell type for NONINBOX project Overdue !",
+                                  subtitle: "Work",
+                                  footer: "",
+                                  customView: checkBox,
+                                  //                                           rcustomAccessoryView: TableViewCellSampleData.customAccessoryView,
+                                  customAccessoryView: TableViewCellSampleData.customAccessoryView,
+                                  accessoryType: .none
+                              )
+                              
+                              cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+                              cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+                              cell.customViewSize = .small
+                cell.titleNumberOfLines = 0
+
+                //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
+        //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
+                
+                return cell
+            }
+    
+
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let section = sections[indexPath.section]
@@ -635,115 +766,38 @@ extension HomeViewController: UITableViewDataSource {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
         
         let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: cell.bounds.minX+5, y: cell.bounds.minY+10, width: 20, height: 25))
-                       checkBox.lineWidth = 1.0
-                       checkBox.animationDuration = 0.40
-                       checkBox.setOn(true, animated: false)
+        checkBox.lineWidth = 1.0
+        checkBox.animationDuration = 0.40
+        checkBox.setOn(true, animated: false)
         checkBox.boxType = .circle
-                       checkBox.onAnimationType = .oneStroke
-                       checkBox.offAnimationType = .oneStroke
-                       checkBox.onTintColor = todoColors.primaryColor
+        checkBox.onAnimationType = .oneStroke
+        checkBox.offAnimationType = .oneStroke
+        checkBox.onTintColor = todoColors.primaryColor
         checkBox.addTarget(self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
         
         //addTarget(self, action:  #selector(showTopDrawerButtonTapped), for: .touchUpInside)
         checkBox.setOn(false, animated: true)
-           //
-           //
-           //
-           //            completedTaskCell.addSubview(checkBox)
-        
-        if indexPath.section == 0 {
-            
-            
-            //            text1: "Contoso Survey",
-            //            image: "excelIcon",
-            //            text1LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) })
-            
-            cell.titleNumberOfLines = 0
+   
+        if indexPath.section == 1  {
             if indexPath.row == 0 {
-                cell.setup(
-                    title: "Open cell type for INBOX project (added today)",
-                    subtitle: "",
-                    footer: "",
-                    customView: checkBox,
-//                    customAccessoryView: false ? TableViewCellSampleData.customAccessoryView : nil,
-                    accessoryType: .none
-                    
-                    
-                )
-                
-                cell.customViewSize = .small
-                
-                //                cell.subtitleNumberOfLines = section.numberOfLines
-                //                cell.footerNumberOfLines = section.numberOfLines
-                //
-                cell.titleLeadingAccessoryView = item.text1LeadingAccessoryView()
-//                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
-                
-                return cell
-                
+
+                return buildOpenInboxCell(checkBox: checkBox)
                 
             } else if indexPath.row == 1 {
-                cell.setup(
-                    title: "Open cell type for INBOX Overdue !",
-                    subtitle: "",
-                    footer: "",
-                    customView: checkBox,
-                    customAccessoryView: TableViewCellSampleData.customAccessoryView,
-                    accessoryType: .none
-                )
-                cell.customViewSize = .small
-//                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
-                cell.titleLeadingAccessoryView = item.text1LeadingAccessoryView()
-                
-                return cell
+
+                return buildOpenInboxCell_Overdue(checkBox: checkBox)
                 
             } else if indexPath.row == 2 {
-                cell.setup(
-                    title: "Complete task Cell",
-                    subtitle: "",
-                    footer: "",
-//                    customView: TableViewSampleData.createCustomView(imageName: item.image),
-                    customView: checkBox,
-                    //                                            customAccessoryView: TableViewCellSampleData.customAccessoryView,
-                    accessoryType: .checkmark
-                )
-                checkBox.setOn(true, animated: true)
-                cell.customViewSize = .small
-                return cell
+
+                return buildCompleteInbox(checkBox: checkBox)
                 
             } else if indexPath.row == 3 {
-                
-                cell.setup(
-                    title: "Open cell type for NON_INBOX project",
-                    subtitle: "Work",
-                    footer: "",
-                    customView: checkBox
-                    //                                           rcustomAccessoryView: TableViewCellSampleData.customAccessoryView,
-//                    accessoryType: TableViewCellSampleData.accessoryType(for: indexPath)
-                )
-                cell.customViewSize = .small
-                cell.titleLeadingAccessoryView = item.text1LeadingAccessoryView()
-                cell.subtitleLeadingAccessoryView = item.text2LeadingAccessoryView()
-                
-                return cell
+  
+                return buildNonInbox(checkBox: checkBox)
                 
             } else if indexPath.row == 4 {
-                
-                cell.setup(
-                                   title: "Open cell type for NONINBOX project Overdue !",
-                                   subtitle: "Work",
-                                   footer: "",
-                                   customView: checkBox,
-                                   //                                           rcustomAccessoryView: TableViewCellSampleData.customAccessoryView,
-                    customAccessoryView: TableViewCellSampleData.customAccessoryView,
-                                   accessoryType: TableViewCellSampleData.accessoryType(for: indexPath)
-                               )
-                               
-                               cell.titleLeadingAccessoryView = item.text1LeadingAccessoryView()
-                               cell.subtitleLeadingAccessoryView = item.text2LeadingAccessoryView()
-                cell.customViewSize = .small
-                               
-                               return cell
+ 
+                return buildNonInbox_Overdue(checkBox: checkBox)
                 
             } else {
                 cell.setup(
@@ -809,10 +863,92 @@ extension HomeViewController: UITableViewDataSource {
 
 extension HomeViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        if section == 0 {
+//            let headStack = HomeViewController.createTopHeaderVerticalContainer()
+            
+            let headerView = UIView()
+                     let myLabel = UILabel()
+                            //            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
+                            myLabel.frame = CGRect(x:5, y: 4, width: (UIScreen.main.bounds.width), height: 30)
+            
+                            //line.horizontal.3.decrease.circle
+                            let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
+                            let filterIconImage = UIImage(systemName: "line.horizontal.3.decrease.circle", withConfiguration: filterIconConfiguration)
+                            let colouredCalPullDownImage = filterIconImage?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
+                            //
+                            //            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
+                            let filterMenuHomeButton = UIButton()
+                            //            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
+                            //            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
+                            filterMenuHomeButton.frame = CGRect(x:5, y: 4 , width: 30, height: 30)
+                            filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
+            
+                            filterMenuHomeButton.addTarget(self, action:  #selector(showTopDrawerButtonTapped), for: .touchUpInside)
+                            //
+            
+                           
+            
+            
+            
+            
+                            //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+                            myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+                            myLabel.textAlignment = .center
+                            myLabel.adjustsFontSizeToFitWidth = true
+                            myLabel.textColor = .label
+//            myLabel.backgroundColor = .black
+//                            myLabel.text = "GREEN GREEN"//tableView(tableView, gree: section)
+            
+            let now = Date.today
+            var sectionLabel = ""
+                          if (dateForTheView == now()) {
+                              sectionLabel =  "Today"
+                          } else if (dateForTheView == Date.tomorrow()){
+                              sectionLabel = "Tomorrow"
+                          } else if (dateForTheView == Date.yesterday()) {
+                              sectionLabel = "Yesterday"
+                          }
+            myLabel.text = sectionLabel//tableView(tableView, gree: section)
+            
+                            //                   let headerView = UIView()
+            
+                            lineSeparator.frame = CGRect(x: 0, y: 40, width: UIScreen.main.bounds.width, height: 1)
+                            lineSeparator.backgroundColor = UIColor.black
+            
+            
+            
+            
+//                            headStack.addArrangedSubview(myLabel)
+//            headStack.addArrangedSubview(UIView())
+//                 headStack.addArrangedSubview(Separator())
+//            headStack.addArrangedSubview(UIView())
+            
+//                            headStack.addArrangedSubview(lineSeparator)
+//            headStack.addArrangedSubview(UIView())
+            
+             headerView.addSubview(filterMenuHomeButton)
+             headerView.addSubview(myLabel)
+            
+                            headerView.addSubview(lineSeparator)
+                           
+            
+                      
+            
+                            return headerView
+//                            return headStack
+            
+//            return
+            
+        } else if section == 1 {
+              let headerView = UIView()
+            return headerView
+        } else {
         let header = tableView.dequeueReusableHeaderFooterView(withIdentifier: TableViewHeaderFooterView.identifier) as! TableViewHeaderFooterView
         let section = sections[section]
         header.setup(style: section.headerStyle, title: section.title)
         return header
+        }
+        
     }
     
     func tableView(_ tableView: UITableView, accessoryButtonTappedForRowWith indexPath: IndexPath) {

@@ -16,8 +16,21 @@ class TableViewCellSampleData: TableViewSampleData {
     static let numberOfItemsInSectionForShimmer: Int = 3
 
     static let sections: [Section] = [
+          Section(
+                           title: "section 0",
+                           items: [
+                            Item(text1: "Contoso Survey",
+                                            text2: "Research Notes",
+                                            image: "excelIcon",
+        //                                    text1LeadingAccessoryView:  createIconsAccessoryView(images: ["success-12x12"]),
+                                text1LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) },
+                                 text1TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
+        //                         text2TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
+                                            text2LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) })
+                           ]
+                       ),
         Section(
-                   title: "MY CELL",
+                   title: "",
                    items: [
                     Item(text1: "Contoso Survey",
                                     text2: "Research Notes",
