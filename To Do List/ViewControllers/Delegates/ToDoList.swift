@@ -12,9 +12,22 @@ import FluentUI
 import Timepiece
 import BEMCheckBox
 
-extension HomeViewController {
+extension HomeViewController: BEMCheckBoxDelegate {
     
-    
+    func didTap(_ checkBox: BEMCheckBox) {
+        // do stuff here
+        
+        // 1
+        currentCheckboxTag = checkBox.tag
+        
+        print("checkboc tag: \(currentCheckboxTag)")
+        print("checkboc idex: \(currentIndex)")
+        
+        checkBoxCompleteAction(indexPath: currentIndex, checkBox: checkBox)
+        
+        
+        
+    }
     
     @objc private func showTopDrawerButtonTapped(sender: UIButton) {
         let rect = sender.superview!.convert(sender.frame, to: nil)
@@ -24,13 +37,67 @@ extension HomeViewController {
         presentDrawer(sourceView: sender, presentationOrigin: rect.maxY+8, presentationDirection: .down, contentView: containerForActionViews(), customWidth: true)
     }
     
-    @objc private func checkboxTappedAction(sender: UIButton) {
-        let rect = sender.superview!.convert(sender.frame, to: nil)
-        //        let rect2 = lineSeparator.frame
-        //         presentDrawer(sourceView: sender, presentationOrigin: rect.maxY, presentationDirection: .down, contentView: containerForActionViews(), customWidth: true)
+    func checkBoxCompleteAction(indexPath: IndexPath, checkBox: BEMCheckBox) {
+        if checkBox.tag == indexPath.row {
+            checkBox.setOn(true, animated: true)
+        }
+        let inboxTasks: [NTask]
+        let projectsTasks: [NTask]
+        let dateForTheView = self.dateForTheView
         
-        presentDrawer(sourceView: sender, presentationOrigin: rect.maxY+8, presentationDirection: .down, contentView: containerForActionViews(), customWidth: true)
+        inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: dateForTheView)
+        
+        projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+        //                   let sortedEveningTask = projectsTasks.sorted(by: { !$0.isComplete && $1.isComplete })
+        
+        switch indexPath.section {
+        case 1:
+            TaskManager.sharedInstance
+                .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])]
+                .isComplete = true
+            
+            TaskManager.sharedInstance
+                .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])]
+                .dateCompleted = Date.today() as NSDate
+            
+            TaskManager.sharedInstance.saveContext()
+            
+            print("inboox MARKINNG COMPLETE: \(TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])].name)")
+            
+            tableView.reloadData()
+            self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+            
+        case 2:
+            TaskManager.sharedInstance
+                .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])]
+                .isComplete = true
+            
+            TaskManager.sharedInstance
+                .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])]
+                .dateCompleted = Date.today() as NSDate
+            
+            TaskManager.sharedInstance.saveContext()
+            
+            print("project task MARKINNG COMPLETE: \(TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])].name)")
+            tableView.reloadData()
+            self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+            
+        default:
+            break
+        }
+        
+        print("SCORE IS: \(self.calculateTodaysScore())")
+        self.scoreCounter.text = "\(self.calculateTodaysScore())"
+        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+        
+        //            tableView.reloadData()
+        //            self.animateTableViewReload()
+        
+        self.title = "\(self.calculateTodaysScore())"
+        
     }
+    
     
     
     
@@ -50,7 +117,7 @@ extension HomeViewController {
     
     
     @objc private func selectionBarButtonTapped(sender: UIBarButtonItem) {
-        isInSelectionMode = !isInSelectionMode
+//        isInSelectionMode = !isInSelectionMode
     }
     
     @objc private func styleBarButtonTapped(sender: UIBarButtonItem) {
@@ -59,12 +126,12 @@ extension HomeViewController {
     }
     
     private func updateNavigationTitle() {
-        if isInSelectionMode {
-            let selectedCount = tableView.indexPathsForSelectedRows?.count ?? 0
-            navigationItem.title = selectedCount == 1 ? "1 item selected" : "\(selectedCount) items selected"
-        } else {
-            navigationItem.title = title
-        }
+//        if isInSelectionMode {
+//            let selectedCount = tableView.indexPathsForSelectedRows?.count ?? 0
+//            navigationItem.title = selectedCount == 1 ? "1 item selected" : "\(selectedCount) items selected"
+//        } else {
+//            navigationItem.title = title
+//        }
     }
     
     public func updateTableView() {
@@ -164,28 +231,28 @@ extension HomeViewController {
     //        return headerView
     //    }
     //
-//        func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-//            switch section {
-//            case 0:
-//                let now = Date.today
-//                if (dateForTheView == now()) {
-//                    return "Today"
-//                } else if (dateForTheView == Date.tomorrow()){
-//                    return "Tomorrow"
-//                } else if (dateForTheView == Date.yesterday()) {
-//                    return "Yesterday"
-//                }
-//                else {
-//                    return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
-//                }
-//
-//            //            return "Today's Tasks"
-//            case 1:
-//                return "Evening"
-//            default:
-//                return "DEFAULT HOLA !!"
-//            }
-//        }
+    //        func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+    //            switch section {
+    //            case 0:
+    //                let now = Date.today
+    //                if (dateForTheView == now()) {
+    //                    return "Today"
+    //                } else if (dateForTheView == Date.tomorrow()){
+    //                    return "Tomorrow"
+    //                } else if (dateForTheView == Date.yesterday()) {
+    //                    return "Yesterday"
+    //                }
+    //                else {
+    //                    return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
+    //                }
+    //
+    //            //            return "Today's Tasks"
+    //            case 1:
+    //                return "Evening"
+    //            default:
+    //                return "DEFAULT HOLA !!"
+    //            }
+    //        }
     //
     //    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
     //
@@ -619,66 +686,95 @@ extension HomeViewController {
 
 extension HomeViewController: UITableViewDataSource {
     func numberOfSections(in tableView: UITableView) -> Int {
-        return sections.count
+        return ToDoListSections.count
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         if section == 0 {
             return 0
-        } else {
-        return TableViewCellSampleData.numberOfItemsInSection
+        } else if section == 1 {
+            let inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: dateForTheView)
+            return inboxTasks.count //TODO: Add completed tasks to this
+        } else if section == 2 {
+            let userProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+            return userProjectTasks.count //TODO: Add completed tasks to this
         }
-//        return TableViewCellSampleData.numberOfItemsInSection
+            
+        else {
+            return TableViewCellSampleData.numberOfItemsInSection
+        }
+        //        return TableViewCellSampleData.numberOfItemsInSection
         
     }
     
-//        func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-//            switch section {
-//            case 0:
-//                let now = Date.today
-//                if (dateForTheView == now()) {
-//                    return "Today"
-//                } else if (dateForTheView == Date.tomorrow()){
-//                    return "Tomorrow"
-//                } else if (dateForTheView == Date.yesterday()) {
-//                    return "Yesterday"
-//                }
-//                else {
-//                    return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
-//                }
-//
-//            //            return "Today's Tasks"
-//            case 1:
-//                return "Evening"
-//            default:
-//                return "DEFAULT HOLA !!"
-//            }
-//        }
+    //        func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+    //            switch section {
+    //            case 0:
+    //                let now = Date.today
+    //                if (dateForTheView == now()) {
+    //                    return "Today"
+    //                } else if (dateForTheView == Date.tomorrow()){
+    //                    return "Tomorrow"
+    //                } else if (dateForTheView == Date.yesterday()) {
+    //                    return "Yesterday"
+    //                }
+    //                else {
+    //                    return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
+    //                }
+    //
+    //            //            return "Today's Tasks"
+    //            case 1:
+    //                return "Evening"
+    //            default:
+    //                return "DEFAULT HOLA !!"
+    //            }
+    //        }
     
     //build 5 types of cells here in 5 functions; tthis returns a UITableViewCell
     
+    func setupCheckbox(cell: UITableViewCell) -> BEMCheckBox {
+        let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: cell.bounds.minX+5, y: cell.bounds.minY+10, width: 20, height: 25))
+        checkBox.lineWidth = 1.0
+        checkBox.animationDuration = 0.40
+        checkBox.setOn(true, animated: false)
+        checkBox.boxType = .circle
+        checkBox.onAnimationType = .oneStroke
+        checkBox.offAnimationType = .oneStroke
+        checkBox.onTintColor = todoColors.primaryColor
+        //                     checkBox.addTarget(HomeViewController.self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
+        checkBox.setOn(false, animated: true)
+        return checkBox
+    }
+    
     //open inbox
-    func buildOpenInboxCell(checkBox: BEMCheckBox) -> UITableViewCell {
+    func buildOpenInboxCell(task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
+        let foo = setupCheckbox(cell: cell)
+        
+        
         cell.setup(
-            title: "Open cell type for INBOX project (added today)",
+            title: task.name,
             subtitle: "",
             footer: "",
-            customView: checkBox,
+            customView: foo,
             accessoryType: .none
         )
         cell.customViewSize = .small
-         cell.titleNumberOfLines = 0
+        cell.titleNumberOfLines = 0
         cell.titleLeadingAccessoryView = .none
         cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        
+        
         
         return cell
     }
     //open inbox overdue
-    func buildOpenInboxCell_Overdue(checkBox: BEMCheckBox) -> UITableViewCell {
+    func buildOpenInboxCell_Overdue(checkBox: BEMCheckBox,task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
+        let foo = setupCheckbox(cell: cell)
+        
         cell.setup(
-            title: "Open cell type for INBOX Overdue !",
+            title: task.name,
             subtitle: "",
             footer: "",
             customView: checkBox,
@@ -687,83 +783,229 @@ extension HomeViewController: UITableViewDataSource {
         )
         cell.customViewSize = .small
         cell.titleNumberOfLines = 0
-
+        //                checkBox.addTarget(self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
+        
         //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
         cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
         
         return cell
     }
     //open inbox overdue
-    func buildCompleteInbox(checkBox: BEMCheckBox) -> UITableViewCell {
+    func buildCompleteInbox(checkBox: BEMCheckBox, task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
-       cell.setup(
-                            title: "Complete task Cell",
-                            subtitle: "",
-                            footer: "",
-                            //                    customView: TableViewSampleData.createCustomView(imageName: item.image),
-                            customView: checkBox,
-                            //                                            customAccessoryView: TableViewCellSampleData.customAccessoryView,
-                            accessoryType: .checkmark
-                        )
-                        checkBox.setOn(true, animated: true)
-                        cell.customViewSize = .small
+        cell.setup(
+            title: task.name,
+            subtitle: "",
+            footer: "",
+            //                    customView: TableViewSampleData.createCustomView(imageName: item.image),
+            //            customView: checkBox,
+            //            customView: "",
+            //                                            customAccessoryView: TableViewCellSampleData.customAccessoryView,
+            accessoryType: .checkmark
+        )
+        checkBox.setOn(true, animated: true)
+        cell.customViewSize = .small
         cell.titleNumberOfLines = 0
-
+        cell.isEnabled = false
+        //                checkBox.addTarget(self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
+        
         //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
-//        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
+        //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
         
         return cell
     }
-        //open NON inbox
-        func buildNonInbox(checkBox: BEMCheckBox) -> UITableViewCell {
-            let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
-               cell.setup(
-                          title: "Open cell type for NON_INBOX project",
-                          subtitle: "Work",
-                          footer: "",
-                          customView: checkBox
-                          //                                           rcustomAccessoryView: TableViewCellSampleData.customAccessoryView,
-                          //                    accessoryType: TableViewCellSampleData.accessoryType(for: indexPath)
-                      )
-                      cell.customViewSize = .small
-                      cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
-                      cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
-            cell.titleNumberOfLines = 0
-
-            //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
-    //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
-            
-            return cell
-        }    //open inbox overdue
-            func buildNonInbox_Overdue(checkBox: BEMCheckBox) -> UITableViewCell {
-                let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
+    //open NON inbox
+    func buildNonInbox(checkBox: BEMCheckBox, task: NTask) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
         cell.setup(
-                                  title: "Open cell type for NONINBOX project Overdue !",
-                                  subtitle: "Work",
-                                  footer: "",
-                                  customView: checkBox,
-                                  //                                           rcustomAccessoryView: TableViewCellSampleData.customAccessoryView,
-                                  customAccessoryView: TableViewCellSampleData.customAccessoryView,
-                                  accessoryType: .none
-                              )
-                              
-                              cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
-                              cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
-                              cell.customViewSize = .small
-                cell.titleNumberOfLines = 0
-
-                //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
+            title: task.name,
+            subtitle: (task.project ?? "") as String,
+            footer: "",
+            customView: checkBox
+            //                                           rcustomAccessoryView: TableViewCellSampleData.customAccessoryView,
+            //                    accessoryType: TableViewCellSampleData.accessoryType(for: indexPath)
+        )
+        cell.customViewSize = .small
+        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        cell.titleNumberOfLines = 0
+        
+        //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
         //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
-                
-                return cell
-            }
+        
+        return cell
+    }    //open inbox overdue
+    func buildNonInbox_Overdue(checkBox: BEMCheckBox, task: NTask) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
+        cell.setup(
+            title: task.name,
+            subtitle: (task.project ?? "") as String,
+            footer: "",
+            customView: checkBox,
+            //                                           rcustomAccessoryView: TableViewCellSampleData.customAccessoryView,
+            customAccessoryView: TableViewCellSampleData.customAccessoryView,
+            accessoryType: .none
+        )
+        
+        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        cell.customViewSize = .small
+        cell.titleNumberOfLines = 0
+        
+        //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
+        //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
+        
+        return cell
+    }
     
-
+    //    func coompleteTaksViaCheckbox() {
+    //        let inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: "inbox", date: dateForTheView)
+    //              let userProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+    //
+    //        TaskManager.removeTaskAtIndex(<#T##self: TaskManager##TaskManager#>)
+    //    }
+    
+    //    enum ViewType: String {
+    //        case DateView = "date"
+    //        case ProjectView = "project"
+    //        case UpcomingView = "upcoming"
+    //    }
+    
+    //----------------
+    //----------------
+    //----------------
+    //----------------
+    //----------------
+    //----------------
+    
+    func reloadTinyPicChartWithAnimation() {
+        
+        self.tinyPieChartView.centerAttributedText = setTinyPieChartScoreText(pieChartView: self.tinyPieChartView)
+        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+    }
+    
+    func reloadToDoListWithAnimation() {
+        
+        
+        tableView.reloadData()
+        animateTableViewReload()
+    }
+    
+    enum ViewType {
+        case todayHomeView
+        case customSateView
+        case projectView
+        case upcomingView
+        case historyView
+    }
+    
+    func setupViewForDate(date: Date) {
+        
+    }
+    
+    func setupViewForProject(date: Date) {
+        
+    }
+    
+    //----------------------------------------------------
+    //----------------------------------------------------
+    //----------------------------------------------------
+    //MARK:- updateViewForHome
+    //----------------------------------------------------
+    //----------------------------------------------------
+    //----------------------------------------------------
+    func updateViewForHome(viewType: ViewType, dateForView: Date = Date.today(), projectForView: String = ProjectManager.sharedInstance.defaultProject) {
+        
+        //        var movement = ;
+        //        if viewType == ViewType.todayHomeView {
+        //
+        //        }
+        
+        currentViewType = viewType
+        print("woo ViewType is: \(currentViewType)")
+        
+        switch viewType {
+        case .todayHomeView:
+            print("woo ViewType: TODAY VIEW")
+            
+            let today = Date.today()
+            setDateForViewValue(dateToSetForView: today)
+            updateHomeDateLabel(date: today)
+            
+            //aimations
+            reloadTinyPicChartWithAnimation()
+            reloadToDoListWithAnimation()
+            
+            
+        case .customSateView:
+            print("woo ViewType: CUSTOM DATE VIEW")
+            //            let today = dateForView
+            setDateForViewValue(dateToSetForView: dateForView)
+            updateHomeDateLabel(date: dateForView)
+            
+            //aimations
+            reloadTinyPicChartWithAnimation()
+            reloadToDoListWithAnimation()
+            
+        case .projectView:
+            print("woo ViewType: PROJECT VIEW")
+            setProjectForViewValue(projectName: projectForView)
+            
+            
+            //dismiss filter
+            dismiss(animated: true)
+            
+            //aimations
+            reloadTinyPicChartWithAnimation()
+            reloadToDoListWithAnimation()
+            
+            
+            
+        case .upcomingView:
+            print("woo ViewType: UPCOMING VIEW")
+            
+        case .historyView:
+            print("woo ViewType: HISTORY VIEW")
+            
+        }
+        
+        //        switch movement {
+        //        case .forward:
+        //            print("you moved forward")
+        //        case .back:
+        //            print("you moved backwards")
+        //        case .left:
+        //            print("you moved to the left")
+        //        case .right:
+        //            print("you moved to the right")
+        //        }
+        
+        
+        ////        if (ViewType.DateView.rawValue.lowercased() == "date") {
+        //        if viewType.T
+        //            print("ViewSetter: This is dateview")
+        //
+        //        } else if (ViewType.ProjectView.rawValue.lowercased() == "project") {
+        //            print("ViewSetter: This is projctView")
+        //        } else if (ViewType.UpcomingView.rawValue.lowercased() == "upcoming") {
+        //            print("ViewSetter: This is upcoming")
+        //        }
+        
+        
+    }
+    
+    //----------------
+    //----------------
+    //----------------
+    //----------------
+    //----------------
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let section = sections[indexPath.section]
-        let item = section.item
+        //        let section = sections[indexPath.section]
+        self.listSection = ToDoListSections[indexPath.section]
+        let item = listSection!.item
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
+        
         
         let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: cell.bounds.minX+5, y: cell.bounds.minY+10, width: 20, height: 25))
         checkBox.lineWidth = 1.0
@@ -773,56 +1015,72 @@ extension HomeViewController: UITableViewDataSource {
         checkBox.onAnimationType = .oneStroke
         checkBox.offAnimationType = .oneStroke
         checkBox.onTintColor = todoColors.primaryColor
-        checkBox.addTarget(self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
-        
-        //addTarget(self, action:  #selector(showTopDrawerButtonTapped), for: .touchUpInside)
+        //        checkBox.addTarget(HomeViewController.self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
         checkBox.setOn(false, animated: true)
-   
-        if indexPath.section == 1  {
-            if indexPath.row == 0 {
-
-                return buildOpenInboxCell(checkBox: checkBox)
-                
-            } else if indexPath.row == 1 {
-
-                return buildOpenInboxCell_Overdue(checkBox: checkBox)
-                
-            } else if indexPath.row == 2 {
-
-                return buildCompleteInbox(checkBox: checkBox)
-                
-            } else if indexPath.row == 3 {
-  
-                return buildNonInbox(checkBox: checkBox)
-                
-            } else if indexPath.row == 4 {
- 
-                return buildNonInbox_Overdue(checkBox: checkBox)
-                
+        
+        
+        //--
+        checkBox.tag = indexPath.row
+        currentCheckboxTag = indexPath.row
+        currentIndex = indexPath
+        
+        
+        checkBox.delegate = self
+        ///--
+        
+        let inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: dateForTheView)
+        let userProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+        
+        
+        if indexPath.section == 1  { //inbox
+            
+            let task = inboxTasks[indexPath.row]
+            
+            let taskDueDate = task.dueDate
+            
+            
+            if task.isComplete {
+                return buildCompleteInbox( checkBox: checkBox, task: task)
+            }
+            else if (Date.today() > taskDueDate! as Date) {
+                return buildOpenInboxCell_Overdue(checkBox: checkBox, task: task)
             } else {
-                cell.setup(
-                    title: "DEFAULLT",
-                    subtitle: "ddn77",
-                    footer: "blue",
-                    customView: checkBox,
-                    customAccessoryView: TableViewCellSampleData.customAccessoryView,
-                    accessoryType: TableViewCellSampleData.accessoryType(for: indexPath)
-                )
-                return cell
-                
+                return buildOpenInboxCell( task: task)
             }
             
             
             
-        } else {
+            
+            
+            
+        }
+        else if indexPath.section == 2  { //projects
+            
+            let task = userProjectTasks[indexPath.row]
+            
+            let taskDueDate = task.dueDate
+            
+            
+            
+            if task.isComplete {
+                return buildCompleteInbox(checkBox: checkBox, task: task)
+            }
+            else if (Date.today() > taskDueDate! as Date) {
+                return buildNonInbox_Overdue(checkBox: checkBox, task: task)
+            } else {
+                return buildNonInbox(checkBox: checkBox, task: task)
+            }
+            
+        }
+        else {
             
             
             cell.setup(
-                title: item.text1,
+                title: item.TaskTitle,
                 subtitle: item.text2,
                 footer: TableViewCellSampleData.hasFullLengthLabelAccessoryView(at: indexPath) ? "" : item.text3,
-                customView: TableViewSampleData.createCustomView(imageName: item.image),
-                customAccessoryView: section.hasAccessory ? TableViewCellSampleData.customAccessoryView : nil,
+                customView: ToDoListData.createCustomView(imageName: item.image),
+                customAccessoryView: listSection!.hasAccessory ? TableViewCellSampleData.customAccessoryView : nil,
                 accessoryType: TableViewCellSampleData.accessoryType(for: indexPath)
             )
             
@@ -834,22 +1092,22 @@ extension HomeViewController: UITableViewDataSource {
             cell.footerLeadingAccessoryView = showsLabelAccessoryView ? item.text3LeadingAccessoryView() : nil
             cell.footerTrailingAccessoryView = showsLabelAccessoryView ? item.text3TrailingAccessoryView() : nil
             
-            cell.titleNumberOfLines = section.numberOfLines
-            cell.subtitleNumberOfLines = section.numberOfLines
-            cell.footerNumberOfLines = section.numberOfLines
+            cell.titleNumberOfLines = listSection!.numberOfLines
+            cell.subtitleNumberOfLines = listSection!.numberOfLines
+            cell.footerNumberOfLines = listSection!.numberOfLines
             
             cell.titleLineBreakMode = .byTruncatingMiddle
             
-            cell.titleNumberOfLinesForLargerDynamicType = section.numberOfLines == 1 ? 3 : TableViewCell.defaultNumberOfLinesForLargerDynamicType
-            cell.subtitleNumberOfLinesForLargerDynamicType = section.numberOfLines == 1 ? 2 : TableViewCell.defaultNumberOfLinesForLargerDynamicType
-            cell.footerNumberOfLinesForLargerDynamicType = section.numberOfLines == 1 ? 2 : TableViewCell.defaultNumberOfLinesForLargerDynamicType
+            cell.titleNumberOfLinesForLargerDynamicType = listSection?.numberOfLines == 1 ? 3 : TableViewCell.defaultNumberOfLinesForLargerDynamicType
+            cell.subtitleNumberOfLinesForLargerDynamicType = listSection?.numberOfLines == 1 ? 2 : TableViewCell.defaultNumberOfLinesForLargerDynamicType
+            cell.footerNumberOfLinesForLargerDynamicType = listSection?.numberOfLines == 1 ? 2 : TableViewCell.defaultNumberOfLinesForLargerDynamicType
             
             cell.backgroundColor = isGrouped ? Colors.Table.Cell.backgroundGrouped : Colors.Table.Cell.background
             cell.topSeparatorType = isGrouped && indexPath.row == 0 ? .full : .none
             let isLastInSection = indexPath.row == tableView.numberOfRows(inSection: indexPath.section) - 1
             cell.bottomSeparatorType = isLastInSection ? .full : .inset
             
-            cell.isInSelectionMode = section.allowsMultipleSelection ? isInSelectionMode : false
+//            cell.isInSelectionMode = listSection!.allowsMultipleSelection ? isInSelectionMode : false
             
             return cell
             
@@ -857,6 +1115,82 @@ extension HomeViewController: UITableViewDataSource {
         
         
     }
+    
+    
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        
+        let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+            
+            let inboxTasks: [NTask]
+            let projectsTasks: [NTask]
+            let dateForTheView = self.dateForTheView
+            
+            inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: dateForTheView)
+            
+            projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+            //                   let sortedEveningTask = projectsTasks.sorted(by: { !$0.isComplete && $1.isComplete })
+            
+            switch indexPath.section {
+            case 1:
+                TaskManager.sharedInstance
+                    .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])]
+                    .isComplete = true
+                
+                TaskManager.sharedInstance
+                    .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])]
+                    .dateCompleted = Date.today() as NSDate
+                
+                TaskManager.sharedInstance.saveContext()
+                
+                print("inboox MARKINNG COMPLETE: \(TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])].name)")
+                
+                tableView.reloadData()
+                self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                
+            case 2:
+                TaskManager.sharedInstance
+                    .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])]
+                    .isComplete = true
+                
+                TaskManager.sharedInstance
+                    .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])]
+                    .dateCompleted = Date.today() as NSDate
+                
+                TaskManager.sharedInstance.saveContext()
+                
+                print("project task MARKINNG COMPLETE: \(TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])].name)")
+                tableView.reloadData()
+                self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                
+            default:
+                break
+            }
+            
+            print("SCORE IS: \(self.calculateTodaysScore())")
+            self.scoreCounter.text = "\(self.calculateTodaysScore())"
+            self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+            self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+            
+            //            tableView.reloadData()
+            //            self.animateTableViewReload()
+            
+            self.title = "\(self.calculateTodaysScore())"
+            actionPerformed(true)
+        }
+        
+        completeTaskAction.backgroundColor = todoColors.completeTaskSwipeColor
+        
+        //        NSUIColor(red: 192/255.0, green: 255/255.0, blue: 140/255.0, alpha: 1.0), green
+        //                 NSUIColor(red: 255/255.0, green: 247/255.0, blue: 140/255.0, alpha: 1.0), yellow
+        //                 NSUIColor(red: 255/255.0, green: 208/255.0, blue: 140/255.0, alpha: 1.0), orange
+        //                 NSUIColor(red: 140/255.0, green: 234/255.0, blue: 255/255.0, alpha: 1.0), blue
+        //                 NSUIColor(red: 255/255.0, green: 140/255.0, blue: 157/255.0, alpha: 1.0) red
+        
+        return UISwipeActionsConfiguration(actions: [completeTaskAction])
+    }
+    
+    
+    
 }
 
 // MARK: - TableViewCellDemoController: UITableViewDelegate
@@ -864,111 +1198,112 @@ extension HomeViewController: UITableViewDataSource {
 extension HomeViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         if section == 0 {
-//            let headStack = HomeViewController.createTopHeaderVerticalContainer()
+            //            let headStack = HomeViewController.createTopHeaderVerticalContainer()
             
             let headerView = UIView()
-                     let myLabel = UILabel()
-                            //            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
-                            myLabel.frame = CGRect(x:5, y: 4, width: (UIScreen.main.bounds.width), height: 30)
+            let myLabel = UILabel()
+            //            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
+            myLabel.frame = CGRect(x:5, y: 4, width: (UIScreen.main.bounds.width), height: 30)
             
-                            //line.horizontal.3.decrease.circle
-                            let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
-                            let filterIconImage = UIImage(systemName: "line.horizontal.3.decrease.circle", withConfiguration: filterIconConfiguration)
-                            let colouredCalPullDownImage = filterIconImage?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
-                            //
-                            //            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
-                            let filterMenuHomeButton = UIButton()
-                            //            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
-                            //            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
-                            filterMenuHomeButton.frame = CGRect(x:5, y: 4 , width: 30, height: 30)
-                            filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
+            //line.horizontal.3.decrease.circle
+            let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 30, weight: .thin, scale: .default)
+            let filterIconImage = UIImage(systemName: "line.horizontal.3.decrease.circle", withConfiguration: filterIconConfiguration)
+            let colouredCalPullDownImage = filterIconImage?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
+            //
+            //            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
+            let filterMenuHomeButton = UIButton()
+            //            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
+            //            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
+            filterMenuHomeButton.frame = CGRect(x:5, y: 4 , width: 30, height: 30)
+            filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
             
-                            filterMenuHomeButton.addTarget(self, action:  #selector(showTopDrawerButtonTapped), for: .touchUpInside)
-                            //
-            
-                           
+            filterMenuHomeButton.addTarget(self, action:  #selector(showTopDrawerButtonTapped), for: .touchUpInside)
+            //
             
             
             
             
-                            //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
-                            myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
-                            myLabel.textAlignment = .center
-                            myLabel.adjustsFontSizeToFitWidth = true
-                            myLabel.textColor = .label
-//            myLabel.backgroundColor = .black
-//                            myLabel.text = "GREEN GREEN"//tableView(tableView, gree: section)
+            
+            
+            //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
+            myLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+            myLabel.textAlignment = .center
+            myLabel.adjustsFontSizeToFitWidth = true
+            myLabel.textColor = .label
+            //            myLabel.backgroundColor = .black
+            //                            myLabel.text = "GREEN GREEN"//tableView(tableView, gree: section)
             
             let now = Date.today
             var sectionLabel = ""
-                          if (dateForTheView == now()) {
-                              sectionLabel =  "Today"
-                          } else if (dateForTheView == Date.tomorrow()){
-                              sectionLabel = "Tomorrow"
-                          } else if (dateForTheView == Date.yesterday()) {
-                              sectionLabel = "Yesterday"
-                          }
+            if (dateForTheView == now()) {
+                sectionLabel =  "Today"
+            } else if (dateForTheView == Date.tomorrow()){
+                sectionLabel = "Tomorrow"
+            } else if (dateForTheView == Date.yesterday()) {
+                sectionLabel = "Yesterday"
+            }
             myLabel.text = sectionLabel//tableView(tableView, gree: section)
             
-                            //                   let headerView = UIView()
+            //                   let headerView = UIView()
             
-                            lineSeparator.frame = CGRect(x: 0, y: 40, width: UIScreen.main.bounds.width, height: 1)
-                            lineSeparator.backgroundColor = UIColor.black
-            
-            
+            lineSeparator.frame = CGRect(x: 0, y: 40, width: UIScreen.main.bounds.width, height: 1)
+            lineSeparator.backgroundColor = UIColor.black
             
             
-//                            headStack.addArrangedSubview(myLabel)
-//            headStack.addArrangedSubview(UIView())
-//                 headStack.addArrangedSubview(Separator())
-//            headStack.addArrangedSubview(UIView())
             
-//                            headStack.addArrangedSubview(lineSeparator)
-//            headStack.addArrangedSubview(UIView())
             
-             headerView.addSubview(filterMenuHomeButton)
-             headerView.addSubview(myLabel)
+            //                            headStack.addArrangedSubview(myLabel)
+            //            headStack.addArrangedSubview(UIView())
+            //                 headStack.addArrangedSubview(Separator())
+            //            headStack.addArrangedSubview(UIView())
             
-                            headerView.addSubview(lineSeparator)
-                           
+            //                            headStack.addArrangedSubview(lineSeparator)
+            //            headStack.addArrangedSubview(UIView())
             
-                      
+            headerView.addSubview(filterMenuHomeButton)
+            headerView.addSubview(myLabel)
             
-                            return headerView
-//                            return headStack
+            headerView.addSubview(lineSeparator)
             
-//            return
+            
+            
+            
+            return headerView
+            //                            return headStack
+            
+            //            return
             
         } else if section == 1 {
-              let headerView = UIView()
+            let headerView = UIView()
             return headerView
         } else {
-        let header = tableView.dequeueReusableHeaderFooterView(withIdentifier: TableViewHeaderFooterView.identifier) as! TableViewHeaderFooterView
-        let section = sections[section]
-        header.setup(style: section.headerStyle, title: section.title)
-        return header
+            let header = tableView.dequeueReusableHeaderFooterView(withIdentifier: TableViewHeaderFooterView.identifier) as! TableViewHeaderFooterView
+            let section = ToDoListSections[section]
+            //            header.setup(style: section.headerStyle, title: section.title)
+            header.setup(style: .divider, title: section.sectionTitle)
+            return header
         }
         
     }
     
     func tableView(_ tableView: UITableView, accessoryButtonTappedForRowWith indexPath: IndexPath) {
-        let title = sections[indexPath.section].item.text1
+        let title = ToDoListSections[indexPath.section].item.TaskTitle
         showAlertForDetailButtonTapped(title: title)
     }
     
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        if isInSelectionMode {
-            updateNavigationTitle()
-        } else {
-            tableView.deselectRow(at: indexPath, animated: true)
-        }
-    }
+    //    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    //        if isInSelectionMode {
+    //            updateNavigationTitle()
+    //        } else {
+    //            tableView.deselectRow(at: indexPath, animated: true)
+    //        }
+    //    }
     
-    func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
-        if isInSelectionMode {
-            updateNavigationTitle()
-        }
-    }
+    //    func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
+    //        if isInSelectionMode {
+    //            updateNavigationTitle()
+    //        }
+    //    }
     
     private func showAlertForDetailButtonTapped(title: String) {
         let alert = UIAlertController(title: "\(title) detail button was tapped", message: nil, preferredStyle: .alert)

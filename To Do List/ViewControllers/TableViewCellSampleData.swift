@@ -11,110 +11,206 @@ import FluentUI
 
 // MARK: TableViewCellSampleData
 
-class TableViewCellSampleData: TableViewSampleData {
+class TableViewCellSampleData: ToDoListData {
     static let numberOfItemsInSection: Int = 5
     static let numberOfItemsInSectionForShimmer: Int = 3
 
-    static let sections: [Section] = [
+    static let DateForViewSections: [Section] = [
           Section(
                            title: "section 0",
-                           items: [
-                            Item(text1: "Contoso Survey",
-                                            text2: "Research Notes",
-                                            image: "excelIcon",
-        //                                    text1LeadingAccessoryView:  createIconsAccessoryView(images: ["success-12x12"]),
-                                text1LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) },
-                                 text1TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
-        //                         text2TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
-                                            text2LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) })
+                           taskListItems: [
+                            TaskListItem(text1: "Spacer"
+                            )
                            ]
                        ),
         Section(
-                   title: "",
-                   items: [
-                    Item(text1: "Contoso Survey",
-                                    text2: "Research Notes",
-                                    image: "excelIcon",
-//                                    text1LeadingAccessoryView:  createIconsAccessoryView(images: ["success-12x12"]),
-                        text1LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) },
-                         text1TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
-//                         text2TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
-                                    text2LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) })
+                   title: "Inbox + overdue if dateView = today",
+                   taskListItems: [
+                    TaskListItem(text1: "Contoso Survey"
+                    )
                    ]
                ),
         Section(
-            title: "Single line cell",
-            items: [
-                Item(text1: "Contoso Survey",
-                     image: "excelIcon",
-                     text1LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) })
+            title: "This is projecs section",
+            taskListItems: [
+                TaskListItem(text1: "Contoso Survey"
+                )
             ]
-        ),
-        Section(
-            title: "Double line cell",
-            items: [
-                Item(text1: "Contoso Survey",
-                     text2: "Research Notes",
-                     image: "excelIcon",
-                     text2LeadingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) })
-            ]
-        ),
-        Section(
-            title: "Triple line cell",
-            items: [
-                Item(text1: "Contoso Survey",
-                     text2: "Research Notes",
-                     text3: "22 views",
-                     image: "excelIcon",
-                     text2TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
-                     text3TrailingAccessoryView: { createProgressAccessoryView() })
-            ],
-            hasFullLengthLabelAccessoryView: true
-        ),
-        Section(
-            title: "Cell without custom view",
-            items: [
-                Item(text1: "Contoso Survey",
-                     text2: "Research Notes",
-                     text1TrailingAccessoryView: { createTextAccessoryView(text: "8:13 AM") },
-                     text2LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) },
-                     text2TrailingAccessoryView: { createIconsAccessoryView(images: ["at-12x12"], rightAligned: true) })
-            ]
-        ),
-        Section(
-            title: "Cell with custom accessory view",
-            items: [
-                Item(text1: "Format")
-            ],
-            hasAccessory: true
-        ),
-        Section(
-            title: "Cell with text truncation",
-            items: [
-                Item(text1: "This is a cell with a long text1 as an example of how this label will render",
-                     text2: "This is a cell with a long text2 as an example of how this label will render",
-                     text3: "This is a cell with a long text3 as an example of how this label will render",
-                     image: "excelIcon",
-                     text1TrailingAccessoryView: { createTextAccessoryView(text: "10:21 AM") },
-                     text2TrailingAccessoryView: { createIconsAccessoryView(images: ["at-12x12"], rightAligned: true) },
-                     text3TrailingAccessoryView: { createTextAccessoryView(text: "2", withBorder: true) })
-            ]
-        ),
-        Section(
-            title: "Cell with text wrapping",
-            items: [
-                Item(text1: "This is a cell with a long text1 as an example of how this label will render",
-                     text2: "This is a cell with a long text2 as an example of how this label will render",
-                     text3: "This is a cell with a long text3 as an example of how this label will render",
-                     image: "excelIcon",
-                     text1TrailingAccessoryView: { createTextAccessoryView(text: "10:21 AM") },
-                     text2TrailingAccessoryView: { createIconsAccessoryView(images: ["at-12x12"], rightAligned: true) },
-                     text3TrailingAccessoryView: { createTextAccessoryView(text: "2", withBorder: true) })
-            ],
-            numberOfLines: 0,
-            allowsMultipleSelection: false
         )
     ]
+    
+    static let ProjectForViewSections: [Section] = [
+          Section(
+                           title: "section 0",
+                           taskListItems: [
+                            TaskListItem(text1: "Spacer"
+                            )
+                           ]
+                       ),
+        Section(
+                   title: "Inbox + overdue if dateView = today",
+                   taskListItems: [
+                    TaskListItem(text1: "Contoso Survey"
+                    )
+                   ]
+               ),
+        Section(
+            title: "This is projecs section",
+            taskListItems: [
+                TaskListItem(text1: "Contoso Survey"
+                )
+            ]
+        )
+    ]
+    
+    static let UpcomingViewSections: [Section] = [
+          Section(
+                           title: "section 0",
+                           taskListItems: [
+                            TaskListItem(text1: "Spacer"
+                            )
+                           ]
+                       ),
+        Section(
+                   title: "Inbox + overdue if dateView = today",
+                   taskListItems: [
+                    TaskListItem(text1: "Contoso Survey"
+                    )
+                   ]
+               ),
+        Section(
+            title: "This is projecs section",
+            taskListItems: [
+                TaskListItem(text1: "Contoso Survey"
+                )
+            ]
+        )
+    ]
+    
+    static let HistoryViewSections: [Section] = [
+          Section(
+                           title: "section 0",
+                           taskListItems: [
+                            TaskListItem(text1: "Spacer"
+                            )
+                           ]
+                       ),
+        Section(
+                   title: "Inbox + overdue if dateView = today",
+                   taskListItems: [
+                    TaskListItem(text1: "Contoso Survey"
+                    )
+                   ]
+               ),
+        Section(
+            title: "This is projecs section",
+            taskListItems: [
+                TaskListItem(text1: "Contoso Survey"
+                )
+            ]
+        )
+    ]
+    
+    static let OLDtodayViewSetions: [Section] = [
+              Section(
+                               title: "section 0",
+                               taskListItems: [
+                                TaskListItem(text1: "Contoso Survey",
+                                                text2: "Research Notes",
+                                                image: "excelIcon",
+            //                                    text1LeadingAccessoryView:  createIconsAccessoryView(images: ["success-12x12"]),
+                                    text1LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) },
+                                     text1TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
+            //                         text2TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
+                                                text2LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) })
+                               ]
+                           ),
+            Section(
+                       title: "",
+                       taskListItems: [
+                        TaskListItem(text1: "Contoso Survey",
+                                        text2: "Research Notes",
+                                        image: "excelIcon",
+    //                                    text1LeadingAccessoryView:  createIconsAccessoryView(images: ["success-12x12"]),
+                            text1LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) },
+                             text1TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
+    //                         text2TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
+                                        text2LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) })
+                       ]
+                   ),
+            Section(
+                title: "Projects",
+                taskListItems: [
+                    TaskListItem(text1: "Contoso Survey",
+                         image: "excelIcon",
+                         text1LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) })
+                ]
+            ),
+            Section(
+                title: "Double line cell",
+                taskListItems: [
+                    TaskListItem(text1: "Contoso Survey",
+                         text2: "Research Notes",
+                         image: "excelIcon",
+                         text2LeadingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) })
+                ]
+            ),
+            Section(
+                title: "Triple line cell",
+                taskListItems: [
+                    TaskListItem(text1: "Contoso Survey",
+                         text2: "Research Notes",
+                         text3: "22 views",
+                         image: "excelIcon",
+                         text2TrailingAccessoryView: { createIconsAccessoryView(images: ["shared-12x12", "success-12x12"]) },
+                         text3TrailingAccessoryView: { createProgressAccessoryView() })
+                ],
+                hasFullLengthLabelAccessoryView: true
+            ),
+            Section(
+                title: "Cell without custom view",
+                taskListItems: [
+                    TaskListItem(text1: "Contoso Survey",
+                         text2: "Research Notes",
+                         text1TrailingAccessoryView: { createTextAccessoryView(text: "8:13 AM") },
+                         text2LeadingAccessoryView: { createIconsAccessoryView(images: ["success-12x12"]) },
+                         text2TrailingAccessoryView: { createIconsAccessoryView(images: ["at-12x12"], rightAligned: true) })
+                ]
+            ),
+            Section(
+                title: "Cell with custom accessory view",
+                taskListItems: [
+                    TaskListItem(text1: "Format")
+                ],
+                hasAccessory: true
+            ),
+            Section(
+                title: "Cell with text truncation",
+                taskListItems: [
+                    TaskListItem(text1: "This is a cell with a long text1 as an example of how this label will render",
+                         text2: "This is a cell with a long text2 as an example of how this label will render",
+                         text3: "This is a cell with a long text3 as an example of how this label will render",
+                         image: "excelIcon",
+                         text1TrailingAccessoryView: { createTextAccessoryView(text: "10:21 AM") },
+                         text2TrailingAccessoryView: { createIconsAccessoryView(images: ["at-12x12"], rightAligned: true) },
+                         text3TrailingAccessoryView: { createTextAccessoryView(text: "2", withBorder: true) })
+                ]
+            ),
+            Section(
+                title: "Cell with text wrapping",
+                taskListItems: [
+                    TaskListItem(text1: "This is a cell with a long text1 as an example of how this label will render",
+                         text2: "This is a cell with a long text2 as an example of how this label will render",
+                         text3: "This is a cell with a long text3 as an example of how this label will render",
+                         image: "excelIcon",
+                         text1TrailingAccessoryView: { createTextAccessoryView(text: "10:21 AM") },
+                         text2TrailingAccessoryView: { createIconsAccessoryView(images: ["at-12x12"], rightAligned: true) },
+                         text3TrailingAccessoryView: { createTextAccessoryView(text: "2", withBorder: true) })
+                ],
+                numberOfLines: 0,
+                allowsMultipleSelection: false
+            )
+        ]
 
     static var customAccessoryView: UIView {
         let label = Label(style: .body, colorStyle: .secondary)
@@ -131,7 +227,7 @@ class TableViewCellSampleData: TableViewSampleData {
     }
 
     static func hasFullLengthLabelAccessoryView(at indexPath: IndexPath) -> Bool {
-        let section = sections[indexPath.section]
+        let section = DateForViewSections[indexPath.section]
         return section.hasFullLengthLabelAccessoryView && hasLabelAccessoryViews(at: indexPath)
     }
 

@@ -118,15 +118,18 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     
     //    func calendar(didSelect)
     
-    
+
     //MARK: Cal changes VIEW + SCORE on date change
     func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
         print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
+      
+        
         //        dateToDisplay = date
-        dateForTheView = date
+//        dateForTheView = date
+        setDateForViewValue(dateToSetForView: date)
         
         
-        updateHomeDate(date: dateForTheView)
+        updateHomeDateLabel(date: dateForTheView)
         self.scoreCounter.text = "\(self.calculateTodaysScore())"
         
         let scoreNumber = "\(self.calculateTodaysScore())"
@@ -147,10 +150,13 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
             
         }
         
-        self.tinyPieChartView.centerAttributedText = setTinyPieChartScoreText(pieChartView: self.tinyPieChartView)
-        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
         
-        tableView.reloadData()
-        animateTableViewReload()
+        reloadTinyPicChartWithAnimation()
+        reloadToDoListWithAnimation()
+      
     }
+    
+ 
+    
+    
 }

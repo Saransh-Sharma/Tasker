@@ -101,6 +101,180 @@ class TaskManager {
         return tasks
     }
     
+    func getTasksForProjectByNameForDate_All(projectName: String, date: Date) -> [NTask] {
+        
+        var tasks = [NTask]()
+        fetchTasks()
+        
+        for each in tasks {
+            let currentProjectName = each.project?.lowercased()
+            let currentDueDate = each.dueDate
+            if currentProjectName!.contains("\(projectName)") {
+                //                 tasks.append(each)
+                if currentDueDate == date as NSDate {
+                    tasks.append(each)
+                }
+            }
+        }
+        return tasks
+    }
+    
+    func getTasksForProjectByNameForDate_Open(projectName: String, date: Date) -> [NTask] {
+        
+        var mtasks = [NTask]()
+        fetchTasks()
+        
+        for each in tasks {
+            let currentProjectName = each.project?.lowercased()
+            //            let currentDueDate = each.dueDate
+            if currentProjectName!.contains("\(projectName.lowercased())") {
+                
+                
+                
+                if (date == Date.today()) {
+                    //                    print("IS Today !")
+                    
+                    if each.dueDate == date as NSDate && !each.isComplete { //added today, open
+                        
+                        mtasks.append(each)
+                        
+                    }
+                    else if (each.dateCompleted == date as NSDate) { //completed on that day
+                        mtasks.append(each)
+                    } else if ((each.dueDate! as Date) < date && !each.isComplete) {
+                        mtasks.append(each)
+                    }
+                    
+                    
+                } else {
+                    //                    print("NOT Today !")
+                    if each.dueDate == date as NSDate && !each.isComplete { //added today, open
+                        
+                        mtasks.append(each)
+                        
+                    }
+                    else if (each.dateCompleted == date as NSDate) { //completed on that day
+                        mtasks.append(each)
+                    }
+                    
+                }
+                
+            }
+        }
+        print("tasks for inbox count: \(mtasks.count)")
+        return mtasks
+    }
+    
+    func getTasksForAllCustomProjectsByNameForDate_Open(date: Date) -> [NTask] {
+        
+        var mtasks = [NTask]()
+        fetchTasks()
+        
+        for each in tasks {
+            let currentProjectName = each.project?.lowercased()
+            let currentDueDate = each.dueDate
+            
+            if currentProjectName?.lowercased() != ProjectManager.sharedInstance.defaultProject.lowercased() {
+                
+                print("tasks for NON inbox : --------------")
+                
+                print("tasks for NON inbox : found NON INBOX  \((currentProjectName?.lowercased())! as String)")
+                if !each.isComplete {
+                    print("tasks for NON inbox : is open!")
+                }
+                print("tasks for NON inbox : --------------")
+                
+                if (date == Date.today()) {
+                    //                      print("IS Today !")
+                    
+                    if each.dueDate == date as NSDate && !each.isComplete { //added today, open
+                        
+                        mtasks.append(each)
+                        
+                    }
+                    else if (each.dateCompleted == date as NSDate) { //completed on that day
+                        mtasks.append(each)
+                    } else if ((each.dueDate! as Date) < date && !each.isComplete) {
+                        mtasks.append(each)
+                    }
+                    
+                    
+                } else {
+                    //                      print("NOT Today !")
+                    if each.dueDate == date as NSDate && !each.isComplete { //added today, open
+                        
+                        mtasks.append(each)
+                        
+                    }
+                    else if (each.dateCompleted == date as NSDate) { //completed on that day
+                        mtasks.append(each)
+                    }
+                    
+                }
+                
+                //                if currentDueDate == date as NSDate {
+                //                    if !each.isComplete {
+                //                        print("tasks for NON inbox :  Today !")
+                //                        mtasks.append(each)
+                //                    }
+                //                } else {
+                //                    print("tasks for NON inbox : NOT Today !")
+                //                }
+                
+                //date < currentDueDate! as Date
+                
+                //                if (currentDueDate! as Date > date) {
+                //                if (date > currentDueDate! as Date ) {
+                //
+                //                    if !each.isComplete {
+                //                        mtasks.append(each)
+                //                    }
+                //                } else {
+                //                    print("asks for NON inbox : is rollover task")
+                //                }
+                
+            }
+        }
+        print("tasks for NON inbox count: \(mtasks.count)")
+        return mtasks
+    }
+    
+    func getTasksForProjectByNameForDate_Complete(projectName: String, date: Date) -> [NTask] {
+        
+        var tasks = [NTask]()
+        fetchTasks()
+        
+        for each in tasks {
+            let currentProjectName = each.project?.lowercased()
+            let currentDueDate = each.dueDate
+            if currentProjectName!.contains("\(projectName)") {
+                //                 tasks.append(each)
+                if currentDueDate == date as NSDate {
+                    tasks.append(each)
+                }
+            }
+        }
+        return tasks
+    }
+    
+    func getTasksForProjectByNameForDate_Overdue(projectName: String, date: Date) -> [NTask] {
+        
+        var tasks = [NTask]()
+        fetchTasks()
+        
+        for each in tasks {
+            let currentProjectName = each.project?.lowercased()
+            let currentDueDate = each.dueDate
+            if currentProjectName!.contains("\(projectName)") {
+                //                 tasks.append(each)
+                if currentDueDate == date as NSDate {
+                    tasks.append(each)
+                }
+            }
+        }
+        return tasks
+    }
+    
     
     func getMorningTasksForDate(date: Date) -> [NTask] {
         
@@ -340,19 +514,19 @@ class TaskManager {
         
         
         //FIX default project to 'inbox'
-            for each in tasks {
-        //                if each.project!.isEmpty || each.project == "" || each.project == nil {
-                        if each.project?.isEmpty ?? true {
-                            
-                            print("**** FORCE PROJECT **** \(each.name) --- to --- inbox")
-                            
-                            each.project = "inbox"
-                            saveContext() 
-                            
-                        } else {
-                            print("**** PROJECT is \(each.project! as String)")
-                        }
-                    }
+        for each in tasks {
+            //                if each.project!.isEmpty || each.project == "" || each.project == nil {
+            if each.project?.isEmpty ?? true {
+                
+                print("**** FORCE PROJECT **** \(each.name) --- to --- inbox")
+                
+                each.project = "inbox"
+                saveContext()
+                
+            } else {
+                print("**** PROJECT is \(each.project! as String)")
+            }
+        }
     }
     
     func fetchTasks() {
@@ -364,7 +538,7 @@ class TaskManager {
             let results = try context.fetch(fetchRequest)
             tasks = results as! [NTask]
             
-        
+            
             
         } catch let error as NSError {
             print("TaskManager could not fetch tasks ! \(error), \(error.userInfo)")

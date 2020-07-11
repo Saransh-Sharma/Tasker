@@ -29,30 +29,42 @@ extension HomeViewController {
         
     }
     
-    @objc private func changeDateFromFilter(sender: UIButton) {
+    @objc private func changeDateFromFilterToday(sender: UIButton) {
         
-        let today = Date.today()
-        let tomorrow = Date.tomorrow()
-        //        let upcoming = Date.today()
-        //        updateHomeDate(date: today)
+        updateViewForHome(viewType: .todayHomeView, dateForView: Date.today())
+        dismiss(animated: true)
         
-        switch sender.titleLabel?.text?.lowercased() {
-        case "today":
-            
-            dateForTheView = today
-            updateHomeDate(date: today)
-            
-            tableView.reloadData()
-        case "tomorrow":
-            dateForTheView = tomorrow
-            updateHomeDate(date: tomorrow)
-            tableView.reloadData()
-        case "upcoming":
-            //
-            print("Build upcoming filter")
-        default:
-            updateHomeDate(date: today)
-        }
+//        let today = Date.today()
+//        let tomorrow = Date.tomorrow()
+//        //        let upcoming = Date.today()
+//        //        updateHomeDate(date: today)
+//
+//        switch sender.titleLabel?.text?.lowercased() {
+//        case "today":
+//
+////            dateForTheView = today
+////            updateHomeDateLabel(date: today)
+////            tableView.reloadData()
+//            updateViewForHome(viewType: .todayHomeView, dateForView: Date.today())
+//        case "tomorrow":
+//            dateForTheView = tomorrow
+//            updateHomeDateLabel(date: tomorrow)
+//            tableView.reloadData()
+//        case "upcoming":
+//            //
+//            print("Build upcoming filter")
+//        default:
+//            updateHomeDateLabel(date: today)
+//        }
+//
+//        dismiss(animated: true)
+    }
+    
+    @objc private func changeDateFromFilterTomorrow(sender: UIButton) {
+        
+  
+        
+        updateViewForHome(viewType: .customSateView, dateForView: Date.tomorrow())
         
         dismiss(animated: true)
     }
@@ -121,9 +133,9 @@ extension HomeViewController {
             
             views.append(addLabel(text: "Days", style: .headline, colorStyle: .regular))
             
-            views.append(createButton(title: "Today", action: #selector(changeDateFromFilter)))
-            views.append(createButton(title: "Tomorrow", action: #selector(changeDateFromFilter)))
-            views.append(createButton(title: "Upcoming", action: #selector(changeDateFromFilter)))
+            views.append(createButton(title: "Today", action: #selector(changeDateFromFilterToday)))
+            views.append(createButton(title: "Tomorrow", action: #selector(changeDateFromFilterTomorrow)))
+            views.append(createButton(title: "Upcoming", action: #selector(changeDateFromFilterTomorrow)))
             
             
             
@@ -216,8 +228,10 @@ extension HomeViewController {
 
 extension HomeViewController: PillButtonBarDelegate {
     func pillBar(_ pillBar: PillButtonBar, didSelectItem item: PillButtonBarItem, atIndex index: Int) {
-        currenttProjectForAddTaskView = item.title
-        print("Project SELCTED is: \(currenttProjectForAddTaskView)")
+//        currenttProjectForAddTaskView = item.title
+//        setProjectForViewValue(projectName: item.title)
+        updateViewForHome(viewType: .projectView, projectForView: item.title)
+        print("woo Project SELCTED is: \(projectForTheView)")
     
         
 //        let allProjects = ProjectManager.sharedInstance.getAllProjects
@@ -229,10 +243,10 @@ extension HomeViewController: PillButtonBarDelegate {
         for each in allTasks {
             
             
-            if each.project?.lowercased() == currenttProjectForAddTaskView {
+            if each.project?.lowercased() == projectForTheView {
                 print("-----------------------")
                 print("project Task: \(each.name)")
-                               print("name project \(currenttProjectForAddTaskView)")
+                               print("name project \(projectForTheView)")
                 list.append(each.name)
                 print("-----------------------\n")
                 
@@ -244,6 +258,7 @@ extension HomeViewController: PillButtonBarDelegate {
             print("\(i)")
         }
         print("-----****************----")
+        
         
         
 //        for each in projects {

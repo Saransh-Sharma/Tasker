@@ -3,11 +3,11 @@
 import Foundation
 import FluentUI
 
-class TableViewSampleData {
+class ToDoListData {
     struct Section {
-        let title: String
-        var item: Item { return items[0] }
-        let items: [Item]
+        let sectionTitle: String
+        var item: TaskListItem { return items[0] }
+        let items: [TaskListItem]
         let numberOfLines: Int
         let hasFullLengthLabelAccessoryView: Bool
         let hasAccessory: Bool
@@ -20,9 +20,9 @@ class TableViewSampleData {
         let hasCustomLinkHandler: Bool
         let hasCustomAccessoryView: Bool
 
-        init(title: String, items: [Item] = [], numberOfLines: Int = 1, hasFullLengthLabelAccessoryView: Bool = false, hasAccessory: Bool = false, accessoryButtonStyle: TableViewHeaderFooterView.AccessoryButtonStyle = .regular, allowsMultipleSelection: Bool = true, headerStyle: TableViewHeaderFooterView.Style = .header, hasFooter: Bool = false, footerText: String = "", footerLinkText: String = "", hasCustomLinkHandler: Bool = false, hasCustomAccessoryView: Bool = false) {
-            self.title = title
-            self.items = items
+        init(title: String, taskListItems: [TaskListItem] = [], numberOfLines: Int = 1, hasFullLengthLabelAccessoryView: Bool = false, hasAccessory: Bool = false, accessoryButtonStyle: TableViewHeaderFooterView.AccessoryButtonStyle = .regular, allowsMultipleSelection: Bool = true, headerStyle: TableViewHeaderFooterView.Style = .header, hasFooter: Bool = false, footerText: String = "", footerLinkText: String = "", hasCustomLinkHandler: Bool = false, hasCustomAccessoryView: Bool = false) {
+            self.sectionTitle = title
+            self.items = taskListItems
             self.numberOfLines = numberOfLines
             self.hasFullLengthLabelAccessoryView = hasFullLengthLabelAccessoryView
             self.hasAccessory = hasAccessory
@@ -37,10 +37,10 @@ class TableViewSampleData {
         }
     }
 
-    struct Item {
+    struct TaskListItem {
         typealias LabelAccessoryView = () -> UIView?
 
-        let text1: String
+        let TaskTitle: String
         let text2: String
         let text3: String
         let image: String
@@ -63,7 +63,7 @@ class TableViewSampleData {
             text3LeadingAccessoryView: @escaping LabelAccessoryView = { return nil },
             text3TrailingAccessoryView: @escaping LabelAccessoryView = { return nil }
         ) {
-            self.text1 = text1
+            self.TaskTitle = text1
             self.text2 = text2
             self.text3 = text3
             self.image = image

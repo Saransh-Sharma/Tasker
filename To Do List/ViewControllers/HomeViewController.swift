@@ -15,6 +15,7 @@ import FSCalendar
 import Charts
 import FluentUI
 import UserNotifications
+//import BEMCheckBox
 import TinyConstraints
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialBottomAppBar
@@ -24,7 +25,13 @@ import MaterialComponents.MaterialRipple
 
 class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate {
     
-    let sections: [TableViewSampleData.Section] = TableViewCellSampleData.sections
+    
+//    public let mCheckBox = BEMCheckBox()
+    let ToDoListSections: [ToDoListData.Section] = TableViewCellSampleData.DateForViewSections
+    var listSection: ToDoListData.Section? = nil
+    
+    var currentCheckboxTag = 0
+    var currentIndex:IndexPath = [0,0]
     
     public var isGrouped: Bool = false {
         didSet {
@@ -32,28 +39,28 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         }
     }
     
-    public var isInSelectionMode: Bool = true {
-         didSet {
-             tableView.allowsMultipleSelection = isInSelectionMode
-
-             for indexPath in tableView?.indexPathsForVisibleRows ?? [] {
-                 if !sections[indexPath.section].allowsMultipleSelection {
-                     continue
-                 }
-
-                 if let cell = tableView.cellForRow(at: indexPath) as? TableViewCell {
-                     cell.setIsInSelectionMode(isInSelectionMode, animated: true)
-                 }
-             }
-
-             tableView.indexPathsForSelectedRows?.forEach {
-                 tableView.deselectRow(at: $0, animated: false)
-             }
-
-//             updateNavigationTitle()
-             navigationItem.rightBarButtonItem?.title = isInSelectionMode ? "Done" : "Select"
-         }
-     }
+//    public var isInSelectionMode: Bool = true {
+//         didSet {
+//             tableView.allowsMultipleSelection = isInSelectionMode
+//
+//             for indexPath in tableView?.indexPathsForVisibleRows ?? [] {
+//                 if !ToDoListSections[indexPath.section].allowsMultipleSelection {
+//                     continue
+//                 }
+//
+//                 if let cell = tableView.cellForRow(at: indexPath) as? TableViewCell {
+//                     cell.setIsInSelectionMode(isInSelectionMode, animated: true)
+//                 }
+//             }
+//
+//             tableView.indexPathsForSelectedRows?.forEach {
+//                 tableView.deselectRow(at: $0, animated: false)
+//             }
+//
+////             updateNavigationTitle()
+//             navigationItem.rightBarButtonItem?.title = isInSelectionMode ? "Done" : "Select"
+//         }
+//     }
     
     func didSelectBadge(_ badge: BadgeView) {
         
@@ -78,7 +85,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     var filterProjectsPillBar: UIView?
     var bar = PillButtonBar(pillButtonStyle: .filled)
-    var currenttProjectForAddTaskView = "inbox"
+//    var currenttProjectForAddTaskView = "inbox"
     
     var pillBarProjectList: [PillButtonBarItem] = []
     
@@ -169,8 +176,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //MARK: Pie Chart Data Sections
     let tinyPieChartSections = [""]
     
-    //MARK:- cuurentt task list date
+    //MARK:- cuurentt task list date & project
     var dateForTheView = Date.today()
+    var projectForTheView = ProjectManager.sharedInstance.defaultProject
+    var currentViewType = ViewType.todayHomeView
+    
+
+    
     var firstDay = Date.today()
     var nextDay = Date.today()
     
@@ -251,6 +263,39 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
     
     
+    //-------- NEW SET VIEW -----------------
+     //-------- NEW SET VIEW -----------------
+     //-------- NEW SET VIEW -----------------
+     //-------- NEW SET VIEW -----------------
+    
+
+
+    
+    func setDateForViewValue(dateToSetForView: Date){
+     dateForTheView = dateToSetForView
+    }
+    
+    func setProjectForViewValue(projectName: String){ //check if the
+                                                    // projecct name exists in existing projeccts
+        
+         if projectName.lowercased() == ProjectManager.sharedInstance.defaultProject.lowercased() {
+                    projectForTheView = projectName
+            print("woo : PROJCT IS DEFAULT - INBOX")
+         } else {
+            let projectsList = ProjectManager.sharedInstance.getAllProjects
+                         for each in projectsList {
+                             if projectName.lowercased() == each.projectName?.lowercased() {
+                                 print("woohoo ! project set to: \(String(describing: each.projectName?.lowercased()))")
+                                 projectForTheView = projectName
+                             }
+                         }
+        }
+
+    }
+    
+     //-------- NEW SET VIEW END -----------------
+     //-------- NEW SET VIEW -----------------
+     //-------- NEW SET VIEW  END-----------------
     func generateLineChartData() -> [ChartDataEntry] {
         
         var yValues: [ChartDataEntry] = []
@@ -378,7 +423,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         print("App moved to ForeGround!")
         toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView)
         
-        updateHomeDate(date: dateForTheView)
+        updateHomeDateLabel(date: dateForTheView)
         
         if dateForTheView == Date.today() {
             print("###### Today !")
@@ -388,7 +433,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             print("###### NOT TODAY")
             
             
-            updateHomeDate(date: dateForTheView)
+            updateHomeDateLabel(date: dateForTheView)
             calendar.reloadData()
             setupCalAppearence()
             calendar.appearance.calendar.reloadData()
@@ -428,7 +473,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     func updateViewForDate(date: Date) {
         dateForTheView = date
-        updateHomeDate(date: date)
+        updateHomeDateLabel(date: date)
         tableView.reloadData()
         
     }
@@ -639,6 +684,52 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
      */
     func calculateTodaysScore() -> Int { //TODO change this to handle NTASKs
         var score = 0
+
+        let morningTasks: [NTask]
+        if(dateForTheView == Date.today()) {
+            morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
+        } else { //get morning tasks without rollover
+            morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+        }
+        let eveningTasks: [NTask]
+        if(dateForTheView == Date.today()) {
+            eveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
+        } else { //get morning tasks without rollover
+            eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+        }
+
+        //        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
+        //        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+
+        for each in morningTasks {
+
+            if each.isComplete {
+
+                score = score + each.getTaskScore(task: each)
+            }
+        }
+        for each in eveningTasks {
+            if each.isComplete {
+                score = score + each.getTaskScore(task: each)
+            }
+        }
+        return score;
+    }
+    
+    // MARK: calculate today's score
+    /*
+     Calculates daily productivity score
+     */
+    func calculateScoreForProject(project: String) -> Int { //TODO change this to handle NTASKs
+        var score = 0
+        let projectTasks: [NTask]
+        
+//        if project.lowercased() == ProjectManager.share {
+//            // show default home view
+//        }
+        
+        projectTasks = TaskManager.sharedInstance.getTasksForProjectByName(projectName: project)
+        
         
         let morningTasks: [NTask]
         if(dateForTheView == Date.today()) {
@@ -962,7 +1053,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //----------------------- *************************** -----------------------
     
     //MARK: set passed date as day, week, month label text
-    func updateHomeDate(date: Date) {
+    func updateHomeDateLabel(date: Date) {
         
         if("\(date.day)".count < 2) {
             self.homeDate_Day.text = "0\(date.day)"
