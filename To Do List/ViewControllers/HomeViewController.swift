@@ -141,7 +141,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     
     var filledBar: UIView?
-    var pillBarProjectList2: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project"),PillButtonBarItem(title: "Inbox")]
+    
     
     
     //init notification badge counter
@@ -371,6 +371,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         setupBottomAppBar()
         view.addSubview(bottomAppBar)
+        print("bottom height minY \(bottomAppBar.bounds.minY)")
+        print("bottom height maxY \(bottomAppBar.bounds.maxY)")
+        
+        //fixes log table hiding under app bar
+        tableView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height:  UIScreen.main.bounds.height - (headerEndY + headerEndY/2))
+        
         view.bringSubviewToFront(bottomAppBar)
         
         //        setupBadgeCount()
@@ -967,15 +973,17 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         bottomAppBar.floatingButton.setImage(UIImage(named: "material_add_White"), for: .normal)
         bottomAppBar.floatingButton.backgroundColor = todoColors.secondaryAccentColor //.systemIndigo
         bottomAppBar.frame = CGRect(x: 0, y: UIScreen.main.bounds.maxY-100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.maxY-100)
+
+
         bottomAppBar.barTintColor = todoColors.primaryColor//primaryColor
-        
+
         // The following lines of code are to define the buttons on the right and left side
         let barButtonMenu = UIBarButtonItem(
             image: UIImage(named:"material_menu_White"), // Icon
             style: .plain,
             target: self,
             action: #selector(self.onMenuButtonTapped))
-        
+
         let barButtonSearch = UIBarButtonItem(
             image: UIImage(named: "material_search_White"), // Icon
             style: .plain,
@@ -990,8 +998,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
         bottomAppBar.elevation = ShadowElevation(rawValue: 8)
         bottomAppBar.floatingButtonPosition = .trailing
-        
-        
+
+
         bottomAppBar.floatingButton.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
     }
     
