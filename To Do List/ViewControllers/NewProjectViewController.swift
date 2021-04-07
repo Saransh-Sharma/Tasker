@@ -13,6 +13,7 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 class NewProjectViewController: UIViewController, UITextFieldDelegate {
     
     var peoplePickers: [PeoplePicker] = []
+    var todoColors = ToDoColors()
     
     //    var description = Label(style: .subhead, colorStyle: .regular)
     
@@ -41,7 +42,8 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         //CGRect(x: 0, y: yVal , width: Int(UIScreen.main.bounds.width), height: Int(UIScreen.main.bounds.height))
         
         view.addSubview(addProjectContainer)
-        addProjectContainer.backgroundColor = .black
+        
+        addProjectContainer.backgroundColor = todoColors.backgroundColor
         addProjectContainer.addArrangedSubview(UIView())
         
         addLabel(text: "Add new project", style: .title1, colorStyle: .regular)
