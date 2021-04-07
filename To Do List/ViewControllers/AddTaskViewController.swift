@@ -82,7 +82,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     //MARK:- cuurentt task list date
     var dateForAddTaskView = Date.today()
     
-    var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project"),PillButtonBarItem(title: "Inbox")]
+//    var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project"),PillButtonBarItem(title: "Inbox")]
+    var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project")]
     var currenttProjectForAddTaskView = "inbox"
     
     
