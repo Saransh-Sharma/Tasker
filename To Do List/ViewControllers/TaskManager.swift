@@ -19,7 +19,10 @@ class TaskManager {
     //private var morningTasks = [NTask]()
     //private var eveningTasks = [NTask]()
     private var upcomingTasks = [NTask]()
-    private var inboxTasks = [NTask]()
+    private var allInboxTasks = [NTask]()
+    private var allCustomProjectTasks = [NTask]()
+//    private var todaysInboxTasks = [NTask]()
+//    private var todaysCustomProjectTasks = [NTask]()
     
     
     let context: NSManagedObjectContext!
@@ -74,36 +77,84 @@ class TaskManager {
             return upcomingTasks
         }
     }
-    var getInboxTasks: [NTask] {
+    var getAllInboxTasks: [NTask] {
         get {
             fetchTasks()
             for each in tasks {
-                // taskType 4 is inbox
-                if each.taskType == 4 {
-                    inboxTasks.append(each)
+                if each.project?.lowercased() == ProjectManager.sharedInstance.defaultProject {
+                    allInboxTasks.append(each)
                 }
             }
-            return inboxTasks
+            return allInboxTasks
         }
     }
+        var getAllCustomProjectTasks: [NTask] {
+            get {
+                fetchTasks()
+                for each in tasks {
+                    if each.project?.lowercased() != ProjectManager.sharedInstance.defaultProject {
+                        allCustomProjectTasks.append(each)
+                    }
+                }
+                return allCustomProjectTasks
+            }
+        }
+    
+
     
     func getTasksForProjectByName(projectName: String) -> [NTask] {
         
-        var tasks = [NTask]()
+        var projectTasks = [NTask]()
         fetchTasks()
         
         for each in tasks {
             let currentProjectName = each.project?.lowercased()
             if currentProjectName!.contains("\(projectName)") {
-                tasks.append(each)
+                projectTasks.append(each)
             }
         }
-        return tasks
+        return projectTasks
     }
     
-    func getTasksForProjectByNameForDate_All(projectName: String, date: Date) -> [NTask] {
+    func getTasksForInboxForDate_All(date: Date) -> [NTask] {
+          
+        print("ref: getTasksForInboxForDate_All - date \(date.stringIn(dateStyle: .short, timeStyle: .none)) - A")
+          var inboxTasks = [NTask]()
+          fetchTasks()
         
-        var tasks = [NTask]()
+          
+          for each in tasks {
+            print("**** getTasksForInboxForDate_All NAME  - \(each.name)")
+              let currentProjectName = each.project?.lowercased()
+              let currentDueDate = each.dueDate
+            print("0 ref: getTasksForInboxForDate_All - project \(each.project!.lowercased())")
+            print("1 ref: getTasksForInboxForDate_All - project \(each.project!.lowercased() ?? "inbox")")
+            if currentProjectName!.contains("\(ProjectManager.sharedInstance.defaultProject.lowercased())") {
+                  //                 tasks.append(each)
+                print("! ref: getTasksForInboxForDate_All - found INBOX task ! - B")
+                  if currentDueDate == date as NSDate {
+                      inboxTasks.append(each)
+                  }
+            }
+//            } else if currentProjectName == nil {
+//                print("!! ref: getTasksForInboxForDate_All - found HEADLESS INBOX task ! - C")
+//                tasks.append(each)
+//            }
+                
+                if currentProjectName == nil {
+                    print("!! ref: getTasksForInboxForDate_All - found HEADLESS INBOX task ! - C")
+                    if currentDueDate == date as NSDate {
+                        inboxTasks.append(each)
+                    }
+                }
+          }
+        print("!!! ref: getTasksForInboxForDate_All - inbox count: \(inboxTasks.count) - Z")
+          return inboxTasks
+      }
+    
+    func getTasksForCustomProjectByNameForDate_All(projectName: String, date: Date) -> [NTask] {
+        
+        var customProjectTasks = [NTask]()
         fetchTasks()
         
         for each in tasks {
@@ -112,11 +163,11 @@ class TaskManager {
             if currentProjectName!.contains("\(projectName)") {
                 //                 tasks.append(each)
                 if currentDueDate == date as NSDate {
-                    tasks.append(each)
+                    customProjectTasks.append(each)
                 }
             }
         }
-        return tasks
+        return customProjectTasks
     }
     
     func getTasksForProjectByNameForDate_Open(projectName: String, date: Date) -> [NTask] {

@@ -27,11 +27,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     
 //    public let mCheckBox = BEMCheckBox()
-    let ToDoListSections: [ToDoListData.Section] = TableViewCellSampleData.DateForViewSections
+    var ToDoListSections: [ToDoListData.Section] = TableViewCellSampleData.DateForViewSections
     var listSection: ToDoListData.Section? = nil
     
     var currentCheckboxTag = 0
     var currentIndex:IndexPath = [0,0]
+    
+    let toDoListHeaderLabel = UILabel()
     
     public var isGrouped: Bool = false {
         didSet {
@@ -179,7 +181,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //MARK:- cuurentt task list date & project
     var dateForTheView = Date.today()
     var projectForTheView = ProjectManager.sharedInstance.defaultProject
-    var currentViewType = ViewType.todayHomeView
+    var currentViewType = ToDoListViewType.todayHomeView
     
 
     
@@ -471,12 +473,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         NSLayoutConstraint.activate(constraints)
     }
     
-    func updateViewForDate(date: Date) {
-        dateForTheView = date
-        updateHomeDateLabel(date: date)
-        tableView.reloadData()
-        
-    }
+//    func updateViewForDate(date: Date) {
+//        dateForTheView = date
+//        updateHomeDateLabel(date: date)
+//        tableView.reloadData()
+//
+//    }
     
     @objc
     func appMovedToBackground() {
@@ -687,8 +689,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 
         let morningTasks: [NTask]
         if(dateForTheView == Date.today()) {
+            print ("score: getting today's tasks")
             morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
         } else { //get morning tasks without rollover
+            print ("score: getting custom date tasks")
             morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
         }
         let eveningTasks: [NTask]
@@ -1082,15 +1086,30 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         var tasks = [NTask]()
         var idxHolder = 0
         tasks = TaskManager.sharedInstance.getAllTasks
-        if let idx = tasks.firstIndex(where: { $0 === morningOrEveningTask }) {
+//        if let idx = tasks.firstIndex(where: { $0 === morningOrEveningTask }) {
+//
+//            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+//            print("sls Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
+//            print("func IDX is: \(idx)")
+//            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+//            idxHolder = idx
+//
+//        }
+        
+      
+        print("sls tatget task is: \(morningOrEveningTask.name)")
+        
+        if let idx = tasks.firstIndex(where: { $0.name == morningOrEveningTask.name }) {
+                 
+                 print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+                 print("sls Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
+                 print("func IDX is: \(idx)")
+                 print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+                 idxHolder = idx
             
-            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-            print("Marking task as complete: \(TaskManager.sharedInstance.getAllTasks[idx].name)")
-            print("func IDX is: \(idx)")
-            print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-            idxHolder = idx
             
-        }
+                 
+             }
         return idxHolder
     }
     

@@ -128,6 +128,8 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
 //        dateForTheView = date
         setDateForViewValue(dateToSetForView: date)
         
+        updateViewForHome(viewType: .customDateView, dateForView: date)
+        
         
         updateHomeDateLabel(date: dateForTheView)
         self.scoreCounter.text = "\(self.calculateTodaysScore())"

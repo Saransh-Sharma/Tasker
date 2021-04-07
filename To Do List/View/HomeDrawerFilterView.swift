@@ -64,7 +64,7 @@ extension HomeViewController {
         
   
         
-        updateViewForHome(viewType: .customSateView, dateForView: Date.tomorrow())
+        updateViewForHome(viewType: .customDateView, dateForView: Date.tomorrow())
         
         dismiss(animated: true)
     }

@@ -12,9 +12,13 @@ import FluentUI
 // MARK: TableViewCellSampleData
 
 class TableViewCellSampleData: ToDoListData {
-    static let numberOfItemsInSection: Int = 5
-    static let numberOfItemsInSectionForShimmer: Int = 3
+//    static let numberOfItemsInSection: Int = 5
+//    static let numberOfItemsInSectionForShimmer: Int = 3
 
+    // for custom date view & today view:
+    // 0) spacer
+    // 1) inbox for (today || date)
+    // 2) projects for (today || date)
     static let DateForViewSections: [Section] = [
           Section(
                            title: "section 0",
@@ -23,15 +27,15 @@ class TableViewCellSampleData: ToDoListData {
                             )
                            ]
                        ),
-        Section(
-                   title: "Inbox + overdue if dateView = today",
+        Section( // inbox for (today || date)
+                   title: "",
                    taskListItems: [
                     TaskListItem(text1: "Contoso Survey"
                     )
                    ]
                ),
-        Section(
-            title: "This is projecs section",
+        Section( //projects for (today || date)
+            title: "Projects",
             taskListItems: [
                 TaskListItem(text1: "Contoso Survey"
                 )
@@ -39,6 +43,7 @@ class TableViewCellSampleData: ToDoListData {
         )
     ]
     
+    // for custom project view
     static let ProjectForViewSections: [Section] = [
           Section(
                            title: "section 0",
@@ -47,20 +52,13 @@ class TableViewCellSampleData: ToDoListData {
                             )
                            ]
                        ),
-        Section(
-                   title: "Inbox + overdue if dateView = today",
+        Section(  //Goal: build project sections at run time // each sub project is a section
+                   title: "",
                    taskListItems: [
                     TaskListItem(text1: "Contoso Survey"
                     )
                    ]
-               ),
-        Section(
-            title: "This is projecs section",
-            taskListItems: [
-                TaskListItem(text1: "Contoso Survey"
-                )
-            ]
-        )
+               )
     ]
     
     static let UpcomingViewSections: [Section] = [
@@ -72,19 +70,12 @@ class TableViewCellSampleData: ToDoListData {
                            ]
                        ),
         Section(
-                   title: "Inbox + overdue if dateView = today",
+                   title: "", // build dynamic sections for 1 week/10/14/30 days
                    taskListItems: [
                     TaskListItem(text1: "Contoso Survey"
                     )
                    ]
-               ),
-        Section(
-            title: "This is projecs section",
-            taskListItems: [
-                TaskListItem(text1: "Contoso Survey"
-                )
-            ]
-        )
+               )
     ]
     
     static let HistoryViewSections: [Section] = [
@@ -96,19 +87,12 @@ class TableViewCellSampleData: ToDoListData {
                            ]
                        ),
         Section(
-                   title: "Inbox + overdue if dateView = today",
+                   title: "",
                    taskListItems: [
                     TaskListItem(text1: "Contoso Survey"
                     )
                    ]
-               ),
-        Section(
-            title: "This is projecs section",
-            taskListItems: [
-                TaskListItem(text1: "Contoso Survey"
-                )
-            ]
-        )
+               )
     ]
     
     static let OLDtodayViewSetions: [Section] = [
