@@ -19,7 +19,7 @@ extension NTask {
 
     @NSManaged public var name: String
     @NSManaged public var isComplete: Bool
-    @NSManaged public var dueDate: NSDate?
+    @NSManaged public var dueDate: NSDate? 
     @NSManaged public var taskDetails: String?
     @NSManaged public var taskPriority: Int32 //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
     @NSManaged public var taskType: Int32 //1-4 where 1 is morning; 2 is evening; 3 is upcoming; 4 is inbox; default is 1(morning)
@@ -28,7 +28,7 @@ extension NTask {
     @NSManaged public var alertReminderTime: NSDate?
     @NSManaged public var dateAdded: NSDate?
     @NSManaged public var isEveningTask: Bool
-    @NSManaged public var dateCompleted: NSDate?
+    @NSManaged public var dateCompleted: NSDate? //date its marked done
     
 
     func getTaskScore(task: NTask) -> Int {

@@ -128,7 +128,11 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
 //        dateForTheView = date
         setDateForViewValue(dateToSetForView: date)
         
-        updateViewForHome(viewType: .customDateView, dateForView: date)
+        if (date == Date.today()) {
+            updateViewForHome(viewType: .todayHomeView)
+        } else {
+            updateViewForHome(viewType: .customDateView, dateForView: date)
+        }
         
         
         updateHomeDateLabel(date: dateForTheView)

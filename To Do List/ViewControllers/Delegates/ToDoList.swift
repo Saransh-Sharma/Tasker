@@ -25,14 +25,10 @@ extension HomeViewController: BEMCheckBoxDelegate {
         
         checkBoxCompleteAction(indexPath: currentIndex, checkBox: checkBox)
         
-        
-        
     }
     
     @objc private func showTopDrawerButtonTapped(sender: UIButton) {
         let rect = sender.superview!.convert(sender.frame, to: nil)
-        //        let rect2 = lineSeparator.frame
-        //         presentDrawer(sourceView: sender, presentationOrigin: rect.maxY, presentationDirection: .down, contentView: containerForActionViews(), customWidth: true)
         
         presentDrawer(sourceView: sender, presentationOrigin: rect.maxY+8, presentationDirection: .down, contentView: containerForActionViews(), customWidth: true)
     }
@@ -99,22 +95,7 @@ extension HomeViewController: BEMCheckBoxDelegate {
     }
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     
     @objc private func selectionBarButtonTapped(sender: UIBarButtonItem) {
         //        isInSelectionMode = !isInSelectionMode
@@ -746,7 +727,7 @@ extension HomeViewController: UITableViewDataSource {
                 print("ref: numberOfRowsInSection - todayHomeView - B - inboxCount \(inboxTasks.count)")
                 return inboxTasks.count
             } else if section == 2 { //projects
-                let customProjectTasks = fetchTasksForAllCustomProjctsToday(date: Date.today())
+                let customProjectTasks = fetchTasksForAllCustomProjctsTodayOpen(date: Date.today())
                 print("ref: numberOfRowsInSection - todayHomeView - C - projectTaskCount \(customProjectTasks.count)")
                 return customProjectTasks.count
             } else {
@@ -755,7 +736,7 @@ extension HomeViewController: UITableViewDataSource {
         case .projectView:
             if section == 1 { //all custom project tasks
                 
-                let customProjectTasks = fetchTasksForAllCustomProjctsToday(date: Date.today())
+                let customProjectTasks = fetchTasksForAllCustomProjctsTodayOpen(date: Date.today())
                 return customProjectTasks.count
             } else {
                 return 0
@@ -766,9 +747,25 @@ extension HomeViewController: UITableViewDataSource {
         case .customDateView:
             if section == 1 { //inbox tasks
                 let inboxTasks = fetchInboxTasks(date: dateForTheView)
+                print("dud inbox task ccount:  \(inboxTasks.count)")
                 return inboxTasks.count
             } else if section == 2 { //projects
-                let customProjectTasks = fetchTasksForAllCustomProjctsToday(date: dateForTheView)
+//                let customProjectTasks = fetchTasksForAllCustomProjctsTodayOpen(date: dateForTheView)
+                
+                let customProjectTasks = fetchTasksForAllCustomProjctsTodayAll(date: dateForTheView)
+                for each in customProjectTasks {
+                    print("rhur print list : \(each.name)")
+                }
+                print("rhur : rows in section 2 : \(customProjectTasks.count)")
+                
+                
+//                let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
+//                let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
+//                let allTasks = morningTasks+eveningTasks
+                
+
+                
+                print("dud custom task ccount:  \(customProjectTasks.count)")
                 return customProjectTasks.count
             } else {
                 return 0
@@ -778,7 +775,7 @@ extension HomeViewController: UITableViewDataSource {
                 let inboxTasks = fetchInboxTasks(date: Date.today())
                 return inboxTasks.count
             } else if section == 2 { //projects
-                let customProjectTasks = fetchTasksForAllCustomProjctsToday(date: Date.today())
+                let customProjectTasks = fetchTasksForAllCustomProjctsTodayOpen(date: Date.today())
                 return customProjectTasks.count
             } else {
                 return 0
@@ -1095,9 +1092,14 @@ extension HomeViewController: UITableViewDataSource {
         //        return TaskManager.sharedInstance.getAllInboxTasks
     }
     
-    func fetchTasksForAllCustomProjctsToday(date: Date) -> [NTask] {
+    func fetchTasksForAllCustomProjctsTodayOpen(date: Date) -> [NTask] {
         //          return TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: dateForTheView)
         return TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
+    }
+    
+    func fetchTasksForAllCustomProjctsTodayAll(date: Date) -> [NTask] {
+        //          return TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: dateForTheView)
+        return TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_All(date: date)
     }
     
     func fetchTasksForCustomProject(project: String) -> [NTask] {
@@ -1139,7 +1141,8 @@ extension HomeViewController: UITableViewDataSource {
         ///--
         
         let inboxTasks = fetchInboxTasks(date: dateForTheView)
-        let userProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+        var userProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+//        let userProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_All(date: dateForTheView)
         
         
         switch currentViewType {
@@ -1185,7 +1188,9 @@ extension HomeViewController: UITableViewDataSource {
             
             
         case .customDateView: // custom date view cells
+            userProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_All(date: dateForTheView)
             if indexPath.section == 1 {
+                
                 
                 let task = inboxTasks[indexPath.row]
                 

@@ -124,17 +124,17 @@ class TaskManager {
         
           
           for each in tasks {
-            print("**** getTasksForInboxForDate_All NAME  - \(each.name)")
+            print("ref **** getTasksForInboxForDate_All NAME  - \(each.name)")
               let currentProjectName = each.project?.lowercased()
               let currentDueDate = each.dueDate
-            print("0 ref: getTasksForInboxForDate_All - project \(each.project!.lowercased())")
-            print("1 ref: getTasksForInboxForDate_All - project \(each.project!.lowercased() ?? "inbox")")
+//            print("0 ref: getTasksForInboxForDate_All - project \(each.project!.lowercased())")
+//            print("1 ref: getTasksForInboxForDate_All - project \(each.project!.lowercased() ?? "inbox")")
             if currentProjectName!.contains("\(ProjectManager.sharedInstance.defaultProject.lowercased())") {
                   //                 tasks.append(each)
                 print("! ref: getTasksForInboxForDate_All - found INBOX task ! - B")
                   if currentDueDate == date as NSDate {
                       inboxTasks.append(each)
-                  }
+                  } 
             }
 //            } else if currentProjectName == nil {
 //                print("!! ref: getTasksForInboxForDate_All - found HEADLESS INBOX task ! - C")
@@ -283,6 +283,34 @@ class TaskManager {
                 //                } else {
                 //                    print("asks for NON inbox : is rollover task")
                 //                }
+                
+            }
+        }
+        print("tasks for NON inbox count: \(mtasks.count)")
+        return mtasks
+    }
+    
+    func getTasksForAllCustomProjectsByNameForDate_All(date: Date) -> [NTask] {
+        
+        var mtasks = [NTask]()
+        fetchTasks()
+        
+        for each in tasks {
+            let currentProjectName = each.project?.lowercased()
+            
+            if currentProjectName?.lowercased() != ProjectManager.sharedInstance.defaultProject.lowercased() { //if not INBOX
+                
+                
+                
+                if (each.dateCompleted != nil) {
+                    if (each.dateCompleted!  as Date > date && each.dateAdded! as Date == date) {
+                        print("rhur name: \(each.name)")
+                        mtasks.append(each)
+                    }
+                    
+                }
+                
+
                 
             }
         }
