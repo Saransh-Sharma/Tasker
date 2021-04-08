@@ -718,7 +718,13 @@ extension HomeViewController: UITableViewDataSource {
         if section == 0 {
             return 0
         }
-        
+        enum ToDoListViewType {
+            case todayHomeView
+            case customDateView
+            case projectView
+            case upcomingView
+            case historyView
+        }
         switch currentViewType {
         case .todayHomeView:
             print("ref: numberOfRowsInSection - todayHomeView - A")
@@ -1391,6 +1397,19 @@ extension HomeViewController: UITableViewDataSource {
         
     }
     
+    func markTaskCompleteOnSwipe(task: NTask) {
+        TaskManager.sharedInstance
+            .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: task)]
+            .isComplete = true
+        
+        TaskManager.sharedInstance
+            .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: task)]
+            .dateCompleted = Date.today() as NSDate
+        
+        //inboxTasks[indexPath.row
+       
+        TaskManager.sharedInstance.saveContext()
+    }
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         
@@ -1400,55 +1419,71 @@ extension HomeViewController: UITableViewDataSource {
             let projectsTasks: [NTask]
             let dateForTheView = self.dateForTheView
             
-            inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: dateForTheView)
             
-            for each in inboxTasks {
-                print("sls Task is-------->: \(each.name)")
+            
+            switch self.currentViewType {
+            
+            case .todayHomeView:
+                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+                
+                switch indexPath.section {
+                
+                case 1:
+                    
+                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                    
+                    tableView.reloadData()
+                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    
+                    
+                case 2:
+                    
+                    projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+                    
+                    
+                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                    
+                    tableView.reloadData()
+                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                
+                default:
+                    break
+                }
+                
+            case .customDateView:
+                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+                print("SWIPE - CUSTOM DATTE")
+                switch indexPath.section {
+                
+                case 1:
+                    
+                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                    
+                    tableView.reloadData()
+                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    
+                    
+                case 2:
+                    
+                    projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+                    
+                    
+                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                    
+                    tableView.reloadData()
+                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                
+                default:
+                    break
+                }
+            case .projectView:
+                print("SWIPE - PROHECT VIEW") //TODO
+            case .upcomingView:
+                print("SWIPE - Upcooming") //TODO
+            case .historyView:
+                print("SWIPE - HISTORY VIEW") //TODO
             }
-            print("sls inbox count is: \(inboxTasks.count)")
-            projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-            //                   let sortedEveningTask = projectsTasks.sorted(by: { !$0.isComplete && $1.isComplete })
             
-            switch indexPath.section {
-            case 1:
-                
-                print("sls : Acting on ------>  \(inboxTasks[indexPath.row].name)")
-            
-                
-                TaskManager.sharedInstance
-                    .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])]
-                    .isComplete = true
-                
-                TaskManager.sharedInstance
-                    .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])]
-                    .dateCompleted = Date.today() as NSDate
-               
-                
-                TaskManager.sharedInstance.saveContext()
-                
-                print("sls inbox MARKINNG COMPLETE: \(TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])].name)")
-                
-                tableView.reloadData()
-                self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                
-            case 2:
-                TaskManager.sharedInstance
-                    .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])]
-                    .isComplete = true
-                
-                TaskManager.sharedInstance
-                    .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])]
-                    .dateCompleted = Date.today() as NSDate
-                
-                TaskManager.sharedInstance.saveContext()
-                
-                print("project task MARKINNG COMPLETE: \(TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])].name)")
-                tableView.reloadData()
-                self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                
-            default:
-                break
-            }
             
             print("SCORE IS: \(self.calculateTodaysScore())")
             self.scoreCounter.text = "\(self.calculateTodaysScore())"

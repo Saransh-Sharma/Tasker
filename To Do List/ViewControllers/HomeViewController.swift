@@ -24,6 +24,10 @@ import MaterialComponents.MaterialRipple
 
 
 class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate {
+    func didSelectBadge(_ badge: BadgeView) {
+        
+    }
+    
     
     
 //    public let mCheckBox = BEMCheckBox()
@@ -35,38 +39,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     let toDoListHeaderLabel = UILabel()
     
+    
     public var isGrouped: Bool = false {
         didSet {
             updateTableView()
         }
     }
     
-//    public var isInSelectionMode: Bool = true {
-//         didSet {
-//             tableView.allowsMultipleSelection = isInSelectionMode
-//
-//             for indexPath in tableView?.indexPathsForVisibleRows ?? [] {
-//                 if !ToDoListSections[indexPath.section].allowsMultipleSelection {
-//                     continue
-//                 }
-//
-//                 if let cell = tableView.cellForRow(at: indexPath) as? TableViewCell {
-//                     cell.setIsInSelectionMode(isInSelectionMode, animated: true)
-//                 }
-//             }
-//
-//             tableView.indexPathsForSelectedRows?.forEach {
-//                 tableView.deselectRow(at: $0, animated: false)
-//             }
-//
-////             updateNavigationTitle()
-//             navigationItem.rightBarButtonItem?.title = isInSelectionMode ? "Done" : "Select"
-//         }
-//     }
-    
-    func didSelectBadge(_ badge: BadgeView) {
-        
-    }
     
     func createProjectsBar(items: [PillButtonBarItem], style: PillButtonStyle = .outline, centerAligned: Bool = false) -> UIView {
           bar = PillButtonBar(pillButtonStyle: style)
@@ -713,8 +692,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 
         for each in morningTasks {
 
-            if each.isComplete {
+            if each.isComplete && dateForTheView == each.dateCompleted! as Date {
 
+              
                 score = score + each.getTaskScore(task: each)
             }
         }
