@@ -2,6 +2,12 @@
 <Workspace
    version = "1.0">
    <FileRef
+      location = "group:/Users/saransh1337/codeMonkey/Projects/To Do List/Projects+CoreDataClass.swift">
+   </FileRef>
+   <FileRef
+      location = "group:/Users/saransh1337/codeMonkey/Projects/To Do List/Projects+CoreDataProperties.swift">
+   </FileRef>
+   <FileRef
       location = "group:To Do List.xcodeproj">
    </FileRef>
    <FileRef

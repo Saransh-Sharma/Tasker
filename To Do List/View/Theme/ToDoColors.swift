@@ -16,12 +16,14 @@ class ToDoColors {
         var backgroundColor = UIColor.systemGray5
     //    var primaryColor = UIColor.systemIndigo
             var primaryColor =  #colorLiteral(red: 0.5490196078, green: 0.5450980392, blue: 0.8196078431, alpha: 1)
+  
+    //17DDCE
 //    var primaryColor =  #colorLiteral(red: 0.2279829348, green: 0.4250875221, blue: 0.6562256581, alpha: 1)
     //69C9D0
 //    UIColor(red: 37.0/255.0, green: 41.0/255.0, blue: 41.0/255.0, alpha: 1.0)
 //        var primaryColor = #colorLiteral(red: 0.1333333333, green: 0.1960784314, blue: 0.2980392157, alpha: 1)
         var primaryColorDarker = UIColor.black //UIColor.systemFill
-        var secondaryAccentColor = UIColor.systemOrange
+        var secondaryAccentColor = #colorLiteral(red: 0.9824339747, green: 0.5298179388, blue: 0.176022768, alpha: 1)//UIColor.systemOrange
         
         var completeTaskSwipeColor = UIColor(red: 46/255.0, green: 204/255.0, blue: 113/255.0, alpha: 1.0)
 //        var deleteTaskSwipeColor = UIColor(red: 46/255.0, green: 204/255.0, blue: 113/255.0, alpha: 1.0)
@@ -75,4 +77,9 @@ class ToDoColors {
         //          var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
         //          var secondryColor =  #colorLiteral(red: 0.2039215686, green: 0, blue: 0.4078431373, alpha: 1)
     
+ 
+    /// In Darkmode, our system use two sets of background colors -- called base and elevated -- to enhance the perception of depath when one dark interface is layered above another.
+     /// The dark base colors are darker, making background interface appear to recede, and the elevate colors are lighter, making foreground interfaces appear to advance
+
+
 }

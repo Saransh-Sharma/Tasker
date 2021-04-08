@@ -138,7 +138,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         fab_doneTask.backgroundColor = secondryColor
         fab_doneTask.sizeToFit()
         view.addSubview(fab_doneTask)
-        fab_doneTask.addTarget(self, action: #selector(doneAddTaskAction), for: .touchUpInside)
+        fab_doneTask.addTarget(self, action: #selector(OLD_doneAddTaskAction), for: .touchUpInside)
         
         
         // MARK:- SETUP ALL VIEWS
@@ -168,7 +168,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     //MARK:- DONE TASK ACTION
     
-    @objc func doneAddTaskAction() {
+    @objc func OLD_doneAddTaskAction() {
         
         //       tap DONE --> add new task + nav homeScreen
         //MARK:- ADD TASK ACTION
@@ -189,14 +189,14 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
                 TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
             } else if (taskDayFromPicker == "Tomorrow") { //["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
                 taskDueDate = Date.tomorrow()
-                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
+//                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
             } else if (taskDayFromPicker == "Weekend") {
                 
                 //get the next weekend
                 taskDueDate = Date.today().changed(weekday: 5)!
                 
                 
-                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
+//                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
                 
                 
                 
@@ -289,7 +289,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             currentTaskPriority = 4
             return 4
         case 1:
-
+            
             print("Priority is P2- low 3")
             currentTaskPriority = 3
             return 3

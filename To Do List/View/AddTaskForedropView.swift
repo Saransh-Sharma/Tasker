@@ -10,6 +10,7 @@ import Foundation
 import UIKit
 import CoreData
 import Timepiece
+import FluentUI
 import MaterialComponents.MaterialTextControls_FilledTextAreas
 import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
@@ -18,22 +19,28 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 extension AddTaskViewController {
     
-    func setupFordrop() {
+    func setupAddTaskForedrop() {
         
-        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal, animations, all
-        foredropContainer.frame = CGRect(x: 0, y: homeTopBar.frame.maxY*2.2, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
+        print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal,
+        foredropStackContainer.frame = CGRect(x: 0, y: homeTopBar.frame.maxY*2.2, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         
-        //        CGRect(x: 0, y: homeTopBar.frame.maxY-5, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         
-        //CGRect(x: 0, y: homeTopBar.frame.maxY-5, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         setupBackdropForeground()
-        //            setupTableView()
-        foredropContainer.backgroundColor = .clear
+//        foredropStackContainer.backgroundColor = .black
+        
         setupAddTaskTextField()
-        setupEveningTaskSwitch()
+        foredropStackContainer.addArrangedSubview(UIView())
+        
+        setupProjectsPillBar()
+        foredropStackContainer.addArrangedSubview(UIView())
+        
         setupPrioritySC()
+        foredropStackContainer.addArrangedSubview(UIView())
+        
         setupDoneButton()
-        //            foredropContainer.bringSubviewToFront(tableView)
+        foredropStackContainer.addArrangedSubview(UIView())
+        
+        
     }
     
     //----------------------- *************************** -----------------------
@@ -53,22 +60,107 @@ extension AddTaskViewController {
         backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
         backdropForeImageView.layer.shadowRadius = 10
         
-        //        view.addSubview(backdropForeImageView)
-        foredropContainer.addSubview(backdropForeImageView)
+        foredropStackContainer.addSubview(backdropForeImageView)
         
+    }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                    Setup Projects Pill Bar
+    //----------------------- *************************** -----------------------
+    
+    func setupProjectsPillBar() {
+        
+        buildProojectsPillBarData()
+        
+//        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
+         filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
+        filledBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
+//        self.filledBar = filledBar
+        foredropStackContainer.addArrangedSubview(filledBar!)
+        filledBar!.backgroundColor = .clear
+        
+//        filledBar.selected
+//        filledBar.addTarget(self, action: #selector(changeProject))
+        
+    }
+    
+    func buildProojectsPillBarData() {
+        
+        let allProjects = ProjectManager.sharedInstance.getAllProjects
+        
+        for each in allProjects {
+//            print("added to pill bar, prject: \(String(describing: each.projectName! as String))")
+            pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
+        }
+    }
+    
+
+//    @objc
+//    func changeProject(sender: UIView) -> Int {
+//
+//        switch sender.selectedSegmentIndex {
+//        case 0:
+//            print("Priority is None - no priority 4")
+//            currentTaskPriority = 4
+//            return 4
+//        case 1:
+//
+//            print("Priority is P2- low 3")
+//            currentTaskPriority = 3
+//            return 3
+//        case 2:
+//            print("Priority is P1- high 2")
+//            currentTaskPriority = 2
+//            return 2
+//        case 3:
+//            print("Priority is p0 - highest 1")
+//            currentTaskPriority = 1
+//            return 1
+//        default:
+//            print("Failed to get Task Priority")
+//            return 3
+//        }
+//    }
+    
+    
+    
+    func createProjectsBar(items: [PillButtonBarItem], style: PillButtonStyle = .outline, centerAligned: Bool = false) -> UIView {
+        let bar = PillButtonBar(pillButtonStyle: style)
+        bar.items = items
+        _ = bar.selectItem(atIndex: 1)
+        bar.barDelegate = self
+        bar.centerAligned = centerAligned
+        
+        let backgroundView = UIView()
+        if style == .outline {
+            backgroundView.backgroundColor = .clear//Colors.Navigation.System.background
+        }
+        backgroundView.addSubview(bar)
+        let margins = UIEdgeInsets(top: 16.0, left: 0, bottom: 16.0, right: 0.0)
+        fitViewIntoSuperview(bar, margins: margins)
+        return backgroundView
+    }
+    
+    func fitViewIntoSuperview(_ view: UIView, margins: UIEdgeInsets) {
+        guard let superview = view.superview else {
+            return
+        }
+        
+        view.translatesAutoresizingMaskIntoConstraints = false
+        let constraints = [view.leadingAnchor.constraint(equalTo: superview.leadingAnchor, constant: margins.left),
+                           view.trailingAnchor.constraint(equalTo: superview.trailingAnchor, constant: -margins.right),
+                           view.topAnchor.constraint(equalTo: superview.topAnchor, constant: margins.top),
+                           view.bottomAnchor.constraint(equalTo: superview.bottomAnchor, constant: -margins.bottom)]
+        
+        NSLayoutConstraint.activate(constraints)
     }
     
     // MARK: MAKE AddTask TextFeild
     func setupAddTaskTextField() {
         
-        //        let mView = UIView()
-        //        mView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/8)
-        
-        //        mView.backgroundColor = todoColors.backgroundColor
-        //        view.center.y += UIScreen.main.bounds.height/6
-        //--------MATERIAL TEXT FEILD
-        let estimatedFrame = CGRect(x: 0, y: 14, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/8)//CGRect(x: circleMenuStartX+circleMenuRadius/2, y: 0, width: UIScreen.main.bounds.maxX-(10+70+circleMenuRadius/2), height: standardHeight/2)
+        let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
+        addTaskTextBox_Material.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         addTaskTextBox_Material.label.text = "add task & tap done"
         addTaskTextBox_Material.leadingAssistiveLabel.text = "Always add actionable items"
         addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
@@ -81,43 +173,39 @@ extension AddTaskViewController {
                                     "order Cake", "review subscriptions", "get coffee"]
         addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
         addTaskTextBox_Material.sizeToFit()
-        //        mView.addSubview(addTaskTextBox_Material)
-        //        mView.addSubview(textFeild)
-        //        mView.bringSubviewToFront(textFeild)
-        foredropContainer.addSubview(addTaskTextBox_Material)
-        //        return mView
+        
+        addTaskTextBox_Material.backgroundColor = .clear
+        
+        
+        foredropStackContainer.addArrangedSubview(addTaskTextBox_Material)
+        
+        
     }
     
     func setupEveningTaskSwitch() {
         
         
-        switchSetContainer.frame = CGRect(x: 0, y: addTaskTextBox_Material.frame.maxY+10, width: UIScreen.main.bounds.width, height: 50)
+        switchSetContainer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         switchSetContainer.backgroundColor = .clear
         switchBackground.frame = CGRect(x: 0, y: addTaskTextBox_Material.frame.maxY+10, width: UIScreen.main.bounds.width, height: switchSetContainer.frame.height)
         switchBackground.backgroundColor = .clear//todoColors.secondaryAccentColor
         foredropContainer.addSubview(switchSetContainer)
         foredropContainer.addSubview(switchBackground)
         
-        eveningLabel.frame = CGRect(x: 10, y: addTaskTextBox_Material.frame.maxY+10, width: UIScreen.main.bounds.width/2, height: switchBackground.bounds.maxY)
+        eveningLabel.frame = CGRect(x: 10, y: 0, width: UIScreen.main.bounds.width/2, height: switchBackground.bounds.maxY)
         eveningLabel.text = "evening task"
         eveningLabel.adjustsFontSizeToFitWidth = true
         eveningLabel.font = eveningLabel.font.withSize(switchSetContainer.bounds.height/2)
         eveningLabel.textColor = UIColor.label
         foredropContainer.addSubview(eveningLabel)
         
-        //         eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-70, y:switchSetContainer.bounds.midY-((switchSetContainer.bounds.midY/2)+5), width: UIScreen.main.bounds.width/4, height: switchSetContainer.bounds.height-10)
-        eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-70, y:addTaskTextBox_Material.frame.maxY+18, width: UIScreen.main.bounds.width/4, height: switchSetContainer.frame.height-10)
-        //         eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-70, y:switchSetContainer.bounds.midY-((switchSetContainer.bounds.midY/2)+5), width: UIScreen.main.bounds.width/4, height: switchSetContainer.bounds.height-10)
         
-        foredropContainer.addSubview(eveningSwitch)
+        eveningSwitch.frame = CGRect(x: UIScreen.main.bounds.maxX-70, y:18, width: UIScreen.main.bounds.width/4, height: switchSetContainer.frame.height-10)
         
         // Colors
         eveningSwitch.onTintColor = todoColors.primaryColor
         eveningSwitch.addTarget(self, action: #selector(NAddTaskScreen.isEveningSwitchOn(sender:)), for: .valueChanged)
-        //         foredropContainer.addSubview(eveningSwitch)
         
-        
-        //         return mView
     }
     
     
@@ -136,29 +224,19 @@ extension AddTaskViewController {
     // MARK: MAKE Priority SC
     func setupPrioritySC() {
         
-        //        let mView = UIView()
         let p = ["None", "Low", "High", "Highest"]
-        prioritySC = UISegmentedControl(items: p)
         
-        //        mView.frame = CGRect(x: 0, y: switchSetContainer.frame.maxY, width: UIScreen.main.bounds.width, height: switchSetContainer.frame.height)
+        let tabsSegmentedControl = SegmentedControl(items: p)
+        tabsSegmentedControl.frame = CGRect(x: 50, y: 50, width: UIScreen.main.bounds.width-100, height: 50)
+        tabsSegmentedControl.selectedSegmentIndex = 1
         
-        //        mView.backgroundColor = todoColors.primaryColor
-        prioritySC.frame = CGRect(x: 50, y: switchSetContainer.frame.maxY+18, width: UIScreen.main.bounds.width-100, height: switchSetContainer.frame.height) //mView.frame
-        //Task Priority
-        prioritySC.selectedSegmentIndex = 1
-        prioritySC.backgroundColor = .white
-        prioritySC.selectedSegmentTintColor =  todoColors.secondaryAccentColor
-        prioritySC.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
+        tabsSegmentedControl.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
         
-        prioritySC.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
-        //        mView.addSubview(prioritySC)
+        foredropStackContainer.addArrangedSubview(tabsSegmentedControl)
         
-        
-        foredropContainer.addSubview(prioritySC)
-        
-        
-        //        return mView
     }
+    
+    
     
     //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
     @objc
@@ -200,6 +278,7 @@ extension AddTaskViewController {
         fab_doneTask.setTitle("done", for: .normal)
         fab_doneTask.setTitle("nice !", for: .highlighted)
         fab_doneTask.titleLabel?.text = "Done"
+        
         fab_doneTask.titleColor(for: .normal)
         fab_doneTask.frame = CGRect(x: UIScreen.main.bounds.maxX-2.5*doneButtonHeightWidth, y: doneButtonY, width: 2.5*doneButtonHeightWidth, height: doneButtonHeightWidth)
         let doneTaskIconNormalImage = UIImage(named: "material_done_White")
@@ -216,8 +295,12 @@ extension AddTaskViewController {
         
         fab_doneTask.backgroundColor = todoColors.secondaryAccentColor
         fab_doneTask.sizeToFit()
-        foredropContainer.addSubview(fab_doneTask)
+        //        foredropContainer.addSubview(fab_doneTask)
+        //        fab_doneTask.contentHorizontalAlignment = .trailing
+        fab_doneTask.titleLabel?.textAlignment = .center
+        foredropStackContainer.addArrangedSubview(fab_doneTask)
         fab_doneTask.addTarget(self, action: #selector(doneAddTaskAction), for: .touchUpInside)
+        
     }
     
     //MARK:- DONE TASK ACTION
@@ -227,7 +310,7 @@ extension AddTaskViewController {
         //       tap DONE --> add new task + nav homeScreen
         //MARK:- ADD TASK ACTION
         isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
-        var taskDueDate = Date()
+        //        var taskDueDate = Date()
         print("task: User tapped done button at add task")
         if currentTaskInMaterialTextBox != "" {
             
@@ -237,53 +320,56 @@ extension AddTaskViewController {
             //            let title = segm.titleForSegment(at: segment.selectedSegmentIndex)
             
             print("Priority is: \(currentTaskPriority)")
+            print("Add ask projet is: \(currenttProjectForAddTaskView)")
             
             //--//onnly adds task ttoday fix this
             
-            taskDueDate = Date.today()
-            TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
+            print("Addig task for date: \(dateForAddTaskView.stringIn(dateStyle: .full, timeStyle: .none))")
+            
+            //            taskDueDate = dateForAddTaskView
+            //            TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
+            
+        
+            
+            TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: dateForAddTaskView, isEveningTask: isThisEveningTask, project: currenttProjectForAddTaskView)
+            
+            HUD.shared.showSuccess(from: self, with: "Added to\n\(currenttProjectForAddTaskView)")
             
             //---
         } else {
-            print("task: nothing to add - doone ")
+//            print("task: nothing to add - doone ")
+//             let iv = UIImageView()
+//               iv.contentMode = .scaleAspectFit
+//               iv.backgroundColor = .green
+//               iv.image = #imageLiteral(resourceName: "ic_arrow_back_ios")
+//            HUD.shared.showFailure(in: iv, with: "Nothing Added")
+            
+            HUD.shared.showFailure(from: self, with: "Nothing Added")
+            
+//            HUD.shared.show(in: iv, with: "Nothing Added")
+        }
+        
+   
+        
+        
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // your code here
+            
+            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+            let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
+            newViewController.modalPresentationStyle = .fullScreen
+            //        self.present(newViewController, animated: true, completion: nil)
+            self.present(newViewController, animated: true, completion: { () in
+                print("SUCCESS !!!")
+//                HUD.shared.showSuccess(from: self, with: "Success")
+                
+            })
+            
+            
         }
         
         
-        //              if(taskDayFromPicker == "Unknown" || taskDayFromPicker == "") {
-        //                  taskDueDate = Date.today()
-        //                  TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
-        //              } else if (taskDayFromPicker == "Tomorrow") { //["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
-        //                  taskDueDate = Date.tomorrow()
-        //                  TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
-        //              } else if (taskDayFromPicker == "Weekend") {
-        //
-        //                  //get the next weekend
-        //                  taskDueDate = Date.today().changed(weekday: 5)!
-        //
-        //
-        //                  TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
-        //
-        //
-        //
-        //              } else if (taskDayFromPicker == "Today") {
-        //                  taskDueDate = Date.today()
-        //                  TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
-        //              }
-        //
-        //                          else {
-        //                              print("EMPTY TASK ! - Nothing to add")
-        //
-        //                          }
-        
-        //          }
-        
-        //add generic task add here which takes all input
-        //        TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2, isEveningTask: isThisEveningTask)
-        
-        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
-        newViewController.modalPresentationStyle = .fullScreen
-        self.present(newViewController, animated: true, completion: nil)
     }
     
     //MARK:- CANCEL TASK ACTION
