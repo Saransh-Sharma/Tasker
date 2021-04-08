@@ -1411,7 +1411,25 @@ extension HomeViewController: UITableViewDataSource {
         TaskManager.sharedInstance.saveContext()
     }
     
+    func markTaskOpenOnSwipe(task: NTask) {
+        TaskManager.sharedInstance
+            .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: task)]
+            .isComplete = false
+        
+        TaskManager.sharedInstance
+            .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: task)]
+            .dateCompleted = nil
+        
+        //inboxTasks[indexPath.row
+       
+        TaskManager.sharedInstance.saveContext()
+    }
+    
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        
+        
+      
+        
         
         let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
@@ -1419,59 +1437,58 @@ extension HomeViewController: UITableViewDataSource {
             let projectsTasks: [NTask]
             let dateForTheView = self.dateForTheView
             
+//            inboxTasks = self.fetchInboxTasks(date: dateForTheView)
             
-            
+          
             switch self.currentViewType {
             
             case .todayHomeView:
                 inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+                projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
                 
                 switch indexPath.section {
                 
                 case 1:
                     
-                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-                    
-                    tableView.reloadData()
-                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                    
-                    
+                    if !inboxTasks[indexPath.row].isComplete {
+                        self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+              
                 case 2:
                     
-                    projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-                    
-                    
-                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-                    
-                    tableView.reloadData()
-                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                
+                    if !projectsTasks[indexPath.row].isComplete {
+                        self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+
                 default:
                     break
                 }
                 
             case .customDateView:
                 inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-                print("SWIPE - CUSTOM DATTE")
+                projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+              
                 switch indexPath.section {
                 
                 case 1:
                     
-                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-                    
-                    tableView.reloadData()
-                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                    
-                    
+                    if !inboxTasks[indexPath.row].isComplete {
+                        self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+         
                 case 2:
-                    
-                    projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-                    
-                    
-                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-                    
-                    tableView.reloadData()
-                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+
+                    if !projectsTasks[indexPath.row].isComplete {
+                        self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
                 
                 default:
                     break
@@ -1483,30 +1500,264 @@ extension HomeViewController: UITableViewDataSource {
             case .historyView:
                 print("SWIPE - HISTORY VIEW") //TODO
             }
-            
-            
+           
             print("SCORE IS: \(self.calculateTodaysScore())")
             self.scoreCounter.text = "\(self.calculateTodaysScore())"
             self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
             self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-            
-            //            tableView.reloadData()
-            //            self.animateTableViewReload()
-            
             self.title = "\(self.calculateTodaysScore())"
             actionPerformed(true)
         }
         
+//        print("SCORE IS: \(self.calculateTodaysScore())")
+//        self.scoreCounter.text = "\(self.calculateTodaysScore())"
+//        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+//        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+//        self.title = "\(self.calculateTodaysScore())"
+//        actionPerformed(true)
+        
+        let undoTaskAction = UIContextualAction(style: .normal, title: "U N D O") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+            
+            let inboxTasks: [NTask]
+            let projectsTasks: [NTask]
+            let dateForTheView = self.dateForTheView
+            
+//            inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+            
+          
+            switch self.currentViewType {
+            
+            case .todayHomeView:
+                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+                projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+                
+                switch indexPath.section {
+                
+                case 1:
+                    
+                    if inboxTasks[indexPath.row].isComplete {
+                        self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+              
+                case 2:
+                    
+                    if projectsTasks[indexPath.row].isComplete {
+                        self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+
+                default:
+                    break
+                }
+                
+            case .customDateView:
+                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+                projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+              
+                switch indexPath.section {
+                
+                case 1:
+                    
+                    if inboxTasks[indexPath.row].isComplete {
+                        self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+         
+                case 2:
+
+                    if projectsTasks[indexPath.row].isComplete {
+                        self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+                
+                default:
+                    break
+                }
+            case .projectView:
+                print("SWIPE - PROHECT VIEW") //TODO
+            case .upcomingView:
+                print("SWIPE - Upcooming") //TODO
+            case .historyView:
+                print("SWIPE - HISTORY VIEW") //TODO
+            }
+           
+            print("SCORE IS: \(self.calculateTodaysScore())")
+            self.scoreCounter.text = "\(self.calculateTodaysScore())"
+            self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+            self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+            self.title = "\(self.calculateTodaysScore())"
+            actionPerformed(true)
+        }
+        undoTaskAction.backgroundColor = todoColors.primaryColor
         completeTaskAction.backgroundColor = todoColors.completeTaskSwipeColor
         
-        //        NSUIColor(red: 192/255.0, green: 255/255.0, blue: 140/255.0, alpha: 1.0), green
-        //                 NSUIColor(red: 255/255.0, green: 247/255.0, blue: 140/255.0, alpha: 1.0), yellow
-        //                 NSUIColor(red: 255/255.0, green: 208/255.0, blue: 140/255.0, alpha: 1.0), orange
-        //                 NSUIColor(red: 140/255.0, green: 234/255.0, blue: 255/255.0, alpha: 1.0), blue
-        //                 NSUIColor(red: 255/255.0, green: 140/255.0, blue: 157/255.0, alpha: 1.0) red
+        let inboxTasks: [NTask]
+        let projectsTasks: [NTask]
+        let dateForTheView = self.dateForTheView
         
-        return UISwipeActionsConfiguration(actions: [completeTaskAction])
+        inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+        projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+        
+        switch self.currentViewType {
+        
+        case .todayHomeView:
+            
+            switch indexPath.section {
+            
+            case 1:
+                
+                
+            if inboxTasks[indexPath.row].isComplete {
+                return UISwipeActionsConfiguration(actions: [undoTaskAction])
+            } else if !inboxTasks[indexPath.row].isComplete {
+                return UISwipeActionsConfiguration(actions: [completeTaskAction])
+            }
+                
+            case 2:
+                if projectsTasks[indexPath.row].isComplete {
+                    return UISwipeActionsConfiguration(actions: [undoTaskAction])
+                } else if !projectsTasks[indexPath.row].isComplete {
+                    return UISwipeActionsConfiguration(actions: [completeTaskAction])
+                }
+                
+            default:
+                break
+            }
+            
+        case .customDateView:
+            switch indexPath.section {
+            
+            case 1:
+                
+                
+            if inboxTasks[indexPath.row].isComplete {
+                return UISwipeActionsConfiguration(actions: [undoTaskAction])
+            } else if !inboxTasks[indexPath.row].isComplete {
+                return UISwipeActionsConfiguration(actions: [completeTaskAction])
+            }
+                
+            case 2:
+                if projectsTasks[indexPath.row].isComplete {
+                    return UISwipeActionsConfiguration(actions: [undoTaskAction])
+                } else if !projectsTasks[indexPath.row].isComplete {
+                    return UISwipeActionsConfiguration(actions: [completeTaskAction])
+                }
+                
+            default:
+                break
+            }
+        case .projectView:
+            print("SWIPE - PROHECT VIEW")
+        case .upcomingView:
+            print("SWIPE - upccoming VIEW")
+        case .historyView:
+            print("SWIPE - histtory VIEW")
+        }
+        
+        return UISwipeActionsConfiguration(actions: [completeTaskAction,undoTaskAction])
     }
+    
+//    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+//
+//        let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+//
+//            let inboxTasks: [NTask]
+//            let projectsTasks: [NTask]
+//            let dateForTheView = self.dateForTheView
+//
+//
+//
+//            switch self.currentViewType {
+//
+//            case .todayHomeView:
+//                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+//
+//                switch indexPath.section {
+//
+//                case 1:
+//
+//                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+//
+//                    tableView.reloadData()
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//
+//
+//                case 2:
+//
+//                    projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+//
+//
+//                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+//
+//                    tableView.reloadData()
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//
+//                default:
+//                    break
+//                }
+//
+//            case .customDateView:
+//                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+//                print("SWIPE - CUSTOM DATTE")
+//                switch indexPath.section {
+//
+//                case 1:
+//
+//                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+//
+//                    tableView.reloadData()
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//
+//
+//                case 2:
+//
+//                    projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+//
+//
+//                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+//
+//                    tableView.reloadData()
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//
+//                default:
+//                    break
+//                }
+//            case .projectView:
+//                print("SWIPE - PROHECT VIEW") //TODO
+//            case .upcomingView:
+//                print("SWIPE - Upcooming") //TODO
+//            case .historyView:
+//                print("SWIPE - HISTORY VIEW") //TODO
+//            }
+//
+//
+//            print("SCORE IS: \(self.calculateTodaysScore())")
+//            self.scoreCounter.text = "\(self.calculateTodaysScore())"
+//            self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+//            self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+//
+//            //            tableView.reloadData()
+//            //            self.animateTableViewReload()
+//
+//            self.title = "\(self.calculateTodaysScore())"
+//            actionPerformed(true)
+//        }
+//
+//        completeTaskAction.backgroundColor = todoColors.completeTaskSwipeColor
+//
+//        //        NSUIColor(red: 192/255.0, green: 255/255.0, blue: 140/255.0, alpha: 1.0), green
+//        //                 NSUIColor(red: 255/255.0, green: 247/255.0, blue: 140/255.0, alpha: 1.0), yellow
+//        //                 NSUIColor(red: 255/255.0, green: 208/255.0, blue: 140/255.0, alpha: 1.0), orange
+//        //                 NSUIColor(red: 140/255.0, green: 234/255.0, blue: 255/255.0, alpha: 1.0), blue
+//        //                 NSUIColor(red: 255/255.0, green: 140/255.0, blue: 157/255.0, alpha: 1.0) red
+//
+//        return UISwipeActionsConfiguration(actions: [completeTaskAction])
+//    }
     
     
     
