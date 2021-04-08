@@ -18,15 +18,6 @@ import FSCalendar
 extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
     
     func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
-        
-        
-        //        let morningTasks: [NTask]
-        //                   if(dateForTheView == Date.today()) {
-        //                        morningTasks = TaskManager.sharedInstance.getMorningTasksForToday()
-        //                   } else { //get morning tasks without rollover
-        //                        morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-        //                   }
-        
         let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
         let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
         let allTasks = morningTasks+eveningTasks
@@ -41,7 +32,7 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     
     
     //----------------------- *************************** -----------------------
-    //MARK:-                       CALENNDAR:SETUP
+    //MARK:-                       CALENDAR:SETUP
     //----------------------- *************************** -----------------------
     
     func setupCalView() {
@@ -50,12 +41,11 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     }
     
     
-    
-    //MARK: Setup calendar appearence
+    //----------------------- *************************** -----------------------
+    //MARK:-                       CALENDAR:APPEARENCE
+    //----------------------- *************************** -----------------------
     func setupCalAppearence() {
-        //           let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height/2))
-        
-        //            UIScreen.main.bounds.height/2))
+
         calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
         calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
         
@@ -89,43 +79,19 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         calendar.appearance.borderSelectionColor = todoColors.primaryColorDarker
         
         
-        //        calendar.clipsToBounds = true
-        
         calendar.dataSource = self
         calendar.delegate = self
         
-        //           self.calendar = calendar
         self.calendar.scope = FSCalendarScope.week
-        //        calendar.backgroundColor = .white
     }
     
-    
-    
-    
-    
-    //    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, borderDefaultColorFor date: Date) -> UIColor? {
-    //        .blue
-    //    }
-    //
-    //    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, fillDefaultColorFor date: Date) -> UIColor? {
-    //        .black
-    //    }
-    
     //----------------------- *************************** -----------------------
-    //MARK:-                            CALENDAR
+    //MARK:-                            CALENDAR: didSelect
     //----------------------- *************************** -----------------------
     
-    
-    //    func calendar(didSelect)
-    
-
     //MARK: Cal changes VIEW + SCORE on date change
     func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
-        print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
-      
-        
-        //        dateToDisplay = date
-//        dateForTheView = date
+        print("You selected Date from Cal: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
         setDateForViewValue(dateToSetForView: date)
         
         if (date == Date.today()) {
