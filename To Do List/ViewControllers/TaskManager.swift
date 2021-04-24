@@ -69,7 +69,7 @@ class TaskManager {
     }
     
     //----------------------- *************************** -----------------------
-    //MARK:-                  Tasks By Project Name - All
+    //MARK:- - Tasks By Project Name - All
     //----------------------- *************************** -----------------------
     func getTasksForProjectByName(projectName: String) -> [NTask] {
         
@@ -86,7 +86,7 @@ class TaskManager {
     }
     
     //----------------------- *************************** -----------------------
-    //MARK:-                    Tasks For Inbox - All
+    //MARK:- - Tasks For Inbox - All
     //----------------------- *************************** -----------------------
     func getTasksForInboxForDate_All(date: Date) -> [NTask] {
         

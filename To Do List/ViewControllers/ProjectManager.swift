@@ -10,6 +10,13 @@ import Foundation
 import UIKit
 import CoreData
 
+extension Sequence where Element: Hashable {
+    func uniqued() -> [Element] {
+        var set = Set<Element>()
+        return filter { set.insert($0).inserted }
+    }
+}
+
 class ProjectManager {
     
     
@@ -32,12 +39,20 @@ class ProjectManager {
         return projects[index]
     }
     
-    var getAllProjects: [Projects] {
+    var getAllProjects: [Projects] { 
         get {
             fetchProjects()
-            //            for eaxh in projects {
-            //                print("ProjectManager: Found Project: \(String(describing: eaxh.projectName))")
-            //            }
+            var inboxPosition = 0
+                        for eaxh in projects {
+                            print("ProjectManager: Found Project: \(String(describing: eaxh.projectName))")
+                            
+                            if ((String(describing: eaxh.projectName)) == "Inbox") {
+                                let element = projects.remove(at: inboxPosition)
+                                projects.insert(element, at: 0)
+                            }
+                            inboxPosition = inboxPosition + 1
+                        }
+            projects = projects.uniqued()
             return projects
         }
     }

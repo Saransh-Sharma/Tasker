@@ -89,7 +89,7 @@ extension AddTaskViewController {
         let allProjects = ProjectManager.sharedInstance.getAllProjects
         
         for each in allProjects {
-//            print("added to pill bar, prject: \(String(describing: each.projectName! as String))")
+            print("added to pill bar, from ProjectManager: \(String(describing: each.projectName! as String))")
             pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
         }
     }
