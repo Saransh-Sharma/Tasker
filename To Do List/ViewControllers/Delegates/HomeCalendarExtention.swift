@@ -70,6 +70,8 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         calendar.appearance.selectionColor = todoColors.secondaryAccentColor
         calendar.appearance.subtitleDefaultColor = .white
         
+        calendar.firstWeekday = 2
+        
         //today
         calendar.appearance.todayColor = todoColors.primaryColorDarker
         calendar.appearance.titleTodayColor = todoColors.secondaryAccentColor

@@ -996,7 +996,22 @@ extension HomeViewController: UITableViewDelegate {
             } else if (dateForTheView == Date.yesterday()) {
                 sectionLabel = "Yesterday"
             } else {
-                sectionLabel = "xoom xoom xoom"
+                let customDay = dateForTheView
+                if("\(customDay.day)".count < 2) {
+                    homeDate_Day.text = "0\(customDay.day)"
+                } else {
+                    homeDate_Day.text = "\(customDay.day)"
+                }
+                
+//                homeDate_Month.text = todoTimeUtils.getMonth(date: customDay)
+                
+                let dateFormatter_Weekday = DateFormatter()
+                dateFormatter_Weekday.dateFormat = "EEEE"
+                let nameOfWeekday = dateFormatter_Weekday.string(from: customDay)
+                
+                let c = nameOfWeekday
+                //dateForTheView.stringIn(dateStyle: DateFormatter.Style.long, timeStyle: DateFormatter.Style.none)
+                sectionLabel = "\(c)"
             }
             toDoListHeaderLabel.text = sectionLabel//tableView(tableView, gree: section)
             
