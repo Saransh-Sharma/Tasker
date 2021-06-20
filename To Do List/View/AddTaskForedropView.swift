@@ -26,7 +26,7 @@ extension AddTaskViewController {
         
         
         setupBackdropForeground()
-//        foredropStackContainer.backgroundColor = .black
+        //        foredropStackContainer.backgroundColor = .black
         
         setupAddTaskTextField()
         foredropStackContainer.addArrangedSubview(UIView())
@@ -73,15 +73,15 @@ extension AddTaskViewController {
         print("do9")
         buildProojectsPillBarData()
         
-//        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
-         filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
+        //        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
+        filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
         filledBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
-//        self.filledBar = filledBar
+        //        self.filledBar = filledBar
         foredropStackContainer.addArrangedSubview(filledBar!)
-        filledBar!.backgroundColor = .black//.clear
+        filledBar!.backgroundColor = .clear
         
-//        filledBar.selected
-//        filledBar.addTarget(self, action: #selector(changeProject))
+        //        filledBar.selected
+        //        filledBar.addTarget(self, action: #selector(changeProject))
         
     }
     
@@ -95,7 +95,7 @@ extension AddTaskViewController {
         }
         
         if pillBarProjectList[1].title.lowercased() != "inbox" {
-
+            
             var count = 0
             for each in pillBarProjectList {
                 if each.title.lowercased() == "inbox" {
@@ -113,39 +113,6 @@ extension AddTaskViewController {
         
         
     }
-    
-//    int index = url.indexOf(itemToMove);
-//    url.remove(index);
-//    url.add(0, itemToMove);
-    
-
-//    @objc
-//    func changeProject(sender: UIView) -> Int {
-//
-//        switch sender.selectedSegmentIndex {
-//        case 0:
-//            print("Priority is None - no priority 4")
-//            currentTaskPriority = 4
-//            return 4
-//        case 1:
-//
-//            print("Priority is P2- low 3")
-//            currentTaskPriority = 3
-//            return 3
-//        case 2:
-//            print("Priority is P1- high 2")
-//            currentTaskPriority = 2
-//            return 2
-//        case 3:
-//            print("Priority is p0 - highest 1")
-//            currentTaskPriority = 1
-//            return 1
-//        default:
-//            print("Failed to get Task Priority")
-//            return 3
-//        }
-//    }
-    
     
     
     func createProjectsBar(items: [PillButtonBarItem], style: PillButtonStyle = .outline, centerAligned: Bool = false) -> UIView {
@@ -353,7 +320,7 @@ extension AddTaskViewController {
             //            taskDueDate = dateForAddTaskView
             //            TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
             
-        
+            
             
             TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: dateForAddTaskView, isEveningTask: isThisEveningTask, project: currenttProjectForAddTaskView)
             
@@ -361,19 +328,19 @@ extension AddTaskViewController {
             
             //---
         } else {
-//            print("task: nothing to add - doone ")
-//             let iv = UIImageView()
-//               iv.contentMode = .scaleAspectFit
-//               iv.backgroundColor = .green
-//               iv.image = #imageLiteral(resourceName: "ic_arrow_back_ios")
-//            HUD.shared.showFailure(in: iv, with: "Nothing Added")
+            //            print("task: nothing to add - doone ")
+            //             let iv = UIImageView()
+            //               iv.contentMode = .scaleAspectFit
+            //               iv.backgroundColor = .green
+            //               iv.image = #imageLiteral(resourceName: "ic_arrow_back_ios")
+            //            HUD.shared.showFailure(in: iv, with: "Nothing Added")
             
             HUD.shared.showFailure(from: self, with: "Nothing Added")
             
-//            HUD.shared.show(in: iv, with: "Nothing Added")
+            //            HUD.shared.show(in: iv, with: "Nothing Added")
         }
         
-   
+        
         
         
         
@@ -386,7 +353,7 @@ extension AddTaskViewController {
             //        self.present(newViewController, animated: true, completion: nil)
             self.present(newViewController, animated: true, completion: { () in
                 print("SUCCESS !!!")
-//                HUD.shared.showSuccess(from: self, with: "Success")
+                //                HUD.shared.showSuccess(from: self, with: "Success")
                 
             })
             
@@ -412,12 +379,12 @@ extension AddTaskViewController {
             print("Adding eveninng task")
             return 2
         }
-            //        else if isInboxTask {
-            //
-            //        }
-            //        else if isUpcomingTask {
-            //
-            //        }
+        //        else if isInboxTask {
+        //
+        //        }
+        //        else if isUpcomingTask {
+        //
+        //        }
         else {
             //this is morning task
             print("adding mornig task")

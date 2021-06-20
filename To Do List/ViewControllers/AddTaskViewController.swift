@@ -82,7 +82,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     //MARK:- cuurentt task list date
     var dateForAddTaskView = Date.today()
     
-
+    
     var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project")]
     var currenttProjectForAddTaskView = "Inbox"
     
@@ -94,17 +94,6 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
         //        currenttProjectForAddTaskView = name
     }
     
-    //    func changeProject() --> {
-    //        v
-    //    }
-    
-    //    func setProject() {
-    //        if project.isEmpty || project == nil {
-    //            project == "inbox"
-    //        } else {
-    //            project =
-    //        }
-    //    }
     
     // This function is called when you click return key in the text field.
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {

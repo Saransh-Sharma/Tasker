@@ -37,7 +37,7 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     
     func setupCalView() {
         calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.frame.maxY-6, width: UIScreen.main.bounds.width, height:
-            homeTopBar.frame.maxY*3.5))
+                                                homeTopBar.frame.maxY*3.5))
     }
     
     
@@ -45,7 +45,7 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     //MARK:-                       CALENDAR:APPEARENCE
     //----------------------- *************************** -----------------------
     func setupCalAppearence() {
-
+        
         calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
         calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
         
@@ -125,10 +125,10 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         
         reloadTinyPicChartWithAnimation()
         reloadToDoListWithAnimation()
-      
+        
     }
     
- 
+    
     
     
 }

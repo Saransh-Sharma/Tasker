@@ -34,7 +34,6 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        let yVal = 200
         
         //        view.backgroundColor = .green
         
@@ -247,12 +246,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         projecDescriptionTextField.font = UIFont(name: "HelveticaNeue", size: 18)
         projecDescriptionTextField.delegate = self
         projecDescriptionTextField.clearButtonMode = .whileEditing
-        //          let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
-        //                                      "schedule 1:1 with Shelly","grab 401k from mail box",
-        //                                      "get car serviced", "wrap Eve's birthaday gift ", "renew Gym membership",
-        //                                      "book flight tickets to Thailand", "fix the garage door",
-        //                                      "order Cake", "review subscriptions", "get coffee"]
-        //          projecDescriptionTextField.placeholder = placeholderTextArray.randomElement()!
+ 
         projecDescriptionTextField.sizeToFit()
         
         projecDescriptionTextField.tag = 1

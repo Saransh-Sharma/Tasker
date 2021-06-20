@@ -24,7 +24,6 @@ extension HomeViewController: BEMCheckBoxDelegate {
         print("checkboc idex: \(currentIndex)")
         
         checkBoxCompleteAction(indexPath: currentIndex, checkBox: checkBox)
-//        checkBoxCompleteAction2(checkBox: checkBox)
         
     }
     
@@ -123,47 +122,6 @@ extension HomeViewController: BEMCheckBoxDelegate {
             print("checkboc - HISTORY VIEW") //TODO
         }
         
-        //-------------
-        //-------------
-        //-------------
-        //-------------
-        
-        
-//        switch indexPath.section {
-//        case 1:
-//            TaskManager.sharedInstance
-//                .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])]
-//                .isComplete = true
-//
-//            TaskManager.sharedInstance
-//                .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])]
-//                .dateCompleted = Date.today() as NSDate
-//
-//            TaskManager.sharedInstance.saveContext()
-//
-//            print("inboox MARKINNG COMPLETE: \(TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: inboxTasks[indexPath.row])].name)")
-//
-//            tableView.reloadData()
-//            self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-//
-//        case 2:
-//            TaskManager.sharedInstance
-//                .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])]
-//                .isComplete = true
-//
-//            TaskManager.sharedInstance
-//                .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])]
-//                .dateCompleted = Date.today() as NSDate
-//
-//            TaskManager.sharedInstance.saveContext()
-//
-//            print("project task MARKINNG COMPLETE: \(TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: projectsTasks[indexPath.row])].name)")
-//            tableView.reloadData()
-//            self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-//
-//        default:
-//            break
-//        }
         
         print("SCORE IS: \(self.calculateTodaysScore())")
         self.scoreCounter.text = "\(self.calculateTodaysScore())"
@@ -190,12 +148,7 @@ extension HomeViewController: BEMCheckBoxDelegate {
     }
     
     private func updateNavigationTitle() {
-        //        if isInSelectionMode {
-        //            let selectedCount = tableView.indexPathsForSelectedRows?.count ?? 0
-        //            navigationItem.title = selectedCount == 1 ? "1 item selected" : "\(selectedCount) items selected"
-        //        } else {
-        //            navigationItem.title = title
-        //        }
+        
     }
     
     public func updateTableView() {
@@ -235,24 +188,6 @@ extension HomeViewController: UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        //        if section == 0 {
-        //            return 0
-        //        } else if section == 1 {
-        //            let inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: dateForTheView)
-        //            return inboxTasks.count //TODO: Add completed tasks to this
-        //        } else if section == 2 {
-        //            let userProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-        //            return userProjectTasks.count //TODO: Add completed tasks to this
-        //        }
-        //
-        //        else {
-        //            return TableViewCellSampleData.numberOfItemsInSection
-        //        }
-        
-        
-        
-        //        return ToDoListSections.c
-        
         
         fetchToDoListSections(viewType: currentViewType)
         
@@ -289,29 +224,20 @@ extension HomeViewController: UITableViewDataSource {
             } else {
                 return 0
             }
-        //            else if section == 2 { //Goal: have sub projects as section headers; this is built at run time
-        //
-        //                     }
+            
         case .customDateView:
             if section == 1 { //inbox tasks
                 let inboxTasks = fetchInboxTasks(date: dateForTheView)
                 print("dud inbox task ccount:  \(inboxTasks.count)")
                 return inboxTasks.count
             } else if section == 2 { //projects
-                //                let customProjectTasks = fetchTasksForAllCustomProjctsTodayOpen(date: dateForTheView)
+                
                 
                 let customProjectTasks = fetchTasksForAllCustomProjctsTodayAll(date: dateForTheView)
                 for each in customProjectTasks {
                     print("rhur print list : \(each.name)")
                 }
                 print("rhur : rows in section 2 : \(customProjectTasks.count)")
-                
-                
-                //                let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
-                //                let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
-                //                let allTasks = morningTasks+eveningTasks
-                
-                
                 
                 print("dud custom task ccount:  \(customProjectTasks.count)")
                 return customProjectTasks.count
@@ -331,30 +257,6 @@ extension HomeViewController: UITableViewDataSource {
         }
     }
     
-    //        func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-    //            switch section {
-    //            case 0:
-    //                let now = Date.today
-    //                if (dateForTheView == now()) {
-    //                    return "Today"
-    //                } else if (dateForTheView == Date.tomorrow()){
-    //                    return "Tomorrow"
-    //                } else if (dateForTheView == Date.yesterday()) {
-    //                    return "Yesterday"
-    //                }
-    //                else {
-    //                    return "Tasks \(dateForTheView.stringIn(dateStyle: .full, timeStyle: .none))"
-    //                }
-    //
-    //            //            return "Today's Tasks"
-    //            case 1:
-    //                return "Evening"
-    //            default:
-    //                return "DEFAULT HOLA !!"
-    //            }
-    //        }
-    
-    //build 5 types of cells here in 5 functions; tthis returns a UITableViewCell
     
     func setupCheckbox(cell: UITableViewCell) -> BEMCheckBox {
         let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: cell.bounds.minX+5, y: cell.bounds.minY+10, width: 20, height: 25))
@@ -397,7 +299,7 @@ extension HomeViewController: UITableViewDataSource {
     func buildOpenInboxCell_Overdue(task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
         let foo = setupCheckbox(cell: cell)
-//        foo.delegate =
+        
         foo.setOn(false, animated: true)
         cell.setup(
             title: task.name,
@@ -409,9 +311,7 @@ extension HomeViewController: UITableViewDataSource {
         )
         cell.customViewSize = .small
         cell.titleNumberOfLines = 0
-        //                checkBox.addTarget(self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
         
-        //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
         cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
         
         return cell
@@ -425,20 +325,14 @@ extension HomeViewController: UITableViewDataSource {
             title: task.name,
             subtitle: "",
             footer: "",
-            //                    customView: TableViewSampleData.createCustomView(imageName: item.image),
-                        customView: foo,
-            //            customView: "",
-            //                                            customAccessoryView: TableViewCellSampleData.customAccessoryView,
+            customView: foo,
             accessoryType: .checkmark
         )
         
         cell.customViewSize = .small
         cell.titleNumberOfLines = 0
         cell.isEnabled = false
-        //                checkBox.addTarget(self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
         
-        //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
-        //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
         
         return cell
     }
@@ -457,16 +351,14 @@ extension HomeViewController: UITableViewDataSource {
             subtitle: (task.project ?? "") as String,
             footer: "",
             customView: foo
-            //                                           rcustomAccessoryView: TableViewCellSampleData.customAccessoryView,
-            //                    accessoryType: TableViewCellSampleData.accessoryType(for: indexPath)
+            
         )
         cell.customViewSize = .small
         cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
         cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
         cell.titleNumberOfLines = 0
         
-        //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
-        //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
+        
         
         return cell
     }    //open inbox overdue
@@ -479,7 +371,7 @@ extension HomeViewController: UITableViewDataSource {
             subtitle: (task.project ?? "") as String,
             footer: "",
             customView: foo,
-            //                                           rcustomAccessoryView: TableViewCellSampleData.customAccessoryView,
+            
             customAccessoryView: TableViewCellSampleData.customAccessoryView,
             accessoryType: .none
         )
@@ -489,31 +381,11 @@ extension HomeViewController: UITableViewDataSource {
         cell.customViewSize = .small
         cell.titleNumberOfLines = 0
         
-        //                cell.titleTrailingAccessoryView = item.text1TrailingAccessoryView()
-        //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
         
         return cell
     }
     
-    //    func coompleteTaksViaCheckbox() {
-    //        let inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: "inbox", date: dateForTheView)
-    //              let userProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-    //
-    //        TaskManager.removeTaskAtIndex(<#T##self: TaskManager##TaskManager#>)
-    //    }
     
-    //    enum ViewType: String {
-    //        case DateView = "date"
-    //        case ProjectView = "project"
-    //        case UpcomingView = "upcoming"
-    //    }
-    
-    //----------------
-    //----------------
-    //----------------
-    //----------------
-    //----------------
-    //----------------
     
     func reloadTinyPicChartWithAnimation() {
         
@@ -554,13 +426,6 @@ extension HomeViewController: UITableViewDataSource {
     //----------------------------------------------------
     //----------------------------------------------------
     func updateViewForHome(viewType: ToDoListViewType, dateForView: Date = Date.today(), projectForView: String = ProjectManager.sharedInstance.defaultProject) {
-        //    func updateViewForHome(viewType: ToDoListViewType, dateForView: Date, projectForView: String = ProjectManager.sharedInstance.defaultProject) {
-        
-        
-        //        var movement = ;
-        //        if viewType == ViewType.todayHomeView {
-        //
-        //        }
         
         currentViewType = viewType
         print("woo ViewType is: \(currentViewType)")
@@ -613,28 +478,6 @@ extension HomeViewController: UITableViewDataSource {
             
         }
         
-        //        switch movement {
-        //        case .forward:
-        //            print("you moved forward")
-        //        case .back:
-        //            print("you moved backwards")
-        //        case .left:
-        //            print("you moved to the left")
-        //        case .right:
-        //            print("you moved to the right")
-        //        }
-        
-        
-        ////        if (ViewType.DateView.rawValue.lowercased() == "date") {
-        //        if viewType.T
-        //            print("ViewSetter: This is dateview")
-        //
-        //        } else if (ViewType.ProjectView.rawValue.lowercased() == "project") {
-        //            print("ViewSetter: This is projctView")
-        //        } else if (ViewType.UpcomingView.rawValue.lowercased() == "upcoming") {
-        //            print("ViewSetter: This is upcoming")
-        //        }
-        
         
     }
     
@@ -646,26 +489,21 @@ extension HomeViewController: UITableViewDataSource {
     
     func fetchInboxTasks(date: Date) -> [NTask] {
         
-        //        return TaskManager.sharedInstance.getTasksForCustomProjectByNameForDate_All(projectName: ProjectManager.sharedInstance.defaultProject, date: date)
         return TaskManager.sharedInstance.getTasksForInboxForDate_All(date: date)
-        
-        
-        //        return TaskManager.sharedInstance.getAllInboxTasks
     }
     
     func fetchTasksForAllCustomProjctsTodayOpen(date: Date) -> [NTask] {
-        //          return TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: dateForTheView)
+        
         return TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
     }
     
     func fetchTasksForAllCustomProjctsTodayAll(date: Date) -> [NTask] {
-        //          return TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: dateForTheView)
+        
         return TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_All(date: date)
     }
     
     func fetchTasksForCustomProject(project: String) -> [NTask] {
         return TaskManager.sharedInstance.getTasksForProjectByName(projectName: project)
-        //        return TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
     }
     
     
@@ -677,8 +515,6 @@ extension HomeViewController: UITableViewDataSource {
     //----------------------------------------------------
     //----------------------------------------------------
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        //        let section = sections[indexPath.section]
-        
         
         print("sls : currentViewType is: \(currentViewType)")
         fetchToDoListSections(viewType: currentViewType)  //defaults to today
@@ -686,28 +522,6 @@ extension HomeViewController: UITableViewDataSource {
         self.listSection = ToDoListSections[indexPath.section]
         let item = listSection!.item
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
-        
-        
-//        let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: cell.bounds.minX+5, y: cell.bounds.minY+10, width: 20, height: 25))
-//        checkBox.lineWidth = 1.0
-//        checkBox.animationDuration = 0.40
-//        checkBox.setOn(true, animated: false)
-//        checkBox.boxType = .circle
-//        checkBox.onAnimationType = .oneStroke
-//        checkBox.offAnimationType = .oneStroke
-//        checkBox.onTintColor = todoColors.primaryColor
-//        //        checkBox.addTarget(HomeViewController.self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
-//        checkBox.setOn(false, animated: true)
-        
-        
-//        //--
-//        checkBox.tag = indexPath.row
-//        currentCheckboxTag = indexPath.row
-//        currentIndex = indexPath
-        
-        
-//        checkBox.delegate = self
-        ///--
         
         let inboxTasks = fetchInboxTasks(date: dateForTheView)
         var userProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
@@ -717,10 +531,7 @@ extension HomeViewController: UITableViewDataSource {
         switch currentViewType {
         
         case .todayHomeView: //today home view cells
-            //--
-//            checkBox.tag = indexPath.row
-//            currentCheckboxTag = indexPath.row
-//            currentIndex = indexPath
+            
             
             if indexPath.section == 1 {
                 
@@ -915,13 +726,13 @@ extension HomeViewController: UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-
+        
         let completeTaskAction = UIContextualAction(style: .normal, title: " ✔️ ") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
             let inboxTasks: [NTask]
             let projectsTasks: [NTask]
             let dateForTheView = self.dateForTheView
-
+            
             switch self.currentViewType {
             
             case .todayHomeView:
@@ -984,7 +795,7 @@ extension HomeViewController: UITableViewDataSource {
                 print("SWIPE - HISTORY VIEW") //TODO
             }
             
-         
+            
             print("SCORE IS: \(self.calculateTodaysScore())")
             self.scoreCounter.text = "\(self.calculateTodaysScore())"
             self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
@@ -994,12 +805,6 @@ extension HomeViewController: UITableViewDataSource {
             actionPerformed(true)
         }
         
-        //        print("SCORE IS: \(self.calculateTodaysScore())")
-        //        self.scoreCounter.text = "\(self.calculateTodaysScore())"
-        //        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
-        //        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-        //        self.title = "\(self.calculateTodaysScore())"
-        //        actionPerformed(true)
         
         let undoTaskAction = UIContextualAction(style: .normal, title: "U N D O") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
@@ -1147,105 +952,6 @@ extension HomeViewController: UITableViewDataSource {
         return UISwipeActionsConfiguration(actions: [completeTaskAction,undoTaskAction])
     }
     
-    //    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-    //
-    //        let completeTaskAction = UIContextualAction(style: .normal, title: "Complete") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-    //
-    //            let inboxTasks: [NTask]
-    //            let projectsTasks: [NTask]
-    //            let dateForTheView = self.dateForTheView
-    //
-    //
-    //
-    //            switch self.currentViewType {
-    //
-    //            case .todayHomeView:
-    //                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-    //
-    //                switch indexPath.section {
-    //
-    //                case 1:
-    //
-    //                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-    //
-    //                    tableView.reloadData()
-    //                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-    //
-    //
-    //                case 2:
-    //
-    //                    projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-    //
-    //
-    //                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-    //
-    //                    tableView.reloadData()
-    //                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-    //
-    //                default:
-    //                    break
-    //                }
-    //
-    //            case .customDateView:
-    //                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-    //                print("SWIPE - CUSTOM DATTE")
-    //                switch indexPath.section {
-    //
-    //                case 1:
-    //
-    //                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-    //
-    //                    tableView.reloadData()
-    //                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-    //
-    //
-    //                case 2:
-    //
-    //                    projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-    //
-    //
-    //                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-    //
-    //                    tableView.reloadData()
-    //                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-    //
-    //                default:
-    //                    break
-    //                }
-    //            case .projectView:
-    //                print("SWIPE - PROHECT VIEW") //TODO
-    //            case .upcomingView:
-    //                print("SWIPE - Upcooming") //TODO
-    //            case .historyView:
-    //                print("SWIPE - HISTORY VIEW") //TODO
-    //            }
-    //
-    //
-    //            print("SCORE IS: \(self.calculateTodaysScore())")
-    //            self.scoreCounter.text = "\(self.calculateTodaysScore())"
-    //            self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
-    //            self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-    //
-    //            //            tableView.reloadData()
-    //            //            self.animateTableViewReload()
-    //
-    //            self.title = "\(self.calculateTodaysScore())"
-    //            actionPerformed(true)
-    //        }
-    //
-    //        completeTaskAction.backgroundColor = todoColors.completeTaskSwipeColor
-    //
-    //        //        NSUIColor(red: 192/255.0, green: 255/255.0, blue: 140/255.0, alpha: 1.0), green
-    //        //                 NSUIColor(red: 255/255.0, green: 247/255.0, blue: 140/255.0, alpha: 1.0), yellow
-    //        //                 NSUIColor(red: 255/255.0, green: 208/255.0, blue: 140/255.0, alpha: 1.0), orange
-    //        //                 NSUIColor(red: 140/255.0, green: 234/255.0, blue: 255/255.0, alpha: 1.0), blue
-    //        //                 NSUIColor(red: 255/255.0, green: 140/255.0, blue: 157/255.0, alpha: 1.0) red
-    //
-    //        return UISwipeActionsConfiguration(actions: [completeTaskAction])
-    //    }
-    
-    
-    
 }
 
 // MARK: - TableViewCellDemoController: UITableViewDelegate
@@ -1273,14 +979,7 @@ extension HomeViewController: UITableViewDelegate {
             filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
             
             filterMenuHomeButton.addTarget(self, action:  #selector(showTopDrawerButtonTapped), for: .touchUpInside)
-            //
             
-            
-            
-            
-            
-            
-            //myLabel.font = UIFont.boldSystemFont(ofSize: 18)
             toDoListHeaderLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
             toDoListHeaderLabel.textAlignment = .center
             toDoListHeaderLabel.adjustsFontSizeToFitWidth = true
@@ -1306,29 +1005,12 @@ extension HomeViewController: UITableViewDelegate {
             lineSeparator.frame = CGRect(x: 0, y: 33, width: UIScreen.main.bounds.width, height: 1)
             lineSeparator.backgroundColor = UIColor.black
             
-            
-            
-            
-            //                            headStack.addArrangedSubview(myLabel)
-            //            headStack.addArrangedSubview(UIView())
-            //                 headStack.addArrangedSubview(Separator())
-            //            headStack.addArrangedSubview(UIView())
-            
-            //                            headStack.addArrangedSubview(lineSeparator)
-            //            headStack.addArrangedSubview(UIView())
-            
             headerView.addSubview(filterMenuHomeButton)
             headerView.addSubview(toDoListHeaderLabel)
-            
             headerView.addSubview(lineSeparator)
             
-            
-            
-            
             return headerView
-            //                            return headStack
             
-            //            return
             
         } else if section == 1 {
             let headerView = UIView()
@@ -1336,7 +1018,6 @@ extension HomeViewController: UITableViewDelegate {
         } else {
             let header = tableView.dequeueReusableHeaderFooterView(withIdentifier: TableViewHeaderFooterView.identifier) as! TableViewHeaderFooterView
             let section = ToDoListSections[section]
-            //            header.setup(style: section.headerStyle, title: section.title)
             header.setup(style: .divider, title: section.sectionTitle)
             return header
         }
@@ -1347,20 +1028,6 @@ extension HomeViewController: UITableViewDelegate {
         let title = ToDoListSections[indexPath.section].item.TaskTitle
         showAlertForDetailButtonTapped(title: title)
     }
-    
-    //    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-    //        if isInSelectionMode {
-    //            updateNavigationTitle()
-    //        } else {
-    //            tableView.deselectRow(at: indexPath, animated: true)
-    //        }
-    //    }
-    
-    //    func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
-    //        if isInSelectionMode {
-    //            updateNavigationTitle()
-    //        }
-    //    }
     
     private func showAlertForDetailButtonTapped(title: String) {
         let alert = UIAlertController(title: "\(title) detail button was tapped", message: nil, preferredStyle: .alert)

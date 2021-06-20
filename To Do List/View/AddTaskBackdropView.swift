@@ -23,45 +23,10 @@ extension AddTaskViewController {
         addCancelBackdrop()
         setupBackdropNotch()
         setHomeViewDate()
-        //            setupLineChartView()
-        //            setLineChartData()
-        //            lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
-        //            // cal
+        
+        // cal
         setupCalAtAddTask()
-        //
-        //
         backdropContainer.addSubview(calendar)
-        //
-        //
-        //
-        //
-        //            setupCalButton() //cancel
-        //            setupChartButton() //done
-        //            setupTopSeperator()
-        //
-        //            self.setupPieChartView(pieChartView: tinyPieChartView)
-        //
-        //            updateTinyPieChartData()
-        //
-        //            tinyPieChartView.delegate = self
-        //
-        //
-        //
-        //            // entry label styling
-        //            tinyPieChartView.entryLabelColor = .clear
-        //            tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .bold)
-        //
-        //
-        //            tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
-        //
-        //            backdropContainer.bringSubviewToFront(calendar)
-        //call private methods to setup
-        //background view
-        //home date
-        //top sperator
-        //cal & charts buttons
-        
-        
     }
     
     //MARK:- Setup Backdrop Background - Today label + Score
@@ -84,8 +49,6 @@ extension AddTaskViewController {
         scoreAtHomeLabel.textAlignment = .center
         scoreAtHomeLabel.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 20, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
         
-        //        homeTopBar.addSubview(scoreAtHomeLabel)
-        
         //---- score
         
         scoreCounter.text = "tt"
@@ -96,12 +59,7 @@ extension AddTaskViewController {
         scoreCounter.textAlignment = .center
         scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
         
-        //        homeTopBar.addSubview(scoreCounter)
-        
-        //        view.addSubview(backdropBackgroundImageView)
         backdropContainer.addSubview(backdropBackgroundImageView)
-        
-        
     }
     
     func addCancelBackdrop() {
@@ -149,11 +107,6 @@ extension AddTaskViewController {
         homeDate_Day.textColor = .systemGray6
         homeDate_WeekDay.textColor = .systemGray6
         homeDate_Month.textColor = .systemGray6
-        
-        //        homeDate_Day.font =  setFont(fontSize: 52, fontweight: .medium, fontDesign: .rounded)
-        //        homeDate_WeekDay.font =  setFont(fontSize: 24, fontweight: .thin, fontDesign: .rounded)
-        //        homeDate_Month.font =  setFont(fontSize: 24, fontweight: .regular, fontDesign: .rounded)
-        //
         
         homeDate_Day.font =  todoFont.setFont(fontSize: 58, fontweight: .medium, fontDesign: .rounded)
         homeDate_WeekDay.font =  todoFont.setFont(fontSize: 26, fontweight: .thin, fontDesign: .rounded)

@@ -265,27 +265,7 @@ class TaskManager {
                     }
                     
                 }
-                
-                //                if currentDueDate == date as NSDate {
-                //                    if !each.isComplete {
-                //                        print("tasks for NON inbox :  Today !")
-                //                        mtasks.append(each)
-                //                    }
-                //                } else {
-                //                    print("tasks for NON inbox : NOT Today !")
-                //                }
-                
-                //date < currentDueDate! as Date
-                
-                //                if (currentDueDate! as Date > date) {
-                //                if (date > currentDueDate! as Date ) {
-                //
-                //                    if !each.isComplete {
-                //                        mtasks.append(each)
-                //                    }
-                //                } else {
-                //                    print("asks for NON inbox : is rollover task")
-                //                }
+
                 
             }
         }

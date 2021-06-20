@@ -18,10 +18,6 @@ extension HomeViewController {
     func setupBackdrop() {
         
         backdropContainer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-        //         CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
-        
-        //        headerEndY = 128
-        //        headerEndY = UIScreen.main.bounds.height/7.3
         headerEndY = UIScreen.main.bounds.height/8
         setupBackdropBackground()
         addTinyChartToBackdrop()
@@ -31,71 +27,26 @@ extension HomeViewController {
         setupLineChartView()
         setLineChartData()
         lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
-        // cal
         
+        // cal
         setupCalView()
         setupCalAppearence()
-        //        setupCalAppearence()
-        
-        
         backdropContainer.addSubview(calendar)
-        
-        
-        
         calendar.isHidden = true //hidden by default //remove this from here hadle elsewhere in a fuc that hides all
-        
         setupCalButton()
         setupChartButton()
         setupTopSeperator()
         
         self.setupPieChartView(pieChartView: tinyPieChartView)
-        
         updateTinyPieChartData()
-        
         tinyPieChartView.delegate = self
-        
-        
         
         // entry label styling
         tinyPieChartView.entryLabelColor = .clear
         tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .bold)
         
-        
-        //        tinyPieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
-        
         backdropContainer.bringSubviewToFront(calendar)
-        //call private methods to setup
-        //background view
-        //home date
-        //top sperator
-        //cal & charts buttons
-        
-        
     }
-    
-    
-    //    func serveNewPageHeader() -> UIView {
-    //        let view = UIView(frame: UIScreen.main.bounds)
-    //        view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 128)
-    //        view.backgroundColor = .clear
-    //        headerEndY = view.frame.maxY
-    //
-    //
-    //        print("Header end point is: \(headerEndY)")
-    //
-    //
-    //        let todaysDateLabel = UILabel()
-    //        todaysDateLabel.frame = CGRect(x: 5, y: 70, width: view.frame.width/2, height: 40)
-    //        todaysDateLabel.text = dateForTheView.dateString(in: .medium)
-    //        todaysDateLabel.textColor = .secondaryLabel
-    //        todaysDateLabel.textAlignment = .left
-    //        todaysDateLabel.adjustsFontSizeToFitWidth = true
-    //        view.addSubview(todaysDateLabel)
-    //
-    //        return view
-    //    }
-    
-    
     
     //----------------------- *************************** -----------------------
     //MARK:-              BACKDROP PATTERN 1: SETUP BACKGROUND
@@ -133,9 +84,6 @@ extension HomeViewController {
         scoreCounter.textAlignment = .center
         scoreCounter.frame = CGRect(x: UIScreen.main.bounds.width - 150, y: 15, width: homeTopBar.bounds.width/2, height: homeTopBar.bounds.height)
         
-        //        homeTopBar.addSubview(scoreCounter)
-        
-        //        view.addSubview(backdropBackgroundImageView)
         backdropContainer.addSubview(backdropBackgroundImageView)
         
         
@@ -159,9 +107,6 @@ extension HomeViewController {
     }
     
     func addTinyChartToBackdrop() {
-        //        tinyPieChartView.frame = CGRect(x: (UIScreen.main.bounds.width)-(homeTopBar.bounds.height+15), y: 15, width: (homeTopBar.bounds.height)+45, height: (homeTopBar.bounds.height)+45)
-        //        view.addSubview(tinyPieChartView)
-        //        tinyPieChartView.frame = CGRect(x: homeTopBar.frame.maxX-(homeTopBar.frame.height + 10), y: homeTopBar.frame.minY + 15, width: (homeTopBar.frame.height)+45, height: (homeTopBar.frame.height)+45)
         tinyPieChartView.frame = CGRect(x: homeTopBar.frame.maxX-(homeTopBar.frame.height + 10), y: homeTopBar.frame.minY + 15, width: (homeTopBar.frame.height)+41, height: (homeTopBar.frame.height)+41)
         backdropContainer.addSubview(tinyPieChartView)
     }
@@ -230,15 +175,6 @@ extension HomeViewController {
         
     }
     
-    //    func setTinyChartShadow(chartView: PieChartView) {
-    //          //        chartView.layer.shadowColor = UIColor.black.cgColor
-    //            chartView.layer.shadowColor = todoColors.primaryColorDarker.cgColor
-    //
-    //            chartView.layer.shadowOpacity = 0.3
-    //            chartView.layer.shadowOffset = CGSize(width: -2.0, height: -2.0) //.zero
-    //            chartView.layer.shadowRadius = 2
-    //      }
-    
     //----------------------- *************************** -----------------------
     //MARK:-                         TOP SEPERATOR
     //                               sub:homeTopBar
@@ -294,20 +230,12 @@ extension HomeViewController {
         if(isCalDown && !isChartsDown) { //cal is out; it sldes back up
             
             print("***************** Cal is out; foredrop going up")
-            //            self.view.bringSubviewToFront(self.tableView)
-            //            self.view.sendSubviewToBack(calendar)
-            //            self.view.sendSubviewToBack(backdropBackgroundImageView)
+            
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
                 self.moveUp_toHideCal(view: self.foredropContainer)
             }) { (_) in
                 
             }
-            
-            //            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-            //                self.moveUp_toHideCal(view: self.backdropForeImageView)
-            //            }) { (_) in
-            //
-            //            }
             
             DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
                 
@@ -366,19 +294,9 @@ extension HomeViewController {
                 //            self.moveLeft(view: self.black4)
             }
             
-            //            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-            //                self.moveDown_revealJustCal(view: self.backdropForeImageView)
-            //            }) { (_) in
-            //                //            self.moveLeft(view: self.black4)
-            //            }
-            
-            //            self.view.bringSubviewToFront(self.tableView)
-            //            self.view.bringSubviewToFront(self.bottomAppBar)
             self.backdropContainer.bringSubviewToFront(calendar)
             print("Cal bring to front !")
             self.calendar.isHidden = false
-            
-            
         }
         tableView.reloadData()
     }
@@ -400,11 +318,6 @@ extension HomeViewController {
             //--------------------
             
             print("ShowChartsButton: backdrop is UP; pushing down to show charts")
-            
-            //            self.view.bringSubviewToFront(self.tableView)
-            //            self.view.sendSubviewToBack(lineChartView)
-            //            self.view.sendSubviewToBack(backdropBackgroundImageView)
-            
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
                 //                self.moveDown_revealCharts(view: self.tableView)
                 self.moveDown_revealCharts(view: self.foredropContainer)
@@ -412,23 +325,8 @@ extension HomeViewController {
                 //            self.moveLeft(view: self.black4)
             }
             
-            //            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-            //                self.moveDown_revealCharts(view: self.backdropForeImageView)
-            //            }) { (_) in
-            //                //            self.moveLeft(view: self.black4)
-            //            }
-            
-            //            self.view.bringSubviewToFront(self.tableView)
-            //            self.view.bringSubviewToFront(self.bottomAppBar)
             self.lineChartView.isHidden = false
             self.animateLineChart(chartView: self.lineChartView)
-            
-            
-            //            tableView.reloadData()
-            
-            
-            //-------
-            
             
         } else if (!isChartsDown && isCalDown){ //charts hidden & cal shown
             //            print("Charts + CAL")
@@ -436,21 +334,12 @@ extension HomeViewController {
             print("ShowChartsButton: backdrop is DOWN; + CAL is SHOWING; pushing down FURTHER to show charts")
             
             print("charts: Case BLUE")
-            //                        print("***************** Charts are hidden; foredrop ginng DOWN; reveal charts")
-            //            self.view.bringSubviewToFront(self.tableView)
-            //            self.view.sendSubviewToBack(lineChartView)
-            //            self.view.sendSubviewToBack(backdropBackgroundImageView)
+            
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
                 self.moveDown_revealChartsKeepCal(view: self.foredropContainer)
             }) { (_) in
                 
             }
-            //
-            //            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-            //                self.moveDown_revealChartsKeepCal(view: self.backdropForeImageView)
-            //            }) { (_) in
-            //
-            //            }
             
             DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
                 
@@ -468,28 +357,19 @@ extension HomeViewController {
                     self.lineChartView.isHidden = true
                 }
             }
-            //            self.view.bringSubviewToFront(self.bottomAppBar)
+            
             
             
         } else if (isChartsDown && !isCalDown) {//pull it back up // charts shown + cal hidden
             print("charts: Case YELLOW")
             print("ShowChartsButton: backdrop is DOWN; + CAL is HIDDEN; pushing down to show charts")
             
-            //                        print("***************** Charts are hidden; foredrop ginng DOWN; reveal charts")
-            //            self.view.bringSubviewToFront(self.tableView)
-            //            self.view.sendSubviewToBack(lineChartView)
-            //            self.view.sendSubviewToBack(backdropBackgroundImageView)
+            
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
                 self.moveUp_hideCharts(view: self.foredropContainer)
             }) { (_) in
                 
             }
-            
-            //            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-            //                self.moveUp_hideCharts(view: self.backdropForeImageView)
-            //            }) { (_) in
-            //
-            //            }
             
             DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
                 
@@ -507,33 +387,19 @@ extension HomeViewController {
                 }
                 
             }
-            //            self.view.bringSubviewToFront(self.bottomAppBar)
-        }
             
+        }
+        
         else if (isChartsDown && isCalDown) { //pull back to hide charts --> keep showing cal
             print("charts: Case GREEN")
             print("charts: charts & cal are shown; --> hiding charts")
-            //            self.view.bringSubviewToFront(self.tableView)
-            //            self.view.sendSubviewToBack(lineChartView)
-            //            self.view.sendSubviewToBack(backdropBackgroundImageView)
             UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
                 self.moveUp_hideChartsKeepCal(view: self.foredropContainer)
             }) { (_) in
                 
             }
             
-            //            UIView.animate(withDuration: duration, delay: delay, usingSpringWithDamping: 0.5, initialSpringVelocity: 2, options: .curveLinear, animations: {
-            //                self.moveUp_hideChartsKeepCal(view: self.backdropForeImageView)
-            //            }) { (_) in
-            //
-            //            }
-            
-            //            DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
-            
             self.isCalDown = false
-            
-            
-            
             
             DispatchQueue.main.asyncAfter(deadline: .now() + duration) { //adds delay
                 
@@ -554,7 +420,6 @@ extension HomeViewController {
                 }
                 
             }
-            //            self.view.bringSubviewToFront(self.bottomAppBar)
         }
         else {
             print("ERROR LAYOUT - SHOW CHARTS")
@@ -562,8 +427,6 @@ extension HomeViewController {
         
         tableView.reloadData()
     }
-    
-    
     
     
     //----------------------- *************************** -----------------------

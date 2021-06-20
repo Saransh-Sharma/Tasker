@@ -45,20 +45,9 @@ public class DayAxisValueFormatter: NSObject, IAxisValueFormatter {
 
             return dayOfMonth == 0 ? "" : String(format: "%d\(appendix) \(monthName)", dayOfMonth)
         }
-        
-//        let days = Int(value)
-//        switch days {
-//        case 1:
-//            Date.init(timeIntervalSinceNow: <#T##TimeInterval#>) + 1.year
-//        default:
-//            <#code#>
-//        }
+
     }
     
-//    public static func today() -> Date {
-//         let now = Date()
-//        return Date(year: now.year, month: now.month, day: (now.day - 10.days))
-//     }
     
     private func days(forMonth month: Int, year: Int) -> Int {
         // month is 0-based

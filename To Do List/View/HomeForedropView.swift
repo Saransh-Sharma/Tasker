@@ -41,7 +41,6 @@ extension HomeViewController {
         backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
         backdropForeImageView.layer.shadowRadius = 10
         
-        
         foredropContainer.addSubview(backdropForeImageView)
         
         
@@ -52,9 +51,6 @@ extension HomeViewController {
         // table view
         print("bottom bar heigght is \(bottomAppBar.bounds.height)")
         tableView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height:  UIScreen.main.bounds.height - bottomAppBar.bounds.height)
-        
-        
-        
         
         foredropContainer.addSubview(tableView)
     }

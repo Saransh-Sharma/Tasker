@@ -14,20 +14,20 @@ class SettingsPageViewController: UIViewController {
     
     @IBOutlet weak var switchState: UISwitch!
     override func viewDidLoad() {
-         super.viewDidLoad()
-         
-         self.title = "Settings"
-         // Do any additional setup after loading the view.
+        super.viewDidLoad()
+        
+        self.title = "Settings"
+        // Do any additional setup after loading the view.
         if UserDefaults.standard.bool(forKey: "isDarkModeOn") {
-                   switchState.setOn(true, animated: true)
-                   print("SETTINGS: DARK ON")
-                   view.backgroundColor = UIColor.darkGray
-               } else {
-                   
+            switchState.setOn(true, animated: true)
+            print("SETTINGS: DARK ON")
+            view.backgroundColor = UIColor.darkGray
+        } else {
+            
             print("SETTINGS: DARK OFF !!")
             UserDefaults.standard.set(false, forKey: "isDarkModeOn")
-               }
-     }
+        }
+    }
     
     
     @IBAction func toggleDarkMode(_ sender: Any) {

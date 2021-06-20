@@ -15,7 +15,7 @@ extension HomeViewController {
     
     @objc private func changeContentHeightButtonTapped(sender: UIButton) {
         if let spacer = (sender.superview as? UIStackView)?.arrangedSubviews.last,
-            let heightConstraint = spacer.constraints.first {
+           let heightConstraint = spacer.constraints.first {
             heightConstraint.constant = heightConstraint.constant == 20 ? 100 : 20
         }
     }
@@ -23,7 +23,7 @@ extension HomeViewController {
     
     @objc private func changeProjectFromFilter(sender: UIButton) {
         if let spacer = (sender.superview as? UIStackView)?.arrangedSubviews.last,
-            let heightConstraint = spacer.constraints.first {
+           let heightConstraint = spacer.constraints.first {
             heightConstraint.constant = heightConstraint.constant == 20 ? 100 : 20
         }
         
@@ -34,35 +34,11 @@ extension HomeViewController {
         updateViewForHome(viewType: .todayHomeView, dateForView: Date.today())
         dismiss(animated: true)
         
-//        let today = Date.today()
-//        let tomorrow = Date.tomorrow()
-//        //        let upcoming = Date.today()
-//        //        updateHomeDate(date: today)
-//
-//        switch sender.titleLabel?.text?.lowercased() {
-//        case "today":
-//
-////            dateForTheView = today
-////            updateHomeDateLabel(date: today)
-////            tableView.reloadData()
-//            updateViewForHome(viewType: .todayHomeView, dateForView: Date.today())
-//        case "tomorrow":
-//            dateForTheView = tomorrow
-//            updateHomeDateLabel(date: tomorrow)
-//            tableView.reloadData()
-//        case "upcoming":
-//            //
-//            print("Build upcoming filter")
-//        default:
-//            updateHomeDateLabel(date: today)
-//        }
-//
-//        dismiss(animated: true)
     }
     
     @objc private func changeDateFromFilterTomorrow(sender: UIButton) {
         
-  
+        
         
         updateViewForHome(viewType: .customDateView, dateForView: Date.tomorrow())
         
@@ -81,7 +57,7 @@ extension HomeViewController {
         var arr = array
         let element = arr.remove(at: fromIndex)
         arr.insert(element, at: toIndex)
-
+        
         return arr
     }
     
@@ -96,12 +72,12 @@ extension HomeViewController {
                 pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
             }
         }
-
+        
         var inboxOldPosition = 0
         let inboxNewPosittion = 0
         var count = 0
         for each in pillBarProjectList {
-
+            
             if each.title == ProjectManager.sharedInstance.defaultProject {
                 inboxOldPosition = count
             }
@@ -205,27 +181,21 @@ extension HomeViewController {
         return controller
     }
     
-    //    @objc private func showTopDrawerButtonTapped(sender: UIButton) {
-    //        presentDrawer(sourceView: sender, presentationDirection: .down, contentView: containerForActionViews(), resizingBehavior: .dismissOrExpand)
-    //    }
-    
-    
-    
 }
 
 // MARK: - PillButtonBarDemoController: PillButtonBarDelegate
 
 extension HomeViewController: PillButtonBarDelegate {
     func pillBar(_ pillBar: PillButtonBar, didSelectItem item: PillButtonBarItem, atIndex index: Int) {
-//        currenttProjectForAddTaskView = item.title
-//        setProjectForViewValue(projectName: item.title)
+        //        currenttProjectForAddTaskView = item.title
+        //        setProjectForViewValue(projectName: item.title)
         updateViewForHome(viewType: .projectView, projectForView: item.title)
         print("woo Project SELCTED is: \(projectForTheView)")
-    
         
-//        let allProjects = ProjectManager.sharedInstance.getAllProjects
+        
+        //        let allProjects = ProjectManager.sharedInstance.getAllProjects
         let allTasks = TaskManager.sharedInstance.getAllTasks
-//        let selectedProjectName =
+        //        let selectedProjectName =
         
         
         var list: [String] = [""]
@@ -235,7 +205,7 @@ extension HomeViewController: PillButtonBarDelegate {
             if each.project?.lowercased() == projectForTheView {
                 print("-----------------------")
                 print("project Task: \(each.name)")
-                               print("name project \(projectForTheView)")
+                print("name project \(projectForTheView)")
                 list.append(each.name)
                 print("-----------------------\n")
                 
@@ -248,36 +218,7 @@ extension HomeViewController: PillButtonBarDelegate {
         }
         print("-----****************----")
         
-        
-        
-//        for each in projects {
-//            if each.projectName?.lowercased() == item.title.lowercased() {
-//                print("Task: \(item.title)")
-//                print("in prpject \()")
-//            }
-//        }
-        
         print("project selecction DONE !")
-        
-        //        if(item.title.contains(addProjectString)) {
-        //
-        //            //            medmel//Open add project VC
-        //
-        //            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        //            let newViewController = storyBoard.instantiateViewController(withIdentifier: "newProject") as! NewProjectViewController
-        //            newViewController.modalPresentationStyle = .popover
-        //            //        self.present(newViewController, animated: true, completion: nil)
-        //            self.present(newViewController, animated: true, completion: { () in
-        //                print("SUCCESS !!!")
-        //                //                HUD.shared.showSuccess(from: self, with: "Success")
-        //
-        //            })
-        //
-        //        } else {
-        
-        
-        //        }
-        
         
     }
 }
