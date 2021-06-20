@@ -70,6 +70,7 @@ extension AddTaskViewController {
     
     func setupProjectsPillBar() {
         
+        print("do9")
         buildProojectsPillBarData()
         
 //        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
@@ -77,7 +78,7 @@ extension AddTaskViewController {
         filledBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
 //        self.filledBar = filledBar
         foredropStackContainer.addArrangedSubview(filledBar!)
-        filledBar!.backgroundColor = .clear
+        filledBar!.backgroundColor = .black//.clear
         
 //        filledBar.selected
 //        filledBar.addTarget(self, action: #selector(changeProject))
@@ -89,10 +90,33 @@ extension AddTaskViewController {
         let allProjects = ProjectManager.sharedInstance.getAllProjects
         
         for each in allProjects {
-            print("added to pill bar, from ProjectManager: \(String(describing: each.projectName! as String))")
+            print("do9 added to pill bar, from ProjectManager: \(String(describing: each.projectName! as String))")
             pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
         }
+        
+        if pillBarProjectList[1].title.lowercased() != "inbox" {
+
+            var count = 0
+            for each in pillBarProjectList {
+                if each.title.lowercased() == "inbox" {
+                    print("do9  ** TITLE FOUND at \(count)")
+                    pillBarProjectList.remove(at: count)
+                }
+                count = count + 1
+            }
+            
+            
+            
+            print("do9 - ADDING !")
+            pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
+        }
+        
+        
     }
+    
+//    int index = url.indexOf(itemToMove);
+//    url.remove(index);
+//    url.add(0, itemToMove);
     
 
 //    @objc

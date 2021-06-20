@@ -27,7 +27,7 @@ extension HomeViewController {
         set01.fillAlpha = 0.8
         set01.drawFilledEnabled = true
         
-        
+        //TODO add set 1 and this week & add set 2 with different color as last week
         
         let lineChartData_01 = LineChartData(dataSet: set01)
         lineChartView.data = lineChartData_01

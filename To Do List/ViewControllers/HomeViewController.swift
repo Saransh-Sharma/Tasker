@@ -34,8 +34,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var ToDoListSections: [ToDoListData.Section] = TableViewCellSampleData.DateForViewSections
     var listSection: ToDoListData.Section? = nil
     
-    var currentCheckboxTag = 0
+    var openTaskCheckboxTag = 0
     var currentIndex:IndexPath = [0,0]
+    
     
     let toDoListHeaderLabel = UILabel()
     
@@ -146,7 +147,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         chartView.xAxis.labelFont = .systemFont(ofSize: 8) //.boldSystemFont(ofSize: 8)
         chartView.xAxis.axisLineColor = .tertiaryLabel
         chartView.xAxis.labelTextColor = .label
-        chartView.xAxis.setLabelCount(10, force: true)
+//        chartView.xAxis.setLabelCount(10, force: true)
         chartView.xAxis.labelRotationAngle = 0
         //        chartView.xAxis.text
         chartView.xAxis.valueFormatter = DayAxisValueFormatter(chart: chartView) //replace date labels here
@@ -291,20 +292,77 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         // so if today is wednesday show: last 7 days from last week + this week up till today(mon, tue, wed)
         
         
-        yValues.append(ChartDataEntry(x: Double(1.0), y: Double(3)))
-        yValues.append(ChartDataEntry(x: Double(2.0), y: Double(3)))
-        yValues.append(ChartDataEntry(x: Double(3.0), y: Double(7)))
-        yValues.append(ChartDataEntry(x: Double(4.0), y: Double(3)))
-        yValues.append(ChartDataEntry(x: Double(5.0), y: Double(7.5)))
-        yValues.append(ChartDataEntry(x: Double(6.0), y: Double(8)))
-        yValues.append(ChartDataEntry(x: Double(7.0), y: Double(9)))
-        yValues.append(ChartDataEntry(x: Double(8.0), y: Double(4.0)))
-        yValues.append(ChartDataEntry(x: Double(9.0), y: Double(6)))
-        yValues.append(ChartDataEntry(x: Double(10.0), y: Double(7)))
+//        yValues.append(ChartDataEntry(x: Double(1.0), y: Double(3)))
+//        yValues.append(ChartDataEntry(x: Double(2.0), y: Double(7)))
+        
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.firstWeekday = 2 // Start on Monday (or 1 for Sunday)
+        let today = Date.today()//calendar.startOfDay(for: Date())
+//        let firstJan = calendar.year
+        var week = [Date]()
+        if let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today) {
+            for i in 0...6 {
+                if let day = calendar.date(byAdding: .day, value: i, to: weekInterval.start) {
+                    week += [day]
+                }
+            }
+        }
+        
+//        var mDay = 1.0
+//        for d in week {
+//            print("**calFixx: \(d.day)")
+//            yValues.append(ChartDataEntry(x: mDay, y: Double(3)))
+//            mDay = mDay+1
+//
+//        }
+        
+        let components2 = DateComponents(calendar: Calendar.current, year: 2021, month: 1, day: 1)
+        let FirstJan = components2.date
+        print("**calFixx: dd \(FirstJan)")
+        //print("**calFixx: DAYS SINCE \(daysSince(from: FirstJan!, to: Date.today()))")
+        
+        print("**calFixx: ---------------")
+        for d in week {
+            print("**calFixx START ------: \(d.dateString(in: .short))")
+            print("**calFixx DAY IS ------: \(d.day)")
+            print("**calFixx debug desc \(d.debugDescription)")
+//            yValues.append(ChartDataEntry(x: Double(d.day), y: Double(3)))
+            
+            let count2 = (daysSince(from: FirstJan!, to: d))
+            print("**calFixx: date is : \(d.debugDescription)")
+            print("**calFixx: DAYS SINCE REAL \(count2)")
+            print("**calFixx: score for day : \(calculateScoreForDate(date: d))")
+            yValues.append(ChartDataEntry(x: Double(count2+2), y: Double(calculateScoreForDate(date: d))))
+            
+//            yValues.append(<#T##newElement: ChartDataEntry##ChartDataEntry#>)
+    
+            print("**calFixx END ------: ")
+
+        }
+        print("**calFixx: ---------------")
+        print("**calFixx FINAL count is \(yValues.count)")
+        
+        
+//        yValues.append(ChartDataEntry(x: Double(1.0), y: Double(3)))
+//        yValues.append(ChartDataEntry(x: Double(2.0), y: Double(3)))
+//        yValues.append(ChartDataEntry(x: Double(3.0), y: Double(7)))
+//        yValues.append(ChartDataEntry(x: Double(4.0), y: Double(3)))
+        
+//        yValues.append(ChartDataEntry(x: Double(5.0), y: Double(7.5)))
+//        yValues.append(ChartDataEntry(x: Double(6.0), y: Double(8)))
+//        yValues.append(ChartDataEntry(x: Double(7.0), y: Double(9)))
+//        yValues.append(ChartDataEntry(x: Double(8.0), y: Double(4.0)))
+//        yValues.append(ChartDataEntry(x: Double(9.0), y: Double(6)))
+//        yValues.append(ChartDataEntry(x: Double(10.0), y: Double(7)))
         
         
         return yValues
     }
+    
+    /// Returns the amount of days from another date
+    func daysSince(from date: Date, to taegetDate: Date) -> Int {
+         return Calendar.current.dateComponents([.day], from: date, to: taegetDate).day ?? 0
+     }
     
     func chartValueSelected(_ chartView: ChartViewBase, entry: ChartDataEntry, highlight: Highlight) {
         
@@ -710,15 +768,32 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     /*
      Calculates daily productivity score
      */
+    func calculateScoreForDate(date: Date) -> Int { //TODO change this to handle NTASKs
+        var score = 0
+        let allTasks: [NTask]
+        allTasks = TaskManager.sharedInstance.getAllTasks
+        for d in allTasks {
+            if d.dateCompleted != nil {
+                if date == d.dateCompleted! as Date {
+                    score = score + d.getTaskScore(task: d)
+                }
+            }
+        }
+        return score;
+    }
+    
+    // MARK: calculate today's score
+    /*
+     Calculates daily productivity score
+     */
     func calculateScoreForProject(project: String) -> Int { //TODO change this to handle NTASKs
         var score = 0
-        let projectTasks: [NTask]
+        //let projectTasks: [NTask]
         
 //        if project.lowercased() == ProjectManager.share {
 //            // show default home view
 //        }
-        
-        projectTasks = TaskManager.sharedInstance.getTasksForProjectByName(projectName: project)
+        //projectTasks = TaskManager.sharedInstance.getTasksForProjectByName(projectName: project)
         
         
         let morningTasks: [NTask]

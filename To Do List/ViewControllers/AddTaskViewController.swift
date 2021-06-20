@@ -84,7 +84,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     
 
     var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project")]
-    var currenttProjectForAddTaskView = "inbox"
+    var currenttProjectForAddTaskView = "Inbox"
     
     
     var filledBar: UIView?
