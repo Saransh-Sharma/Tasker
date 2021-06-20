@@ -16,8 +16,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "753EFC992445A24500A739E3"
                BuildableName = "This Day.app"
-               BlueprintName = "To Do List"
-               ReferencedContainer = "container:To Do List.xcodeproj">
+               BlueprintName = "Tasker"
+               ReferencedContainer = "container:Tasker.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "753EFCAF2445A24700A739E3"
-               BuildableName = "To Do ListTests.xctest"
-               BlueprintName = "To Do ListTests"
-               ReferencedContainer = "container:To Do List.xcodeproj">
+               BuildableName = "TaskerTests.xctest"
+               BlueprintName = "TaskerTests"
+               ReferencedContainer = "container:Tasker.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -43,9 +43,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "753EFCBA2445A24800A739E3"
-               BuildableName = "To Do ListUITests.xctest"
-               BlueprintName = "To Do ListUITests"
-               ReferencedContainer = "container:To Do List.xcodeproj">
+               BuildableName = "TaskerUITests.xctest"
+               BlueprintName = "TaskerUITests"
+               ReferencedContainer = "container:Tasker.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -66,8 +66,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "753EFC992445A24500A739E3"
             BuildableName = "This Day.app"
-            BlueprintName = "To Do List"
-            ReferencedContainer = "container:To Do List.xcodeproj">
+            BlueprintName = "Tasker"
+            ReferencedContainer = "container:Tasker.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -83,8 +83,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "753EFC992445A24500A739E3"
             BuildableName = "This Day.app"
-            BlueprintName = "To Do List"
-            ReferencedContainer = "container:To Do List.xcodeproj">
+            BlueprintName = "Tasker"
+            ReferencedContainer = "container:Tasker.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
@@ -93,6 +93,7 @@
    </AnalyzeAction>
    <ArchiveAction
       buildConfiguration = "Release"
+      customArchiveName = "Tasker"
       revealArchiveInOrganizer = "YES">
    </ArchiveAction>
 </Scheme>
