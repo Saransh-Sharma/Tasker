@@ -79,7 +79,6 @@ extension HomeViewController {
     
     func rearrange<T>(array: Array<T>, fromIndex: Int, toIndex: Int) -> Array<T>{
         var arr = array
-//        let element = arr.removeAtIndex(fromIndex)
         let element = arr.remove(at: fromIndex)
         arr.insert(element, at: toIndex)
 
@@ -91,34 +90,24 @@ extension HomeViewController {
         
         let allProjects = ProjectManager.sharedInstance.getAllProjects
         
-        print("pill dae builder START")
-        
-        for each in allProjects {
-            //            print("added to pill bar, prject: \(String(describing: each.projectName! as String))")
-            pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
-            
-            print("pill bar project: \(each.projectName)")
+        if (allProjects.count > pillBarProjectList.count) {
+            pillBarProjectList.removeAll()
+            for each in allProjects {
+                pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
+            }
         }
-        
+
         var inboxOldPosition = 0
         let inboxNewPosittion = 0
         var count = 0
         for each in pillBarProjectList {
-            
+
             if each.title == ProjectManager.sharedInstance.defaultProject {
                 inboxOldPosition = count
             }
             count = count + 1
         }
-//        inboxOldPosition
-        
         pillBarProjectList = rearrange(array: pillBarProjectList, fromIndex: inboxOldPosition, toIndex: inboxNewPosittion)
-        
-      
-        
-        for acc in pillBarProjectList {
-            print(acc.title)
-        }
     }
     
     

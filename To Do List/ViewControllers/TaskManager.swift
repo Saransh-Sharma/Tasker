@@ -69,7 +69,7 @@ class TaskManager {
     }
     
     //----------------------- *************************** -----------------------
-    //MARK:-                  Tasks By Project Name - All
+    //MARK:- - Tasks By Project Name - All
     //----------------------- *************************** -----------------------
     func getTasksForProjectByName(projectName: String) -> [NTask] {
         
@@ -86,11 +86,14 @@ class TaskManager {
     }
     
     //----------------------- *************************** -----------------------
-    //MARK:-                    Tasks For Inbox - All
+    //MARK:- - Tasks For Inbox - All
     //----------------------- *************************** -----------------------
     func getTasksForInboxForDate_All(date: Date) -> [NTask] {
         
-        print("ref: getTasksForInboxForDate_All - date \(date.stringIn(dateStyle: .short, timeStyle: .none)) - A")
+        print("refg: *********** *********** *********** ***********")
+        print("refg: getTasksForInboxForDate_All - date \(date.stringIn(dateStyle: .short, timeStyle: .none)) - A")
+        print("refg: *********** *********** *********** ***********")
+        
         var inboxTasks = [NTask]()
         fetchTasks()
         
@@ -103,16 +106,28 @@ class TaskManager {
             //            print("1 ref: getTasksForInboxForDate_All - project \(each.project!.lowercased() ?? "inbox")")
             if currentProjectName!.contains("\(ProjectManager.sharedInstance.defaultProject.lowercased())") {
                 //                 tasks.append(each)
-                print("! ref: getTasksForInboxForDate_All - found INBOX task ! - B")
+                print("! refg : getTasksForInboxForDate_All - found INBOX task ! - B")
                 if currentDueDate == date as NSDate {
                     inboxTasks.append(each)
                 }
                 
-                if (date == Date.today()) { //add overdue inbox tasks
+                if (date == Date.today() && date > each.dueDate! as Date) { //add overdue inbox tasks
+                    
+                    
                     if (!each.isComplete) {
                         
-                        print ("daldal : addig overdue inbox task: \(each.name)")
+                        print ("refg : addig overdue OPEN inbox task: \(each.name)")
                         inboxTasks.append(each)
+                    } else if (each.isComplete) {
+                        
+                        if (each.dateCompleted != nil) {
+                            if (date == each.dateCompleted! as Date) {
+                                print ("refg : addig overdue DONE Today inbox task: \(each.name)")
+                                inboxTasks.append(each)
+                            }
+                        }
+                        
+                        
                     }
                 }
                 
@@ -123,13 +138,20 @@ class TaskManager {
             //            }
             
             if currentProjectName == nil {
-                print("!! ref: getTasksForInboxForDate_All - found HEADLESS INBOX task ! - C")
+                print("!! refg: getTasksForInboxForDate_All - found HEADLESS INBOX task ! - C")
                 if currentDueDate == date as NSDate {
                     inboxTasks.append(each)
                 }
             }
         }
-        print("!!! ref: getTasksForInboxForDate_All - inbox count: \(inboxTasks.count) - Z")
+        print("!!! refg: getTasksForInboxForDate_All - inbox count: \(inboxTasks.count) - Z")
+        print("refg INBOX TASK LIST")
+        for each in inboxTasks {
+            
+            print("refg \(each.name)")
+            
+        }
+        
         return inboxTasks
     }
     
