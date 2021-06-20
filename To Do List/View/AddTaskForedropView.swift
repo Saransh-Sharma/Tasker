@@ -19,6 +19,8 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 extension AddTaskViewController {
     
+
+    
     func setupAddTaskForedrop() {
         
         print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal,
@@ -79,6 +81,8 @@ extension AddTaskViewController {
         //        self.filledBar = filledBar
         foredropStackContainer.addArrangedSubview(filledBar!)
         filledBar!.backgroundColor = .clear
+        filledBar!.isHidden = true
+        
         
         //        filledBar.selected
         //        filledBar.addTarget(self, action: #selector(changeProject))
@@ -215,13 +219,17 @@ extension AddTaskViewController {
     // MARK: MAKE Priority SC
     func setupPrioritySC() {
         
-        let p = ["None", "Low", "High", "Highest"]
+        tabsSegmentedControl = SegmentedControl(items: p)
         
-        let tabsSegmentedControl = SegmentedControl(items: p)
+        
+      
+        
         tabsSegmentedControl.frame = CGRect(x: 50, y: 50, width: UIScreen.main.bounds.width-100, height: 50)
         tabsSegmentedControl.selectedSegmentIndex = 1
         
         tabsSegmentedControl.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
+        
+        tabsSegmentedControl.isHidden = true
         
         foredropStackContainer.addArrangedSubview(tabsSegmentedControl)
         
@@ -289,6 +297,9 @@ extension AddTaskViewController {
         //        foredropContainer.addSubview(fab_doneTask)
         //        fab_doneTask.contentHorizontalAlignment = .trailing
         fab_doneTask.titleLabel?.textAlignment = .center
+        
+        fab_doneTask.isHidden = true
+        
         foredropStackContainer.addArrangedSubview(fab_doneTask)
         fab_doneTask.addTarget(self, action: #selector(doneAddTaskAction), for: .touchUpInside)
         

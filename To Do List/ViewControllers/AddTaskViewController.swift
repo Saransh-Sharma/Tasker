@@ -18,6 +18,7 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 class AddTaskViewController: UIViewController, UITextFieldDelegate {
     
     
+
     
     
     
@@ -64,6 +65,9 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     var addTaskTextBox_Material = MDCFilledTextField()
     let fab_cancelTask = MDCFloatingButton(shape: .mini)
     let fab_doneTask = MDCFloatingButton(shape: .default)
+    let p = ["None", "Low", "High", "Highest"]
+    
+    var tabsSegmentedControl = SegmentedControl()
     
     var todoColors = ToDoColors()
     var todoFont = ToDoFont()
@@ -112,6 +116,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        
+        
         view.addSubview(backdropContainer)
         setupBackdrop()
         
@@ -155,7 +161,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         let oldText = textField.text!
-        print("old text is: \(oldText)")
+        print("old uuuuuuuutext is: \(oldText)")
         let stringRange = Range(range, in:oldText)!
         let newText = oldText.replacingCharacters(in: stringRange, with: string)
         print("new text is: \(newText)")
@@ -164,9 +170,16 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
         
         if newText.isEmpty {
             print("EMPTY")
+            
+            fab_doneTask.isHidden = true
+            tabsSegmentedControl.isHidden = true
+            filledBar?.isHidden = true
             fab_doneTask.isEnabled = false
         } else {
             print("NOT EMPTY")
+            filledBar?.isHidden = false
+            tabsSegmentedControl.isHidden = false
+            fab_doneTask.isHidden = false
             fab_doneTask.isEnabled = true
             
         }
