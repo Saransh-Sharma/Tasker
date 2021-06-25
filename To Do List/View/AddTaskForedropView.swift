@@ -155,10 +155,13 @@ extension AddTaskViewController {
         
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
-        addTaskTextBox_Material.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
+//        addTaskTextBox_Material.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         addTaskTextBox_Material.label.text = "add task & tap done"
-        addTaskTextBox_Material.leadingAssistiveLabel.text = "Always add actionable items"
-        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
+        addTaskTextBox_Material.leadingAssistiveLabel.text = "add actionable items"
+//        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
+        
+        addTaskTextBox_Material.sizeToFit()
+        
         addTaskTextBox_Material.delegate = self
         addTaskTextBox_Material.clearButtonMode = .whileEditing
         let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
@@ -167,7 +170,7 @@ extension AddTaskViewController {
                                     "book flight tickets to Thailand", "fix the garage door",
                                     "order Cake", "review subscriptions", "get coffee"]
         addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
-        addTaskTextBox_Material.sizeToFit()
+//        addTaskTextBox_Material.sizeToFit()
         
         addTaskTextBox_Material.backgroundColor = .clear
         

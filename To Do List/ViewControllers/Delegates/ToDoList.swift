@@ -68,7 +68,11 @@ extension HomeViewController: BEMCheckBoxDelegate {
                 if !inboxTasks[indexPath.row].isComplete {
                     self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
                     print("checkboc TASK: \(inboxTasks[indexPath.row].name)")
+                    
+                    
                     tableView.reloadData()
+                    updateLineChartData()
+                    
                     self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
                 }
                 
@@ -76,7 +80,11 @@ extension HomeViewController: BEMCheckBoxDelegate {
                 print("checkboc TODAY VIEW ! -- DEFAULT SEC 2")
                 if !projectsTasks[indexPath.row].isComplete {
                     self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                    
+                    
                     tableView.reloadData()
+                    updateLineChartData()
+                    
                     self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
                 }
                 
@@ -97,7 +105,10 @@ extension HomeViewController: BEMCheckBoxDelegate {
                 
                 if !inboxTasks[indexPath.row].isComplete {
                     self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                    
                     tableView.reloadData()
+                    updateLineChartData()
+                    
                     self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
                 }
                 
@@ -105,7 +116,10 @@ extension HomeViewController: BEMCheckBoxDelegate {
                 
                 if !projectsTasks[indexPath.row].isComplete {
                     self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                    
                     tableView.reloadData()
+                    updateLineChartData()
+                    
                     self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
                     
                 }
@@ -745,7 +759,10 @@ extension HomeViewController: UITableViewDataSource {
                     
                     if !inboxTasks[indexPath.row].isComplete {
                         self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                        
                         tableView.reloadData()
+                        self.updateLineChartData()
+                        
                         self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
                     }
                     
@@ -753,7 +770,10 @@ extension HomeViewController: UITableViewDataSource {
                     
                     if !projectsTasks[indexPath.row].isComplete {
                         self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                        
                         tableView.reloadData()
+                        self.updateLineChartData()
+                        
                         self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
                     }
                     

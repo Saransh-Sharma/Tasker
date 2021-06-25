@@ -25,7 +25,7 @@ extension HomeViewController {
         setupHomeDateView()
         updateHomeViewDate(dateToDisplay: dateForTheView)
         setupLineChartView()
-        setLineChartData()
+        updateLineChartData()
         lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
         
         // cal
@@ -437,6 +437,7 @@ extension HomeViewController {
         backdropContainer.addSubview(lineChartView)
         lineChartView.centerInSuperview()
         lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: 2*headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
+        //lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
         
     }
     

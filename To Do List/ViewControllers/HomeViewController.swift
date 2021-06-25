@@ -136,6 +136,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         yAxis.axisLineColor = .tertiaryLabel
         yAxis.labelPosition = .outsideChart
         
+        
         chartView.xAxis.labelPosition = .bottom
         chartView.xAxis.labelFont = .systemFont(ofSize: 8) //.boldSystemFont(ofSize: 8)
         chartView.xAxis.axisLineColor = .tertiaryLabel
@@ -271,7 +272,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //-------- NEW SET VIEW END -----------------
     //-------- NEW SET VIEW -----------------
     //-------- NEW SET VIEW  END-----------------
-    func generateLineChartData() -> [ChartDataEntry] {
+func generateLineChartData() -> [ChartDataEntry] {
         
         var yValues: [ChartDataEntry] = []
         
