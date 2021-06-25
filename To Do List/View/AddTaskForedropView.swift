@@ -11,6 +11,7 @@ import UIKit
 import CoreData
 import Timepiece
 import FluentUI
+import Firebase
 import MaterialComponents.MaterialTextControls_FilledTextAreas
 import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
@@ -339,6 +340,13 @@ extension AddTaskViewController {
             TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: dateForAddTaskView, isEveningTask: isThisEveningTask, project: currenttProjectForAddTaskView)
             
             HUD.shared.showSuccess(from: self, with: "Added to\n\(currenttProjectForAddTaskView)")
+            
+            let addTaskEvent = "Add_NEW_Task"
+            Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
+              AnalyticsParameterItemID: "id-\(addTaskEvent)",
+              AnalyticsParameterItemName: addTaskEvent,
+              AnalyticsParameterContentType: "cont"
+              ])
             
             //---
         } else {
