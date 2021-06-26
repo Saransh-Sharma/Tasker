@@ -21,7 +21,7 @@ extension AddTaskViewController {
         headerEndY = UIScreen.main.bounds.height/7.3
         setupBackdropBackground()
         addCancelBackdrop()
-        setupBackdropNotch()
+//        setupBackdropNotch()
         setHomeViewDate()
         
         // cal
@@ -71,19 +71,16 @@ extension AddTaskViewController {
     //MARK:-              BACKDROP PATTERN 1.1 : SETUP NOTCH BACKDROP
     //----------------------- *************************** -----------------------
     
-    //MARK:- Setup Backdrop Notch
-    func setupBackdropNotch() {
-        if (UIDevice.current.hasNotch) {
-            print("I SEE NOTCH !!")
-        } else {
-            print("NO NOTCH !")
-        }
-//        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
-//        backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
-//        
-//        backdropContainer.addSubview(backdropNochImageView)
-    }
-    
+//    //MARK:- Setup Backdrop Notch
+//    func setupBackdropNotch() {
+//        if (UIDevice.current.hasNotch) {
+//            print("I SEE NOTCH !!")
+//        } else {
+//            print("NO NOTCH !")
+//        }
+//
+//    }
+//
     
     //----------------------- *************************** -----------------------
     //MARK:-                    SETUP HOME DATE VIEW

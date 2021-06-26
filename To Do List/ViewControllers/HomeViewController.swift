@@ -976,12 +976,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             image: UIImage(named: "material_search_White"), // Icon
             style: .plain,
             target: self,
-            action: #selector(self.onNavigationButtonTapped))
+            action: #selector(self.showChartsHHomeButton_Action))
         let barButtonInbox = UIBarButtonItem(
             image: UIImage(named: "material_inbox_White"), // Icon
             style: .plain,
             target: self,
-            action: #selector(self.onNavigationButtonTapped))
+            action: #selector(self.showCalMoreButtonnAction))
+        
         bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
         //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
         bottomAppBar.elevation = ShadowElevation(rawValue: 8)
@@ -1012,7 +1013,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     @objc
     func onNavigationButtonTapped() {
-        print("menu buttoon tapped")
+        print("NAV buttoon tapped")
     }
     
     

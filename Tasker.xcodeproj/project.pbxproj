@@ -14,6 +14,9 @@
 		750F9EDF2685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */; };
 		750F9EE02685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */; };
 		750F9EE12685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */; };
+		7513BA322687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
+		7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
+		7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7537B62324A2AF0800B978E5 /* NewProjectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */; };
 		753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFC9D2445A24500A739E3 /* AppDelegate.swift */; };
 		753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFC9F2445A24500A739E3 /* SceneDelegate.swift */; };
@@ -87,6 +90,7 @@
 		750F9EDA2685CC9500C008C4 /* This Day.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "This Day.entitlements"; sourceTree = "<group>"; };
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
 		750F9EDE2685D7A400C008C4 /* TaskModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModel.xcdatamodel; sourceTree = "<group>"; };
+		7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsBackdrop.swift; sourceTree = "<group>"; };
 		7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewProjectViewController.swift; sourceTree = "<group>"; };
 		753EFC9A2445A24500A739E3 /* This Day.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "This Day.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFC9D2445A24500A739E3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -302,6 +306,7 @@
 				75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */,
 				758D4D7D24AA67F900AB57A8 /* HomeDrawerFilterView.swift */,
 				7551D9FF24880D8E005CF826 /* AddTaskBackdropView.swift */,
+				7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */,
 				7551DA0124880DAC005CF826 /* AddTaskForedropView.swift */,
 			);
 			path = View;
@@ -336,13 +341,13 @@
 				758D4D7724A93FB300AB57A8 /* ProjectManager.swift */,
 				753EFCA12445A24500A739E3 /* HomeViewController.swift */,
 				7551DA0324882A78005CF826 /* AddTaskViewController.swift */,
+				75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */,
+				758D4D7F24AB20F000AB57A8 /* ToDoListData.swift */,
 				7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */,
 				75B7121C246AFF5B00453AEC /* UpcominngTasksViewController.swift */,
 				759F18F82468B70200293A32 /* NAddTaskScreen.swift */,
 				758A80632451E86E00BFB571 /* WeeklyViewController.swift */,
 				758A803F2450BFA300BFB571 /* InboxViewController.swift */,
-				75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */,
-				758D4D7F24AB20F000AB57A8 /* ToDoListData.swift */,
 				758D4D8124ABA4A600AB57A8 /* TableViewCellSampleData.swift */,
 			);
 			path = ViewControllers;
@@ -580,6 +585,7 @@
 				753EFCA22445A24500A739E3 /* HomeViewController.swift in Sources */,
 				75F993802485B04200C340EB /* Score.swift in Sources */,
 				755FE8D72479159200A71A75 /* HomeCalendarExtention.swift in Sources */,
+				7513BA322687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
 				755FE8DC2479220700A71A75 /* LineChart.swift in Sources */,
 				75F18106245CA0BC004D9A69 /* Task.swift in Sources */,
 				758D4D7824A93FB300AB57A8 /* ProjectManager.swift in Sources */,
@@ -614,6 +620,7 @@
 			files = (
 				750F9EE02685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */,
+				7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -623,6 +630,7 @@
 			files = (
 				750F9EE12685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
+				7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
