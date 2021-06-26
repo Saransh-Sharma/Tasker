@@ -247,7 +247,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     
     
-    func setDateForViewValue(dateToSetForView: Date){
+    public func setDateForViewValue(dateToSetForView: Date){
         dateForTheView = dateToSetForView
     }
     
@@ -272,7 +272,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //-------- NEW SET VIEW END -----------------
     //-------- NEW SET VIEW -----------------
     //-------- NEW SET VIEW  END-----------------
-func generateLineChartData() -> [ChartDataEntry] {
+    func generateLineChartData() -> [ChartDataEntry] {
         
         var yValues: [ChartDataEntry] = []
         
@@ -346,6 +346,8 @@ func generateLineChartData() -> [ChartDataEntry] {
         
         //--------
         view.addSubview(backdropContainer)
+        dateForTheView = Date.today()
+        
         setupBackdrop()
         
         
@@ -701,11 +703,17 @@ func generateLineChartData() -> [ChartDataEntry] {
         
         for each in morningTasks {
             
-            if each.isComplete && dateForTheView == each.dateCompleted! as Date {
-                
-                
-                score = score + each.getTaskScore(task: each)
+            if each.dateCompleted != nil {
+                print("It has some value !")
+                if each.isComplete && dateForTheView == each.dateCompleted! as Date {
+                    
+                    
+                    score = score + each.getTaskScore(task: each)
+                }
+            } else {
+                print("doesn't contain value")
             }
+            
         }
         for each in eveningTasks {
             if each.isComplete {

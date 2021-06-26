@@ -9,7 +9,7 @@
 import Foundation
 import UIKit
 import Timepiece
-import CoreData 
+import CoreData
 
 class TaskManager {
     //Singleton
@@ -389,9 +389,10 @@ class TaskManager {
                 print("Green 1: \(each.name)")
             } else if (each.taskType == 1 && each.isComplete == false) { //get older unfinished tasks // Morninng + incomplete
                 //                morningTasks.append(each)
-                //                print("Green 2: \(each.name)")
+                                print("Green 2: \(each.name)")
                 
                 if ((each.dueDate! as Date) < today) {
+//                    print("Green  - adding morning task: \(each.name)")
                     morningTasks.append(each)
                 }
                 
