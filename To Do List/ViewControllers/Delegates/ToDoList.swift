@@ -166,7 +166,7 @@ extension HomeViewController: BEMCheckBoxDelegate {
     }
     
     public func updateTableView() {
-        tableView.backgroundColor = isGrouped ? Colors.Table.backgroundGrouped : Colors.Table.background
+        tableView.backgroundColor = .clear //isGrouped ? Colors.Table.backgroundGrouped : Colors.Table.background
         tableView.reloadData()
     }
     
