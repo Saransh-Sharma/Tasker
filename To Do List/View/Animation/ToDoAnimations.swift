@@ -15,7 +15,7 @@ class ToDoAnimations  {
         pieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
     }
     
-    func animateLineChartAtHome(lineChartView: LineChartView) {
-        lineChartView.animate(xAxisDuration: 1.8)
-    }
+//    func animateLineChartAtHome(lineChartView: LineChartView) {
+//        lineChartView.animate(.)
+//    }
 }

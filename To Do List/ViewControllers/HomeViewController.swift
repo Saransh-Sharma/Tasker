@@ -425,6 +425,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     func appMovedToForeground() {
         print("App moved to ForeGround!")
         toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView)
+//        toDoAnimations.animateLineChartAtHome(lineChartView: lineChartView)
+        
+        updateLineChartData()
         
         updateHomeDateLabel(date: dateForTheView)
         
@@ -510,7 +513,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         //                          constantDelay: 0))
         tableView.reloadData()
         
+        print("resume88")
         animateTableViewReload()
+//        animateLineChart(chartView: self.lineChartView)
         //        UIView.animate(views: tableView.visibleCells, animations: animations, completion: {
         
         //        })
