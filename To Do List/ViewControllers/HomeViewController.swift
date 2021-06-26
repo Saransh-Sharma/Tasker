@@ -961,8 +961,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         bottomAppBar.floatingButton.backgroundColor = todoColors.secondaryAccentColor //.systemIndigo
         bottomAppBar.frame = CGRect(x: 0, y: UIScreen.main.bounds.maxY-100, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.maxY-100)
         
+        bottomAppBar.shadowColor = todoColors.primaryColor
         
-        bottomAppBar.barTintColor = todoColors.primaryColor//primaryColor
+        bottomAppBar.barTintColor = .clear//todoColors.primaryColor//primaryColor
         
         // The following lines of code are to define the buttons on the right and left side
         let barButtonMenu = UIBarButtonItem(
@@ -981,10 +982,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             style: .plain,
             target: self,
             action: #selector(self.onNavigationButtonTapped))
-        bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
+//        bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
         //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
         bottomAppBar.elevation = ShadowElevation(rawValue: 8)
         bottomAppBar.floatingButtonPosition = .trailing
+        
         
         
         bottomAppBar.floatingButton.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
