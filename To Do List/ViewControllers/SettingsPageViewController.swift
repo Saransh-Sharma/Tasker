@@ -29,6 +29,11 @@ class SettingsPageViewController: UIViewController {
         }
     }
     
+//    backdropBackgroundImageView.frame =  CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+//    backdropBackgroundImageView.backgroundColor = todoColors.primaryColor
+//    homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
+//    backdropBackgroundImageView.addSubview(homeTopBar)
+    
     
     @IBAction func toggleDarkMode(_ sender: Any) {
         let mSwitch = sender as! UISwitch

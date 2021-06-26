@@ -118,8 +118,13 @@ extension AddTaskViewController {
             pillBarProjectList.remove(at: (value-index))
         }
         
-        print("do9 - ADDING !")
-        pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
+//        print("do9 - ADDING !")
+//        pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
+        
+                if pillBarProjectList[1].title.lowercased() != "inbox" {
+                    print("do9 - ADDING !")
+                    pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
+                }
         for (index, value) in pillBarProjectList.enumerated() {
             print("do9 --- AT INDEX \(index) value is \(value.title)")
         }

@@ -963,7 +963,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         bottomAppBar.shadowColor = todoColors.primaryColor
         
-        bottomAppBar.barTintColor = .clear//todoColors.primaryColor//primaryColor
+        bottomAppBar.barTintColor = todoColors.primaryColor//primaryColor
         
         // The following lines of code are to define the buttons on the right and left side
         let barButtonMenu = UIBarButtonItem(
@@ -982,7 +982,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             style: .plain,
             target: self,
             action: #selector(self.onNavigationButtonTapped))
-//        bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
+        bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
         //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
         bottomAppBar.elevation = ShadowElevation(rawValue: 8)
         bottomAppBar.floatingButtonPosition = .trailing
@@ -1002,11 +1002,17 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     @objc
     func onMenuButtonTapped() {
         print("menu buttoon tapped")
+        //       tap add fab --> addTask
+        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+        //        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage") as! SettingsPageViewController
+        newViewController.modalPresentationStyle = .popover
+        self.present(newViewController, animated: true, completion: nil)
     }
     
     @objc
     func onNavigationButtonTapped() {
-        print("nav buttoon tapped")
+        print("menu buttoon tapped")
     }
     
     

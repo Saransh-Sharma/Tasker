@@ -62,29 +62,29 @@ extension HomeViewController {
     }
     
     
-//    func buildProojectsPillBarData() {
-//
-//        let allProjects = ProjectManager.sharedInstance.getAllProjects
-//
-//        if (allProjects.count > pillBarProjectList.count) {
-//            pillBarProjectList.removeAll()
-//            for each in allProjects {
-//                pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
-//            }
-//        }
-//
-//        var inboxOldPosition = 0
-//        let inboxNewPosittion = 0
-//        var count = 0
-//        for each in pillBarProjectList {
-//
-//            if each.title == ProjectManager.sharedInstance.defaultProject {
-//                inboxOldPosition = count
-//            }
-//            count = count + 1
-//        }
-//        pillBarProjectList = rearrange(array: pillBarProjectList, fromIndex: inboxOldPosition, toIndex: inboxNewPosittion)
-//    }
+    //    func buildProojectsPillBarData() {
+    //
+    //        let allProjects = ProjectManager.sharedInstance.getAllProjects
+    //
+    //        if (allProjects.count > pillBarProjectList.count) {
+    //            pillBarProjectList.removeAll()
+    //            for each in allProjects {
+    //                pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
+    //            }
+    //        }
+    //
+    //        var inboxOldPosition = 0
+    //        let inboxNewPosittion = 0
+    //        var count = 0
+    //        for each in pillBarProjectList {
+    //
+    //            if each.title == ProjectManager.sharedInstance.defaultProject {
+    //                inboxOldPosition = count
+    //            }
+    //            count = count + 1
+    //        }
+    //        pillBarProjectList = rearrange(array: pillBarProjectList, fromIndex: inboxOldPosition, toIndex: inboxNewPosittion)
+    //    }
     func buildProojectsPillBarData() {
         
         let allProjects = ProjectManager.sharedInstance.getAllProjects
@@ -95,7 +95,7 @@ extension HomeViewController {
         }
         
         if pillBarProjectList[1].title.lowercased() != "inbox" {
-
+            
             print("do9 ----LIST SIZE---> \(pillBarProjectList.count)")
             for i in 0 ..< pillBarProjectList.count {
                 print("do9 counter is: \(i)")
@@ -113,8 +113,12 @@ extension HomeViewController {
             pillBarProjectList.remove(at: (value-index))
         }
         
-        print("do9 - ADDING !")
-        pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
+        
+//        if pillBarProjectList[1].title.lowercased() != "inbox" {
+//            print("do9 - ADDING !")
+//            pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
+//        }
+        
         for (index, value) in pillBarProjectList.enumerated() {
             print("do9 --- AT INDEX \(index) value is \(value.title)")
         }
@@ -146,12 +150,12 @@ extension HomeViewController {
             
             views.append(addLabel(text: "more filters like project, priority & upcoming tasks coming soon !", style: .caption2, colorStyle: .regular))
             
-//            views.append(addLabel(text: "Filter By Projects", style: .headline, colorStyle: .regular))
-//            buildProojectsPillBarData()
-//            filterProjectsPillBar = createProjectsBar(items: pillBarProjectList, style: .filled)
-//            filterProjectsPillBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
-//            _ = bar.selectItem(atIndex: 0)
-//            views.append(filterProjectsPillBar!)
+            //            views.append(addLabel(text: "Filter By Projects", style: .headline, colorStyle: .regular))
+            //            buildProojectsPillBarData()
+            //            filterProjectsPillBar = createProjectsBar(items: pillBarProjectList, style: .filled)
+            //            filterProjectsPillBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
+            //            _ = bar.selectItem(atIndex: 0)
+            //            views.append(filterProjectsPillBar!)
             views.append(Separator())
             
         }

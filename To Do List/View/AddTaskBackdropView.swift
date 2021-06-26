@@ -78,10 +78,10 @@ extension AddTaskViewController {
         } else {
             print("NO NOTCH !")
         }
-        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
-        backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
-        
-        backdropContainer.addSubview(backdropNochImageView)
+//        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
+//        backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
+//        
+//        backdropContainer.addSubview(backdropNochImageView)
     }
     
     

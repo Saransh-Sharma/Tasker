@@ -55,7 +55,8 @@ extension HomeViewController {
     //MARK:- Setup Backdrop Background - Today label + Score
     func setupBackdropBackground() {
         
-        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+//        backdropBackgroundImageView.frame =  CGRect(x: 0, y: backdropNochImageView.bounds.height, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+        backdropBackgroundImageView.frame =  CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
         backdropBackgroundImageView.backgroundColor = todoColors.primaryColor
         homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
         backdropBackgroundImageView.addSubview(homeTopBar)
@@ -100,10 +101,10 @@ extension HomeViewController {
         } else {
             print("NO NOTCH !")
         }
-        backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
-        backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
+        //backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
+        //backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
         
-        backdropContainer.addSubview(backdropNochImageView)
+        //backdropContainer.addSubview(backdropNochImageView)
     }
     
     func addTinyChartToBackdrop() {
