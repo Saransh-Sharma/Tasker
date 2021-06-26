@@ -272,32 +272,32 @@ extension HomeViewController: UITableViewDataSource {
     }
     
     
-    func setupCheckbox(cell: UITableViewCell) -> BEMCheckBox {
-        let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: cell.bounds.minX+5, y: cell.bounds.minY+10, width: 20, height: 25))
-        checkBox.lineWidth = 1.0
-        checkBox.animationDuration = 0.40
-        checkBox.setOn(true, animated: false)
-        checkBox.boxType = .circle
-        checkBox.onAnimationType = .oneStroke
-        checkBox.offAnimationType = .oneStroke
-        checkBox.onTintColor = todoColors.primaryColor
-        checkBox.tag = openTaskCheckboxTag
-        //                     checkBox.addTarget(HomeViewController.self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
-        checkBox.setOn(false, animated: true)
-        return checkBox
-    }
+//    func setupCheckbox(cell: UITableViewCell) -> BEMCheckBox {
+//        let checkBox:BEMCheckBox = BEMCheckBox.init(frame: CGRect(x: cell.bounds.minX+5, y: cell.bounds.minY+10, width: 20, height: 25))
+//        checkBox.lineWidth = 1.0
+//        checkBox.animationDuration = 0.40
+//        checkBox.setOn(true, animated: false)
+//        checkBox.boxType = .circle
+//        checkBox.onAnimationType = .oneStroke
+//        checkBox.offAnimationType = .oneStroke
+//        checkBox.onTintColor = todoColors.primaryColor
+//        checkBox.tag = openTaskCheckboxTag
+//        //                     checkBox.addTarget(HomeViewController.self, action:  #selector(checkboxTappedAction), for: .touchUpInside)
+//        checkBox.setOn(false, animated: true)
+//        return checkBox
+//    }
     
     //open inbox
     func buildOpenInboxCell(task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
-        let foo = setupCheckbox(cell: cell)
+        //let foo = setupCheckbox(cell: cell)
         
         
         cell.setup(
             title: task.name,
             subtitle: "",
             footer: "",
-            customView: foo,
+            //customView: foo,
             accessoryType: .none
         )
         cell.customViewSize = .small
@@ -312,34 +312,34 @@ extension HomeViewController: UITableViewDataSource {
     //open inbox overdue
     func buildOpenInboxCell_Overdue(task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
-        let foo = setupCheckbox(cell: cell)
+        //let foo = setupCheckbox(cell: cell)
         
-        foo.setOn(false, animated: true)
+        //foo.setOn(false, animated: true)
         cell.setup(
             title: task.name,
             subtitle: "",
             footer: "",
-            customView: foo,
+            //customView: foo,
             customAccessoryView: TableViewCellSampleData.customAccessoryView,
             accessoryType: .none
         )
         cell.customViewSize = .small
         cell.titleNumberOfLines = 0
         
-        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
+//        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])//item.text1LeadingAccessoryView()
         
         return cell
     }
     //open inbox overdue
     func buildCompleteInbox( task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
-        let foo = setupCheckbox(cell: cell)
-        foo.setOn(true, animated: true)
+        //let foo = setupCheckbox(cell: cell)
+        //foo.setOn(true, animated: true)
         cell.setup(
             title: task.name,
             subtitle: "",
             footer: "",
-            customView: foo,
+           // customView: foo,
             accessoryType: .checkmark
         )
         
@@ -353,23 +353,23 @@ extension HomeViewController: UITableViewDataSource {
     //open NON inbox
     func buildNonInbox( task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
-        let foo = setupCheckbox(cell: cell)
-        if task.isComplete {
-            foo.setOn(true, animated: true)
-        } else {
-            foo.setOn(false, animated: true)
-        }
+       // let foo = setupCheckbox(cell: cell)
+//        if task.isComplete {
+//            foo.setOn(true, animated: true)
+//        } else {
+//            foo.setOn(false, animated: true)
+//        }
         
         cell.setup(
             title: task.name,
             subtitle: (task.project ?? "") as String,
-            footer: "",
-            customView: foo
+            footer: ""
+           // customView: foo
             
         )
         cell.customViewSize = .small
-        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
-        cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+//        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+//        cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
         cell.titleNumberOfLines = 0
         
         
@@ -378,20 +378,20 @@ extension HomeViewController: UITableViewDataSource {
     }    //open inbox overdue
     func buildNonInbox_Overdue( task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
-        let foo = setupCheckbox(cell: cell)
-        foo.setOn(false, animated: true)
+        //let foo = setupCheckbox(cell: cell)
+       // foo.setOn(false, animated: true)
         cell.setup(
             title: task.name,
             subtitle: (task.project ?? "") as String,
             footer: "",
-            customView: foo,
+            //customView: foo,
             
             customAccessoryView: TableViewCellSampleData.customAccessoryView,
             accessoryType: .none
         )
         
-        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
-        cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+//        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+//        cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
         cell.customViewSize = .small
         cell.titleNumberOfLines = 0
         
