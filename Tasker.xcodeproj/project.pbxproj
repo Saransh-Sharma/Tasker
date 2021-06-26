@@ -793,7 +793,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_NAME = "This Day";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -813,7 +813,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_NAME = "This Day";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};

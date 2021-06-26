@@ -46,7 +46,10 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     //----------------------- *************************** -----------------------
     func setupCalAppearence() {
         
-        calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+//        calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+        calendar.calendarHeaderView.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.5)
+        calendar.calendarHeaderView.backgroundColor?.setFill()
+        //UIColor.lightGray.withAlphaComponent(0.1)
         calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
         
         

@@ -105,7 +105,7 @@ extension AddTaskViewController {
             for i in 0 ..< pillBarProjectList.count {
                 print("do9 counter is: \(i)")
                 if pillBarProjectList[i].title.lowercased() == "inbox"{
-                    indexToRemove.append(i)                    
+                    indexToRemove.append(i)
                 }
             }
             print("do9 -indexToRemove count-----> \(indexToRemove.count)")

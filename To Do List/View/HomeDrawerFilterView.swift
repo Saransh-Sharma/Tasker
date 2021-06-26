@@ -62,28 +62,62 @@ extension HomeViewController {
     }
     
     
+//    func buildProojectsPillBarData() {
+//
+//        let allProjects = ProjectManager.sharedInstance.getAllProjects
+//
+//        if (allProjects.count > pillBarProjectList.count) {
+//            pillBarProjectList.removeAll()
+//            for each in allProjects {
+//                pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
+//            }
+//        }
+//
+//        var inboxOldPosition = 0
+//        let inboxNewPosittion = 0
+//        var count = 0
+//        for each in pillBarProjectList {
+//
+//            if each.title == ProjectManager.sharedInstance.defaultProject {
+//                inboxOldPosition = count
+//            }
+//            count = count + 1
+//        }
+//        pillBarProjectList = rearrange(array: pillBarProjectList, fromIndex: inboxOldPosition, toIndex: inboxNewPosittion)
+//    }
     func buildProojectsPillBarData() {
         
         let allProjects = ProjectManager.sharedInstance.getAllProjects
-        
-        if (allProjects.count > pillBarProjectList.count) {
-            pillBarProjectList.removeAll()
-            for each in allProjects {
-                pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
-            }
+        var indexToRemove = [Int]()
+        for each in allProjects {
+            print("do9 added to pill bar, from ProjectManager: \(String(describing: each.projectName! as String))")
+            pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
         }
         
-        var inboxOldPosition = 0
-        let inboxNewPosittion = 0
-        var count = 0
-        for each in pillBarProjectList {
+        if pillBarProjectList[1].title.lowercased() != "inbox" {
+
+            print("do9 ----LIST SIZE---> \(pillBarProjectList.count)")
+            for i in 0 ..< pillBarProjectList.count {
+                print("do9 counter is: \(i)")
+                if pillBarProjectList[i].title.lowercased() == "inbox"{
+                    indexToRemove.append(i)
+                }
+            }
+            print("do9 -indexToRemove count-----> \(indexToRemove.count)")
+        }
+        for (index, value) in indexToRemove.enumerated() {
             
-            if each.title == ProjectManager.sharedInstance.defaultProject {
-                inboxOldPosition = count
-            }
-            count = count + 1
+            print("do9 INXED -->\(index)")
+            print("do9 VALUE -->\(value)")
+            print("do9 REMOVING TITLE --> \(pillBarProjectList[value-index].title)")
+            pillBarProjectList.remove(at: (value-index))
         }
-        pillBarProjectList = rearrange(array: pillBarProjectList, fromIndex: inboxOldPosition, toIndex: inboxNewPosittion)
+        
+        print("do9 - ADDING !")
+        pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
+        for (index, value) in pillBarProjectList.enumerated() {
+            print("do9 --- AT INDEX \(index) value is \(value.title)")
+        }
     }
     
     
@@ -96,11 +130,11 @@ extension HomeViewController {
         var views = [UIView]()
         if drawerHasFlexibleHeight {
             
-            views.append(addLabel(text: "Days", style: .headline, colorStyle: .regular))
+            views.append(addLabel(text: "Filter By Days", style: .headline, colorStyle: .regular))
             
             views.append(createButton(title: "Today", action: #selector(changeDateFromFilterToday)))
             views.append(createButton(title: "Tomorrow", action: #selector(changeDateFromFilterTomorrow)))
-            views.append(createButton(title: "Upcoming", action: #selector(changeDateFromFilterTomorrow)))
+            //views.append(createButton(title: "Upcoming", action: #selector(changeDateFromFilterTomorrow)))
             
             
             
@@ -110,12 +144,14 @@ extension HomeViewController {
             
             //            let mProjects = ProjectManageeer.sharedInstance.getAllProjects
             
-            views.append(addLabel(text: "Projects", style: .headline, colorStyle: .regular))
-            buildProojectsPillBarData()
-            filterProjectsPillBar = createProjectsBar(items: pillBarProjectList, style: .filled)
-            filterProjectsPillBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
-            _ = bar.selectItem(atIndex: 0)
-            views.append(filterProjectsPillBar!)
+            views.append(addLabel(text: "more filters like project, priority & upcoming tasks coming soon !", style: .caption2, colorStyle: .regular))
+            
+//            views.append(addLabel(text: "Filter By Projects", style: .headline, colorStyle: .regular))
+//            buildProojectsPillBarData()
+//            filterProjectsPillBar = createProjectsBar(items: pillBarProjectList, style: .filled)
+//            filterProjectsPillBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
+//            _ = bar.selectItem(atIndex: 0)
+//            views.append(filterProjectsPillBar!)
             views.append(Separator())
             
         }
@@ -137,6 +173,7 @@ extension HomeViewController {
     
     public func containerForActionViews(drawerHasFlexibleHeight: Bool = true) -> UIView {
         let container = HomeViewController.createVerticalContainer()
+        container.backgroundColor = .white
         for view in actionViews(drawerHasFlexibleHeight: drawerHasFlexibleHeight) {
             container.addArrangedSubview(view)
         }
