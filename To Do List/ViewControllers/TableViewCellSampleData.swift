@@ -254,9 +254,10 @@ class TableViewCellSampleData: ToDoListData {
         let iconSpacing: CGFloat = 6
         var icons: [UIImageView] = []
         
-        images.forEach {
-            icons.append(UIImageView(image: UIImage(named: $0)))
-        }
+//        images.forEach {
+////            icons.append(UIImageView(image: UIImage(named: $0))) //systemName: "circle.fill")
+//            icons.append(UIImageView(image: UIImage(systemName: "circle.fill")))
+//        }
         
         return labelAccessoryView(accessories: icons, spacing: iconSpacing, alignment: rightAligned ? .trailing : .leading )
     }

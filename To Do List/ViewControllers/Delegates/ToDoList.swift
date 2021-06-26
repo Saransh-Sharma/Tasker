@@ -292,6 +292,7 @@ extension HomeViewController: UITableViewDataSource {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
         //let foo = setupCheckbox(cell: cell)
         
+        let ultraLightConfiguration = UIImage.SymbolConfiguration(weight: .regular)
         
         cell.setup(
             title: task.name,
@@ -303,7 +304,20 @@ extension HomeViewController: UITableViewDataSource {
         cell.customViewSize = .small
         cell.titleNumberOfLines = 0
         cell.titleLeadingAccessoryView = .none
-        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        let highestPrioritySymbol = UIImage(systemName: "circle.fill",withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
+        let highPrioritySymbol = UIImage(systemName: "circle",withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
+        
+        let prioritySymbol = UIImageView()
+        
+        ////1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
+        if task.taskPriority == 1 {
+            prioritySymbol.image = highestPrioritySymbol
+        } else if task.taskPriority == 2 {
+            prioritySymbol.image = highPrioritySymbol
+        }
+        
+        
+        cell.titleLeadingAccessoryView = prioritySymbol
         
         
         

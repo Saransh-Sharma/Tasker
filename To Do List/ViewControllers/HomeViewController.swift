@@ -965,20 +965,29 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         bottomAppBar.barTintColor = todoColors.primaryColor//primaryColor
         
+        let ultraLightConfiguration = UIImage.SymbolConfiguration(weight: .regular)
+        
+        let boldLargeConfig = UIImage.SymbolConfiguration(pointSize: UIFont.systemFontSize, weight: .bold, scale: .large)
+        let smallConfig = UIImage.SymbolConfiguration(scale: .small)
+        let boldSmallConfig = boldLargeConfig.applying(smallConfig)
+//        let boldSmallSymbolImage = UIImage(systemName: "square.and.pencil", withConfiguration: boldSmallConfig)
+        
         // The following lines of code are to define the buttons on the right and left side
         let barButtonMenu = UIBarButtonItem(
-            image: UIImage(named:"material_menu_White"), // Icon
+//            image: UIImage(named:"material_menu_White"), // Icon
+            image: UIImage(systemName: "text.justify",withConfiguration: boldLargeConfig)?.withTintColor(.systemGray5, renderingMode: .alwaysOriginal), // Icon //UIImage(systemName:"text.justify")?.symbolConfiguration(scale: .small) // Icon
+            //icon_menu
             style: .plain,
             target: self,
             action: #selector(self.onMenuButtonTapped))
         
         let barButtonSearch = UIBarButtonItem(
-            image: UIImage(named: "material_search_White"), // Icon
+            image: UIImage(systemName: "waveform.path.ecg",withConfiguration: boldLargeConfig)?.withTintColor(.systemGray5, renderingMode: .alwaysOriginal), // Icon
             style: .plain,
             target: self,
             action: #selector(self.showChartsHHomeButton_Action))
         let barButtonInbox = UIBarButtonItem(
-            image: UIImage(named: "material_inbox_White"), // Icon
+            image: UIImage(systemName: "calendar", withConfiguration: boldLargeConfig)?.withTintColor(.systemGray5, renderingMode: .alwaysOriginal), // Icon
             style: .plain,
             target: self,
             action: #selector(self.showCalMoreButtonnAction))
