@@ -18,7 +18,7 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 class AddTaskViewController: UIViewController, UITextFieldDelegate {
     
     
-
+    
     
     
     
@@ -63,7 +63,9 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     let eveningLabel = UILabel()
     
     var addTaskTextBox_Material = MDCFilledTextField()
-    let fab_cancelTask = MDCFloatingButton(shape: .mini)
+    //    let fab_cancelTask = MDCFloatingButton(shape: .mini)
+    //    let topCancelButton = Button(style: .borderless)
+    let nCancelButton = UIButton()
     let fab_doneTask = MDCFloatingButton(shape: .default)
     let p = ["None", "Low", "High", "Highest"]
     
@@ -99,6 +101,18 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     }
     
     
+    //MARK:- CANCEL TASK ACTION
+    @objc func cancelAddButtonTaskAction() {
+        
+        //       tap CANCEL --> homeScreen
+        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
+        newViewController.modalPresentationStyle = .fullScreen
+        //        self.present(newViewController, animated: true, completion: nil) //Doesn't look like cancel
+        dismiss(animated: true) //this looks more like cancel compared to above
+    }
+    
+    
     // This function is called when you click return key in the text field.
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         
@@ -120,6 +134,17 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
         
         view.addSubview(backdropContainer)
         setupBackdrop()
+        
+        
+        nCancelButton.setTitle("Cancel", for: .normal)
+        nCancelButton.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.minY+48, width: 70, height: 35)
+        
+        
+        view.addSubview(nCancelButton)
+        
+        nCancelButton.addTarget(self, action: #selector(cancelAddTaskAction), for: .touchUpInside)
+        
+        //---Floating Action Button - Material - DONE
         
         view.addSubview(foredropStackContainer)
         setupAddTaskForedrop()
@@ -218,11 +243,11 @@ extension AddTaskViewController: PillButtonBarDelegate {
             })
             
         } else {
-            
-            let alert = UIAlertController(title: "Item \(item.title) was selected", message: nil, preferredStyle: .alert)
-            let action = UIAlertAction(title: "OK", style: .default)
-            alert.addAction(action)
-            present(alert, animated: true)
+            //
+            //            let alert = UIAlertController(title: "Item \(item.title) was selected", message: nil, preferredStyle: .alert)
+            //            let action = UIAlertAction(title: "OK", style: .default)
+            //            alert.addAction(action)
+            //            present(alert, animated: true)
         }
         
         

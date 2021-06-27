@@ -99,6 +99,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         
         // cancel button position
+        print("whereis cancel button?")
         fab_cancelTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/8, y: UIScreen.main.bounds.minY+40, width: 25, height: 25)
         let addTaskIcon = UIImage(named: "material_close")
         fab_cancelTask.setImage(addTaskIcon, for: .normal)
