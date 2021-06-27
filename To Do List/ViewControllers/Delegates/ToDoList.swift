@@ -11,6 +11,7 @@ import UIKit
 import FluentUI
 import Timepiece
 import BEMCheckBox
+import TinyConstraints
 
 extension HomeViewController: BEMCheckBoxDelegate {
     
@@ -755,7 +756,7 @@ extension HomeViewController: UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         
-        let completeTaskAction = UIContextualAction(style: .normal, title: " ✔️ ") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+        let completeTaskAction = UIContextualAction(style: .normal, title: " done ") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
             
             let inboxTasks: [NTask]
             let projectsTasks: [NTask]
@@ -986,41 +987,520 @@ extension HomeViewController: UITableViewDataSource {
         return UISwipeActionsConfiguration(actions: [completeTaskAction,undoTaskAction])
     }
     
+    
+    func tableView(_ tableView: UITableView,
+                           leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+       
+        let completeTaskAction = UIContextualAction(style: .normal, title: "reschedule") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+           
+           let inboxTasks: [NTask]
+           let projectsTasks: [NTask]
+           let dateForTheView = self.dateForTheView
+           
+           switch self.currentViewType {
+           
+           case .todayHomeView:
+               inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+               projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+               
+               switch indexPath.section {
+               
+               case 1:
+                   
+                   if !inboxTasks[indexPath.row].isComplete {
+                       self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                       
+                       tableView.reloadData()
+                       self.updateLineChartData()
+                       
+                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                   }
+                   
+               case 2:
+                   
+                   if !projectsTasks[indexPath.row].isComplete {
+                       self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                       
+                       tableView.reloadData()
+                       self.updateLineChartData()
+                       
+                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                   }
+                   
+               default:
+                   break
+               }
+               
+           case .customDateView:
+               inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+               projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+               
+               switch indexPath.section {
+               
+               case 1:
+                   
+                   if !inboxTasks[indexPath.row].isComplete {
+                       self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                       tableView.reloadData()
+                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                   }
+                   
+               case 2:
+                   
+                   if !projectsTasks[indexPath.row].isComplete {
+                       self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                       tableView.reloadData()
+                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                       
+                   }
+                   
+               default:
+                   break
+               }
+           case .projectView:
+               print("SWIPE - PROHECT VIEW") //TODO
+           case .upcomingView:
+               print("SWIPE - Upcooming") //TODO
+           case .historyView:
+               print("SWIPE - HISTORY VIEW") //TODO
+           }
+           
+           
+           print("SCORE IS: \(self.calculateTodaysScore())")
+           self.scoreCounter.text = "\(self.calculateTodaysScore())"
+           self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+           self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+           self.title = "\(self.calculateTodaysScore())"
+           
+           actionPerformed(true)
+       }
+       
+       
+       let undoTaskAction = UIContextualAction(style: .normal, title: "U N D O") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+           
+           let inboxTasks: [NTask]
+           let projectsTasks: [NTask]
+           let dateForTheView = self.dateForTheView
+           
+           //            inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+           
+           
+           switch self.currentViewType {
+           
+           case .todayHomeView:
+               inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+               projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+               
+               switch indexPath.section {
+               
+               case 1:
+                   
+                   if inboxTasks[indexPath.row].isComplete {
+                       self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
+                       tableView.reloadData()
+                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                   }
+                   
+               case 2:
+                   
+                   if projectsTasks[indexPath.row].isComplete {
+                       self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
+                       tableView.reloadData()
+                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                   }
+                   
+               default:
+                   break
+               }
+               
+           case .customDateView:
+               inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+               projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+               
+               switch indexPath.section {
+               
+               case 1:
+                   
+                   if inboxTasks[indexPath.row].isComplete {
+                       self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
+                       tableView.reloadData()
+                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                   }
+                   
+               case 2:
+                   
+                   if projectsTasks[indexPath.row].isComplete {
+                       self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
+                       tableView.reloadData()
+                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                   }
+                   
+               default:
+                   break
+               }
+           case .projectView:
+               print("SWIPE - PROHECT VIEW") //TODO
+           case .upcomingView:
+               print("SWIPE - Upcooming") //TODO
+           case .historyView:
+               print("SWIPE - HISTORY VIEW") //TODO
+           }
+           
+           print("SCORE IS: \(self.calculateTodaysScore())")
+           self.scoreCounter.text = "\(self.calculateTodaysScore())"
+           self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+           self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+           self.title = "\(self.calculateTodaysScore())"
+           actionPerformed(true)
+       }
+       undoTaskAction.backgroundColor = todoColors.primaryColor
+       completeTaskAction.backgroundColor = todoColors.completeTaskSwipeColor
+       
+       let inboxTasks: [NTask]
+       let projectsTasks: [NTask]
+       let dateForTheView = self.dateForTheView
+       
+       inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+       projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+       
+       switch self.currentViewType {
+       
+       case .todayHomeView:
+           
+           switch indexPath.section {
+           
+           case 1:
+               
+               
+               if inboxTasks[indexPath.row].isComplete {
+                   return UISwipeActionsConfiguration(actions: [undoTaskAction])
+               } else if !inboxTasks[indexPath.row].isComplete {
+                   return UISwipeActionsConfiguration(actions: [completeTaskAction])
+               }
+               
+           case 2:
+               if projectsTasks[indexPath.row].isComplete {
+                   return UISwipeActionsConfiguration(actions: [undoTaskAction])
+               } else if !projectsTasks[indexPath.row].isComplete {
+                   return UISwipeActionsConfiguration(actions: [completeTaskAction])
+               }
+               
+           default:
+               break
+           }
+           
+       case .customDateView:
+           switch indexPath.section {
+           
+           case 1:
+               
+               
+               if inboxTasks[indexPath.row].isComplete {
+                   return UISwipeActionsConfiguration(actions: [undoTaskAction])
+               } else if !inboxTasks[indexPath.row].isComplete {
+                   return UISwipeActionsConfiguration(actions: [completeTaskAction])
+               }
+               
+           case 2:
+               if projectsTasks[indexPath.row].isComplete {
+                   return UISwipeActionsConfiguration(actions: [undoTaskAction])
+               } else if !projectsTasks[indexPath.row].isComplete {
+                   return UISwipeActionsConfiguration(actions: [completeTaskAction])
+               }
+               
+           default:
+               break
+           }
+       case .projectView:
+           print("SWIPE - PROHECT VIEW")
+       case .upcomingView:
+           print("SWIPE - upccoming VIEW")
+       case .historyView:
+           print("SWIPE - histtory VIEW")
+       }
+       
+        let modifyAction = UIContextualAction(style: .normal, title:  "fafnjakf", handler: { (ac:UIContextualAction, view:UIView, success:(Bool) -> Void) in
+                print("Update action ...")
+                success(true)
+            })
+        modifyAction.backgroundColor = UIColor.init(white: 1, alpha: 0)
+       return UISwipeActionsConfiguration(actions: [modifyAction,undoTaskAction])
+   }
+    
+    
 }
+
+
+
+//trailingSwipeActionsConfigurationForRowAt
+//func tableView(_ tableView: UITableView, leading indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+//
+//    let completeTaskAction = UIContextualAction(style: .normal, title: " done ") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+//
+//        let inboxTasks: [NTask]
+//        let projectsTasks: [NTask]
+//        let dateForTheView = self.dateForTheView
+//
+//        switch self.currentViewType {
+//
+//        case .todayHomeView:
+//            inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+//            projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+//
+//            switch indexPath.section {
+//
+//            case 1:
+//
+//                if !inboxTasks[indexPath.row].isComplete {
+//                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+//
+//                    tableView.reloadData()
+//                    self.updateLineChartData()
+//
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//                }
+//
+//            case 2:
+//
+//                if !projectsTasks[indexPath.row].isComplete {
+//                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+//
+//                    tableView.reloadData()
+//                    self.updateLineChartData()
+//
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//                }
+//
+//            default:
+//                break
+//            }
+//
+//        case .customDateView:
+//            inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+//            projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+//
+//            switch indexPath.section {
+//
+//            case 1:
+//
+//                if !inboxTasks[indexPath.row].isComplete {
+//                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+//                    tableView.reloadData()
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//                }
+//
+//            case 2:
+//
+//                if !projectsTasks[indexPath.row].isComplete {
+//                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+//                    tableView.reloadData()
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//
+//                }
+//
+//            default:
+//                break
+//            }
+//        case .projectView:
+//            print("SWIPE - PROHECT VIEW") //TODO
+//        case .upcomingView:
+//            print("SWIPE - Upcooming") //TODO
+//        case .historyView:
+//            print("SWIPE - HISTORY VIEW") //TODO
+//        }
+//
+//
+//        print("SCORE IS: \(self.calculateTodaysScore())")
+//        self.scoreCounter.text = "\(self.calculateTodaysScore())"
+//        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+//        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+//        self.title = "\(self.calculateTodaysScore())"
+//
+//        actionPerformed(true)
+//    }
+//
+//
+//    let undoTaskAction = UIContextualAction(style: .normal, title: "U N D O") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+//
+//        let inboxTasks: [NTask]
+//        let projectsTasks: [NTask]
+//        let dateForTheView = self.dateForTheView
+//
+//        //            inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+//
+//
+//        switch self.currentViewType {
+//
+//        case .todayHomeView:
+//            inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+//            projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+//
+//            switch indexPath.section {
+//
+//            case 1:
+//
+//                if inboxTasks[indexPath.row].isComplete {
+//                    self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
+//                    tableView.reloadData()
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//                }
+//
+//            case 2:
+//
+//                if projectsTasks[indexPath.row].isComplete {
+//                    self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
+//                    tableView.reloadData()
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//                }
+//
+//            default:
+//                break
+//            }
+//
+//        case .customDateView:
+//            inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+//            projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+//
+//            switch indexPath.section {
+//
+//            case 1:
+//
+//                if inboxTasks[indexPath.row].isComplete {
+//                    self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
+//                    tableView.reloadData()
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//                }
+//
+//            case 2:
+//
+//                if projectsTasks[indexPath.row].isComplete {
+//                    self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
+//                    tableView.reloadData()
+//                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//                }
+//
+//            default:
+//                break
+//            }
+//        case .projectView:
+//            print("SWIPE - PROHECT VIEW") //TODO
+//        case .upcomingView:
+//            print("SWIPE - Upcooming") //TODO
+//        case .historyView:
+//            print("SWIPE - HISTORY VIEW") //TODO
+//        }
+//
+//        print("SCORE IS: \(self.calculateTodaysScore())")
+//        self.scoreCounter.text = "\(self.calculateTodaysScore())"
+//        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+//        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+//        self.title = "\(self.calculateTodaysScore())"
+//        actionPerformed(true)
+//    }
+//    undoTaskAction.backgroundColor = todoColors.primaryColor
+//    completeTaskAction.backgroundColor = todoColors.completeTaskSwipeColor
+//
+//    let inboxTasks: [NTask]
+//    let projectsTasks: [NTask]
+//    let dateForTheView = self.dateForTheView
+//
+//    inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+//    projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+//
+//    switch self.currentViewType {
+//
+//    case .todayHomeView:
+//
+//        switch indexPath.section {
+//
+//        case 1:
+//
+//
+//            if inboxTasks[indexPath.row].isComplete {
+//                return UISwipeActionsConfiguration(actions: [undoTaskAction])
+//            } else if !inboxTasks[indexPath.row].isComplete {
+//                return UISwipeActionsConfiguration(actions: [completeTaskAction])
+//            }
+//
+//        case 2:
+//            if projectsTasks[indexPath.row].isComplete {
+//                return UISwipeActionsConfiguration(actions: [undoTaskAction])
+//            } else if !projectsTasks[indexPath.row].isComplete {
+//                return UISwipeActionsConfiguration(actions: [completeTaskAction])
+//            }
+//
+//        default:
+//            break
+//        }
+//
+//    case .customDateView:
+//        switch indexPath.section {
+//
+//        case 1:
+//
+//
+//            if inboxTasks[indexPath.row].isComplete {
+//                return UISwipeActionsConfiguration(actions: [undoTaskAction])
+//            } else if !inboxTasks[indexPath.row].isComplete {
+//                return UISwipeActionsConfiguration(actions: [completeTaskAction])
+//            }
+//
+//        case 2:
+//            if projectsTasks[indexPath.row].isComplete {
+//                return UISwipeActionsConfiguration(actions: [undoTaskAction])
+//            } else if !projectsTasks[indexPath.row].isComplete {
+//                return UISwipeActionsConfiguration(actions: [completeTaskAction])
+//            }
+//
+//        default:
+//            break
+//        }
+//    case .projectView:
+//        print("SWIPE - PROHECT VIEW")
+//    case .upcomingView:
+//        print("SWIPE - upccoming VIEW")
+//    case .historyView:
+//        print("SWIPE - histtory VIEW")
+//    }
+//
+//    return UISwipeActionsConfiguration(actions: [completeTaskAction,undoTaskAction])
+//}
+
+//}
 
 // MARK: - TableViewCellDemoController: UITableViewDelegate
 
 extension HomeViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         if section == 0 {
-            //            let headStack = HomeViewController.createTopHeaderVerticalContainer()
+
+            let headerView = UIStackView()
             
-            let headerView = UIView()
             
-            //            myLabel.frame = CGRect(x:5, y: 0, width: (UIScreen.main.bounds.width/3) + 50, height: 30)
-            toDoListHeaderLabel.frame = CGRect(x:5, y: 4, width: (UIScreen.main.bounds.width), height: 30)
+            headerView.addSubview(toDoListHeaderLabel)
+            headerView.addSubview(lineSeparator)
             
-            //line.horizontal.3.decrease.circle
-            let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 32, weight: .light, scale: .default)
+
+            toDoListHeaderLabel.center(in: headerView, offset: CGPoint(x: 0, y: 8))
+            let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 28, weight: .light, scale: .default)
+            
             let filterIconImage = UIImage(systemName: "line.horizontal.3.decrease.circle", withConfiguration: filterIconConfiguration)
-            let colouredCalPullDownImage = filterIconImage?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
-            //
-            //            let calButton = colouredCalPullDownImage //UIImage(named: "cal_Icon")
-            let filterMenuHomeButton = UIButton()
-            //            filterMenuHomeButton.frame = CGRect(x:5, y: -10 , width: 50, height: 50)
-            //            filterMenuHomeButton.frame = CGRect(x:5, y: 1 , width: 30, height: 30)
-            filterMenuHomeButton.frame = CGRect(x:10, y: 2 , width: 32, height: 32)
-            filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
             
+            let colouredCalPullDownImage = filterIconImage?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
+       
+            let filterMenuHomeButton = UIButton()
+
+            headerView.addSubview(filterMenuHomeButton)
+ 
+            filterMenuHomeButton.leftToSuperview(offset: 10)
+            filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
             filterMenuHomeButton.addTarget(self, action:  #selector(showTopDrawerButtonTapped), for: .touchUpInside)
             
-            toDoListHeaderLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)//UIFont(name: "HelveticaNeue-Bold", size: 20)
+            toDoListHeaderLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)
             toDoListHeaderLabel.textAlignment = .center
             toDoListHeaderLabel.adjustsFontSizeToFitWidth = true
             toDoListHeaderLabel.textColor = .label
-            //            myLabel.backgroundColor = .black
-            //                            myLabel.text = "GREEN GREEN"//tableView(tableView, gree: section)
-            
+
             let now = Date.today
             var sectionLabel = ""
             if (dateForTheView == now()) {
@@ -1037,25 +1517,20 @@ extension HomeViewController: UITableViewDelegate {
                     homeDate_Day.text = "\(customDay.day)"
                 }
                 
-//                homeDate_Month.text = todoTimeUtils.getMonth(date: customDay)
                 
                 let dateFormatter_Weekday = DateFormatter()
                 dateFormatter_Weekday.dateFormat = "EEEE"
                 let nameOfWeekday = dateFormatter_Weekday.string(from: customDay)
                 
                 let c = nameOfWeekday
-                //dateForTheView.stringIn(dateStyle: DateFormatter.Style.long, timeStyle: DateFormatter.Style.none)
+                
                 sectionLabel = "\(c)"
             }
-            toDoListHeaderLabel.text = sectionLabel//tableView(tableView, gree: section)
-            
-            //                   let headerView = UIView()
-            
-            lineSeparator.frame = CGRect(x: 0, y: 33, width: UIScreen.main.bounds.width, height: 1)
+            toDoListHeaderLabel.text = sectionLabel
+
+            lineSeparator.frame = CGRect(x: 0, y: 32, width: UIScreen.main.bounds.width, height: 1)
             lineSeparator.backgroundColor = UIColor.black
-            
-            headerView.addSubview(filterMenuHomeButton)
-            headerView.addSubview(toDoListHeaderLabel)
+
             headerView.addSubview(lineSeparator)
             
             return headerView
