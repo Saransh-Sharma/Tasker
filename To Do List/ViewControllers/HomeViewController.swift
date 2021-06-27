@@ -969,7 +969,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         let boldLargeConfig = UIImage.SymbolConfiguration(pointSize: UIFont.systemFontSize, weight: .bold, scale: .large)
         let smallConfig = UIImage.SymbolConfiguration(scale: .small)
         let boldSmallConfig = boldLargeConfig.applying(smallConfig)
-//        let boldSmallSymbolImage = UIImage(systemName: "square.and.pencil", withConfiguration: boldSmallConfig)
+
         
         // The following lines of code are to define the buttons on the right and left side
         let barButtonMenu = UIBarButtonItem(
@@ -991,7 +991,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             target: self,
             action: #selector(self.showCalMoreButtonnAction))
         
-        bottomAppBar.leadingBarButtonItems = [barButtonMenu, barButtonSearch, barButtonInbox]
+        bottomAppBar.leadingBarButtonItems = [barButtonSearch, barButtonInbox]
         //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
         bottomAppBar.elevation = ShadowElevation(rawValue: 8)
         bottomAppBar.floatingButtonPosition = .trailing
