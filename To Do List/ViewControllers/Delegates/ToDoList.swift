@@ -726,6 +726,18 @@ extension HomeViewController: UITableViewDataSource {
         
     }
     
+    func rescheduleTaskOnSwipe(task: NTask, scheduleTo: Date) {
+        TaskManager.sharedInstance
+            .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: task)]
+            .dueDate = scheduleTo as NSDate
+    
+        TaskManager.sharedInstance.saveContext()
+        
+        tableView.reloadData()
+        animateTableViewReload()
+//        self.updateLineChartData()
+    }
+    
     func markTaskCompleteOnSwipe(task: NTask) {
         TaskManager.sharedInstance
             .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: task)]
@@ -988,10 +1000,40 @@ extension HomeViewController: UITableViewDataSource {
     }
     
     
+    func rescheduleAlertActionMenu(tasks: [NTask], indexPath: IndexPath) {
+        
+        print("boomff 1")
+        let controller = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        controller.addAction(UIAlertAction(title: "Tomorrow", style: .default, handler: { _ in
+            print("boomff A")
+            self.rescheduleTaskOnSwipe(task: tasks[indexPath.row], scheduleTo: Date.tomorrow())
+        }))
+        
+        controller.addAction(UIAlertAction(title: "Day After Tomorrow", style: .default, handler: { _ in
+            print("boomff B")
+            let today = Date()
+            print(today)
+            let modifiedDate = Calendar.current.date(byAdding: .day, value: 2, to: today)!
+            print(modifiedDate)
+            print("reschedule --- TASK DATE --> \(String(describing: TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: tasks[indexPath.row])].dueDate))")
+            
+            print("reschedule --- NEW DATE -->\(modifiedDate.dateString(in: .medium))")
+            self.rescheduleTaskOnSwipe(task: tasks[indexPath.row], scheduleTo: (modifiedDate))
+        }))
+                
+        controller.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: { _ in
+        print("boomff CANCEL")
+        }))
+        
+        print("boomff 99 ")
+        self.present(controller, animated: true, completion: nil)
+        
+    }
+    
     func tableView(_ tableView: UITableView,
                            leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
        
-        let completeTaskAction = UIContextualAction(style: .normal, title: "reschedule") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+        let resheduleTaskAction = UIContextualAction(style: .destructive, title: "reschedule") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
            
            let inboxTasks: [NTask]
            let projectsTasks: [NTask]
@@ -1008,23 +1050,26 @@ extension HomeViewController: UITableViewDataSource {
                case 1:
                    
                    if !inboxTasks[indexPath.row].isComplete {
-                       self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-                       
-                       tableView.reloadData()
-                       self.updateLineChartData()
-                       
-                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    
+                       //self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                    
+                    print("boomff 0")
+                    
+                    self.rescheduleAlertActionMenu(tasks: inboxTasks, indexPath: indexPath)
+                    
                    }
                    
                case 2:
                    
                    if !projectsTasks[indexPath.row].isComplete {
-                       self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+//                       self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                    
+                    self.rescheduleAlertActionMenu(tasks: projectsTasks, indexPath: indexPath)
                        
-                       tableView.reloadData()
-                       self.updateLineChartData()
+//                       tableView.reloadData()
+//                       self.updateLineChartData()
                        
-                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+//                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
                    }
                    
                default:
@@ -1039,20 +1084,11 @@ extension HomeViewController: UITableViewDataSource {
                
                case 1:
                    
-                   if !inboxTasks[indexPath.row].isComplete {
-                       self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-                       tableView.reloadData()
-                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                   }
+                self.rescheduleAlertActionMenu(tasks: inboxTasks, indexPath: indexPath)
                    
                case 2:
                    
-                   if !projectsTasks[indexPath.row].isComplete {
-                       self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-                       tableView.reloadData()
-                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                       
-                   }
+                self.rescheduleAlertActionMenu(tasks: inboxTasks, indexPath: indexPath)
                    
                default:
                    break
@@ -1066,11 +1102,11 @@ extension HomeViewController: UITableViewDataSource {
            }
            
            
-           print("SCORE IS: \(self.calculateTodaysScore())")
-           self.scoreCounter.text = "\(self.calculateTodaysScore())"
-           self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
-           self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-           self.title = "\(self.calculateTodaysScore())"
+//           print("SCORE IS: \(self.calculateTodaysScore())")
+//           self.scoreCounter.text = "\(self.calculateTodaysScore())"
+//           self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+//           self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+//           self.title = "\(self.calculateTodaysScore())"
            
            actionPerformed(true)
        }
@@ -1153,8 +1189,8 @@ extension HomeViewController: UITableViewDataSource {
            self.title = "\(self.calculateTodaysScore())"
            actionPerformed(true)
        }
-       undoTaskAction.backgroundColor = todoColors.primaryColor
-       completeTaskAction.backgroundColor = todoColors.completeTaskSwipeColor
+        undoTaskAction.backgroundColor = todoColors.primaryColor//.systemOrange
+        resheduleTaskAction.backgroundColor = todoColors.secondaryAccentColor
        
        let inboxTasks: [NTask]
        let projectsTasks: [NTask]
@@ -1175,14 +1211,14 @@ extension HomeViewController: UITableViewDataSource {
                if inboxTasks[indexPath.row].isComplete {
                    return UISwipeActionsConfiguration(actions: [undoTaskAction])
                } else if !inboxTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [completeTaskAction])
+                   return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
                }
                
            case 2:
                if projectsTasks[indexPath.row].isComplete {
                    return UISwipeActionsConfiguration(actions: [undoTaskAction])
                } else if !projectsTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [completeTaskAction])
+                   return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
                }
                
            default:
@@ -1198,14 +1234,14 @@ extension HomeViewController: UITableViewDataSource {
                if inboxTasks[indexPath.row].isComplete {
                    return UISwipeActionsConfiguration(actions: [undoTaskAction])
                } else if !inboxTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [completeTaskAction])
+                   return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
                }
                
            case 2:
                if projectsTasks[indexPath.row].isComplete {
                    return UISwipeActionsConfiguration(actions: [undoTaskAction])
                } else if !projectsTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [completeTaskAction])
+                   return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
                }
                
            default:
@@ -1219,12 +1255,8 @@ extension HomeViewController: UITableViewDataSource {
            print("SWIPE - histtory VIEW")
        }
        
-        let modifyAction = UIContextualAction(style: .normal, title:  "fafnjakf", handler: { (ac:UIContextualAction, view:UIView, success:(Bool) -> Void) in
-                print("Update action ...")
-                success(true)
-            })
-        modifyAction.backgroundColor = UIColor.init(white: 1, alpha: 0)
-       return UISwipeActionsConfiguration(actions: [modifyAction,undoTaskAction])
+
+       return UISwipeActionsConfiguration(actions: [resheduleTaskAction,undoTaskAction])
    }
     
     
