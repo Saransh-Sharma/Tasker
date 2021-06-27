@@ -273,6 +273,7 @@ class TaskManager {
         return mtasks
     }
     
+    //fix
     func getTasksForAllCustomProjectsByNameForDate_All(date: Date) -> [NTask] {
         
         var mtasks = [NTask]()
@@ -284,14 +285,24 @@ class TaskManager {
             if currentProjectName?.lowercased() != ProjectManager.sharedInstance.defaultProject.lowercased() { //if not INBOX
                 
                 
-                
-                if (each.dateCompleted != nil) {
-                    if (each.dateCompleted! as Date > date && each.dateAdded! as Date == date) {
-                        print("rhur name: \(each.name)")
+                if !each.isComplete {
+                    
+                    if (each.dueDate == date as NSDate) {
+                        print("proj00 adding custom TASK -->\(each.name)")
+                        mtasks.append(each)
+                    } else if (each.dateCompleted  == date as NSDate) {
+                        print("proj00 adding custom completed TASK -->\(each.name)")
                         mtasks.append(each)
                     }
-                    
                 }
+                
+//                if (each.dateCompleted != nil) {
+//                    if (each.dateCompleted! as Date > date && each.dateAdded! as Date == date) {
+//                        print("rhur name: \(each.name)")
+//                        mtasks.append(each)
+//                    }
+//
+//                }
                 
                 
                 

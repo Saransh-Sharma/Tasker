@@ -226,7 +226,7 @@ extension HomeViewController: UITableViewDataSource {
                 return inboxTasks.count
             } else if section == 2 { //projects
                 let customProjectTasks = fetchTasksForAllCustomProjctsTodayOpen(date: Date.today())
-                print("ref: numberOfRowsInSection - todayHomeView - C - projectTaskCount \(customProjectTasks.count)")
+                print("ref proj00: numberOfRowsInSection - todayHomeView - C - projectTaskCount \(customProjectTasks.count)")
                 return customProjectTasks.count
             } else {
                 return 0
@@ -250,11 +250,11 @@ extension HomeViewController: UITableViewDataSource {
                 
                 let customProjectTasks = fetchTasksForAllCustomProjctsTodayAll(date: dateForTheView)
                 for each in customProjectTasks {
-                    print("rhur print list : \(each.name)")
+                    print("proj00 rhur print list : \(each.name)")
                 }
-                print("rhur : rows in section 2 : \(customProjectTasks.count)")
+                print("proj00 rhur : rows in section 2 : \(customProjectTasks.count)")
                 
-                print("dud custom task ccount:  \(customProjectTasks.count)")
+                print("proj00 dud custom task ccount:  \(customProjectTasks.count)")
                 return customProjectTasks.count
             } else {
                 return 0
@@ -522,7 +522,7 @@ extension HomeViewController: UITableViewDataSource {
     }
     
     func fetchTasksForAllCustomProjctsTodayOpen(date: Date) -> [NTask] {
-        
+        print("proj00")
         return TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
     }
     

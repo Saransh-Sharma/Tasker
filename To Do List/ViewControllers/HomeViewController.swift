@@ -9,7 +9,6 @@
 import UIKit
 import CoreData
 import SemiModalViewController
-import CircleMenu
 import ViewAnimator
 import FSCalendar
 import Charts
@@ -1123,48 +1122,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 }
 
 
-//----------------------- *************************** -----------------------
-//MARK:-                      CIRCLE MENU DELEGATE
-//----------------------- *************************** -----------------------
 
-extension HomeViewController: CircleMenuDelegate {
-    // MARK:- CircleMenuDelegate
-    
-    func circleMenu(_: CircleMenu, willDisplay button: UIButton, atIndex: Int) {
-        button.backgroundColor = circleMenuItems[atIndex].color
-        
-        button.setImage(UIImage(named: circleMenuItems[atIndex].icon), for: .normal)
-        
-        // set highlited image
-        let highlightedImage = UIImage(named: circleMenuItems[atIndex].icon)?.withRenderingMode(.alwaysTemplate)
-        button.setImage(highlightedImage, for: .highlighted)
-        button.tintColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.3)
-    }
-    
-    func circleMenu(_: CircleMenu, buttonWillSelected _: UIButton, atIndex: Int) {
-        print("button will selected: \(atIndex)")
-        if (atIndex == 3) { //Opens settings menu
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { //adds delay
-                // your code here
-                let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-                let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage")
-                self.present(newViewController, animated: true, completion: nil)
-            }
-            
-            
-        }
-    }
-    
-    func circleMenu(_: CircleMenu, buttonDidSelected _: UIButton, atIndex: Int) {
-        print("button did selected: \(atIndex)")
-    }
     
     
     
-    
-    
-}
+
 
 //----------------------- *************************** -----------------------
 //MARK:-                        DETECT NOTCH
