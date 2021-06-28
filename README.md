@@ -1,12 +1,35 @@
 # To-Do-List
-The To Do app I was always looking for.
+Tasker gamifies your tasks and projects. Key features:
 
-* Has slick UI
-* Gamified score for every day
-* Tasks have different points based on priority
-* Dark mode
-* Cloud Sync
 
+    • Create, organize & priorities tasks.
+
+    • Gamified To Do list
+
+    • Daily Productivity Pulse to keep you motivated
+
+    • Detailed productivity analysis through charts
+
+    • Manage tasks through projects.
+
+    • Create projects for your tasks.
+
+    • Sync tasks between your devices
+## Installation
+- Run `pod install` on project directory ([CocoaPods Installation](https://guides.cocoapods.org/using/getting-started.html)).
+- Open `Tasker.xcworkspace`.
+- Build & run, enjoy.
+
+---
+
+![app_store](https://user-images.githubusercontent.com/4607881/123705006-fbb21700-d883-11eb-9c32-7c201067bf08.png)
+
+
+[App Store Link](https://apps.apple.com/app/id1574046107)
+
+---
+
+## Screenshots
 ![001](https://user-images.githubusercontent.com/4607881/84248757-81eba600-ab27-11ea-9b9e-bab409a6fedc.gif)
 
 ![002](https://user-images.githubusercontent.com/4607881/84248763-84e69680-ab27-11ea-986a-82ec6419916e.gif)
