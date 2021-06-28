@@ -8,6 +8,7 @@
 
 import UIKit
 import CoreData
+import Firebase
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -16,6 +17,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        
+//        HomeViewController.setDateForViewValue(dateToSetForView: Date.today())
+        
+        
+        FirebaseApp.configure()
         return true
     }
 
@@ -33,19 +39,53 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
     }
 
-    lazy var persistentContainer: NSPersistentContainer = {
+    lazy var persistentContainer: NSPersistentCloudKitContainer = {
         /*
          The persistent container for the application. This implementation
          creates and returns a container, having loaded the store for the
          application to it. This property is optional since there are legitimate
          error conditions that could cause the creation of the store to fail.
          */
-        let container = NSPersistentContainer(name: "TaskModel")
+        let container = NSPersistentCloudKitContainer(name: "TaskModel")
+        
+        var database = CKContainer(identifier: "iCloud.TaskerCloudKit").privateCloudDatabase
+        
+        
+//        // Create a store description for a local store
+//            let localStoreLocation = URL(fileURLWithPath: "/path/to/local.store")
+//            let localStoreDescription =
+//                NSPersistentStoreDescription(url: localStoreLocation)
+//            localStoreDescription.configuration = "Local"
+
+        // Create a store description for a CloudKit-backed local store
+//          let cloudStoreLocation = URL(fileURLWithPath: "/path/to/cloud.store")
+//          let cloudStoreDescription =
+//              NSPersistentStoreDescription(url: cloudStoreLocation)
+//          cloudStoreDescription.configuration = "Cloud"
+
+        // Set the container options on the cloud store
+//          cloudStoreDescription.cloudKitContainerOptions =
+//              NSPersistentCloudKitContainerOptions(
+//                containerIdentifier: "iCloud.TaskerCloudKit")
+        
+        // Update the container's list of store descriptions
+//         container.persistentStoreDescriptions = [
+//             cloudStoreDescription
+////             localStoreDescription
+//         ]
+        
+//        // Load both stores
+//         container.loadPersistentStores { storeDescription, error in
+//             guard error == nil else {
+//                 fatalError("Could not load persistent stores. \(error!)")
+//             }
+//         }
+        
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
             if let error = error as NSError? {
                 // Replace this implementation with code to handle the error appropriately.
                 // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                
+
                 /*
                  Typical reasons for an error here include:
                  * The parent directory does not exist, cannot be created, or disallows writing.

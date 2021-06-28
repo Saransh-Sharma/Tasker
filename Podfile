@@ -1,13 +1,17 @@
 # Uncomment the next line to define a global platform for your project
 platform :ios, '13.0'
 
-target 'To Do List' do
+target 'Tasker' do
   # Comment the next line if you don't want to use dynamic frameworks
 # use_frameworks!
 
   # Pods for To Do List
   
 #pod 'TableViewReloadAnimation', '~> 0.0.5', :modular_headers => true
+# add the Firebase pod for Google Analytics
+pod 'Firebase/Analytics'
+pod 'Firebase/Crashlytics'
+pod 'Firebase/Performance'
 pod 'SemiModalViewController', '~> 1.0.1', :modular_headers => true
 pod 'CircleMenu', '~> 4.1.0', :modular_headers => true
 pod 'MaterialComponents', '~> 109.2.0', :modular_headers => true
@@ -20,7 +24,7 @@ pod 'Charts', '~> 3.5.0', :modular_headers => true
 pod 'TinyConstraints', '~> 4.0.1', :modular_headers => true
 pod 'MicrosoftFluentUI', '~> 0.1.0', :modular_headers => true
 
-  target 'To Do ListTests' do
+  target 'TaskerTests' do
     inherit! :search_paths
     # Pods for testing
   end

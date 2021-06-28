@@ -30,6 +30,7 @@ extension NTask {
     @NSManaged public var isEveningTask: Bool
     @NSManaged public var dateCompleted: NSDate? //date its marked done
     
+    
 
     func getTaskScore(task: NTask) -> Int {
         if task.taskPriority == 1 {

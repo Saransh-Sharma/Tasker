@@ -43,15 +43,15 @@ class ProjectManager {
         get {
             fetchProjects()
             var inboxPosition = 0
-                        for eaxh in projects {
-                            print("ProjectManager: Found Project: \(String(describing: eaxh.projectName))")
-                            
-                            if ((String(describing: eaxh.projectName)) == "Inbox") {
-                                let element = projects.remove(at: inboxPosition)
-                                projects.insert(element, at: 0)
-                            }
-                            inboxPosition = inboxPosition + 1
-                        }
+            for eaxh in projects {
+                print("ProjectManager: Found Project: \(String(describing: eaxh.projectName))")
+                
+                if ((String(describing: eaxh.projectName)) == "Inbox") {
+                    let element = projects.remove(at: inboxPosition)
+                    projects.insert(element, at: 0)
+                }
+                inboxPosition = inboxPosition + 1
+            }
             projects = projects.uniqued()
             return projects
         }
@@ -95,22 +95,22 @@ class ProjectManager {
             print("No inbox ! Intilizing projeccts with default project 'inbox'")
             
             let proj = NSEntityDescription.insertNewObject( forEntityName: "Projects", into: context) as! Projects
-
-                proj.projectName = defaultProject
-                proj.projecDescription = defaultProjectDescription
-                  
+            
+            proj.projectName = defaultProject
+            proj.projecDescription = defaultProjectDescription
+            
             projects.insert(proj, at: 0)
             saveContext()
             // SAVE context !!
         }
         
         for each in projects {
-                
-                if each.projectName?.lowercased() == defaultProject.lowercased() {
-                    print("FOUND INBOX ! 2nd time round !")
-                    isThereInbox = true
-                }
+            
+            if each.projectName?.lowercased() == defaultProject.lowercased() {
+                print("FOUND INBOX ! 2nd time round !")
+                isThereInbox = true
             }
+        }
         
         
     }
@@ -178,25 +178,7 @@ class ProjectManager {
         
         return true
     }
-    
-    //    func getAllProjeects(with name: String, and description: String) {
-    //
-    //        let proj = NSEntityDescription.insertNewObject( forEntityName: "Projects", into: context) as! Projects
-    //
-    //
-    //        proj.projectName = name
-    //        proj.projecDescription = description
-    //
-    //
-    //        projects.append(proj)
-    //        saveContext()
-    //
-    //        print("addNewProject task count now is: \(getAllProjects.count)")
-    //    }
-    
-    
-    
-    
+      
     // MARK: Init
     
     private init() {

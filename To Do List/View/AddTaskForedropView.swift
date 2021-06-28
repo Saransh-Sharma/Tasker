@@ -11,6 +11,7 @@ import UIKit
 import CoreData
 import Timepiece
 import FluentUI
+import Firebase
 import MaterialComponents.MaterialTextControls_FilledTextAreas
 import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
@@ -19,6 +20,8 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 extension AddTaskViewController {
     
+
+    
     func setupAddTaskForedrop() {
         
         print("Backdrop starts from: \(headerEndY)") //this is key to the whole view; charts, cal,
@@ -26,7 +29,7 @@ extension AddTaskViewController {
         
         
         setupBackdropForeground()
-//        foredropStackContainer.backgroundColor = .black
+        //        foredropStackContainer.backgroundColor = .black
         
         setupAddTaskTextField()
         foredropStackContainer.addArrangedSubview(UIView())
@@ -37,7 +40,7 @@ extension AddTaskViewController {
         setupPrioritySC()
         foredropStackContainer.addArrangedSubview(UIView())
         
-        setupDoneButton()
+//        setupDoneButton()
         foredropStackContainer.addArrangedSubview(UIView())
         
         
@@ -73,22 +76,24 @@ extension AddTaskViewController {
         print("do9")
         buildProojectsPillBarData()
         
-//        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
-         filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
+        //        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
+        filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
         filledBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
-//        self.filledBar = filledBar
+        //        self.filledBar = filledBar
         foredropStackContainer.addArrangedSubview(filledBar!)
-        filledBar!.backgroundColor = .black//.clear
+        filledBar!.backgroundColor = .clear
+        filledBar!.isHidden = true
         
-//        filledBar.selected
-//        filledBar.addTarget(self, action: #selector(changeProject))
+        
+        //        filledBar.selected
+        //        filledBar.addTarget(self, action: #selector(changeProject))
         
     }
     
     func buildProojectsPillBarData() {
         
         let allProjects = ProjectManager.sharedInstance.getAllProjects
-        
+        var indexToRemove = [Int]()
         for each in allProjects {
             print("do9 added to pill bar, from ProjectManager: \(String(describing: each.projectName! as String))")
             pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
@@ -96,56 +101,34 @@ extension AddTaskViewController {
         
         if pillBarProjectList[1].title.lowercased() != "inbox" {
 
-            var count = 0
-            for each in pillBarProjectList {
-                if each.title.lowercased() == "inbox" {
-                    print("do9  ** TITLE FOUND at \(count)")
-                    pillBarProjectList.remove(at: count)
+            print("do9 ----LIST SIZE---> \(pillBarProjectList.count)")
+            for i in 0 ..< pillBarProjectList.count {
+                print("do9 counter is: \(i)")
+                if pillBarProjectList[i].title.lowercased() == "inbox"{
+                    indexToRemove.append(i)
                 }
-                count = count + 1
             }
+            print("do9 -indexToRemove count-----> \(indexToRemove.count)")
+        }
+        for (index, value) in indexToRemove.enumerated() {
             
-            
-            
-            print("do9 - ADDING !")
-            pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
+            print("do9 INXED -->\(index)")
+            print("do9 VALUE -->\(value)")
+            print("do9 REMOVING TITLE --> \(pillBarProjectList[value-index].title)")
+            pillBarProjectList.remove(at: (value-index))
         }
         
+//        print("do9 - ADDING !")
+//        pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
         
+                if pillBarProjectList[1].title.lowercased() != "inbox" {
+                    print("do9 - ADDING !")
+                    pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
+                }
+        for (index, value) in pillBarProjectList.enumerated() {
+            print("do9 --- AT INDEX \(index) value is \(value.title)")
+        }
     }
-    
-//    int index = url.indexOf(itemToMove);
-//    url.remove(index);
-//    url.add(0, itemToMove);
-    
-
-//    @objc
-//    func changeProject(sender: UIView) -> Int {
-//
-//        switch sender.selectedSegmentIndex {
-//        case 0:
-//            print("Priority is None - no priority 4")
-//            currentTaskPriority = 4
-//            return 4
-//        case 1:
-//
-//            print("Priority is P2- low 3")
-//            currentTaskPriority = 3
-//            return 3
-//        case 2:
-//            print("Priority is P1- high 2")
-//            currentTaskPriority = 2
-//            return 2
-//        case 3:
-//            print("Priority is p0 - highest 1")
-//            currentTaskPriority = 1
-//            return 1
-//        default:
-//            print("Failed to get Task Priority")
-//            return 3
-//        }
-//    }
-    
     
     
     func createProjectsBar(items: [PillButtonBarItem], style: PillButtonStyle = .outline, centerAligned: Bool = false) -> UIView {
@@ -184,10 +167,13 @@ extension AddTaskViewController {
         
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
-        addTaskTextBox_Material.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
+//        addTaskTextBox_Material.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         addTaskTextBox_Material.label.text = "add task & tap done"
-        addTaskTextBox_Material.leadingAssistiveLabel.text = "Always add actionable items"
-        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
+        addTaskTextBox_Material.leadingAssistiveLabel.text = "add actionable items"
+//        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
+        
+        addTaskTextBox_Material.sizeToFit()
+        
         addTaskTextBox_Material.delegate = self
         addTaskTextBox_Material.clearButtonMode = .whileEditing
         let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
@@ -196,7 +182,7 @@ extension AddTaskViewController {
                                     "book flight tickets to Thailand", "fix the garage door",
                                     "order Cake", "review subscriptions", "get coffee"]
         addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
-        addTaskTextBox_Material.sizeToFit()
+//        addTaskTextBox_Material.sizeToFit()
         
         addTaskTextBox_Material.backgroundColor = .clear
         
@@ -248,13 +234,17 @@ extension AddTaskViewController {
     // MARK: MAKE Priority SC
     func setupPrioritySC() {
         
-        let p = ["None", "Low", "High", "Highest"]
+        tabsSegmentedControl = SegmentedControl(items: p)
         
-        let tabsSegmentedControl = SegmentedControl(items: p)
+        
+      
+        
         tabsSegmentedControl.frame = CGRect(x: 50, y: 50, width: UIScreen.main.bounds.width-100, height: 50)
         tabsSegmentedControl.selectedSegmentIndex = 1
         
         tabsSegmentedControl.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
+        
+        tabsSegmentedControl.isHidden = true
         
         foredropStackContainer.addArrangedSubview(tabsSegmentedControl)
         
@@ -322,6 +312,9 @@ extension AddTaskViewController {
         //        foredropContainer.addSubview(fab_doneTask)
         //        fab_doneTask.contentHorizontalAlignment = .trailing
         fab_doneTask.titleLabel?.textAlignment = .center
+        
+        fab_doneTask.isHidden = true
+        
         foredropStackContainer.addArrangedSubview(fab_doneTask)
         fab_doneTask.addTarget(self, action: #selector(doneAddTaskAction), for: .touchUpInside)
         
@@ -353,27 +346,34 @@ extension AddTaskViewController {
             //            taskDueDate = dateForAddTaskView
             //            TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
             
-        
+            
             
             TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: dateForAddTaskView, isEveningTask: isThisEveningTask, project: currenttProjectForAddTaskView)
             
             HUD.shared.showSuccess(from: self, with: "Added to\n\(currenttProjectForAddTaskView)")
             
+            let addTaskEvent = "Add_NEW_Task"
+            Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
+              AnalyticsParameterItemID: "id-\(addTaskEvent)",
+              AnalyticsParameterItemName: addTaskEvent,
+              AnalyticsParameterContentType: "cont"
+              ])
+            
             //---
         } else {
-//            print("task: nothing to add - doone ")
-//             let iv = UIImageView()
-//               iv.contentMode = .scaleAspectFit
-//               iv.backgroundColor = .green
-//               iv.image = #imageLiteral(resourceName: "ic_arrow_back_ios")
-//            HUD.shared.showFailure(in: iv, with: "Nothing Added")
+            //            print("task: nothing to add - doone ")
+            //             let iv = UIImageView()
+            //               iv.contentMode = .scaleAspectFit
+            //               iv.backgroundColor = .green
+            //               iv.image = #imageLiteral(resourceName: "ic_arrow_back_ios")
+            //            HUD.shared.showFailure(in: iv, with: "Nothing Added")
             
             HUD.shared.showFailure(from: self, with: "Nothing Added")
             
-//            HUD.shared.show(in: iv, with: "Nothing Added")
+            //            HUD.shared.show(in: iv, with: "Nothing Added")
         }
         
-   
+        
         
         
         
@@ -386,7 +386,7 @@ extension AddTaskViewController {
             //        self.present(newViewController, animated: true, completion: nil)
             self.present(newViewController, animated: true, completion: { () in
                 print("SUCCESS !!!")
-//                HUD.shared.showSuccess(from: self, with: "Success")
+                //                HUD.shared.showSuccess(from: self, with: "Success")
                 
             })
             
@@ -412,12 +412,12 @@ extension AddTaskViewController {
             print("Adding eveninng task")
             return 2
         }
-            //        else if isInboxTask {
-            //
-            //        }
-            //        else if isUpcomingTask {
-            //
-            //        }
+        //        else if isInboxTask {
+        //
+        //        }
+        //        else if isUpcomingTask {
+        //
+        //        }
         else {
             //this is morning task
             print("adding mornig task")

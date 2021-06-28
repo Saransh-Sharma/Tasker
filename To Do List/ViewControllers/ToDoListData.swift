@@ -19,7 +19,7 @@ class ToDoListData {
         let footerLinkText: String
         let hasCustomLinkHandler: Bool
         let hasCustomAccessoryView: Bool
-
+        
         init(title: String, taskListItems: [TaskListItem] = [], numberOfLines: Int = 1, hasFullLengthLabelAccessoryView: Bool = false, hasAccessory: Bool = false, accessoryButtonStyle: TableViewHeaderFooterView.AccessoryButtonStyle = .regular, allowsMultipleSelection: Bool = true, headerStyle: TableViewHeaderFooterView.Style = .header, hasFooter: Bool = false, footerText: String = "", footerLinkText: String = "", hasCustomLinkHandler: Bool = false, hasCustomAccessoryView: Bool = false) {
             self.sectionTitle = title
             self.items = taskListItems
@@ -36,10 +36,10 @@ class ToDoListData {
             self.hasCustomAccessoryView = hasCustomAccessoryView
         }
     }
-
+    
     struct TaskListItem {
         typealias LabelAccessoryView = () -> UIView?
-
+        
         let TaskTitle: String
         let text2: String
         let text3: String
@@ -50,7 +50,7 @@ class ToDoListData {
         let text2TrailingAccessoryView: LabelAccessoryView
         let text3LeadingAccessoryView: LabelAccessoryView
         let text3TrailingAccessoryView: LabelAccessoryView
-
+        
         init(
             text1: String = "",
             text2: String = "",
@@ -75,7 +75,7 @@ class ToDoListData {
             self.text3TrailingAccessoryView = text3TrailingAccessoryView
         }
     }
-
+    
     static func createCustomView(imageName: String, useImageAsTemplate: Bool = false) -> UIImageView? {
         if imageName == "" {
             return nil

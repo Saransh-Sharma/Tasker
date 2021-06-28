@@ -32,7 +32,7 @@ extension HomeViewController {
         
         backdropForeImageView.frame =  CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height:  UIScreen.main.bounds.height)
         backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
-        backdropForeImageView.tintColor = .systemGray6
+        backdropForeImageView.tintColor = .systemBackground
         //        backdropForeImageView.tintColor = UIColor(red: 37.0/255.0, green: 41.0/255.0, blue: 41.0/255.0, alpha: 1.0)//.systemGray5
         
         
@@ -40,7 +40,6 @@ extension HomeViewController {
         backdropForeImageView.layer.shadowOpacity = 0.8
         backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
         backdropForeImageView.layer.shadowRadius = 10
-        
         
         foredropContainer.addSubview(backdropForeImageView)
         
@@ -52,9 +51,6 @@ extension HomeViewController {
         // table view
         print("bottom bar heigght is \(bottomAppBar.bounds.height)")
         tableView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height:  UIScreen.main.bounds.height - bottomAppBar.bounds.height)
-        
-        
-        
         
         foredropContainer.addSubview(tableView)
     }

@@ -10,8 +10,12 @@ import Foundation
 import Charts
 
 class ToDoAnimations  {
-
+    
     func animateTinyPieChartAtHome(pieChartView: PieChartView) {
         pieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
     }
+    
+//    func animateLineChartAtHome(lineChartView: LineChartView) {
+//        lineChartView.animate(.)
+//    }
 }

@@ -99,6 +99,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         
         // cancel button position
+        print("whereis cancel button?")
         fab_cancelTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/8, y: UIScreen.main.bounds.minY+40, width: 25, height: 25)
         let addTaskIcon = UIImage(named: "material_close")
         fab_cancelTask.setImage(addTaskIcon, for: .normal)
@@ -189,14 +190,14 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
                 TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
             } else if (taskDayFromPicker == "Tomorrow") { //["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
                 taskDueDate = Date.tomorrow()
-//                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
+                //                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
             } else if (taskDayFromPicker == "Weekend") {
                 
                 //get the next weekend
                 taskDueDate = Date.today().changed(weekday: 5)!
                 
                 
-//                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
+                //                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
                 
                 
                 
@@ -521,12 +522,12 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             print("Adding eveninng task")
             return 2
         }
-            //        else if isInboxTask {
-            //
-            //        }
-            //        else if isUpcomingTask {
-            //
-            //        }
+        //        else if isInboxTask {
+        //
+        //        }
+        //        else if isUpcomingTask {
+        //
+        //        }
         else {
             //this is morning task
             print("adding mornig task")

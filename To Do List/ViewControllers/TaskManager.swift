@@ -9,7 +9,7 @@
 import Foundation
 import UIKit
 import Timepiece
-import CoreData 
+import CoreData
 
 class TaskManager {
     //Singleton
@@ -265,27 +265,7 @@ class TaskManager {
                     }
                     
                 }
-                
-                //                if currentDueDate == date as NSDate {
-                //                    if !each.isComplete {
-                //                        print("tasks for NON inbox :  Today !")
-                //                        mtasks.append(each)
-                //                    }
-                //                } else {
-                //                    print("tasks for NON inbox : NOT Today !")
-                //                }
-                
-                //date < currentDueDate! as Date
-                
-                //                if (currentDueDate! as Date > date) {
-                //                if (date > currentDueDate! as Date ) {
-                //
-                //                    if !each.isComplete {
-                //                        mtasks.append(each)
-                //                    }
-                //                } else {
-                //                    print("asks for NON inbox : is rollover task")
-                //                }
+
                 
             }
         }
@@ -293,6 +273,7 @@ class TaskManager {
         return mtasks
     }
     
+    //fix
     func getTasksForAllCustomProjectsByNameForDate_All(date: Date) -> [NTask] {
         
         var mtasks = [NTask]()
@@ -304,14 +285,24 @@ class TaskManager {
             if currentProjectName?.lowercased() != ProjectManager.sharedInstance.defaultProject.lowercased() { //if not INBOX
                 
                 
-                
-                if (each.dateCompleted != nil) {
-                    if (each.dateCompleted! as Date > date && each.dateAdded! as Date == date) {
-                        print("rhur name: \(each.name)")
+                if !each.isComplete {
+                    
+                    if (each.dueDate == date as NSDate) {
+                        print("proj00 adding custom TASK -->\(each.name)")
+                        mtasks.append(each)
+                    } else if (each.dateCompleted  == date as NSDate) {
+                        print("proj00 adding custom completed TASK -->\(each.name)")
                         mtasks.append(each)
                     }
-                    
                 }
+                
+//                if (each.dateCompleted != nil) {
+//                    if (each.dateCompleted! as Date > date && each.dateAdded! as Date == date) {
+//                        print("rhur name: \(each.name)")
+//                        mtasks.append(each)
+//                    }
+//
+//                }
                 
                 
                 
@@ -409,9 +400,10 @@ class TaskManager {
                 print("Green 1: \(each.name)")
             } else if (each.taskType == 1 && each.isComplete == false) { //get older unfinished tasks // Morninng + incomplete
                 //                morningTasks.append(each)
-                //                print("Green 2: \(each.name)")
+                                print("Green 2: \(each.name)")
                 
                 if ((each.dueDate! as Date) < today) {
+//                    print("Green  - adding morning task: \(each.name)")
                     morningTasks.append(each)
                 }
                 

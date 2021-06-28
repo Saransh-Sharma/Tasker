@@ -21,6 +21,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     
     
     
+    
     //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()
     var foredropContainer = UIView()
@@ -62,8 +63,13 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     let eveningLabel = UILabel()
     
     var addTaskTextBox_Material = MDCFilledTextField()
-    let fab_cancelTask = MDCFloatingButton(shape: .mini)
+    //    let fab_cancelTask = MDCFloatingButton(shape: .mini)
+    //    let topCancelButton = Button(style: .borderless)
+    let nCancelButton = UIButton()
     let fab_doneTask = MDCFloatingButton(shape: .default)
+    let p = ["None", "Low", "High", "Highest"]
+    
+    var tabsSegmentedControl = SegmentedControl()
     
     var todoColors = ToDoColors()
     var todoFont = ToDoFont()
@@ -82,7 +88,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     //MARK:- cuurentt task list date
     var dateForAddTaskView = Date.today()
     
-
+    
     var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project")]
     var currenttProjectForAddTaskView = "Inbox"
     
@@ -94,17 +100,18 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
         //        currenttProjectForAddTaskView = name
     }
     
-    //    func changeProject() --> {
-    //        v
-    //    }
     
-    //    func setProject() {
-    //        if project.isEmpty || project == nil {
-    //            project == "inbox"
-    //        } else {
-    //            project =
-    //        }
-    //    }
+    //MARK:- CANCEL TASK ACTION
+    @objc func cancelAddButtonTaskAction() {
+        
+        //       tap CANCEL --> homeScreen
+        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
+        newViewController.modalPresentationStyle = .fullScreen
+        //        self.present(newViewController, animated: true, completion: nil) //Doesn't look like cancel
+        dismiss(animated: true) //this looks more like cancel compared to above
+    }
+    
     
     // This function is called when you click return key in the text field.
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -123,8 +130,21 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        
+        
         view.addSubview(backdropContainer)
         setupBackdrop()
+        
+        
+        nCancelButton.setTitle("Cancel", for: .normal)
+        nCancelButton.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.minY+48, width: 70, height: 35)
+        
+        
+        view.addSubview(nCancelButton)
+        
+        nCancelButton.addTarget(self, action: #selector(cancelAddTaskAction), for: .touchUpInside)
+        
+        //---Floating Action Button - Material - DONE
         
         view.addSubview(foredropStackContainer)
         setupAddTaskForedrop()
@@ -166,7 +186,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         let oldText = textField.text!
-        print("old text is: \(oldText)")
+        print("old uuuuuuuutext is: \(oldText)")
         let stringRange = Range(range, in:oldText)!
         let newText = oldText.replacingCharacters(in: stringRange, with: string)
         print("new text is: \(newText)")
@@ -175,9 +195,16 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
         
         if newText.isEmpty {
             print("EMPTY")
+            
+            fab_doneTask.isHidden = true
+            tabsSegmentedControl.isHidden = true
+            filledBar?.isHidden = true
             fab_doneTask.isEnabled = false
         } else {
             print("NOT EMPTY")
+            filledBar?.isHidden = false
+            tabsSegmentedControl.isHidden = false
+            fab_doneTask.isHidden = false
             fab_doneTask.isEnabled = true
             
         }
@@ -216,11 +243,11 @@ extension AddTaskViewController: PillButtonBarDelegate {
             })
             
         } else {
-            
-            let alert = UIAlertController(title: "Item \(item.title) was selected", message: nil, preferredStyle: .alert)
-            let action = UIAlertAction(title: "OK", style: .default)
-            alert.addAction(action)
-            present(alert, animated: true)
+            //
+            //            let alert = UIAlertController(title: "Item \(item.title) was selected", message: nil, preferredStyle: .alert)
+            //            let action = UIAlertAction(title: "OK", style: .default)
+            //            alert.addAction(action)
+            //            present(alert, animated: true)
         }
         
         
