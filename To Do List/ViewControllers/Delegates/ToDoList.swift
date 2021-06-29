@@ -1341,7 +1341,7 @@ extension HomeViewController: UITableViewDelegate {
             filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
             filterMenuHomeButton.addTarget(self, action:  #selector(showTopDrawerButtonTapped), for: .touchUpInside)
             
-            toDoListHeaderLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)
+            toDoListHeaderLabel.font = setFont(fontSize: 20, fontweight: .medium, fontDesign: .rounded)
             toDoListHeaderLabel.textAlignment = .center
             toDoListHeaderLabel.adjustsFontSizeToFitWidth = true
             toDoListHeaderLabel.textColor = .label
@@ -1382,19 +1382,26 @@ extension HomeViewController: UITableViewDelegate {
             
             
         } else if section == 1 {
+            let header = UIStackView()
+            
+            header.backgroundColor = .clear
+            
+            return header
+        }
+        else if section == 2 {
             
             let projectsHeader = UIStackView()
-            //            projectsHeader.backgroundColor = .red
-            //            let projectsHeaderLabel = UILabel()
-            //            projectsHeader.addSubview(projectsHeaderLabel)
+                        projectsHeader.backgroundColor = .clear
+                        let projectsHeaderLabel = UILabel()
+                        projectsHeader.addSubview(projectsHeaderLabel)
+            
+                        projectsHeaderLabel.center(in: projectsHeader, offset: CGPoint(x: 0, y: 8))
             //
-            //            projectsHeaderLabel.center(in: projectsHeader, offset: CGPoint(x: 0, y: 8))
-            //
-            //            projectsHeaderLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)
-            //            projectsHeaderLabel.textAlignment = .center
-            //            projectsHeaderLabel.adjustsFontSizeToFitWidth = true
-            //            projectsHeaderLabel.textColor = .label
-            //            projectsHeaderLabel.text = "PROJECTSSS"
+                        projectsHeaderLabel.font = setFont(fontSize: 20, fontweight: .medium, fontDesign: .rounded)
+                        projectsHeaderLabel.textAlignment = .center
+                        projectsHeaderLabel.adjustsFontSizeToFitWidth = true
+                        projectsHeaderLabel.textColor = .label
+                        projectsHeaderLabel.text = "Projects"
             
             return projectsHeader
             
