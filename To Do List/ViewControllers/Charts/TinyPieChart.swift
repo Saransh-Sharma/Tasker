@@ -20,7 +20,7 @@ extension HomeViewController {
         chartView.holeRadiusPercent = 0.85
         chartView.holeColor = todoColors.primaryColor
         chartView.transparentCircleRadiusPercent = 0.41
-//        chartView.setExtraOffsets(left: 7, top: 5, right: 5, bottom: 7)
+        //        chartView.setExtraOffsets(left: 7, top: 5, right: 5, bottom: 7)
         chartView.setExtraOffsets(left: 7, top: 2, right: 5, bottom: 10)
         
         
