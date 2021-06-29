@@ -272,12 +272,12 @@ extension HomeViewController: UITableViewDataSource {
         }
     }
     
-
+    
     
     //open inbox
     func buildOpenInboxCell(task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
-
+        
         cell.setup(
             title: task.name,
             subtitle: "",
@@ -296,7 +296,7 @@ extension HomeViewController: UITableViewDataSource {
         } else if task.taskPriority == 2 {
             prioritySymbol.image = highPrioritySymbol
         }
-                
+        
         cell.titleLeadingAccessoryView = prioritySymbol
         
         return cell
@@ -317,7 +317,7 @@ extension HomeViewController: UITableViewDataSource {
         )
         cell.customViewSize = .small
         cell.titleNumberOfLines = 0
-
+        
         let prioritySymbol = UIImageView()
         
         ////1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is p4; default is 3(p2)
@@ -326,7 +326,7 @@ extension HomeViewController: UITableViewDataSource {
         } else if task.taskPriority == 2 {
             prioritySymbol.image = highPrioritySymbol
         }
-                
+        
         cell.titleLeadingAccessoryView = prioritySymbol
         
         return cell
@@ -340,7 +340,7 @@ extension HomeViewController: UITableViewDataSource {
             title: task.name,
             subtitle: "",
             footer: "",
-           // customView: foo,
+            // customView: foo,
             accessoryType: .checkmark
         )
         
@@ -354,18 +354,18 @@ extension HomeViewController: UITableViewDataSource {
     //open NON inbox
     func buildNonInbox( task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
-       // let foo = setupCheckbox(cell: cell)
-//        if task.isComplete {
-//            foo.setOn(true, animated: true)
-//        } else {
-//            foo.setOn(false, animated: true)
-//        }
+        // let foo = setupCheckbox(cell: cell)
+        //        if task.isComplete {
+        //            foo.setOn(true, animated: true)
+        //        } else {
+        //            foo.setOn(false, animated: true)
+        //        }
         
         cell.setup(
             title: task.name,
             subtitle: (task.project ?? "") as String,
             footer: ""
-           // customView: foo
+            // customView: foo
             
         )
         let prioritySymbol = UIImageView()
@@ -376,12 +376,12 @@ extension HomeViewController: UITableViewDataSource {
         } else if task.taskPriority == 2 {
             prioritySymbol.image = highPrioritySymbol
         }
-                
+        
         cell.titleLeadingAccessoryView = prioritySymbol
         
         cell.customViewSize = .small
-//        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
-//        cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        //        cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
         cell.titleNumberOfLines = 0
         
         
@@ -391,7 +391,7 @@ extension HomeViewController: UITableViewDataSource {
     func buildNonInbox_Overdue( task: NTask) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: TableViewCell.identifier) as! TableViewCell
         //let foo = setupCheckbox(cell: cell)
-       // foo.setOn(false, animated: true)
+        // foo.setOn(false, animated: true)
         cell.setup(
             title: task.name,
             subtitle: (task.project ?? "") as String,
@@ -410,11 +410,11 @@ extension HomeViewController: UITableViewDataSource {
         } else if task.taskPriority == 2 {
             prioritySymbol.image = highPrioritySymbol
         }
-                
+        
         cell.titleLeadingAccessoryView = prioritySymbol
         
-//        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
-//        cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        //        cell.titleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
+        //        cell.subtitleLeadingAccessoryView = TableViewCellSampleData.createIconsAccessoryView(images: ["success-12x12"])
         cell.customViewSize = .small
         cell.titleNumberOfLines = 0
         
@@ -734,16 +734,25 @@ extension HomeViewController: UITableViewDataSource {
         
     }
     
+    //    print("woohoo! ")
+    //    tableView.reloadData()
+    //    calendar.reloadData()
+    //    self.updateLineChartData()
+    //    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+    
     func rescheduleTaskOnSwipe(task: NTask, scheduleTo: Date) {
         TaskManager.sharedInstance
             .getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: task)]
             .dueDate = scheduleTo as NSDate
-    
+        
         TaskManager.sharedInstance.saveContext()
         
-        tableView.reloadData()
-        animateTableViewReload()
-//        self.updateLineChartData()
+        //        tableView.reloadData()
+        //        animateTableViewReload()
+        //        updateToDoListAndCharts()
+        
+        
+        //        self.updateLineChartData()
     }
     
     func markTaskCompleteOnSwipe(task: NTask) {
@@ -774,6 +783,15 @@ extension HomeViewController: UITableViewDataSource {
         TaskManager.sharedInstance.saveContext()
     }
     
+    func updateToDoListAndCharts(tableView: UITableView, indexPath: IndexPath) {
+        
+        print("woohoo! ")
+        tableView.reloadData()
+        calendar.reloadData() //not reloading data
+        self.updateLineChartData()
+        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+    }
+    
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         
         let completeTaskAction = UIContextualAction(style: .normal, title: " done ") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
@@ -794,22 +812,14 @@ extension HomeViewController: UITableViewDataSource {
                     
                     if !inboxTasks[indexPath.row].isComplete {
                         self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-                        
-                        tableView.reloadData()
-                        self.updateLineChartData()
-                        
-                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                        self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
                     }
                     
                 case 2:
                     
                     if !projectsTasks[indexPath.row].isComplete {
                         self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-                        
-                        tableView.reloadData()
-                        self.updateLineChartData()
-                        
-                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                        self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
                     }
                     
                 default:
@@ -826,16 +836,18 @@ extension HomeViewController: UITableViewDataSource {
                     
                     if !inboxTasks[indexPath.row].isComplete {
                         self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-                        tableView.reloadData()
-                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                        self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
+                        //tableView.reloadData()
+                        //self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
                     }
                     
                 case 2:
                     
                     if !projectsTasks[indexPath.row].isComplete {
                         self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-                        tableView.reloadData()
-                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                        self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
+                        //                        tableView.reloadData()
+                        //                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
                         
                     }
                     
@@ -882,16 +894,14 @@ extension HomeViewController: UITableViewDataSource {
                     
                     if inboxTasks[indexPath.row].isComplete {
                         self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
-                        tableView.reloadData()
-                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                        self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
                     }
                     
                 case 2:
                     
                     if projectsTasks[indexPath.row].isComplete {
                         self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
-                        tableView.reloadData()
-                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                        self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
                     }
                     
                 default:
@@ -908,16 +918,14 @@ extension HomeViewController: UITableViewDataSource {
                     
                     if inboxTasks[indexPath.row].isComplete {
                         self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
-                        tableView.reloadData()
-                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                        self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
                     }
                     
                 case 2:
                     
                     if projectsTasks[indexPath.row].isComplete {
                         self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
-                        tableView.reloadData()
-                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                        self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
                     }
                     
                 default:
@@ -1008,264 +1016,296 @@ extension HomeViewController: UITableViewDataSource {
     }
     
     
-    func rescheduleAlertActionMenu(tasks: [NTask], indexPath: IndexPath) {
+    func rescheduleAlertActionMenu(tasks: [NTask], indexPath: IndexPath, tableView: UITableView) {
         
-        print("boomff 1")
-        let controller = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-        controller.addAction(UIAlertAction(title: "Tomorrow", style: .default, handler: { _ in
-            print("boomff A")
-            self.rescheduleTaskOnSwipe(task: tasks[indexPath.row], scheduleTo: Date.tomorrow())
-        }))
+        let currentDateForView = dateForTheView
+        let offset_1Days = Calendar.current.date(byAdding: .day, value: 1, to: currentDateForView)!
+        let offset_2Days = Calendar.current.date(byAdding: .day, value: 2, to: currentDateForView)!
+        let offset_6Days = Calendar.current.date(byAdding: .day, value: 7, to: currentDateForView)!
         
-        controller.addAction(UIAlertAction(title: "Day After Tomorrow", style: .default, handler: { _ in
-            print("boomff B")
-            let today = Date()
-            print(today)
-            let modifiedDate = Calendar.current.date(byAdding: .day, value: 2, to: today)!
-            print(modifiedDate)
-            print("reschedule --- TASK DATE --> \(String(describing: TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: tasks[indexPath.row])].dueDate))")
+        if dateForTheView == Date.today() {
             
-            print("reschedule --- NEW DATE -->\(modifiedDate.dateString(in: .medium))")
-            self.rescheduleTaskOnSwipe(task: tasks[indexPath.row], scheduleTo: (modifiedDate))
-        }))
+            print("boomff 1")
+            let controller = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+            controller.addAction(UIAlertAction(title: "Tomorrow", style: .default, handler: { _ in
+                print("boomff A")
+                self.rescheduleTaskOnSwipe(task: tasks[indexPath.row], scheduleTo: offset_1Days)
+                self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
+            }))
+            
+            controller.addAction(UIAlertAction(title: "Day After Tomorrow", style: .default, handler: { _ in
+                print("boomff B")
+                let today = Date()
+                print(today)
+                let modifiedDate = Calendar.current.date(byAdding: .day, value: 2, to: today)!
+                print(modifiedDate)
+                print("reschedule --- TASK DATE --> \(String(describing: TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: tasks[indexPath.row])].dueDate))")
                 
-        controller.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: { _ in
-        print("boomff CANCEL")
-        }))
+                print("reschedule --- NEW DATE -->\(modifiedDate.dateString(in: .medium))")
+                self.rescheduleTaskOnSwipe(task: tasks[indexPath.row], scheduleTo: (offset_2Days))
+                self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
+            }))
+            
+            controller.addAction(UIAlertAction(title: "Next Week", style: .default, handler: { _ in
+                print("boomff B")
+                let today = Date()
+                print(today)
+                let modifiedDate = Calendar.current.date(byAdding: .day, value: 2, to: today)!
+                print(modifiedDate)
+                print("reschedule --- TASK DATE --> \(String(describing: TaskManager.sharedInstance.getAllTasks[self.getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: tasks[indexPath.row])].dueDate))")
+                
+                print("reschedule --- NEW DATE -->\(modifiedDate.dateString(in: .medium))")
+                //            self.rescheduleTaskOnSwipe(task: tasks[indexPath.row], scheduleTo: (modifiedDate))
+                self.rescheduleTaskOnSwipe(task: tasks[indexPath.row], scheduleTo: (offset_6Days))
+                self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
+            }))
+            
+            //next week //pick week start from constants
+            
+            controller.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: { _ in
+                print("boomff CANCEL")
+            }))
+            
+            print("boomff 99 ")
+            self.present(controller, animated: true, completion: nil)
+            
+        }
         
-        print("boomff 99 ")
-        self.present(controller, animated: true, completion: nil)
+        
         
     }
     
     func tableView(_ tableView: UITableView,
-                           leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-       
+                   leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        
+        
+        
+        
         let resheduleTaskAction = UIContextualAction(style: .destructive, title: "reschedule") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-           
-           let inboxTasks: [NTask]
-           let projectsTasks: [NTask]
-           let dateForTheView = self.dateForTheView
-           
-           switch self.currentViewType {
-           
-           case .todayHomeView:
-               inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-               projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-               
-               switch indexPath.section {
-               
-               case 1:
-                   
-                   if !inboxTasks[indexPath.row].isComplete {
+            
+            let inboxTasks: [NTask]
+            let projectsTasks: [NTask]
+            let dateForTheView = self.dateForTheView
+            
+            switch self.currentViewType {
+            
+            case .todayHomeView:
+                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+                projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+                
+                switch indexPath.section {
+                
+                case 1:
                     
-                       //self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                    if !inboxTasks[indexPath.row].isComplete {
+                        
+                        //self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                        
+                        print("boomff 0")
+                        
+                        self.rescheduleAlertActionMenu(tasks: inboxTasks, indexPath: indexPath, tableView: tableView)
+                        
+                        
+                    }
                     
-                    print("boomff 0")
+                case 2:
                     
-                    self.rescheduleAlertActionMenu(tasks: inboxTasks, indexPath: indexPath)
+                    if !projectsTasks[indexPath.row].isComplete {
+                        //                       self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                        
+                        self.rescheduleAlertActionMenu(tasks: projectsTasks, indexPath: indexPath, tableView: tableView)
+                        
+                        //                       tableView.reloadData()
+                        //                       self.updateLineChartData()
+                        
+                        //                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
                     
-                   }
-                   
-               case 2:
-                   
-                   if !projectsTasks[indexPath.row].isComplete {
-//                       self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                default:
+                    break
+                }
+                
+            case .customDateView:
+                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+                projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+                
+                switch indexPath.section {
+                
+                case 1:
                     
-                    self.rescheduleAlertActionMenu(tasks: projectsTasks, indexPath: indexPath)
-                       
-//                       tableView.reloadData()
-//                       self.updateLineChartData()
-                       
-//                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                   }
-                   
-               default:
-                   break
-               }
-               
-           case .customDateView:
-               inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-               projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-               
-               switch indexPath.section {
-               
-               case 1:
-                   
-                self.rescheduleAlertActionMenu(tasks: inboxTasks, indexPath: indexPath)
-                   
-               case 2:
-                   
-                self.rescheduleAlertActionMenu(tasks: inboxTasks, indexPath: indexPath)
-                   
-               default:
-                   break
-               }
-           case .projectView:
-               print("SWIPE - PROHECT VIEW") //TODO
-           case .upcomingView:
-               print("SWIPE - Upcooming") //TODO
-           case .historyView:
-               print("SWIPE - HISTORY VIEW") //TODO
-           }
-           
-           
-//           print("SCORE IS: \(self.calculateTodaysScore())")
-//           self.scoreCounter.text = "\(self.calculateTodaysScore())"
-//           self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
-//           self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-//           self.title = "\(self.calculateTodaysScore())"
-           
-           actionPerformed(true)
-       }
-       
-       
-       let undoTaskAction = UIContextualAction(style: .normal, title: "U N D O") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
-           
-           let inboxTasks: [NTask]
-           let projectsTasks: [NTask]
-           let dateForTheView = self.dateForTheView
-           
-           //            inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-           
-           
-           switch self.currentViewType {
-           
-           case .todayHomeView:
-               inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-               projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-               
-               switch indexPath.section {
-               
-               case 1:
-                   
-                   if inboxTasks[indexPath.row].isComplete {
-                       self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
-                       tableView.reloadData()
-                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                   }
-                   
-               case 2:
-                   
-                   if projectsTasks[indexPath.row].isComplete {
-                       self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
-                       tableView.reloadData()
-                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                   }
-                   
-               default:
-                   break
-               }
-               
-           case .customDateView:
-               inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-               projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-               
-               switch indexPath.section {
-               
-               case 1:
-                   
-                   if inboxTasks[indexPath.row].isComplete {
-                       self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
-                       tableView.reloadData()
-                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                   }
-                   
-               case 2:
-                   
-                   if projectsTasks[indexPath.row].isComplete {
-                       self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
-                       tableView.reloadData()
-                       self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
-                   }
-                   
-               default:
-                   break
-               }
-           case .projectView:
-               print("SWIPE - PROHECT VIEW") //TODO
-           case .upcomingView:
-               print("SWIPE - Upcooming") //TODO
-           case .historyView:
-               print("SWIPE - HISTORY VIEW") //TODO
-           }
-           
-           print("SCORE IS: \(self.calculateTodaysScore())")
-           self.scoreCounter.text = "\(self.calculateTodaysScore())"
-           self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
-           self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-           self.title = "\(self.calculateTodaysScore())"
-           actionPerformed(true)
-       }
+                    self.rescheduleAlertActionMenu(tasks: inboxTasks, indexPath: indexPath, tableView: tableView)
+                    
+                case 2:
+                    
+                    self.rescheduleAlertActionMenu(tasks: inboxTasks, indexPath: indexPath, tableView: tableView)
+                    
+                default:
+                    break
+                }
+            case .projectView:
+                print("SWIPE - PROHECT VIEW") //TODO
+            case .upcomingView:
+                print("SWIPE - Upcooming") //TODO
+            case .historyView:
+                print("SWIPE - HISTORY VIEW") //TODO
+            }
+            
+            actionPerformed(true)
+        }
+        
+        
+        
+        
+        
+        
+        let undoTaskAction = UIContextualAction(style: .normal, title: "U N D O") { (action: UIContextualAction, sourceView: UIView, actionPerformed: (Bool) -> Void) in
+            
+            let inboxTasks: [NTask]
+            let projectsTasks: [NTask]
+            let dateForTheView = self.dateForTheView
+            
+            //            inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+            
+            
+            switch self.currentViewType {
+            
+            case .todayHomeView:
+                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+                projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+                
+                switch indexPath.section {
+                
+                case 1:
+                    
+                    if inboxTasks[indexPath.row].isComplete {
+                        self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+                    
+                case 2:
+                    
+                    if projectsTasks[indexPath.row].isComplete {
+                        self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+                    
+                default:
+                    break
+                }
+                
+            case .customDateView:
+                inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+                projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+                
+                switch indexPath.section {
+                
+                case 1:
+                    
+                    if inboxTasks[indexPath.row].isComplete {
+                        self.markTaskOpenOnSwipe(task: inboxTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+                    
+                case 2:
+                    
+                    if projectsTasks[indexPath.row].isComplete {
+                        self.markTaskOpenOnSwipe(task: projectsTasks[indexPath.row])
+                        tableView.reloadData()
+                        self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    }
+                    
+                default:
+                    break
+                }
+            case .projectView:
+                print("SWIPE - PROHECT VIEW") //TODO
+            case .upcomingView:
+                print("SWIPE - Upcooming") //TODO
+            case .historyView:
+                print("SWIPE - HISTORY VIEW") //TODO
+            }
+            
+            print("SCORE IS: \(self.calculateTodaysScore())")
+            self.scoreCounter.text = "\(self.calculateTodaysScore())"
+            self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView);
+            self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+            self.title = "\(self.calculateTodaysScore())"
+            actionPerformed(true)
+        }
         undoTaskAction.backgroundColor = todoColors.primaryColor//.systemOrange
         resheduleTaskAction.backgroundColor = todoColors.secondaryAccentColor
-       
-       let inboxTasks: [NTask]
-       let projectsTasks: [NTask]
-       let dateForTheView = self.dateForTheView
-       
-       inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-       projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
-       
-       switch self.currentViewType {
-       
-       case .todayHomeView:
-           
-           switch indexPath.section {
-           
-           case 1:
-               
-               
-               if inboxTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [undoTaskAction])
-               } else if !inboxTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
-               }
-               
-           case 2:
-               if projectsTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [undoTaskAction])
-               } else if !projectsTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
-               }
-               
-           default:
-               break
-           }
-           
-       case .customDateView:
-           switch indexPath.section {
-           
-           case 1:
-               
-               
-               if inboxTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [undoTaskAction])
-               } else if !inboxTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
-               }
-               
-           case 2:
-               if projectsTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [undoTaskAction])
-               } else if !projectsTasks[indexPath.row].isComplete {
-                   return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
-               }
-               
-           default:
-               break
-           }
-       case .projectView:
-           print("SWIPE - PROHECT VIEW")
-       case .upcomingView:
-           print("SWIPE - upccoming VIEW")
-       case .historyView:
-           print("SWIPE - histtory VIEW")
-       }
-       
-
-       return UISwipeActionsConfiguration(actions: [resheduleTaskAction,undoTaskAction])
-   }
+        
+        let inboxTasks: [NTask]
+        let projectsTasks: [NTask]
+        let dateForTheView = self.dateForTheView
+        
+        inboxTasks = self.fetchInboxTasks(date: dateForTheView)
+        projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+        
+        switch self.currentViewType {
+        
+        case .todayHomeView:
+            
+            switch indexPath.section {
+            
+            case 1:
+                
+                
+                if inboxTasks[indexPath.row].isComplete {
+                    return UISwipeActionsConfiguration(actions: [undoTaskAction])
+                } else if !inboxTasks[indexPath.row].isComplete {
+                    return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
+                }
+                
+            case 2:
+                if projectsTasks[indexPath.row].isComplete {
+                    return UISwipeActionsConfiguration(actions: [undoTaskAction])
+                } else if !projectsTasks[indexPath.row].isComplete {
+                    return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
+                }
+                
+            default:
+                break
+            }
+            
+        case .customDateView:
+            switch indexPath.section {
+            
+            case 1:
+                
+                
+                if inboxTasks[indexPath.row].isComplete {
+                    //                   return UISwipeActionsConfiguration(actions: [undoTaskAction])
+                } else if !inboxTasks[indexPath.row].isComplete {
+                    //                   return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
+                }
+                
+            case 2:
+                if projectsTasks[indexPath.row].isComplete {
+                    //                   return UISwipeActionsConfiguration(actions: [undoTaskAction])
+                } else if !projectsTasks[indexPath.row].isComplete {
+                    //                   return UISwipeActionsConfiguration(actions: [resheduleTaskAction])
+                }
+                
+            default:
+                break
+            }
+        case .projectView:
+            print("SWIPE - PROHECT VIEW")
+        case .upcomingView:
+            print("SWIPE - upccoming VIEW")
+        case .historyView:
+            print("SWIPE - histtory VIEW")
+        }
+        
+        
+        return UISwipeActionsConfiguration(actions: [])
+        
+        //       return UISwipeActionsConfiguration(actions: [resheduleTaskAction,undoTaskAction])
+    }
     
     
 }
@@ -1278,25 +1318,25 @@ extension HomeViewController: UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         if section == 0 {
-
+            
             let inboxTitleHeaderView = UIStackView()
             
             
             inboxTitleHeaderView.addSubview(toDoListHeaderLabel)
             inboxTitleHeaderView.addSubview(lineSeparator)
             
-
+            
             toDoListHeaderLabel.center(in: inboxTitleHeaderView, offset: CGPoint(x: 0, y: 8))
             let filterIconConfiguration = UIImage.SymbolConfiguration(pointSize: 28, weight: .light, scale: .default)
             
             let filterIconImage = UIImage(systemName: "line.horizontal.3.decrease.circle", withConfiguration: filterIconConfiguration)
             
             let colouredCalPullDownImage = filterIconImage?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
-       
+            
             let filterMenuHomeButton = UIButton()
-
+            
             inboxTitleHeaderView.addSubview(filterMenuHomeButton)
- 
+            
             filterMenuHomeButton.leftToSuperview(offset: 10)
             filterMenuHomeButton.setImage(colouredCalPullDownImage, for: .normal)
             filterMenuHomeButton.addTarget(self, action:  #selector(showTopDrawerButtonTapped), for: .touchUpInside)
@@ -1305,7 +1345,7 @@ extension HomeViewController: UITableViewDelegate {
             toDoListHeaderLabel.textAlignment = .center
             toDoListHeaderLabel.adjustsFontSizeToFitWidth = true
             toDoListHeaderLabel.textColor = .label
-
+            
             let now = Date.today
             var sectionLabel = ""
             if (dateForTheView == now()) {
@@ -1332,10 +1372,10 @@ extension HomeViewController: UITableViewDelegate {
                 sectionLabel = "\(c)"
             }
             toDoListHeaderLabel.text = sectionLabel
-
+            
             lineSeparator.frame = CGRect(x: 0, y: 32, width: UIScreen.main.bounds.width, height: 1)
             lineSeparator.backgroundColor = UIColor.black
-
+            
             inboxTitleHeaderView.addSubview(lineSeparator)
             
             return inboxTitleHeaderView
@@ -1344,21 +1384,21 @@ extension HomeViewController: UITableViewDelegate {
         } else if section == 1 {
             
             let projectsHeader = UIStackView()
-//            projectsHeader.backgroundColor = .red
-//            let projectsHeaderLabel = UILabel()
-//            projectsHeader.addSubview(projectsHeaderLabel)
-//
-//            projectsHeaderLabel.center(in: projectsHeader, offset: CGPoint(x: 0, y: 8))
-//
-//            projectsHeaderLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)
-//            projectsHeaderLabel.textAlignment = .center
-//            projectsHeaderLabel.adjustsFontSizeToFitWidth = true
-//            projectsHeaderLabel.textColor = .label
-//            projectsHeaderLabel.text = "PROJECTSSS"
-
+            //            projectsHeader.backgroundColor = .red
+            //            let projectsHeaderLabel = UILabel()
+            //            projectsHeader.addSubview(projectsHeaderLabel)
+            //
+            //            projectsHeaderLabel.center(in: projectsHeader, offset: CGPoint(x: 0, y: 8))
+            //
+            //            projectsHeaderLabel.font = setFont(fontSize: 24, fontweight: .medium, fontDesign: .rounded)
+            //            projectsHeaderLabel.textAlignment = .center
+            //            projectsHeaderLabel.adjustsFontSizeToFitWidth = true
+            //            projectsHeaderLabel.textColor = .label
+            //            projectsHeaderLabel.text = "PROJECTSSS"
+            
             return projectsHeader
             
-    
+            
             
             
         } else {
