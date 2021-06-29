@@ -12,7 +12,7 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 class NewProjectViewController: UIViewController, UITextFieldDelegate {
     
-    var peoplePickers: [PeoplePicker] = []
+//    var peoplePickers: [PeoplePicker] = []
     var todoColors = ToDoColors()
     
     //    var description = Label(style: .subhead, colorStyle: .regular)
@@ -213,7 +213,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         projectNameTextField = MDCOutlinedTextField(frame: estimatedFrame)
         projectNameTextField.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
         projectNameTextField.label.text = "project name"
-        projectNameTextField.leadingAssistiveLabel.text = "Always add actionable items"
+        projectNameTextField.leadingAssistiveLabel.text = "Fill in the new project name"
         projectNameTextField.font = UIFont(name: "HelveticaNeue", size: 18)
         projectNameTextField.delegate = self
         projectNameTextField.clearButtonMode = .whileEditing
@@ -242,7 +242,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         projecDescriptionTextField = MDCOutlinedTextField(frame: estimatedFrame)
         projecDescriptionTextField.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
         projecDescriptionTextField.label.text = "add description"
-        projecDescriptionTextField.leadingAssistiveLabel.text = "Always add actionable items"
+        projecDescriptionTextField.leadingAssistiveLabel.text = "Add project description"
         projecDescriptionTextField.font = UIFont(name: "HelveticaNeue", size: 18)
         projecDescriptionTextField.delegate = self
         projecDescriptionTextField.clearButtonMode = .whileEditing

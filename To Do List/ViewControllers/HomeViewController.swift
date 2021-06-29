@@ -23,6 +23,37 @@ import MaterialComponents.MaterialRipple
 
 
 class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate {
+    
+    var shouldAnimateCells = true
+    
+    //MARK:- Backdrop & Fordrop parent containers
+    var backdropContainer = UIView()
+    var foredropContainer = UIView()
+    var bottomBarContainer = UIView()
+    
+    let lineSeparator = UIView()
+    
+    let notificationCenter = NotificationCenter.default
+    
+    //MARK:- Positioning
+    var headerEndY: CGFloat = 128
+    //    var headerEndY: CGFloat = UIScreen.main.bounds.height/6
+    var todoColors = ToDoColors()
+    var todoTimeUtils = ToDoTimeUtils()
+    
+    
+    var filledBar: UIView?
+    
+    
+    
+    //init notification badge counter
+    var notificationBadgeNumber:Int = 0
+    
+    let ultraLightConfiguration = UIImage.SymbolConfiguration(weight: .regular)
+    var highestPrioritySymbol = UIImage()//UIImage(systemName: "circle.fill",withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
+    var highPrioritySymbol = UIImage()//UIImage(systemName: "circle",withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal)
+    
+    
     func didSelectBadge(_ badge: BadgeView) {
     }
     
@@ -94,30 +125,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         present(alert, animated: true)
     }
     
-    var shouldAnimateCells = true
-    
-    //MARK:- Backdrop & Fordrop parent containers
-    var backdropContainer = UIView()
-    var foredropContainer = UIView()
-    var bottomBarContainer = UIView()
-    
-    let lineSeparator = UIView()
-    
-    let notificationCenter = NotificationCenter.default
-    
-    //MARK:- Positioning
-    var headerEndY: CGFloat = 128
-    //    var headerEndY: CGFloat = UIScreen.main.bounds.height/6
-    var todoColors = ToDoColors()
-    var todoTimeUtils = ToDoTimeUtils()
-    
-    
-    var filledBar: UIView?
-    
-    
-    
-    //init notification badge counter
-    var notificationBadgeNumber:Int = 0
+
     
     
     //MARK:- LINE CHART
@@ -341,6 +349,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //MARK:- View did load
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        highestPrioritySymbol = (UIImage(systemName: "circle.fill",withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal))!
+        highPrioritySymbol = (UIImage(systemName: "circle",withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal))!
         
         
         //--------

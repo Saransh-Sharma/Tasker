@@ -145,7 +145,6 @@ extension HomeViewController {
         homeDate_Month.textColor = .systemGray6
         
         
-        
         homeDate_Day.font =  setFont(fontSize: 58, fontweight: .medium, fontDesign: .rounded)
         homeDate_WeekDay.font =  setFont(fontSize: 26, fontweight: .thin, fontDesign: .rounded)
         homeDate_Month.font =  setFont(fontSize: 26, fontweight: .regular, fontDesign: .rounded)

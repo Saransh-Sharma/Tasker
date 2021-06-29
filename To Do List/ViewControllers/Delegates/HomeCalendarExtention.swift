@@ -53,6 +53,7 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
         
         
+        
         calendar.appearance.headerTitleColor = .white
         calendar.appearance.headerTitleFont = setFont(fontSize: 16, fontweight: .light, fontDesign: .default)
         
