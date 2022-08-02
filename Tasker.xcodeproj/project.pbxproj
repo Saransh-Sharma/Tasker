@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		750F9ED72685C01E00C008C4 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 750F9ED62685C01E00C008C4 /* GoogleService-Info.plist */; };
 		750F9ED82685C01E00C008C4 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 750F9ED62685C01E00C008C4 /* GoogleService-Info.plist */; };
 		750F9ED92685C01E00C008C4 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 750F9ED62685C01E00C008C4 /* GoogleService-Info.plist */; };
 		750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 750F9EDB2685CC9F00C008C4 /* CloudKit.framework */; };
@@ -91,6 +90,7 @@
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
 		750F9EDE2685D7A400C008C4 /* TaskModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModel.xcdatamodel; sourceTree = "<group>"; };
 		7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsBackdrop.swift; sourceTree = "<group>"; };
+		7535846528992C0500B4025C /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewProjectViewController.swift; sourceTree = "<group>"; };
 		753EFC9A2445A24500A739E3 /* This Day.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "This Day.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFC9D2445A24500A739E3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -120,8 +120,8 @@
 		758A803F2450BFA300BFB571 /* InboxViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViewController.swift; sourceTree = "<group>"; };
 		758A80632451E86E00BFB571 /* WeeklyViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyViewController.swift; sourceTree = "<group>"; };
 		758D4D7724A93FB300AB57A8 /* ProjectManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManager.swift; sourceTree = "<group>"; };
-		758D4D7924A940BD00AB57A8 /* Projects+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Projects+CoreDataProperties.swift"; path = "/Users/saransh1337/codeMonkey/Projects/To Do List/Projects+CoreDataProperties.swift"; sourceTree = "<absolute>"; };
-		758D4D7B24A940C300AB57A8 /* Projects+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Projects+CoreDataClass.swift"; path = "/Users/saransh1337/codeMonkey/Projects/To Do List/Projects+CoreDataClass.swift"; sourceTree = "<absolute>"; };
+		758D4D7924A940BD00AB57A8 /* Projects+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Projects+CoreDataProperties.swift"; path = "/Users/saransh1337/codeMonkey/Projects/Tasker/Projects+CoreDataProperties.swift"; sourceTree = "<absolute>"; };
+		758D4D7B24A940C300AB57A8 /* Projects+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "Projects+CoreDataClass.swift"; path = "/Users/saransh1337/codeMonkey/Projects/Tasker/Projects+CoreDataClass.swift"; sourceTree = "<absolute>"; };
 		758D4D7D24AA67F900AB57A8 /* HomeDrawerFilterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeDrawerFilterView.swift; sourceTree = "<group>"; };
 		758D4D7F24AB20F000AB57A8 /* ToDoListData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoListData.swift; sourceTree = "<group>"; };
 		758D4D8124ABA4A600AB57A8 /* TableViewCellSampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TableViewCellSampleData.swift; sourceTree = "<group>"; };
@@ -206,6 +206,7 @@
 		753EFC912445A24500A739E3 = {
 			isa = PBXGroup;
 			children = (
+				7535846528992C0500B4025C /* GoogleService-Info.plist */,
 				750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */,
 				750F9EDA2685CC9500C008C4 /* This Day.entitlements */,
 				758D4D7B24A940C300AB57A8 /* Projects+CoreDataClass.swift */,
