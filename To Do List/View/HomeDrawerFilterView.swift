@@ -62,62 +62,16 @@ extension HomeViewController {
     }
     
     
-    //    func buildProojectsPillBarData() {
-    //
-    //        let allProjects = ProjectManager.sharedInstance.getAllProjects
-    //
-    //        if (allProjects.count > pillBarProjectList.count) {
-    //            pillBarProjectList.removeAll()
-    //            for each in allProjects {
-    //                pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
-    //            }
-    //        }
-    //
-    //        var inboxOldPosition = 0
-    //        let inboxNewPosittion = 0
-    //        var count = 0
-    //        for each in pillBarProjectList {
-    //
-    //            if each.title == ProjectManager.sharedInstance.defaultProject {
-    //                inboxOldPosition = count
-    //            }
-    //            count = count + 1
-    //        }
-    //        pillBarProjectList = rearrange(array: pillBarProjectList, fromIndex: inboxOldPosition, toIndex: inboxNewPosittion)
-    //    }
     func buildProojectsPillBarData() {
         
-        let allProjects = ProjectManager.sharedInstance.getAllProjects
-        var indexToRemove = [Int]()
+        let allProjects = Set(ProjectManager.sharedInstance.getAllProjects)
+        //        var indexToRemove = [Int]()
         for each in allProjects {
             print("do9 added to pill bar, from ProjectManager: \(String(describing: each.projectName! as String))")
             pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
         }
         
-        if pillBarProjectList[1].title.lowercased() != "inbox" {
-            
-            print("do9 ----LIST SIZE---> \(pillBarProjectList.count)")
-            for i in 0 ..< pillBarProjectList.count {
-                print("do9 counter is: \(i)")
-                if pillBarProjectList[i].title.lowercased() == "inbox"{
-                    indexToRemove.append(i)
-                }
-            }
-            print("do9 -indexToRemove count-----> \(indexToRemove.count)")
-        }
-        for (index, value) in indexToRemove.enumerated() {
-            
-            print("do9 INXED -->\(index)")
-            print("do9 VALUE -->\(value)")
-            print("do9 REMOVING TITLE --> \(pillBarProjectList[value-index].title)")
-            pillBarProjectList.remove(at: (value-index))
-        }
         
-        
-//        if pillBarProjectList[1].title.lowercased() != "inbox" {
-//            print("do9 - ADDING !")
-//            pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
-//        }
         
         for (index, value) in pillBarProjectList.enumerated() {
             print("do9 --- AT INDEX \(index) value is \(value.title)")
