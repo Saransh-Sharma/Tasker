@@ -20,7 +20,7 @@ import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 extension AddTaskViewController {
     
-
+    
     
     func setupAddTaskForedrop() {
         
@@ -40,7 +40,7 @@ extension AddTaskViewController {
         setupPrioritySC()
         foredropStackContainer.addArrangedSubview(UIView())
         
-//        setupDoneButton()
+        //        setupDoneButton()
         foredropStackContainer.addArrangedSubview(UIView())
         
         
@@ -73,7 +73,7 @@ extension AddTaskViewController {
     
     func setupProjectsPillBar() {
         
-        print("do9")
+        print("do9 - SETUP PROJECTS pillbar")
         buildProojectsPillBarData()
         
         //        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
@@ -93,38 +93,19 @@ extension AddTaskViewController {
     func buildProojectsPillBarData() {
         
         let allProjects = ProjectManager.sharedInstance.getAllProjects
-        var indexToRemove = [Int]()
+        pillBarProjectList = []
+        pillBarProjectList = [PillButtonBarItem(title: "Add Project")]
+        
         for each in allProjects {
-            print("do9 added to pill bar, from ProjectManager: \(String(describing: each.projectName! as String))")
+            print("do9 --> FOUND PROJECT --> \(each.projectName!)")
             pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
         }
         
         if pillBarProjectList[1].title.lowercased() != "inbox" {
-
-            print("do9 ----LIST SIZE---> \(pillBarProjectList.count)")
-            for i in 0 ..< pillBarProjectList.count {
-                print("do9 counter is: \(i)")
-                if pillBarProjectList[i].title.lowercased() == "inbox"{
-                    indexToRemove.append(i)
-                }
-            }
-            print("do9 -indexToRemove count-----> \(indexToRemove.count)")
-        }
-        for (index, value) in indexToRemove.enumerated() {
-            
-            print("do9 INXED -->\(index)")
-            print("do9 VALUE -->\(value)")
-            print("do9 REMOVING TITLE --> \(pillBarProjectList[value-index].title)")
-            pillBarProjectList.remove(at: (value-index))
+            print("do9 - ADDING inbox !")
+            pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
         }
         
-//        print("do9 - ADDING !")
-//        pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
-        
-                if pillBarProjectList[1].title.lowercased() != "inbox" {
-                    print("do9 - ADDING !")
-                    pillBarProjectList.insert(PillButtonBarItem(title: "Inbox"), at: 1)
-                }
         for (index, value) in pillBarProjectList.enumerated() {
             print("do9 --- AT INDEX \(index) value is \(value.title)")
         }
@@ -167,10 +148,10 @@ extension AddTaskViewController {
         
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
-//        addTaskTextBox_Material.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
+        //        addTaskTextBox_Material.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         addTaskTextBox_Material.label.text = "add task & tap done"
         addTaskTextBox_Material.leadingAssistiveLabel.text = "add actionable items"
-//        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
+        //        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
         
         addTaskTextBox_Material.sizeToFit()
         
@@ -182,7 +163,7 @@ extension AddTaskViewController {
                                     "book flight tickets to Thailand", "fix the garage door",
                                     "order Cake", "review subscriptions", "get coffee"]
         addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
-//        addTaskTextBox_Material.sizeToFit()
+        //        addTaskTextBox_Material.sizeToFit()
         
         addTaskTextBox_Material.backgroundColor = .clear
         
@@ -237,7 +218,7 @@ extension AddTaskViewController {
         tabsSegmentedControl = SegmentedControl(items: p)
         
         
-      
+        
         
         tabsSegmentedControl.frame = CGRect(x: 50, y: 50, width: UIScreen.main.bounds.width-100, height: 50)
         tabsSegmentedControl.selectedSegmentIndex = 1
@@ -332,21 +313,10 @@ extension AddTaskViewController {
         if currentTaskInMaterialTextBox != "" {
             
             print("Adding task: \(currentTaskInMaterialTextBox)")
-            //            TaskManager.sharedInstance.addNewTask(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: 2)
-            
-            //            let title = segm.titleForSegment(at: segment.selectedSegmentIndex)
-            
             print("Priority is: \(currentTaskPriority)")
             print("Add ask projet is: \(currenttProjectForAddTaskView)")
             
-            //--//onnly adds task ttoday fix this
-            
             print("Addig task for date: \(dateForAddTaskView.stringIn(dateStyle: .full, timeStyle: .none))")
-            
-            //            taskDueDate = dateForAddTaskView
-            //            TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, isEveningTask: isThisEveningTask)
-            
-            
             
             TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: getTaskType(), taskPriority: currentTaskPriority, futureTaskDate: dateForAddTaskView, isEveningTask: isThisEveningTask, project: currenttProjectForAddTaskView)
             
@@ -354,23 +324,13 @@ extension AddTaskViewController {
             
             let addTaskEvent = "Add_NEW_Task"
             Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
-              AnalyticsParameterItemID: "id-\(addTaskEvent)",
-              AnalyticsParameterItemName: addTaskEvent,
-              AnalyticsParameterContentType: "cont"
-              ])
+                AnalyticsParameterItemID: "id-\(addTaskEvent)",
+                AnalyticsParameterItemName: addTaskEvent,
+                AnalyticsParameterContentType: "cont"
+            ])
             
-            //---
         } else {
-            //            print("task: nothing to add - doone ")
-            //             let iv = UIImageView()
-            //               iv.contentMode = .scaleAspectFit
-            //               iv.backgroundColor = .green
-            //               iv.image = #imageLiteral(resourceName: "ic_arrow_back_ios")
-            //            HUD.shared.showFailure(in: iv, with: "Nothing Added")
-            
             HUD.shared.showFailure(from: self, with: "Nothing Added")
-            
-            //            HUD.shared.show(in: iv, with: "Nothing Added")
         }
         
         
