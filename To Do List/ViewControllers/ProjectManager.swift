@@ -39,7 +39,7 @@ class ProjectManager {
         return projects[index]
     }
     
-    var getAllProjects: [Projects] { 
+    var getAllProjects: [Projects] {
         get {
             fetchProjects()
             var inboxPosition = 0
@@ -140,7 +140,7 @@ class ProjectManager {
     func fetchProjects() {
         
         let fetchRequest =
-            NSFetchRequest<NSManagedObject>(entityName: "Projects")
+        NSFetchRequest<NSManagedObject>(entityName: "Projects")
         //3
         do {
             let results = try context.fetch(fetchRequest)
@@ -157,28 +157,40 @@ class ProjectManager {
         
         let proj = NSEntityDescription.insertNewObject( forEntityName: "Projects", into: context) as! Projects
         
-        
+        var isUniqueProject = false
         proj.projectName = name
         proj.projecDescription = description
         
         let allProjects = getAllProjects
         
+        var potentialInbox = name
+        potentialInbox = potentialInbox.trimmingCharacters(in: .whitespacesAndNewlines)
+        if potentialInbox.lowercased() == "inbox" {
+            print("do9 ink 1: user trying to make another inbox !")
+            return false
+        } else {
+            print("do9 ink 1: user added inbox copy \(potentialInbox)")
+        }
+        
         for each in allProjects {
             if each.projectName?.lowercased() == name {
-                print("projectManger: addNewProject - project \(name) already exists !")
-                return false
+                print("do9 ink projectManger: addNewProject - project \(name) already exists !")
+            } else {
+                isUniqueProject = true
             }
         }
         
-        projects.append(proj)
-        saveContext()
-        
-        print("projectManger: addNewProject - project added : \(getAllProjects.count)")
-        print("projectManger: addNewProject - project count now is: \(getAllProjects.count)")
+        if isUniqueProject {
+            projects.append(proj)
+            saveContext()
+            
+            print("do9 projectManger: addNewProject - project added : \(getAllProjects.count)")
+            print("do9 projectManger: addNewProject - project count now is: \(getAllProjects.count)")
+        }
         
         return true
     }
-      
+    
     // MARK: Init
     
     private init() {
