@@ -10,9 +10,15 @@ import UIKit
 import FluentUI
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
+extension String {
+    func trimmingLeadingAndTrailingSpaces(using characterSet: CharacterSet = .whitespacesAndNewlines) -> String {
+        return trimmingCharacters(in: characterSet)
+    }
+}
+
 class NewProjectViewController: UIViewController, UITextFieldDelegate {
     
-//    var peoplePickers: [PeoplePicker] = []
+    //    var peoplePickers: [PeoplePicker] = []
     var todoColors = ToDoColors()
     
     //    var description = Label(style: .subhead, colorStyle: .regular)
@@ -110,59 +116,45 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         
     }
     
+    
+    
     @objc func addOrModProject() {
         if currentProjectInTexField != "" {
-            
-            
             button.isEnabled = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                
+            let allProjects = ProjectManager.sharedInstance.getAllProjects
+            var allProjectList = [String]()
+            
+            for e in allProjects {
+                allProjectList.append(e.projectName!)
             }
             
-            let success = ProjectManager.sharedInstance.addNewProject(with: currentProjectInTexField, and: currentProjectInTexField)
-            
-            if (success) {
-                
+            currentProjectInTexField = currentProjectInTexField.trimmingLeadingAndTrailingSpaces()
+            if !allProjectList.contains(currentProjectInTexField) {
+                ProjectManager.sharedInstance.addNewProject(with: currentProjectInTexField, and: currentProjectInTexField)
                 HUD.shared.showSuccess(from: self, with: "New Project\n\(currentProjectInTexField)")
             } else {
-                HUD.shared.showFailure(from: self, with: "\(currentProjectInTexField) already exists 1")
+                HUD.shared.showFailure(from: self, with: "\(currentProjectInTexField) already exists !")
             }
             
-            
-            //---
         } else {
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                
-            }
-            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
             HUD.shared.showFailure(from: self, with: "No New Project")
-            
             
         }
         
-        
-        
-        
-        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            // your code here
             
             let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
             let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as! AddTaskViewController
             newViewController.modalPresentationStyle = .fullScreen
-            //        self.present(newViewController, animated: true, completion: nil)
             self.present(newViewController, animated: true, completion: { () in
                 print("SUCCESS !!!")
                 //                HUD.shared.showSuccess(from: self, with: "Success")
-                
             })
-            
-            
         }
-        
-        
     }
     
     @discardableResult
@@ -246,7 +238,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         projecDescriptionTextField.font = UIFont(name: "HelveticaNeue", size: 18)
         projecDescriptionTextField.delegate = self
         projecDescriptionTextField.clearButtonMode = .whileEditing
- 
+        
         projecDescriptionTextField.sizeToFit()
         
         projecDescriptionTextField.tag = 1
