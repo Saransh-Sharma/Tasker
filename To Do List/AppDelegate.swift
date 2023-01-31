@@ -101,6 +101,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return container
     }()
     
+//    func deleteRecordZone(withID zoneID: CKRecordZone.ID) async throws -> CKRecordZone.ID {
+//
+//    }
+    
+    func deleteAllUserData(
+        withRecordZoneID zoneID: CKRecordZone.ID,
+        completionHandler: @escaping (CKRecordZone.ID?, Error?) -> Void
+    ) {
+        
+    }
+    
     // MARK: - Core Data Saving support
     
     func saveContext () {

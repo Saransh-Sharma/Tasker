@@ -202,6 +202,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var bottomAppBar = MDCBottomAppBarView()
     var isCalDown: Bool = false
     var isChartsDown: Bool = false
+    var isProjectsDown: Bool = false
     
     let toDoAnimations:ToDoAnimations = ToDoAnimations()
     
@@ -862,6 +863,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //----------------------- *************************** -----------------------
     //MARK:-                ANIMATION: MOVE FOR CAL
     //----------------------- *************************** -----------------------
+    func moveDown_revealProjects(view: UIView) {
+        isProjectsDown = true
+        print("move: PROJECTS SHOW - down: \(UIScreen.main.bounds.height/6)")
+        view.center.y += UIScreen.main.bounds.height/1.5
+    }
     func moveDown_revealJustCal(view: UIView) {
         isCalDown = true
         print("move: Cal SHOW - down: \(UIScreen.main.bounds.height/6)")
@@ -871,6 +877,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         isCalDown = false
         print("move: Cal HIDE - up: \(UIScreen.main.bounds.height/6)")
         view.center.y -= UIScreen.main.bounds.height/6
+    }
+    func moveUp_toHideProjects(view: UIView) {
+        isProjectsDown = false
+        print("move: Projects HIDE - up: \(UIScreen.main.bounds.height/6)")
+        view.center.y -= UIScreen.main.bounds.height/1.5
     }
     
     //    func moveUp_hideCalFurther(view: UIView) { //
@@ -1001,9 +1012,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             style: .plain,
             target: self,
             action: #selector(self.showCalMoreButtonnAction))
+        let barButtonProjects = UIBarButtonItem(
+                image: UIImage(systemName: "tray.full", withConfiguration: boldLargeConfig)?.withTintColor(.systemGray5, renderingMode: .alwaysOriginal), // Icon
+                style: .plain,
+                target: self,
+                action: #selector(self.showProjectsButtonAction))
         
-        bottomAppBar.leadingBarButtonItems = [barButtonSearch, barButtonInbox]
-        //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
+        bottomAppBar.leadingBarButtonItems = [barButtonSearch, barButtonInbox, barButtonProjects]
         bottomAppBar.elevation = ShadowElevation(rawValue: 8)
         bottomAppBar.floatingButtonPosition = .trailing
         

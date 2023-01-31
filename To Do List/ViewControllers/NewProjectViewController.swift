@@ -10,6 +10,7 @@ import UIKit
 import FluentUI
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
+
 extension String {
     func trimmingLeadingAndTrailingSpaces(using characterSet: CharacterSet = .whitespacesAndNewlines) -> String {
         return trimmingCharacters(in: characterSet)
@@ -156,6 +157,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
             })
         }
     }
+    
     
     @discardableResult
     func addDescription(text: String, textAlignment: NSTextAlignment = .natural) -> Label {
