@@ -1,32 +1,37 @@
-# Uncomment the next line to define a global platform for your project
-platform :ios, '13.0'
+platform :ios, '15.0'
 
 target 'Tasker' do
-  # Comment the next line if you don't want to use dynamic frameworks
-# use_frameworks!
+  use_frameworks!
+  use_modular_headers!
 
-  # Pods for To Do List
-  
-#pod 'TableViewReloadAnimation', '~> 0.0.5', :modular_headers => true
-# add the Firebase pod for Google Analytics
-pod 'Firebase/Analytics'
-pod 'Firebase/Crashlytics'
-pod 'Firebase/Performance'
-pod 'SemiModalViewController', '~> 1.0.1', :modular_headers => true
-pod 'CircleMenu', '~> 4.1.0', :modular_headers => true
-pod 'MaterialComponents', '~> 109.2.0', :modular_headers => true
-pod 'ViewAnimator', '~> 2.7.0', :modular_headers => true
-pod 'Timepiece', '~> 1.3.1', :modular_headers => true
-pod 'FSCalendar', '~> 2.8.1', :modular_headers => true
-pod 'EasyPeasy', '~> 1.9.0', :modular_headers => true
-pod 'BEMCheckBox', '~> 1.4.1', :modular_headers => true
-pod 'Charts', '~> 3.5.0', :modular_headers => true
-pod 'TinyConstraints', '~> 4.0.1', :modular_headers => true
-pod 'MicrosoftFluentUI', '~> 0.1.0', :modular_headers => true
+  # Firebase
+  pod 'Firebase/Analytics',   '~> 11.13'
+  pod 'Firebase/Crashlytics', '~> 11.13'
+  pod 'Firebase/Performance', '~> 11.13'
+
+  # UI / utils
+  pod 'SemiModalViewController', '~> 1.0.1'
+  pod 'CircleMenu',              '~> 4.1.0'
+  pod 'MaterialComponents',      '~> 124.2'
+  pod 'ViewAnimator',            '~> 3.1'     # latest; no :modular_headers needed
+  pod 'Timepiece',               '~> 1.3.1'
+  pod 'FSCalendar',              '~> 2.8.1'
+  pod 'EasyPeasy',               '~> 1.9.0'
+  pod 'BEMCheckBox',             '~> 1.4.1'
+  pod 'DGCharts',                '~> 5.1'
+  pod 'TinyConstraints',         '~> 4.0.1'
+  pod 'MicrosoftFluentUI',       '~> 0.1.0'
 
   target 'TaskerTests' do
     inherit! :search_paths
-    # Pods for testing
   end
+end          # ← closes the outer 'Tasker' block
 
+# Runs after pods project is generated
+post_install do |installer|
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |c|
+      c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
+  end
 end
