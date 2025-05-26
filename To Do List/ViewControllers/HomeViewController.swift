@@ -985,7 +985,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         // The following lines of code are to define the buttons on the right and left side
         let barButtonMenu = UIBarButtonItem(
 //            image: UIImage(named:"material_menu_White"), // Icon
-            image: UIImage(systemName: "text.justify",withConfiguration: boldLargeConfig)?.withTintColor(.systemGray5, renderingMode: .alwaysOriginal), // Icon //UIImage(systemName:"text.justify")?.symbolConfiguration(scale: .small) // Icon
+            image: UIImage(systemName: "gearshape.fill", withConfiguration: boldLargeConfig)?.withTintColor(.systemGray5, renderingMode: .alwaysOriginal), // Settings icon
             //icon_menu
             style: .plain,
             target: self,
@@ -1002,7 +1002,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             target: self,
             action: #selector(self.showCalMoreButtonnAction))
         
-        bottomAppBar.leadingBarButtonItems = [barButtonSearch, barButtonInbox]
+        bottomAppBar.leadingBarButtonItems = [barButtonSearch, barButtonInbox, barButtonMenu]
         //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
         bottomAppBar.elevation = ShadowElevation(rawValue: 8)
         bottomAppBar.floatingButtonPosition = .trailing
@@ -1021,18 +1021,16 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     @objc
     func onMenuButtonTapped() {
-        print("menu buttoon tapped")
-        //       tap add fab --> addTask
-        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        //        let newViewController = storyBoard.instantiateViewController(withIdentifier: "addTask") as! NAddTaskScreen
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "settingsPage") as! SettingsPageViewController
-        newViewController.modalPresentationStyle = .popover
-        self.present(newViewController, animated: true, completion: nil)
+        print("menu button tapped")
+        let settingsVC = SettingsPageViewController()
+        let navController = UINavigationController(rootViewController: settingsVC)
+        navController.modalPresentationStyle = .fullScreen
+        self.present(navController, animated: true, completion: nil)
     }
     
     @objc
     func onNavigationButtonTapped() {
-        print("NAV buttoon tapped")
+        print("NAV button tapped")
     }
     
     

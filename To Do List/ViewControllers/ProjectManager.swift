@@ -75,44 +75,66 @@ class ProjectManager {
     func fixMissingProjecsDataWithDefaults() {
         fetchProjects()
         
-        
-        //FIX inbox as a defaukt added project in projects
-        
-        
-        //FIX default project to 'inbox'
-        var isThereInbox = false
-        for each in projects {
-            
-            if each.projectName?.lowercased() == defaultProject.lowercased() {
-                print("FOUND INBOX !")
-                isThereInbox = true
+        // Find all Inbox projects (case insensitive)
+        var inboxProjects = [Projects]()
+        for project in projects {
+            if project.projectName?.lowercased() == defaultProject.lowercased() {
+                inboxProjects.append(project)
             }
         }
         
-        if isThereInbox {
-            print("YES THERE IS INBOX !!")
-        } else {
-            print("No inbox ! Intilizing projeccts with default project 'inbox'")
+        // Handle different scenarios
+        if inboxProjects.isEmpty {
+            // No Inbox project exists, create one
+            print("No Inbox project found! Creating default 'Inbox' project")
             
-            let proj = NSEntityDescription.insertNewObject( forEntityName: "Projects", into: context) as! Projects
+            let newInbox = NSEntityDescription.insertNewObject(forEntityName: "Projects", into: context) as! Projects
+            newInbox.projectName = defaultProject // Use proper case from defaultProject variable
+            newInbox.projecDescription = defaultProjectDescription
             
-            proj.projectName = defaultProject
-            proj.projecDescription = defaultProjectDescription
-            
-            projects.insert(proj, at: 0)
+            projects.insert(newInbox, at: 0)
             saveContext()
-            // SAVE context !!
-        }
-        
-        for each in projects {
+        } else if inboxProjects.count > 1 {
+            // Multiple Inbox projects found, merge them
+            print("Found \(inboxProjects.count) Inbox projects! Merging them...")
             
-            if each.projectName?.lowercased() == defaultProject.lowercased() {
-                print("FOUND INBOX ! 2nd time round !")
-                isThereInbox = true
+            // Keep the first Inbox project (ensure it has the proper capitalization)
+            let primaryInbox = inboxProjects[0]
+            primaryInbox.projectName = defaultProject // Ensure correct capitalization
+            
+            // Move tasks from duplicate Inbox projects to the primary one
+            for i in 1..<inboxProjects.count {
+                let duplicateInbox = inboxProjects[i]
+                
+                // Get all tasks assigned to this duplicate Inbox
+                if let duplicateName = duplicateInbox.projectName {
+                    // Reassign tasks to the primary Inbox
+                    let tasksToReassign = TaskManager.sharedInstance.getTasksForProjectByName(projectName: duplicateName)
+                    for task in tasksToReassign {
+                        task.project = defaultProject
+                    }
+                    
+                    // Delete the duplicate Inbox project
+                    context.delete(duplicateInbox)
+                    if let index = projects.firstIndex(of: duplicateInbox) {
+                        projects.remove(at: index)
+                    }
+                }
+            }
+            
+            // Save all changes
+            TaskManager.sharedInstance.saveContext()
+            saveContext()
+            print("Successfully merged duplicate Inbox projects")
+        } else {
+            // Exactly one Inbox project exists, ensure correct capitalization
+            let existingInbox = inboxProjects[0]
+            if existingInbox.projectName != defaultProject {
+                existingInbox.projectName = defaultProject
+                saveContext()
+                print("Updated Inbox project capitalization")
             }
         }
-        
-        
     }
     
     func deleteAllProjects() {
@@ -154,41 +176,167 @@ class ProjectManager {
     }
     
     func addNewProject(with name: String, and description: String) -> Bool {
+        // Validate the project name
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        let proj = NSEntityDescription.insertNewObject( forEntityName: "Projects", into: context) as! Projects
-        
-        var isUniqueProject = false
-        proj.projectName = name
-        proj.projecDescription = description
-        
-        let allProjects = getAllProjects
-        
-        var potentialInbox = name
-        potentialInbox = potentialInbox.trimmingCharacters(in: .whitespacesAndNewlines)
-        if potentialInbox.lowercased() == "inbox" {
-            print("do9 ink 1: user trying to make another inbox !")
+        // Check if name is empty
+        if trimmedName.isEmpty {
             return false
-        } else {
-            print("do9 ink 1: user added inbox copy \(potentialInbox)")
         }
         
-        for each in allProjects {
-            if each.projectName?.lowercased() == name {
-                print("do9 ink projectManger: addNewProject - project \(name) already exists !")
-            } else {
-                isUniqueProject = true
+        // Check if this is an attempt to create another "Inbox"
+        if trimmedName.lowercased() == defaultProject.lowercased() {
+            print("User trying to make another inbox!")
+            return false
+        }
+        
+        // Check if project with this name already exists (case insensitive)
+        let allProjects = getAllProjects
+        for project in allProjects {
+            if project.projectName?.lowercased() == trimmedName.lowercased() {
+                print("Project with name '\(trimmedName)' already exists!")
+                return false
             }
         }
         
-        if isUniqueProject {
-            projects.append(proj)
-            saveContext()
-            
-            print("do9 projectManger: addNewProject - project added : \(getAllProjects.count)")
-            print("do9 projectManger: addNewProject - project count now is: \(getAllProjects.count)")
+        // Create and configure new project
+        let proj = NSEntityDescription.insertNewObject(forEntityName: "Projects", into: context) as! Projects
+        proj.projectName = trimmedName
+        proj.projecDescription = description
+        
+        // Save to Core Data
+        projects.append(proj)
+        saveContext()
+        
+        print("Project added: '\(trimmedName)'. Total projects: \(getAllProjects.count)")
+        return true
+    }
+    
+    /**
+     Updates an existing project with a new name and description.
+     - Parameters:
+        - projectToUpdate: The Projects entity to update
+        - newName: The new name for the project
+        - newDescription: The new description for the project
+     - Returns: Bool indicating success or failure
+    */
+    func updateProject(_ projectToUpdate: Projects, newName: String, newDescription: String) -> Bool {
+        // Validate the new name
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Check if name is empty
+        if trimmedName.isEmpty {
+            return false
+        }
+        
+        // Get current project name for comparison
+        let oldProjectName = projectToUpdate.projectName
+        
+        // Check if attempting to rename to "Inbox" when not already Inbox
+        if trimmedName.lowercased() == defaultProject.lowercased() && 
+           oldProjectName?.lowercased() != defaultProject.lowercased() {
+            print("Cannot rename project to 'Inbox' as this is a reserved name")
+            return false
+        }
+        
+        // Check if trying to update the default Inbox project name
+        if oldProjectName?.lowercased() == defaultProject.lowercased() && 
+           trimmedName.lowercased() != defaultProject.lowercased() {
+            print("Cannot rename the default 'Inbox' project")
+            return false
+        }
+        
+        // Check for name conflicts with other projects
+        if trimmedName.lowercased() != oldProjectName?.lowercased() {
+            let allProjects = getAllProjects
+            for project in allProjects {
+                if project != projectToUpdate && project.projectName?.lowercased() == trimmedName.lowercased() {
+                    print("Another project with the name '\(trimmedName)' already exists")
+                    return false
+                }
+            }
+        }
+        
+        // Save the old name for task updates
+        let oldName = projectToUpdate.projectName
+        
+        // Update the project
+        projectToUpdate.projectName = trimmedName
+        projectToUpdate.projecDescription = newDescription
+        saveContext()
+        
+        // If the name changed, update all tasks assigned to this project
+        if oldName != trimmedName && oldName != nil {
+            updateTasksForProjectRename(oldName: oldName!, newName: trimmedName)
         }
         
         return true
+    }
+    
+    /**
+     Deletes a project and reassigns its tasks to the default "Inbox" project.
+     - Parameter projectToDelete: The Projects entity to delete
+     - Returns: Bool indicating success or failure
+    */
+    func deleteProject(_ projectToDelete: Projects) -> Bool {
+        // Protect the default Inbox project from deletion
+        if projectToDelete.projectName?.lowercased() == defaultProject.lowercased() {
+            print("Cannot delete the default 'Inbox' project")
+            return false
+        }
+        
+        // Save the project name for task reassignment
+        let deletedProjectName = projectToDelete.projectName
+        
+        // Reassign tasks if the project has a valid name
+        if let projectName = deletedProjectName, !projectName.isEmpty {
+            reassignTasksToInbox(fromProject: projectName)
+        }
+        
+        // Delete the project
+        context.delete(projectToDelete)
+        if let index = projects.firstIndex(of: projectToDelete) {
+            projects.remove(at: index)
+        }
+        saveContext()
+        
+        return true
+    }
+    
+    /**
+     Reassigns all tasks from a specific project to the default Inbox project.
+     - Parameter fromProject: The name of the project whose tasks should be reassigned
+    */
+    private func reassignTasksToInbox(fromProject: String) {
+        // Get tasks for the project being deleted
+        let tasksToReassign = TaskManager.sharedInstance.getTasksForProjectByName(projectName: fromProject)
+        
+        // Reassign each task to the Inbox project
+        for task in tasksToReassign {
+            task.project = defaultProject
+        }
+        
+        // Save the changes
+        TaskManager.sharedInstance.saveContext()
+    }
+    
+    /**
+     Updates task project references when a project is renamed.
+     - Parameters:
+        - oldName: The original name of the project
+        - newName: The new name of the project
+    */
+    private func updateTasksForProjectRename(oldName: String, newName: String) {
+        // Get tasks for the project being renamed
+        let tasksToUpdate = TaskManager.sharedInstance.getTasksForProjectByName(projectName: oldName)
+        
+        // Update each task with the new project name
+        for task in tasksToUpdate {
+            task.project = newName
+        }
+        
+        // Save the changes
+        TaskManager.sharedInstance.saveContext()
     }
     
     // MARK: Init

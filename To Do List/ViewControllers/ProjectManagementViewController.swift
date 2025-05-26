@@ -1,175 +1,14 @@
 //
-//  SettingsPageViewController.swift
+//  ProjectManagementViewController.swift
 //  To Do List
 //
-//  Created by Saransh Sharma on 26/04/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Created on 27/05/2025.
+//  Copyright © 2025 saransh1337. All rights reserved.
 //
 
 import UIKit
 
-// Data structures for settings table view
-struct SettingsItem {
-    let title: String
-    let iconName: String? // System SF Symbol name
-    let action: (() -> Void)?
-    var detailText: String? = nil // For displaying things like version
-}
-
-struct SettingsSection {
-    let title: String? // Optional section header
-    let items: [SettingsItem]
-}
-
-class SettingsPageViewController: UIViewController {
-    // Properties
-    var settingsTableView: UITableView!
-    var sections: [SettingsSection] = [] // Data source for the table
-    
-    // Colors and fonts
-    var todoColors = ToDoColors()
-    var todoFont = ToDoFont()
-    
-    // Manager instances
-    let projectManager = ProjectManager.sharedInstance
-    let taskManager = TaskManager.sharedInstance
-    
-    // MARK: - Backdrop compatibility properties (needed for SettingsBackdrop.swift)
-    var backdropContainer = UIView()
-    var headerEndY: CGFloat = 128
-    var backdropBackgroundImageView = UIImageView()
-    var homeTopBar = UIView()
-    
-    // MARK: - Lifecycle Methods
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        
-        // Set up navigation items
-        self.title = "Settings"
-        self.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(doneTapped))
-        
-        // Set up table view
-        setupTableView()
-        
-        // Set up table data
-        setupSettingsSections()
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        // Refresh table data when view appears
-        setupSettingsSections()
-        settingsTableView.reloadData()
-    }
-    
-    // MARK: - UI Setup
-    private func setupTableView() {
-        // Create and configure the table view
-        settingsTableView = UITableView(frame: view.bounds, style: .insetGrouped)
-        settingsTableView.delegate = self
-        settingsTableView.dataSource = self
-        settingsTableView.register(UITableViewCell.self, forCellReuseIdentifier: "settingsCell")
-        settingsTableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        
-        // Add to view hierarchy
-        view.addSubview(settingsTableView)
-    }
-    
-    // MARK: - Data Setup
-    private func setupSettingsSections() {
-        sections = [
-            SettingsSection(title: "Projects", items: [
-                SettingsItem(title: "Project Management", iconName: "folder.fill", action: { [weak self] in
-                    self?.navigateToProjectManagement()
-                })
-            ]),
-            SettingsSection(title: "Appearance", items: [
-                SettingsItem(title: "Dark Mode", iconName: "moon.fill", action: { [weak self] in
-                    // This will be implemented in future
-                    self?.showNotImplementedAlert()
-                })
-            ]),
-            SettingsSection(title: "About", items: [
-                SettingsItem(title: "Version", iconName: "info.circle.fill", action: nil, detailText: "1.0.0")
-            ])
-        ]
-    }
-    
-    // MARK: - Actions
-    @objc func doneTapped() {
-        self.dismiss(animated: true, completion: nil)
-    }
-    
-    private func navigateToProjectManagement() {
-        // Create ProjectManagementViewController directly
-        let projectVC = ProjectManagementViewControllerEmbedded()
-        self.navigationController?.pushViewController(projectVC, animated: true)
-    }
-    
-    private func showNotImplementedAlert() {
-        let alert = UIAlertController(title: "Coming Soon", message: "This feature is not yet implemented", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-        present(alert, animated: true)
-    }
-    
-    // MARK: - Status Bar Style
-    override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .lightContent
-    }
-}
-
-// MARK: - UITableViewDataSource
-extension SettingsPageViewController: UITableViewDataSource {
-    func numberOfSections(in tableView: UITableView) -> Int {
-        return sections.count
-    }
-    
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return sections[section].items.count
-    }
-    
-    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        return sections[section].title
-    }
-    
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "settingsCell", for: indexPath)
-        let item = sections[indexPath.section].items[indexPath.row]
-        
-        // Configure cell
-        cell.textLabel?.text = item.title
-        cell.accessoryType = item.action != nil ? .disclosureIndicator : .none
-        
-        // Configure icon if available
-        if let iconName = item.iconName {
-            cell.imageView?.image = UIImage(systemName: iconName)
-            cell.imageView?.tintColor = todoColors.primaryColor
-        }
-        
-        // Configure detail text if available
-        if let detailText = item.detailText {
-            cell.detailTextLabel?.text = detailText
-        }
-        
-        return cell
-    }
-}
-
-// MARK: - UITableViewDelegate
-extension SettingsPageViewController: UITableViewDelegate {
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-        
-        // Execute the action if available
-        if let action = sections[indexPath.section].items[indexPath.row].action {
-            action()
-        }
-    }
-}
-
-// MARK: - Embedded Project Management
-
-class ProjectManagementViewControllerEmbedded: UIViewController {
+class ProjectManagementViewController: UIViewController {
     // MARK: - Properties
     var projectsTableView: UITableView!
     var projects: [Projects] = []
@@ -181,7 +20,7 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
     // UI Elements
     var emptyStateLabel: UILabel?
     
-    // Colors
+    // HUD
     var todoColors = ToDoColors()
     
     // MARK: - Lifecycle Methods
@@ -326,8 +165,8 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
     }
 }
 
-// MARK: - ProjectManagementViewControllerEmbedded TableView DataSource
-extension ProjectManagementViewControllerEmbedded: UITableViewDataSource {
+// MARK: - UITableViewDataSource
+extension ProjectManagementViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return projects.count
     }
@@ -356,8 +195,8 @@ extension ProjectManagementViewControllerEmbedded: UITableViewDataSource {
     }
 }
 
-// MARK: - ProjectManagementViewControllerEmbedded TableView Delegate
-extension ProjectManagementViewControllerEmbedded: UITableViewDelegate {
+// MARK: - UITableViewDelegate
+extension ProjectManagementViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
