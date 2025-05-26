@@ -11,7 +11,7 @@ import CoreData
 import SemiModalViewController
 import ViewAnimator
 import FSCalendar
-import Charts
+import DGCharts
 import FluentUI
 import UserNotifications
 //import BEMCheckBox

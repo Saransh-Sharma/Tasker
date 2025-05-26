@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Charts
+import DGCharts
 
 
 extension HomeViewController {
@@ -25,7 +25,7 @@ extension HomeViewController {
         
         
         set01.lineWidth = 3
-        set01.fill = Fill(color: todoColors.primaryColorDarker)
+        set01.fillColor = todoColors.primaryColorDarker
         
         
         set01.fillAlpha = 0.3
