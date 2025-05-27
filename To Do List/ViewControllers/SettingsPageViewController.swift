@@ -26,6 +26,9 @@ class SettingsPageViewController: UIViewController {
     var settingsTableView: UITableView!
     var sections: [SettingsSection] = [] // Data source for the table
     
+    // Track the current mode state
+    private var isDarkMode: Bool = false
+    
     // Colors and fonts
     var todoColors = ToDoColors()
     var todoFont = ToDoFont()
@@ -47,6 +50,9 @@ class SettingsPageViewController: UIViewController {
         // Set up navigation items
         self.title = "Settings"
         self.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(doneTapped))
+        
+        // Initialize dark mode state
+        isDarkMode = UIScreen.main.traitCollection.userInterfaceStyle == .dark
         
         // Set up table view
         setupTableView()
@@ -77,6 +83,10 @@ class SettingsPageViewController: UIViewController {
     
     // MARK: - Data Setup
     private func setupSettingsSections() {
+        // Use the tracked mode state
+        let modeTitle = isDarkMode ? "Light Mode" : "Dark Mode"
+        let modeIcon = isDarkMode ? "sun.max.fill" : "moon.fill"
+        
         sections = [
             SettingsSection(title: "Projects", items: [
                 SettingsItem(title: "Project Management", iconName: "folder.fill", action: { [weak self] in
@@ -84,13 +94,14 @@ class SettingsPageViewController: UIViewController {
                 })
             ]),
             SettingsSection(title: "Appearance", items: [
-                SettingsItem(title: "Dark Mode", iconName: "moon.fill", action: { [weak self] in
-                    // This will be implemented in future
-                    self?.showNotImplementedAlert()
+                SettingsItem(title: modeTitle, iconName: modeIcon, action: { [weak self] in
+                    self?.toggleDarkMode()
                 })
             ]),
             SettingsSection(title: "About", items: [
-                SettingsItem(title: "Version", iconName: "info.circle.fill", action: nil, detailText: "1.0.0")
+                SettingsItem(title: "Version", iconName: "info.circle.fill", action: { [weak self] in
+                    self?.showVersionInfo()
+                }, detailText: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")
             ])
         ]
     }
@@ -109,6 +120,49 @@ class SettingsPageViewController: UIViewController {
     private func showNotImplementedAlert() {
         let alert = UIAlertController(title: "Coming Soon", message: "This feature is not yet implemented", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+        present(alert, animated: true)
+    }
+    
+    private func toggleDarkMode() {
+        // Toggle our tracked dark mode state
+        isDarkMode = !isDarkMode
+        
+        // Toggle between light and dark mode
+        if #available(iOS 13.0, *) {
+            let newStyle: UIUserInterfaceStyle = isDarkMode ? .dark : .light
+            
+            // Apply to all windows for consistent appearance
+            UIApplication.shared.windows.forEach { window in
+                window.overrideUserInterfaceStyle = newStyle
+            }
+            
+            // Show confirmation toast
+            let message = isDarkMode ? "Dark Mode Enabled" : "Light Mode Enabled"
+            let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            
+            // Update settings sections to reflect the new mode
+            setupSettingsSections()
+            
+            // Refresh the table to update appearance changes and button text/icon
+            settingsTableView.reloadData()
+        } else {
+            showNotImplementedAlert()
+        }
+    }
+    
+    private func showVersionInfo() {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        
+        let alert = UIAlertController(
+            title: "App Version",
+            message: "Version: \(version)\nBuild: \(buildNumber)",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
     
