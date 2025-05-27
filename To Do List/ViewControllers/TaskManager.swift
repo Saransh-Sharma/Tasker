@@ -11,28 +11,45 @@ import UIKit
 import Timepiece
 import CoreData
 
+/// TaskManager is a singleton class responsible for managing all task-related operations in the Tasker app.
+/// 
+/// This class handles CRUD operations for tasks, including creating, reading, updating, and deleting tasks.
+/// It also provides methods for filtering tasks by various criteria such as project, date, completion status, etc.
+/// TaskManager uses Core Data for persistence and maintains the state of all tasks in the application.
 class TaskManager {
-    //Singleton
+    /// Singleton instance of TaskManager
+    /// Use this shared instance to access task management functionality throughout the app
     static let sharedInstance = TaskManager()
     
+    /// Array containing all tasks fetched from Core Data
     private var tasks = [NTask]()
+    /// Array containing upcoming tasks (taskType = 3)
     private var upcomingTasks = [NTask]()
+    /// Array containing all tasks in the Inbox project
     private var allInboxTasks = [NTask]()
+    /// Array containing all tasks in custom projects (non-Inbox)
     private var allCustomProjectTasks = [NTask]()
     
+    /// Core Data managed object context for database operations
     let context: NSManagedObjectContext!
+    /// Total number of tasks in the database
+    /// - Returns: Count of all tasks after fetching the latest data
     var count: Int {
         get {
             fetchTasks()
             return tasks.count
         }
     }
+    /// All tasks in the database
+    /// - Returns: Array of all tasks after fetching the latest data
     var getAllTasks: [NTask] {
         get {
             fetchTasks()
             return tasks
         }
     }
+    /// All upcoming tasks (taskType = 3)
+    /// - Returns: Array of upcoming tasks after fetching the latest data
     var getUpcomingTasks: [NTask] {
         get {
             fetchTasks()
@@ -45,6 +62,8 @@ class TaskManager {
             return upcomingTasks
         }
     }
+    /// All tasks in the Inbox project
+    /// - Returns: Array of all tasks in the default Inbox project after fetching the latest data
     var getAllInboxTasks: [NTask] {
         get {
             fetchTasks()
@@ -56,6 +75,8 @@ class TaskManager {
             return allInboxTasks
         }
     }
+    /// All tasks in custom projects (non-Inbox)
+    /// - Returns: Array of all tasks in custom projects (excluding Inbox) after fetching the latest data
     var getAllCustomProjectTasks: [NTask] {
         get {
             fetchTasks()
@@ -68,9 +89,11 @@ class TaskManager {
         }
     }
     
-    //----------------------- *************************** -----------------------
-    //MARK:- - Tasks By Project Name - All
-    //----------------------- *************************** -----------------------
+    // MARK: - Project-Based Task Retrieval Methods
+    /// Methods for retrieving tasks based on project name and other criteria
+    /// Retrieves all tasks belonging to a specific project
+    /// - Parameter projectName: The name of the project to filter tasks by
+    /// - Returns: Array of tasks that belong to the specified project
     func getTasksForProjectByName(projectName: String) -> [NTask] {
         
         var projectTasks = [NTask]()
@@ -85,9 +108,11 @@ class TaskManager {
         return projectTasks
     }
     
-    //----------------------- *************************** -----------------------
-    //MARK:- - Tasks For Inbox - All
-    //----------------------- *************************** -----------------------
+    // MARK: - Inbox Task Retrieval Methods
+    /// Methods for retrieving tasks from the Inbox project
+    /// Retrieves all Inbox tasks for a specific date
+    /// - Parameter date: The date to filter tasks by
+    /// - Returns: Array of Inbox tasks for the specified date
     func getTasksForInboxForDate_All(date: Date) -> [NTask] {
         
         print("refg: *********** *********** *********** ***********")
@@ -155,6 +180,11 @@ class TaskManager {
         return inboxTasks
     }
     
+    /// Retrieves all tasks for a specific custom project and date
+    /// - Parameters:
+    ///   - projectName: The name of the custom project to filter tasks by
+    ///   - date: The date to filter tasks by
+    /// - Returns: Array of tasks for the specified project and date
     func getTasksForCustomProjectByNameForDate_All(projectName: String, date: Date) -> [NTask] {
         
         var customProjectTasks = [NTask]()
@@ -173,6 +203,11 @@ class TaskManager {
         return customProjectTasks
     }
     
+    /// Retrieves open (incomplete) tasks for a specific project and date
+    /// - Parameters:
+    ///   - projectName: The name of the project to filter tasks by
+    ///   - date: The date to filter tasks by
+    /// - Returns: Array of open tasks for the specified project and date
     func getTasksForProjectByNameForDate_Open(projectName: String, date: Date) -> [NTask] {
         
         var mtasks = [NTask]()
@@ -219,6 +254,9 @@ class TaskManager {
         return mtasks
     }
     
+    /// Retrieves open (incomplete) tasks from all custom projects for a specific date
+    /// - Parameter date: The date to filter tasks by
+    /// - Returns: Array of open tasks from all custom projects for the specified date
     func getTasksForAllCustomProjectsByNameForDate_Open(date: Date) -> [NTask] {
         
         var mtasks = [NTask]()
@@ -273,7 +311,9 @@ class TaskManager {
         return mtasks
     }
     
-    //fix
+    /// Retrieves all tasks from all custom projects for a specific date
+    /// - Parameter date: The date to filter tasks by
+    /// - Returns: Array of all tasks from all custom projects for the specified date
     func getTasksForAllCustomProjectsByNameForDate_All(date: Date) -> [NTask] {
         
         var mtasks = [NTask]()
@@ -312,6 +352,11 @@ class TaskManager {
         return mtasks
     }
     
+    /// Retrieves completed tasks for a specific project and date
+    /// - Parameters:
+    ///   - projectName: The name of the project to filter tasks by
+    ///   - date: The date to filter tasks by
+    /// - Returns: Array of completed tasks for the specified project and date
     func getTasksForProjectByNameForDate_Complete(projectName: String, date: Date) -> [NTask] {
         
         var tasks = [NTask]()
@@ -330,6 +375,11 @@ class TaskManager {
         return tasks
     }
     
+    /// Retrieves overdue tasks for a specific project and date
+    /// - Parameters:
+    ///   - projectName: The name of the project to filter tasks by
+    ///   - date: The date to filter tasks by
+    /// - Returns: Array of overdue tasks for the specified project and date
     func getTasksForProjectByNameForDate_Overdue(projectName: String, date: Date) -> [NTask] {
         
         var tasks = [NTask]()
@@ -349,6 +399,12 @@ class TaskManager {
     }
     
     
+    // MARK: - Time-Based Task Retrieval Methods
+    /// Methods for retrieving tasks based on time of day (morning/evening)
+    
+    /// Retrieves morning tasks (taskType = 1) for a specific date
+    /// - Parameter date: The date to filter tasks by
+    /// - Returns: Array of morning tasks for the specified date
     func getMorningTasksForDate(date: Date) -> [NTask] {
         
         var morningTasks = [NTask]()
@@ -367,6 +423,9 @@ class TaskManager {
         return morningTasks
     }
     
+    /// Retrieves evening tasks (taskType = 2) for a specific date
+    /// - Parameter date: The date to filter tasks by
+    /// - Returns: Array of evening tasks for the specified date
     func getEveningTaskByDate(date: Date) -> [NTask] {
         
         var eveningTasks = [NTask]()
@@ -384,7 +443,9 @@ class TaskManager {
         return eveningTasks
     }
     
-    //usee this at home view t get todays tasks  with all unfished
+    /// Retrieves morning tasks (taskType = 1) for today, including unfinished tasks from previous days
+    /// Used in the home view to display today's tasks along with all unfinished tasks
+    /// - Returns: Array of morning tasks for today and unfinished tasks from previous days
     func getMorningTasksForToday() -> [NTask] {
         
         
@@ -426,6 +487,8 @@ class TaskManager {
         return morningTasks
     }
     
+    /// Retrieves evening tasks (taskType = 2) for today, including unfinished tasks from previous days
+    /// - Returns: Array of evening tasks for today and unfinished tasks from previous days
     func getEveningTasksForToday() -> [NTask] {
         
         var eveningTasks = [NTask]()
@@ -450,6 +513,14 @@ class TaskManager {
         return eveningTasks
     }
     
+    // MARK: - Task Creation Methods
+    /// Methods for creating new tasks with various properties
+    
+    /// Creates a new task with basic properties
+    /// - Parameters:
+    ///   - name: The name/title of the task
+    ///   - taskType: The type of task (1=morning, 2=evening, 3=upcoming)
+    ///   - taskPriority: The priority level of the task (higher number = higher priority)
     func addNewTask(name: String, taskType: Int, taskPriority: Int) {
         
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
@@ -465,6 +536,12 @@ class TaskManager {
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
     }
     
+    /// Creates a new task scheduled for today
+    /// - Parameters:
+    ///   - name: The name/title of the task
+    ///   - taskType: The type of task (1=morning, 2=evening, 3=upcoming)
+    ///   - taskPriority: The priority level of the task (higher number = higher priority)
+    ///   - isEveningTask: Boolean indicating if this is an evening task
     func addNewTask_Today(name: String, taskType: Int, taskPriority: Int, isEveningTask: Bool) {
         
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
@@ -502,6 +579,14 @@ class TaskManager {
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
     }
     
+    /// Creates a new task scheduled for a future date
+    /// - Parameters:
+    ///   - name: The name/title of the task
+    ///   - taskType: The type of task (1=morning, 2=evening, 3=upcoming)
+    ///   - taskPriority: The priority level of the task (higher number = higher priority)
+    ///   - futureTaskDate: The future date when the task is due
+    ///   - isEveningTask: Boolean indicating if this is an evening task
+    ///   - project: The project this task belongs to (defaults to "inbox" if empty)
     func addNewTask_Future(name: String, taskType: Int, taskPriority: Int, futureTaskDate: Date, isEveningTask: Bool, project: String) {
         
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
@@ -531,6 +616,8 @@ class TaskManager {
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
     }
     
+    /// Creates a new morning task with default properties
+    /// - Parameter name: The name/title of the task
     func addNewMorningTaskWithName(name: String) {
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
@@ -546,6 +633,8 @@ class TaskManager {
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
     }
     
+    /// Creates a new evening task with default properties
+    /// - Parameter name: The name/title of the task
     func addNewEveningTaskWithName(name: String) {
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
@@ -561,10 +650,18 @@ class TaskManager {
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
     }
     
+    // MARK: - Task Management Utility Methods
+    /// Utility methods for accessing, modifying, and managing tasks
+    
+    /// Retrieves a task at a specific index in the tasks array
+    /// - Parameter index: The index of the task to retrieve
+    /// - Returns: The task at the specified index
     func taskAtIndex(index: Int) -> NTask {
         return tasks[index]
     }
     
+    /// Removes a task at a specific index from the tasks array and deletes it from Core Data
+    /// - Parameter index: The index of the task to remove
     func removeTaskAtIndex(index: Int) {
         context.delete(taskAtIndex(index: index))
         tasks.remove(at: index)
@@ -572,6 +669,8 @@ class TaskManager {
     }
     
     
+    /// Saves the current state of the managed object context to persist changes to Core Data
+    /// This method should be called after any changes to tasks to ensure they are saved to the database
     func saveContext() {
         do {
             try context.save()
@@ -580,6 +679,9 @@ class TaskManager {
         }
     }
     
+    /// Fixes missing or inconsistent task data by applying default values
+    /// Specifically, ensures all tasks have a project assigned (defaults to "inbox")
+    /// This method is called during app initialization to maintain data integrity
     func fixMissingTasksDataWithDefaults() {
         fetchTasks()
         ProjectManager.sharedInstance.fetchProjects()
@@ -603,6 +705,8 @@ class TaskManager {
         }
     }
     
+    /// Fetches all tasks from Core Data and updates the tasks array
+    /// This method is called by various other methods to ensure they are working with the latest data
     func fetchTasks() {
         
         let fetchRequest =
@@ -620,8 +724,10 @@ class TaskManager {
         }
     }
     
-    // MARK: Init
+    // MARK: - Initialization
     
+    /// Private initializer to enforce the singleton pattern
+    /// Sets up the Core Data context and fetches initial tasks
     private init() {
         
         let appDelegate = UIApplication.shared.delegate as! AppDelegate
@@ -632,6 +738,17 @@ class TaskManager {
     
     
 }
+
+// MARK: - Task Types
+/// Task Type Constants:
+/// - 1: Morning task
+/// - 2: Evening task
+/// - 3: Upcoming task
+
+// MARK: - Task Priorities
+/// Task Priority Levels:
+/// - Higher number indicates higher priority
+/// - Default priority is 3
 
 
 
