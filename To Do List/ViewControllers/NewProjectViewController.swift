@@ -123,11 +123,13 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
             button.isEnabled = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
             
-            let allProjects = ProjectManager.sharedInstance.getAllProjects
+            let allProjects = ProjectManager.sharedInstance.displayedProjects
             var allProjectList = [String]()
             
             for e in allProjects {
-                allProjectList.append(e.projectName!)
+                if let projectName = e.projectName {
+                    allProjectList.append(projectName)
+                }
             }
             
             currentProjectInTexField = currentProjectInTexField.trimmingLeadingAndTrailingSpaces()

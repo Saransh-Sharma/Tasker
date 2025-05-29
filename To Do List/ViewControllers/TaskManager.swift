@@ -685,7 +685,6 @@ class TaskManager {
     /// This method is called during app initialization to maintain data integrity
     func fixMissingTasksDataWithDefaults() {
         fetchTasks()
-        ProjectManager.sharedInstance.fetchProjects()
         
         //FIX inbox as a defaukt added project in projects
         

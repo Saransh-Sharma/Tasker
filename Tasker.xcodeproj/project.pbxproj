@@ -32,6 +32,12 @@
 		7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0524882E94005CF826 /* ToDoFont.swift */; };
 		7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */; };
 		7551DA0B24883478005CF826 /* AddTaskCalendarExtention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0A24883478005CF826 /* AddTaskCalendarExtention.swift */; };
+		75573CAF2DE88A8000F5A873 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CAE2DE88A8000F5A873 /* SettingsView.swift */; };
+		75573CB02DE88A8000F5A873 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CAE2DE88A8000F5A873 /* SettingsView.swift */; };
+		75573CB12DE88A8000F5A873 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CAE2DE88A8000F5A873 /* SettingsView.swift */; };
+		75573CB32DE8954500F5A873 /* ProjectManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CB22DE8954500F5A873 /* ProjectManagementView.swift */; };
+		75573CB42DE8954500F5A873 /* ProjectManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CB22DE8954500F5A873 /* ProjectManagementView.swift */; };
+		75573CB52DE8954500F5A873 /* ProjectManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CB22DE8954500F5A873 /* ProjectManagementView.swift */; };
 		755FE8D72479159200A71A75 /* HomeCalendarExtention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8D62479159200A71A75 /* HomeCalendarExtention.swift */; };
 		755FE8D92479169400A71A75 /* ToDoList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8D82479169400A71A75 /* ToDoList.swift */; };
 		755FE8DC2479220700A71A75 /* LineChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8DB2479220700A71A75 /* LineChart.swift */; };
@@ -114,6 +120,8 @@
 		7551DA0524882E94005CF826 /* ToDoFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoFont.swift; sourceTree = "<group>"; };
 		7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoTimeUtils.swift; sourceTree = "<group>"; };
 		7551DA0A24883478005CF826 /* AddTaskCalendarExtention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskCalendarExtention.swift; sourceTree = "<group>"; };
+		75573CAE2DE88A8000F5A873 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		75573CB22DE8954500F5A873 /* ProjectManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementView.swift; sourceTree = "<group>"; };
 		755FE8D62479159200A71A75 /* HomeCalendarExtention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarExtention.swift; sourceTree = "<group>"; };
 		755FE8D82479169400A71A75 /* ToDoList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoList.swift; sourceTree = "<group>"; };
 		755FE8DB2479220700A71A75 /* LineChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineChart.swift; sourceTree = "<group>"; };
@@ -302,6 +310,8 @@
 				7551D9FF24880D8E005CF826 /* AddTaskBackdropView.swift */,
 				7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */,
 				7551DA0124880DAC005CF826 /* AddTaskForedropView.swift */,
+				75573CAE2DE88A8000F5A873 /* SettingsView.swift */,
+				75573CB22DE8954500F5A873 /* ProjectManagementView.swift */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -589,11 +599,13 @@
 				758D4D7824A93FB300AB57A8 /* ProjectManager.swift in Sources */,
 				75F993742482487C00C340EB /* HomeBackdropView.swift in Sources */,
 				75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */,
+				75573CAF2DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */,
 				758D4D8624ABA7CE00AB57A8 /* FluentUIFramework.swift in Sources */,
 				758D4D8024AB20F000AB57A8 /* ToDoListData.swift in Sources */,
 				75F18108245CA229004D9A69 /* TaskManager.swift in Sources */,
 				7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */,
+				75573CB42DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */,
 				75B7121D246AFF5B00453AEC /* UpcominngTasksViewController.swift in Sources */,
 				7551DA0024880D8E005CF826 /* AddTaskBackdropView.swift in Sources */,
@@ -617,6 +629,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				750F9EE02685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
+				75573CB32DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
+				75573CB12DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */,
 				7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
 			);
@@ -627,6 +641,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				750F9EE12685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
+				75573CB52DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
+				75573CB02DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
 				7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
 			);
@@ -790,7 +806,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -800,7 +816,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.004;
+				MARKETING_VERSION = 1.0.5;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_NAME = "This Day";
 				SWIFT_VERSION = 5.0;
@@ -815,7 +831,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -825,7 +841,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.004;
+				MARKETING_VERSION = 1.0.5;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_NAME = "This Day";
 				SWIFT_VERSION = 5.0;

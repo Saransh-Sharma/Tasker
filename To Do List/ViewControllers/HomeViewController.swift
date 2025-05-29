@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Created by Saransh Sharma on 14/04/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Copyright 2020 saransh1337. All rights reserved.
 //
 
 import UIKit
@@ -18,6 +18,7 @@ import UserNotifications
 import TinyConstraints
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialBottomAppBar
+import SwiftUI // For UIHostingController and SettingsView
 import MaterialComponents.MaterialButtons_Theming
 import MaterialComponents.MaterialRipple
 
@@ -233,7 +234,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //MARK:- Elevation + Shadows:
     let bottomBarShadowElevation: ShadowElevation = ShadowElevation(rawValue: 8)
     
-    
+    /// where the foredrop started
+    private var originalForedropCenterY: CGFloat = 0
+    /// how far we need to push it down
+    private var revealDistance: CGFloat    = 0
+    /// are we currently “dropped”?
+    private var isBackdropRevealed: Bool   = false
     
     func getTaskForTodayCount() -> Int {
         var morningTasks = [NTask]()
@@ -265,7 +271,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             projectForTheView = projectName
             print("woo : PROJCT IS DEFAULT - INBOX")
         } else {
-            let projectsList = ProjectManager.sharedInstance.getAllProjects
+            let projectsList = ProjectManager.sharedInstance.projects
             for each in projectsList {
                 if projectName.lowercased() == each.projectName?.lowercased() {
                     print("woohoo ! project set to: \(String(describing: each.projectName?.lowercased()))")
@@ -401,16 +407,16 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         
         
-        ProjectManager.sharedInstance.fetchProjects()
+        ProjectManager.sharedInstance.refreshAndPrepareProjects()
         
         print("Project count is: \(ProjectManager.sharedInstance.count)")
         
         
         
-        ProjectManager.sharedInstance.fetchProjects()
+        ProjectManager.sharedInstance.refreshAndPrepareProjects()
         
         
-        let mProjects = ProjectManager.sharedInstance.getAllProjects
+        let mProjects = ProjectManager.sharedInstance.projects
         
         print("----------")
         for each in mProjects {
@@ -464,7 +470,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
     }
     
-    func createButton(title: String, action: Selector) -> Button {
+    func createButton(title: String, action: Selector) -> FluentUI.Button {
         let button = Button()
         button.titleLabel?.textAlignment = .center
         button.titleLabel?.numberOfLines = 0
@@ -1021,11 +1027,17 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     @objc
     func onMenuButtonTapped() {
-        print("menu button tapped")
-        let settingsVC = SettingsPageViewController()
-        let navController = UINavigationController(rootViewController: settingsVC)
-        navController.modalPresentationStyle = .fullScreen
-        self.present(navController, animated: true, completion: nil)
+        print("menu button tapped - Presenting SwiftUI Settings")
+        // let settingsVC = SettingsPageViewController() // OLD
+        let swiftUISettingsView = SettingsView() // NEW
+        let hostingController = UIHostingController(rootView: swiftUISettingsView) // NEW
+        
+        // Option 2: More direct if SettingsView handles its own NavigationView correctly for modal presentation
+        // The SettingsView already has a NavigationView.
+        hostingController.modalPresentationStyle = .fullScreen // Present the hosting controller directly
+
+        // self.present(navController, animated: true, completion: nil) // If using Option 1
+        self.present(hostingController, animated: true, completion: nil) // If using Option 2
     }
     
     @objc
