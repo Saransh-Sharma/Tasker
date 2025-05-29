@@ -18,6 +18,7 @@ import UserNotifications
 import TinyConstraints
 import MaterialComponents.MaterialButtons
 import MaterialComponents.MaterialBottomAppBar
+import SwiftUI // For UIHostingController and SettingsView
 import MaterialComponents.MaterialButtons_Theming
 import MaterialComponents.MaterialRipple
 
@@ -1021,11 +1022,17 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     @objc
     func onMenuButtonTapped() {
-        print("menu button tapped")
-        let settingsVC = SettingsPageViewController()
-        let navController = UINavigationController(rootViewController: settingsVC)
-        navController.modalPresentationStyle = .fullScreen
-        self.present(navController, animated: true, completion: nil)
+        print("menu button tapped - Presenting SwiftUI Settings")
+        // let settingsVC = SettingsPageViewController() // OLD
+        let swiftUISettingsView = SettingsView() // NEW
+        let hostingController = UIHostingController(rootView: swiftUISettingsView) // NEW
+        
+        // Option 2: More direct if SettingsView handles its own NavigationView correctly for modal presentation
+        // The SettingsView already has a NavigationView.
+        hostingController.modalPresentationStyle = .fullScreen // Present the hosting controller directly
+
+        // self.present(navController, animated: true, completion: nil) // If using Option 1
+        self.present(hostingController, animated: true, completion: nil) // If using Option 2
     }
     
     @objc

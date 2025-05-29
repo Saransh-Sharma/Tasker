@@ -6,6 +6,8 @@
 //  Copyright © 2020 saransh1337. All rights reserved.
 //
 
+import Combine // May be needed for ObservableObject and @Published
+//
 import Foundation
 import UIKit
 import CoreData
@@ -17,13 +19,13 @@ extension Sequence where Element: Hashable {
     }
 }
 
-class ProjectManager {
+class ProjectManager: ObservableObject { // Conform to ObservableObject
     
     
     //Singleton
     static let sharedInstance = ProjectManager()
     
-    private var projects = [Projects]()
+    @Published var projects = [Projects]() // Mark with @Published
     
     let context: NSManagedObjectContext!
     var count: Int {
