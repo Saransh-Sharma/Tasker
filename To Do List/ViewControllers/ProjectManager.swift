@@ -73,67 +73,95 @@ class ProjectManager {
     }
     
     func fixMissingProjecsDataWithDefaults() {
-        fetchProjects()
-        
-        // Find all Inbox projects (case insensitive)
-        var inboxProjects = [Projects]()
-        for project in projects {
-            if project.projectName?.lowercased() == defaultProject.lowercased() {
-                inboxProjects.append(project)
+        fetchProjects() // Ensure 'self.projects' is up-to-date with the latest from Core Data
+
+        var allFoundInboxProjects = [Projects]()
+        var otherNonInboxProjects = [Projects]() // To store projects that are definitely not "Inbox"
+
+        // 1. Identify all potential "Inbox" projects (case-insensitive) and separate others
+        for project in self.projects {
+            if project.projectName?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == defaultProject.lowercased() {
+                allFoundInboxProjects.append(project)
+            } else {
+                otherNonInboxProjects.append(project)
             }
         }
-        
-        // Handle different scenarios
-        if inboxProjects.isEmpty {
-            // No Inbox project exists, create one
-            print("No Inbox project found! Creating default 'Inbox' project")
-            
+
+        if allFoundInboxProjects.isEmpty {
+            // 2. No "Inbox" project exists: Create a new one with the canonical name and description.
+            print("ProjectManager: No Inbox project found. Creating default '\(defaultProject)' project.")
             let newInbox = NSEntityDescription.insertNewObject(forEntityName: "Projects", into: context) as! Projects
-            newInbox.projectName = defaultProject // Use proper case from defaultProject variable
+            newInbox.projectName = defaultProject // Use the canonical name (e.g., "Inbox" with correct casing)
             newInbox.projecDescription = defaultProjectDescription
             
-            projects.insert(newInbox, at: 0)
-            saveContext()
-        } else if inboxProjects.count > 1 {
-            // Multiple Inbox projects found, merge them
-            print("Found \(inboxProjects.count) Inbox projects! Merging them...")
-            
-            // Keep the first Inbox project (ensure it has the proper capitalization)
-            let primaryInbox = inboxProjects[0]
-            primaryInbox.projectName = defaultProject // Ensure correct capitalization
-            
-            // Move tasks from duplicate Inbox projects to the primary one
-            for i in 1..<inboxProjects.count {
-                let duplicateInbox = inboxProjects[i]
-                
-                // Get all tasks assigned to this duplicate Inbox
-                if let duplicateName = duplicateInbox.projectName {
-                    // Reassign tasks to the primary Inbox
-                    let tasksToReassign = TaskManager.sharedInstance.getTasksForProjectByName(projectName: duplicateName)
-                    for task in tasksToReassign {
-                        task.project = defaultProject
+            // Update the local projects array immediately
+            self.projects = [newInbox] + otherNonInboxProjects
+            saveContext() // Persist the new Inbox project
+            print("ProjectManager: Default '\(defaultProject)' project created successfully.")
+
+        } else {
+            // 3. One or more "Inbox" projects exist: Consolidate them.
+            // Designate the first one found as the primary.
+            let primaryInbox = allFoundInboxProjects.removeFirst() 
+            var requiresSave = false // Flag to track if changes were made that need saving
+
+            // 3a. Ensure the primary Inbox has the canonical name and description.
+            if primaryInbox.projectName != defaultProject {
+                print("ProjectManager: Correcting primary Inbox project name from '\(primaryInbox.projectName ?? "N/A")' to '\(defaultProject)'.")
+                primaryInbox.projectName = defaultProject
+                requiresSave = true
+            }
+            if primaryInbox.projecDescription != defaultProjectDescription {
+                print("ProjectManager: Correcting primary Inbox project description.")
+                primaryInbox.projecDescription = defaultProjectDescription
+                requiresSave = true
+            }
+
+            // 3b. If there were other "Inbox" projects (duplicates), merge them into the primaryInbox.
+            if !allFoundInboxProjects.isEmpty {
+                print("ProjectManager: Found \(allFoundInboxProjects.count) duplicate Inbox project(s). Merging into '\(defaultProject)'.")
+                for duplicateInbox in allFoundInboxProjects {
+                    if let duplicateName = duplicateInbox.projectName, !duplicateName.isEmpty {
+                        // Reassign tasks from the duplicate to the primary Inbox
+                        let tasksToReassign = TaskManager.sharedInstance.getTasksForProjectByName(projectName: duplicateName)
+                        if !tasksToReassign.isEmpty {
+                            print("ProjectManager: Reassigning \(tasksToReassign.count) tasks from duplicate '\(duplicateName)' to '\(defaultProject)'.")
+                            for task in tasksToReassign {
+                                task.project = primaryInbox.projectName // Assign to the primary Inbox's canonical name
+                            }
+                        }
                     }
-                    
-                    // Delete the duplicate Inbox project
+                    // Delete the duplicate project entity from Core Data
+                    print("ProjectManager: Deleting duplicate Inbox project: '\(duplicateInbox.projectName ?? "N/A")' (ID: \(duplicateInbox.objectID)).")
                     context.delete(duplicateInbox)
-                    if let index = projects.firstIndex(of: duplicateInbox) {
-                        projects.remove(at: index)
-                    }
+                    requiresSave = true
+                }
+                // Ensure TaskManager saves changes to reassigned tasks
+                if !allFoundInboxProjects.isEmpty { // Only save if tasks were potentially reassigned
+                     TaskManager.sharedInstance.saveContext()
                 }
             }
             
-            // Save all changes
-            TaskManager.sharedInstance.saveContext()
-            saveContext()
-            print("Successfully merged duplicate Inbox projects")
-        } else {
-            // Exactly one Inbox project exists, ensure correct capitalization
-            let existingInbox = inboxProjects[0]
-            if existingInbox.projectName != defaultProject {
-                existingInbox.projectName = defaultProject
-                saveContext()
-                print("Updated Inbox project capitalization")
+            // Update the local 'self.projects' array to reflect the consolidated state
+            self.projects = [primaryInbox] + otherNonInboxProjects
+            
+            if requiresSave {
+                saveContext() // Persist changes (renaming, deletions)
+                print("ProjectManager: Inbox consolidation complete. Changes saved.")
+            } else {
+                print("ProjectManager: Inbox project is already consistent. No changes made.")
             }
+        }
+        
+        // Re-fetch projects to ensure the 'self.projects' array accurately reflects the database state after consolidation.
+        // This is important for subsequent operations within the same app session.
+        fetchProjects()
+        let finalInboxCount = self.projects.filter { $0.projectName?.lowercased() == defaultProject.lowercased() }.count
+        print("ProjectManager: Post-consolidation check. Current canonical '\(defaultProject)' count: \(finalInboxCount). Total projects: \(self.projects.count)")
+        if finalInboxCount > 1 {
+            print("ProjectManager: WARNING - Multiple Inbox projects still detected post-consolidation. Further investigation needed.")
+        } else if finalInboxCount == 0 && !self.projects.isEmpty { // Added check to ensure projects list isn't empty
+            print("ProjectManager: WARNING - No Inbox project detected post-consolidation when projects exist. Further investigation needed.")
         }
     }
     

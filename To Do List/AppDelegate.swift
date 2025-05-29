@@ -30,6 +30,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // 1) Force the container to load now (so CloudKit subscriptions are registered)
         _ = persistentContainer
         
+        // **CRITICAL: Call consolidation logic after Core Data stack is ready**
+        ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
+        TaskManager.sharedInstance.fixMissingTasksDataWithDefaults()
+        
         // 2) Observe remote-change notifications so your viewContext merges them
         NotificationCenter.default.addObserver(
             self,
@@ -148,8 +152,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     @objc
     func handlePersistentStoreRemoteChange(_ notification: Notification) {
         let context = persistentContainer.viewContext
-        context.performAndWait {
-            context.mergeChanges(fromContextDidSave: notification)
+        // Perform merging on the context's queue to avoid threading issues
+        context.perform { // Changed from performAndWait to perform for potentially better responsiveness
+            print("AppDelegate: Handling persistent store remote change notification.")
+            do {
+                context.mergeChanges(fromContextDidSave: notification) // Correct method signature
+                print("AppDelegate: Successfully merged changes from remote store.")
+
+                // **CRITICAL: Call consolidation logic after merging CloudKit changes**
+                ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
+                TaskManager.sharedInstance.fixMissingTasksDataWithDefaults() // Re-check tasks
+
+                // Consider posting a custom notification if UI needs to react strongly to these background changes
+                // NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
+
+            } catch {
+                print("AppDelegate: Error merging changes from remote store: \(error)")
+                // Handle or log the merge error appropriately
+            }
         }
     }
     
