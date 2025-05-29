@@ -58,8 +58,8 @@ extension HomeViewController {
         revealDistance = (requiredReveal - foredropTopY) + padding
 
         // hook both buttons to same toggle
-        revealCalAtHomeButton.addTarget(self, action: #selector(toggleBackdrop), for: .touchUpInside)
-        revealChartsAtHomeButton.addTarget(self, action: #selector(toggleBackdrop), for: .touchUpInside)
+        revealCalAtHomeButton.addTarget(self, action: #selector(toggleCalendar), for: .touchUpInside)
+        revealChartsAtHomeButton.addTarget(self, action: #selector(toggleCharts), for: .touchUpInside)
     }
     
     //----------------------- *************************** -----------------------
@@ -110,15 +110,18 @@ extension HomeViewController {
     
     //MARK:- Setup Backdrop Notch
     func setupBackdropNotch() {
-        if (UIDevice.current.hasNotch) {
+        // inline safe-area check instead of hasNotch extension
+        let topInset: CGFloat
+        if #available(iOS 11.0, *) {
+            topInset = UIApplication.shared.windows.first?.safeAreaInsets.top ?? 0
+        } else {
+            topInset = 0
+        }
+        if topInset > 20 {
             print("I SEE NOTCH !!")
         } else {
             print("NO NOTCH !")
         }
-        //backdropNochImageView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 40)
-        //backdropNochImageView.backgroundColor = todoColors.primaryColorDarker
-        
-        //backdropContainer.addSubview(backdropNochImageView)
     }
     
     func addTinyChartToBackdrop() {
@@ -233,35 +236,41 @@ extension HomeViewController {
     //----------------------- *************************** -----------------------
     //MARK:-                     ACTION: SHOW CALENDAR
     //----------------------- *************************** -----------------------
-    @objc func toggleBackdrop() {
-        let duration: TimeInterval = 1.2
-        let delay:    TimeInterval = 0.2
+    
+    @objc func toggleCalendar() {
+        let padding: CGFloat = 8
+        let isOpening = calendar.isHidden
+        let targetY = isOpening ? calendar.frame.maxY + padding : foredropClosedY
+        animateForedrop(to: targetY) {
+            self.calendar.isHidden.toggle()
+        }
+    }
+    
+    @objc func toggleCharts() {
+        let padding: CGFloat = 8
+        let isOpening = lineChartView.isHidden
+        let targetY = isOpening ? lineChartView.frame.maxY + padding : foredropClosedY
+        animateForedrop(to: targetY) {
+            self.lineChartView.isHidden.toggle()
+        }
+    }
+    
+    private func animateForedrop(to y: CGFloat, completion: @escaping () -> Void) {
         UIView.animate(
-          withDuration: duration,
-          delay: delay,
-          usingSpringWithDamping: 0.5,
-          initialSpringVelocity: 2,
-          options: .curveLinear
+          withDuration: 0.6,
+          delay: 0,
+          usingSpringWithDamping: 0.8,
+          initialSpringVelocity: 1,
+          options: .curveEaseInOut
         ) {
-          if !self.isBackdropRevealed {
-            // slide down by revealDistance
-            self.foredropContainer.center.y += self.revealDistance
-          } else {
-            // restore original
-            self.foredropContainer.center.y = self.originalForedropCenterY
-          }
+          var f = self.foredropContainer.frame
+          f.origin.y = y
+          self.foredropContainer.frame = f
         } completion: { _ in
-          // toggle state
-          self.isBackdropRevealed.toggle()
-          // chart shows only when revealed
-          self.lineChartView.isHidden = !self.isBackdropRevealed
-          // refresh table
+          completion()
           self.tableView.reloadData()
         }
     }
-
-    @objc func showChartsHHomeButton_Action() { }
-    @objc func showCalMoreButtonnAction() { }
     
     //----------------------- *************************** -----------------------
     //MARK:-                    setup line chart
