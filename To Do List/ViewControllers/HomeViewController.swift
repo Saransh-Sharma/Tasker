@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Created by Saransh Sharma on 14/04/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Copyright 2020 saransh1337. All rights reserved.
 //
 
 import UIKit
@@ -234,7 +234,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     //MARK:- Elevation + Shadows:
     let bottomBarShadowElevation: ShadowElevation = ShadowElevation(rawValue: 8)
     
-    
+    /// where the foredrop started
+    private var originalForedropCenterY: CGFloat = 0
+    /// how far we need to push it down
+    private var revealDistance: CGFloat    = 0
+    /// are we currently “dropped”?
+    private var isBackdropRevealed: Bool   = false
     
     func getTaskForTodayCount() -> Int {
         var morningTasks = [NTask]()
