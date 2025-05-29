@@ -465,7 +465,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
     }
     
-    func createButton(title: String, action: Selector) -> Button {
+    func createButton(title: String, action: Selector) -> FluentUI.Button {
         let button = Button()
         button.titleLabel?.textAlignment = .center
         button.titleLabel?.numberOfLines = 0
