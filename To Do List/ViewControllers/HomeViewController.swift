@@ -235,11 +235,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     let bottomBarShadowElevation: ShadowElevation = ShadowElevation(rawValue: 8)
     
     /// where the foredrop started
-    private var originalForedropCenterY: CGFloat = 0
+    var originalForedropCenterY: CGFloat = 0
     /// how far we need to push it down
-    private var revealDistance: CGFloat    = 0
+    var revealDistance: CGFloat    = 0
     /// are we currently “dropped”?
-    private var isBackdropRevealed: Bool   = false
+    var isBackdropRevealed: Bool   = false
+    /// closed Y position of foredrop for hide animations
+    var foredropClosedY: CGFloat   = 0
     
     func getTaskForTodayCount() -> Int {
         var morningTasks = [NTask]()
@@ -995,19 +997,20 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             //icon_menu
             style: .plain,
             target: self,
-            action: #selector(self.onMenuButtonTapped))
+            action: #selector(onMenuButtonTapped))
         
         let barButtonSearch = UIBarButtonItem(
             image: UIImage(systemName: "waveform.path.ecg",withConfiguration: boldLargeConfig)?.withTintColor(.systemGray5, renderingMode: .alwaysOriginal), // Icon
             style: .plain,
             target: self,
-            action: #selector(self.showChartsHHomeButton_Action))
+            action: #selector(toggleCharts)
+        )
         let barButtonInbox = UIBarButtonItem(
             image: UIImage(systemName: "calendar", withConfiguration: boldLargeConfig)?.withTintColor(.systemGray5, renderingMode: .alwaysOriginal), // Icon
             style: .plain,
             target: self,
-            action: #selector(self.showCalMoreButtonnAction))
-        
+            action: #selector(toggleCalendar)
+        )
         bottomAppBar.leadingBarButtonItems = [barButtonSearch, barButtonInbox, barButtonMenu]
         //                 bottomAppBar.trailingBarButtonItems = [barButtonTrailingItem]
         bottomAppBar.elevation = ShadowElevation(rawValue: 8)
@@ -1140,96 +1143,28 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     
     
-}
-
-
-
+//    @objc
+//    func toggleCalendar() {
+//        if isCalDown {
+//            moveUp_toHideCal(view: calendar)
+//        } else {
+//            moveDown_revealJustCal(view: calendar)
+//        }
+//    }
+//    
+//    @objc
+//    func toggleCharts() {
+//        if isChartsDown {
+//            moveUp_hideCharts(view: tinyPieChartView)
+//        } else {
+//            moveDown_revealCharts(view: tinyPieChartView)
+//        }
+//    }
     
-    
-    
-
-
-//----------------------- *************************** -----------------------
-//MARK:-                        DETECT NOTCH
-//----------------------- *************************** -----------------------
-
-
-
-extension UIDevice {
-    var hasNotch: Bool {
-        if #available(iOS 11.0, *) {
-            if UIApplication.shared.windows.count == 0 { return false }          // Should never occur, but…
-            let top = UIApplication.shared.windows[0].safeAreaInsets.top
-            return top > 20          // That seem to be the minimum top when no notch…
-        } else {
-            // Fallback on earlier versions
-            return false
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if foredropClosedY == 0 {
+            foredropClosedY = foredropContainer.frame.minY
         }
     }
-}
-
-class openTask: UITableViewCell {
-    
-    var todoFont = ToDoFont()
-    
-    //    override init(frame: CGRect) {
-    //        super.init(frame: frame)
-    //        setup()
-    //    }
-    
-    // MARK: - Initialization
-    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
-        super.init(style: style, reuseIdentifier: reuseIdentifier)
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    override func layoutSubviews() {
-        setupUI()
-    }
-    
-    // MARK: - Properties
-    lazy var titleLabel: UILabel = {
-        let label = UILabel()
-        label.font = UIFont(name: "HelveticaNeue", size: 20)
-        label.textColor = .systemBlue
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-    
-    
-    
-    
-    
-    func setupUI() {
-        self.backgroundColor = .blue
-        
-        self.addSubview(addProjectImageView)
-        self.addSubview(addProjectLabel)
-        
-        addProjectImageView.anchor(top: topAnchor, left: leftAnchor, bottom: nil, right: rightAnchor, paddingTop: 0, paddingLeft: 5, paddingBottom: 5, paddingRight: 5, width: 0, height: 30)
-        
-        addProjectLabel.anchor(top: nil, left: leftAnchor, bottom: bottomAnchor, right: rightAnchor, paddingTop: 5, paddingLeft: 5, paddingBottom: 0, paddingRight: 5, width: 0, height: 20)
-    }
-    
-    let addProjectImageView: UIImageView = {
-        let iv = UIImageView()
-        iv.contentMode = .scaleAspectFit
-        iv.backgroundColor = .green
-        iv.image = #imageLiteral(resourceName: "selection-on")
-        return iv
-    }()
-    
-    let addProjectLabel: UILabel = {
-        let label = UILabel()
-        label.text = "Add Project !!"
-        label.textColor = .label
-        label.font = UIFont.boldSystemFont(ofSize: 16)
-        label.textAlignment = .center
-        return label
-    }()
-    
-    
 }
