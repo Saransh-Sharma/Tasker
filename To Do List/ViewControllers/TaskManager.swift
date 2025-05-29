@@ -674,6 +674,7 @@ class TaskManager {
     func saveContext() {
         do {
             try context.save()
+            print("✅ Saved context at", Date(), "– item count:", getAllTasks.count)
         } catch let error as NSError {
             print("TaskManager failed saving context ! \(error), \(error.userInfo)")
         }

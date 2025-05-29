@@ -23,6 +23,44 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         
         FirebaseApp.configure()
+        
+        // Register for CloudKit silent pushes
+        application.registerForRemoteNotifications()
+        
+        // 1) Force the container to load now (so CloudKit subscriptions are registered)
+        _ = persistentContainer
+        
+        // 2) Observe remote-change notifications so your viewContext merges them
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handlePersistentStoreRemoteChange),
+            name: .NSPersistentStoreRemoteChange,
+            object: persistentContainer.persistentStoreCoordinator)
+            
+        // 3) Monitor CloudKit container events for debugging
+        NotificationCenter.default.addObserver(
+            forName: NSPersistentCloudKitContainer.eventChangedNotification,
+            object: persistentContainer,
+            queue: .main
+        ) { note in
+            guard
+              let userInfo = note.userInfo,
+              let events = userInfo[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+                            as? [NSPersistentCloudKitContainer.Event]
+            else { return }
+
+            for event in events {
+                // Log the event type
+                print("📡 CloudKit event:", event.type)
+
+                // Log any errors
+                if let err = event.error {
+                    print("   ⛔️ error:", err)
+                }
+
+            }
+        }
+        
         return true
     }
 
@@ -49,38 +87,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
          */
         let container = NSPersistentCloudKitContainer(name: "TaskModel")
         
-        var database = CKContainer(identifier: "iCloud.TaskerCloudKit").privateCloudDatabase
+        // Get the default persistent store description created by the container.
+        guard let description = container.persistentStoreDescriptions.first else {
+            fatalError("### AppDelegate ### Failed to retrieve a persistent store description.")
+        }
         
+        // Set the CloudKit container options.
+        // This is the crucial step to enable CloudKit synchronization.
+        description.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(containerIdentifier: "iCloud.TaskerCloudKit")
         
-//        // Create a store description for a local store
-//            let localStoreLocation = URL(fileURLWithPath: "/path/to/local.store")
-//            let localStoreDescription =
-//                NSPersistentStoreDescription(url: localStoreLocation)
-//            localStoreDescription.configuration = "Local"
-
-        // Create a store description for a CloudKit-backed local store
-//          let cloudStoreLocation = URL(fileURLWithPath: "/path/to/cloud.store")
-//          let cloudStoreDescription =
-//              NSPersistentStoreDescription(url: cloudStoreLocation)
-//          cloudStoreDescription.configuration = "Cloud"
-
-        // Set the container options on the cloud store
-//          cloudStoreDescription.cloudKitContainerOptions =
-//              NSPersistentCloudKitContainerOptions(
-//                containerIdentifier: "iCloud.TaskerCloudKit")
-        
-        // Update the container's list of store descriptions
-//         container.persistentStoreDescriptions = [
-//             cloudStoreDescription
-////             localStoreDescription
-//         ]
-        
-//        // Load both stores
-//         container.loadPersistentStores { storeDescription, error in
-//             guard error == nil else {
-//                 fatalError("Could not load persistent stores. \(error!)")
-//             }
-//         }
+        // Enable history tracking and remote change notifications for robust sync.
+        description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+        description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
         
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
             if let error = error as NSError? {
@@ -97,7 +115,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                  */
                 fatalError("Unresolved error \(error), \(error.userInfo)")
             }
+            
+            print("Successfully loaded persistent store: \(storeDescription.url?.lastPathComponent ?? "N/A") with CloudKit options: \(storeDescription.cloudKitContainerOptions?.containerIdentifier ?? "None")")
         })
+        
+        // Configure the view context to automatically merge changes from the parent (persistent store coordinator).
+        container.viewContext.automaticallyMergesChangesFromParent = true
+        // Set a merge policy for handling conflicts
+        container.viewContext.mergePolicy = NSMergeByPropertyStoreTrumpMergePolicy
+        
         return container
     }()
     
@@ -116,6 +142,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
         }
     }
+    
+    // MARK: - Push Notification Handling
+    
+    @objc
+    func handlePersistentStoreRemoteChange(_ notification: Notification) {
+        let context = persistentContainer.viewContext
+        context.performAndWait {
+            context.mergeChanges(fromContextDidSave: notification)
+        }
+    }
+    
+    // Remote notification registration success/failure callbacks
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
+        print("✅ APNs token registered successfully")
+    }
+    
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        print("❌ APNs registration failed: \(error)")
+    }
+    
+
 
 }
 
