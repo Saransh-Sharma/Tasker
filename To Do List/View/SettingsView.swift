@@ -22,7 +22,7 @@ struct SettingsView: View {
             Form { // Using Form for grouped table view style
                 Section(header: Text("Projects").foregroundColor(Color(todoColors.primaryColor))) {
                     NavigationLink(destination: ProjectManagementView()) { // NEW
-                        Text("Project Management") // Standard text color
+                        Text("Manage Projects") // Standard text color
                     }
                 }
 

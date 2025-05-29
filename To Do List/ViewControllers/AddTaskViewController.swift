@@ -15,36 +15,30 @@ import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
-class AddTaskViewController: UIViewController, UITextFieldDelegate {
-    
-    
-    
-    
-    
-    
+class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate {
+
     //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()
     var foredropContainer = UIView()
     var bottomBarContainer = UIView()
-    
-    let foredropStackContainer: UIStackView = createVerticalContainer()
-    //    let foredropStackContainerChild: UIStackView = createVerticalContainer()
-    
+
+    // Initialize foredropStackContainer using the static method
+    let foredropStackContainer: UIStackView = AddTaskViewController.createVerticalContainer()
+
     static let verticalSpacing: CGFloat = 16
     static let margin: CGFloat = 16
-    
-    
+
     // MARK: TASK METADATA
     var currentTaskInMaterialTextBox: String = ""
     var isThisEveningTask: Bool = false
-    var taskDayFromPicker: String =  "Unknown"//change datatype tp task type
+    var taskDayFromPicker: String =  "Unknown" //change datatype tp task type
     var currentTaskPriority: Int = 3
-    
+
     let addProjectString = "Add Project"
-    
+
     //MARK:- Positioning
     var headerEndY: CGFloat = 128
-    
+
     var seperatorTopLineView = UIView()
     var backdropNochImageView = UIImageView()
     var backdropBackgroundImageView = UIImageView()
@@ -54,176 +48,165 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate {
     let dateAtHomeLabel = UILabel()
     let scoreCounter = UILabel()
     let scoreAtHomeLabel = UILabel()
-    let cancelButton = UIView()
+    // let cancelButton = UIView() // This seemed unused, removed for now. Add back if needed.
     let eveningSwitch = UISwitch()
-    var prioritySC =  UISegmentedControl()
-    
+    // var prioritySC =  UISegmentedControl() // This is initialized in AddTaskForedropView extension
+
     let switchSetContainer = UIView()
     let switchBackground = UIView()
     let eveningLabel = UILabel()
-    
+
     var addTaskTextBox_Material = MDCFilledTextField()
-    //    let fab_cancelTask = MDCFloatingButton(shape: .mini)
-    //    let topCancelButton = Button(style: .borderless)
     let nCancelButton = UIButton()
     let fab_doneTask = MDCFloatingButton(shape: .default)
-    let p = ["None", "Low", "High", "Highest"]
-    
-    var tabsSegmentedControl = SegmentedControl()
-    
+    let p = ["None", "Low", "High", "Highest"] // Used by AddTaskForedropView extension
+
+    var tabsSegmentedControl = SegmentedControl() // Initialized in AddTaskForedropView extension
+
     var todoColors = ToDoColors()
     var todoFont = ToDoFont()
     var todoTimeUtils = ToDoTimeUtils()
-    
+
     let homeDate_Day = UILabel()
     let homeDate_WeekDay = UILabel()
     let homeDate_Month = UILabel()
-    
+
     let existingProjectCellID = "existingProject"
     let newProjectCellID = "newProject"
-    
+
     //MARK:- Buttons + Views + Bottom bar
     var calendar: FSCalendar!
-    
-    //MARK:- cuurentt task list date
+
+    //MARK:- current task list date
     var dateForAddTaskView = Date.today()
-    
-    
+
     var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project")]
     var currenttProjectForAddTaskView = "Inbox"
-    
-    
+
     var filledBar: UIView?
-    
-    
+
+
     func setProjecForView(name: String) {
-        //        currenttProjectForAddTaskView = name
+        // currenttProjectForAddTaskView = name // Logic seems commented out
     }
+
+//    //MARK:- DONE TASK ACTION (Stub for extension)
+//    @objc func doneAddTaskAction() {
+//        // This is just a stub that will be called from the extension
+//        // The actual implementation is in AddTaskForedropView.swift extension
+//        print("AddTaskViewController: doneAddTaskAction (stub) called")
+//    }
     
-    
-    //MARK:- CANCEL TASK ACTION
-    @objc func cancelAddButtonTaskAction() {
-        
-        //       tap CANCEL --> homeScreen
-        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
-        newViewController.modalPresentationStyle = .fullScreen
-        //        self.present(newViewController, animated: true, completion: nil) //Doesn't look like cancel
-        dismiss(animated: true) //this looks more like cancel compared to above
+    // Correct: static func for creating the container
+    static func createVerticalContainer() -> UIStackView {
+        let container = UIStackView(frame: .zero)
+        container.axis = .vertical
+        // Use static members correctly
+        container.layoutMargins = UIEdgeInsets(top: AddTaskViewController.margin, left: AddTaskViewController.margin, bottom: AddTaskViewController.margin, right: AddTaskViewController.margin)
+        container.isLayoutMarginsRelativeArrangement = true
+        container.spacing = AddTaskViewController.verticalSpacing
+        return container
     }
-    
-    
-    // This function is called when you click return key in the text field.
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        
-        print("textFieldShouldReturn")
-        
-        // Resign the first responder from textField to close the keyboard.
-        textField.resignFirstResponder()
-        doneAddTaskAction()
-        
-        return true
-    }
-    
-    //    func 
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        
-        
+
         view.addSubview(backdropContainer)
-        setupBackdrop()
-        
-        
+        setupBackdrop() // Assuming this method exists or will be added
+
         nCancelButton.setTitle("Cancel", for: .normal)
-        nCancelButton.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: UIScreen.main.bounds.minY+48, width: 70, height: 35)
-        
-        
+        // Consider using AutoLayout for nCancelButton instead of frames
+        nCancelButton.frame = CGRect(x: UIScreen.main.bounds.maxX - UIScreen.main.bounds.maxX / 5, y: UIScreen.main.bounds.minY + 48, width: 70, height: 35)
         view.addSubview(nCancelButton)
-        
-        nCancelButton.addTarget(self, action: #selector(cancelAddTaskAction), for: .touchUpInside)
-        
-        //---Floating Action Button - Material - DONE
-        
+        // The cancelAddTaskAction is in the extension, ensure self correctly refers to AddTaskViewController instance
+        nCancelButton.addTarget(self, action: #selector(self.cancelAddTaskAction), for: .touchUpInside)
+
+
         view.addSubview(foredropStackContainer)
-        setupAddTaskForedrop()
-        
+        self.setupAddTaskForedrop() // This method is in AddTaskForedropView.swift extension
+
         addTaskTextBox_Material.becomeFirstResponder()
-        addTaskTextBox_Material.keyboardType = .webSearch
-        //        addTaskTextBox_Material.returnKeyType = .done
+        addTaskTextBox_Material.keyboardType = .default // .webSearch might not be appropriate for tasks
+        // addTaskTextBox_Material.returnKeyType = .done // Consider this if you want "Done" on keyboard
         addTaskTextBox_Material.autocorrectionType = .yes
         addTaskTextBox_Material.smartDashesType = .yes
         addTaskTextBox_Material.smartQuotesType = .yes
         addTaskTextBox_Material.smartInsertDeleteType = .yes
-        
         addTaskTextBox_Material.delegate = self
-        
-        
     }
-    
+
     override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(true)
+        super.viewWillAppear(animated)
+        print("AddTaskViewController: viewWillAppear called")
         
-        //        filledBar.set
+        // Refresh project data
+        ProjectManager.sharedInstance.refreshAndPrepareProjects()
+
+        // Re-setup or update the pill bar as project list might have changed.
+        // This will call buildProojectsPillBarData from the extension.
+        // NOTE: setupProjectsPillBar is defined in the AddTaskForedropView extension.
+        self.setupProjectsPillBar() 
+
+        // Default selection logic for PillBar
+        if let bar = self.filledBar?.subviews.first(where: { $0 is PillButtonBar }) as? PillButtonBar {
+            let inboxProjectName = "Inbox"
+            var defaultSelectionIndex = pillBarProjectList.firstIndex(where: { $0.title == inboxProjectName })
+
+            // If Inbox not found, try to select the first item if list is not empty (could be "Add Project")
+            if defaultSelectionIndex == nil && !pillBarProjectList.isEmpty {
+                 defaultSelectionIndex = 0 
+            }
+
+            if let indexToSelect = defaultSelectionIndex, indexToSelect < pillBarProjectList.count {
+                _ = bar.selectItem(atIndex: indexToSelect)
+                currenttProjectForAddTaskView = pillBarProjectList[indexToSelect].title
+            } else if !pillBarProjectList.isEmpty { // Fallback if no specific item found but list is not empty
+                 _ = bar.selectItem(atIndex: 0)
+                currenttProjectForAddTaskView = pillBarProjectList[0].title
+            }
+            print("AddTaskViewController: viewWillAppear - Selected project in pill bar: \(currenttProjectForAddTaskView)")
+        }
     }
     
     // MARK:- Build Page Header
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .lightContent
+        return .lightContent // Or .default depending on your background
     }
     
-    
-    /*
-     // MARK: - Navigation
-     
-     // In a storyboard-based application, you will often want to do a little preparation before navigation
-     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-     // Get the new view controller using segue.destination.
-     // Pass the selected object to the new view controller.
-     }
-     */
-    
+    // MARK: - UITextFieldDelegate
+    // This function is called when you click return key in the text field.
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        print("textFieldShouldReturn called")
+        textField.resignFirstResponder()
+        self.doneAddTaskAction() // Call the action defined in the extension
+        return true
+    }
+
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        let oldText = textField.text!
-        print("old uuuuuuuutext is: \(oldText)")
-        let stringRange = Range(range, in:oldText)!
-        let newText = oldText.replacingCharacters(in: stringRange, with: string)
-        print("new text is: \(newText)")
-        
-        currentTaskInMaterialTextBox = newText
-        
-        if newText.isEmpty {
-            print("EMPTY")
+        if let oldText = textField.text, let stringRange = Range(range, in: oldText) {
+            let newText = oldText.replacingCharacters(in: stringRange, with: string)
+            print("AddTaskViewController: new text is: \(newText)")
             
-            fab_doneTask.isHidden = true
-            tabsSegmentedControl.isHidden = true
-            filledBar?.isHidden = true
-            fab_doneTask.isEnabled = false
-        } else {
-            print("NOT EMPTY")
-            filledBar?.isHidden = false
-            tabsSegmentedControl.isHidden = false
-            fab_doneTask.isHidden = false
-            fab_doneTask.isEnabled = true
+            currentTaskInMaterialTextBox = newText
             
+            let isEmpty = newText.isEmpty
+            // fab_doneTask, tabsSegmentedControl, and filledBar are properties of AddTaskViewController (self)
+            // and are assumed to be correctly initialized/managed by the extension methods.
+            self.fab_doneTask.isHidden = isEmpty
+            self.tabsSegmentedControl.isHidden = isEmpty
+            self.filledBar?.isHidden = isEmpty
+            self.fab_doneTask.isEnabled = !isEmpty
         }
         return true
     }
-    
-    class func createVerticalContainer() -> UIStackView {
-        let container = UIStackView(frame: .zero)
-        container.axis = .vertical
-        container.layoutMargins = UIEdgeInsets(top: margin, left: margin, bottom: margin, right: margin)
-        container.isLayoutMarginsRelativeArrangement = true
-        container.spacing = verticalSpacing
-        return container
-    }
-}
+
+    // @objc func cancelAddTaskAction() is now only in AddTaskForedropView.swift extension
+
+} // This is the main closing brace for AddTaskViewController
 
 // MARK: - PillButtonBarDemoController: PillButtonBarDelegate
 
-extension AddTaskViewController: PillButtonBarDelegate {
+extension AddTaskViewController {
     func pillBar(_ pillBar: PillButtonBar, didSelectItem item: PillButtonBarItem, atIndex index: Int) {
         currenttProjectForAddTaskView = item.title
         print("Project is: \(currenttProjectForAddTaskView)")

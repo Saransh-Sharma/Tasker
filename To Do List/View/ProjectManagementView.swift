@@ -1,6 +1,5 @@
 import SwiftUI
 import FluentUI // If specific FluentUI components will be used directly
-// Potentially import CoreData if Projects entity is used directly
 
 struct ProjectManagementView: View {
     let todoColors = ToDoColors() // Instantiate ToDoColors
@@ -26,18 +25,19 @@ struct ProjectManagementView: View {
     @State private var projectToDelete: Projects? = nil
 
     var body: some View {
-        NavigationView {
-            VStack { // Use VStack to accommodate empty state view
-                // Filter out the default "Inbox" project for the empty state check
-                if projectManager.getAllProjects.filter({ $0.projectName?.lowercased() != projectManager.defaultProject.lowercased() }).isEmpty {
-                    Text("Tap '+' to add your first custom project") // Modified empty state text
-                        .foregroundColor(.gray)
-                        .padding()
-                    Spacer() // Push text to center or top
-                } else {
-                    List {
-                        ForEach(projectManager.getAllProjects, id: \.objectID) { project in // Use objectID for stable identity
-                            VStack(alignment: .leading) {
+        // Note: NavigationView wrapper is removed from here, assuming it's part of SettingsView's navigation stack.
+        VStack {
+            // Use `projectManager.displayedProjects` which is a computed property
+            // and does not trigger fetches on its own.
+            if projectManager.displayedProjects.filter({ $0.projectName?.lowercased() != projectManager.defaultProject.lowercased() }).isEmpty && projectManager.projects.count <= 1 { // Check if only Inbox exists or it's truly empty
+                Text("Tap '+' to add your first custom project") // Modified empty state text
+                    .foregroundColor(.gray)
+                    .padding()
+                Spacer() // Push text to center or top
+            } else {
+                List {
+                    ForEach(projectManager.displayedProjects, id: \.objectID) { project in
+                        VStack(alignment: .leading) {
                                 Text(project.projectName ?? "Unknown Project")
                                     .font(.headline)
                                 // Display description only if it's not empty
@@ -46,120 +46,118 @@ struct ProjectManagementView: View {
                                         .font(.subheadline)
                                         .foregroundColor(.gray)
                                 }
-                            }
-                            .contentShape(Rectangle()) // Ensure the whole area is tappable for context menu
-                            .contextMenu {
-                                if project.projectName?.lowercased() != projectManager.defaultProject.lowercased() {
-                                    Button("Edit") {
-                                        projectToEdit = project
-                                        editProjectName = project.projectName ?? ""
-                                        editProjectDescription = project.projecDescription ?? "" // Corrected typo from projecDescription
-                                        showingEditProjectAlert = true
-                                    }
-                                    Button("Delete", role: .destructive) {
-                                        projectToDelete = project
-                                        showingDeleteConfirmAlert = true
-                                    }
+                        }
+                        .contentShape(Rectangle()) // Ensure the whole area is tappable for context menu
+                        .contextMenu {
+                            if project.projectName?.lowercased() != projectManager.defaultProject.lowercased() {
+                                Button("Edit") {
+                                    projectToEdit = project
+                                    editProjectName = project.projectName ?? ""
+                                    editProjectDescription = project.projecDescription ?? ""
+                                    showingEditProjectAlert = true
+                                }
+                                Button("Delete", role: .destructive) {
+                                    projectToDelete = project
+                                    showingDeleteConfirmAlert = true
                                 }
                             }
                         }
                     }
                 }
             }
-            .navigationTitle("Projects")
-            .navigationBarItems(trailing: Button(action: {
-                // Reset fields before showing
-                newProjectName = ""
-                newProjectDescription = ""
-                showingAddProjectAlert = true
-            }) {
-                Image(systemName: "plus")
-                    .foregroundColor(Color(todoColors.primaryColor))
-            })
-            // As with SettingsView, .navigationBarTitle color is tricky.
-            // Rely on global appearance or default.
-            .alert("New Project", isPresented: $showingAddProjectAlert) { // Main alert for adding
-                TextField("Project Name", text: $newProjectName)
-                TextField("Description (Optional)", text: $newProjectDescription)
-                Button("Save") {
-                    let success = projectManager.addNewProject(with: newProjectName, and: newProjectDescription)
+        }
+        .navigationTitle("Projects")
+        // .navigationBarTitleDisplayMode(.inline) // Optional: if you want a smaller title
+        .navigationBarItems(trailing: Button(action: {
+            // Reset fields before showing
+            newProjectName = ""
+            newProjectDescription = ""
+            showingAddProjectAlert = true
+        }) {
+            Image(systemName: "plus")
+                .foregroundColor(Color(todoColors.primaryColor))
+        })
+        .alert("New Project", isPresented: $showingAddProjectAlert) {
+            TextField("Project Name", text: $newProjectName)
+            TextField("Description (Optional)", text: $newProjectDescription)
+            Button("Save") {
+                let success = projectManager.addNewProject(with: newProjectName, and: newProjectDescription)
+                if success {
+                    statusAlertTitle = "Success"
+                    statusAlertMessage = "Project added successfully."
+                } else {
+                    statusAlertTitle = "Error"
+                    statusAlertMessage = "Failed to add project. Name may be empty, 'Inbox', or already exist."
+                }
+                showingStatusAlert = true
+            }
+            Button("Cancel", role: .cancel) { }
+        }
+        .alert(statusAlertTitle, isPresented: $showingStatusAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(statusAlertMessage)
+        }
+        .alert("Edit Project", isPresented: $showingEditProjectAlert) {
+            TextField("Project Name", text: $editProjectName)
+            TextField("Description (Optional)", text: $editProjectDescription)
+            Button("Save") {
+                if let project = projectToEdit {
+                    let success = projectManager.updateProject(project, newName: editProjectName, newDescription: editProjectDescription)
                     if success {
                         statusAlertTitle = "Success"
-                        statusAlertMessage = "Project added successfully."
+                        statusAlertMessage = "Project updated."
                     } else {
                         statusAlertTitle = "Error"
-                        // ProjectManager.addNewProject has internal checks.
-                        // A more specific error message could be derived if ProjectManager provided it.
-                        statusAlertMessage = "Failed to add project. Name may be empty, 'Inbox', or already exist."
+                        statusAlertMessage = "Failed to update project. Name may be invalid, 'Inbox', or already exist."
                     }
-                    showingStatusAlert = true // Trigger the status alert
+                    showingStatusAlert = true
                 }
-                Button("Cancel", role: .cancel) { }
+                projectToEdit = nil
+                editProjectName = ""
+                editProjectDescription = ""
             }
-            .alert(statusAlertTitle, isPresented: $showingStatusAlert) { // Status alert
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(statusAlertMessage)
+            Button("Cancel", role: .cancel) {
+                projectToEdit = nil
+                editProjectName = ""
+                editProjectDescription = ""
             }
-            .alert("Edit Project", isPresented: $showingEditProjectAlert) {
-                TextField("Project Name", text: $editProjectName)
-                TextField("Description (Optional)", text: $editProjectDescription)
-                Button("Save") {
-                    if let project = projectToEdit {
-                        let success = projectManager.updateProject(project, newName: editProjectName, newDescription: editProjectDescription)
-                        if success {
-                            statusAlertTitle = "Success"
-                            statusAlertMessage = "Project updated."
-                        } else {
-                            statusAlertTitle = "Error"
-                            statusAlertMessage = "Failed to update project. Name may be invalid, 'Inbox', or already exist."
-                        }
-                        showingStatusAlert = true
+        }
+        .alert("Delete Project", isPresented: $showingDeleteConfirmAlert) {
+            Button("Delete", role: .destructive) {
+                if let project = projectToDelete {
+                    let success = projectManager.deleteProject(project)
+                    if success {
+                        statusAlertTitle = "Success"
+                        statusAlertMessage = "Project deleted and tasks moved to Inbox."
+                    } else {
+                        statusAlertTitle = "Error"
+                        statusAlertMessage = "Failed to delete project."
                     }
-                    projectToEdit = nil // Clear after use
-                    editProjectName = "" // Reset field
-                    editProjectDescription = "" // Reset field
+                    showingStatusAlert = true
                 }
-                Button("Cancel", role: .cancel) {
-                    projectToEdit = nil
-                    editProjectName = ""
-                    editProjectDescription = ""
-                }
+                projectToDelete = nil
             }
-            .alert("Delete Project", isPresented: $showingDeleteConfirmAlert) {
-                Button("Delete", role: .destructive) {
-                    if let project = projectToDelete {
-                        let success = projectManager.deleteProject(project)
-                         if success {
-                            statusAlertTitle = "Success"
-                            statusAlertMessage = "Project deleted and tasks moved to Inbox."
-                        } else {
-                            statusAlertTitle = "Error"
-                            // This should ideally not happen if "Inbox" is protected by context menu logic
-                            statusAlertMessage = "Failed to delete project. The 'Inbox' project cannot be deleted."
-                        }
-                        showingStatusAlert = true
-                    }
-                    projectToDelete = nil // Clear after use
-                }
-                Button("Cancel", role: .cancel) { projectToDelete = nil }
-            } message: {
-                // Provide a default name if projectToDelete or its name is nil temporarily during alert presentation
-                Text("Delete '\(projectToDelete?.projectName ?? "Selected")' project? Tasks will be moved to 'Inbox'.")
-            }
-            .onAppear {
-                // Ensure projects (especially default "Inbox") are loaded and consistent when the view appears.
-                // getAllProjects will be called by the ForEach, which in turn calls fetchProjects.
-                // Calling fixMissingProjecsDataWithDefaults also calls fetchProjects and ensures Inbox integrity.
-                projectManager.fixMissingProjecsDataWithDefaults()
+            Button("Cancel", role: .cancel) { projectToDelete = nil }
+        } message: {
+            Text("Delete '\(projectToDelete?.projectName ?? "Selected")' project? Tasks will be moved to 'Inbox'.")
+        }
+        .onAppear {
+            // Asynchronously call the centralized data loading and preparation method.
+            DispatchQueue.main.async {
+                projectManager.refreshAndPrepareProjects()
             }
         }
     }
 }
 
-// Preview (Optional, but good practice)
+// Preview (Optional, but helpful)
 struct ProjectManagementView_Previews: PreviewProvider {
     static var previews: some View {
-        ProjectManagementView()
+        // For the preview to work well, you might need to ensure ProjectManager.sharedInstance
+        // has some mock data or its init/refreshAndPrepareProjects can run in a preview context.
+        NavigationView { // Wrap in NavigationView for previewing navigation bar items
+            ProjectManagementView()
+        }
     }
 }

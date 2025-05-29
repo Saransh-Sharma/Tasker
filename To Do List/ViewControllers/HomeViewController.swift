@@ -266,7 +266,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             projectForTheView = projectName
             print("woo : PROJCT IS DEFAULT - INBOX")
         } else {
-            let projectsList = ProjectManager.sharedInstance.getAllProjects
+            let projectsList = ProjectManager.sharedInstance.projects
             for each in projectsList {
                 if projectName.lowercased() == each.projectName?.lowercased() {
                     print("woohoo ! project set to: \(String(describing: each.projectName?.lowercased()))")
@@ -402,16 +402,16 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         
         
-        ProjectManager.sharedInstance.fetchProjects()
+        ProjectManager.sharedInstance.refreshAndPrepareProjects()
         
         print("Project count is: \(ProjectManager.sharedInstance.count)")
         
         
         
-        ProjectManager.sharedInstance.fetchProjects()
+        ProjectManager.sharedInstance.refreshAndPrepareProjects()
         
         
-        let mProjects = ProjectManager.sharedInstance.getAllProjects
+        let mProjects = ProjectManager.sharedInstance.projects
         
         print("----------")
         for each in mProjects {

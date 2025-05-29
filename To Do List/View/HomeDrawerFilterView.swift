@@ -64,11 +64,15 @@ extension HomeViewController {
     
     func buildProojectsPillBarData() {
         
-        let allProjects = Set(ProjectManager.sharedInstance.getAllProjects)
+        let allProjects = ProjectManager.sharedInstance.displayedProjects
         //        var indexToRemove = [Int]()
+        self.pillBarProjectList = []
+        
         for each in allProjects {
-            print("do9 added to pill bar, from ProjectManager: \(String(describing: each.projectName! as String))")
-            pillBarProjectList.append(PillButtonBarItem(title: "\(each.projectName! as String)"))
+            if let projectName = each.projectName {
+                print("do9 added to pill bar, from ProjectManager: \(projectName)")
+                self.pillBarProjectList.append(PillButtonBarItem(title: projectName))
+            }
         }
         
         

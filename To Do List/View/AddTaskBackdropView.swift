@@ -63,8 +63,8 @@ extension AddTaskViewController {
     }
     
     func addCancelBackdrop() {
-        cancelButton.frame = CGRect(x: (UIScreen.main.bounds.width)-(homeTopBar.bounds.height+15), y: 15, width: (homeTopBar.bounds.height)+45, height: (homeTopBar.bounds.height)+45)
-        view.addSubview(cancelButton)
+        self.nCancelButton.frame = CGRect(x: (UIScreen.main.bounds.width)-(self.homeTopBar.bounds.height+15), y: 15, width: (self.homeTopBar.bounds.height)+45, height: (self.homeTopBar.bounds.height)+45)
+        self.view.addSubview(self.nCancelButton)
     }
     
     //----------------------- *************************** -----------------------

@@ -252,6 +252,7 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        projectManager.refreshAndPrepareProjects() // Ensure data is fresh
         loadProjects()
     }
     
@@ -297,7 +298,7 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
     
     // MARK: - Data Management
     private func loadProjects() {
-        projects = projectManager.getAllProjects
+        projects = projectManager.displayedProjects
         projectsTableView.reloadData()
         updateEmptyStateVisibility()
     }
@@ -455,6 +456,7 @@ extension ProjectManagementViewControllerEmbedded: UITableViewDelegate {
                 let success = self.projectManager.deleteProject(project)
                 if success {
                     self.showSuccess(message: "Project deleted and tasks moved to Inbox")
+                    self.projectManager.refreshAndPrepareProjects() // Ensure manager has latest data
                     self.loadProjects()
                     completionHandler(true)
                 } else {
