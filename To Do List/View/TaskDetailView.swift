@@ -1,66 +1,97 @@
 import UIKit
 
 class TaskDetailView: UIView {
-  
-  // MARK: – UI Subviews
-  private let titleLabel = UILabel()
-  private let descriptionLabel = UILabel()
-  private let dueDateLabel = UILabel()
-  private let priorityLabel = UILabel()
-  private let projectLabel = UILabel()
-  private let stack = UIStackView()
-  
-  // MARK: – Init
-  override init(frame: CGRect) {
-    super.init(frame: frame)
-    setupView()
-  }
-  required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-  
-  private func setupView() {
-    backgroundColor = .white
-    layer.cornerRadius = 12
-    layer.shadowColor = UIColor.black.cgColor
-    layer.shadowOpacity = 0.1
-    layer.shadowRadius = 8
-    
-    // Configure labels
-    [titleLabel, descriptionLabel, dueDateLabel, priorityLabel, projectLabel].forEach {
-      $0.numberOfLines = 0
-      $0.textColor = .darkText
-      $0.font = UIFont.systemFont(ofSize: 16)
+    // MARK: – Subviews
+    private let card = UIView()
+    private let titleField: UITextField = {
+        let tf = UITextField()
+        tf.placeholder = "Enter title"
+        tf.font = .systemFont(ofSize: 17, weight: .semibold)
+        return tf
+    }()
+    private let descriptionField: UITextView = {
+        let tv = UITextView()
+        tv.isScrollEnabled = true
+        return tv
+    }()
+    private let dueDatePicker: UIDatePicker = {
+        let dp = UIDatePicker()
+        dp.datePickerMode = .dateAndTime
+        return dp
+    }()
+    private let priorityControl: UISegmentedControl = UISegmentedControl(items: ["Low","Medium","High"])
+    private let projectDropdownField: UITextField = {
+        let tf = UITextField()
+        let picker = UIPickerView()
+        tf.inputView = picker
+        return tf
+    }()
+    private let stackView = UIStackView()
+
+    // MARK: – Init
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupView()
     }
-    titleLabel.font = UIFont.boldSystemFont(ofSize: 20)
-    
-    // Stack setup
-    stack.axis = .vertical
-    stack.spacing = 12
-    stack.alignment = .leading
-    stack.translatesAutoresizingMaskIntoConstraints = false
-    addSubview(stack)
-    
-    [titleLabel, descriptionLabel, dueDateLabel, priorityLabel, projectLabel].forEach {
-      stack.addArrangedSubview($0)
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupView()
     }
-    
-    NSLayoutConstraint.activate([
-      stack.topAnchor.constraint(equalTo: topAnchor, constant: 20),
-      stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-      stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
-      stack.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -20)
-    ])
-  }
-  
-  // MARK: – Configuration
-  func configure(title: String,
-                 description: String,
-                 dueDate: String,
-                 priority: String,
-                 project: String) {
-    titleLabel.text = title
-    descriptionLabel.text = description
-    dueDateLabel.text = "Due: " + dueDate
-    priorityLabel.text = "Priority: " + priority
-    projectLabel.text = "Project: " + project
-  }
+
+    // MARK: – Setup
+    private func setupView() {
+        // Card styling
+        card.translatesAutoresizingMaskIntoConstraints = false
+        card.backgroundColor = .secondarySystemBackground
+        card.layer.cornerRadius = 12
+        card.layer.shadowOpacity = 0.1
+        card.layer.shadowRadius = 4
+        card.layer.shadowOffset = CGSize(width: 0, height: 2)
+        addSubview(card)
+        NSLayoutConstraint.activate([
+            card.topAnchor.constraint(equalTo: topAnchor),
+            card.leadingAnchor.constraint(equalTo: leadingAnchor),
+            card.trailingAnchor.constraint(equalTo: trailingAnchor),
+            card.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+
+        // Stack layout inside card
+        stackView.axis = .vertical
+        stackView.spacing = 12
+        stackView.alignment = .fill
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(stackView)
+        NSLayoutConstraint.activate([
+            stackView.topAnchor.constraint(equalTo: card.topAnchor, constant: 20),
+            stackView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            stackView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+            stackView.bottomAnchor.constraint(lessThanOrEqualTo: card.bottomAnchor, constant: -20)
+        ])
+
+        // Configure fields
+        priorityControl.selectedSegmentIndex = 1
+
+        // Add to stack
+        [titleField,
+         descriptionField,
+         dueDatePicker,
+         priorityControl,
+         projectDropdownField].forEach { stackView.addArrangedSubview($0) }
+    }
+
+    // MARK: – Configuration
+    func configure(title: String,
+                   description: String,
+                   dueDate: String,
+                   priority: String,
+                   project: String) {
+        titleField.text = title
+        descriptionField.text = description
+
+        // You may want to parse `dueDate` string into a Date
+
+        if let idx = ["Low","Medium","High"].firstIndex(of: priority) {
+            priorityControl.selectedSegmentIndex = idx
+        }
+    }
 }

@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Created by Saransh Sharma on 29/06/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Copyright 2020 saransh1337. All rights reserved.
 //
 
 import Foundation
@@ -92,7 +92,10 @@ extension HomeViewController {
         var views = [UIView]()
         if drawerHasFlexibleHeight {
             
-            views.append(addLabel(text: "Filter By Days", style: .headline, colorStyle: .regular))
+            let filterLabel = Label(textStyle: .title1, colorStyle: .regular)
+            filterLabel.text = "Filter By Days"
+            filterLabel.numberOfLines = 0
+            views.append(filterLabel)
             
             views.append(createButton(title: "Today", action: #selector(changeDateFromFilterToday)))
             views.append(createButton(title: "Tomorrow", action: #selector(changeDateFromFilterTomorrow)))
@@ -106,7 +109,10 @@ extension HomeViewController {
             
             //            let mProjects = ProjectManageeer.sharedInstance.getAllProjects
             
-            views.append(addLabel(text: "more filters like project, priority & upcoming tasks coming soon !", style: .caption2, colorStyle: .regular))
+            let subLabel = Label(textStyle: .caption1, colorStyle: .regular)
+            subLabel.text = "more filters like project, priority & upcoming tasks coming soon !"
+            subLabel.numberOfLines = 0
+            views.append(subLabel)
             
             //            views.append(addLabel(text: "Filter By Projects", style: .headline, colorStyle: .regular))
             //            buildProojectsPillBarData()
@@ -121,14 +127,10 @@ extension HomeViewController {
     }
     
     @discardableResult
-    func addLabel(text: String, style: TextStyle, colorStyle: TextColorStyle) -> Label {
-        let label = Label(style: style, colorStyle: colorStyle)
+    public func addLabel(text: String) -> Label {
+        let label = Label()
         label.text = text
         label.numberOfLines = 0
-        if colorStyle == .white {
-            label.backgroundColor = .black
-        }
-        //        addProjectContainer.addArrangedSubview(label)
         return label
     }
     

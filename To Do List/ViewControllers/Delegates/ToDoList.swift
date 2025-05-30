@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Created by Saransh Sharma on 23/05/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Copyright 2020 saransh1337. All rights reserved.
 //
 
 import Foundation
@@ -721,7 +721,7 @@ extension HomeViewController: UITableViewDataSource {
         cell.subtitleNumberOfLinesForLargerDynamicType = listSection?.numberOfLines == 1 ? 2 : TableViewCell.defaultNumberOfLinesForLargerDynamicType
         cell.footerNumberOfLinesForLargerDynamicType = listSection?.numberOfLines == 1 ? 2 : TableViewCell.defaultNumberOfLinesForLargerDynamicType
         
-        cell.backgroundColor = isGrouped ? Colors.Table.Cell.backgroundGrouped : Colors.Table.Cell.background
+        cell.backgroundColor = isGrouped ? .secondarySystemGroupedBackground : .systemBackground
         cell.topSeparatorType = isGrouped && indexPath.row == 0 ? .full : .none
         let isLastInSection = indexPath.row == tableView.numberOfRows(inSection: indexPath.section) - 1
         cell.bottomSeparatorType = isLastInSection ? .full : .inset
@@ -1384,7 +1384,7 @@ extension HomeViewController: UITableViewDelegate {
         } else {
             let header = tableView.dequeueReusableHeaderFooterView(withIdentifier: TableViewHeaderFooterView.identifier) as! TableViewHeaderFooterView
             let section = ToDoListSections[section]
-            header.setup(style: .divider, title: section.sectionTitle)
+            header.setup(style: .header, title: section.sectionTitle)
             return header
         }
         

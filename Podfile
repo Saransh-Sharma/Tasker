@@ -1,8 +1,8 @@
-platform :ios, '15.0'
+platform :ios, '16.0'
 
 target 'Tasker' do
   use_frameworks!
-  use_modular_headers!
+
 
   # Firebase
   pod 'Firebase/Analytics',   '~> 11.13'
@@ -20,7 +20,8 @@ target 'Tasker' do
   pod 'BEMCheckBox',             '~> 1.4.1'
   pod 'DGCharts',                '~> 5.1'
   pod 'TinyConstraints',         '~> 4.0.1'
-  pod 'MicrosoftFluentUI',       '~> 0.1.0'
+  pod 'MicrosoftFluentUI', '~> 0.33.2'
+
 
   target 'TaskerTests' do
     inherit! :search_paths
@@ -31,7 +32,7 @@ end          # ← closes the outer 'Tasker' block
 post_install do |installer|
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |c|
-      c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
     end
   end
 end

@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Created by Saransh Sharma on 03/06/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Copyright 2020 saransh1337. All rights reserved.
 //
 
 import Foundation
@@ -76,10 +76,8 @@ extension AddTaskViewController {
         print("do9 - SETUP PROJECTS pillbar")
         self.buildProojectsPillBarData()
         
-        //        let filledBar = createProjectsBar(items: pillBarProjectList, style: .outline)
-        self.filledBar = self.createProjectsBar(items: self.pillBarProjectList, style: .outline)
+        self.filledBar = self.createProjectsBar(items: self.pillBarProjectList)
         self.filledBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
-        //        self.filledBar = filledBar
         self.foredropStackContainer.addArrangedSubview(self.filledBar!)
         self.filledBar!.backgroundColor = .clear
         self.filledBar!.isHidden = self.addTaskTextBox_Material.text?.isEmpty ?? true
@@ -152,8 +150,8 @@ extension AddTaskViewController {
     }
     
     
-    func createProjectsBar(items: [PillButtonBarItem], style: PillButtonStyle = .outline, centerAligned: Bool = false) -> UIView {
-        let bar = PillButtonBar(pillButtonStyle: style)
+    func createProjectsBar(items: [PillButtonBarItem], centerAligned: Bool = false) -> UIView {
+        let bar = PillButtonBar()
         bar.items = items
         if items.count > 1 {
             bar.selectItem(atIndex: 1) // Default to "Inbox" (index 1)
@@ -164,9 +162,8 @@ extension AddTaskViewController {
         bar.centerAligned = centerAligned
         
         let backgroundView = UIView()
-        if style == .outline {
-            backgroundView.backgroundColor = .clear//Colors.Navigation.System.background
-        }
+        backgroundView.backgroundColor = .clear
+        
         backgroundView.addSubview(bar)
         let margins = UIEdgeInsets(top: 16.0, left: 0, bottom: 16.0, right: 0.0)
         fitViewIntoSuperview(bar, margins: margins)
@@ -248,7 +245,7 @@ extension AddTaskViewController {
         //MARK:- -this is in foredrop (tablsegcontrol: to allow users to pick which list stays in today and which goes)
         
         // 1) Initialize with your array of titles directly
-        let segmented = SegmentedControl(items: p)
+        let segmented = SegmentedControl(items: p.map { SegmentItem(title: $0) })
         
         // 2) Default to the penultimate segment (or whatever index makes sense)
         segmented.selectedSegmentIndex = max(0, p.count - 2)
@@ -256,10 +253,11 @@ extension AddTaskViewController {
         // 3) Show/hide based on eveningSwitch
         segmented.isHidden = eveningSwitch.isOn
         
-        // 4) Wire up your action using .valueChanged
-        segmented.addTarget(self,
-                        action: #selector(changeTaskPriority(_:)),
-                        for: .valueChanged)
+        // 4) Wire up selection using FluentUI closure API
+        segmented.onSelectAction = { [weak self] (item: SegmentItem, selectedIndex: Int) in
+            guard let self = self else { return }
+            self.changeTaskPriority(segmented)
+        }
         
         // 5) Keep a reference and insert into your stack
         self.tabsSegmentedControl = segmented

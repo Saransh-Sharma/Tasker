@@ -1,5 +1,3 @@
-
-
 import Foundation
 import FluentUI
 
@@ -86,7 +84,7 @@ class ToDoListData {
         }
         let customView = UIImageView(image: image)
         customView.contentMode = .scaleAspectFit
-        customView.tintColor = Colors.Table.Cell.image
+        customView.tintColor = .secondaryLabel
         return customView
     }
 }

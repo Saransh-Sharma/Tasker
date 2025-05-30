@@ -58,7 +58,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     func didSelectBadge(_ badge: BadgeView) {
     }
     
-    var ToDoListSections: [ToDoListData.Section] = TableViewCellSampleData.DateForViewSections
+    var ToDoListSections: [ToDoListData.Section] = []
     var listSection: ToDoListData.Section? = nil
     
     var openTaskCheckboxTag = 0
@@ -72,17 +72,21 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         }
     }
     
-    func createProjectsBar(items: [PillButtonBarItem], style: PillButtonStyle = .outline, centerAligned: Bool = false) -> UIView {
-        bar = PillButtonBar(pillButtonStyle: style)
+    func createProjectsBar(
+        items: [PillButtonBarItem],
+        style: PillButtonStyle = .primary,
+        centerAligned: Bool = false
+    ) -> UIView {
+        // 1) Create the bar with the valid style
+        let bar = PillButtonBar(pillButtonStyle: style)
         bar.items = items
         _ = bar.selectItem(atIndex: 1)
         bar.barDelegate = self
         bar.centerAligned = centerAligned
         
-        let backgroundView = UIView()
-        if style == .outline {
-            backgroundView.backgroundColor = .clear
-        }
+        // 2) Wrap it in a FluentUI background view
+        let backgroundStyle: ColoredPillBackgroundStyle = (style == .onBrand) ? .brandNavBar : .neutralNavBar
+        let backgroundView = ColoredPillBackgroundView(style: backgroundStyle)
         backgroundView.addSubview(bar)
         let margins = UIEdgeInsets(top: 16.0, left: 0, bottom: 16.0, right: 0.0)
         fitViewIntoSuperview(bar, margins: margins)
@@ -90,7 +94,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
     
     var filterProjectsPillBar: UIView?
-    var bar = PillButtonBar(pillButtonStyle: .filled)
+    var bar = PillButtonBar(pillButtonStyle: .primary)
     //    var currenttProjectForAddTaskView = "inbox"
     
     var pillBarProjectList: [PillButtonBarItem] = []
@@ -544,8 +548,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         return .lightContent
     }
     
-    func createBadge(text: String, style: BadgeView.Style, size: BadgeView.Size, isEnabled: Bool) -> BadgeView {
-        let badge = BadgeView(dataSource: BadgeViewDataSource(text: text, style: style, size: size))
+    func createBadge(text: String, style: BadgeView.Style, isEnabled: Bool) -> BadgeView {
+        let badge = BadgeView(dataSource: BadgeViewDataSource(text: text, style: style))
         badge.delegate = self
         badge.isActive = isEnabled
         return badge

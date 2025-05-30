@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Created by Saransh Sharma on 24/06/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Copyright 2020 saransh1337. All rights reserved.
 //
 
 import UIKit
@@ -29,7 +29,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
     var projectNameTextField = MDCOutlinedTextField()
     var projecDescriptionTextField = MDCOutlinedTextField()
     
-    let button = Button(style: .primaryFilled)
+    let button = Button()
     
     var currentProjectInTexField = ""
     var currentDescriptionInTexField = ""
@@ -49,29 +49,26 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         view.addSubview(addProjectContainer)
         
         addProjectContainer.backgroundColor = todoColors.backgroundColor
-        addProjectContainer.addArrangedSubview(UIView())
-        
-        addLabel(text: "Add new project", style: .title1, colorStyle: .regular)
-        addDescription(text: "Add new project & set it's description")
-        
-        addProjectContainer.addArrangedSubview(Separator())
-        addProjectContainer.addArrangedSubview(UIView())
-        
+        _ = addSpacer()
+        _ = addLabel(text: "Add new project")
+        _ = addLabel(text: "Add new project & set it's description")
+        _ = addSeparator()
+        _ = addSpacer()
         
         addProjectNameTexField()
-        addProjectContainer.addArrangedSubview(UIView())
+        _ = addSpacer()
         //        addProjectContainer.addArrangedSubview(Separator())
         //        addProjectContainer.addArrangedSubview(UIView())
         
         
         addProjectDesccriptionTexField()
-        addProjectContainer.addArrangedSubview(UIView())
-        addProjectContainer.addArrangedSubview(Separator())
-        addProjectContainer.addArrangedSubview(UIView())
+        _ = addSpacer()
+        _ = addSeparator()
+        _ = addSpacer()
         
         
         addProjectDoneButton()
-        addProjectContainer.addArrangedSubview(UIView())
+        _ = addSpacer()
         
         projectNameTextField.becomeFirstResponder()
         
@@ -108,9 +105,9 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
     
     func addProjectDoneButton() {
         
-        button.setTitle("Add Project", for: .normal)
+        button.setTitle("Add Project", for: UIControl.State.normal)
         button.titleLabel?.numberOfLines = 0
-        button.addTarget(self, action: #selector(addOrModProject), for: .touchUpInside)
+        button.addTarget(self, action: #selector(addOrModProject), for: UIControl.Event.touchUpInside)
         
         addProjectContainer.addArrangedSubview(button)
         
@@ -160,25 +157,25 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
     }
     
     @discardableResult
-    func addDescription(text: String, textAlignment: NSTextAlignment = .natural) -> Label {
-        let description = Label(style: .subhead, colorStyle: .regular)
-        description.numberOfLines = 0
-        description.text = text
-        description.textAlignment = textAlignment
-        addProjectContainer.addArrangedSubview(description)
-        return description
-    }
-    
-    @discardableResult
-    func addLabel(text: String, style: TextStyle, colorStyle: TextColorStyle) -> Label {
-        let label = Label(style: style, colorStyle: colorStyle)
+    func addLabel(text: String, alignment: NSTextAlignment = .natural) -> Label {
+        let label = Label()
+        label.textAlignment = alignment
         label.text = text
-        label.numberOfLines = 0
-        if colorStyle == .white {
-            label.backgroundColor = .black
-        }
         addProjectContainer.addArrangedSubview(label)
         return label
+    }
+    
+    func addSeparator() -> Separator {
+        let separator = Separator()
+        addProjectContainer.addArrangedSubview(separator)
+        return separator
+    }
+    
+    func addSpacer() -> UIView {
+        let spacer = UIView()
+        spacer.heightAnchor.constraint(equalToConstant: NewProjectViewController.margin).isActive = true
+        addProjectContainer.addArrangedSubview(spacer)
+        return spacer
     }
     
     func showMessage(_ message: String, autoDismiss: Bool = true, completion: (() -> Void)? = nil) {

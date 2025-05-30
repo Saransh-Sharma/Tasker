@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Created by Saransh Sharma on 30/06/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Copyright 2020 saransh1337. All rights reserved.
 //
 
 import Foundation
@@ -197,11 +197,10 @@ class TableViewCellSampleData: ToDoListData {
     ]
     
     static var customAccessoryView: UIView {
-        let label = Label(style: .body, colorStyle: .secondary)
+        // now choose the error color at init time
+        let label = Label(textStyle: .body1, colorStyle: .error)
         label.text = "overdue !"
         label.maxFontSize = 12
-        label.colorStyle = .error
-        label.sizeToFit()
         label.numberOfLines = 0
         return label
     }
@@ -274,8 +273,8 @@ class TableViewCellSampleData: ToDoListData {
         stackView.distribution = .fill
         stackView.axis = .vertical
         
-        let label = Label(style: .footnote)
-        label.textColor = UIColor(light: Colors.gray500, lightHighContrast: Colors.gray700, dark: Colors.gray400, darkHighContrast: Colors.gray200) //Colors.t
+        // footnote style with secondary text color
+        let label = Label(textStyle: .caption2, colorStyle: .secondary)
         label.text = text
         stackView.addArrangedSubview(label)
         
@@ -291,8 +290,9 @@ class TableViewCellSampleData: ToDoListData {
                                      stackView.widthAnchor.constraint(equalTo: container.widthAnchor)])
         
         if withBorder {
-            container.layer.borderWidth = UIScreen.main.devicePixel
-            container.layer.borderColor = UIColor(light: Colors.gray500, lightHighContrast: Colors.gray700, dark: Colors.gray400, darkHighContrast: Colors.gray200).cgColor//Colors.textSecondary.cgColor //Colors.textSecondary.cgColor
+            // one device pixel for hairline
+            container.layer.borderWidth = 1.0 / UIScreen.main.scale
+            container.layer.borderColor = UIColor.separator.cgColor
             container.layer.cornerRadius = 3
         }
         
