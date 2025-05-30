@@ -1,5 +1,5 @@
 //
-//  ViewController.swift
+//  HomeViewController.swift
 //  To Do List
 //
 //  Created by Saransh Sharma on 14/04/20.
@@ -1166,5 +1166,54 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         if foredropClosedY == 0 {
             foredropClosedY = foredropContainer.frame.minY
         }
+    }
+}
+
+// MARK: - Task Detail Selection
+extension HomeViewController {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        // 1. Fetch the underlying NTask based on current view type
+        let date = dateForTheView
+        let nTask: NTask
+        switch currentViewType {
+        case .todayHomeView, .customDateView:
+            let inbox = fetchInboxTasks(date: date)
+            let projects = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
+            nTask = (indexPath.section == 1 ? inbox[indexPath.row] : projects[indexPath.row])
+        case .projectView:
+            let projTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
+            nTask = projTasks[indexPath.row]
+        case .upcomingView:
+            let allUpcoming = TaskManager.sharedInstance.getUpcomingTasks
+            let upcoming = allUpcoming.filter { ($0.dueDate as Date?) == date }
+            nTask = upcoming[indexPath.row]
+        case .historyView:
+            let allTasks = TaskManager.sharedInstance.getAllTasks
+            let history = allTasks.filter { $0.isComplete && ($0.dateCompleted as Date?) == date }
+            nTask = history[indexPath.row]
+        }
+        
+        // 2. Build and configure detail view
+        let width = view.bounds.width * 0.8
+        let height = view.bounds.height * 0.6
+        let detailView = TaskDetailView(frame: CGRect(x: 0, y: 0, width: width, height: height))
+        // prepare strings
+        let title = nTask.name
+        let desc = nTask.taskDetails ?? "No description"
+        let df = DateFormatter(); df.dateStyle = .medium; df.timeStyle = .short
+        let dueStr = nTask.dueDate.map { df.string(from: $0 as Date) } ?? "—"
+        let priorityStr = String(nTask.taskPriority)
+        let projectStr = nTask.project ?? "Inbox"
+        detailView.configure(title: title,
+                             description: desc,
+                             dueDate: dueStr,
+                             priority: priorityStr,
+                             project: projectStr)
+        
+        // 3. Present semi-modally
+        semiViewDefaultOptions(viewToBePrsented: detailView)
+        
+        // 4. Deselect
+        tableView.deselectRow(at: indexPath, animated: true)
     }
 }
