@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Created by Saransh Sharma on 02/05/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Copyright 2020 saransh1337. All rights reserved.
 //
 
 import Foundation
@@ -668,6 +668,22 @@ class TaskManager {
         saveContext()
     }
     
+    /// Toggle a task's completion status and update dateCompleted
+    func toggleTaskComplete(task: NTask) {
+        task.isComplete.toggle()
+        if task.isComplete {
+            task.dateCompleted = Date.today() as NSDate
+        } else {
+            task.dateCompleted = nil
+        }
+        saveContext()
+    }
+
+    /// Reschedule a task's dueDate to a new date
+    func reschedule(task: NTask, to newDate: Date) {
+        task.dueDate = newDate as NSDate
+        saveContext()
+    }
     
     /// Saves the current state of the managed object context to persist changes to Core Data
     /// This method should be called after any changes to tasks to ensure they are saved to the database
@@ -749,6 +765,3 @@ class TaskManager {
 /// Task Priority Levels:
 /// - Higher number indicates higher priority
 /// - Default priority is 3
-
-
-

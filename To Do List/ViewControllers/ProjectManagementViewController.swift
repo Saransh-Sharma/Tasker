@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Created on 27/05/2025.
-//  Copyright © 2025 saransh1337. All rights reserved.
+//  Copyright 2025 saransh1337. All rights reserved.
 //
 
 import UIKit
@@ -45,7 +45,6 @@ class ProjectManagementViewController: UIViewController {
         projectsTableView = UITableView(frame: view.bounds, style: .insetGrouped)
         projectsTableView.delegate = self
         projectsTableView.dataSource = self
-        projectsTableView.register(UITableViewCell.self, forCellReuseIdentifier: "projectCell")
         projectsTableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         
         view.addSubview(projectsTableView)
@@ -82,7 +81,8 @@ class ProjectManagementViewController: UIViewController {
     
     // MARK: - Data Management
     private func loadProjects() {
-        projects = projectManager.getAllProjects
+        projectManager.refreshAndPrepareProjects()
+        projects = projectManager.displayedProjects
         projectsTableView.reloadData()
         updateEmptyStateVisibility()
     }
@@ -163,6 +163,30 @@ class ProjectManagementViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
+    
+    @objc private func deleteButtonTapped(_ sender: UIButton) {
+        let project = projects[sender.tag]
+        showDeleteAlert(for: project)
+    }
+    
+    private func showDeleteAlert(for project: Projects) {
+        let alert = UIAlertController(
+            title: "Delete Project",
+            message: "Delete '\(project.projectName ?? "")' project? Tasks will be moved to 'Inbox'.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { _ in
+            let success = self.projectManager.deleteProject(project)
+            if success {
+                self.showSuccess(message: "Project deleted and tasks moved to Inbox")
+                self.loadProjects()
+            } else {
+                self.showError(message: "Failed to delete project")
+            }
+        })
+        present(alert, animated: true)
+    }
 }
 
 // MARK: - UITableViewDataSource
@@ -172,22 +196,28 @@ extension ProjectManagementViewController: UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        // Use the subtitle style to show project description
-        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "projectCell")
+        let cell = tableView.dequeueReusableCell(withIdentifier: "projectCell", for: indexPath)
         let project = projects[indexPath.row]
+        let trimmed = project.projectName?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         
-        // Configure cell
         cell.textLabel?.text = project.projectName
         cell.detailTextLabel?.text = project.projecDescription
         
-        // Special styling for default "Inbox" project
-        if project.projectName?.lowercased() == projectManager.defaultProject.lowercased() {
+        if trimmed == projectManager.defaultProject.lowercased() {
             cell.textLabel?.textColor = .gray
-            cell.accessoryType = .none
+            cell.accessoryView = nil
             cell.selectionStyle = .none
         } else {
             cell.textLabel?.textColor = .label
-            cell.accessoryType = .disclosureIndicator
+            
+            let deleteBtn = UIButton(type: .system)
+            deleteBtn.setImage(UIImage(systemName: "trash"), for: .normal)
+            deleteBtn.tintColor = .systemRed
+            deleteBtn.tag = indexPath.row
+            deleteBtn.addTarget(self, action: #selector(deleteButtonTapped(_:)), for: .touchUpInside)
+            deleteBtn.sizeToFit()
+            cell.accessoryView = deleteBtn
+            
             cell.selectionStyle = .default
         }
         

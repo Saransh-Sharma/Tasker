@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Created by Saransh Sharma on 29/06/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Copyright 2020 saransh1337. All rights reserved.
 //
 
 import Combine
@@ -304,7 +304,7 @@ class ProjectManager: ObservableObject {
     private func reassignTasksToInbox(fromProject: String) {
         let tasksToReassign = TaskManager.sharedInstance.getTasksForProjectByName(projectName: fromProject)
         if !tasksToReassign.isEmpty {
-            for task in tasksToReassign {
+            for task in tasksToReassign where !task.isComplete {
                 task.project = defaultProject
             }
             TaskManager.sharedInstance.saveContext() // TaskManager saves its context
