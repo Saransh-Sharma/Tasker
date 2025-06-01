@@ -1285,81 +1285,103 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 // MARK: - Task Detail Selection
 extension HomeViewController {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        // 1. Fetch the underlying NTask based on current view type
         let date = dateForTheView
-        let nTask: NTask
+        var nTask: NTask
+
         switch currentViewType {
         case .todayHomeView, .customDateView:
-            // Fetch tasks for custom projects and inbox
             let customProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
-            let inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: date)
+            let inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(
+                projectName: ProjectManager.sharedInstance.defaultProject,
+                date: date
+            )
             switch indexPath.section {
             case 1:
-                // Inbox tasks
+                guard indexPath.row < inboxTasks.count else {
+                    tableView.deselectRow(at: indexPath, animated: true)
+                    return
+                }
                 nTask = inboxTasks[indexPath.row]
             case 2:
-                // Custom project tasks
+                guard indexPath.row < customProjectTasks.count else {
+                    tableView.deselectRow(at: indexPath, animated: true)
+                    return
+                }
                 nTask = customProjectTasks[indexPath.row]
             default:
-                print("Error: Unexpected section \(indexPath.section) for view type \(currentViewType)")
+                tableView.deselectRow(at: indexPath, animated: true)
                 return
             }
+
         case .projectView:
-            // Assuming self.projectForTheView holds the specific project for this view
-            let projTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: self.projectForTheView, date: date)
+            let projTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(
+                projectName: projectForTheView,
+                date: date
+            )
+            guard indexPath.row < projTasks.count else {
+                tableView.deselectRow(at: indexPath, animated: true)
+                return
+            }
             nTask = projTasks[indexPath.row]
+
         case .upcomingView:
             let allUpcoming = TaskManager.sharedInstance.getUpcomingTasks
-            // Filters for tasks due on the specific 'date' (dateForTheView)
-            let upcoming = allUpcoming.filter { $0.dueDate as Date? == date }
+            let upcoming = allUpcoming.filter { ($0.dueDate as! Date) == date }
+            guard indexPath.row < upcoming.count else {
+                tableView.deselectRow(at: indexPath, animated: true)
+                return
+            }
             nTask = upcoming[indexPath.row]
+
         case .historyView:
             let allTasks = TaskManager.sharedInstance.getAllTasks
-            // Filters for tasks completed on the specific 'date' (dateForTheView)
-            let history = allTasks.filter { $0.isComplete && $0.dateCompleted as Date? == date }
-            nTask = history[indexPath.row]
-        case .allProjectsGrouped, .selectedProjectsGrouped:
-            if self.projectsToDisplayAsSections.indices.contains(indexPath.section) {
-                let project = self.projectsToDisplayAsSections[indexPath.section]
-                if let projectName = project.projectName,
-                   let tasksForProject = self.tasksGroupedByProject[projectName],
-                   tasksForProject.indices.contains(indexPath.row) {
-                    nTask = tasksForProject[indexPath.row]
-                } else {
-                    // This case should ideally not be reached if the table is consistent
-                    print("Error: Data inconsistency for task in grouped project view at \(indexPath)")
-                    // Fallback: Return or handle error to prevent crash, e.g., by deselecting and returning.
-                    // For now, to fulfill nTask initialization, a fatalError might be too harsh without more context.
-                    // Consider if detailView can handle a nil or dummy task, or if we should return early.
-                    // Forcing a crash during development can help identify issues:
-                    fatalError("Data inconsistency for task in grouped project view at \(indexPath)")
-                }
-            } else {
-                fatalError("Section index \(indexPath.section) out of bounds for projectsToDisplayAsSections")
+            let history = allTasks.filter { $0.isComplete && ($0.dateCompleted as! Date) == date }
+            guard indexPath.row < history.count else {
+                tableView.deselectRow(at: indexPath, animated: true)
+                return
             }
+            nTask = history[indexPath.row]
+
+        case .allProjectsGrouped, .selectedProjectsGrouped:
+            guard indexPath.section > 0 else {
+                tableView.deselectRow(at: indexPath, animated: true)
+                return
+            }
+            let projectIndex = indexPath.section - 1
+            guard projectsToDisplayAsSections.indices.contains(projectIndex) else {
+                tableView.deselectRow(at: indexPath, animated: true)
+                return
+            }
+            let project = projectsToDisplayAsSections[projectIndex]
+            guard let projectName = project.projectName,
+                  let tasksForProject = tasksGroupedByProject[projectName],
+                  tasksForProject.indices.contains(indexPath.row) else {
+                tableView.deselectRow(at: indexPath, animated: true)
+                return
+            }
+            nTask = tasksForProject[indexPath.row]
+
+        default:
+            tableView.deselectRow(at: indexPath, animated: true)
+            return
         }
-        
-        // 2. Build and configure detail view
+
+        // Show details
         let width = view.bounds.width * 0.8
         let height = view.bounds.height * 0.6
         let detailView = TaskDetailView(frame: CGRect(x: 0, y: 0, width: width, height: height))
-        // prepare strings
         let title = nTask.name
         let desc = nTask.taskDetails ?? "No description"
         let df = DateFormatter(); df.dateStyle = .medium; df.timeStyle = .short
         let dueStr = nTask.dueDate.map { df.string(from: $0 as Date) } ?? "—"
         let priorityStr = String(nTask.taskPriority)
-        let projectStr = nTask.project ?? "Inbox"
+        let projectStr = nTask.project ?? ProjectManager.sharedInstance.defaultProject
         detailView.configure(title: title,
                              description: desc,
                              dueDate: dueStr,
                              priority: priorityStr,
                              project: projectStr)
-        
-        // 3. Present semi-modally
         semiViewDefaultOptions(viewToBePrsented: detailView)
-        
-        // 4. Deselect
         tableView.deselectRow(at: indexPath, animated: true)
     }
 }
@@ -1385,5 +1407,11 @@ extension HomeViewController {
         // Reload task list with animation
         self.tableView.reloadData()
         animateTableViewReload()
+    }
+    
+    @objc func clearProjectFilterAndResetView() {
+        selectedProjectNamesForFilter.removeAll()
+        projectForTheView = ProjectManager.sharedInstance.defaultProject
+        updateViewForHome(viewType: .todayHomeView, dateForView: Date.today())
     }
 }
