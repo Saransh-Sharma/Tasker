@@ -292,6 +292,15 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             print("woo : PROJCT IS DEFAULT - INBOX")
         } else {
             let projectsList = ProjectManager.sharedInstance.projects
+        
+            print("----------")
+            for each in projectsList {
+                
+                print("project is: \(each.projectName! as String)")
+                
+            }
+            print("----------")
+            
             for each in projectsList {
                 if projectName.lowercased() == each.projectName?.lowercased() {
                     print("woohoo ! project set to: \(String(describing: each.projectName?.lowercased()))")
@@ -1281,13 +1290,19 @@ extension HomeViewController {
         let nTask: NTask
         switch currentViewType {
         case .todayHomeView, .customDateView:
-            // Assuming section 0 is for custom projects and section 1 is for Inbox tasks
+            // Fetch tasks for custom projects and inbox
             let customProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
             let inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: date)
-            if indexPath.section == 0 {
-                nTask = customProjectTasks[indexPath.row]
-            } else { // Assuming section 1 is Inbox
+            switch indexPath.section {
+            case 1:
+                // Inbox tasks
                 nTask = inboxTasks[indexPath.row]
+            case 2:
+                // Custom project tasks
+                nTask = customProjectTasks[indexPath.row]
+            default:
+                print("Error: Unexpected section \(indexPath.section) for view type \(currentViewType)")
+                return
             }
         case .projectView:
             // Assuming self.projectForTheView holds the specific project for this view
