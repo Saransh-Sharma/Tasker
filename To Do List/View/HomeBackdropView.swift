@@ -268,7 +268,6 @@ extension HomeViewController {
           self.foredropContainer.frame = f
         } completion: { _ in
           completion()
-          self.tableView.reloadData()
         }
     }
     

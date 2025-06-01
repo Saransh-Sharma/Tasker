@@ -23,6 +23,17 @@ import MaterialComponents.MaterialButtons_Theming
 import MaterialComponents.MaterialRipple
 
 
+// ToDoListViewType enum definition moved to main class file for better visibility across extensions
+enum ToDoListViewType {
+    case todayHomeView
+    case customDateView
+    case projectView
+    case upcomingView
+    case historyView
+    case allProjectsGrouped
+    case selectedProjectsGrouped
+}
+
 class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, BadgeViewDelegate {
     
     var shouldAnimateCells = true
@@ -169,7 +180,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var projectForTheView = ProjectManager.sharedInstance.defaultProject
     var currentViewType = ToDoListViewType.todayHomeView
     
-    
+    // Project filtering state variables
+    var selectedProjectNamesForFilter: [String] = []
+    var projectsToDisplayAsSections: [Projects] = []
+    var tasksGroupedByProject: [String: [NTask]] = [:]
     
     var firstDay = Date.today()
     var nextDay = Date.today()
@@ -290,6 +304,42 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     //-------- NEW SET VIEW END -----------------
     //-------- NEW SET VIEW -----------------
+    
+    func prepareAndFetchTasksForProjectGroupedView() {
+        self.projectsToDisplayAsSections.removeAll()
+        self.tasksGroupedByProject.removeAll()
+
+        let projectsToFilter: [Projects]
+        let allManagedProjects = ProjectManager.sharedInstance.displayedProjects // Already sorted, includes "Inbox"
+
+        switch self.currentViewType {
+            case .allProjectsGrouped:
+                projectsToFilter = allManagedProjects
+            case .selectedProjectsGrouped:
+                // Ensure "Inbox" is handled correctly if selected
+                projectsToFilter = allManagedProjects.filter { project in
+                    guard let projectName = project.projectName else { return false }
+                    return selectedProjectNamesForFilter.contains(projectName)
+                }
+            default:
+                return // Not a project-grouped view
+        }
+
+        for project in projectsToFilter {
+            guard let projectName = project.projectName else { continue }
+            // Fetch ONLY OPEN tasks for the current 'dateForTheView'
+            let openTasksForProject = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(
+                projectName: projectName,
+                date: self.dateForTheView
+            )
+
+            if !openTasksForProject.isEmpty {
+                self.projectsToDisplayAsSections.append(project) // This array defines section order
+                self.tasksGroupedByProject[projectName] = openTasksForProject
+            }
+        }
+    }
+    
     //-------- NEW SET VIEW  END-----------------
     func generateLineChartData() -> [ChartDataEntry] {
         
@@ -1171,6 +1221,56 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             foredropClosedY = foredropContainer.frame.minY
         }
     }
+
+    // MARK: –––––––––––––––––––––––––––––––––––––––––––––––––––
+    // Swiping & Reloading Helpers (required by ToDoList.swift)
+    // MARK: –––––––––––––––––––––––––––––––––––––––––––––––––––
+
+    /// Reload tableView, calendar & charts after a row‐level change
+    func updateToDoListAndCharts(tableView: UITableView, indexPath: IndexPath) {
+        tableView.reloadData()
+        calendar.reloadData()
+        updateLineChartData()
+        animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+    }
+
+    /// Mark a task as open (undo complete)
+    func markTaskOpenOnSwipe(task: NTask) {
+        task.isComplete = false
+        task.dateCompleted = nil
+        TaskManager.sharedInstance.saveContext()
+    }
+
+    /// Delete a task permanently on swipe
+    func deleteTaskOnSwipe(task: NTask) {
+        let idx = getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: task)
+        TaskManager.sharedInstance.removeTaskAtIndex(index: idx)
+        TaskManager.sharedInstance.saveContext()
+    }
+
+    /// Show action sheet to pick new due dates (Tomorrow, Day After, Next Week)
+    func rescheduleAlertActionMenu(tasks: [NTask], indexPath: IndexPath, tableView: UITableView) {
+        let current = dateForTheView
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: current)!
+        let dayAfter = Calendar.current.date(byAdding: .day, value: 2, to: current)!
+        let nextWeek = Calendar.current.date(byAdding: .day, value: 7, to: current)!
+
+        let controller = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        controller.addAction(UIAlertAction(title: "Tomorrow", style: .default) { _ in
+            TaskManager.sharedInstance.reschedule(task: tasks[indexPath.row], to: tomorrow)
+            self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
+        })
+        controller.addAction(UIAlertAction(title: "Day After Tomorrow", style: .default) { _ in
+            TaskManager.sharedInstance.reschedule(task: tasks[indexPath.row], to: dayAfter)
+            self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
+        })
+        controller.addAction(UIAlertAction(title: "Next Week", style: .default) { _ in
+            TaskManager.sharedInstance.reschedule(task: tasks[indexPath.row], to: nextWeek)
+            self.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
+        })
+        controller.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+        present(controller, animated: true, completion: nil)
+    }
 }
 
 // MARK: - Task Detail Selection
@@ -1181,20 +1281,47 @@ extension HomeViewController {
         let nTask: NTask
         switch currentViewType {
         case .todayHomeView, .customDateView:
-            let inbox = fetchInboxTasks(date: date)
-            let projects = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
-            nTask = (indexPath.section == 1 ? inbox[indexPath.row] : projects[indexPath.row])
+            // Assuming section 0 is for custom projects and section 1 is for Inbox tasks
+            let customProjectTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
+            let inboxTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: ProjectManager.sharedInstance.defaultProject, date: date)
+            if indexPath.section == 0 {
+                nTask = customProjectTasks[indexPath.row]
+            } else { // Assuming section 1 is Inbox
+                nTask = inboxTasks[indexPath.row]
+            }
         case .projectView:
-            let projTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
+            // Assuming self.projectForTheView holds the specific project for this view
+            let projTasks = TaskManager.sharedInstance.getTasksForProjectByNameForDate_Open(projectName: self.projectForTheView, date: date)
             nTask = projTasks[indexPath.row]
         case .upcomingView:
             let allUpcoming = TaskManager.sharedInstance.getUpcomingTasks
-            let upcoming = allUpcoming.filter { ($0.dueDate as Date?) == date }
+            // Filters for tasks due on the specific 'date' (dateForTheView)
+            let upcoming = allUpcoming.filter { $0.dueDate as Date? == date }
             nTask = upcoming[indexPath.row]
         case .historyView:
             let allTasks = TaskManager.sharedInstance.getAllTasks
-            let history = allTasks.filter { $0.isComplete && ($0.dateCompleted as Date?) == date }
+            // Filters for tasks completed on the specific 'date' (dateForTheView)
+            let history = allTasks.filter { $0.isComplete && $0.dateCompleted as Date? == date }
             nTask = history[indexPath.row]
+        case .allProjectsGrouped, .selectedProjectsGrouped:
+            if self.projectsToDisplayAsSections.indices.contains(indexPath.section) {
+                let project = self.projectsToDisplayAsSections[indexPath.section]
+                if let projectName = project.projectName,
+                   let tasksForProject = self.tasksGroupedByProject[projectName],
+                   tasksForProject.indices.contains(indexPath.row) {
+                    nTask = tasksForProject[indexPath.row]
+                } else {
+                    // This case should ideally not be reached if the table is consistent
+                    print("Error: Data inconsistency for task in grouped project view at \(indexPath)")
+                    // Fallback: Return or handle error to prevent crash, e.g., by deselecting and returning.
+                    // For now, to fulfill nTask initialization, a fatalError might be too harsh without more context.
+                    // Consider if detailView can handle a nil or dummy task, or if we should return early.
+                    // Forcing a crash during development can help identify issues:
+                    fatalError("Data inconsistency for task in grouped project view at \(indexPath)")
+                }
+            } else {
+                fatalError("Section index \(indexPath.section) out of bounds for projectsToDisplayAsSections")
+            }
         }
         
         // 2. Build and configure detail view
@@ -1219,5 +1346,29 @@ extension HomeViewController {
         
         // 4. Deselect
         tableView.deselectRow(at: indexPath, animated: true)
+    }
+}
+
+// MARK: - Home view update and reload helpers
+extension HomeViewController {
+    func updateViewForHome(viewType: ToDoListViewType, dateForView: Date? = nil) {
+        // Update view type and optionally the date
+        self.currentViewType = viewType
+        if let date = dateForView { self.dateForTheView = date }
+        if viewType == .allProjectsGrouped || viewType == .selectedProjectsGrouped {
+            prepareAndFetchTasksForProjectGroupedView()
+        }
+        tableView.reloadData()
+    }
+
+    func reloadTinyPicChartWithAnimation() {
+        // Animate or reload tiny pie chart view
+        toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView)
+    }
+
+    func reloadToDoListWithAnimation() {
+        // Reload task list with animation
+        self.tableView.reloadData()
+        animateTableViewReload()
     }
 }

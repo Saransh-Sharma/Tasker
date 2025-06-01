@@ -45,6 +45,19 @@ extension HomeViewController {
         dismiss(animated: true)
     }
     
+    @objc private func showAllProjectsButtonTapped(sender: UIButton) {
+        updateViewForHome(viewType: .allProjectsGrouped, dateForView: dateForTheView)
+        dismiss(animated: true)
+    }
+    
+    @objc private func applySelectedProjectsFilter() {
+        // Only apply the filter if projects are selected
+        if !selectedProjectNamesForFilter.isEmpty {
+            updateViewForHome(viewType: .selectedProjectsGrouped, dateForView: dateForTheView)
+            dismiss(animated: true)
+        }
+    }
+    
     @objc private func expandButtonTapped(sender: UIButton) {
         guard let drawer = presentedViewController as? DrawerController else {
             return
@@ -82,6 +95,57 @@ extension HomeViewController {
         }
     }
     
+    private func createProjectMultiSelectView() -> UIView {
+        let containerView = UIView()
+        containerView.backgroundColor = .clear
+        
+        // Create a collection view for the project pills
+        let layout = UICollectionViewFlowLayout()
+        layout.scrollDirection = .vertical
+        layout.minimumInteritemSpacing = 8
+        layout.minimumLineSpacing = 8
+        layout.estimatedItemSize = UICollectionViewFlowLayout.automaticSize
+        
+        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.backgroundColor = .clear
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        collectionView.allowsMultipleSelection = true
+        collectionView.register(ProjectPillCell.self, forCellWithReuseIdentifier: "ProjectPillCell")
+        collectionView.delegate = self
+        collectionView.dataSource = self
+        
+        containerView.addSubview(collectionView)
+        
+        // Add Apply button
+        let applyButton = UIButton(type: .system)
+        applyButton.setTitle("Apply Filters", for: .normal)
+        applyButton.setTitleColor(.white, for: .normal)
+        applyButton.backgroundColor = todoColors.primaryColor
+        applyButton.layer.cornerRadius = 8
+        applyButton.translatesAutoresizingMaskIntoConstraints = false
+        applyButton.addTarget(self, action: #selector(applySelectedProjectsFilter), for: .touchUpInside)
+        
+        containerView.addSubview(applyButton)
+        
+        // Set up constraints
+        NSLayoutConstraint.activate([
+            collectionView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 8),
+            collectionView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
+            collectionView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -8),
+            collectionView.heightAnchor.constraint(equalToConstant: 120),
+            
+            applyButton.topAnchor.constraint(equalTo: collectionView.bottomAnchor, constant: 8),
+            applyButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
+            applyButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -8),
+            applyButton.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -8),
+            applyButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+        
+        // Set fixed height for the container
+        containerView.heightAnchor.constraint(equalToConstant: 180).isActive = true
+        
+        return containerView
+    }
     
     private func actionViews(drawerHasFlexibleHeight: Bool) -> [UIView] {
         let spacer = UIView()
@@ -101,16 +165,30 @@ extension HomeViewController {
             views.append(createButton(title: "Tomorrow", action: #selector(changeDateFromFilterTomorrow)))
             //views.append(createButton(title: "Upcoming", action: #selector(changeDateFromFilterTomorrow)))
             
+            views.append(Separator())
             
+            // Project Filtering Section
+            let projectFilterLabel = Label(textStyle: .title1, colorStyle: .regular)
+            projectFilterLabel.text = "Project Filters"
+            projectFilterLabel.numberOfLines = 0
+            views.append(projectFilterLabel)
             
-            //addProjectContainer.addArrangedSubview(Separator())
+            views.append(createButton(title: "Show All Projects", action: #selector(showAllProjectsButtonTapped)))
+            
+            // Project multi-select section
+            let projectSelectionLabel = Label(textStyle: .caption1, colorStyle: .regular)
+            projectSelectionLabel.text = "Select specific projects:"
+            projectSelectionLabel.numberOfLines = 0
+            views.append(projectSelectionLabel)
+            
+            // Add project multi-select container
+            let projectSelectionView = createProjectMultiSelectView()
+            views.append(projectSelectionView)
             
             views.append(Separator())
             
-            //            let mProjects = ProjectManageeer.sharedInstance.getAllProjects
-            
             let subLabel = Label(textStyle: .caption1, colorStyle: .regular)
-            subLabel.text = "more filters like project, priority & upcoming tasks coming soon !"
+            subLabel.text = "more filters like priority & upcoming tasks coming soon!"
             subLabel.numberOfLines = 0
             views.append(subLabel)
             
@@ -184,14 +262,59 @@ extension HomeViewController {
     
 }
 
+// MARK: - UICollectionViewDataSource, UICollectionViewDelegate
+extension HomeViewController: UICollectionViewDataSource, UICollectionViewDelegate {
+    
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        return ProjectManager.sharedInstance.displayedProjects.count
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ProjectPillCell", for: indexPath) as! ProjectPillCell
+        let project = ProjectManager.sharedInstance.displayedProjects[indexPath.item]
+        
+        if let projectName = project.projectName {
+            cell.configure(with: projectName)
+            
+            // Pre-select the cell if this project is in the selectedProjectNamesForFilter array
+            if selectedProjectNamesForFilter.contains(projectName) {
+                collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
+                cell.isSelected = true
+            }
+        }
+        
+        return cell
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        if let projectName = ProjectManager.sharedInstance.displayedProjects[indexPath.item].projectName {
+            if !selectedProjectNamesForFilter.contains(projectName) {
+                selectedProjectNamesForFilter.append(projectName)
+            }
+        }
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
+        if let projectName = ProjectManager.sharedInstance.displayedProjects[indexPath.item].projectName {
+            if let index = selectedProjectNamesForFilter.firstIndex(of: projectName) {
+                selectedProjectNamesForFilter.remove(at: index)
+            }
+        }
+    }
+}
+
 // MARK: - PillButtonBarDemoController: PillButtonBarDelegate
 
 extension HomeViewController: PillButtonBarDelegate {
     func pillBar(_ pillBar: PillButtonBar, didSelectItem item: PillButtonBarItem, atIndex index: Int) {
         //        currenttProjectForAddTaskView = item.title
         //        setProjectForViewValue(projectName: item.title)
-        updateViewForHome(viewType: .projectView, projectForView: item.title)
-        print("woo Project SELCTED is: \(projectForTheView)")
+        // 1) Assign the selected project name
+        setProjectForViewValue(projectName: item.title)
+
+        // 2) Switch to projectView (the stored projectForTheView will be used internally)
+        updateViewForHome(viewType: .projectView)
+        print("woo Project SELECTED is: \(projectForTheView)")
         
         
         //        let allProjects = ProjectManager.sharedInstance.getAllProjects

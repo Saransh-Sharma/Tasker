@@ -67,6 +67,9 @@
 		75F0C70F2DE9EFAD008F4460 /* TableViewCell Sample Data.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70E2DE9EFAD008F4460 /* TableViewCell Sample Data.swift */; };
 		75F0C7102DE9EFAD008F4460 /* TableViewCell Sample Data.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70E2DE9EFAD008F4460 /* TableViewCell Sample Data.swift */; };
 		75F0C7112DE9EFAD008F4460 /* TableViewCell Sample Data.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70E2DE9EFAD008F4460 /* TableViewCell Sample Data.swift */; };
+		75F0C7132DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */; };
+		75F0C7142DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */; };
+		75F0C7152DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */; };
 		75F18102245C99CD004D9A69 /* TaskModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 75F18100245C99CD004D9A69 /* TaskModel.xcdatamodeld */; };
 		75F18106245CA0BC004D9A69 /* Task.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F18105245CA0BC004D9A69 /* Task.swift */; };
 		75F18108245CA229004D9A69 /* TaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F18107245CA229004D9A69 /* TaskManager.swift */; };
@@ -167,6 +170,7 @@
 		75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPageViewController.swift; sourceTree = "<group>"; };
 		75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColoredPillBackgroundView.swift; sourceTree = "<group>"; };
 		75F0C70E2DE9EFAD008F4460 /* TableViewCell Sample Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TableViewCell Sample Data.swift"; sourceTree = "<group>"; };
+		75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPillCell.swift; sourceTree = "<group>"; };
 		75F18101245C99CD004D9A69 /* TaskModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModel.xcdatamodel; sourceTree = "<group>"; };
 		75F18105245CA0BC004D9A69 /* Task.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Task.swift; sourceTree = "<group>"; };
 		75F18107245CA229004D9A69 /* TaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskManager.swift; sourceTree = "<group>"; };
@@ -346,6 +350,7 @@
 				75573CAE2DE88A8000F5A873 /* SettingsView.swift */,
 				75573CB22DE8954500F5A873 /* ProjectManagementView.swift */,
 				7539AAB82DE988C900619EDD /* TaskDetailView.swift */,
+				75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -624,6 +629,7 @@
 				7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */,
 				758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */,
 				7551DA0B24883478005CF826 /* AddTaskCalendarExtention.swift in Sources */,
+				75F0C7152DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
 				750F9EDF2685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75F9937C2485994E00C340EB /* HomeForedropView.swift in Sources */,
 				753EFCA22445A24500A739E3 /* HomeViewController.swift in Sources */,
@@ -671,6 +677,7 @@
 				750F9EE02685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75573CB32DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				7539AAB92DE988C900619EDD /* TaskDetailView.swift in Sources */,
+				75F0C7142DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
 				75573CB12DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */,
 				7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
@@ -686,6 +693,7 @@
 				750F9EE12685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75573CB52DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				7539AABA2DE988C900619EDD /* TaskDetailView.swift in Sources */,
+				75F0C7132DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
 				75573CB02DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
 				7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
