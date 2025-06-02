@@ -53,6 +53,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var todoColors = ToDoColors()
     var todoTimeUtils = ToDoTimeUtils()
     
+    var editingTaskForDatePicker: NTask?
+    var activeTaskDetailViewFluent: TaskDetailViewFluent?
+    var editingTaskForProjectPicker: NTask?
+    // Property to store the presented detail view and its overlay
+    var presentedFluentDetailView: TaskDetailViewFluent?
+    var overlayView: UIView?
+    
     
     var filledBar: UIView?
     
@@ -1367,21 +1374,43 @@ extension HomeViewController {
         }
 
         // Show details
-        let width = view.bounds.width * 0.8
-        let height = view.bounds.height * 0.6
-        let detailView = TaskDetailView(frame: CGRect(x: 0, y: 0, width: width, height: height))
-        let title = nTask.name
-        let desc = nTask.taskDetails ?? "No description"
-        let df = DateFormatter(); df.dateStyle = .medium; df.timeStyle = .short
-        let dueStr = nTask.dueDate.map { df.string(from: $0 as Date) } ?? "—"
-        let priorityStr = String(nTask.taskPriority)
-        let projectStr = nTask.project ?? ProjectManager.sharedInstance.defaultProject
-        detailView.configure(title: title,
-                             description: desc,
-                             dueDate: dueStr,
-                             priority: priorityStr,
-                             project: projectStr)
-        semiViewDefaultOptions(viewToBePrsented: detailView)
+        // --- Start of new TaskDetailViewFluent presentation logic ---
+        // Dismiss any existing fluent detail view first
+        if let existingView = self.presentedFluentDetailView {
+            existingView.removeFromSuperview()
+            self.presentedFluentDetailView = nil
+        }
+        if let existingOverlay = self.overlayView {
+            existingOverlay.removeFromSuperview()
+            self.overlayView = nil
+        }
+
+        let fluentDetailView = TaskDetailViewFluent() // Frame will be set by AutoLayout
+        let allProjects = ProjectManager.sharedInstance.displayedProjects
+        fluentDetailView.configure(task: nTask, availableProjects: allProjects, delegate: self)
+
+        // Add an overlay view to dim the background
+        let newOverlayView = UIView(frame: self.view.bounds)
+        newOverlayView.backgroundColor = UIColor.black.withAlphaComponent(0.4)
+        newOverlayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        self.view.addSubview(newOverlayView)
+        self.overlayView = newOverlayView // Store overlay
+
+        // Position fluentDetailView using AutoLayout
+        fluentDetailView.translatesAutoresizingMaskIntoConstraints = false
+        self.view.addSubview(fluentDetailView)
+        NSLayoutConstraint.activate([
+            fluentDetailView.centerXAnchor.constraint(equalTo: self.view.centerXAnchor),
+            fluentDetailView.centerYAnchor.constraint(equalTo: self.view.centerYAnchor),
+            fluentDetailView.widthAnchor.constraint(equalTo: self.view.widthAnchor, multiplier: 0.9),
+            fluentDetailView.heightAnchor.constraint(lessThanOrEqualTo: self.view.heightAnchor, multiplier: 0.75) // Max height
+        ])
+        self.presentedFluentDetailView = fluentDetailView // Store presented view
+        
+        // Add a tap gesture to the overlay to dismiss the detail view
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissFluentDetailView))
+        newOverlayView.addGestureRecognizer(tapGesture)
+        // --- End of new TaskDetailViewFluent presentation logic ---
         tableView.deselectRow(at: indexPath, animated: true)
     }
 }
@@ -1413,5 +1442,94 @@ extension HomeViewController {
         selectedProjectNamesForFilter.removeAll()
         projectForTheView = ProjectManager.sharedInstance.defaultProject
         updateViewForHome(viewType: .todayHomeView, dateForView: Date.today())
+    }
+}
+
+extension HomeViewController: TaskDetailViewFluentDelegate {
+    func taskDetailViewFluentDidUpdateRequest(_ view: TaskDetailViewFluent, updatedTask: NTask) {
+        TaskManager.sharedInstance.saveContext()
+        self.tableView.reloadData()
+        // self.updateLineChartData() // This method is not confirmed to exist in HomeViewController.swift
+    }
+
+    func taskDetailViewFluentDidRequestDatePicker(_ view: TaskDetailViewFluent, for task: NTask, currentValue: Date?) {
+        let dateTimePicker = FluentUI.DateTimePicker()
+        dateTimePicker.delegate = self
+        
+        self.editingTaskForDatePicker = task
+        self.activeTaskDetailViewFluent = view
+
+        if let presentedVC = self.presentedViewController {
+            if presentedVC is DateTimePicker || presentedVC is BottomSheetController {
+                presentedVC.dismiss(animated: false, completion: nil)
+            }
+        }
+
+        dateTimePicker.present(
+            from: self,
+            with: .dateTime,
+            startDate: currentValue ?? Date()
+        )
+    }
+
+    func taskDetailViewFluentDidRequestProjectPicker(_ view: TaskDetailViewFluent, for task: NTask, currentProject: Projects?, availableProjects: [Projects]) {
+        if let presentedVC = self.presentedViewController {
+             if presentedVC is DateTimePicker || presentedVC is BottomSheetController {
+                presentedVC.dismiss(animated: false, completion: nil)
+             }
+        }
+        
+        let projectListVC = ProjectPickerViewController(projects: availableProjects, selectedProject: currentProject)
+        projectListVC.onProjectSelected = { [weak self, weak view] selectedProjectEntity in
+            guard let self = self, let view = view, let taskToUpdate = self.editingTaskForProjectPicker else { return }
+            
+            taskToUpdate.project = selectedProjectEntity
+            view.updateProjectButtonTitle(project: selectedProjectEntity?.projectName)
+            
+            TaskManager.sharedInstance.saveContext()
+            self.tableView.reloadData()
+            // self.updateLineChartData() // This method is not confirmed to exist.
+            
+            self.editingTaskForProjectPicker = nil
+            self.activeTaskDetailViewFluent = nil
+            
+            self.presentedViewController?.dismiss(animated: true, completion: nil)
+        }
+        
+        self.editingTaskForProjectPicker = task
+        self.activeTaskDetailViewFluent = view
+
+        let bottomSheetController = BottomSheetController(expandedContentView: projectListVC.view)
+        bottomSheetController.preferredExpandedContentHeight = CGFloat(min(availableProjects.count, 5) * 50 + 20)
+        bottomSheetController.headerContentView = nil
+        bottomSheetController.isHidden = false // Ensure it's not hidden by default
+        
+        self.present(bottomSheetController, animated: true)
+    }
+}
+
+extension HomeViewController: DateTimePickerDelegate {
+    func dateTimePicker(_ dateTimePicker: FluentUI.DateTimePicker, didPickStartDate startDate: Date, endDate: Date) {
+        guard let task = self.editingTaskForDatePicker, let detailView = self.activeTaskDetailViewFluent else { return }
+        
+        let mode = dateTimePicker.mode ?? .date
+        if mode.singleSelection {
+            task.dueDate = startDate as NSDate
+            detailView.updateDueDateButtonTitle(date: startDate)
+            
+            TaskManager.sharedInstance.saveContext()
+            self.tableView.reloadData()
+            // self.updateLineChartData() // This method is not confirmed to exist.
+        }
+        
+        self.editingTaskForDatePicker = nil
+        self.activeTaskDetailViewFluent = nil
+        dateTimePicker.dismiss()
+    }
+    
+    func dateTimePicker(_ dateTimePicker: DateTimePicker, didTapSelectedDate date: Date) {
+        dateTimePicker.dismiss()
+        self.editingTaskForDatePicker = nil
+        self.activeTaskDetailViewFluent = nil
     }
 }
