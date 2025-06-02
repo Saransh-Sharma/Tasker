@@ -173,6 +173,10 @@ When `HomeViewController` needs to display tasks, it calls methods on `TaskManag
 **Filtering Logic:**
 - **Date-based filtering**: Tasks for specific dates
 - **Project-based filtering**: Tasks within specific projects
+  - **All Projects View**: Group and display tasks by all available projects
+  - **Multi-Project Selection**: Select multiple specific projects to filter tasks
+  - **Single Project View**: Focus on tasks from one selected project
+  - **Project Drawer Interface**: Access project filtering through the top drawer menu
 - **Type-based filtering**: Morning, evening, upcoming, inbox categorization
 - **Completion status filtering**: Active vs completed tasks
 
@@ -198,7 +202,34 @@ ProjectManager → Projects Entity → Task Association → UI Organization
 - **Dynamic Scoring Display**: Real-time score calculation and prominent display
 - **Interactive Charts**: Line charts and pie charts for productivity visualization
 - **Calendar Integration**: `FSCalendar` for date-based task navigation
-- **Project Filtering**: Pill-button interface for project-based task filtering
+
+### Project Filtering System
+**Multi-level Project Organization**
+- **Filter Drawer Interface**: Accessible via the top drawer menu in `HomeViewController`
+- **Project Selection Mechanisms**:
+  - **All Projects View**: Groups tasks by project, displaying each project as a separate section
+  - **Multi-Project Selection**: Uses a collection view of project pills that allows selecting multiple projects simultaneously
+  - **Single Project View**: Focuses the view on tasks from one specific project
+- **User Interaction Flow**:
+  1. **Accessing Filters**: Tap the filter icon in the top navigation bar to open the drawer
+  2. **All Projects View**: Select "Show All Projects" to see tasks grouped by project
+  3. **Multi-Project Selection**: 
+     - Tap on project pills in the selection view to select multiple projects
+     - Selected projects are highlighted visually
+     - Tap "Apply Filters" to view tasks from only the selected projects
+  4. **Single Project View**: Tap on a project pill in the main interface to focus on that project
+  5. **Clearing Filters**: Tap the X button to clear project filters and return to the default view
+- **Implementation Details**:
+  - `HomeDrawerFilterView.swift`: Contains the drawer UI with project filtering options
+  - `ProjectPillCell.swift`: Custom collection view cell for project selection
+  - `selectedProjectNamesForFilter`: Array in `HomeViewController` that tracks selected projects
+  - `prepareAndFetchTasksForProjectGroupedView()`: Method that fetches and organizes tasks by project
+  - View type management through `ToDoListViewType` enum (.allProjectsGrouped, .selectedProjectsGrouped, .projectView)
+- **Project Data Flow**:
+  - `ProjectManager` maintains the source of truth for projects with the `@Published projects` property
+  - `displayedProjects` computed property ensures "Inbox" is always first in the list
+  - Project selection state is maintained in `HomeViewController`
+  - Task filtering by project is handled by `TaskManager` methods
 
 **Key Components:**
 - Score counter with dynamic font sizing

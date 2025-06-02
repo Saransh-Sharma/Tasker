@@ -72,20 +72,34 @@ extension AddTaskViewController {
     //----------------------- *************************** -----------------------
     
     func setupProjectsPillBar() {
-        
-        print("do9 - SETUP PROJECTS pillbar")
+        print("AddTaskViewController: setupProjectsPillBar called")
+
+        // Remove existing filledBar
+        if let existing = self.filledBar, existing.superview == self.foredropStackContainer {
+            self.foredropStackContainer.removeArrangedSubview(existing)
+            existing.removeFromSuperview()
+            self.filledBar = nil
+        }
+
+        // Build data
         self.buildProojectsPillBarData()
-        
+
+        // Only add bar if data available
+        guard !self.pillBarProjectList.isEmpty else {
+            print("AddTaskViewController: pillBarProjectList is empty, not creating filledBar.")
+            self.filledBar = nil
+            return
+        }
+
+        // Create and add new bar
         self.filledBar = self.createProjectsBar(items: self.pillBarProjectList)
-        self.filledBar!.frame = CGRect(x: 0, y: 300, width: UIScreen.main.bounds.width, height: 65)
         self.foredropStackContainer.addArrangedSubview(self.filledBar!)
         self.filledBar!.backgroundColor = .clear
-        self.filledBar!.isHidden = self.addTaskTextBox_Material.text?.isEmpty ?? true
-        
-        
-        //        filledBar.selected
-        //        filledBar.addTarget(self, action: #selector(changeProject))
-        
+
+        // Initial visibility based on text content
+        let currentText = self.addTaskTextBox_Material.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.filledBar!.isHidden = currentText.isEmpty
+        print("AddTaskViewController: setupProjectsPillBar - filledBar.isHidden set to: \(self.filledBar!.isHidden)")
     }
     
     func buildProojectsPillBarData() {
