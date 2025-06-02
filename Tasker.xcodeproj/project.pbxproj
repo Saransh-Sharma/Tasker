@@ -14,6 +14,15 @@
 		750F9EDF2685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */; };
 		750F9EE02685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */; };
 		750F9EE12685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */; };
+		751074DF2DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074DE2DEE038E00AC7F22 /* TaskDetailViewFluent.swift */; };
+		751074E02DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074DE2DEE038E00AC7F22 /* TaskDetailViewFluent.swift */; };
+		751074E12DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074DE2DEE038E00AC7F22 /* TaskDetailViewFluent.swift */; };
+		751074E32DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074E22DEE048800AC7F22 /* ProjectPickerViewController.swift */; };
+		751074E42DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074E22DEE048800AC7F22 /* ProjectPickerViewController.swift */; };
+		751074E52DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074E22DEE048800AC7F22 /* ProjectPickerViewController.swift */; };
+		751074E72DEE10BF00AC7F22 /* FluentUITokenExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074E62DEE10BF00AC7F22 /* FluentUITokenExtensions.swift */; };
+		751074E82DEE10BF00AC7F22 /* FluentUITokenExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074E62DEE10BF00AC7F22 /* FluentUITokenExtensions.swift */; };
+		751074E92DEE10C000AC7F22 /* FluentUITokenExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074E62DEE10BF00AC7F22 /* FluentUITokenExtensions.swift */; };
 		7513BA322687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
@@ -122,6 +131,9 @@
 		750F9EDA2685CC9500C008C4 /* This Day.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "This Day.entitlements"; sourceTree = "<group>"; };
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
 		750F9EDE2685D7A400C008C4 /* TaskModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModel.xcdatamodel; sourceTree = "<group>"; };
+		751074DE2DEE038E00AC7F22 /* TaskDetailViewFluent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailViewFluent.swift; sourceTree = "<group>"; };
+		751074E22DEE048800AC7F22 /* ProjectPickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPickerViewController.swift; sourceTree = "<group>"; };
+		751074E62DEE10BF00AC7F22 /* FluentUITokenExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluentUITokenExtensions.swift; sourceTree = "<group>"; };
 		7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsBackdrop.swift; sourceTree = "<group>"; };
 		7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewProjectViewController.swift; sourceTree = "<group>"; };
@@ -351,6 +363,8 @@
 				75573CB22DE8954500F5A873 /* ProjectManagementView.swift */,
 				7539AAB82DE988C900619EDD /* TaskDetailView.swift */,
 				75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */,
+				751074DE2DEE038E00AC7F22 /* TaskDetailViewFluent.swift */,
+				751074E62DEE10BF00AC7F22 /* FluentUITokenExtensions.swift */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -393,6 +407,7 @@
 				758A803F2450BFA300BFB571 /* InboxViewController.swift */,
 				75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */,
 				75F0C70E2DE9EFAD008F4460 /* TableViewCell Sample Data.swift */,
+				751074E22DEE048800AC7F22 /* ProjectPickerViewController.swift */,
 			);
 			path = ViewControllers;
 			sourceTree = "<group>";
@@ -645,11 +660,13 @@
 				753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */,
 				758D4D8624ABA7CE00AB57A8 /* FluentUIFramework.swift in Sources */,
 				75F0C70F2DE9EFAD008F4460 /* TableViewCell Sample Data.swift in Sources */,
+				751074DF2DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */,
 				758D4D8024AB20F000AB57A8 /* ToDoListData.swift in Sources */,
 				75F18108245CA229004D9A69 /* TaskManager.swift in Sources */,
 				7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */,
 				75573CB42DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */,
+				751074E52DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				75B7121D246AFF5B00453AEC /* UpcominngTasksViewController.swift in Sources */,
 				7551DA0024880D8E005CF826 /* AddTaskBackdropView.swift in Sources */,
 				7551DA0424882A78005CF826 /* AddTaskViewController.swift in Sources */,
@@ -657,6 +674,7 @@
 				7537B62324A2AF0800B978E5 /* NewProjectViewController.swift in Sources */,
 				758D4D7E24AA67F900AB57A8 /* HomeDrawerFilterView.swift in Sources */,
 				75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */,
+				751074E72DEE10BF00AC7F22 /* FluentUITokenExtensions.swift in Sources */,
 				7539AABB2DE988C900619EDD /* TaskDetailView.swift in Sources */,
 				755FE8D92479169400A71A75 /* ToDoList.swift in Sources */,
 				759F18F92468B70200293A32 /* NAddTaskScreen.swift in Sources */,
@@ -676,6 +694,9 @@
 				75F0C7112DE9EFAD008F4460 /* TableViewCell Sample Data.swift in Sources */,
 				750F9EE02685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75573CB32DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
+				751074E02DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */,
+				751074E92DEE10C000AC7F22 /* FluentUITokenExtensions.swift in Sources */,
+				751074E42DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				7539AAB92DE988C900619EDD /* TaskDetailView.swift in Sources */,
 				75F0C7142DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
 				75573CB12DE88A8000F5A873 /* SettingsView.swift in Sources */,
@@ -692,6 +713,9 @@
 				75F0C7102DE9EFAD008F4460 /* TableViewCell Sample Data.swift in Sources */,
 				750F9EE12685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75573CB52DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
+				751074E12DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */,
+				751074E82DEE10BF00AC7F22 /* FluentUITokenExtensions.swift in Sources */,
+				751074E32DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				7539AABA2DE988C900619EDD /* TaskDetailView.swift in Sources */,
 				75F0C7132DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
 				75573CB02DE88A8000F5A873 /* SettingsView.swift in Sources */,
