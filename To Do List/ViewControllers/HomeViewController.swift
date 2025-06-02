@@ -1399,17 +1399,31 @@ extension HomeViewController {
         // Position fluentDetailView using AutoLayout
         fluentDetailView.translatesAutoresizingMaskIntoConstraints = false
         self.view.addSubview(fluentDetailView)
+        
+        // Initial alpha for animation
+        fluentDetailView.alpha = 0
+        newOverlayView.alpha = 0
+        
         NSLayoutConstraint.activate([
             fluentDetailView.centerXAnchor.constraint(equalTo: self.view.centerXAnchor),
             fluentDetailView.centerYAnchor.constraint(equalTo: self.view.centerYAnchor),
             fluentDetailView.widthAnchor.constraint(equalTo: self.view.widthAnchor, multiplier: 0.9),
-            fluentDetailView.heightAnchor.constraint(lessThanOrEqualTo: self.view.heightAnchor, multiplier: 0.75) // Max height
+            fluentDetailView.heightAnchor.constraint(equalTo: self.view.heightAnchor, multiplier: 0.7)
         ])
+        
+        // Ensure the view has an initial size before animation
+        self.view.layoutIfNeeded()
         self.presentedFluentDetailView = fluentDetailView // Store presented view
         
         // Add a tap gesture to the overlay to dismiss the detail view
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissFluentDetailView))
         newOverlayView.addGestureRecognizer(tapGesture)
+        
+        // Animate the appearance of the detail view and overlay
+        UIView.animate(withDuration: 0.3) {
+            fluentDetailView.alpha = 1.0
+            newOverlayView.alpha = 1.0
+        }
         // --- End of new TaskDetailViewFluent presentation logic ---
         tableView.deselectRow(at: indexPath, animated: true)
     }
@@ -1451,6 +1465,20 @@ extension HomeViewController: TaskDetailViewFluentDelegate {
         self.tableView.reloadData()
         // self.updateLineChartData() // This method is not confirmed to exist in HomeViewController.swift
     }
+    
+    @objc func dismissFluentDetailView() {
+        if let overlayView = self.overlayView {
+            UIView.animate(withDuration: 0.3, animations: {
+                self.presentedFluentDetailView?.alpha = 0
+                overlayView.alpha = 0
+            }, completion: { _ in
+                self.presentedFluentDetailView?.removeFromSuperview()
+                overlayView.removeFromSuperview()
+                self.presentedFluentDetailView = nil
+                self.overlayView = nil
+            })
+        }
+    }
 
     func taskDetailViewFluentDidRequestDatePicker(_ view: TaskDetailViewFluent, for task: NTask, currentValue: Date?) {
         let dateTimePicker = FluentUI.DateTimePicker()
@@ -1483,7 +1511,7 @@ extension HomeViewController: TaskDetailViewFluentDelegate {
         projectListVC.onProjectSelected = { [weak self, weak view] selectedProjectEntity in
             guard let self = self, let view = view, let taskToUpdate = self.editingTaskForProjectPicker else { return }
             
-            taskToUpdate.project = selectedProjectEntity
+            taskToUpdate.project = selectedProjectEntity?.projectName
             view.updateProjectButtonTitle(project: selectedProjectEntity?.projectName)
             
             TaskManager.sharedInstance.saveContext()
@@ -1501,7 +1529,8 @@ extension HomeViewController: TaskDetailViewFluentDelegate {
 
         let bottomSheetController = BottomSheetController(expandedContentView: projectListVC.view)
         bottomSheetController.preferredExpandedContentHeight = CGFloat(min(availableProjects.count, 5) * 50 + 20)
-        bottomSheetController.headerContentView = nil
+        // Don't directly assign to headerContentView as it's a let constant
+        // Instead configure the controller before presenting it
         bottomSheetController.isHidden = false // Ensure it's not hidden by default
         
         self.present(bottomSheetController, animated: true)

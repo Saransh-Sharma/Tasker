@@ -3,10 +3,10 @@ import FluentUI // Ensure FluentUI is imported
 
 // Delegate protocol to communicate changes back to the presenting controller
 protocol TaskDetailViewFluentDelegate: AnyObject {
-    func taskDetailViewFluentDidUpdateRequest(_ view: TaskDetailViewFluent, updatedTask: NTask) // For simplicity, pass back the whole task or individual fields
+    func taskDetailViewFluentDidUpdateRequest(_ view: TaskDetailViewFluent, updatedTask: NTask)
     func taskDetailViewFluentDidRequestDatePicker(_ view: TaskDetailViewFluent, for task: NTask, currentValue: Date?)
     func taskDetailViewFluentDidRequestProjectPicker(_ view: TaskDetailViewFluent, for task: NTask, currentProject: Projects?, availableProjects: [Projects])
-    // Optional: func taskDetailViewFluentDidRequestDismiss(_ view: TaskDetailViewFluent)
+    func dismissFluentDetailView()
 }
 
 class TaskDetailViewFluent: UIView {
@@ -20,46 +20,77 @@ class TaskDetailViewFluent: UIView {
 
     // --- UI Elements ---
     // Title
-    private let titleHeaderLabel = Label(style: .caption1, colorStyle: .secondary)
-    private let titleTextField = TextField()
+    private let titleHeaderLabel = FluentUI.Label()
+    private let titleTextField = FluentUI.FluentTextField()
 
     // Description
-    private let descriptionHeaderLabel = Label(style: .caption1, colorStyle: .secondary)
-    private let descriptionTextField = TextField() // To be configured for multiline
+    private let descriptionHeaderLabel = FluentUI.Label()
+    private let descriptionTextField = FluentUI.FluentTextField()
 
     // Due Date
-    private let dueDateHeaderLabel = Label(style: .caption1, colorStyle: .secondary)
-    private let dueDateButton = Button(style: .outline) // Or use ListItemView
+    private let dueDateHeaderLabel = FluentUI.Label()
+    private let dueDateButton = FluentUI.Button(style: .outline) // Using a standard style
 
     // Priority
-    private let priorityHeaderLabel = Label(style: .caption1, colorStyle: .secondary)
-    private let prioritySegmentedControl = SegmentedControl(items: [
+    private let priorityHeaderLabel = FluentUI.Label()
+    private let prioritySegmentedControl = FluentUI.SegmentedControl(items: [
         SegmentItem(title: "Low"),
         SegmentItem(title: "Medium"),
         SegmentItem(title: "High")
-        // Map these to priority values 4, 3, 2, 1 (or as defined in NTask)
     ])
-    private let priorityMapping: [Int32] = [4, 3, 2, 1] // Example: Low(4) to Highest(1)
+    // Priority mapping: NTask priority values (e.g., 4 for Low, 3 for Med, 2 for High)
+    // Assuming your NTask stores priorities like P0=1 (Highest), P1=2 (High), P2=3 (Medium), P3=4 (Low)
+    // SegmentedControl indices: Low (0), Medium (1), High (2)
+    private let segmentedControlIndexToPriority: [Int: Int32] = [0: 4, 1: 3, 2: 2] // Maps Segment Index to NTask Priority
+    private let priorityToSegmentedControlIndex: [Int32: Int] = [4: 0, 3: 1, 2: 2] // Maps NTask Priority to Segment Index
+
 
     // Project
-    private let projectHeaderLabel = Label(style: .caption1, colorStyle: .secondary)
-    private let projectButton = Button(style: .outline) // Or use ListItemView
+    private let projectHeaderLabel = FluentUI.Label()
+    private let projectButton = FluentUI.Button(style: .outlineNeutral) // Using a standard style
 
     // --- Initialization ---
     override init(frame: CGRect) {
         super.init(frame: frame)
+        // Theme properties might not be fully available here if the view is not yet in a window.
+        // Defer theme-dependent setup to layoutSubviews or didMoveToWindow if issues persist.
         setupView()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Apply theme-dependent properties here if they weren't available during init
+        // This ensures `self.fluentTheme` is accessible.
+        self.backgroundColor = self.fluentTheme.color(.background2)
+        self.layer.cornerRadius = self.fluentTheme.cornerRadius(.large)
+
+        // Header Label Styling (done once)
+        let headerLabels = [titleHeaderLabel, descriptionHeaderLabel, dueDateHeaderLabel, priorityHeaderLabel, projectHeaderLabel]
+        for label in headerLabels {
+            label.font = self.fluentTheme.typography(.caption1)
+            label.textColor = self.fluentTheme.color(.foreground2) // Or another appropriate color token
+        }
+        
+        // Spacing for stackView (can also be done here if theme access was an issue in init)
+        stackView.spacing = self.fluentTheme.spacing(.medium)
+        if let firstTopConstraint = stackView.constraints.first(where: { $0.firstAttribute == .top }) {
+             firstTopConstraint.constant = self.fluentTheme.spacing(.large) // Using our extension
+        }
+        if let firstBottomConstraint = stackView.constraints.first(where: { $0.firstAttribute == .bottom }) {
+             firstBottomConstraint.constant = -self.fluentTheme.spacing(.large) // Using our extension
+        }
+        // etc. for leading/trailing and custom spacings, or ensure stackView's layoutMargins use theme.
+    }
+
 
     // --- UI Setup ---
     private func setupView() {
-        self.backgroundColor = FluentUITheme.shared.color(.background2)
-        self.layer.cornerRadius = FluentUITheme.shared.cornerRadius(.large)
-        // Consider adding FluentUI elevation/shadow if Card component isn't used directly
+        // Initial background just in case theme is not ready, will be overridden in layoutSubviews
+        self.backgroundColor = UIColor.systemGroupedBackground
 
         // ScrollView
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -75,15 +106,16 @@ class TaskDetailViewFluent: UIView {
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.axis = .vertical
         stackView.alignment = .fill
-        stackView.spacing = FluentUITheme.shared.spacing(.medium)
+        // stackView.spacing will be set in layoutSubviews
         scrollView.addSubview(stackView)
         
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: FluentUITheme.shared.spacing(.large)),
-            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -FluentUITheme.shared.spacing(.large)),
-            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: FluentUITheme.shared.spacing(.medium)),
-            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -FluentUITheme.shared.spacing(.medium)),
-            stackView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -2 * FluentUITheme.shared.spacing(.medium))
+            // Constants for spacing will be applied in layoutSubviews or dynamically
+            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 20), // Placeholder
+            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -20), // Placeholder
+            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16), // Placeholder
+            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16), // Placeholder
+            stackView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32) // Placeholder
         ])
 
         // Configure and add elements to stackView
@@ -93,7 +125,6 @@ class TaskDetailViewFluent: UIView {
         setupPriorityControl()
         setupProjectDisplay()
         
-        // Add a spacer at the bottom if content is short, or rely on scroll view constraints
         let spacer = UIView()
         spacer.setContentHuggingPriority(.defaultLow, for: .vertical)
         stackView.addArrangedSubview(spacer)
@@ -104,16 +135,13 @@ class TaskDetailViewFluent: UIView {
         stackView.addArrangedSubview(titleHeaderLabel)
         
         titleTextField.placeholder = "Enter task title"
-        // titleTextField.tokenSet.replaceAllOverrides(with: perControlOverrideTextFieldTokens) // Optional: For custom theming like in demo
-        titleTextField.onDidEndEditing = { [weak self] textField in
-            guard let self = self, let task = self.currentTask else { return }
-            task.name = textField.inputText ?? ""
+        titleTextField.onEditingChanged = { fluentTextField in
+            guard let task = self.currentTask else { return }
+            task.name = fluentTextField.inputText ?? ""
             self.delegate?.taskDetailViewFluentDidUpdateRequest(self, updatedTask: task)
         }
         stackView.addArrangedSubview(titleTextField)
-        stackView.setCustomSpacing(FluentUITheme.shared.spacing(.xxxSmall), after: titleHeaderLabel)
-        stackView.setCustomSpacing(FluentUITheme.shared.spacing(.large), after: titleTextField)
-
+        // Custom spacing applied in layoutSubviews or dynamically after elements are themed
     }
 
     private func setupDescriptionField() {
@@ -121,17 +149,15 @@ class TaskDetailViewFluent: UIView {
         stackView.addArrangedSubview(descriptionHeaderLabel)
 
         descriptionTextField.placeholder = "Enter task description"
+        // Set multiline properties using our extension
         descriptionTextField.isMultiline = true
         descriptionTextField.maxNumberOfLines = 5
-        // descriptionTextField.tokenSet.replaceAllOverrides(with: perControlOverrideTextFieldTokens) // Optional
-         descriptionTextField.onDidEndEditing = { [weak self] textField in
-            guard let self = self, let task = self.currentTask else { return }
-            task.taskDetails = textField.inputText
+        descriptionTextField.onEditingChanged = { fluentTextField in
+            guard let task = self.currentTask else { return }
+            task.taskDetails = fluentTextField.inputText
             self.delegate?.taskDetailViewFluentDidUpdateRequest(self, updatedTask: task)
         }
         stackView.addArrangedSubview(descriptionTextField)
-        stackView.setCustomSpacing(FluentUITheme.shared.spacing(.xxxSmall), after: descriptionHeaderLabel)
-        stackView.setCustomSpacing(FluentUITheme.shared.spacing(.large), after: descriptionTextField)
     }
 
     private func setupDueDateDisplay() {
@@ -140,8 +166,6 @@ class TaskDetailViewFluent: UIView {
 
         dueDateButton.addTarget(self, action: #selector(didTapDueDateButton), for: .touchUpInside)
         stackView.addArrangedSubview(dueDateButton)
-        stackView.setCustomSpacing(FluentUITheme.shared.spacing(.xxxSmall), after: dueDateHeaderLabel)
-        stackView.setCustomSpacing(FluentUITheme.shared.spacing(.large), after: dueDateButton)
     }
 
     private func setupPriorityControl() {
@@ -150,15 +174,12 @@ class TaskDetailViewFluent: UIView {
         
         prioritySegmentedControl.onSelectAction = { [weak self] (item, selectedIndex) in
             guard let self = self, let task = self.currentTask else { return }
-            let priorityMap = [0: Int32(4), 1: Int32(3), 2: Int32(2)] // Low, Medium, High
-            if let newPriority = priorityMap[selectedIndex] {
+            if let newPriority = self.segmentedControlIndexToPriority[selectedIndex] {
                  task.taskPriority = newPriority
                  self.delegate?.taskDetailViewFluentDidUpdateRequest(self, updatedTask: task)
             }
         }
         stackView.addArrangedSubview(prioritySegmentedControl)
-        stackView.setCustomSpacing(FluentUITheme.shared.spacing(.xxxSmall), after: priorityHeaderLabel)
-        stackView.setCustomSpacing(FluentUITheme.shared.spacing(.large), after: prioritySegmentedControl)
     }
 
     private func setupProjectDisplay() {
@@ -167,8 +188,55 @@ class TaskDetailViewFluent: UIView {
 
         projectButton.addTarget(self, action: #selector(didTapProjectButton), for: .touchUpInside)
         stackView.addArrangedSubview(projectButton)
-        stackView.setCustomSpacing(FluentUITheme.shared.spacing(.xxxSmall), after: projectHeaderLabel)
     }
+    
+    // Dynamic spacing update after theming is applied
+    private func updateStackViewSpacing() {
+        guard stackView.arrangedSubviews.count > 0 else { return } // Ensure theme is available
+        let xxxSmallSpacing = self.fluentTheme.spacing(.xxxSmall) // Using our extension
+        let largeSpacing = self.fluentTheme.spacing(.large) // Using our extension
+
+        stackView.setCustomSpacing(xxxSmallSpacing, after: titleHeaderLabel)
+        stackView.setCustomSpacing(largeSpacing, after: titleTextField)
+        stackView.setCustomSpacing(xxxSmallSpacing, after: descriptionHeaderLabel)
+        stackView.setCustomSpacing(largeSpacing, after: descriptionTextField)
+        stackView.setCustomSpacing(xxxSmallSpacing, after: dueDateHeaderLabel)
+        stackView.setCustomSpacing(largeSpacing, after: dueDateButton)
+        stackView.setCustomSpacing(xxxSmallSpacing, after: priorityHeaderLabel)
+        stackView.setCustomSpacing(largeSpacing, after: prioritySegmentedControl)
+        stackView.setCustomSpacing(xxxSmallSpacing, after: projectHeaderLabel)
+        // No large spacing after projectButton as it's the last content item before spacer
+    }
+    
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if self.window != nil {
+            // Theme is now definitely available
+            self.backgroundColor = self.fluentTheme.color(.background2)
+            self.layer.cornerRadius = self.fluentTheme.cornerRadius(.large) // Using our extension
+            
+            // Update label styles
+            let headerLabels = [titleHeaderLabel, descriptionHeaderLabel, dueDateHeaderLabel, priorityHeaderLabel, projectHeaderLabel]
+            for label in headerLabels {
+                label.font = self.fluentTheme.typography(.caption1)
+                label.textColor = self.fluentTheme.color(.foreground2)
+            }
+            
+            // Update stackview spacing
+            stackView.spacing = self.fluentTheme.spacing(.medium) // Using our extension
+            stackView.arrangedSubviews.first?.superview?.layoutMargins.top = self.fluentTheme.spacing(.large) // Using our extension // for top padding of stack
+            stackView.arrangedSubviews.last?.superview?.layoutMargins.bottom = self.fluentTheme.spacing(.large) // Using our extension // for bottom padding of stack
+            
+            // Update constraints if they are placeholder values
+            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: self.fluentTheme.spacing(.medium)).isActive = true // Using our extension
+            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -self.fluentTheme.spacing(.medium)).isActive = true // Using our extension
+            stackView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -2 * self.fluentTheme.spacing(.medium)).isActive = true // Using our extension
+
+
+            updateStackViewSpacing() // Update custom spacings
+        }
+    }
+
 
     // --- Configuration ---
     public func configure(task: NTask, availableProjects: [Projects], delegate: TaskDetailViewFluentDelegate) {
@@ -180,14 +248,21 @@ class TaskDetailViewFluent: UIView {
         descriptionTextField.inputText = task.taskDetails ?? ""
         
         updateDueDateButtonTitle(date: task.dueDate as Date?)
-        updateProjectButtonTitle(project: task.project?.projectName) 
+        updateProjectButtonTitle(project: task.project) // Pass the String name
 
-        let priorityMapFromValueToIndex = [Int32(4): 0, Int32(3): 1, Int32(2): 2]
-        if let index = priorityMapFromValueToIndex[task.taskPriority] {
+        if let index = priorityToSegmentedControlIndex[task.taskPriority] {
             prioritySegmentedControl.selectedSegmentIndex = index
         } else {
+            // Default to "Medium" (index 1) if priority is not in map (e.g. 0 or other undefined)
             prioritySegmentedControl.selectedSegmentIndex = 1
+            // Optionally, update task.taskPriority to the default if it was invalid
+            if let defaultPriority = segmentedControlIndexToPriority[1] {
+                task.taskPriority = defaultPriority
+            }
         }
+        // Ensure view is laid out to apply theme before configuring sub-components that might depend on it
+        self.setNeedsLayout()
+        self.layoutIfNeeded()
     }
     
     // --- Public Update Methods (called by delegate callbacks) ---
@@ -196,14 +271,14 @@ class TaskDetailViewFluent: UIView {
             let df = DateFormatter()
             df.dateStyle = .medium
             df.timeStyle = .short
-            dueDateButton.title = df.string(from: date)
+            dueDateButton.setTitle(df.string(from: date), for: .normal)
         } else {
-            dueDateButton.title = "Set Due Date"
+            dueDateButton.setTitle("Set Due Date", for: .normal)
         }
     }
 
-    public func updateProjectButtonTitle(project: String?) { 
-        projectButton.title = project ?? "Select Project"
+    public func updateProjectButtonTitle(project: String?) {
+        projectButton.setTitle(project ?? "Select Project", for: .normal)
     }
     
     // --- Actions ---
@@ -214,7 +289,9 @@ class TaskDetailViewFluent: UIView {
 
     @objc private func didTapProjectButton() {
         guard let task = currentTask else { return }
-        delegate?.taskDetailViewFluentDidRequestProjectPicker(self, for: task, currentProject: task.project, availableProjects: self.availableProjects)
+        // Find the current Projects object based on the name string from task.project
+        let currentProjectEntity = self.availableProjects.first(where: { $0.projectName == task.project })
+        delegate?.taskDetailViewFluentDidRequestProjectPicker(self, for: task, currentProject: currentProjectEntity, availableProjects: self.availableProjects)
     }
 }
 
