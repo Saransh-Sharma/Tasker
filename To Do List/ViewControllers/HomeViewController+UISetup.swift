@@ -56,7 +56,7 @@ extension HomeViewController: BadgeViewDelegate {
             calendar.appearance.headerTitleColor = todoColors.primaryTextColor
             calendar.appearance.weekdayTextColor = todoColors.primaryTextColor
             calendar.appearance.titleDefaultColor = todoColors.primaryTextColor
-            calendar.appearance.todayColor = todoColors.primaryColor
+            calendar.appearance.todayColor = todoColors.secondaryAccentColor//todoColors.primaryColor
             calendar.appearance.selectionColor = todoColors.secondaryAccentColor
             
             // Ensure calendar starts in week mode
@@ -84,7 +84,7 @@ extension HomeViewController: BadgeViewDelegate {
         // Calculate dimensions
         let screenWidth = view.bounds.width
         let screenHeight = view.bounds.height
-        let foredropHeight = screenHeight * 0.7 // Adjust to match your design
+        let foredropHeight = screenHeight * 0.73 // Adjust to match your design
         
         // Calculate bottom safe area inset
         let safeAreaBottomInset: CGFloat
@@ -288,13 +288,13 @@ extension HomeViewController: BadgeViewDelegate {
             // Reset calendar to week scope BEFORE hiding animation
             calendar.setScope(.week, animated: true)
             // Hide calendar (foredrop goes up)
-            UIView.animate(withDuration: 0.3) {
+            UIView.animate(withDuration: 0.2) {
                 self.moveUp_toHideCal(view: self.foredropContainer)
             }
         } else {
             // Calendar is currently hidden - show it in monthly view
             // Show calendar (foredrop goes down)
-            UIView.animate(withDuration: 0.3) {
+            UIView.animate(withDuration: 0.2) {
                 self.moveDown_revealJustCal(view: self.foredropContainer)
             }
             // Expand calendar to month scope when showing
