@@ -49,7 +49,7 @@ extension HomeViewController: BadgeViewDelegate {
     func setupCalendarInBackdrop() {
         // Initialize calendar if not already done
         if calendar == nil {
-            calendar = FSCalendar(frame: CGRect(x: 0, y: 100, width: view.bounds.width, height: 300))
+            calendar = FSCalendar(frame: CGRect(x: 0, y: -5, width: view.bounds.width, height: 300))
             calendar.dataSource = self
             calendar.delegate = self
             calendar.backgroundColor = .clear
@@ -72,19 +72,19 @@ extension HomeViewController: BadgeViewDelegate {
         lineChartView.backgroundColor = .clear
         lineChartView.delegate = self
         
-        // Setup pie chart
-        tinyPieChartView.frame = CGRect(x: view.bounds.width - 90, y: 20, width: 70, height: 70)
-        tinyPieChartView.backgroundColor = .clear
+        // Setup pie chart - REMOVED
+        // tinyPieChartView.frame = CGRect(x: view.bounds.width - 90, y: 20, width: 70, height: 70)
+        // tinyPieChartView.backgroundColor = .clear
         
         backdropContainer.addSubview(lineChartView)
-        backdropContainer.addSubview(tinyPieChartView)
+        // backdropContainer.addSubview(tinyPieChartView) - REMOVED
     }
     
     func setupHomeFordrop() {
         // Calculate dimensions
         let screenWidth = view.bounds.width
         let screenHeight = view.bounds.height
-        let foredropHeight = screenHeight * 0.73 // Adjust to match your design
+        let foredropHeight = screenHeight * 0.85 // Adjust to match your design
         
         // Calculate bottom safe area inset
         let safeAreaBottomInset: CGFloat
@@ -258,7 +258,7 @@ extension HomeViewController: BadgeViewDelegate {
     @objc
     func appMovedToForeground() {
         print("App moved to ForeGround!")
-        toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView)
+        // toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView) - REMOVED
         
         updateLineChartData()
         updateHomeDateLabel(date: dateForTheView)
@@ -298,7 +298,7 @@ extension HomeViewController: BadgeViewDelegate {
                 self.moveDown_revealJustCal(view: self.foredropContainer)
             }
             // Expand calendar to month scope when showing
-            calendar.setScope(.month, animated: true)
+            calendar.setScope(.week, animated: true)
         }
     }
     

@@ -23,7 +23,7 @@ import MaterialComponents.MaterialRipple
 // Import the delegate protocol
 import Foundation
 
-class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, UITableViewDataSource, UITableViewDelegate {
+class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, UITableViewDataSource, UITableViewDelegate, SearchBarDelegate {
     
     // MARK: - Stored Properties
     
@@ -85,6 +85,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     // Charts
     lazy var lineChartView: LineChartView = { return LineChartView() }()
     lazy var tinyPieChartView: PieChartView = { return PieChartView() }()
+    var navigationPieChartView: PieChartView?
     var shouldHideData: Bool = false
     var tinyPieChartSections: [String] = ["Done", "In Progress", "Not Started", "Overdue"]
     
@@ -139,6 +140,14 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        print("\n=== HOME VIEW CONTROLLER LOADED ===")
+        print("Initial dateForTheView: \(dateForTheView)")
+        
+        print("=== HOME VIEW CONTROLLER SETUP COMPLETE ===")
+        
+        // Setup FluentUI Navigation Bar
+        setupFluentUINavigationBar()
+        
         // Setup notification observers
         notificationCenter.addObserver(self, selector: #selector(appMovedToForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         notificationCenter.addObserver(self, selector: #selector(appMovedToBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
@@ -176,7 +185,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
-        tableView.reloadData()
+        
+        // Reload data for current view type
+        updateViewForHome(viewType: currentViewType)
+        
+        // Animate table view reload
         animateTableViewReload()
     }
     
@@ -216,11 +229,130 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         notificationCenter.removeObserver(self)
     }
     
+    // MARK: - FluentUI Navigation Bar Setup
+    
+    private func setupFluentUINavigationBar() {
+        // Configure navigation item properties
+        navigationItem.titleStyle = .largeLeading
+        navigationItem.navigationBarStyle = .primary
+        navigationItem.navigationBarShadow = .automatic
+        
+        // Set title
+        title = "Today"
+        
+        // Create search bar accessory
+        let searchBar = createSearchBarAccessory()
+        navigationItem.accessoryView = searchBar
+        
+        // Create custom leading button (menu/hamburger)
+        let menuButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "line.horizontal.3"),
+            style: .plain,
+            target: self,
+            action: #selector(onMenuButtonTapped)
+        )
+        menuButtonItem.accessibilityLabel = "Menu"
+        navigationItem.leftBarButtonItem = menuButtonItem
+        
+        // Removed pie chart button from navigation bar
+        
+        // Enable scroll-to-contract behavior
+        navigationItem.contentScrollView = tableView
+    }
+    
+    private func createSearchBarAccessory() -> SearchBar {
+        let searchBar = SearchBar()
+        searchBar.style = .onBrandNavigationBar
+        searchBar.placeholderText = "Search tasks..."
+        searchBar.delegate = self
+        return searchBar
+    }
+    
+    private func createPieChartBarButton() -> UIBarButtonItem {
+        // Create a container view for the pie chart
+        let containerView = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
+        containerView.backgroundColor = UIColor.clear
+        
+        // Create a smaller pie chart view for the navigation bar
+        let navPieChart = PieChartView(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
+        
+        // Store reference for later updates
+        navigationPieChartView = navPieChart
+        
+        // Setup the navigation pie chart with the same configuration as the main one
+        setupPieChartView(pieChartView: navPieChart)
+        
+        // Make it smaller and more suitable for navigation bar
+        navPieChart.holeRadiusPercent = 0.7
+        navPieChart.layer.shadowRadius = 4
+        navPieChart.layer.shadowOpacity = 0.4
+        
+        // Ensure the chart is visible above other elements
+        navPieChart.layer.zPosition = 1000
+        containerView.layer.zPosition = 1000
+        navPieChart.backgroundColor = UIColor.clear
+        
+        // Populate with data
+        setNavigationPieChartData()
+        
+        // Add tap gesture to show/hide charts
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(toggleCharts))
+        navPieChart.addGestureRecognizer(tapGesture)
+        navPieChart.isUserInteractionEnabled = true
+        
+        containerView.addSubview(navPieChart)
+        
+        // Create bar button item with custom view
+        let barButtonItem = UIBarButtonItem(customView: containerView)
+        barButtonItem.accessibilityLabel = "Charts"
+        
+        return barButtonItem
+    }
+    
     // MARK: - Navigation Actions
     
     @objc func onMenuButtonTapped() {
         // Handle menu button tap
         // This might open a side menu or settings panel
+        presentSideDrawer()
+    }
+    
+
+    
+    private func setNavigationPieChartData() {
+        guard let navPieChart = navigationPieChartView else { return }
+        
+        let count = 4
+        let range: UInt32 = 40
+        
+        let entries = (0..<count).map { (i) -> PieChartDataEntry in
+            return PieChartDataEntry(value: Double(arc4random_uniform(range) + range / 5),
+                                     label: tinyPieChartSections[i % tinyPieChartSections.count],
+                                     icon: #imageLiteral(resourceName: "material_done_White"))
+        }
+        
+        let set = PieChartDataSet(entries: entries, label: "")
+        set.drawIconsEnabled = false
+        set.drawValuesEnabled = false
+        set.sliceSpace = 2
+        set.colors = ChartColorTemplates.vordiplom()
+        
+        let data = PieChartData(dataSet: set)
+        
+        navPieChart.drawEntryLabelsEnabled = false
+        navPieChart.data = data
+    }
+    
+    private func presentSideDrawer() {
+        let settingsLabel = Label(textStyle: .title2, colorStyle: .regular)
+        settingsLabel.text = "Settings & Menu"
+        settingsLabel.textAlignment = .center
+        
+        let controller = DrawerController(sourceView: view, sourceRect: .zero, presentationDirection: .fromLeading)
+        controller.contentView = settingsLabel
+        controller.preferredContentSize.width = 300
+        controller.resizingBehavior = .dismiss
+        present(controller, animated: true)
     }
     
     @objc func AddTaskAction() {
@@ -247,6 +379,82 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     // MARK: - Helper method to update view
     
     private func refreshHomeView() {
+        // Reload data for current view type
+        updateViewForHome(viewType: currentViewType)
+        
+        // Animate table view reload
+        animateTableViewReload()
+    }
+}
+
+// MARK: - SearchBarDelegate Extension
+
+extension HomeViewController {
+    func searchBarDidBeginEditing(_ searchBar: SearchBar) {
+        // Handle when search begins
+        searchBar.progressSpinner.state.isAnimating = false
+    }
+    
+    func searchBar(_ searchBar: SearchBar, didUpdateSearchText newSearchText: String?) {
+        // Handle search text changes
+        let searchText = newSearchText?.lowercased() ?? ""
+        
+        if searchText.isEmpty {
+            // Show all tasks when search is empty
+            updateViewForHome(viewType: currentViewType)
+        } else {
+            // Filter tasks based on search text
+            filterTasksForSearch(searchText: searchText)
+        }
+    }
+    
+    func searchBarDidCancel(_ searchBar: SearchBar) {
+        // Handle search cancellation
+        searchBar.progressSpinner.state.isAnimating = false
+        updateViewForHome(viewType: currentViewType)
+    }
+    
+    func searchBarDidRequestSearch(_ searchBar: SearchBar) {
+        // Handle search button tap
+        _ = searchBar.resignFirstResponder()
+    }
+    
+    private func filterTasksForSearch(searchText: String) {
+        // Get all tasks from TaskManager to search across everything
+        let allMorningTasks = TaskManager.sharedInstance.getMorningTasks(for: dateForTheView)
+        let allEveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
+        let allTasks = allMorningTasks + allEveningTasks
+        
+        // Filter tasks based on search text
+        let filteredTasks = allTasks.filter { task in
+            let searchTextLower = searchText.lowercased()
+            return task.name.lowercased().contains(searchTextLower) ||
+                   (task.taskDetails?.lowercased().contains(searchTextLower) ?? false) ||
+                   (task.project?.lowercased().contains(searchTextLower) ?? false)
+        }
+        
+        // Create filtered sections
+        var filteredSections: [ToDoListData.Section] = []
+        
+        if !filteredTasks.isEmpty {
+            // Convert filtered NTask objects to TaskListItem objects
+            let filteredTaskItems = filteredTasks.map { task in
+                ToDoListData.TaskListItem(
+                    text1: task.name,
+                    text2: task.taskDetails ?? "",
+                    text3: "",
+                    image: ""
+                )
+            }
+            
+            let searchSection = ToDoListData.Section(
+                title: "Search Results (\(filteredTasks.count))",
+                taskListItems: filteredTaskItems
+            )
+            filteredSections.append(searchSection)
+        }
+        
+        ToDoListSections = filteredSections
         tableView.reloadData()
         animateTableViewReload()
     }

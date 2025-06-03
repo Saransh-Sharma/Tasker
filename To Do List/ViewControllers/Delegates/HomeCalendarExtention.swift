@@ -98,15 +98,23 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     
     //MARK: Cal changes VIEW + SCORE on date change
     func calendar(_ calendarView: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
+        print("\n=== CALENDAR DATE SELECTED ===")
         print("You selected Date from Cal: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
+        print("Selected date: \(date)")
+        print("Is today? \(date == Date.today())")
+        
         setDateForViewValue(dateToSetForView: date)
+        print("dateForTheView set to: \(dateForTheView)")
         
         if (date == Date.today()) {
+            print("Updating view for TODAY")
             updateViewForHome(viewType: .todayHomeView)
         } else {
+            print("Updating view for CUSTOM DATE")
             updateViewForHome(viewType: .customDateView, dateForView: date)
         }
         
+        print("=== CALENDAR SELECTION COMPLETE ===")
         
         self.updateHomeDateLabel(date: dateForTheView)
         self.scoreCounter.text = "\(self.calculateTodaysScore())"

@@ -13,35 +13,45 @@ extension AddTaskViewController {
 
     // The main foredrop sheet
     func setupAddTaskForedrop() {
+        // Position the foredrop container below the calendar
+        let screenWidth = UIScreen.main.bounds.width
+        let screenHeight = UIScreen.main.bounds.height
+        let safeAreaBottomInset = view.safeAreaInsets.bottom
+        
+        // Calculate position dynamically based on calendar position
+        let calendarStartY = homeTopBar.frame.maxY - 6
+        let calendarHeight = homeTopBar.frame.maxY
+        let foredropTopY = calendarStartY + calendarHeight + 10 // Add 10pt padding
+        let foredropHeight = screenHeight - foredropTopY - safeAreaBottomInset - 20
+        
+        foredropContainer.frame = CGRect(x: 0, 
+                                       y: foredropTopY, 
+                                       width: screenWidth, 
+                                       height: foredropHeight)
         foredropContainer.backgroundColor = todoColors.foregroundColor
         foredropContainer.layer.cornerRadius = 24
         foredropContainer.clipsToBounds = true
+        
+        // Add shadow for better visual separation
+        foredropContainer.layer.shadowColor = UIColor.black.cgColor
+        foredropContainer.layer.shadowOffset = CGSize(width: 0, height: -3)
+        foredropContainer.layer.shadowOpacity = 0.1
+        foredropContainer.layer.shadowRadius = 10
+        foredropContainer.layer.masksToBounds = false
+        
         view.addSubview(foredropContainer)
 
         foredropStackContainer.translatesAutoresizingMaskIntoConstraints = false
         foredropContainer.addSubview(foredropStackContainer)
         NSLayoutConstraint.activate([
-            foredropStackContainer.leadingAnchor.constraint(equalTo: foredropContainer.leadingAnchor),
-            foredropStackContainer.trailingAnchor.constraint(equalTo: foredropContainer.trailingAnchor),
-            foredropStackContainer.topAnchor.constraint(equalTo: foredropContainer.topAnchor),
-            foredropStackContainer.bottomAnchor.constraint(equalTo: foredropContainer.bottomAnchor)
+            foredropStackContainer.leadingAnchor.constraint(equalTo: foredropContainer.leadingAnchor, constant: 16),
+            foredropStackContainer.trailingAnchor.constraint(equalTo: foredropContainer.trailingAnchor, constant: -16),
+            foredropStackContainer.topAnchor.constraint(equalTo: foredropContainer.topAnchor, constant: 20),
+            foredropStackContainer.bottomAnchor.constraint(lessThanOrEqualTo: foredropContainer.bottomAnchor, constant: -20)
         ])
     }
 
-    // Pills across the top for project picking
-    func setupProjectsPillBar() {
-        pillBarProjectList = ProjectManager.sharedInstance.displayedProjects
-            .map { PillButtonBarItem(title: $0.projectName ?? "") }
-        pillBarProjectList.insert(PillButtonBarItem(title: addProjectString), at: 0)
-
-        let pillBar = PillButtonBar(pillButtonStyle: .primary)
-        pillBar.items = pillBarProjectList
-        pillBar.barDelegate = self
-        filledBar?.removeFromSuperview()
-
-        filledBar = pillBar
-        foredropStackContainer.insertArrangedSubview(pillBar, at: 0)
-    }
+    // Pills across the top for project picking - method moved to AddTaskForedropView.swift to avoid duplicate declaration
 
     // MARK: – Actions wired from selectors
 
@@ -51,13 +61,26 @@ extension AddTaskViewController {
 
     @objc func doneAddTaskAction() {
         guard !currentTaskInMaterialTextBox.isEmpty else { return }
-        TaskManager.sharedInstance.addNewTask_Today(
+        
+        // Use the selected calendar date as the due date
+        TaskManager.sharedInstance.addNewTask_Future(
             name: currentTaskInMaterialTextBox,
             taskType: isThisEveningTask ? 2 : 1,
             taskPriority: currentTaskPriority,
-            isEveningTask: isThisEveningTask
+            futureTaskDate: dateForAddTaskView,
+            isEveningTask: isThisEveningTask,
+            project: currenttProjectForAddTaskView
         )
-        delegate?.didAddTask(TaskManager.sharedInstance.getAllTasks.last!)
+        
+        // Update the task details with the description if provided
+        if let newTask = TaskManager.sharedInstance.getAllTasks.last {
+            if !currentTaskDescription.isEmpty {
+                newTask.taskDetails = currentTaskDescription
+                TaskManager.sharedInstance.saveContext()
+            }
+            delegate?.didAddTask(newTask)
+        }
+        
         dismiss(animated: true)
     }
 }

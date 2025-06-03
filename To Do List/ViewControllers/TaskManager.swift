@@ -102,10 +102,16 @@ class TaskManager {
         
         // Find a task with a matching name
         // This is a simple implementation - in a real app, you might need a more robust way to match tasks
-        let matchingTasks = tasks.filter { $0.name == taskListItem.TaskTitle }
+        let matchingTasks = tasks.filter { $0.name.lowercased() == taskListItem.TaskTitle.lowercased() }
         
         // Return the first matching task, or nil if none found
-        return matchingTasks.first
+        if let matchedTask = matchingTasks.first {
+            print("TaskManager: Found matching task '\(matchedTask.name)' for TaskListItem '\(taskListItem.TaskTitle)'")
+            return matchedTask
+        } else {
+            print("TaskManager: No matching task found for TaskListItem '\(taskListItem.TaskTitle)'")
+            return nil
+        }
     }
     
     /// Retrieves all tasks belonging to a specific project
@@ -558,15 +564,22 @@ class TaskManager {
         fetchTasks()
         
         for task in tasks {
-            // Include tasks due on the specified date
-            if task.dueDate as Date? == date {
+            // Include tasks due on the specified date (using date-only comparison)
+            if let taskDueDate = task.dueDate as Date?,
+               Calendar.current.isDate(taskDueDate, inSameDayAs: date) {
                 tasksForDate.append(task)
             }
-            
+            // Include overdue tasks if we're looking at today
+            else if Calendar.current.isDate(date, inSameDayAs: Date()) && 
+                        !task.isComplete,
+                    let taskDueDate = task.dueDate as Date?,
+                    taskDueDate < date {
+                tasksForDate.append(task)
+            }
             // Include completed tasks that were completed on the specified date
             else if task.isComplete, 
                     let dateCompleted = task.dateCompleted as Date?,
-                    dateCompleted.onSameDay(as: date) {
+                    Calendar.current.isDate(dateCompleted, inSameDayAs: date) {
                 tasksForDate.append(task)
             }
         }

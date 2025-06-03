@@ -49,7 +49,15 @@ extension AddTaskViewController {
     //MARK:-                    Setup Projects Pill Bar
     //----------------------- *************************** -----------------------
     
-    // setupProjectsPillBar() method removed to fix duplicate declaration
+    func setupProjectsPillBar() {
+        buildProojectsPillBarData()
+        
+        let pillBar = createProjectsBar(items: pillBarProjectList, centerAligned: false)
+        filledBar?.removeFromSuperview()
+        
+        filledBar = pillBar
+        // Don't add to stack container here - it's added in viewDidLoad
+    }
     
     func buildProojectsPillBarData() {
         // ProjectManager's data is expected to be refreshed by AddTaskViewController's viewWillAppear.
@@ -152,14 +160,12 @@ extension AddTaskViewController {
         
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         self.addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
-        //        addTaskTextBox_Material.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
-        self.addTaskTextBox_Material.label.text = "add task & tap done"
-        self.addTaskTextBox_Material.leadingAssistiveLabel.text = "add actionable items"
-        //        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
+        self.addTaskTextBox_Material.label.text = "Task Name"
+        self.addTaskTextBox_Material.leadingAssistiveLabel.text = "Enter task name"
         
         self.addTaskTextBox_Material.sizeToFit()
         
-        self.addTaskTextBox_Material.delegate = self //v
+        self.addTaskTextBox_Material.delegate = self
         self.addTaskTextBox_Material.clearButtonMode = .whileEditing
         let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
                                     "schedule 1:1 with Shelly","grab 401k from mail box",
@@ -167,14 +173,10 @@ extension AddTaskViewController {
                                     "book flight tickets to Thailand", "fix the garage door",
                                     "order Cake", "review subscriptions", "get coffee"]
         self.addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
-        //        addTaskTextBox_Material.sizeToFit()
         
         self.addTaskTextBox_Material.backgroundColor = .clear
         
-        
-        self.foredropStackContainer.addArrangedSubview(self.addTaskTextBox_Material)
-        
-        
+        // Don't add to stack container here - it's added in viewDidLoad
     }
     
     func setupEveningTaskSwitch() {
@@ -222,9 +224,9 @@ extension AddTaskViewController {
             self.changeTaskPriority(segmented)
         }
         
-        // 5) Keep a reference and insert into your stack
+        // 5) Keep a reference
         self.tabsSegmentedControl = segmented
-        self.foredropStackContainer.addArrangedSubview(segmented)
+        // Don't add to stack container here - it's added in viewDidLoad
     }
     //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
     @objc func changeTaskPriority(_ sender: SegmentedControl) { // Corrected sender type
@@ -279,7 +281,7 @@ extension AddTaskViewController {
     
     self.fab_doneTask.isHidden = self.addTaskTextBox_Material.text?.isEmpty ?? true // Aligned with other UI elements
     
-    self.foredropStackContainer.addArrangedSubview(self.fab_doneTask)
+    // Don't add to stack container here - it's added in viewDidLoad
     self.fab_doneTask.addTarget(self, action: #selector(self.doneAddTaskAction), for: .touchUpInside)
 }
 

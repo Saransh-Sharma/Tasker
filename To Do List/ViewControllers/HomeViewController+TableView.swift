@@ -20,7 +20,7 @@ extension HomeViewController {
         tableView.separatorStyle = .none
         
         // Register cell classes if needed
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "TaskCell")
+        tableView.register(FluentUI.TableViewCell.self, forCellReuseIdentifier: "TaskCell")
         tableView.register(UITableViewHeaderFooterView.self, forHeaderFooterViewReuseIdentifier: "SectionHeader")
     }
     
@@ -32,33 +32,55 @@ extension HomeViewController {
     // MARK: - UITableViewDataSource
     
     @objc func numberOfSections(in tableView: UITableView) -> Int {
-        // Always have at least one section for the main header
+        let sectionCount: Int
         switch currentViewType {
         case .allProjectsGrouped, .selectedProjectsGrouped:
-            return projectsToDisplayAsSections.count > 0 ? projectsToDisplayAsSections.count + 1 : 1
+            sectionCount = projectsToDisplayAsSections.count > 0 ? projectsToDisplayAsSections.count + 1 : 1
+        case .todayHomeView, .customDateView:
+            // Return the number of project sections (Inbox + other projects)
+            sectionCount = ToDoListSections.count
         default:
-            return 1
+            sectionCount = ToDoListSections.count > 0 ? ToDoListSections.count : 1
         }
+        print("HomeViewController: numberOfSections returning \(sectionCount) for viewType \(currentViewType)")
+        return sectionCount
     }
     
     @objc func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        let rowCount: Int
         switch currentViewType {
         case .allProjectsGrouped, .selectedProjectsGrouped:
             if section == 0 {
                 // Section 0 is just the main header with filter controls
-                return 0
+                rowCount = 0
             } else {
                 // Adjust for 0-indexed section
                 let actualSection = section - 1
                 if actualSection < projectsToDisplayAsSections.count {
                     let projectName = projectsToDisplayAsSections[actualSection].projectName ?? ""
-                    return tasksGroupedByProject[projectName]?.count ?? 0
+                    rowCount = tasksGroupedByProject[projectName]?.count ?? 0
+                } else {
+                    rowCount = 0
                 }
-                return 0
+            }
+        case .todayHomeView, .customDateView:
+            // Return the number of tasks in the specific section
+            if section < ToDoListSections.count {
+                rowCount = ToDoListSections[section].items.count
+                print("HomeViewController: Section \(section) ('\(ToDoListSections[section].sectionTitle)') has \(rowCount) rows")
+            } else {
+                rowCount = 0
+                print("HomeViewController: Section \(section) is out of bounds, returning 0 rows")
             }
         default:
-            return ToDoListSections.flatMap({ $0.items }).count
+            if ToDoListSections.isEmpty {
+                rowCount = 0
+            } else {
+                rowCount = ToDoListSections.flatMap({ $0.items }).count
+            }
         }
+        print("HomeViewController: numberOfRowsInSection \(section) returning \(rowCount)")
+        return rowCount
     }
     
     @objc func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
@@ -88,8 +110,15 @@ extension HomeViewController {
                     titleLabel.text = projectsToDisplayAsSections[actualSection].projectName
                 }
             }
+        case .todayHomeView, .customDateView:
+            // Show section title for each project
+            if section < ToDoListSections.count {
+                titleLabel.text = ToDoListSections[section].sectionTitle
+            }
         default:
-            titleLabel.text = ToDoListSections.first?.sectionTitle // Fixed: Use sectionTitle
+            if !ToDoListSections.isEmpty {
+                titleLabel.text = ToDoListSections.first?.sectionTitle
+            }
         }
         
         headerView.addSubview(titleLabel)
@@ -107,6 +136,8 @@ extension HomeViewController {
     }
     
     @objc func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        print("HomeViewController: cellForRowAt called for indexPath \(indexPath)")
+        
         let cell = tableView.dequeueReusableCell(withIdentifier: "TaskCell", for: indexPath)
         
         // Configure the cell based on task data
@@ -121,24 +152,40 @@ extension HomeViewController {
                     task = tasksGroupedByProject[projectName]?[indexPath.row]
                 }
             }
+        case .todayHomeView, .customDateView:
+            // Get task from the specific section
+            print("HomeViewController: Current view type is \(currentViewType), ToDoListSections.count = \(ToDoListSections.count)")
+            if indexPath.section < ToDoListSections.count {
+                let section = ToDoListSections[indexPath.section]
+                print("HomeViewController: Section '\(section.sectionTitle)' has \(section.items.count) items")
+                if indexPath.row < section.items.count {
+                    let taskListItem = section.items[indexPath.row]
+                    print("HomeViewController: Getting task for TaskListItem with title '\(taskListItem.TaskTitle)'")
+                    task = TaskManager.sharedInstance.getTaskFromTaskListItem(taskListItem: taskListItem)
+                    if task == nil {
+                        print("Error: Expected a task item in cellForRowAt, but found nil at indexPath: \(indexPath)")
+                    }
+                }
+            }
         default:
             let allTaskItems = ToDoListSections.flatMap({ $0.items })
             if indexPath.row < allTaskItems.count {
                 let taskListItem = allTaskItems[indexPath.row]
-                // We need to convert or retrieve the actual NTask object instead of direct assignment
-                // This is a placeholder - you'll need to implement the actual conversion logic
-                // For example, you might need to fetch the task from CoreData based on some identifier
-                // or create a new NTask with properties from taskListItem
                 task = TaskManager.sharedInstance.getTaskFromTaskListItem(taskListItem: taskListItem)
                 if task == nil {
                     print("Error: Expected a task item in cellForRowAt, but found nil at indexPath: \(indexPath)")
-                    // task remains nil, cell configuration should handle this
                 }
             }
         }
         
         if let task = task {
+            print("HomeViewController: Found task '\(task.name ?? "Unknown")' for indexPath \(indexPath)")
             configureCellForTask(cell, with: task, at: indexPath)
+        } else {
+            print("HomeViewController: No task found for indexPath \(indexPath)")
+            // Configure empty cell
+            cell.textLabel?.text = "No Task"
+            cell.detailTextLabel?.text = ""
         }
         
         return cell
@@ -147,9 +194,15 @@ extension HomeViewController {
     // MARK: - Cell Configuration
     
     private func configureCellForTask(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
-        // Clear existing content and configuration
+        // Set background color
         cell.backgroundColor = .clear
-        cell.contentView.subviews.forEach { $0.removeFromSuperview() }
+        
+        // Only clear subviews for standard UITableViewCell, not FluentUI cells
+        if !(cell is FluentUI.TableViewCell) {
+            cell.contentView.subviews.forEach { $0.removeFromSuperview() }
+        }
+        
+        print("HomeViewController: Configuring cell for task '\(task.name ?? "Unknown")' at indexPath \(indexPath)")
         
         if task.isComplete {
             configureCompletedTaskCell(cell, with: task, at: indexPath)
@@ -159,13 +212,60 @@ extension HomeViewController {
     }
     
     private func configureOpenTaskCell(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
-        // Implementation would depend on your specific UI requirements
-        // This is a placeholder for the cell building logic
+        // Configure cell for open/incomplete tasks
+        if let fluentCell = cell as? FluentUI.TableViewCell {
+            print("HomeViewController: Using FluentUI cell for task '\(task.name ?? "Unknown")'")
+            fluentCell.setup(title: task.name ?? "Untitled Task", 
+                           subtitle: task.taskDetails ?? "",
+                           accessoryType: .none)
+        } else {
+            print("HomeViewController: Using standard UITableViewCell for task '\(task.name ?? "Unknown")'")
+            // Fallback for standard UITableViewCell
+            cell.textLabel?.text = task.name ?? "Untitled Task"
+            cell.detailTextLabel?.text = task.taskDetails ?? ""
+            cell.textLabel?.textColor = .label
+            cell.textLabel?.attributedText = nil
+            cell.detailTextLabel?.textColor = .secondaryLabel
+            cell.detailTextLabel?.attributedText = nil
+        }
     }
     
     private func configureCompletedTaskCell(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
-        // Implementation would depend on your specific UI requirements
-        // This is a placeholder for the cell building logic
+        // Configure cell for completed tasks with strikethrough and grey styling
+        if let fluentCell = cell as? FluentUI.TableViewCell {
+            // Setup cell with plain text first
+            fluentCell.setup(title: task.name ?? "Untitled Task", 
+                           subtitle: task.taskDetails ?? "",
+                           accessoryType: .checkmark)
+            
+            // Apply strikethrough and grey styling after setup
+            // Note: FluentUI.TableViewCell may not expose direct label access
+            // The styling will be handled by the standard UITableViewCell fallback for now
+        } else {
+            // Fallback for standard UITableViewCell
+            let titleText = task.name ?? "Untitled Task"
+            let titleAttributedString = NSMutableAttributedString(string: titleText)
+            titleAttributedString.addAttribute(NSAttributedString.Key.strikethroughStyle, 
+                                             value: NSUnderlineStyle.single.rawValue, 
+                                             range: NSRange(location: 0, length: titleText.count))
+            titleAttributedString.addAttribute(NSAttributedString.Key.foregroundColor, 
+                                             value: UIColor.systemGray, 
+                                             range: NSRange(location: 0, length: titleText.count))
+            cell.textLabel?.attributedText = titleAttributedString
+            
+            if let subtitleText = task.taskDetails, !subtitleText.isEmpty {
+                let subtitleAttributedString = NSMutableAttributedString(string: subtitleText)
+                subtitleAttributedString.addAttribute(NSAttributedString.Key.strikethroughStyle, 
+                                                     value: NSUnderlineStyle.single.rawValue, 
+                                                     range: NSRange(location: 0, length: subtitleText.count))
+                subtitleAttributedString.addAttribute(NSAttributedString.Key.foregroundColor, 
+                                                     value: UIColor.systemGray2, 
+                                                     range: NSRange(location: 0, length: subtitleText.count))
+                cell.detailTextLabel?.attributedText = subtitleAttributedString
+            }
+            
+            cell.accessoryType = .checkmark
+        }
     }
     
     // MARK: - Swipe Actions
@@ -185,16 +285,25 @@ extension HomeViewController {
                     }
                 }
             }
+        case .todayHomeView, .customDateView:
+            // Get task from the specific section
+            if indexPath.section < ToDoListSections.count {
+                let section = ToDoListSections[indexPath.section]
+                if indexPath.row < section.items.count {
+                    let taskListItem = section.items[indexPath.row]
+                    task = TaskManager.sharedInstance.getTaskFromTaskListItem(taskListItem: taskListItem)
+                    if task == nil {
+                        print("Error: Expected a task item for swipe actions, but found nil at indexPath: \(indexPath)")
+                    }
+                }
+            }
         default:
             let allTaskItems = ToDoListSections.flatMap({ $0.items })
             if indexPath.row < allTaskItems.count {
                 let taskListItem = allTaskItems[indexPath.row]
-                // We need to convert or retrieve the actual NTask object instead of direct assignment
-                // Use the same conversion method as in cellForRowAt
                 task = TaskManager.sharedInstance.getTaskFromTaskListItem(taskListItem: taskListItem)
                 if task == nil {
                     print("Error: Expected a task item for swipe actions, but found nil at indexPath: \(indexPath)")
-                    // task remains nil, guard statement below will handle this
                 }
             }
         }

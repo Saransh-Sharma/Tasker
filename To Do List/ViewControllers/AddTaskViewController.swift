@@ -33,9 +33,13 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
     // MARK: TASK METADATA
     var currentTaskInMaterialTextBox: String = ""
+    var currentTaskDescription: String = ""
     var isThisEveningTask: Bool = false
     var taskDayFromPicker: String =  "Unknown" //change datatype tp task type
     var currentTaskPriority: Int = 3
+    
+    // Description text field
+    var descriptionTextBox_Material = MDCFilledTextField()
 
     let addProjectString = "Add Project"
 
@@ -114,23 +118,49 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        // Setup backdrop with navigation bar and calendar
         view.addSubview(backdropContainer)
-        setupBackdrop() // Assuming this method exists or will be added
-
-        nCancelButton.setTitle("Cancel", for: .normal)
-        // Consider using AutoLayout for nCancelButton instead of frames
-        nCancelButton.frame = CGRect(x: UIScreen.main.bounds.maxX - UIScreen.main.bounds.maxX / 5, y: UIScreen.main.bounds.minY + 48, width: 70, height: 35)
-        view.addSubview(nCancelButton)
-        // The cancelAddTaskAction is in the extension, ensure self correctly refers to AddTaskViewController instance
-        nCancelButton.addTarget(self, action: #selector(self.cancelAddTaskAction), for: .touchUpInside)
-
-
-        view.addSubview(foredropStackContainer)
-        self.setupAddTaskForedrop() // This method is in AddTaskForedropView.swift extension
+        setupBackdrop()
+        setupBackdropBackground()
+        setupNavigationBar()
+        setupCalendarWidget()
+        
+        // Setup foredrop with form - setupAddTaskForedrop will add foredropStackContainer to foredropContainer
+        self.setupAddTaskForedrop()
+        
+        // Setup form components
+        setupAddTaskTextField()
+        setupDescriptionTextField()
+        setupProjectsPillBar()
+        setupPrioritySC()
+        setupDoneButton()
+        
+        // Add components to foredrop stack container in order
+        // Ensure all components are visible and properly configured
+        self.addTaskTextBox_Material.isHidden = false
+        self.addTaskTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
+        self.foredropStackContainer.addArrangedSubview(self.addTaskTextBox_Material)
+        
+        self.descriptionTextBox_Material.isHidden = false
+        self.descriptionTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
+        self.foredropStackContainer.addArrangedSubview(self.descriptionTextBox_Material)
+        
+        if let pillBar = self.filledBar {
+            pillBar.isHidden = false
+            pillBar.translatesAutoresizingMaskIntoConstraints = false
+            self.foredropStackContainer.addArrangedSubview(pillBar)
+        }
+        
+        self.tabsSegmentedControl.isHidden = false
+        self.tabsSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
+        self.foredropStackContainer.addArrangedSubview(self.tabsSegmentedControl)
+        
+        // Done button visibility is controlled by text field content
+        self.fab_doneTask.translatesAutoresizingMaskIntoConstraints = false
+        self.foredropStackContainer.addArrangedSubview(self.fab_doneTask)
 
         addTaskTextBox_Material.becomeFirstResponder()
-        addTaskTextBox_Material.keyboardType = .default // .webSearch might not be appropriate for tasks
-        // addTaskTextBox_Material.returnKeyType = .done // Consider this if you want "Done" on keyboard
+        addTaskTextBox_Material.keyboardType = .default
         addTaskTextBox_Material.autocorrectionType = .yes
         addTaskTextBox_Material.smartDashesType = .yes
         addTaskTextBox_Material.smartQuotesType = .yes
@@ -190,9 +220,13 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
             let newText = oldText.replacingCharacters(in: stringRange, with: string)
             print("AddTaskViewController: new text is: \(newText)")
             
-            currentTaskInMaterialTextBox = newText
+            if textField == addTaskTextBox_Material {
+                currentTaskInMaterialTextBox = newText
+            } else if textField == descriptionTextBox_Material {
+                currentTaskDescription = newText
+            }
             
-            let isEmpty = newText.isEmpty
+            let isEmpty = currentTaskInMaterialTextBox.isEmpty
             // fab_doneTask, tabsSegmentedControl, and filledBar are properties of AddTaskViewController (self)
             // and are assumed to be correctly initialized/managed by the extension methods.
             self.fab_doneTask.isHidden = isEmpty
@@ -201,6 +235,44 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
             self.fab_doneTask.isEnabled = !isEmpty
         }
         return true
+    }
+    
+    // MARK: - Setup Methods
+    
+    func setupNavigationBar() {
+        // Setup navigation bar similar to home screen
+        nCancelButton.setTitle("Cancel", for: .normal)
+        nCancelButton.setTitleColor(.white, for: .normal)
+        nCancelButton.titleLabel?.font = todoFont.setFont(fontSize: 16, fontweight: .medium, fontDesign: .default)
+        nCancelButton.frame = CGRect(x: UIScreen.main.bounds.maxX - 80, y: 50, width: 70, height: 35)
+        view.addSubview(nCancelButton)
+        nCancelButton.addTarget(self, action: #selector(self.cancelAddTaskAction), for: .touchUpInside)
+        
+        // Setup date display in navigation bar
+        setHomeViewDate()
+        homeTopBar.addSubview(homeDate_Day)
+        homeTopBar.addSubview(homeDate_WeekDay)
+        homeTopBar.addSubview(homeDate_Month)
+    }
+    
+    func setupCalendarWidget() {
+        // Setup calendar widget similar to home screen
+        setupCalAtAddTask()
+        backdropContainer.addSubview(calendar)
+    }
+    
+    func setupDescriptionTextField() {
+        let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 80)
+        self.descriptionTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
+        self.descriptionTextBox_Material.label.text = "Description (optional)"
+        self.descriptionTextBox_Material.leadingAssistiveLabel.text = "Add task details"
+        self.descriptionTextBox_Material.placeholder = "Enter task description..."
+        self.descriptionTextBox_Material.sizeToFit()
+        self.descriptionTextBox_Material.delegate = self
+        self.descriptionTextBox_Material.clearButtonMode = .whileEditing
+        self.descriptionTextBox_Material.backgroundColor = .clear
+        
+        // Don't add to stack container here - it's added in viewDidLoad
     }
 
     // @objc func cancelAddTaskAction() is now only in AddTaskForedropView.swift extension
