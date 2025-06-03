@@ -215,7 +215,7 @@ extension HomeViewController {
     
     public func containerForActionViews(drawerHasFlexibleHeight: Bool = true) -> UIView {
         let container = HomeViewController.createVerticalContainer()
-        container.backgroundColor = .white
+        container.backgroundColor = UIColor.white
         for view in actionViews(drawerHasFlexibleHeight: drawerHasFlexibleHeight) {
             container.addArrangedSubview(view)
         }

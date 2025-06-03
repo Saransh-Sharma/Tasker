@@ -15,7 +15,10 @@ import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
-class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate {
+class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate, UIScrollViewDelegate {
+    
+    // Delegate for communicating back to the presenter
+    weak var delegate: AddTaskViewControllerDelegate?
 
     //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()

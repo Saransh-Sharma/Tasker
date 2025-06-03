@@ -91,6 +91,23 @@ class TaskManager {
     
     // MARK: - Project-Based Task Retrieval Methods
     /// Methods for retrieving tasks based on project name and other criteria
+    
+    /// Converts a ToDoListData.TaskListItem to an NTask object
+    /// This method attempts to find an NTask with a matching name from the TaskListItem
+    /// - Parameter taskListItem: The TaskListItem to convert
+    /// - Returns: The corresponding NTask if found, nil otherwise
+    func getTaskFromTaskListItem(taskListItem: ToDoListData.TaskListItem) -> NTask? {
+        // Fetch all tasks to ensure we have the latest data
+        fetchTasks()
+        
+        // Find a task with a matching name
+        // This is a simple implementation - in a real app, you might need a more robust way to match tasks
+        let matchingTasks = tasks.filter { $0.name == taskListItem.TaskTitle }
+        
+        // Return the first matching task, or nil if none found
+        return matchingTasks.first
+    }
+    
     /// Retrieves all tasks belonging to a specific project
     /// - Parameter projectName: The name of the project to filter tasks by
     /// - Returns: Array of tasks that belong to the specified project
@@ -257,6 +274,24 @@ class TaskManager {
     /// Retrieves open (incomplete) tasks from all custom projects for a specific date
     /// - Parameter date: The date to filter tasks by
     /// - Returns: Array of open tasks from all custom projects for the specified date
+    /// Retrieves all tasks for a specific project and date
+    /// - Parameters:
+    ///   - projectName: The name of the project to filter tasks by
+    ///   - date: The date to filter tasks by
+    /// - Returns: Array of all tasks for the specified project and date
+    func getTasksByProjectNameAndDate(projectName: String, date: Date) -> [NTask] {
+        var filteredTasks = [NTask]()
+        fetchTasks()
+        
+        for each in tasks {
+            let currentProjectName = each.project?.lowercased()
+            if currentProjectName == projectName.lowercased() && each.dueDate as Date? == date {
+                filteredTasks.append(each)
+            }
+        }
+        return filteredTasks
+    }
+    
     func getTasksForAllCustomProjectsByNameForDate_Open(date: Date) -> [NTask] {
         
         var mtasks = [NTask]()
@@ -446,17 +481,18 @@ class TaskManager {
     /// Retrieves morning tasks (taskType = 1) for today, including unfinished tasks from previous days
     /// Used in the home view to display today's tasks along with all unfinished tasks
     /// - Returns: Array of morning tasks for today and unfinished tasks from previous days
-    func getMorningTasksForToday() -> [NTask] {
+    func getMorningTasks(for date: Date) -> [NTask] {
         
         
         var morningTasks = [NTask]()
         fetchTasks()
+        let today = Date.today()
         
         //        print("getMorningTaskByDate: task count is: \(tasks.count)")
-        let today = Date.today()
+        let targetDate = date // Plan Step F: Use passed date
         for each in tasks {
             // taskType 1 is morning
-            if each.taskType == 1 && each.dueDate == today as NSDate { //get morning tasks added today
+            if each.taskType == 1 && each.dueDate == targetDate as NSDate { //get morning tasks added today
                 morningTasks.append(each)
                 print("Green 1: \(each.name)")
             } else if (each.taskType == 1 && each.isComplete == false) { //get older unfinished tasks // Morninng + incomplete
@@ -510,6 +546,66 @@ class TaskManager {
                 //                        print("passed date: \(date)")
             }
         }
+        return eveningTasks
+    }
+    
+    // MARK: - Task Retrieval by Date
+    /// Retrieves all tasks for a specific date
+    /// - Parameter date: The date to filter tasks by
+    /// - Returns: Array of all tasks for the specified date
+    func getAllTasksForDate(date: Date) -> [NTask] {
+        var tasksForDate = [NTask]()
+        fetchTasks()
+        
+        for task in tasks {
+            // Include tasks due on the specified date
+            if task.dueDate as Date? == date {
+                tasksForDate.append(task)
+            }
+            
+            // Include completed tasks that were completed on the specified date
+            else if task.isComplete, 
+                    let dateCompleted = task.dateCompleted as Date?,
+                    dateCompleted.onSameDay(as: date) {
+                tasksForDate.append(task)
+            }
+        }
+        
+        return tasksForDate
+    }
+    
+    // MARK: - Project-Based Morning/Evening Task Retrieval
+    /// Retrieves morning tasks for a specific project
+    /// - Parameter projectName: The name of the project to filter tasks by
+    /// - Returns: Array of morning tasks for the specified project
+    func getMorningTasksForProject(projectName: String) -> [NTask] {
+        var morningTasks = [NTask]()
+        fetchTasks()
+        
+        for task in tasks {
+            if task.taskType == 1 && // Morning task type
+               task.project?.lowercased() == projectName.lowercased() {
+                morningTasks.append(task)
+            }
+        }
+        
+        return morningTasks
+    }
+    
+    /// Retrieves evening tasks for a specific project
+    /// - Parameter projectName: The name of the project to filter tasks by
+    /// - Returns: Array of evening tasks for the specified project
+    func getEveningTasksForProject(projectName: String) -> [NTask] {
+        var eveningTasks = [NTask]()
+        fetchTasks()
+        
+        for task in tasks {
+            if task.taskType == 2 && // Evening task type
+               task.project?.lowercased() == projectName.lowercased() {
+                eveningTasks.append(task)
+            }
+        }
+        
         return eveningTasks
     }
     

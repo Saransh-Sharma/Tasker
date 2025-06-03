@@ -22,29 +22,7 @@ extension AddTaskViewController {
     
     
     
-    func setupAddTaskForedrop() {
-        
-        print("Backdrop starts from: \(self.headerEndY)") //this is key to the whole view; charts, cal,
-        self.foredropStackContainer.frame = CGRect(x: 0, y: self.homeTopBar.frame.maxY*2.2, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-self.headerEndY)
-        
-        
-        self.setupBackdropForeground()
-        //        self.foredropStackContainer.backgroundColor = .black
-        
-        self.setupAddTaskTextField()
-        self.foredropStackContainer.addArrangedSubview(UIView())
-        
-        self.setupProjectsPillBar()
-        self.foredropStackContainer.addArrangedSubview(UIView())
-        
-        self.setupPrioritySC()
-        self.foredropStackContainer.addArrangedSubview(UIView())
-        
-        //        self.setupDoneButton()
-        self.foredropStackContainer.addArrangedSubview(UIView())
-        
-        
-    }
+    // setupAddTaskForedrop() method removed to fix duplicate declaration
     
     //----------------------- *************************** -----------------------
     //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
@@ -71,36 +49,7 @@ extension AddTaskViewController {
     //MARK:-                    Setup Projects Pill Bar
     //----------------------- *************************** -----------------------
     
-    func setupProjectsPillBar() {
-        print("AddTaskViewController: setupProjectsPillBar called")
-
-        // Remove existing filledBar
-        if let existing = self.filledBar, existing.superview == self.foredropStackContainer {
-            self.foredropStackContainer.removeArrangedSubview(existing)
-            existing.removeFromSuperview()
-            self.filledBar = nil
-        }
-
-        // Build data
-        self.buildProojectsPillBarData()
-
-        // Only add bar if data available
-        guard !self.pillBarProjectList.isEmpty else {
-            print("AddTaskViewController: pillBarProjectList is empty, not creating filledBar.")
-            self.filledBar = nil
-            return
-        }
-
-        // Create and add new bar
-        self.filledBar = self.createProjectsBar(items: self.pillBarProjectList)
-        self.foredropStackContainer.addArrangedSubview(self.filledBar!)
-        self.filledBar!.backgroundColor = .clear
-
-        // Initial visibility based on text content
-        let currentText = self.addTaskTextBox_Material.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        self.filledBar!.isHidden = currentText.isEmpty
-        print("AddTaskViewController: setupProjectsPillBar - filledBar.isHidden set to: \(self.filledBar!.isHidden)")
-    }
+    // setupProjectsPillBar() method removed to fix duplicate declaration
     
     func buildProojectsPillBarData() {
         // ProjectManager's data is expected to be refreshed by AddTaskViewController's viewWillAppear.
@@ -335,60 +284,10 @@ extension AddTaskViewController {
 }
 
 //MARK:- DONE TASK ACTION
-@objc func doneAddTaskAction() {
-    //       tap DONE --> add new task + nav homeScreen
-    //MARK:- ADD TASK ACTION
-    self.isThisEveningTask = self.isEveningSwitchOn(sender: self.eveningSwitch)
-    //        var taskDueDate = Date()
-    print("task: User tapped done button at add task")
-    if self.currentTaskInMaterialTextBox != "" {
-        
-        print("Adding task: \(self.currentTaskInMaterialTextBox)")
-        print("Priority is: \(self.currentTaskPriority)")
-        print("Add ask projet is: \(self.currenttProjectForAddTaskView)")
-        
-        print("Addig task for date: \(self.dateForAddTaskView.stringIn(dateStyle: .full, timeStyle: .none))")
-        
-        let taskType = self.getTaskType() // This call should now work
-        TaskManager.sharedInstance.addNewTask_Future(name: self.currentTaskInMaterialTextBox, taskType: taskType, taskPriority: self.currentTaskPriority, futureTaskDate: self.dateForAddTaskView, isEveningTask: self.isThisEveningTask, project: self.currenttProjectForAddTaskView)
-        
-        HUD.shared.showSuccess(from: self, with: "Added to\n\(self.currenttProjectForAddTaskView)")
-        
-        let addTaskEvent = "Add_NEW_Task"
-        Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
-            AnalyticsParameterItemID: "id-\(addTaskEvent)",
-            AnalyticsParameterItemName: addTaskEvent,
-            AnalyticsParameterContentType: "cont"
-        ])
-        
-    } else {
-        HUD.shared.showFailure(from: self, with: "Nothing Added")
-    }
-    
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-        // your code here
-        
-        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
-        newViewController.modalPresentationStyle = .fullScreen
-        //        self.present(newViewController, animated: true, completion: nil)
-        self.present(newViewController, animated: true, completion: { () in
-            print("SUCCESS !!!")
-            //                HUD.shared.showSuccess(from: self, with: "Success")
-            
-        })
-    }
-}
+// doneAddTaskAction() method removed to fix duplicate declaration
 
 //MARK:- CANCEL TASK ACTION
-@objc func cancelAddTaskAction() {
-    //       tap CANCEL --> homeScreen
-    let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-    let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
-    newViewController.modalPresentationStyle = .fullScreen
-    //        self.present(newViewController, animated: true, completion: nil) //Doesn't look like cancel
-    self.dismiss(animated: true) //this looks more like cancel compared to above
-}
+// cancelAddTaskAction() method removed to fix duplicate declaration
 
     func getTaskType() -> Int {
         return self.isThisEveningTask ? 2 : 1

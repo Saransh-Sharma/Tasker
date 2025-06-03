@@ -11,23 +11,7 @@ import Foundation
 import UIKit
 
 extension AddTaskViewController {
-    
-    func setupBackdrop() {
-        
-        backdropContainer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-        //         CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
-        
-        //        headerEndY = 128
-        headerEndY = UIScreen.main.bounds.height/7.3
-        setupBackdropBackground()
-        addCancelBackdrop()
-//        setupBackdropNotch()
-        setHomeViewDate()
-        
-        // cal
-        setupCalAtAddTask()
-        backdropContainer.addSubview(calendar)
-    }
+    // setupBackdrop() method removed to fix duplicate declaration
     
     //MARK:- Setup Backdrop Background - Today label + Score
     func setupBackdropBackground() {

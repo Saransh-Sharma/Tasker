@@ -249,6 +249,12 @@ class ProjectManager: ObservableObject {
         - newDescription: The new description for the project
      - Returns: Bool indicating success or failure
     */
+    // Method to get all projects - added to fix missing reference
+    func getAllProjects() -> [Projects] {
+        // Return the current projects array which is already fetched from Core Data
+        return self.displayedProjects
+    }
+    
     func updateProject(_ projectToUpdate: Projects, newName: String, newDescription: String) -> Bool {
         let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedName.isEmpty { return false }

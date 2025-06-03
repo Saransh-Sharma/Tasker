@@ -18,7 +18,7 @@ extension HomeViewController {
         foredropContainer.frame =  CGRect(x: 0, y: homeTopBar.frame.maxY-5, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)//CGRect(x: 0, y: headerEndY, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-headerEndY)
         //homeTopBar.frame.maxY
         setupBackdropForeground()
-        setupTableView()
+        setupTableViewFrame()
         foredropContainer.backgroundColor = .clear
         foredropContainer.bringSubviewToFront(tableView)
     }
@@ -47,7 +47,7 @@ extension HomeViewController {
     }
     
     
-    func setupTableView() {
+    func setupTableViewFrame() {
         // table view
         print("bottom bar heigght is \(bottomAppBar.bounds.height)")
         tableView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height:  UIScreen.main.bounds.height - bottomAppBar.bounds.height)
