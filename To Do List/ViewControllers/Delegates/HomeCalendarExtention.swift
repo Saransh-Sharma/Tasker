@@ -36,8 +36,9 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     //----------------------- *************************** -----------------------
     
     func setupCalView() {
-        self.calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.frame.maxY-6, width: UIScreen.main.bounds.width, height:
-                                                homeTopBar.frame.maxY*3.5))
+        // Set appropriate height for week view - approximately 100 points is sufficient for a single week
+        let calendarHeight: CGFloat = 100
+        self.calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.frame.maxY-6, width: UIScreen.main.bounds.width, height: calendarHeight))
     }
     
     
