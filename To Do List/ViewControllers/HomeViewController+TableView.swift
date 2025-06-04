@@ -14,12 +14,9 @@ extension HomeViewController {
     // MARK: - TableView Configuration
     
     func setupTableView() {
-//        tableView.dataSource = self
-//        tableView.delegate = self
-//        tableView.estimatedRowHeight = 56
-//        tableView.rowHeight = UITableView.automaticDimension
-//        tableView.backgroundColor = UIColor.red //.clear
-//        tableView.separatorStyle = .none
+        tableView.dataSource = self
+        tableView.delegate = self
+
         
         tableView.backgroundColor = TableViewCell.tableBackgroundGroupedColor
         tableView.separatorStyle  = .none

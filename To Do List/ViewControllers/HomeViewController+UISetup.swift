@@ -137,10 +137,16 @@ extension HomeViewController: BadgeViewDelegate {
     
     func setupTableViewInForedrop() {
         // Make sure we don't add the table view multiple times
-        tableView.removeFromSuperview()
+//        tableView.removeFromSuperview()
+        
+        // registration already done; just wire delegates
+        tableView.dataSource = self            // ← ADD
+        tableView.delegate   = self            // ← ADD
+        
+        
         
 
-        tableView.register(TableViewCell.self,            forCellReuseIdentifier: cellReuseID)
+        tableView.register(TableViewCell.self, forCellReuseIdentifier: cellReuseID)
         tableView.register(TableViewHeaderFooterView.self,forHeaderFooterViewReuseIdentifier: headerReuseID)
 
 

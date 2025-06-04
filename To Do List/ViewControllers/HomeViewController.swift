@@ -122,7 +122,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     let toDoAnimations: ToDoAnimations = ToDoAnimations()
     
     
-    // State flags
+//     State flags
     var isGrouped: Bool = false {
         didSet {
             tableView.reloadData()
@@ -172,8 +172,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         self.setupBottomAppBar()
         view.addSubview(bottomAppBar)
         
+        foredropContainer.addSubview(tableView)
+        foredropContainer.backgroundColor = UIColor.green
+        backdropContainer.backgroundColor = UIColor.yellow
         // Setup table view
-        self.setupTableView()
+//        self.setupTableView()
+//        foredropContainer.addSubview(tableView)
         
         // Load initial data
         TaskManager.sharedInstance.fixMissingTasksDataWithDefaults()
