@@ -819,13 +819,13 @@ class TaskManager {
             //                if each.project!.isEmpty || each.project == "" || each.project == nil {
             if each.project?.isEmpty ?? true {
                 
-                print("**** FORCE PROJECT **** \(each.name) --- to --- inbox")
+                print("**** ERROR FORCE PROJECT **** \(each.name) --- to --- inbox")
                 
                 each.project = "inbox"
                 saveContext()
                 
             } else {
-                print("**** PROJECT is \(each.project! as String)")
+//                print("**** PROJECT is \(each.project! as String)")
             }
         }
     }

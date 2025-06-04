@@ -13,67 +13,67 @@ extension HomeViewController {
     
     // MARK: - Task Selection
     
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-        
-        print("\n🔍 TASK SELECTION:")
-        print("  📍 IndexPath: Section \(indexPath.section), Row \(indexPath.row)")
-        print("  📱 Current View Type: \(currentViewType)")
-        
-        // Get the selected task
-        var selectedTask: NTask?
-        
-        switch currentViewType {
-        case .allProjectsGrouped, .selectedProjectsGrouped:
-            if indexPath.section > 0 {
-                let actualSection = indexPath.section - 1
-                if actualSection < projectsToDisplayAsSections.count {
-                    let projectName = projectsToDisplayAsSections[actualSection].projectName ?? ""
-                    if let tasks = tasksGroupedByProject[projectName], indexPath.row < tasks.count {
-                        selectedTask = tasks[indexPath.row]
-                        print("  📁 Selected from project: \(projectName)")
-                    }
-                }
-            }
-        default:
-            // Convert TaskListItem to NTask or find corresponding NTask
-            let allTaskItems = ToDoListSections.flatMap({ $0.items })
-            if indexPath.row < allTaskItems.count {
-                // Get the TaskListItem
-                let taskItem = allTaskItems[indexPath.row]
-                print("  📝 TaskItem title: '\(taskItem.TaskTitle)'")
-                // Find the corresponding NTask by title
-                selectedTask = TaskManager.sharedInstance.getAllTasks.first(where: { $0.name == taskItem.TaskTitle })
-            }
-        }
-        
-        guard let task = selectedTask else {
-            print("  ❌ No task found for selection")
-            return
-        }
-        
-        // Print detailed task information
-        print("\n📋 SELECTED TASK DETAILS:")
-        print("  📌 Name: '\(task.name ?? "Unknown")'")
-        print("  📁 Project: '\(task.project ?? "No Project")'")
-        print("  📝 Details: '\(task.taskDetails ?? "No details")'")
-        print("  ⏰ Due Date: \(task.dueDate?.description ?? "No due date")")
-        print("  📅 Date Added: \(task.dateAdded?.description ?? "Unknown")")
-        print("  🎯 Priority: P\(task.taskPriority - 1) (\(task.taskPriority))")
-        print("  🏷️ Type: \(task.taskType)")
-        print("  ✅ Completed: \(task.isComplete ? "Yes" : "No")")
-        if task.isComplete {
-            print("  🎉 Completed Date: \(task.dateCompleted?.description ?? "Unknown")")
-        }
-        print("  🌙 Evening Task: \(task.isEveningTask ? "Yes" : "No")")
-        if let reminderTime = task.alertReminderTime {
-            print("  ⏰ Reminder: \(reminderTime.description)")
-        }
-        print("")
-        
-        // Present task detail view
-        presentTaskDetailView(for: task)
-    }
+//    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+//        tableView.deselectRow(at: indexPath, animated: true)
+//        
+//        print("\n🔍 TASK SELECTION:")
+//        print("  📍 IndexPath: Section \(indexPath.section), Row \(indexPath.row)")
+//        print("  📱 Current View Type: \(currentViewType)")
+//        
+//        // Get the selected task
+//        var selectedTask: NTask?
+//        
+//        switch currentViewType {
+//        case .allProjectsGrouped, .selectedProjectsGrouped:
+//            if indexPath.section > 0 {
+//                let actualSection = indexPath.section - 1
+//                if actualSection < projectsToDisplayAsSections.count {
+//                    let projectName = projectsToDisplayAsSections[actualSection].projectName ?? ""
+//                    if let tasks = tasksGroupedByProject[projectName], indexPath.row < tasks.count {
+//                        selectedTask = tasks[indexPath.row]
+//                        print("  📁 Selected from project: \(projectName)")
+//                    }
+//                }
+//            }
+//        default:
+//            // Convert TaskListItem to NTask or find corresponding NTask
+//            let allTaskItems = ToDoListSections.flatMap({ $0.items })
+//            if indexPath.row < allTaskItems.count {
+//                // Get the TaskListItem
+//                let taskItem = allTaskItems[indexPath.row]
+//                print("  📝 TaskItem title: '\(taskItem.TaskTitle)'")
+//                // Find the corresponding NTask by title
+//                selectedTask = TaskManager.sharedInstance.getAllTasks.first(where: { $0.name == taskItem.TaskTitle })
+//            }
+//        }
+//        
+//        guard let task = selectedTask else {
+//            print("  ❌ No task found for selection")
+//            return
+//        }
+//        
+//        // Print detailed task information
+//        print("\n📋 SELECTED TASK DETAILS:")
+//        print("  📌 Name: '\(task.name ?? "Unknown")'")
+//        print("  📁 Project: '\(task.project ?? "No Project")'")
+//        print("  📝 Details: '\(task.taskDetails ?? "No details")'")
+//        print("  ⏰ Due Date: \(task.dueDate?.description ?? "No due date")")
+//        print("  📅 Date Added: \(task.dateAdded?.description ?? "Unknown")")
+//        print("  🎯 Priority: P\(task.taskPriority - 1) (\(task.taskPriority))")
+//        print("  🏷️ Type: \(task.taskType)")
+//        print("  ✅ Completed: \(task.isComplete ? "Yes" : "No")")
+//        if task.isComplete {
+//            print("  🎉 Completed Date: \(task.dateCompleted?.description ?? "Unknown")")
+//        }
+//        print("  🌙 Evening Task: \(task.isEveningTask ? "Yes" : "No")")
+//        if let reminderTime = task.alertReminderTime {
+//            print("  ⏰ Reminder: \(reminderTime.description)")
+//        }
+//        print("")
+//        
+//        // Present task detail view
+//        presentTaskDetailView(for: task)
+//    }
     
     // MARK: - Present Task Detail
     

@@ -14,14 +14,20 @@ extension HomeViewController {
     // MARK: - TableView Configuration
     
     func setupTableView() {
-        tableView.dataSource = self as UITableViewDataSource
-        tableView.delegate = self as UITableViewDelegate
-        tableView.backgroundColor = .clear
-        tableView.separatorStyle = .none
+//        tableView.dataSource = self
+//        tableView.delegate = self
+//        tableView.estimatedRowHeight = 56
+//        tableView.rowHeight = UITableView.automaticDimension
+//        tableView.backgroundColor = UIColor.red //.clear
+//        tableView.separatorStyle = .none
         
-        // Register cell classes if needed
-        tableView.register(FluentUI.TableViewCell.self, forCellReuseIdentifier: "TaskCell")
-        tableView.register(UITableViewHeaderFooterView.self, forHeaderFooterViewReuseIdentifier: "SectionHeader")
+        tableView.backgroundColor = TableViewCell.tableBackgroundGroupedColor
+        tableView.separatorStyle  = .none
+        tableView.register(TableViewCell.self,
+                           forCellReuseIdentifier: cellReuseID)
+        tableView.register(TableViewHeaderFooterView.self,
+                           forHeaderFooterViewReuseIdentifier: headerReuseID)
+        
     }
     
     func updateTableView() {
@@ -85,7 +91,7 @@ extension HomeViewController {
     
     @objc func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         let headerView = UIView()
-        headerView.backgroundColor = .clear
+        headerView.backgroundColor = UIColor.green //.clear
         
         let titleLabel = UILabel()
         titleLabel.font = UIFont.preferredFont(forTextStyle: .headline) // Replaced todoColors.todoFont (Plan Step C)
@@ -136,9 +142,15 @@ extension HomeViewController {
     }
     
     @objc func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        print("HomeViewController: cellForRowAt called for indexPath \(indexPath)")
+        print("Table - HomeViewController: cellForRowAt called for indexPath \(indexPath)")
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "TaskCell", for: indexPath)
+//        let cell = tableView.dequeueReusableCell(withIdentifier: "TaskCell", for: indexPath)
+        
+        guard let cell = tableView.dequeueReusableCell(
+                    withIdentifier: cellReuseID,
+                    for: indexPath) as? TableViewCell else {
+                fatalError("Unable to dequeue TableViewCell – check registration")
+            }
         
         // Configure the cell based on task data
         var task: NTask?
@@ -154,16 +166,17 @@ extension HomeViewController {
             }
         case .todayHomeView, .customDateView:
             // Get task from the specific section
-            print("HomeViewController: Current view type is \(currentViewType), ToDoListSections.count = \(ToDoListSections.count)")
+            print("Table - HomeViewController: ----- ----- ----- ----- ----- ")
+            print("Table - HomeViewController: Current view type is \(currentViewType), ToDoListSections.count = \(ToDoListSections.count)")
             if indexPath.section < ToDoListSections.count {
                 let section = ToDoListSections[indexPath.section]
-                print("HomeViewController: Section '\(section.sectionTitle)' has \(section.items.count) items")
+                print("Table - HomeViewController: Section '\(section.sectionTitle)' has \(section.items.count) items")
                 if indexPath.row < section.items.count {
                     let taskListItem = section.items[indexPath.row]
-                    print("HomeViewController: Getting task for TaskListItem with title '\(taskListItem.TaskTitle)'")
+                    print("Table - HomeViewController: Getting task for TaskListItem with title '\(taskListItem.TaskTitle)'")
                     task = TaskManager.sharedInstance.getTaskFromTaskListItem(taskListItem: taskListItem)
                     if task == nil {
-                        print("Error: Expected a task item in cellForRowAt, but found nil at indexPath: \(indexPath)")
+                        print("Table - Error: Expected a task item in cellForRowAt, but found nil at indexPath: \(indexPath)")
                     }
                 }
             }
@@ -173,16 +186,16 @@ extension HomeViewController {
                 let taskListItem = allTaskItems[indexPath.row]
                 task = TaskManager.sharedInstance.getTaskFromTaskListItem(taskListItem: taskListItem)
                 if task == nil {
-                    print("Error: Expected a task item in cellForRowAt, but found nil at indexPath: \(indexPath)")
+                    print("Table - Error: Expected a task item in cellForRowAt, but found nil at indexPath: \(indexPath)")
                 }
             }
         }
         
         if let task = task {
-            print("HomeViewController: Found task '\(task.name ?? "Unknown")' for indexPath \(indexPath)")
+            print("Table - HomeViewController: Found task '\(task.name ?? "Unknown")' for indexPath \(indexPath)")
             configureCellForTask(cell, with: task, at: indexPath)
         } else {
-            print("HomeViewController: No task found for indexPath \(indexPath)")
+            print("Table - HomeViewController: No task found for indexPath \(indexPath)")
             // Configure empty cell
             cell.textLabel?.text = "No Task"
             cell.detailTextLabel?.text = ""
@@ -191,82 +204,93 @@ extension HomeViewController {
         return cell
     }
     
+    private func separatorType(for indexPath: IndexPath) -> TableViewCell.SeparatorType {
+        let last = indexPath.row == tableView.numberOfRows(inSection: indexPath.section) - 1
+        return last ? .none : .inset
+    }
+    
     // MARK: - Cell Configuration
     
-    private func configureCellForTask(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
-        // Set background color
-        cell.backgroundColor = .clear
-        
-        // Only clear subviews for standard UITableViewCell, not FluentUI cells
-        if !(cell is FluentUI.TableViewCell) {
-            cell.contentView.subviews.forEach { $0.removeFromSuperview() }
-        }
-        
-        print("HomeViewController: Configuring cell for task '\(task.name ?? "Unknown")' at indexPath \(indexPath)")
-        
-        if task.isComplete {
-            configureCompletedTaskCell(cell, with: task, at: indexPath)
-        } else {
-            configureOpenTaskCell(cell, with: task, at: indexPath)
-        }
+    private func configureCellForTask(_ cell: TableViewCell, with task: NTask, at indexPath: IndexPath) {
+        // let Fluent handle background
+         cell.backgroundStyleType = .grouped        // or .plain if you flip `isGrouped`
+         cell.topSeparatorType    = indexPath.row == 0 ? .full : .none
+         cell.bottomSeparatorType = separatorType(for: indexPath)
+
+         let accessory: TableViewCellAccessoryType = task.isComplete ? .checkmark : .none
+
+         cell.setup(title: task.name,
+                    subtitle: task.taskDetails ?? "",
+                    accessoryType: accessory)
+
+         if task.isComplete {
+             let strike = [NSAttributedString.Key.strikethroughStyle:
+                           NSUnderlineStyle.single.rawValue]
+             cell.setup(attributedTitle   : NSAttributedString(string: task.name,
+                                                               attributes: strike),
+                        attributedSubtitle: NSAttributedString(string: task.taskDetails ?? "",
+                                                               attributes: strike),
+                        accessoryType     : .checkmark)
+         }
     }
     
-    private func configureOpenTaskCell(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
-        // Configure cell for open/incomplete tasks
-        if let fluentCell = cell as? FluentUI.TableViewCell {
-            print("HomeViewController: Using FluentUI cell for task '\(task.name ?? "Unknown")'")
-            fluentCell.setup(title: task.name ?? "Untitled Task", 
-                           subtitle: task.taskDetails ?? "",
-                           accessoryType: .none)
-        } else {
-            print("HomeViewController: Using standard UITableViewCell for task '\(task.name ?? "Unknown")'")
-            // Fallback for standard UITableViewCell
-            cell.textLabel?.text = task.name ?? "Untitled Task"
-            cell.detailTextLabel?.text = task.taskDetails ?? ""
-            cell.textLabel?.textColor = .label
-            cell.textLabel?.attributedText = nil
-            cell.detailTextLabel?.textColor = .secondaryLabel
-            cell.detailTextLabel?.attributedText = nil
-        }
-    }
-    
-    private func configureCompletedTaskCell(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
-        // Configure cell for completed tasks with strikethrough and grey styling
-        if let fluentCell = cell as? FluentUI.TableViewCell {
-            // Setup cell with plain text first
-            fluentCell.setup(title: task.name ?? "Untitled Task", 
-                           subtitle: task.taskDetails ?? "",
-                           accessoryType: .checkmark)
-            
-            // Apply strikethrough and grey styling after setup
-            // Note: FluentUI.TableViewCell may not expose direct label access
-            // The styling will be handled by the standard UITableViewCell fallback for now
-        } else {
-            // Fallback for standard UITableViewCell
-            let titleText = task.name ?? "Untitled Task"
-            let titleAttributedString = NSMutableAttributedString(string: titleText)
-            titleAttributedString.addAttribute(NSAttributedString.Key.strikethroughStyle, 
-                                             value: NSUnderlineStyle.single.rawValue, 
-                                             range: NSRange(location: 0, length: titleText.count))
-            titleAttributedString.addAttribute(NSAttributedString.Key.foregroundColor, 
-                                             value: UIColor.systemGray, 
-                                             range: NSRange(location: 0, length: titleText.count))
-            cell.textLabel?.attributedText = titleAttributedString
-            
-            if let subtitleText = task.taskDetails, !subtitleText.isEmpty {
-                let subtitleAttributedString = NSMutableAttributedString(string: subtitleText)
-                subtitleAttributedString.addAttribute(NSAttributedString.Key.strikethroughStyle, 
-                                                     value: NSUnderlineStyle.single.rawValue, 
-                                                     range: NSRange(location: 0, length: subtitleText.count))
-                subtitleAttributedString.addAttribute(NSAttributedString.Key.foregroundColor, 
-                                                     value: UIColor.systemGray2, 
-                                                     range: NSRange(location: 0, length: subtitleText.count))
-                cell.detailTextLabel?.attributedText = subtitleAttributedString
-            }
-            
-            cell.accessoryType = .checkmark
-        }
-    }
+//    private func configureOpenTaskCell(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
+//        // Configure cell for open/incomplete tasks
+//        
+//        if let fluentCell = cell as? FluentUI.TableViewCell {
+//            print("Table - HomeViewController -- ----> : Using FluentUI cell for task '\(task.name)'")
+//            fluentCell.setup(title: task.name,
+//                           subtitle: task.taskDetails ?? "",
+//                           accessoryType: .none)
+//        } else {
+//            print("Table - ERROR !! - HomeViewController: Using standard UITableViewCell for task '\(task.name)'")
+//            // Fallback for standard UITableViewCell
+//            cell.textLabel?.text = task.name
+//            cell.detailTextLabel?.text = task.taskDetails ?? ""
+//            cell.textLabel?.textColor = .label
+//            cell.textLabel?.attributedText = nil
+//            cell.detailTextLabel?.textColor = .secondaryLabel
+//            cell.detailTextLabel?.attributedText = nil
+//        }
+//    }
+//    
+//    private func configureCompletedTaskCell(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
+//        // Configure cell for completed tasks with strikethrough and grey styling
+//        if let fluentCell = cell as? FluentUI.TableViewCell {
+//            // Setup cell with plain text first
+//            fluentCell.setup(title: task.name, 
+//                           subtitle: task.taskDetails ?? "",
+//                           accessoryType: .checkmark)
+//            
+//            // Apply strikethrough and grey styling after setup
+//            // Note: FluentUI.TableViewCell may not expose direct label access
+//            // The styling will be handled by the standard UITableViewCell fallback for now
+//        } else {
+//            // Fallback for standard UITableViewCell
+//            let titleText = task.name
+//            let titleAttributedString = NSMutableAttributedString(string: titleText)
+//            titleAttributedString.addAttribute(NSAttributedString.Key.strikethroughStyle, 
+//                                             value: NSUnderlineStyle.single.rawValue, 
+//                                             range: NSRange(location: 0, length: titleText.count))
+//            titleAttributedString.addAttribute(NSAttributedString.Key.foregroundColor, 
+//                                             value: UIColor.systemGray, 
+//                                             range: NSRange(location: 0, length: titleText.count))
+//            cell.textLabel?.attributedText = titleAttributedString
+//            
+//            if let subtitleText = task.taskDetails, !subtitleText.isEmpty {
+//                let subtitleAttributedString = NSMutableAttributedString(string: subtitleText)
+//                subtitleAttributedString.addAttribute(NSAttributedString.Key.strikethroughStyle, 
+//                                                     value: NSUnderlineStyle.single.rawValue, 
+//                                                     range: NSRange(location: 0, length: subtitleText.count))
+//                subtitleAttributedString.addAttribute(NSAttributedString.Key.foregroundColor, 
+//                                                     value: UIColor.systemGray2, 
+//                                                     range: NSRange(location: 0, length: subtitleText.count))
+//                cell.detailTextLabel?.attributedText = subtitleAttributedString
+//            }
+//            
+//            cell.accessoryType = .checkmark
+//        }
+//    }
     
     // MARK: - Swipe Actions
     

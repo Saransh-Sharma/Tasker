@@ -139,6 +139,12 @@ extension HomeViewController: BadgeViewDelegate {
         // Make sure we don't add the table view multiple times
         tableView.removeFromSuperview()
         
+
+        tableView.register(TableViewCell.self,            forCellReuseIdentifier: cellReuseID)
+        tableView.register(TableViewHeaderFooterView.self,forHeaderFooterViewReuseIdentifier: headerReuseID)
+
+
+        
         // Configure table view dimensions
         let topBarHeight = homeTopBar.bounds.height
         tableView.frame = CGRect(x: 0, y: topBarHeight, 

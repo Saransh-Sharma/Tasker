@@ -27,6 +27,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     // MARK: - Stored Properties
     
+    let cellReuseID = TableViewCell.identifier   // FluentUI’s own ID
+    let headerReuseID = TableViewHeaderFooterView.identifier
+    
     // View containers
     var backdropContainer = UIView()
     var foredropContainer = UIView()
@@ -91,7 +94,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     // Calendar and TableView
     var calendar: FSCalendar!
-    var tableView = UITableView()
+    var tableView = UITableView(frame: .zero, style: .insetGrouped)
     
     // View state
     var projectForTheView = ProjectManager.sharedInstance.defaultProject
