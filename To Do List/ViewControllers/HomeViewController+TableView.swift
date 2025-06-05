@@ -16,7 +16,7 @@ extension HomeViewController {
     func setupTableView() {
         tableView.dataSource = self
         tableView.delegate = self
-
+        
         
         tableView.backgroundColor = TableViewCell.tableBackgroundGroupedColor
         tableView.separatorStyle  = .none
@@ -34,7 +34,13 @@ extension HomeViewController {
     
     // MARK: - UITableViewDataSource
     
-    @objc func numberOfSections(in tableView: UITableView) -> Int {
+    func numberOfSections(in tableView: UITableView) -> Int {
+        // Check if this is the sample table view
+        if tableView == sampleTableView {
+            return sampleData.count
+        }
+        
+        // Original implementation for the main table view
         let sectionCount: Int
         switch currentViewType {
         case .allProjectsGrouped, .selectedProjectsGrouped:
@@ -49,7 +55,13 @@ extension HomeViewController {
         return sectionCount
     }
     
-    @objc func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        // Check if this is the sample table view
+        if tableView == sampleTableView {
+            return sampleData[section].1.count
+        }
+        
+        // Original implementation for the main table view
         let rowCount: Int
         switch currentViewType {
         case .allProjectsGrouped, .selectedProjectsGrouped:
@@ -86,7 +98,28 @@ extension HomeViewController {
         return rowCount
     }
     
-    @objc func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        // Check if this is the sample table view
+        if tableView == sampleTableView {
+            let headerView = UIView()
+            headerView.backgroundColor = UIColor.systemGroupedBackground
+            
+            let titleLabel = UILabel()
+            titleLabel.font = UIFont.preferredFont(forTextStyle: .headline)
+            titleLabel.textColor = UIColor.label
+            titleLabel.text = sampleData[section].0
+            
+            headerView.addSubview(titleLabel)
+            titleLabel.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                titleLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 16),
+                titleLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor)
+            ])
+            
+            return headerView
+        }
+        
+        // Original implementation for the main table view
         let headerView = UIView()
         headerView.backgroundColor = UIColor.green //.clear
         
@@ -134,20 +167,66 @@ extension HomeViewController {
         return headerView
     }
     
-    @objc func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        // Check if this is the sample table view
+        if tableView == sampleTableView {
+            return 44
+        }
+        
+        // Original implementation for the main table view
         return 40
     }
     
-    @objc func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        // Check if this is the sample table view
+        if tableView == sampleTableView {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "SampleCell", for: indexPath)
+            
+            // Handle empty sections (placeholder)
+            if sampleData[indexPath.section].1.isEmpty {
+                cell.textLabel?.text = "No tasks due for this date"
+                cell.textLabel?.font = UIFont.systemFont(ofSize: 16)
+                cell.textLabel?.textColor = UIColor.secondaryLabel
+                cell.accessoryType = .none
+                cell.selectionStyle = .none
+                return cell
+            }
+            
+            let task: NTask = sampleData[indexPath.section].1[indexPath.row]
+            let priorityIcon = getPriorityIcon(for: Int(task.taskPriority))
+            
+            if task.isComplete {
+                // Style for completed tasks
+                let taskText = "\(priorityIcon) \(task.name)"
+                let attributedText = NSMutableAttributedString(string: taskText)
+                attributedText.addAttribute(NSAttributedString.Key.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: NSRange(location: 0, length: taskText.count))
+                attributedText.addAttribute(NSAttributedString.Key.foregroundColor, value: UIColor.systemGray, range: NSRange(location: 0, length: taskText.count))
+                
+                cell.textLabel?.attributedText = attributedText
+                cell.accessoryType = .checkmark
+            } else {
+                // Style for open tasks
+                cell.textLabel?.attributedText = nil
+                cell.textLabel?.text = "\(priorityIcon) \(task.name)"
+                cell.textLabel?.font = UIFont.systemFont(ofSize: 16)
+                cell.textLabel?.textColor = UIColor.label
+                cell.accessoryType = .none
+            }
+            
+            cell.selectionStyle = .default
+            return cell
+        }
+        
+        // Original implementation for the main table view
         print("Table - HomeViewController: cellForRowAt called for indexPath \(indexPath)")
         
-//        let cell = tableView.dequeueReusableCell(withIdentifier: "TaskCell", for: indexPath)
+        //        let cell = tableView.dequeueReusableCell(withIdentifier: "TaskCell", for: indexPath)
         
         guard let cell = tableView.dequeueReusableCell(
-                    withIdentifier: cellReuseID,
-                    for: indexPath) as? TableViewCell else {
-                fatalError("Unable to dequeue TableViewCell – check registration")
-            }
+            withIdentifier: cellReuseID,
+            for: indexPath) as? TableViewCell else {
+            fatalError("Unable to dequeue TableViewCell – check registration")
+        }
         
         // Configure the cell based on task data
         var task: NTask?
@@ -210,88 +289,119 @@ extension HomeViewController {
     
     private func configureCellForTask(_ cell: TableViewCell, with task: NTask, at indexPath: IndexPath) {
         // let Fluent handle background
-         cell.backgroundStyleType = .grouped        // or .plain if you flip `isGrouped`
-         cell.topSeparatorType    = indexPath.row == 0 ? .full : .none
-         cell.bottomSeparatorType = separatorType(for: indexPath)
-
-         let accessory: TableViewCellAccessoryType = task.isComplete ? .checkmark : .none
-
-         cell.setup(title: task.name,
-                    subtitle: task.taskDetails ?? "",
-                    accessoryType: accessory)
-
-         if task.isComplete {
-             let strike = [NSAttributedString.Key.strikethroughStyle:
-                           NSUnderlineStyle.single.rawValue]
-             cell.setup(attributedTitle   : NSAttributedString(string: task.name,
-                                                               attributes: strike),
-                        attributedSubtitle: NSAttributedString(string: task.taskDetails ?? "",
-                                                               attributes: strike),
-                        accessoryType     : .checkmark)
-         }
+        cell.backgroundStyleType = .grouped        // or .plain if you flip `isGrouped`
+        cell.topSeparatorType    = indexPath.row == 0 ? .full : .none
+        cell.bottomSeparatorType = separatorType(for: indexPath)
+        
+        let accessory: TableViewCellAccessoryType = task.isComplete ? .checkmark : .none
+        
+        cell.setup(title: task.name,
+                   subtitle: task.taskDetails ?? "",
+                   accessoryType: accessory)
+        
+        if task.isComplete {
+            let strike = [NSAttributedString.Key.strikethroughStyle:
+                            NSUnderlineStyle.single.rawValue]
+            cell.setup(attributedTitle   : NSAttributedString(string: task.name,
+                                                              attributes: strike),
+                       attributedSubtitle: NSAttributedString(string: task.taskDetails ?? "",
+                                                              attributes: strike),
+                       accessoryType     : .checkmark)
+        }
+        
     }
     
-//    private func configureOpenTaskCell(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
-//        // Configure cell for open/incomplete tasks
-//        
-//        if let fluentCell = cell as? FluentUI.TableViewCell {
-//            print("Table - HomeViewController -- ----> : Using FluentUI cell for task '\(task.name)'")
-//            fluentCell.setup(title: task.name,
-//                           subtitle: task.taskDetails ?? "",
-//                           accessoryType: .none)
-//        } else {
-//            print("Table - ERROR !! - HomeViewController: Using standard UITableViewCell for task '\(task.name)'")
-//            // Fallback for standard UITableViewCell
-//            cell.textLabel?.text = task.name
-//            cell.detailTextLabel?.text = task.taskDetails ?? ""
-//            cell.textLabel?.textColor = .label
-//            cell.textLabel?.attributedText = nil
-//            cell.detailTextLabel?.textColor = .secondaryLabel
-//            cell.detailTextLabel?.attributedText = nil
-//        }
-//    }
-//    
-//    private func configureCompletedTaskCell(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
-//        // Configure cell for completed tasks with strikethrough and grey styling
-//        if let fluentCell = cell as? FluentUI.TableViewCell {
-//            // Setup cell with plain text first
-//            fluentCell.setup(title: task.name, 
-//                           subtitle: task.taskDetails ?? "",
-//                           accessoryType: .checkmark)
-//            
-//            // Apply strikethrough and grey styling after setup
-//            // Note: FluentUI.TableViewCell may not expose direct label access
-//            // The styling will be handled by the standard UITableViewCell fallback for now
-//        } else {
-//            // Fallback for standard UITableViewCell
-//            let titleText = task.name
-//            let titleAttributedString = NSMutableAttributedString(string: titleText)
-//            titleAttributedString.addAttribute(NSAttributedString.Key.strikethroughStyle, 
-//                                             value: NSUnderlineStyle.single.rawValue, 
-//                                             range: NSRange(location: 0, length: titleText.count))
-//            titleAttributedString.addAttribute(NSAttributedString.Key.foregroundColor, 
-//                                             value: UIColor.systemGray, 
-//                                             range: NSRange(location: 0, length: titleText.count))
-//            cell.textLabel?.attributedText = titleAttributedString
-//            
-//            if let subtitleText = task.taskDetails, !subtitleText.isEmpty {
-//                let subtitleAttributedString = NSMutableAttributedString(string: subtitleText)
-//                subtitleAttributedString.addAttribute(NSAttributedString.Key.strikethroughStyle, 
-//                                                     value: NSUnderlineStyle.single.rawValue, 
-//                                                     range: NSRange(location: 0, length: subtitleText.count))
-//                subtitleAttributedString.addAttribute(NSAttributedString.Key.foregroundColor, 
-//                                                     value: UIColor.systemGray2, 
-//                                                     range: NSRange(location: 0, length: subtitleText.count))
-//                cell.detailTextLabel?.attributedText = subtitleAttributedString
-//            }
-//            
-//            cell.accessoryType = .checkmark
-//        }
-//    }
+    //    private func configureOpenTaskCell(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
+    //        // Configure cell for open/incomplete tasks
+    //
+    //        if let fluentCell = cell as? FluentUI.TableViewCell {
+    //            print("Table - HomeViewController -- ----> : Using FluentUI cell for task '\(task.name)'")
+    //            fluentCell.setup(title: task.name,
+    //                           subtitle: task.taskDetails ?? "",
+    //                           accessoryType: .none)
+    //        } else {
+    //            print("Table - ERROR !! - HomeViewController: Using standard UITableViewCell for task '\(task.name)'")
+    //            // Fallback for standard UITableViewCell
+    //            cell.textLabel?.text = task.name
+    //            cell.detailTextLabel?.text = task.taskDetails ?? ""
+    //            cell.textLabel?.textColor = .label
+    //            cell.textLabel?.attributedText = nil
+    //            cell.detailTextLabel?.textColor = .secondaryLabel
+    //            cell.detailTextLabel?.attributedText = nil
+    //        }
+    //    }
+    //
+    //    private func configureCompletedTaskCell(_ cell: UITableViewCell, with task: NTask, at indexPath: IndexPath) {
+    //        // Configure cell for completed tasks with strikethrough and grey styling
+    //        if let fluentCell = cell as? FluentUI.TableViewCell {
+    //            // Setup cell with plain text first
+    //            fluentCell.setup(title: task.name,
+    //                           subtitle: task.taskDetails ?? "",
+    //                           accessoryType: .checkmark)
+    //
+    //            // Apply strikethrough and grey styling after setup
+    //            // Note: FluentUI.TableViewCell may not expose direct label access
+    //            // The styling will be handled by the standard UITableViewCell fallback for now
+    //        } else {
+    //            // Fallback for standard UITableViewCell
+    //            let titleText = task.name
+    //            let titleAttributedString = NSMutableAttributedString(string: titleText)
+    //            titleAttributedString.addAttribute(NSAttributedString.Key.strikethroughStyle,
+    //                                             value: NSUnderlineStyle.single.rawValue,
+    //                                             range: NSRange(location: 0, length: titleText.count))
+    //            titleAttributedString.addAttribute(NSAttributedString.Key.foregroundColor,
+    //                                             value: UIColor.systemGray,
+    //                                             range: NSRange(location: 0, length: titleText.count))
+    //            cell.textLabel?.attributedText = titleAttributedString
+    //
+    //            if let subtitleText = task.taskDetails, !subtitleText.isEmpty {
+    //                let subtitleAttributedString = NSMutableAttributedString(string: subtitleText)
+    //                subtitleAttributedString.addAttribute(NSAttributedString.Key.strikethroughStyle,
+    //                                                     value: NSUnderlineStyle.single.rawValue,
+    //                                                     range: NSRange(location: 0, length: subtitleText.count))
+    //                subtitleAttributedString.addAttribute(NSAttributedString.Key.foregroundColor,
+    //                                                     value: UIColor.systemGray2,
+    //                                                     range: NSRange(location: 0, length: subtitleText.count))
+    //                cell.detailTextLabel?.attributedText = subtitleAttributedString
+    //            }
+    //
+    //            cell.accessoryType = .checkmark
+    //        }
+    //    }
     
     // MARK: - Swipe Actions
     
-    @objc func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        // Handle sample table view swipe actions
+        if tableView == sampleTableView {
+            // Don't allow swipe actions on empty placeholder sections
+            if sampleData[indexPath.section].1.isEmpty {
+                return nil
+            }
+            
+            let task: NTask = sampleData[indexPath.section].1[indexPath.row]
+            
+            if task.isComplete {
+                // For completed tasks, show reopen action
+                let reopenAction = UIContextualAction(style: .normal, title: "Reopen") { [weak self] (action, view, completionHandler) in
+                    self?.markSampleTaskOpen(at: indexPath)
+                    completionHandler(true)
+                }
+                reopenAction.backgroundColor = UIColor.systemBlue
+                
+                return UISwipeActionsConfiguration(actions: [reopenAction])
+            } else {
+                // For open tasks, show complete action
+                let completeAction = UIContextualAction(style: .normal, title: "Done") { [weak self] (action, view, completionHandler) in
+                    self?.markSampleTaskComplete(at: indexPath)
+                    completionHandler(true)
+                }
+                completeAction.backgroundColor = UIColor.systemGreen
+                
+                return UISwipeActionsConfiguration(actions: [completeAction])
+            }
+        }
+        
         // Get task for this row
         var task: NTask?
         
@@ -350,7 +460,7 @@ extension HomeViewController {
                 task.isComplete = true
                 task.dateCompleted = Date() as NSDate
                 TaskManager.sharedInstance.saveContext()
-                self?.updateToDoListAndCharts(tableView: tableView, indexPath: indexPath)
+                self?.updateToDoListAndCharts()
                 completion(true)
             }
             completeAction.backgroundColor = todoColors.secondaryAccentColor
@@ -370,68 +480,133 @@ extension HomeViewController {
         }
     }
     
-    // MARK: - Task Actions
+    // MARK: - Sample Table View Helper Methods
     
-    func updateToDoListAndCharts(tableView: UITableView, indexPath: IndexPath) {
-        tableView.reloadData()
-        updateLineChartData()
-    }
-    
-    func markTaskOpenOnSwipe(task: NTask) {
-        task.isComplete = false
-        task.dateCompleted = nil
-        TaskManager.sharedInstance.saveContext()
-        tableView.reloadData()
-        updateLineChartData()
-    }
-    
-    func deleteTaskOnSwipe(task: NTask) {
-        // Delete the task directly from the context
-        TaskManager.sharedInstance.context.delete(task)
-        TaskManager.sharedInstance.saveContext()
-        tableView.reloadData()
-        updateLineChartData()
-    }
-    
-    func rescheduleAlertActionMenu(tasks: [NTask], indexPath: IndexPath, tableView: UITableView) {
-        let alertController = UIAlertController(title: "Reschedule", message: "Move to:", preferredStyle: .actionSheet)
-        
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
-        let nextWeek = Calendar.current.date(byAdding: .day, value: 7, to: Date())!
-        
-        let tomorrowAction = UIAlertAction(title: "Tomorrow", style: .default) { (_) in
-            for task in tasks {
-                task.dueDate = tomorrow as NSDate
+    func markSampleTaskComplete(at indexPath: IndexPath) {
+            let task: NTask = sampleData[indexPath.section].1[indexPath.row]
+            task.isComplete = true
+            task.dateCompleted = Date() as NSDate
+            
+            // Save the context
+            do {
+                try TaskManager.sharedInstance.saveContext()
+            } catch {
+                print("Error saving task completion: \(error)")
             }
-            TaskManager.sharedInstance.saveContext()
-            tableView.reloadData()
+            
+            // Reload the specific cell to update its appearance
+            sampleTableView.reloadRows(at: [indexPath], with: .automatic)
         }
         
-        let nextWeekAction = UIAlertAction(title: "Next Week", style: .default) { (_) in
-            for task in tasks {
-                task.dueDate = nextWeek as NSDate
+        func markSampleTaskOpen(at indexPath: IndexPath) {
+            let task: NTask = sampleData[indexPath.section].1[indexPath.row]
+            task.isComplete = false
+            task.dateCompleted = nil
+            
+            // Save the context
+            do {
+                try TaskManager.sharedInstance.saveContext()
+            } catch {
+                print("Error saving task reopen: \(error)")
             }
+            
+            // Reload the specific cell to update its appearance
+            sampleTableView.reloadRows(at: [indexPath], with: .automatic)
+        }
+        
+        // MARK: - Leading Swipe Actions (Left-to-Right)
+        
+        func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+            
+            // Handle sample table view leading swipe actions
+            if tableView == sampleTableView {
+                // Don't allow swipe actions on empty placeholder sections
+                if sampleData[indexPath.section].1.isEmpty {
+                    return nil
+                }
+                
+                let task: NTask = sampleData[indexPath.section].1[indexPath.row]
+                
+                // Only show "Done" action for incomplete tasks on left-to-right swipe
+                if !task.isComplete {
+                    let completeAction = UIContextualAction(style: .normal, title: "Done") { [weak self] (action, view, completionHandler) in
+                        self?.markSampleTaskComplete(at: indexPath)
+                        completionHandler(true)
+                    }
+                    completeAction.backgroundColor = UIColor.systemGreen
+                    
+                    let configuration = UISwipeActionsConfiguration(actions: [completeAction])
+                    configuration.performsFirstActionWithFullSwipe = true // Allow full swipe to complete
+                    return configuration
+                }
+            }
+            
+            return nil
+        }
+        
+        // MARK: - Task Actions
+        
+        func updateToDoListAndCharts() {
+            self.tableView.reloadData()
+            self.updateLineChartData()
+        }
+        
+        func markTaskOpenOnSwipe(task: NTask) {
+            task.isComplete = false
+            task.dateCompleted = nil
             TaskManager.sharedInstance.saveContext()
-            tableView.reloadData()
+            self.tableView.reloadData()
+            self.updateLineChartData()
         }
         
-        let chooseDateAction = UIAlertAction(title: "Choose Date...", style: .default) { (_) in
-            // Call date picker functionality
-            // This would need to be implemented separately
+        func deleteTaskOnSwipe(task: NTask) {
+            // Delete the task directly from the context
+            TaskManager.sharedInstance.context.delete(task)
+            TaskManager.sharedInstance.saveContext()
+            self.tableView.reloadData()
+            self.updateLineChartData()
         }
         
-        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
-        
-        alertController.addAction(tomorrowAction)
-        alertController.addAction(nextWeekAction)
-        alertController.addAction(chooseDateAction)
-        alertController.addAction(cancelAction)
-        
-        if let popoverController = alertController.popoverPresentationController {
-            popoverController.sourceView = tableView
-            popoverController.sourceRect = tableView.rectForRow(at: indexPath)
+        func rescheduleAlertActionMenu(tasks: [NTask], indexPath: IndexPath, tableView: UITableView) {
+            let alertController = UIAlertController(title: "Reschedule", message: "Move to:", preferredStyle: .actionSheet)
+            
+            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+            let nextWeek = Calendar.current.date(byAdding: .day, value: 7, to: Date())!
+            
+            let tomorrowAction = UIAlertAction(title: "Tomorrow", style: .default) { (_) in
+                for task in tasks {
+                    task.dueDate = tomorrow as NSDate
+                }
+                TaskManager.sharedInstance.saveContext()
+                tableView.reloadData()
+            }
+            
+            let nextWeekAction = UIAlertAction(title: "Next Week", style: .default) { (_) in
+                for task in tasks {
+                    task.dueDate = nextWeek as NSDate
+                }
+                TaskManager.sharedInstance.saveContext()
+                tableView.reloadData()
+            }
+            
+            let chooseDateAction = UIAlertAction(title: "Choose Date...", style: .default) { (_) in
+                // Call date picker functionality
+                // This would need to be implemented separately
+            }
+            
+            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
+            
+            alertController.addAction(tomorrowAction)
+            alertController.addAction(nextWeekAction)
+            alertController.addAction(chooseDateAction)
+            alertController.addAction(cancelAction)
+            
+            if let popoverController = alertController.popoverPresentationController {
+                popoverController.sourceView = tableView
+                popoverController.sourceRect = tableView.rectForRow(at: indexPath)
+            }
+            
+            self.present(alertController, animated: true, completion: nil)
         }
-        
-        self.present(alertController, animated: true, completion: nil)
     }
-}
+

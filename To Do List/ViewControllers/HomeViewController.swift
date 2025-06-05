@@ -96,6 +96,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var calendar: FSCalendar!
     var tableView = UITableView(frame: .zero, style: .insetGrouped)
     
+    // Sample TableView for testing
+    var sampleTableView = UITableView(frame: .zero, style: .grouped)
+    var sampleData: [(String, [NTask])] = []
+    
     // View state
     var projectForTheView = ProjectManager.sharedInstance.defaultProject
     var currentViewType = ToDoListViewType.todayHomeView

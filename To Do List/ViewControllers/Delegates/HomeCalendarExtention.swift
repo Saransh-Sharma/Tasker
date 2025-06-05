@@ -141,6 +141,9 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         reloadTinyPicChartWithAnimation()
         reloadToDoListWithAnimation()
         
+        // Refresh sample table view with selected date
+        refreshSampleTableView(for: date)
+        
     }
     
     

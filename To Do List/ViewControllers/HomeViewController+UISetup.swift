@@ -116,6 +116,9 @@ extension HomeViewController: BadgeViewDelegate {
         // Setup top section with "Today" title
         setupTopBarInForedrop()
         
+        // Setup new sample table view at the top
+        setupSampleTableView()
+        
         // Setup and add tableView to foredrop
         setupTableViewInForedrop()
     }
@@ -151,11 +154,16 @@ extension HomeViewController: BadgeViewDelegate {
 
 
         
-        // Configure table view dimensions
+        // Configure table view dimensions - position below sample table view
         let topBarHeight = homeTopBar.bounds.height
-        tableView.frame = CGRect(x: 0, y: topBarHeight, 
+        let sampleTableHeight: CGFloat = 300 // Same height as sample table
+        let tableViewY = topBarHeight + sampleTableHeight
+        
+        tableView.frame = CGRect(x: 0, y: tableViewY, 
                                width: foredropContainer.bounds.width,
-                               height: foredropContainer.bounds.height - topBarHeight)
+                               height: foredropContainer.bounds.height - tableViewY)
+        
+        tableView.backgroundView?.backgroundColor = UIColor.clear
         
         // Add table view to foredrop
         foredropContainer.addSubview(tableView)
@@ -254,7 +262,7 @@ extension HomeViewController: BadgeViewDelegate {
         // Badge count setup implementation
         notificationBadgeNumber = getTaskForTodayCount()
         
-        if let application = UIApplication.shared.delegate as? AppDelegate {
+        if UIApplication.shared.delegate is AppDelegate {
             if self.todoTimeUtils.isNightTime(date: Date()) == false { // Updated to use date parameter
                 UIApplication.shared.applicationIconBadgeNumber = getTaskForTodayCount() // Plan Step G
             } else {
@@ -326,5 +334,68 @@ extension HomeViewController: BadgeViewDelegate {
                 self.moveDown_revealCharts(view: self.foredropContainer)
             }
         }
+    }
+    
+    func setupSampleTableView(for date: Date = Date.today()) {
+        // Fetch inbox tasks due for the specified date
+        let inboxTasks = TaskManager.sharedInstance.getTasksForInboxForDate_All(date: date)
+        
+        // Separate tasks by completion status
+        let openTasks = inboxTasks.filter { !$0.isComplete }
+        let completedTasks = inboxTasks.filter { $0.isComplete }
+        
+        // Create sections based on task data
+        var sections: [(String, [NTask])] = []
+        
+        if !openTasks.isEmpty {
+            sections.append(("📋 Open Tasks (\(openTasks.count))", openTasks))
+        }
+        
+        if !completedTasks.isEmpty {
+            sections.append(("✅ Completed Today (\(completedTasks.count))", completedTasks))
+        }
+        
+        // If no tasks, show a placeholder with empty task array
+        if sections.isEmpty {
+            sections.append(("📥 Inbox", []))
+        }
+        
+        self.sampleData = sections
+        
+        // Configure sample table view
+        self.sampleTableView.dataSource = self
+        self.sampleTableView.delegate = self
+        self.sampleTableView.backgroundColor = UIColor.systemBackground
+        self.sampleTableView.separatorStyle = .singleLine
+        self.sampleTableView.register(UITableViewCell.self, forCellReuseIdentifier: "SampleCell")
+        
+        // Position the sample table view at the top of foredrop container
+        let topBarHeight = self.homeTopBar.bounds.height
+        let sampleTableHeight: CGFloat = 300 // Fixed height for sample table
+        
+        self.sampleTableView.frame = CGRect(
+            x: 0,
+            y: topBarHeight,
+            width: self.foredropContainer.bounds.width,
+            height: sampleTableHeight
+        )
+        
+        // Add sample table view to foredrop container
+        self.foredropContainer.addSubview(self.sampleTableView)
+    }
+    
+    func getPriorityIcon(for priority: Int) -> String {
+        switch priority {
+        case 1: return "🔴" // P0 - Highest
+        case 2: return "🟠" // P1 - High
+        case 3: return "🟡" // P2 - Medium
+        case 4: return "🟢" // P3 - Low
+        default: return "⚪" // Unknown
+        }
+    }
+    
+    func refreshSampleTableView(for date: Date) {
+        setupSampleTableView(for: date)
+        sampleTableView.reloadData()
     }
 }
