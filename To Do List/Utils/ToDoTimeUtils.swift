@@ -65,9 +65,7 @@ extension Date {
         return calendar.isDate(self, inSameDayAs: date)
     }
     
-    var hour: Int {
-        return Calendar.current.component(.hour, from: self)
-    }
+    // hour property moved to DateUtils.swift
 }
 
 // MARK: - ToDoTimeUtils Extension

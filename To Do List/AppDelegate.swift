@@ -34,6 +34,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
         TaskManager.sharedInstance.fixMissingTasksDataWithDefaults()
         
+        // Configure the dependency container
+        DependencyContainer.shared.configure(with: persistentContainer)
+        
         // 2) Observe remote-change notifications so your viewContext merges them
         NotificationCenter.default.addObserver(
             self,
@@ -162,6 +165,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 // **CRITICAL: Call consolidation logic after merging CloudKit changes**
                 ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
                 TaskManager.sharedInstance.fixMissingTasksDataWithDefaults() // Re-check tasks
+                
+                // Notify repository system about potential data changes
+                NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
 
                 // Consider posting a custom notification if UI needs to react strongly to these background changes
                 // NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
