@@ -181,51 +181,105 @@ extension HomeViewController {
         }
         
         // Create sections for each project with tasks
-        // First add Inbox section if it has tasks
-        if let inboxTasks = tasksByProject[inboxProjectName], !inboxTasks.isEmpty {
-            let inboxTaskItems = inboxTasks.map { task in
-                let taskItem = ToDoListData.TaskListItem(
+        // Helper function to create task items from NTask array
+        func createTaskItems(from tasks: [NTask]) -> [ToDoListData.TaskListItem] {
+            // Sort tasks by priority (high to low) and then by due date
+            let sortedTasks = tasks.sorted { task1, task2 in
+                // First sort by priority (higher priority first)
+                if task1.taskPriority != task2.taskPriority {
+                    return task1.taskPriority > task2.taskPriority
+                }
+                
+                // If priorities are equal, sort by due date (earlier dates first)
+                guard let date1 = task1.dueDate as Date?, let date2 = task2.dueDate as Date? else {
+                    // If one has no due date, put it after the one with due date
+                    return task1.dueDate != nil
+                }
+                return date1 < date2
+            }
+            
+            return sortedTasks.map { task in
+                ToDoListData.TaskListItem(
                     text1: task.name ?? "Untitled Task",
                     text2: task.taskDetails ?? "",
                     text3: "",
                     image: ""
                 )
-                print("Created TaskListItem for Inbox: '\(taskItem.TaskTitle)'")
-                return taskItem
             }
-            
-            let inboxSection = ToDoListData.Section(
-                title: "Inbox",
-                taskListItems: inboxTaskItems
-            )
-            ToDoListSections.append(inboxSection)
-            print("HomeViewController: Added Inbox section with \(inboxTaskItems.count) tasks")
         }
         
-        // Then add other project sections
-        for projectName in sortedProjects {
-            guard let projectTasks = tasksByProject[projectName], !projectTasks.isEmpty else { continue }
+        // Helper function to check if a task is overdue
+        func isTaskOverdue(_ task: NTask) -> Bool {
+            guard let dueDate = task.dueDate as Date?, !task.isComplete else { return false }
+            let today = Date().startOfDay
+            return dueDate < today
+        }
+        
+        // Helper function to add sections for a project
+        func addSectionsForProject(projectName: String, displayName: String, tasks: [NTask], includeOverdue: Bool = true) {
+            // Separate tasks into categories
+            let overdueTasks = includeOverdue ? tasks.filter { isTaskOverdue($0) } : []
+            let activeTasks = tasks.filter { !$0.isComplete && !isTaskOverdue($0) }
+            let completedTasks = tasks.filter { $0.isComplete }
             
-            let projectTaskItems = projectTasks.map { task in
-                let taskItem = ToDoListData.TaskListItem(
-                    text1: task.name ?? "Untitled Task",
-                    text2: task.taskDetails ?? "",
-                    text3: "",
-                    image: ""
+            // Add overdue tasks section if not empty and includeOverdue is true
+            if !overdueTasks.isEmpty && includeOverdue {
+                let overdueTaskItems = createTaskItems(from: overdueTasks)
+                let overdueSection = ToDoListData.Section(
+                    title: "\(displayName) – Overdue",
+                    taskListItems: overdueTaskItems
                 )
-                print("Created TaskListItem for \(projectName): '\(taskItem.TaskTitle)'")
-                return taskItem
+                ToDoListSections.append(overdueSection)
+                print("HomeViewController: Added \(displayName) – Overdue section with \(overdueTaskItems.count) overdue tasks")
             }
             
-            // Get the display name for the project (capitalize first letter)
-            let displayName = projectName.capitalized
+            // Add active tasks section if not empty
+            if !activeTasks.isEmpty {
+                let activeTaskItems = createTaskItems(from: activeTasks)
+                let activeSection = ToDoListData.Section(
+                    title: displayName,
+                    taskListItems: activeTaskItems
+                )
+                ToDoListSections.append(activeSection)
+                print("HomeViewController: Added \(displayName) section with \(activeTaskItems.count) active tasks")
+            }
             
-            let projectSection = ToDoListData.Section(
-                title: displayName,
-                taskListItems: projectTaskItems
+            // Add completed tasks section if not empty
+            if !completedTasks.isEmpty {
+                let completedTaskItems = createTaskItems(from: completedTasks)
+                let completedSection = ToDoListData.Section(
+                    title: "\(displayName) – Completed",
+                    taskListItems: completedTaskItems
+                )
+                ToDoListSections.append(completedSection)
+                print("HomeViewController: Added \(displayName) – Completed section with \(completedTaskItems.count) completed tasks")
+            }
+        }
+        
+        // Collect all overdue tasks across all projects for a dedicated overdue section
+        let allOverdueTasks = allTasksForDate.filter { isTaskOverdue($0) }
+        
+        // Add dedicated overdue section at the top if there are overdue tasks
+        if !allOverdueTasks.isEmpty {
+            let overdueTaskItems = createTaskItems(from: allOverdueTasks)
+            let overdueSection = ToDoListData.Section(
+                title: "⚠️ Overdue",
+                taskListItems: overdueTaskItems
             )
-            ToDoListSections.append(projectSection)
-            print("HomeViewController: Added \(displayName) section with \(projectTaskItems.count) tasks")
+            ToDoListSections.append(overdueSection)
+            print("HomeViewController: Added dedicated Overdue section with \(overdueTaskItems.count) overdue tasks")
+        }
+        
+        // First add Inbox sections if it has tasks (excluding overdue since they're in dedicated section)
+        if let inboxTasks = tasksByProject[inboxProjectName], !inboxTasks.isEmpty {
+            addSectionsForProject(projectName: inboxProjectName, displayName: "Inbox", tasks: inboxTasks, includeOverdue: false)
+        }
+        
+        // Then add other project sections (excluding overdue since they're in dedicated section)
+        for projectName in sortedProjects {
+            guard let projectTasks = tasksByProject[projectName], !projectTasks.isEmpty else { continue }
+            let displayName = projectName.capitalized
+            addSectionsForProject(projectName: projectName, displayName: displayName, tasks: projectTasks, includeOverdue: false)
         }
         
         print("\nFinal ToDoListSections summary:")

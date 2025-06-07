@@ -337,28 +337,80 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     func setupSampleTableView(for date: Date = Date.today()) {
-        // Fetch inbox tasks due for the specified date
-        let inboxTasks = TaskManager.sharedInstance.getTasksForInboxForDate_All(date: date)
+        print("\n=== SETTING UP SAMPLE TABLE VIEW FOR DATE: \(date) ===")
         
-        // Separate tasks by completion status
-        let openTasks = inboxTasks.filter { !$0.isComplete }
-        let completedTasks = inboxTasks.filter { $0.isComplete }
+        // Get all tasks for the selected date (same logic as main table view)
+        let allTasksForDate = TaskManager.sharedInstance.getAllTasksForDate(date: date)
+        
+        print("📅 Found \(allTasksForDate.count) total tasks for \(date)")
+        
+        // Group tasks by project (case-insensitive)
+        var tasksByProject: [String: [NTask]] = [:]
+        let inboxProjectName = "inbox"
+        
+        for task in allTasksForDate {
+             let projectName = (task.project?.lowercased() ?? inboxProjectName)
+             if tasksByProject[projectName] == nil {
+                 tasksByProject[projectName] = []
+             }
+             tasksByProject[projectName]?.append(task)
+         }
+        
+        // Sort project names (excluding inbox)
+        let sortedProjects = tasksByProject.keys.filter { $0 != inboxProjectName }.sorted()
+        
+        // Helper function to check if a task is overdue
+        func isTaskOverdue(_ task: NTask) -> Bool {
+            guard let dueDate = task.dueDate as Date?, !task.isComplete else { return false }
+            let today = Date().startOfDay
+            return dueDate < today
+        }
+        
+        // Helper function to create sorted task items
+        func createSortedTasks(from tasks: [NTask]) -> [NTask] {
+            return tasks.sorted { task1, task2 in
+                // First sort by priority (higher priority first)
+                if task1.taskPriority != task2.taskPriority {
+                    return task1.taskPriority > task2.taskPriority
+                }
+                
+                // If priorities are equal, sort by due date (earlier dates first)
+                guard let date1 = task1.dueDate as Date?, let date2 = task2.dueDate as Date? else {
+                    return task1.dueDate != nil
+                }
+                return date1 < date2
+            }
+        }
         
         // Create sections based on task data
         var sections: [(String, [NTask])] = []
         
-        if !openTasks.isEmpty {
-            sections.append(("📋 Open Tasks (\(openTasks.count))", openTasks))
+        // First add Inbox section if it has tasks
+        if let inboxTasks = tasksByProject[inboxProjectName], !inboxTasks.isEmpty {
+            let sortedInboxTasks = createSortedTasks(from: inboxTasks)
+            sections.append(("Inbox", sortedInboxTasks))
+            print("SampleTableView: Added Inbox section with \(sortedInboxTasks.count) tasks")
         }
         
-        if !completedTasks.isEmpty {
-            sections.append(("✅ Completed Today (\(completedTasks.count))", completedTasks))
+        // Then add other project sections
+        for projectName in sortedProjects {
+            guard let projectTasks = tasksByProject[projectName], !projectTasks.isEmpty else { continue }
+            let displayName = projectName.capitalized
+            let sortedProjectTasks = createSortedTasks(from: projectTasks)
+            sections.append((displayName, sortedProjectTasks))
+            print("SampleTableView: Added \(displayName) section with \(sortedProjectTasks.count) tasks")
         }
         
         // If no tasks, show a placeholder with empty task array
         if sections.isEmpty {
-            sections.append(("📥 Inbox", []))
+            sections.append(("📥 No Tasks", []))
         }
+        
+        print("\nSampleTableView sections summary:")
+        for (index, section) in sections.enumerated() {
+            print("Section \(index): '\(section.0)' with \(section.1.count) tasks")
+        }
+        print("=== END SAMPLE TABLE VIEW SETUP ===")
         
         self.sampleData = sections
         
