@@ -14,23 +14,49 @@ extension HomeViewController {
     // MARK: - Chart Setup and Data
     
     func setupCharts() {
-        // LineChart setup
+        // LineChart setup - Based on LineChart1ViewController
         lineChartView.backgroundColor = .clear
-        lineChartView.legend.form = .default
+        lineChartView.legend.form = .line
         lineChartView.rightAxis.enabled = false
+        
+        // Enable chart description and interactions
+        lineChartView.chartDescription.enabled = false
+        lineChartView.dragEnabled = true
+        lineChartView.setScaleEnabled(true)
+        lineChartView.pinchZoomEnabled = true
         
         let leftAxis = lineChartView.leftAxis
         leftAxis.axisMinimum = 0
-        leftAxis.drawGridLinesEnabled = false
+        leftAxis.axisMaximum = 100
+        leftAxis.drawGridLinesEnabled = true
+        leftAxis.gridLineDashLengths = [5, 5]
         leftAxis.drawZeroLineEnabled = false
         leftAxis.drawAxisLineEnabled = false
+        leftAxis.labelTextColor = todoColors.primaryTextColor
         
-        lineChartView.xAxis.drawGridLinesEnabled = false
-        lineChartView.xAxis.drawAxisLineEnabled = false
-        lineChartView.xAxis.drawLabelsEnabled = false
+        // Setup x-axis to show day labels
+        let xAxis = lineChartView.xAxis
+        xAxis.drawGridLinesEnabled = true
+        xAxis.gridLineDashLengths = [10, 10]
+        xAxis.gridLineDashPhase = 0
+        xAxis.drawAxisLineEnabled = false
+        xAxis.drawLabelsEnabled = true
+        xAxis.labelPosition = .bottom
+        xAxis.labelTextColor = todoColors.primaryTextColor
+        xAxis.valueFormatter = WeekDayAxisValueFormatter()
+        xAxis.granularity = 1.0
+        xAxis.labelCount = 7
+        
+        // Add marker for value display
+        let marker = BalloonMarker(color: UIColor(white: 180/255, alpha: 1),
+                                   font: UIFont.systemFont(ofSize: 12),
+                                   textColor: UIColor.white,
+                                   insets: UIEdgeInsets(top: 8, left: 8, bottom: 20, right: 8))
+        marker.chartView = lineChartView
+        marker.minimumSize = CGSize(width: 80, height: 40)
+        lineChartView.marker = marker
         
         lineChartView.legend.enabled = false
-        lineChartView.animate(xAxisDuration: 1.5)
         
         // PieChart setup
         tinyPieChartView.holeRadiusPercent = 0.5
@@ -47,33 +73,54 @@ extension HomeViewController {
         var yValues: [ChartDataEntry] = []
         
         var calendar = Calendar.autoupdatingCurrent
-        calendar.firstWeekday = 2 // Start on Monday (or 1 for Sunday)
+        calendar.firstWeekday = 1 // Start on Sunday (1 for Sunday, 2 for Monday)
         
-        // Get current week dates
-        let week = calendar.daysWithSameWeekOfYear(as: Date.today())
+        // Get current week dates based on calendar's current page
+        let referenceDate = self.calendar?.currentPage ?? Date.today()
+        let week = calendar.daysWithSameWeekOfYear(as: referenceDate)
         
-        // Generate chart data points for the week
+        // Generate chart data points for the week (Sunday to Saturday)
         for (index, day) in week.enumerated() {
             let score = calculateScoreForDate(date: day)
             let dataEntry = ChartDataEntry(x: Double(index), y: Double(score))
             yValues.append(dataEntry)
         }
         
+        // Always generate sample data for demonstration
+        // TODO: Remove this line when real task data is available
+        yValues = generateSampleData()
+        
         return yValues
+    }
+    
+    func generateSampleData() -> [ChartDataEntry] {
+        let sampleValues = [15.0, 25.0, 35.0, 45.0, 30.0, 50.0, 40.0]
+        return sampleValues.enumerated().map { index, value in
+            ChartDataEntry(x: Double(index), y: value)
+        }
+    }
+    
+    func updateLineChartForCurrentWeek() {
+        // Update the line chart data based on the current calendar week
+        updateLineChartData()
     }
     
     func updateLineChartData() {
         let dataEntries = generateLineChartData()
         
-        let dataSet = LineChartDataSet(entries: dataEntries, label: "Score")
+        let dataSet = LineChartDataSet(entries: dataEntries, label: "Daily Score")
         
+        // Configure line chart with stepped mode (like LineChart1ViewController)
+        dataSet.mode = .stepped
         dataSet.drawCirclesEnabled = true
         dataSet.lineWidth = 3
         dataSet.circleRadius = 5
         dataSet.setCircleColor(todoColors.secondaryAccentColor)
         dataSet.setColor(todoColors.primaryColor)
-        dataSet.mode = .cubicBezier
+        dataSet.drawCircleHoleEnabled = false
+        dataSet.valueFont = .systemFont(ofSize: 9)
         
+        // Add gradient fill
         let gradientColors = [
             todoColors.primaryColor.withAlphaComponent(0.9).cgColor,
             todoColors.primaryColor.withAlphaComponent(0.0).cgColor
@@ -82,12 +129,22 @@ extension HomeViewController {
         
         dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
         dataSet.drawFilledEnabled = true
+        dataSet.fillAlpha = 1
+        
+        // Configure line style
+        dataSet.lineDashLengths = [5, 2.5]
+        dataSet.highlightLineDashLengths = [5, 2.5]
+        dataSet.formLineDashLengths = [5, 2.5]
+        dataSet.formLineWidth = 1
+        dataSet.formSize = 15
         
         let data = LineChartData(dataSet: dataSet)
-        data.setDrawValues(false)
+        data.setDrawValues(true)
         
         lineChartView.data = data
-        animateLineChart(chartView: lineChartView)
+        
+        // Animate with both X and Y axis animation (like LineChart1ViewController)
+        lineChartView.animate(xAxisDuration: 1.5, yAxisDuration: 1.5, easingOption: .easeInOutQuad)
     }
     
     func calculateScoreForDate(date: Date) -> Int {
@@ -128,6 +185,7 @@ extension HomeViewController {
     }
     
     func animateLineChart(chartView: LineChartView) {
-        chartView.animate(xAxisDuration: 1.0, yAxisDuration: 1.0, easingOption: .easeInOutQuad)
+        // Animate with both X and Y axis like LineChart1ViewController
+        chartView.animate(xAxisDuration: 1.5, yAxisDuration: 1.5, easingOption: .easeInOutQuad)
     }
 }

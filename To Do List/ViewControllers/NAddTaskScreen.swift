@@ -182,6 +182,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             print("Priority is: \(currentTaskPriority)")
             
             var taskDueDate: Date
+            
             if(taskDayFromPicker == "Unknown" || taskDayFromPicker == "") {
                 taskDueDate = Date.today()
                 TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: TaskType(rawValue: Int32(getTaskType())) ?? .morning, taskPriority: TaskPriority(rawValue: Int32(currentTaskPriority)) ?? .high, isEveningTask: isThisEveningTask, project: "inbox")
@@ -201,6 +202,8 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             } else if (taskDayFromPicker == "Today") {
                 taskDueDate = Date.today()
                 TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: TaskType(rawValue: Int32(getTaskType())) ?? .morning, taskPriority: TaskPriority(rawValue: Int32(currentTaskPriority)) ?? .high, isEveningTask: isThisEveningTask, project: "inbox")
+            } else {
+                taskDueDate = Date.today() // Default fallback
             }
             
             //            else {

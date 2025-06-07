@@ -68,7 +68,7 @@ extension HomeViewController: BadgeViewDelegate {
     
     func setupChartsInBackdrop() {
         // Setup line chart
-        lineChartView.frame = CGRect(x: 20, y: 420, width: view.bounds.width - 40, height: 200)
+        lineChartView.frame = CGRect(x: 20, y: 120, width: view.bounds.width - 40, height: 400)
         lineChartView.backgroundColor = .clear
         lineChartView.delegate = self
         
@@ -78,6 +78,9 @@ extension HomeViewController: BadgeViewDelegate {
         
         backdropContainer.addSubview(lineChartView)
         // backdropContainer.addSubview(tinyPieChartView) - REMOVED
+        
+        // Configure chart appearance and data
+        setupCharts()
     }
     
     func setupHomeFordrop() {
@@ -315,6 +318,8 @@ extension HomeViewController: BadgeViewDelegate {
             UIView.animate(withDuration: 0.3) {
                 self.moveDown_revealCharts(view: self.foredropContainer)
             }
+            // Animate the chart axes when showing charts
+            animateLineChart(chartView: lineChartView)
         }
     }
     

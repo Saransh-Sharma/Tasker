@@ -68,10 +68,8 @@ final class TaskScoringService {
             
             var totalScore = 0
             for task in tasks {
-                // Handle TaskData type
-                if let taskData = task as? TaskData {
-                    totalScore += self.calculateScore(for: taskData.priority)
-                }
+                // Calculate score for each task
+                totalScore += self.calculateScore(for: task.priority)
             }
             
             completion(totalScore)

@@ -139,7 +139,7 @@ extension HomeViewController {
         for (index, task) in allTasksForDate.enumerated() {
             let status = task.isComplete ? "✅" : "⏳"
             let priority = ["🔴 P0", "🟠 P1", "🟡 P2", "🟢 P3"][Int(task.taskPriority - 1)] ?? "⚪ Unknown"
-            print("  \(index + 1). \(status) '\(task.name)' [\(priority)] - Project: '\(task.project)' - Added: \(task.dateAdded ?? Date() as NSDate)")
+            print("  \(index + 1). \(status) '\(task.name)' [\(priority)] - Project: '\(task.project ?? "Unknown")' - Added: \(task.dateAdded ?? Date() as NSDate)")
         }
         
         // Group tasks by project

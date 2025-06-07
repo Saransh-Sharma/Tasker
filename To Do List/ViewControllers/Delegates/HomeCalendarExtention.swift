@@ -141,9 +141,23 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         reloadTinyPicChartWithAnimation()
         reloadToDoListWithAnimation()
         
+        // Update line chart data for the new week
+        updateLineChartForCurrentWeek()
+        
         // Refresh sample table view with selected date
         refreshSampleTableView(for: date)
         
+    }
+    
+    //MARK: Calendar page change - updates chart when week changes
+    func calendarCurrentPageDidChange(_ calendar: FSCalendar) {
+        print("\n=== CALENDAR PAGE CHANGED ===")
+        print("Calendar current page: \(calendar.currentPage)")
+        
+        // Update line chart data for the new week
+        updateLineChartForCurrentWeek()
+        
+        print("=== CALENDAR PAGE CHANGE COMPLETE ===")
     }
     
     

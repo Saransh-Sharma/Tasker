@@ -26,7 +26,7 @@ extension HomeViewController {
         updateHomeViewDate(dateToDisplay: dateForTheView)
         setupLineChartView()
         updateLineChartData()
-        lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
+        lineChartView.isHidden = false // Show chart by default with sample data
         
         // cal
         setupCalView()
