@@ -77,7 +77,8 @@ extension HomeViewController {
     
     func enableDarkMode() {
         view.backgroundColor = todoColors.darkModeColor
-        tableView.backgroundColor = todoColors.darkModeColor
+        // Updated to use FluentUI table view
+        fluentSampleTableViewController?.tableView.backgroundColor = todoColors.darkModeColor
         
         // Apply dark mode to other UI elements as needed
         for view in self.view.subviews {
@@ -89,7 +90,8 @@ extension HomeViewController {
     
     func disableDarkMode() {
         view.backgroundColor = todoColors.backgroundColor
-        tableView.backgroundColor = todoColors.backgroundColor
+        // Updated to use FluentUI table view
+        fluentSampleTableViewController?.tableView.backgroundColor = todoColors.backgroundColor
         
         // Restore light mode to other UI elements as needed
         for view in self.view.subviews {

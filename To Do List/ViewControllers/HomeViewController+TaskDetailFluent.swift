@@ -16,7 +16,8 @@ extension HomeViewController: TaskDetailViewFluentDelegate {
         TaskManager.sharedInstance.saveContext()
         
         // Refresh UI
-        tableView.reloadData()
+        // Updated to use FluentUI table view
+        fluentSampleTableViewController?.tableView.reloadData()
         updateLineChartData()
     }
     
@@ -72,7 +73,8 @@ extension HomeViewController: TaskDetailViewFluentDelegate {
             view.updateProjectButtonTitle(project: selectedProjectEntity?.projectName)
             
             TaskManager.sharedInstance.saveContext()
-            self.tableView.reloadData()
+            // Updated to use FluentUI table view
+            self.fluentSampleTableViewController?.tableView.reloadData()
             
             self.editingTaskForProjectPicker = nil
             self.activeTaskDetailViewFluent = nil

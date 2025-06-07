@@ -121,10 +121,9 @@ class FluentUISampleTableViewController: UITableViewController {
         }
         print("=== END FLUENT UI SAMPLE TABLE VIEW SETUP ===")
         
-        self.sampleData = sections
-        
-        // Reload table view
+        // Update data and reload table view atomically on main thread
         DispatchQueue.main.async {
+            self.sampleData = sections
             self.tableView.reloadData()
         }
     }
@@ -245,6 +244,12 @@ extension FluentUISampleTableViewController {
             return cell
         }
         
+        // Ensure we don't access array out of bounds
+        guard indexPath.row < sectionData.1.count else {
+            // Return empty cell if somehow we get here
+            return UITableViewCell()
+        }
+        
         let task = sectionData.1[indexPath.row]
         let priorityIcon = getPriorityIcon(for: Int(task.taskPriority))
         
@@ -362,16 +367,14 @@ extension FluentUISampleTableViewController {
         rescheduleAction.image = UIImage(systemName: "calendar")
         actions.append(rescheduleAction)
         
-        // Done action (left to right swipe)
-        if !task.isComplete {
-            let doneAction = UIContextualAction(style: .normal, title: "Done") { [weak self] (action, view, completionHandler) in
-                self?.markTaskComplete(task)
-                completionHandler(true)
-            }
-            doneAction.backgroundColor = UIColor.systemGreen
-            doneAction.image = UIImage(systemName: "checkmark")
-            actions.append(doneAction)
+        // Delete action (left to right swipe)
+        let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] (action, view, completionHandler) in
+            self?.deleteTask(task)
+            completionHandler(true)
         }
+        deleteAction.backgroundColor = UIColor.systemRed
+        deleteAction.image = UIImage(systemName: "trash")
+        actions.append(deleteAction)
         
         let configuration = UISwipeActionsConfiguration(actions: actions)
         configuration.performsFirstActionWithFullSwipe = false
@@ -470,6 +473,37 @@ extension FluentUISampleTableViewController {
     private func markTaskIncomplete(_ task: NTask) {
         task.isComplete = false
         saveTaskChanges(task)
+    }
+    
+    private func deleteTask(_ task: NTask) {
+        // Delete the task from Core Data context
+        guard let context = task.managedObjectContext else {
+            print("Error: Task has no managed object context")
+            return
+        }
+        
+        context.delete(task)
+        
+        do {
+            try context.save()
+            // Refresh the data to remove the deleted task from the view
+            setupSampleData(for: selectedDate)
+            
+            // Update any charts or scoring calculations that depend on this task
+            // The task deletion will automatically remove its score from daily calculations
+            // since the task no longer exists in the data source
+            
+        } catch {
+            print("Error deleting task: \(error)")
+            // Show error alert
+            let alert = UIAlertController(
+                title: "Error",
+                message: "Failed to delete task. Please try again.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+        }
     }
     
     private func saveTaskChanges(_ task: NTask) {

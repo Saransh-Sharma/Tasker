@@ -64,49 +64,29 @@ extension HomeViewController {
 //    // MARK: - TableView Animations
 //    
     func animateTableViewReload() {
-        let zoomAnimation = AnimationType.zoom(scale: 0.5)
-        let rotateAnimation = AnimationType.rotate(angle: CGFloat.pi/6)
-        
-        UIView.animate(views: tableView.visibleCells,
-                       animations: [zoomAnimation, rotateAnimation],
-                       reversed: true,
-                       initialAlpha: 0.0,
-                       finalAlpha: 1.0,
-                       delay: 0,
-                       animationInterval: 0.05,
-                       duration: shouldAnimateCells ? 0.5 : 0,
-                       options: .curveEaseInOut,
-                       completion: nil)
+        // Animate FluentUI table view reload
+        guard let fluentTableView = fluentSampleTableViewController?.tableView else { return }
+        UIView.transition(with: fluentTableView, duration: 0.3, options: .transitionCrossDissolve, animations: {
+            fluentTableView.reloadData()
+        }, completion: nil)
     }
     
-    func animateTableViewReloadSingleCell(cellAtIndexPathRow: Int) {
-        let indexPath = IndexPath(row: cellAtIndexPathRow, section: 0)
-        tableView.reloadRows(at: [indexPath], with: .fade)
-        
-        if let cell = tableView.cellForRow(at: indexPath) {
-            let animation = AnimationType.from(direction: .bottom, offset: 30.0)
-            UIView.animate(views: [cell],
-                           animations: [animation],
-                           reversed: false,
-                           initialAlpha: 0.0,
-                           finalAlpha: 1.0,
-                           delay: 0,
-                           animationInterval: 0.05,
-                           duration: 0.5,
-                           options: .curveEaseInOut,
-                           completion: nil)
+    func animateTableViewReloadSingleCell(at indexPath: IndexPath) {
+        // Animate single cell reload in FluentUI table view
+        guard let fluentTableView = fluentSampleTableViewController?.tableView else { return }
+        UIView.transition(with: fluentTableView, duration: 0.2, options: .transitionCrossDissolve, animations: {
+            fluentTableView.reloadRows(at: [indexPath], with: .none)
+        }, completion: nil)
+    }
+    
+    func animateTableCellReload(at indexPath: IndexPath) {
+        // Animate specific cell reload in FluentUI table view
+        guard let fluentTableView = fluentSampleTableViewController?.tableView else { return }
+        if let cell = fluentTableView.cellForRow(at: indexPath) {
+            UIView.transition(with: cell, duration: 0.2, options: .transitionCrossDissolve, animations: {
+                // The cell content will be updated automatically
+                fluentTableView.reloadRows(at: [indexPath], with: .none)
+            }, completion: nil)
         }
-    }
-    
-    func animateTableCellReload() {
-        let fromAnimation = AnimationType.vector(CGVector(dx: 30, dy: 0))
-        
-        UIView.animate(views: tableView.visibleCells,
-                       animations: [fromAnimation],
-                       reversed: false,
-                       initialAlpha: 0.2,
-                       finalAlpha: 1.0,
-                       delay: 0.0,
-                       animationInterval: 0.03)
     }
 }

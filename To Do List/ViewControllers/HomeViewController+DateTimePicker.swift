@@ -20,7 +20,8 @@ extension HomeViewController: DateTimePickerDelegate {
             detailView.updateDueDateButtonTitle(date: startDate)
             
             TaskManager.sharedInstance.saveContext()
-            self.tableView.reloadData()
+            // Updated to use FluentUI table view
+        self.fluentSampleTableViewController?.tableView.reloadData()
             updateLineChartData()
         }
         

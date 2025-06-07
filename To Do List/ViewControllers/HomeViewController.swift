@@ -92,13 +92,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var shouldHideData: Bool = false
     var tinyPieChartSections: [String] = ["Done", "In Progress", "Not Started", "Overdue"]
     
-    // Calendar and TableView
+    // Calendar and FluentUI TableView
     var calendar: FSCalendar!
-    var tableView = UITableView(frame: .zero, style: .insetGrouped)
+    // Removed main tableView - using only FluentUI table now
     
-    // Sample TableView for testing
-    var sampleTableView = UITableView(frame: .zero, style: .grouped)
-    var sampleData: [(String, [NTask])] = []
+    // Legacy properties removed - sampleTableView and sampleData
+    // var sampleTableView = UITableView(frame: .zero, style: .grouped)
+    // var sampleData: [(String, [NTask])] = []
     
     // FluentUI Sample TableView Controller
     var fluentSampleTableViewController: FluentUISampleTableViewController?
@@ -132,7 +132,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 //     State flags
     var isGrouped: Bool = false {
         didSet {
-            tableView.reloadData()
+            // Updated to use FluentUI table view
+            fluentSampleTableViewController?.tableView.reloadData()
             animateTableViewReload()
         }
     }
@@ -179,12 +180,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         self.setupBottomAppBar()
         view.addSubview(bottomAppBar)
         
-        foredropContainer.addSubview(tableView)
+        // Removed - tableView is no longer used, FluentUI table is added in setupSampleTableView
         foredropContainer.backgroundColor = UIColor.green
         backdropContainer.backgroundColor = UIColor.clear
         // Setup table view
 //        self.setupTableView()
-//        foredropContainer.addSubview(tableView)
+//        // Removed - tableView is no longer used, FluentUI table is added in setupSampleTableView
         
         // Load initial data
         TaskManager.sharedInstance.fixMissingTasksDataWithDefaults()
@@ -271,7 +272,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         // Removed pie chart button from navigation bar
         
         // Enable scroll-to-contract behavior
-        navigationItem.contentScrollView = tableView
+        // Updated to use FluentUI table view
+        navigationItem.contentScrollView = fluentSampleTableViewController?.tableView
     }
     
     private func createSearchBarAccessory() -> SearchBar {
@@ -470,7 +472,8 @@ extension HomeViewController {
         }
         
         ToDoListSections = filteredSections
-        tableView.reloadData()
+        // Updated to use FluentUI table view
+        fluentSampleTableViewController?.tableView.reloadData()
         animateTableViewReload()
     }
 }

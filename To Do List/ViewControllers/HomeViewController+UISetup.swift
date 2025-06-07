@@ -119,7 +119,7 @@ extension HomeViewController: BadgeViewDelegate {
         // Setup new sample table view at the top
         setupSampleTableView()
         
-        // Setup and add tableView to foredrop
+        // Setup FluentUI table view in foredrop (main tableView removed)
         setupTableViewInForedrop()
     }
     
@@ -139,34 +139,16 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     func setupTableViewInForedrop() {
-        // Make sure we don't add the table view multiple times
-//        tableView.removeFromSuperview()
+        // This method now sets up the FluentUI table view in foredrop
+        // Initialize FluentUI sample table view controller if not already done
+        if fluentSampleTableViewController == nil {
+            fluentSampleTableViewController = FluentUISampleTableViewController(style: .insetGrouped)
+        }
         
-        // registration already done; just wire delegates
-        tableView.dataSource = self            // ← ADD
-        tableView.delegate   = self            // ← ADD
+        // Setup the FluentUI table to fill the foredrop
+        setupSampleTableView(for: dateForTheView)
         
-        
-        
-
-        tableView.register(TableViewCell.self, forCellReuseIdentifier: cellReuseID)
-        tableView.register(TableViewHeaderFooterView.self,forHeaderFooterViewReuseIdentifier: headerReuseID)
-
-
-        
-        // Configure table view dimensions - position below sample table view
-        let topBarHeight = homeTopBar.bounds.height
-        let sampleTableHeight: CGFloat = 300 // Same height as sample table
-        let tableViewY = topBarHeight + sampleTableHeight
-        
-        tableView.frame = CGRect(x: 0, y: tableViewY, 
-                               width: foredropContainer.bounds.width,
-                               height: foredropContainer.bounds.height - tableViewY)
-        
-        tableView.backgroundView?.backgroundColor = UIColor.clear
-        
-        // Add table view to foredrop
-        foredropContainer.addSubview(tableView)
+        print("FluentUI table view setup in foredrop completed")
     }
     
     func setupBottomAppBar() {
@@ -347,23 +329,24 @@ extension HomeViewController: BadgeViewDelegate {
         // Update data for the selected date
         fluentSampleTableViewController?.updateData(for: date)
         
-        // Position the FluentUI sample table view at the top of foredrop container
-        let topBarHeight = self.homeTopBar.bounds.height
-        let sampleTableHeight: CGFloat = 300 // Fixed height for sample table
+        // Position the FluentUI sample table view to fill the entire foredrop container
+        // Account for bottom app bar height
+        let bottomBarHeight = bottomAppBar.bounds.height
+        let availableHeight = foredropContainer.bounds.height - bottomBarHeight
         
         fluentSampleTableViewController?.view.frame = CGRect(
             x: 0,
-            y: topBarHeight,
+            y: 0,
             width: self.foredropContainer.bounds.width,
-            height: sampleTableHeight
+            height: availableHeight
         )
         
         // Add FluentUI sample table view to foredrop container
         if let fluentView = fluentSampleTableViewController?.view {
-            // Remove old sample table view if it exists
-            self.sampleTableView.removeFromSuperview()
+            // Remove any existing views (legacy cleanup)
+            // self.sampleTableView.removeFromSuperview() // Already removed from HomeViewController
             
-            // Add the new FluentUI table view
+            // Add the FluentUI table view
             self.foredropContainer.addSubview(fluentView)
             
             // Add as child view controller for proper lifecycle management

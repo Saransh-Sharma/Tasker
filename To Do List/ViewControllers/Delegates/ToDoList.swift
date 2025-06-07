@@ -55,16 +55,18 @@ extension HomeViewController: BEMCheckBoxDelegate {
             case 1:
                 if !inboxTasks[indexPath.row].isComplete {
                     self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-                    self.tableView.reloadData()
+                    // Updated to use FluentUI table view
+        self.fluentSampleTableViewController?.tableView.reloadData()
                     self.updateLineChartData()
-                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    self.animateTableViewReloadSingleCell(at: indexPath)
                 }
             case 2:
                 if !projectsTasks[indexPath.row].isComplete {
                     self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-                    self.tableView.reloadData()
+                    // Updated to use FluentUI table view
+        self.fluentSampleTableViewController?.tableView.reloadData()
                     self.updateLineChartData()
-                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    self.animateTableViewReloadSingleCell(at: indexPath)
                 }
             default:
                 break
@@ -77,16 +79,18 @@ extension HomeViewController: BEMCheckBoxDelegate {
             case 1:
                 if !inboxTasks[indexPath.row].isComplete {
                     self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-                    self.tableView.reloadData()
+                    // Updated to use FluentUI table view
+        self.fluentSampleTableViewController?.tableView.reloadData()
                     self.updateLineChartData()
-                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    self.animateTableViewReloadSingleCell(at: indexPath)
                 }
             case 2:
                 if !projectsTasks[indexPath.row].isComplete {
                     self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-                    self.tableView.reloadData()
+                    // Updated to use FluentUI table view
+        self.fluentSampleTableViewController?.tableView.reloadData()
                     self.updateLineChartData()
-                    self.animateTableViewReloadSingleCell(cellAtIndexPathRow: indexPath.row)
+                    self.animateTableViewReloadSingleCell(at: indexPath)
                 }
             default:
                 break
@@ -118,7 +122,8 @@ extension HomeViewController: BEMCheckBoxDelegate {
     
 //    public func updateTableView() {
 //        self.tableView.backgroundColor = .clear
-//        self.tableView.reloadData()
+//        // Updated to use FluentUI table view
+//        self.fluentSampleTableViewController?.tableView.reloadData()
 //    }
 }
 
