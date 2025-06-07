@@ -106,7 +106,7 @@ class ProjectManager: ObservableObject {
         // The key is that any changes to Core Data must be followed by `saveContext()`
         // and then `fetchProjects()` to update the @Published `self.projects`.
 
-        var localProjectsCopy = self.projects // Work on a copy of the current state
+        let localProjectsCopy = self.projects // Work on a copy of the current state
         var allFoundInboxProjects: [Projects] = []
         var otherNonInboxProjects: [Projects] = []
 

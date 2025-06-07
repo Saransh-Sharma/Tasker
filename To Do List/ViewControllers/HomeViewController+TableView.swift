@@ -194,7 +194,7 @@ extension HomeViewController {
         }
         
         if let task = task {
-            print("Table - HomeViewController: Found task '\(task.name ?? "Unknown")' for indexPath \(indexPath)")
+            print("Table - HomeViewController: Found task '\(task.name)' for indexPath \(indexPath)")
             configureCellForTask(cell, with: task, at: indexPath)
         } else {
             print("Table - HomeViewController: No task found for indexPath \(indexPath)")

@@ -598,7 +598,7 @@ extension FluentUISampleTableViewController {
         let today = Date()
         
         // Find next Monday
-        var components = calendar.dateComponents([.weekday], from: today)
+        let components = calendar.dateComponents([.weekday], from: today)
         let daysUntilMonday = (9 - (components.weekday ?? 1)) % 7
         let daysToAdd = daysUntilMonday == 0 ? 7 : daysUntilMonday // If today is Monday, go to next Monday
         
@@ -750,7 +750,7 @@ class RescheduleViewController: UIViewController {
         let today = Date()
         
         // Find next Monday
-        var components = calendar.dateComponents([.weekday], from: today)
+        let components = calendar.dateComponents([.weekday], from: today)
         let daysUntilMonday = (9 - (components.weekday ?? 1)) % 7
         let daysToAdd = daysUntilMonday == 0 ? 7 : daysUntilMonday // If today is Monday, go to next Monday
         

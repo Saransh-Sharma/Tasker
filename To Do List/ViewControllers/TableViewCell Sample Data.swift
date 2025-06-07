@@ -251,7 +251,7 @@ class TableViewCellSampleData: ToDoListData {
     
     static func createIconsAccessoryView(images: [String], rightAligned: Bool = false) -> UIView {
         let iconSpacing: CGFloat = 6
-        var icons: [UIImageView] = []
+        let icons: [UIImageView] = []
         
 //        images.forEach {
 ////            icons.append(UIImageView(image: UIImage(named: $0))) //systemName: "circle.fill")

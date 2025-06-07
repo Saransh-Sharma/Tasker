@@ -196,7 +196,7 @@ class TaskManager {
         print("!!! refg: getTasksForInboxForDate_All - inbox count: \(tasks.count) - Z")
         print("refg INBOX TASK LIST")
         for each in tasks {
-            print("refg \(each.name ?? "unnamed")")
+            print("refg \(each.name)")
         }
         
         return tasks
@@ -529,11 +529,11 @@ class TaskManager {
         // Keep the debug prints for manual verification (will be cleaned up in later phases)
         for task in tasks {
             if (task.dueDate! as Date) >= startOfDay && (task.dueDate! as Date) < endOfDay {
-                print("Green 1: \(task.name ?? "")")
+                print("Green 1: \(task.name)")
             } else if (task.dueDate! as Date) < (today.startOfDay as NSDate) as Date && !task.isComplete {
-                print("Green 2: \(task.name ?? "")")
+                print("Green 2: \(task.name)")
             } else if (task.dateCompleted as? Date) == today {
-                print("Green 3: \(task.name ?? "")")
+                print("Green 3: \(task.name)")
             }
         }
         

@@ -46,7 +46,7 @@ extension HomeViewController: TaskDetailViewFluentDelegate {
         self.activeTaskDetailViewFluent = view
         
         if let presentedVC = self.presentedViewController {
-            if presentedVC is DateTimePicker || presentedVC is BottomSheetController {
+            if presentedVC is BottomSheetController {
                 presentedVC.dismiss(animated: false, completion: nil)
             }
         }
@@ -60,7 +60,7 @@ extension HomeViewController: TaskDetailViewFluentDelegate {
     
     func taskDetailViewFluentDidRequestProjectPicker(_ view: TaskDetailViewFluent, for task: NTask, currentProject: Projects?, availableProjects: [Projects]) {
         if let presentedVC = self.presentedViewController {
-            if presentedVC is DateTimePicker || presentedVC is BottomSheetController {
+            if presentedVC is BottomSheetController {
                 presentedVC.dismiss(animated: false, completion: nil)
             }
         }

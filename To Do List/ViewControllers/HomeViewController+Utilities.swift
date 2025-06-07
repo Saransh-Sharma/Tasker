@@ -25,7 +25,7 @@ extension HomeViewController {
     // MARK: - Font Utilities
     
     func setFont(fontSize: CGFloat, fontweight: UIFont.Weight = .regular, fontDesign: UIFontDescriptor.SystemDesign = .default) -> UIFont {
-        let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .body)
+        let _ = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .body) // descriptor - unused
             .withDesign(fontDesign)!
         
         return UIFont.systemFont(ofSize: fontSize, weight: fontweight)
@@ -138,7 +138,7 @@ extension HomeViewController {
         view.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 300)
         view.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.6)
         
-        let frameForView = view.frame
+        let _ = view.frame // frameForView - unused
         
         // Create and configure UI controls for the semi-modal view
         // (Implementation would be specific to your app's requirements)

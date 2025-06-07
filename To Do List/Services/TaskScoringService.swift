@@ -68,11 +68,8 @@ final class TaskScoringService {
             
             var totalScore = 0
             for task in tasks {
-                // Handle both NTask and TaskData types
-                if let nTask = task as? NTask {
-                    let priority = TaskPriority(rawValue: nTask.taskPriority) ?? .low
-                    totalScore += self.calculateScore(for: priority)
-                } else if let taskData = task as? TaskData {
+                // Handle TaskData type
+                if let taskData = task as? TaskData {
                     totalScore += self.calculateScore(for: taskData.priority)
                 }
             }

@@ -436,7 +436,7 @@ class TaskCell: UITableViewCell {
     
     func configure(with task: NTask) {
         // Set title with strikethrough if completed
-        let title = task.name ?? "Unnamed Task"
+        let title = task.name
         if task.isComplete {
             let attributedTitle = NSAttributedString(string: title, attributes: [.strikethroughStyle: NSUnderlineStyle.single.rawValue])
             titleLabel.attributedText = attributedTitle

@@ -36,7 +36,7 @@ class DependencyContainer {
     /// - Parameter viewController: The view controller to inject dependencies into
     func inject(into viewController: UIViewController) {
         // Use reflection to inject dependencies
-        if let property = class_getProperty(type(of: viewController), "taskRepository") {
+        if let _ = class_getProperty(type(of: viewController), "taskRepository") {
             if let viewController = viewController as? TaskRepositoryDependent {
                 viewController.taskRepository = taskRepository
             }

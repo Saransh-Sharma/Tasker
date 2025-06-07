@@ -29,7 +29,7 @@ class TaskDetailViewFluent: UIView {
 
     // Due Date
     private let dueDateHeaderLabel = FluentUI.Label()
-    private let dueDateButton = FluentUI.Button(style: .outline) // Using a standard style
+    private let dueDateButton = FluentUI.Button(style: .outlineAccent) // Using a standard style
 
     // Priority
     private let priorityHeaderLabel = FluentUI.Label()

@@ -302,7 +302,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         
         // Default to "Inbox" (index 0) since we ensure Inbox is first in buildSamplePillBarData
         if !items.isEmpty {
-            bar.selectItem(atIndex: 0) // Default to Inbox
+            _ = bar.selectItem(atIndex: 0) // Default to Inbox
         }
         
         bar.barDelegate = self

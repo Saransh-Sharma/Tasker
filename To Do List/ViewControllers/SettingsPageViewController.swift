@@ -132,8 +132,10 @@ class SettingsPageViewController: UIViewController {
             let newStyle: UIUserInterfaceStyle = isDarkMode ? .dark : .light
             
             // Apply to all windows for consistent appearance
-            UIApplication.shared.windows.forEach { window in
-                window.overrideUserInterfaceStyle = newStyle
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                windowScene.windows.forEach { window in
+                    window.overrideUserInterfaceStyle = newStyle
+                }
             }
             
             // Show confirmation toast

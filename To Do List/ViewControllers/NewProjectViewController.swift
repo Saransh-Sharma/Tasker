@@ -131,7 +131,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
             
             currentProjectInTexField = currentProjectInTexField.trimmingLeadingAndTrailingSpaces()
             if !allProjectList.contains(currentProjectInTexField) {
-                ProjectManager.sharedInstance.addNewProject(with: currentProjectInTexField, and: currentProjectInTexField)
+                _ = ProjectManager.sharedInstance.addNewProject(with: currentProjectInTexField, and: currentProjectInTexField)
                 HUD.shared.showSuccess(from: self, with: "New Project\n\(currentProjectInTexField)")
             } else {
                 HUD.shared.showFailure(from: self, with: "\(currentProjectInTexField) already exists !")

@@ -89,13 +89,9 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         fab_cancelTask.minimumSize = CGSize(width: 32, height: 24)
         let kMinimumAccessibleButtonSizeHeeight: CGFloat = 24
         let kMinimumAccessibleButtonSizeWidth:CGFloat = 32
-        let buttonVerticalInset =
-            min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_cancelTask.bounds.height) / 2);
-        let buttonHorizontalInset =
-            min(0, -(kMinimumAccessibleButtonSizeWidth - fab_cancelTask.bounds.width) / 2);
-        fab_cancelTask.hitAreaInsets =
-            UIEdgeInsets(top: buttonVerticalInset, left: buttonHorizontalInset,
-                         bottom: buttonVerticalInset, right: buttonHorizontalInset);
+        let _ = min(0, -(kMinimumAccessibleButtonSizeHeeight - fab_cancelTask.bounds.height) / 2) // buttonVerticalInset - unused
+        let _ = min(0, -(kMinimumAccessibleButtonSizeWidth - fab_cancelTask.bounds.width) / 2) // buttonHorizontalInset - unused
+        fab_cancelTask.centerVisibleArea = true
         
         
         // cancel button position
@@ -174,7 +170,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         //       tap DONE --> add new task + nav homeScreen
         //MARK:- ADD TASK ACTION
         isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
-        var taskDueDate = Date()
+        let _ = Date() // taskDueDate - unused
         print("User tapped done button at add task")
         if currentTaskInMaterialTextBox != "" {
             
@@ -185,6 +181,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             
             print("Priority is: \(currentTaskPriority)")
             
+            var taskDueDate: Date
             if(taskDayFromPicker == "Unknown" || taskDayFromPicker == "") {
                 taskDueDate = Date.today()
                 TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: TaskType(rawValue: Int32(getTaskType())) ?? .morning, taskPriority: TaskPriority(rawValue: Int32(currentTaskPriority)) ?? .high, isEveningTask: isThisEveningTask, project: "inbox")

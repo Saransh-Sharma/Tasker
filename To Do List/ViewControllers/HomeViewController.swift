@@ -360,14 +360,19 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
     
     private func presentSideDrawer() {
-        let settingsLabel = Label(textStyle: .title2, colorStyle: .regular)
-        settingsLabel.text = "Settings & Menu"
-        settingsLabel.textAlignment = .center
+        // Create the settings page view controller
+        let settingsVC = SettingsPageViewController()
         
+        // Embed it in a navigation controller for proper navigation
+        let navController = UINavigationController(rootViewController: settingsVC)
+        navController.navigationBar.prefersLargeTitles = false
+        
+        // Create the drawer controller with the settings navigation controller
         let controller = DrawerController(sourceView: view, sourceRect: .zero, presentationDirection: .fromLeading)
-        controller.contentView = settingsLabel
-        controller.preferredContentSize.width = 300
+        controller.contentController = navController
+        controller.preferredContentSize.width = 350
         controller.resizingBehavior = .dismiss
+        
         present(controller, animated: true)
     }
     

@@ -164,7 +164,7 @@ extension AddTaskViewController {
     func setupDoneButton() {
     // MARK:---FAB - DONE Task
     
-    let doneButtonHeightWidth: CGFloat = 50
+    let _ = 50 // doneButtonHeightWidth - unused
     
     self.fab_doneTask.mode = .expanded
     self.fab_doneTask.setTitle("Done", for: .normal)

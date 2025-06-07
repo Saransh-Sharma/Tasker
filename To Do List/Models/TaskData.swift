@@ -19,7 +19,7 @@ struct TaskData {
     /// - Parameter managedObject: The Core Data managed object to convert
     init(managedObject: NTask) {
         self.id = managedObject.objectID
-        self.name = managedObject.name ?? ""
+        self.name = managedObject.name
         self.details = managedObject.taskDetails
         self.type = TaskType(rawValue: managedObject.taskType) ?? .morning
         self.priority = TaskPriority(rawValue: managedObject.taskPriority) ?? .medium
