@@ -667,7 +667,8 @@ class TaskManager {
     ///   - name: The name/title of the task
     ///   - taskType: The type of task (morning, evening, upcoming)
     ///   - taskPriority: The priority level of the task
-    func addNewTask(name: String, taskType: TaskType, taskPriority: TaskPriority) {
+    @discardableResult
+    func addNewTask(name: String, taskType: TaskType, taskPriority: TaskPriority) -> NTask {
         
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
@@ -680,6 +681,8 @@ class TaskManager {
         // No longer need to append to in-memory array since we're using predicate-driven fetching
         saveContext()
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
+        
+        return task
     }
     
     /// Legacy method signature for backward compatibility
@@ -700,7 +703,8 @@ class TaskManager {
     ///   - taskPriority: The priority level of the task
     ///   - isEveningTask: Boolean indicating if this is an evening task
     ///   - project: The project this task belongs to (defaults to "inbox" if empty)
-    func addNewTask_Today(name: String, taskType: TaskType, taskPriority: TaskPriority, isEveningTask: Bool, project: String) {
+    @discardableResult
+    func addNewTask_Today(name: String, taskType: TaskType, taskPriority: TaskPriority, isEveningTask: Bool, project: String) -> NTask {
         
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
@@ -742,6 +746,8 @@ class TaskManager {
         // No longer need to append to in-memory array since we're using predicate-driven fetching
         saveContext()
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
+        
+        return task
     }
     
     /// Creates a new task scheduled for a future date
@@ -752,7 +758,9 @@ class TaskManager {
     ///   - futureTaskDate: The future date when the task is due
     ///   - isEveningTask: Boolean indicating if this is an evening task
     ///   - project: The project this task belongs to (defaults to "inbox" if empty)
-    func addNewTask_Future(name: String, taskType: TaskType, taskPriority: TaskPriority, futureTaskDate: Date, isEveningTask: Bool, project: String) {
+    /// - Returns: The newly created NTask object
+    @discardableResult
+    func addNewTask_Future(name: String, taskType: TaskType, taskPriority: TaskPriority, futureTaskDate: Date, isEveningTask: Bool, project: String) -> NTask {
         
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
@@ -779,6 +787,8 @@ class TaskManager {
         // No longer need to append to in-memory array since we're using predicate-driven fetching
         saveContext()
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
+        
+        return task
     }
     
     /// Legacy method signature for backward compatibility
@@ -789,15 +799,19 @@ class TaskManager {
     ///   - futureTaskDate: The future date when the task is due
     ///   - isEveningTask: Boolean indicating if this is an evening task
     ///   - project: The project this task belongs to
-    func addNewTask_Future(name: String, taskType: Int, taskPriority: Int, futureTaskDate: Date, isEveningTask: Bool, project: String) {
+    /// - Returns: The newly created NTask object
+    @discardableResult
+    func addNewTask_Future(name: String, taskType: Int, taskPriority: Int, futureTaskDate: Date, isEveningTask: Bool, project: String) -> NTask {
         let type = TaskType(rawValue: Int32(taskType)) ?? .morning
         let priority = TaskPriority(rawValue: Int32(taskPriority)) ?? .medium
-        addNewTask_Future(name: name, taskType: type, taskPriority: priority, futureTaskDate: futureTaskDate, isEveningTask: isEveningTask, project: project)
+        return addNewTask_Future(name: name, taskType: type, taskPriority: priority, futureTaskDate: futureTaskDate, isEveningTask: isEveningTask, project: project)
     }
     
     /// Creates a new morning task with default properties
     /// - Parameter name: The name/title of the task
-    func addNewMorningTaskWithName(name: String) {
+    /// - Returns: The newly created NTask object
+    @discardableResult
+    func addNewMorningTaskWithName(name: String) -> NTask {
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
         // Set all default properties on adding a task
@@ -810,11 +824,15 @@ class TaskManager {
         // No longer need to append to in-memory array since we're using predicate-driven fetching
         saveContext()
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
+        
+        return task
     }
     
     /// Creates a new evening task with default properties
     /// - Parameter name: The name/title of the task
-    func addNewEveningTaskWithName(name: String) {
+    /// - Returns: The newly created NTask object
+    @discardableResult
+    func addNewEveningTaskWithName(name: String) -> NTask {
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
         // Set all default properties on adding a task
@@ -827,6 +845,8 @@ class TaskManager {
         // No longer need to append to in-memory array since we're using predicate-driven fetching
         saveContext()
         print("addNewTaskWithName task count now is: \(getAllTasks.count)")
+        
+        return task
     }
     
     // MARK: - Task Management Utility Methods

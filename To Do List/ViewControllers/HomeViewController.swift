@@ -181,7 +181,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         foredropContainer.addSubview(tableView)
         foredropContainer.backgroundColor = UIColor.green
-        backdropContainer.backgroundColor = UIColor.yellow
+        backdropContainer.backgroundColor = UIColor.clear
         // Setup table view
 //        self.setupTableView()
 //        foredropContainer.addSubview(tableView)
@@ -373,6 +373,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         // Present add task interface
         let addTaskVC = AddTaskViewController()
         addTaskVC.delegate = self
+        addTaskVC.modalPresentationStyle = .fullScreen
         present(addTaskVC, animated: true, completion: nil)
     }
     

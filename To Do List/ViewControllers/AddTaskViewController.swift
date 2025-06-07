@@ -36,6 +36,13 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     var currentTaskDescription: String = ""
     var isThisEveningTask: Bool = false
     var taskDayFromPicker: String =  "Unknown" //change datatype tp task type
+    var currenttProjectForAddTaskView: String = ""
+    var currentPriorityForAddTaskView: String = ""
+    
+    // New sample pill bar
+    var samplePillBar: UIView?
+    var samplePillBarItems: [PillButtonBarItem] = []
+
     var currentTaskPriority: Int = 3
     
     // Description text field
@@ -87,10 +94,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     //MARK:- current task list date
     var dateForAddTaskView = Date.today()
 
-    var pillBarProjectList: [PillButtonBarItem] = [PillButtonBarItem(title: "Add Project")]
-    var currenttProjectForAddTaskView = "Inbox"
 
-    var filledBar: UIView?
 
 
     func setProjecForView(name: String) {
@@ -117,7 +121,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        print("AddTaskViewController: viewDidLoad called")
+        
         // Setup backdrop with navigation bar and calendar
         view.addSubview(backdropContainer)
         setupBackdrop()
@@ -131,7 +136,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // Setup form components
         setupAddTaskTextField()
         setupDescriptionTextField()
-        setupProjectsPillBar()
+        setupSamplePillBar() // New sample pill bar
         setupPrioritySC()
         setupDoneButton()
         
@@ -145,10 +150,11 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         self.descriptionTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
         self.foredropStackContainer.addArrangedSubview(self.descriptionTextBox_Material)
         
-        if let pillBar = self.filledBar {
-            pillBar.isHidden = false
-            pillBar.translatesAutoresizingMaskIntoConstraints = false
-            self.foredropStackContainer.addArrangedSubview(pillBar)
+        // Add the new sample pill bar after description text field
+        if let samplePillBar = self.samplePillBar {
+            samplePillBar.isHidden = false
+            samplePillBar.translatesAutoresizingMaskIntoConstraints = false
+            self.foredropStackContainer.addArrangedSubview(samplePillBar)
         }
         
         self.tabsSegmentedControl.isHidden = false
@@ -172,33 +178,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         super.viewWillAppear(animated)
         print("AddTaskViewController: viewWillAppear called")
         
-        // Refresh project data
-        ProjectManager.sharedInstance.refreshAndPrepareProjects()
-
-        // Re-setup or update the pill bar as project list might have changed.
-        // This will call buildProojectsPillBarData from the extension.
-        // NOTE: setupProjectsPillBar is defined in the AddTaskForedropView extension.
-        self.setupProjectsPillBar() 
-
-        // Default selection logic for PillBar
-        if let bar = self.filledBar?.subviews.first(where: { $0 is PillButtonBar }) as? PillButtonBar {
-            let inboxProjectName = "Inbox"
-            var defaultSelectionIndex = pillBarProjectList.firstIndex(where: { $0.title == inboxProjectName })
-
-            // If Inbox not found, try to select the first item if list is not empty (could be "Add Project")
-            if defaultSelectionIndex == nil && !pillBarProjectList.isEmpty {
-                 defaultSelectionIndex = 0 
-            }
-
-            if let indexToSelect = defaultSelectionIndex, indexToSelect < pillBarProjectList.count {
-                _ = bar.selectItem(atIndex: indexToSelect)
-                currenttProjectForAddTaskView = pillBarProjectList[indexToSelect].title
-            } else if !pillBarProjectList.isEmpty { // Fallback if no specific item found but list is not empty
-                 _ = bar.selectItem(atIndex: 0)
-                currenttProjectForAddTaskView = pillBarProjectList[0].title
-            }
-            print("AddTaskViewController: viewWillAppear - Selected project in pill bar: \(currenttProjectForAddTaskView)")
-        }
+        // Set default project to Inbox
+        currenttProjectForAddTaskView = "Inbox"
     }
     
     // MARK:- Build Page Header
@@ -227,11 +208,10 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
             }
             
             let isEmpty = currentTaskInMaterialTextBox.isEmpty
-            // fab_doneTask, tabsSegmentedControl, and filledBar are properties of AddTaskViewController (self)
+            // fab_doneTask and tabsSegmentedControl are properties of AddTaskViewController (self)
             // and are assumed to be correctly initialized/managed by the extension methods.
             self.fab_doneTask.isHidden = isEmpty
             self.tabsSegmentedControl.isHidden = isEmpty
-            self.filledBar?.isHidden = isEmpty
             self.fab_doneTask.isEnabled = !isEmpty
         }
         return true
@@ -274,6 +254,70 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         
         // Don't add to stack container here - it's added in viewDidLoad
     }
+    
+    // MARK: - Sample Pill Bar Setup
+    func setupSamplePillBar() {
+        buildSamplePillBarData()
+        
+        let pillBar = createSamplePillBar(items: samplePillBarItems, centerAligned: false)
+        samplePillBar?.removeFromSuperview()
+        
+        samplePillBar = pillBar
+        // Don't add to stack container here - it's added in viewDidLoad
+    }
+    
+    func buildSamplePillBarData() {
+        // Use actual project data from ProjectManager instead of sample data
+        let allDisplayProjects = ProjectManager.sharedInstance.displayedProjects
+        
+        samplePillBarItems = [] // Reset the list
+        
+        // Add all existing projects
+        for project in allDisplayProjects {
+            if let projectName = project.projectName {
+                print("Added to sample pill bar from ProjectManager: \(projectName)")
+                samplePillBarItems.append(PillButtonBarItem(title: projectName))
+            }
+        }
+        
+        // Ensure "Inbox" is present and positioned first if it exists
+        let inboxTitle = ProjectManager.sharedInstance.defaultProject // "Inbox"
+        
+        // Remove any existing "Inbox" to avoid duplicates before re-inserting at correct position
+        samplePillBarItems.removeAll(where: { $0.title.lowercased() == inboxTitle.lowercased() })
+        
+        // Insert "Inbox" at the beginning
+        samplePillBarItems.insert(PillButtonBarItem(title: inboxTitle), at: 0)
+        
+        // Log the final list for verification
+        print("Final samplePillBarItems for AddTaskScreen setup:")
+        for (index, value) in samplePillBarItems.enumerated() {
+            print("--- AT INDEX \(index) value is \(value.title)")
+        }
+    }
+    
+    func createSamplePillBar(items: [PillButtonBarItem], centerAligned: Bool = false) -> UIView {
+        let bar = PillButtonBar(pillButtonStyle: .primary)
+        bar.items = items
+        
+        // Default to "Inbox" (index 0) since we ensure Inbox is first in buildSamplePillBarData
+        if !items.isEmpty {
+            bar.selectItem(atIndex: 0) // Default to Inbox
+        }
+        
+        bar.barDelegate = self
+        bar.centerAligned = centerAligned
+        
+        let backgroundView = UIView()
+        backgroundView.backgroundColor = .clear
+        
+        backgroundView.addSubview(bar)
+        let margins = UIEdgeInsets(top: 8.0, left: 0, bottom: 8.0, right: 0.0)
+        fitViewIntoSuperview(bar, margins: margins)
+        return backgroundView
+    }
+    
+    // fitViewIntoSuperview method is defined in AddTaskForedropView.swift extension
 
     // @objc func cancelAddTaskAction() is now only in AddTaskForedropView.swift extension
 
@@ -283,30 +327,17 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
 extension AddTaskViewController {
     func pillBar(_ pillBar: PillButtonBar, didSelectItem item: PillButtonBarItem, atIndex index: Int) {
-        currenttProjectForAddTaskView = item.title
-        print("Project is: \(currenttProjectForAddTaskView)")
-        
-        if(item.title.contains(addProjectString)) {
-            
-            //            medmel//Open add project VC
-            
-            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-            let newViewController = storyBoard.instantiateViewController(withIdentifier: "newProject") as! NewProjectViewController
-            newViewController.modalPresentationStyle = .popover
-            //        self.present(newViewController, animated: true, completion: nil)
-            self.present(newViewController, animated: true, completion: { () in
-                print("SUCCESS !!!")
-                //                HUD.shared.showSuccess(from: self, with: "Success")
-                
-            })
-            
-        } else {
-            //
-            //            let alert = UIAlertController(title: "Item \(item.title) was selected", message: nil, preferredStyle: .alert)
-            //            let action = UIAlertAction(title: "OK", style: .default)
-            //            alert.addAction(action)
-            //            present(alert, animated: true)
+        // Check if this is the sample pill bar
+        if let samplePillBarView = samplePillBar,
+           let samplePillBarComponent = samplePillBarView.subviews.first as? PillButtonBar,
+           pillBar === samplePillBarComponent {
+            // Handle sample pill bar selection
+            print("Sample pill bar item selected: \(item.title) at index \(index)")
+            // You can add custom logic here for the sample pill bar
+            return
         }
+        
+        // Only handle sample pill bar - no project pill bar logic needed
         
         
     }

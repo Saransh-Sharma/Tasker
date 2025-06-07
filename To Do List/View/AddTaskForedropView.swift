@@ -49,97 +49,7 @@ extension AddTaskViewController {
     //MARK:-                    Setup Projects Pill Bar
     //----------------------- *************************** -----------------------
     
-    func setupProjectsPillBar() {
-        buildProojectsPillBarData()
-        
-        let pillBar = createProjectsBar(items: pillBarProjectList, centerAligned: false)
-        filledBar?.removeFromSuperview()
-        
-        filledBar = pillBar
-        // Don't add to stack container here - it's added in viewDidLoad
-    }
-    
-    func buildProojectsPillBarData() {
-        // ProjectManager's data is expected to be refreshed by AddTaskViewController's viewWillAppear.
-        
-        let allDisplayProjects = ProjectManager.sharedInstance.displayedProjects // Use displayedProjects instead of getAllProjects
-        
-        self.pillBarProjectList = [] // Reset the list
-        
-        // 1. Add the static "Add Project" button first
-        self.pillBarProjectList.append(PillButtonBarItem(title: self.addProjectString)) // `addProjectString` should be defined, e.g., "Add Project"
-        
-        // 2. Add all existing projects
-        for each in allDisplayProjects {
-            if let projectName = each.projectName {
-                print("do9 added to pill bar, from ProjectManager: \(projectName)")
-                self.pillBarProjectList.append(PillButtonBarItem(title: projectName))
-            }
-        }
-        
-        // 2. Add actual projects from ProjectManager
-        // `displayedProjects` should already have "Inbox" sorted appropriately if it exists.
-        for project in allDisplayProjects {
-            if let projectName = project.projectName {
-                // Ensure we don't add "Add Project" if it accidentally exists as a project name
-                if projectName.lowercased() != addProjectString.lowercased() {
-                    // Avoid duplicates in pillBarProjectList
-                    if !pillBarProjectList.contains(where: { $0.title.lowercased() == projectName.lowercased() }) {
-                        pillBarProjectList.append(PillButtonBarItem(title: projectName))
-                    }
-                }
-            }
-        }
-        
-        // 3. Ensure "Inbox" is present and correctly positioned (second item, after "Add Project")
-        let inboxTitle = ProjectManager.sharedInstance.defaultProject // "Inbox"
-        let addProjectItemTitle = addProjectString
-        
-        // Remove any existing "Inbox" to avoid duplicates before re-inserting at correct position
-        pillBarProjectList.removeAll(where: { $0.title.lowercased() == inboxTitle.lowercased() })
-        
-        // Find index of "Add Project"
-        if let addProjectPillIndex = pillBarProjectList.firstIndex(where: { $0.title.lowercased() == addProjectItemTitle.lowercased() }) {
-            // Insert "Inbox" right after "Add Project" if "Add Project" exists
-            if pillBarProjectList.count > addProjectPillIndex {
-                pillBarProjectList.insert(PillButtonBarItem(title: inboxTitle), at: addProjectPillIndex + 1)
-                print("do9 - Ensured 'Inbox' is the second item in pillBarProjectList after 'Add Project'.")
-            }
-        } else {
-            // This case should ideally not happen if "Add Project" is always added first.
-            // As a fallback, add "Inbox" and then "Add Project" if "Add Project" was missing.
-            pillBarProjectList.insert(PillButtonBarItem(title: inboxTitle), at: 0)
-            pillBarProjectList.insert(PillButtonBarItem(title: addProjectItemTitle), at: 0)
-            print("do9 - Fallback: Added 'Add Project' and 'Inbox' to the start of pillBarProjectList.")
-        }
-        
-        // Log the final list for verification
-        print("do9 - Final pillBarProjectList for AddTaskScreen setup:")
-        for (index, value) in pillBarProjectList.enumerated() {
-            print("do9 --- AT INDEX \(index) value is \(value.title)")
-        }
-    }
-    
-    
-    func createProjectsBar(items: [PillButtonBarItem], centerAligned: Bool = false) -> UIView {
-        let bar = PillButtonBar()
-        bar.items = items
-        if items.count > 1 {
-            bar.selectItem(atIndex: 1) // Default to "Inbox" (index 1)
-        } else if !items.isEmpty {
-            bar.selectItem(atIndex: 0) // Fallback to first item if only one exists
-        }
-        bar.barDelegate = self
-        bar.centerAligned = centerAligned
-        
-        let backgroundView = UIView()
-        backgroundView.backgroundColor = .clear
-        
-        backgroundView.addSubview(bar)
-        let margins = UIEdgeInsets(top: 16.0, left: 0, bottom: 16.0, right: 0.0)
-        fitViewIntoSuperview(bar, margins: margins)
-        return backgroundView
-    }
+
     
     func fitViewIntoSuperview(_ view: UIView, margins: UIEdgeInsets) {
         guard let superview = view.superview else {
@@ -173,6 +83,7 @@ extension AddTaskViewController {
                                     "book flight tickets to Thailand", "fix the garage door",
                                     "order Cake", "review subscriptions", "get coffee"]
         self.addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
+        self.addTaskTextBox_Material.returnKeyType = .go
         
         self.addTaskTextBox_Material.backgroundColor = .clear
         

@@ -63,7 +63,7 @@ extension AddTaskViewController {
         guard !currentTaskInMaterialTextBox.isEmpty else { return }
         
         // Use the selected calendar date as the due date
-        TaskManager.sharedInstance.addNewTask_Future(
+        let newTask = TaskManager.sharedInstance.addNewTask_Future(
             name: currentTaskInMaterialTextBox,
             taskType: isThisEveningTask ? 2 : 1,
             taskPriority: currentTaskPriority,
@@ -73,13 +73,13 @@ extension AddTaskViewController {
         )
         
         // Update the task details with the description if provided
-        if let newTask = TaskManager.sharedInstance.getAllTasks.last {
-            if !currentTaskDescription.isEmpty {
-                newTask.taskDetails = currentTaskDescription
-                TaskManager.sharedInstance.saveContext()
-            }
-            delegate?.didAddTask(newTask)
+        if !currentTaskDescription.isEmpty {
+            newTask.taskDetails = currentTaskDescription
+            TaskManager.sharedInstance.saveContext()
         }
+        
+        // Notify delegate that a new task was added
+        delegate?.didAddTask(newTask)
         
         dismiss(animated: true)
     }
