@@ -8,6 +8,7 @@
 
 import UIKit
 import FluentUI
+import SemiModalViewController
 
 // MARK: - FluentUISampleTableViewController
 
@@ -426,37 +427,188 @@ extension FluentUISampleTableViewController {
         
         let task = sectionData.1[indexPath.row]
         
-        // Show task details or toggle completion
-        let alert = UIAlertController(
-            title: task.name,
-            message: "\(task.taskDetails ?? "No details")\n\nDue: \((task.dueDate as Date?)?.toTaskDisplayString() ?? "No due date")\nPriority: \(getPriorityIcon(for: Int(task.taskPriority)))",
-            preferredStyle: .alert
-        )
+        // Create and present SemiModalView with task details
+        presentTaskDetailSemiModal(for: task, at: indexPath)
+    }
+    
+    // MARK: - SemiModal Presentation
+    
+    private func presentTaskDetailSemiModal(for task: NTask, at indexPath: IndexPath) {
+        // Create a container view for the modal content
+        let modalView = UIView()
+        modalView.backgroundColor = .systemBackground
+        modalView.layer.cornerRadius = 16
+        modalView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         
-        // Add toggle completion action
-        let toggleAction = UIAlertAction(
-            title: task.isComplete ? "Mark as Incomplete" : "Mark as Complete",
-            style: .default
-        ) { _ in
-            // Toggle task completion
-            task.isComplete.toggle()
+        // Set modal height
+        let modalHeight: CGFloat = UIScreen.main.bounds.height/2
+        modalView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: modalHeight)
+        
+        // Create content stack view
+        let stackView = UIStackView()
+        stackView.axis = .vertical
+        stackView.spacing = 16
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        modalView.addSubview(stackView)
+        
+        // Add drag indicator
+        let dragIndicator = UIView()
+        dragIndicator.backgroundColor = .systemGray3
+        dragIndicator.layer.cornerRadius = 2
+        dragIndicator.translatesAutoresizingMaskIntoConstraints = false
+        modalView.addSubview(dragIndicator)
+        
+        // Task title
+        let titleLabel = UILabel()
+        titleLabel.text = task.name
+        titleLabel.font = .systemFont(ofSize: 24, weight: .bold)
+        titleLabel.numberOfLines = 0
+        
+        // Task details
+        let detailsLabel = UILabel()
+        detailsLabel.text = task.taskDetails ?? "No details available"
+        detailsLabel.font = .systemFont(ofSize: 16)
+        detailsLabel.textColor = .secondaryLabel
+        detailsLabel.numberOfLines = 0
+        
+        // Due date
+        let dueDateLabel = UILabel()
+        let dueDateText = (task.dueDate as Date?)?.toTaskDisplayString() ?? "No due date"
+        dueDateLabel.text = "Due: \(dueDateText)"
+        dueDateLabel.font = .systemFont(ofSize: 14)
+        dueDateLabel.textColor = .systemBlue
+        
+        // Priority
+        let priorityLabel = UILabel()
+        priorityLabel.text = "Priority: \(getPriorityIcon(for: Int(task.taskPriority)))"
+        priorityLabel.font = .systemFont(ofSize: 14)
+        
+        // Action buttons container
+        let buttonStackView = UIStackView()
+        buttonStackView.axis = .horizontal
+        buttonStackView.distribution = .fillEqually
+        buttonStackView.spacing = 12
+        
+        // Complete/Incomplete button
+        let toggleButton = UIButton(type: .system)
+        toggleButton.setTitle(task.isComplete ? "Mark Incomplete" : "Mark Complete", for: .normal)
+        toggleButton.backgroundColor = task.isComplete ? .systemOrange : .systemGreen
+        toggleButton.setTitleColor(.white, for: .normal)
+        toggleButton.layer.cornerRadius = 8
+        toggleButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        toggleButton.addTarget(self, action: #selector(toggleTaskCompletion(_:)), for: .touchUpInside)
+        toggleButton.tag = indexPath.section * 1000 + indexPath.row // Store indexPath info
+        
+        // Edit button
+        let editButton = UIButton(type: .system)
+        editButton.setTitle("Edit", for: .normal)
+        editButton.backgroundColor = .systemBlue
+        editButton.setTitleColor(.white, for: .normal)
+        editButton.layer.cornerRadius = 8
+        editButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        editButton.addTarget(self, action: #selector(editTask(_:)), for: .touchUpInside)
+        editButton.tag = indexPath.section * 1000 + indexPath.row
+        
+        // Close button
+        let closeButton = UIButton(type: .system)
+        closeButton.setTitle("Close", for: .normal)
+        closeButton.backgroundColor = .systemGray5
+        closeButton.setTitleColor(.label, for: .normal)
+        closeButton.layer.cornerRadius = 8
+        closeButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        closeButton.addTarget(self, action: #selector(closeSemiModal), for: .touchUpInside)
+        
+        // Add buttons to button stack
+        buttonStackView.addArrangedSubview(toggleButton)
+        buttonStackView.addArrangedSubview(editButton)
+        
+        // Add all elements to main stack
+        stackView.addArrangedSubview(titleLabel)
+        stackView.addArrangedSubview(detailsLabel)
+        stackView.addArrangedSubview(dueDateLabel)
+        stackView.addArrangedSubview(priorityLabel)
+        stackView.addArrangedSubview(buttonStackView)
+        stackView.addArrangedSubview(closeButton)
+        
+        // Set up constraints
+        NSLayoutConstraint.activate([
+            // Drag indicator
+            dragIndicator.topAnchor.constraint(equalTo: modalView.topAnchor, constant: 8),
+            dragIndicator.centerXAnchor.constraint(equalTo: modalView.centerXAnchor),
+            dragIndicator.widthAnchor.constraint(equalToConstant: 36),
+            dragIndicator.heightAnchor.constraint(equalToConstant: 4),
             
-            // Save the context
-            do {
-                try task.managedObjectContext?.save()
-                // Refresh the data
-                self.setupSampleData(for: self.selectedDate)
-            } catch {
-                print("Error saving task completion: \(error)")
-            }
+            // Stack view
+            stackView.topAnchor.constraint(equalTo: dragIndicator.bottomAnchor, constant: 20),
+            stackView.leadingAnchor.constraint(equalTo: modalView.leadingAnchor, constant: 20),
+            stackView.trailingAnchor.constraint(equalTo: modalView.trailingAnchor, constant: -20),
+            stackView.bottomAnchor.constraint(lessThanOrEqualTo: modalView.bottomAnchor, constant: -20),
+            
+            // Button heights
+            toggleButton.heightAnchor.constraint(equalToConstant: 44),
+            editButton.heightAnchor.constraint(equalToConstant: 44),
+            closeButton.heightAnchor.constraint(equalToConstant: 44)
+        ])
+        
+        // Store current task for button actions
+        modalView.tag = indexPath.section * 1000 + indexPath.row
+        
+        // Present the semi modal
+        let options: [SemiModalOption: Any] = [
+            .pushParentBack: true,
+            .animationDuration: 0.3,
+            .parentAlpha: 0.7,
+            .shadowOpacity: 0.3,
+            .transitionStyle: SemiModalTransitionStyle.slideUp
+        ]
+        
+        presentSemiView(modalView, options: options) {
+            print("Task detail modal presented")
         }
+    }
+    
+    @objc private func toggleTaskCompletion(_ sender: UIButton) {
+        let tag = sender.tag
+        let sectionIndex = tag / 1000
+        let rowIndex = tag % 1000
         
-        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        guard sectionIndex < sampleData.count,
+              rowIndex < sampleData[sectionIndex].1.count else { return }
         
-        alert.addAction(toggleAction)
-        alert.addAction(cancelAction)
+        let task = sampleData[sectionIndex].1[rowIndex]
+        task.isComplete.toggle()
         
-        present(alert, animated: true)
+        do {
+            try task.managedObjectContext?.save()
+            setupSampleData(for: selectedDate)
+            dismissSemiModalView()
+        } catch {
+            print("Error saving task completion: \(error)")
+        }
+    }
+    
+    @objc private func editTask(_ sender: UIButton) {
+        let tag = sender.tag
+        let sectionIndex = tag / 1000
+        let rowIndex = tag % 1000
+        
+        guard sectionIndex < sampleData.count,
+              rowIndex < sampleData[sectionIndex].1.count else { return }
+        
+        let task = sampleData[sectionIndex].1[rowIndex]
+        
+        // Dismiss current modal first
+        dismissSemiModalView()
+        
+        // Present edit interface (you can implement this based on your existing edit functionality)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // Add your existing task editing logic here
+            print("Edit task: \(task.name)")
+        }
+    }
+    
+    @objc private func closeSemiModal() {
+        dismissSemiModalView()
     }
     
     override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
