@@ -139,6 +139,12 @@
 		75DFF2E42DF47D4200EB8850 /* FluentUISampleTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF2E32DF47D4200EB8850 /* FluentUISampleTableViewController.swift */; };
 		75DFF2E52DF47D4200EB8850 /* FluentUISampleTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF2E32DF47D4200EB8850 /* FluentUISampleTableViewController.swift */; };
 		75DFF2E62DF47D4200EB8850 /* FluentUISampleTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF2E32DF47D4200EB8850 /* FluentUISampleTableViewController.swift */; };
+		75DFF3212DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */; };
+		75DFF3222DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */; };
+		75DFF3232DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */; };
+		75DFF3242DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */; };
+		75DFF3252DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */; };
+		75DFF3262DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */; };
 		75F0C70B2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
 		75F0C70C2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
 		75F0C70D2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
@@ -270,6 +276,8 @@
 		75DFF2D42DF22FC300EB8850 /* LoggingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingService.swift; sourceTree = "<group>"; };
 		75DFF2DB2DF2302600EB8850 /* TaskListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListViewController.swift; sourceTree = "<group>"; };
 		75DFF2E32DF47D4200EB8850 /* FluentUISampleTableViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluentUISampleTableViewController.swift; sourceTree = "<group>"; };
+		75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalloonMarker.swift; sourceTree = "<group>"; };
+		75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekDayAxisValueFormatter.swift; sourceTree = "<group>"; };
 		75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColoredPillBackgroundView.swift; sourceTree = "<group>"; };
 		75F0C70E2DE9EFAD008F4460 /* TableViewCell Sample Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TableViewCell Sample Data.swift"; sourceTree = "<group>"; };
 		75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPillCell.swift; sourceTree = "<group>"; };
@@ -447,6 +455,8 @@
 				755FE8DB2479220700A71A75 /* LineChart.swift */,
 				755FE8DD2479227A00A71A75 /* TinyPieChart.swift */,
 				75F993792483764C00C340EB /* DayAxisValueFormatter.swift */,
+				75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */,
+				75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */,
 			);
 			path = Charts;
 			sourceTree = "<group>";
@@ -815,6 +825,8 @@
 				75DFF2CB2DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
 				751074DF2DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */,
 				758D4D8024AB20F000AB57A8 /* ToDoListData.swift in Sources */,
+				75DFF3212DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
+				75DFF3222DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				75F18108245CA229004D9A69 /* TaskManager.swift in Sources */,
 				75DFF2B52DF22EA500EB8850 /* TaskData.swift in Sources */,
 				751075152DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
@@ -885,6 +897,8 @@
 				751074EE2DEE24EA00AC7F22 /* ToDoListViewType.swift in Sources */,
 				75DFF2CC2DF22F5200EB8850 /* TaskRepository.swift in Sources */,
 				75DFF2CD2DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
+				75DFF3232DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
+				75DFF3242DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				751075112DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
 			);
@@ -927,6 +941,8 @@
 				751074ED2DEE24EA00AC7F22 /* ToDoListViewType.swift in Sources */,
 				75DFF2C82DF22F5200EB8850 /* TaskRepository.swift in Sources */,
 				75DFF2C92DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
+				75DFF3252DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
+				75DFF3262DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				751075102DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
 			);

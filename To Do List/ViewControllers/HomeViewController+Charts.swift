@@ -86,10 +86,6 @@ extension HomeViewController {
             yValues.append(dataEntry)
         }
         
-        // Always generate sample data for demonstration
-        // TODO: Remove this line when real task data is available
-        yValues = generateSampleData()
-        
         return yValues
     }
     
@@ -107,6 +103,14 @@ extension HomeViewController {
     
     func updateLineChartData() {
         let dataEntries = generateLineChartData()
+        
+        // Calculate dynamic y-axis maximum (20% more than max score)
+        let maxScore = dataEntries.map { $0.y }.max() ?? 0
+        let dynamicMaximum = maxScore * 1.2
+        
+        // Update left axis maximum
+        let leftAxis = lineChartView.leftAxis
+        leftAxis.axisMaximum = dynamicMaximum
         
         let dataSet = LineChartDataSet(entries: dataEntries, label: "Daily Score")
         
