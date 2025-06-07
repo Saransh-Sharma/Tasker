@@ -100,6 +100,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var sampleTableView = UITableView(frame: .zero, style: .grouped)
     var sampleData: [(String, [NTask])] = []
     
+    // FluentUI Sample TableView Controller
+    var fluentSampleTableViewController: FluentUISampleTableViewController?
+    
     // View state
     var projectForTheView = ProjectManager.sharedInstance.defaultProject
     var currentViewType = ToDoListViewType.todayHomeView

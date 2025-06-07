@@ -337,103 +337,41 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     func setupSampleTableView(for date: Date = Date.today()) {
-        print("\n=== SETTING UP SAMPLE TABLE VIEW FOR DATE: \(date) ===")
+        print("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
         
-        // Get all tasks for the selected date (same logic as main table view)
-        let allTasksForDate = TaskManager.sharedInstance.getAllTasksForDate(date: date)
-        
-        print("📅 Found \(allTasksForDate.count) total tasks for \(date)")
-        
-        // Group tasks by project (case-insensitive)
-        var tasksByProject: [String: [NTask]] = [:]
-        let inboxProjectName = "inbox"
-        
-        for task in allTasksForDate {
-             let projectName = (task.project?.lowercased() ?? inboxProjectName)
-             if tasksByProject[projectName] == nil {
-                 tasksByProject[projectName] = []
-             }
-             tasksByProject[projectName]?.append(task)
-         }
-        
-        // Sort project names (excluding inbox)
-        let sortedProjects = tasksByProject.keys.filter { $0 != inboxProjectName }.sorted()
-        
-        // Helper function to check if a task is overdue
-        func isTaskOverdue(_ task: NTask) -> Bool {
-            guard let dueDate = task.dueDate as Date?, !task.isComplete else { return false }
-            let today = Date().startOfDay
-            return dueDate < today
+        // Initialize FluentUI sample table view controller if not already done
+        if fluentSampleTableViewController == nil {
+            fluentSampleTableViewController = FluentUISampleTableViewController(style: .insetGrouped)
         }
         
-        // Helper function to create sorted task items
-        func createSortedTasks(from tasks: [NTask]) -> [NTask] {
-            return tasks.sorted { task1, task2 in
-                // First sort by priority (higher priority first)
-                if task1.taskPriority != task2.taskPriority {
-                    return task1.taskPriority > task2.taskPriority
-                }
-                
-                // If priorities are equal, sort by due date (earlier dates first)
-                guard let date1 = task1.dueDate as Date?, let date2 = task2.dueDate as Date? else {
-                    return task1.dueDate != nil
-                }
-                return date1 < date2
-            }
-        }
+        // Update data for the selected date
+        fluentSampleTableViewController?.updateData(for: date)
         
-        // Create sections based on task data
-        var sections: [(String, [NTask])] = []
-        
-        // First add Inbox section if it has tasks
-        if let inboxTasks = tasksByProject[inboxProjectName], !inboxTasks.isEmpty {
-            let sortedInboxTasks = createSortedTasks(from: inboxTasks)
-            sections.append(("Inbox", sortedInboxTasks))
-            print("SampleTableView: Added Inbox section with \(sortedInboxTasks.count) tasks")
-        }
-        
-        // Then add other project sections
-        for projectName in sortedProjects {
-            guard let projectTasks = tasksByProject[projectName], !projectTasks.isEmpty else { continue }
-            let displayName = projectName.capitalized
-            let sortedProjectTasks = createSortedTasks(from: projectTasks)
-            sections.append((displayName, sortedProjectTasks))
-            print("SampleTableView: Added \(displayName) section with \(sortedProjectTasks.count) tasks")
-        }
-        
-        // If no tasks, show a placeholder with empty task array
-        if sections.isEmpty {
-            sections.append(("📥 No Tasks", []))
-        }
-        
-        print("\nSampleTableView sections summary:")
-        for (index, section) in sections.enumerated() {
-            print("Section \(index): '\(section.0)' with \(section.1.count) tasks")
-        }
-        print("=== END SAMPLE TABLE VIEW SETUP ===")
-        
-        self.sampleData = sections
-        
-        // Configure sample table view
-        self.sampleTableView.dataSource = self
-        self.sampleTableView.delegate = self
-        self.sampleTableView.backgroundColor = UIColor.systemBackground
-        self.sampleTableView.separatorStyle = .singleLine
-        self.sampleTableView.register(UITableViewCell.self, forCellReuseIdentifier: "SampleCell")
-        
-        // Position the sample table view at the top of foredrop container
+        // Position the FluentUI sample table view at the top of foredrop container
         let topBarHeight = self.homeTopBar.bounds.height
         let sampleTableHeight: CGFloat = 300 // Fixed height for sample table
         
-        self.sampleTableView.frame = CGRect(
+        fluentSampleTableViewController?.view.frame = CGRect(
             x: 0,
             y: topBarHeight,
             width: self.foredropContainer.bounds.width,
             height: sampleTableHeight
         )
         
-        // Add sample table view to foredrop container
-        self.foredropContainer.addSubview(self.sampleTableView)
+        // Add FluentUI sample table view to foredrop container
+        if let fluentView = fluentSampleTableViewController?.view {
+            // Remove old sample table view if it exists
+            self.sampleTableView.removeFromSuperview()
+            
+            // Add the new FluentUI table view
+            self.foredropContainer.addSubview(fluentView)
+            
+            // Add as child view controller for proper lifecycle management
+            self.addChild(fluentSampleTableViewController!)
+            fluentSampleTableViewController?.didMove(toParent: self)
+        }
+        
+        print("=== END FLUENT UI SAMPLE TABLE VIEW SETUP ===")
     }
     
     func getPriorityIcon(for priority: Int) -> String {
@@ -448,6 +386,6 @@ extension HomeViewController: BadgeViewDelegate {
     
     func refreshSampleTableView(for date: Date) {
         setupSampleTableView(for: date)
-        sampleTableView.reloadData()
+        // FluentUI table view will automatically reload when updateData is called
     }
 }

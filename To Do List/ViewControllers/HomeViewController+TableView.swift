@@ -35,11 +35,6 @@ extension HomeViewController {
     // MARK: - UITableViewDataSource
     
     func numberOfSections(in tableView: UITableView) -> Int {
-        // Check if this is the sample table view
-        if tableView == sampleTableView {
-            return sampleData.count
-        }
-        
         // Original implementation for the main table view
         let sectionCount: Int
         switch currentViewType {
@@ -56,11 +51,6 @@ extension HomeViewController {
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        // Check if this is the sample table view
-        if tableView == sampleTableView {
-            return sampleData[section].1.count
-        }
-        
         // Original implementation for the main table view
         let rowCount: Int
         switch currentViewType {
@@ -99,26 +89,6 @@ extension HomeViewController {
     }
     
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        // Check if this is the sample table view
-        if tableView == sampleTableView {
-            let headerView = UIView()
-            headerView.backgroundColor = UIColor.systemGroupedBackground
-            
-            let titleLabel = UILabel()
-            titleLabel.font = UIFont.preferredFont(forTextStyle: .headline)
-            titleLabel.textColor = UIColor.label
-            titleLabel.text = sampleData[section].0
-            
-            headerView.addSubview(titleLabel)
-            titleLabel.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                titleLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 16),
-                titleLabel.centerYAnchor.constraint(equalTo: headerView.centerYAnchor)
-            ])
-            
-            return headerView
-        }
-        
         // Original implementation for the main table view
         let headerView = UIView()
         headerView.backgroundColor = UIColor.green //.clear
@@ -168,55 +138,11 @@ extension HomeViewController {
     }
     
     func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        // Check if this is the sample table view
-        if tableView == sampleTableView {
-            return 44
-        }
-        
         // Original implementation for the main table view
         return 40
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        // Check if this is the sample table view
-        if tableView == sampleTableView {
-            let cell = tableView.dequeueReusableCell(withIdentifier: "SampleCell", for: indexPath)
-            
-            // Handle empty sections (placeholder)
-            if sampleData[indexPath.section].1.isEmpty {
-                cell.textLabel?.text = "No tasks due for this date"
-                cell.textLabel?.font = UIFont.systemFont(ofSize: 16)
-                cell.textLabel?.textColor = UIColor.secondaryLabel
-                cell.accessoryType = .none
-                cell.selectionStyle = .none
-                return cell
-            }
-            
-            let task: NTask = sampleData[indexPath.section].1[indexPath.row]
-            let priorityIcon = getPriorityIcon(for: Int(task.taskPriority))
-            
-            if task.isComplete {
-                // Style for completed tasks
-                let taskText = "\(priorityIcon) \(task.name)"
-                let attributedText = NSMutableAttributedString(string: taskText)
-                attributedText.addAttribute(NSAttributedString.Key.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: NSRange(location: 0, length: taskText.count))
-                attributedText.addAttribute(NSAttributedString.Key.foregroundColor, value: UIColor.systemGray, range: NSRange(location: 0, length: taskText.count))
-                
-                cell.textLabel?.attributedText = attributedText
-                cell.accessoryType = .checkmark
-            } else {
-                // Style for open tasks
-                cell.textLabel?.attributedText = nil
-                cell.textLabel?.text = "\(priorityIcon) \(task.name)"
-                cell.textLabel?.font = UIFont.systemFont(ofSize: 16)
-                cell.textLabel?.textColor = UIColor.label
-                cell.accessoryType = .none
-            }
-            
-            cell.selectionStyle = .default
-            return cell
-        }
-        
         // Original implementation for the main table view
         print("Table - HomeViewController: cellForRowAt called for indexPath \(indexPath)")
         
@@ -372,36 +298,6 @@ extension HomeViewController {
     // MARK: - Swipe Actions
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        // Handle sample table view swipe actions
-        if tableView == sampleTableView {
-            // Don't allow swipe actions on empty placeholder sections
-            if sampleData[indexPath.section].1.isEmpty {
-                return nil
-            }
-            
-            let task: NTask = sampleData[indexPath.section].1[indexPath.row]
-            
-            if task.isComplete {
-                // For completed tasks, show reopen action
-                let reopenAction = UIContextualAction(style: .normal, title: "Reopen") { [weak self] (action, view, completionHandler) in
-                    self?.markSampleTaskOpen(at: indexPath)
-                    completionHandler(true)
-                }
-                reopenAction.backgroundColor = UIColor.systemBlue
-                
-                return UISwipeActionsConfiguration(actions: [reopenAction])
-            } else {
-                // For open tasks, show complete action
-                let completeAction = UIContextualAction(style: .normal, title: "Done") { [weak self] (action, view, completionHandler) in
-                    self?.markSampleTaskComplete(at: indexPath)
-                    completionHandler(true)
-                }
-                completeAction.backgroundColor = UIColor.systemGreen
-                
-                return UISwipeActionsConfiguration(actions: [completeAction])
-            }
-        }
-        
         // Get task for this row
         var task: NTask?
         
@@ -482,65 +378,11 @@ extension HomeViewController {
     
     // MARK: - Sample Table View Helper Methods
     
-    func markSampleTaskComplete(at indexPath: IndexPath) {
-            let task: NTask = sampleData[indexPath.section].1[indexPath.row]
-            task.isComplete = true
-            task.dateCompleted = Date() as NSDate
-            
-            // Save the context
-            do {
-                try TaskManager.sharedInstance.saveContext()
-            } catch {
-                print("Error saving task completion: \(error)")
-            }
-            
-            // Reload the specific cell to update its appearance
-            sampleTableView.reloadRows(at: [indexPath], with: .automatic)
-        }
-        
-        func markSampleTaskOpen(at indexPath: IndexPath) {
-            let task: NTask = sampleData[indexPath.section].1[indexPath.row]
-            task.isComplete = false
-            task.dateCompleted = nil
-            
-            // Save the context
-            do {
-                try TaskManager.sharedInstance.saveContext()
-            } catch {
-                print("Error saving task reopen: \(error)")
-            }
-            
-            // Reload the specific cell to update its appearance
-            sampleTableView.reloadRows(at: [indexPath], with: .automatic)
-        }
+    // Sample task action methods removed - now handled by FluentUI controller
         
         // MARK: - Leading Swipe Actions (Left-to-Right)
         
         func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-            
-            // Handle sample table view leading swipe actions
-            if tableView == sampleTableView {
-                // Don't allow swipe actions on empty placeholder sections
-                if sampleData[indexPath.section].1.isEmpty {
-                    return nil
-                }
-                
-                let task: NTask = sampleData[indexPath.section].1[indexPath.row]
-                
-                // Only show "Done" action for incomplete tasks on left-to-right swipe
-                if !task.isComplete {
-                    let completeAction = UIContextualAction(style: .normal, title: "Done") { [weak self] (action, view, completionHandler) in
-                        self?.markSampleTaskComplete(at: indexPath)
-                        completionHandler(true)
-                    }
-                    completeAction.backgroundColor = UIColor.systemGreen
-                    
-                    let configuration = UISwipeActionsConfiguration(actions: [completeAction])
-                    configuration.performsFirstActionWithFullSwipe = true // Allow full swipe to complete
-                    return configuration
-                }
-            }
-            
             return nil
         }
         
