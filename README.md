@@ -4,15 +4,52 @@ Tasker is a sophisticated iOS productivity application that transforms task mana
 
 ## Key Features
 
-- **Gamified Task Management**: Transform productivity into a game with a scoring system based on task priority and completion.
-- **Smart Task Organization**: Create, organize, and prioritize tasks with intelligent categorization.
-- **Project-Based Workflow**: Manage tasks through custom projects with a dedicated project management system.
-- **Advanced Analytics**: Detailed productivity analysis through interactive charts and visualizations.
-- **CloudKit Synchronization**: Seamless task sync across all your Apple devices.
-- **Daily Productivity Pulse**: Real-time motivation through dynamic scoring and progress tracking.
-- **Flexible Task Scheduling**: Support for morning, evening, upcoming, and inbox task categorization.
-- **Priority-Based Scoring**: Intelligent scoring system that rewards high-priority task completion.
-- **Modern UI/UX**: Material Design components with FluentUI integration for a polished user experience.
+### 🎯 **Comprehensive Task Management System**
+- **Task Creation & Editing**: Rich task creation with title, description, priority levels (P0-P4), and due dates
+- **Task Types**: Morning, Evening, Upcoming, and Inbox categorization with automatic scheduling
+- **Priority System**: 4-level priority system (P0-Highest, P1-High, P2-Medium, P3-Low) with visual indicators
+- **Task Completion**: Mark tasks as complete with automatic scoring and streak tracking
+- **Task Rescheduling**: Built-in reschedule functionality for overdue or postponed tasks
+- **Task Details View**: Comprehensive FluentUI-based detail view with full editing capabilities
+
+### 📁 **Advanced Project Management**
+- **Custom Projects**: Create, edit, and delete custom project categories
+- **Default Inbox System**: Automatic "Inbox" project for uncategorized tasks
+- **Project-Based Filtering**: View tasks filtered by specific projects
+- **Project Analytics**: Track completion rates and progress per project
+- **Project Grouping**: Tasks automatically grouped by project in list views
+
+### 📊 **Analytics & Gamification Dashboard**
+- **Visual Charts**: Interactive charts showing task completion trends and patterns
+- **Scoring System**: Dynamic scoring based on task priority (P0: 7pts, P1: 4pts, P2: 3pts, P3: 2pts)
+- **Streak Tracking**: Consecutive day completion streaks with up to 30-day history
+- **Daily Score Calculation**: Real-time score updates based on completed tasks
+- **Performance Insights**: Historical data visualization for productivity tracking
+
+### 🎨 **Modern FluentUI Interface**
+- **FluentUI Components**: Microsoft FluentUI design system integration
+- **Table Cell Views**: Custom FluentUI table cells with priority indicators and due date displays
+- **Segmented Controls**: FluentUI segmented controls for task type selection
+- **Material Design Elements**: MDC text fields, floating action buttons, and ripple effects
+- **Responsive Design**: Adaptive layouts for different screen sizes
+
+### 📅 **Smart Scheduling & Calendar**
+- **Calendar Integration**: FSCalendar integration for visual task scheduling
+- **Date-Based Views**: Today, custom date, upcoming, and history views
+- **Overdue Detection**: Automatic identification and highlighting of overdue tasks
+- **Time-Based Organization**: Morning/evening task separation with automatic categorization
+
+### ☁️ **Cloud Sync & Data Management**
+- **CloudKit Integration**: Seamless cross-device synchronization
+- **Core Data Repository**: Robust local data storage with background context operations
+- **Type-Safe Enums**: TaskType and TaskPriority enums with Core Data integration
+- **Data Validation**: Comprehensive validation rules for task creation and editing
+
+### 🔍 **Advanced Search & Filtering**
+- **Multi-Criteria Filtering**: Filter by project, priority, completion status, and date ranges
+- **Search Functionality**: Real-time search across task titles and descriptions
+- **View Type System**: 7 different view modes (Today, Custom Date, Project, Upcoming, History, All Projects, Selected Projects)
+- **Smart Grouping**: Automatic grouping by project with customizable sorting
 
 ---
 | ![app_store](https://user-images.githubusercontent.com/4607881/123705006-fbb21700-d883-11eb-9c32-7c201067bf08.png)  | [App Store Link](https://apps.apple.com/app/id1574046107) | ![Tasker v1 0 0](https://user-images.githubusercontent.com/4607881/123707145-e4285d80-d886-11eb-8868-13d257fab8f4.gif) |
@@ -361,6 +398,222 @@ enum TaskType: Int32, CaseIterable {
 }
 ```
 
+### NTask Extensions & Type-Safe Accessors
+
+The `NTask+Extensions.swift` file provides type-safe computed properties and business logic:
+
+```swift
+// Type-safe enum accessors
+extension NTask {
+    var taskType: TaskType {
+        get { TaskType(rawValue: self.taskType) ?? .morning }
+        set { self.taskType = newValue.rawValue }
+    }
+    
+    var taskPriority: TaskPriority {
+        get { TaskPriority(rawValue: self.taskPriority) ?? .medium }
+        set { self.taskPriority = newValue.rawValue }
+    }
+    
+    // Computed properties for task categorization
+    var isMorningTask: Bool {
+        return taskType == .morning
+    }
+    
+    var isUpcomingTask: Bool {
+        return taskType == .upcoming
+    }
+    
+    var isHighPriority: Bool {
+        return taskPriority == .highest || taskPriority == .high
+    }
+    
+    var isMediumPriority: Bool {
+        return taskPriority == .medium
+    }
+    
+    var isLowPriority: Bool {
+        return taskPriority == .low
+    }
+    
+    // Business logic for evening task management
+    func updateEveningTaskStatus() {
+        if taskType == .evening {
+            isEveningTask = true
+        } else {
+            isEveningTask = false
+        }
+    }
+}
+```
+
+### TaskData Presentation Model
+
+The `TaskData.swift` struct serves as a clean presentation layer model:
+
+```swift
+struct TaskData {
+    let id: UUID
+    let name: String
+    let details: String?
+    let type: TaskType
+    let priority: TaskPriority
+    let dueDate: Date?
+    let project: String?
+    let isComplete: Bool
+    let dateAdded: Date?
+    let dateCompleted: Date?
+    
+    // Initializer from Core Data managed object
+    init(from managedObject: NTask) {
+        self.id = managedObject.objectID.uriRepresentation().absoluteString
+        self.name = managedObject.name ?? ""
+        self.details = managedObject.taskDetails
+        self.type = TaskType(rawValue: managedObject.taskType) ?? .morning
+        self.priority = TaskPriority(rawValue: managedObject.taskPriority) ?? .medium
+        self.dueDate = managedObject.dueDate as Date?
+        self.project = managedObject.project
+        self.isComplete = managedObject.isComplete
+        self.dateAdded = managedObject.dateAdded as Date?
+        self.dateCompleted = managedObject.dateCompleted as Date?
+    }
+    
+    // Initializer for new tasks
+    init(name: String, details: String?, type: TaskType, priority: TaskPriority, 
+         dueDate: Date?, project: String?) {
+        self.id = UUID()
+        self.name = name
+        self.details = details
+        self.type = type
+        self.priority = priority
+        self.dueDate = dueDate
+        self.project = project
+        self.isComplete = false
+        self.dateAdded = Date()
+        self.dateCompleted = nil
+    }
+}
+```
+
+### ToDoListViewType Enum
+
+The view type system provides flexible list filtering:
+
+```swift
+enum ToDoListViewType {
+    case todayHomeView      // Today's tasks
+    case customDateView     // Tasks for specific date
+    case projectView        // Tasks filtered by project
+    case upcomingView       // Future tasks
+    case historyView        // Completed tasks
+    case allProjectsGrouped // All tasks grouped by project
+    case selectedProjectsGrouped // Selected projects only
+}
+```
+
+### Core Data Repository Pattern
+
+The repository pattern abstracts data access:
+
+```swift
+class CoreDataTaskRepository {
+    private let context: NSManagedObjectContext
+    
+    init(context: NSManagedObjectContext) {
+        self.context = context
+    }
+    
+    func fetchTasks(for viewType: ToDoListViewType, date: Date? = nil, 
+                   project: String? = nil) -> [TaskData] {
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        
+        switch viewType {
+        case .todayHomeView:
+            request.predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", 
+                                          Calendar.current.startOfDay(for: Date()) as NSDate,
+                                          Calendar.current.date(byAdding: .day, value: 1, 
+                                          to: Calendar.current.startOfDay(for: Date()))! as NSDate)
+        case .projectView:
+            if let project = project {
+                request.predicate = NSPredicate(format: "project == %@", project)
+            }
+        case .upcomingView:
+            request.predicate = NSPredicate(format: "dueDate > %@", Date() as NSDate)
+        case .historyView:
+            request.predicate = NSPredicate(format: "isComplete == YES")
+        default:
+            break
+        }
+        
+        request.sortDescriptors = [
+            NSSortDescriptor(key: "taskPriority", ascending: true),
+            NSSortDescriptor(key: "dueDate", ascending: true)
+        ]
+        
+        do {
+            let managedTasks = try context.fetch(request)
+            return managedTasks.map { TaskData(from: $0) }
+        } catch {
+            print("Error fetching tasks: \(error)")
+            return []
+        }
+    }
+    
+    func save(task: TaskData) throws {
+        let managedTask = NTask(context: context)
+        managedTask.name = task.name
+        managedTask.taskDetails = task.details
+        managedTask.taskType = task.type.rawValue
+        managedTask.taskPriority = task.priority.rawValue
+        managedTask.dueDate = task.dueDate as NSDate?
+        managedTask.project = task.project
+        managedTask.isComplete = task.isComplete
+        managedTask.dateAdded = task.dateAdded as NSDate?
+        managedTask.dateCompleted = task.dateCompleted as NSDate?
+        
+        try context.save()
+    }
+}
+```
+
+### Task Scoring Service
+
+The scoring system calculates points based on priority and completion:
+
+```swift
+class TaskScoringService {
+    static func calculateScore(for task: TaskData) -> Int {
+        guard task.isComplete else { return 0 }
+        
+        switch task.priority {
+        case .highest: return 7  // P0 tasks
+        case .high: return 4     // P1 tasks
+        case .medium: return 3   // P2 tasks (default)
+        case .low: return 2      // P3 tasks
+        }
+    }
+    
+    static func calculateDailyScore(tasks: [TaskData]) -> Int {
+        return tasks.reduce(0) { total, task in
+            total + calculateScore(for: task)
+        }
+    }
+    
+    static func calculateWeeklyScore(tasks: [TaskData]) -> Int {
+        let calendar = Calendar.current
+        let now = Date()
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+        
+        let weeklyTasks = tasks.filter { task in
+            guard let completedDate = task.dateCompleted else { return false }
+            return completedDate >= weekStart && completedDate <= now
+        }
+        
+        return calculateDailyScore(tasks: weeklyTasks)
+    }
+}
+```
+
 ### Core Data & Enum Integration
 
 The refactored architecture properly handles the conversion between Core Data's `Int32` attributes and Swift enums:
@@ -483,14 +736,271 @@ ProjectManager → Projects Entity → Task Association → UI Organization
     Default Project Validation → "Inbox" Creation if Missing
 ```
 
+## Implemented Use Cases & User Workflows
+
+### 🎯 **Core Task Management Use Cases**
+
+#### **Daily Task Planning Workflow**
+1. **Morning Planning**: Users start their day by reviewing tasks in the Home screen
+2. **Task Prioritization**: Assign P0-P4 priorities based on urgency and importance
+3. **Time-Based Scheduling**: Categorize tasks as Morning, Evening, or Upcoming
+4. **Project Assignment**: Organize tasks into custom projects or default Inbox
+5. **Progress Tracking**: Monitor completion through real-time scoring system
+
+#### **Task Creation & Management Workflow**
+1. **Quick Task Addition**: Use AddTaskViewController with Material Design text fields
+2. **Rich Task Details**: Add descriptions, due dates, and priority levels
+3. **Project Selection**: Choose from existing projects or create new ones
+4. **Task Type Assignment**: Automatic categorization based on time preferences
+5. **Validation & Saving**: Core Data repository ensures data integrity
+
+#### **Task Completion & Scoring Workflow**
+1. **Task Completion**: Mark tasks complete through FluentUI table cells
+2. **Automatic Scoring**: Calculate points based on priority (P0: 7pts, P1: 4pts, P2: 3pts, P3: 2pts)
+3. **Streak Tracking**: Maintain consecutive completion streaks up to 30 days
+4. **Analytics Update**: Real-time dashboard updates with completion trends
+5. **Gamification Feedback**: Visual feedback through charts and score displays
+
+### 📁 **Project Management Use Cases**
+
+#### **Project Organization Workflow**
+1. **Project Creation**: Use ProjectManagementView to create custom project categories
+2. **Task Assignment**: Assign tasks to projects during creation or editing
+3. **Project Filtering**: View tasks filtered by specific projects
+4. **Project Analytics**: Track completion rates and progress per project
+5. **Project Management**: Edit, delete, or reorganize projects as needed
+
+#### **Multi-Project Task Management**
+1. **Cross-Project View**: See all tasks across projects in unified views
+2. **Project Grouping**: Automatic grouping by project in FluentUIToDoTableViewController
+3. **Project Switching**: Quick navigation between different project views
+4. **Bulk Operations**: Manage multiple tasks within project contexts
+
+### 📊 **Analytics & Insights Use Cases**
+
+#### **Productivity Analysis Workflow**
+1. **Daily Metrics**: View daily completion scores and task counts
+2. **Trend Analysis**: Analyze productivity patterns through interactive charts
+3. **Streak Monitoring**: Track consecutive completion days for motivation
+4. **Performance Insights**: Identify peak productivity periods and patterns
+5. **Goal Setting**: Use historical data to set realistic productivity goals
+
 ## Feature Implementation Details
 
-### Home Screen (`HomeViewController`)
-**Primary Interface Hub**
-- **Backdrop/Foredrop Architecture**: Layered UI system for depth and visual hierarchy
-- **Dynamic Scoring Display**: Real-time score calculation and prominent display
-- **Interactive Charts**: Line charts and pie charts for productivity visualization
-- **Calendar Integration**: `FSCalendar` for date-based task navigation
+### 🏠 **Home Screen (HomeViewController)**
+The main dashboard provides comprehensive task management:
+- **Daily Task Overview**: Today's tasks grouped by project with FluentUI styling
+- **Interactive Analytics Charts**: Charts.framework integration for visual productivity trends
+- **Real-time Score Display**: Dynamic scoring with streak counter and daily totals
+- **Quick Actions**: Fast access to task creation via floating action buttons
+- **Calendar Integration**: FSCalendar for date-based task navigation
+- **Search Functionality**: Real-time search across task titles and descriptions
+- **PillButtonBar**: Custom segmented control for task type filtering
+
+### 📋 **FluentUI Task List (FluentUIToDoTableViewController)**
+Advanced table view implementation with Microsoft FluentUI components:
+- **Custom Table Cells**: FluentUI-styled cells with priority indicators and due date displays
+- **Project Grouping**: Automatic grouping by project including "Inbox" section
+- **Priority Visual Indicators**: Color-coded priority badges (P0-P4) with appropriate icons
+- **Overdue Detection**: Automatic highlighting of overdue tasks with visual cues
+- **Swipe Actions**: Context menus for edit, delete, and reschedule operations
+- **Accessibility Support**: VoiceOver and accessibility label integration
+- **Pull-to-Refresh**: Real-time data synchronization with Core Data
+- **Empty State Handling**: Elegant empty state views for projects without tasks
+
+### 📝 **Task Details View (TaskDetailViewFluent)**
+Comprehensive task editing interface:
+- **FluentUI Components**: Native Microsoft FluentUI text fields, buttons, and controls
+- **Rich Text Editing**: Multi-line description support with Material Design text areas
+- **Priority Selection**: Visual priority picker with immediate feedback
+- **Date Selection**: Integrated date picker for due date assignment
+- **Project Assignment**: Dropdown selection for project categorization
+- **Task Type Controls**: Segmented control for Morning/Evening/Upcoming classification
+- **Validation Logic**: Real-time validation with error messaging
+- **Auto-save Functionality**: Background saving with conflict resolution
+
+### ➕ **Task Creation (AddTaskViewController)**
+Streamlined task creation with advanced UI components:
+- **Material Design Integration**: MDC text fields and floating action buttons
+- **Smart Defaults**: Automatic project and priority assignment based on context
+- **Calendar Integration**: FSCalendar for visual due date selection
+- **Project Selection**: Dynamic project picker with "Add Project" functionality
+- **Priority Assignment**: Visual priority selection with immediate preview
+- **Task Type Toggle**: Evening task switch with automatic type assignment
+- **Backdrop Design**: Layered UI design with backdrop and foredrop containers
+- **Validation & Error Handling**: Comprehensive input validation with user feedback
+
+### 📊 **Analytics & Visualization**
+Comprehensive productivity insights powered by Charts.framework:
+- **Completion Trends**: Daily, weekly, and monthly completion rate charts
+- **Priority Distribution**: Pie charts showing task priority patterns
+- **Project Performance**: Bar charts with per-project completion statistics
+- **Streak Visualization**: Line charts tracking consecutive completion days
+- **Score Progression**: Historical score tracking with trend analysis
+- **Interactive Charts**: Touch-enabled charts with detailed data points
+- **Export Functionality**: Data export capabilities for external analysis
+
+### 🗂️ **Project Management System (ProjectManagementView)**
+Robust project organization with SwiftUI integration:
+- **SwiftUI Interface**: Modern declarative UI for project management
+- **CRUD Operations**: Create, read, update, delete operations for projects
+- **Default Inbox System**: Automatic "Inbox" project for uncategorized tasks
+- **Project Analytics**: Real-time completion statistics per project
+- **Bulk Operations**: Multi-task project assignment and management
+- **Project Validation**: Duplicate name prevention and validation rules
+- **Context Menus**: Long-press menus for project editing and deletion
+- **Search & Filter**: Project search functionality with real-time filtering
+
+## FluentUI Components & Table Cell Architecture
+
+### 🎨 **FluentUI Integration Details**
+
+#### **FluentUI Table Cells (FluentUIToDoTableViewController)**
+The app leverages Microsoft's FluentUI design system for a modern, accessible interface:
+
+```swift
+// Custom FluentUI table cell configuration
+class FluentUIToDoTableViewController: UITableViewController {
+    // FluentUI cell registration
+    tableView.register(TableViewCell.self, forCellReuseIdentifier: "FluentUITaskCell")
+    tableView.register(TableViewHeaderFooterView.self, forHeaderFooterViewReuseIdentifier: "FluentUIHeader")
+}
+```
+
+#### **Table Cell Components & Features**
+
+**Priority Indicators:**
+- **P0 (Highest)**: Red circle with "!!" icon, 7-point scoring
+- **P1 (High)**: Orange circle with "!" icon, 4-point scoring  
+- **P2 (Medium)**: Yellow circle with "-" icon, 3-point scoring
+- **P3 (Low)**: Green circle with "↓" icon, 2-point scoring
+
+**Due Date Display:**
+- **Today**: Highlighted with "Today" label
+- **Overdue**: Red text with warning indicators
+- **Future**: Standard date formatting (MM/dd/yyyy)
+- **No Due Date**: Graceful handling with placeholder text
+
+**Task Status Indicators:**
+- **Completion Checkboxes**: FluentUI-styled checkboxes with animation
+- **Project Labels**: Color-coded project tags with rounded corners
+- **Task Type Badges**: Morning/Evening/Upcoming visual indicators
+
+#### **FluentUI Segmented Controls**
+Task type selection using FluentUI SegmentedControl:
+
+```swift
+// FluentUI Segmented Control for task types
+let segmentedControl = SegmentedControl(items: [
+    SegmentItem(title: "Morning"),
+    SegmentItem(title: "Evening"), 
+    SegmentItem(title: "Upcoming"),
+    SegmentItem(title: "Inbox")
+])
+```
+
+#### **Material Design Integration**
+Combination of FluentUI and Material Design Components:
+
+**Text Fields:**
+- `MDCFilledTextField` for task titles and descriptions
+- `MDCOutlinedTextField` for secondary inputs
+- Auto-validation with real-time error messaging
+
+**Floating Action Buttons:**
+- `MDCFloatingButton` for primary actions (Add Task, Save)
+- Ripple effects with `MDCRippleTouchController`
+- Consistent Material Design elevation and shadows
+
+### 📱 **Table Cell View Architecture**
+
+#### **Cell Hierarchy & Layout**
+
+```
+FluentUI TableViewCell
+├── Content Stack View
+│   ├── Priority Indicator View
+│   │   ├── Priority Circle (Color-coded)
+│   │   └── Priority Icon (Symbol)
+│   ├── Task Content View
+│   │   ├── Task Title Label
+│   │   ├── Task Description Label (Optional)
+│   │   └── Project Tag View
+│   └── Accessory Stack View
+│       ├── Due Date Label
+│       ├── Overdue Warning Icon
+│       └── Completion Checkbox
+└── Separator View
+```
+
+#### **Cell State Management**
+
+**Completion States:**
+- **Pending**: Standard appearance with interactive elements
+- **Completed**: Strikethrough text, muted colors, checkmark animation
+- **Overdue**: Red accent colors, warning icons, urgent styling
+
+**Interactive Elements:**
+- **Swipe Actions**: Edit, Delete, Reschedule, Mark Complete
+- **Long Press**: Context menu with additional options
+- **Tap Gestures**: Navigate to task detail view
+- **Checkbox Interaction**: Immediate completion toggle with animation
+
+#### **Accessibility Features**
+
+**VoiceOver Support:**
+- Comprehensive accessibility labels for all UI elements
+- Custom accessibility actions for swipe gestures
+- Proper reading order and navigation
+
+**Dynamic Type:**
+- Automatic font scaling based on user preferences
+- Responsive layout adjustments for larger text sizes
+- Maintained visual hierarchy across all text sizes
+
+### 🔄 **Data Binding & Updates**
+
+#### **Real-time Data Synchronization**
+
+```swift
+// Core Data integration with table view updates
+func setupTaskData(for date: Date) {
+    let tasks = taskRepository.fetchTasks(for: date)
+    let groupedTasks = Dictionary(grouping: tasks) { task in
+        task.project ?? "Inbox"
+    }
+    
+    DispatchQueue.main.async {
+        self.tasksByProject = groupedTasks
+        self.tableView.reloadData()
+    }
+}
+```
+
+#### **Performance Optimizations**
+- **Cell Reuse**: Efficient cell dequeuing and configuration
+- **Lazy Loading**: On-demand data fetching for large datasets
+- **Background Processing**: Core Data operations on background contexts
+- **Smooth Animations**: 60fps animations for state transitions
+
+### 🎯 **Advanced Filtering & Search**
+
+#### **Multi-Criteria Filtering System**
+- **Project-based Views**: Filter tasks by specific projects with real-time updates
+- **Date Range Filtering**: Custom date ranges with calendar picker integration
+- **Priority Filtering**: Focus on high-priority items with visual emphasis
+- **Completion Status**: Toggle between pending, completed, and all tasks
+- **Search Integration**: Real-time search across task titles and descriptions
+
+#### **View Type System**
+Supports 7 different view modes through `ToDoListViewType` enum:
+- `todayHomeView`: Today's tasks with priority grouping
+- `customDateView`: Tasks for user-selected dates
+- `projectView`: Single project task filtering
+- `upcomingView`: Future tasks with due date sorting
+- `historyView`: Completed tasks with completion date grouping
+- `allProjectsGrouped`: All tasks grouped by project
+- `selectedProjectsGrouped`: Multiple selected projects view
 
 ### Project Filtering System
 **Multi-level Project Organization**
