@@ -14,22 +14,22 @@ extension HomeViewController {
     // MARK: - TableView Configuration
     
     func setupTableView() {
-        fluentSampleTableViewController?.tableView.dataSource = self
-        fluentSampleTableViewController?.tableView.delegate = self
+        fluentToDoTableViewController?.tableView.dataSource = self
+        fluentToDoTableViewController?.tableView.delegate = self
         
         
-        fluentSampleTableViewController?.tableView.backgroundColor = TableViewCell.tableBackgroundGroupedColor
-        fluentSampleTableViewController?.tableView.separatorStyle  = .none
-        fluentSampleTableViewController?.tableView.register(TableViewCell.self,
+        fluentToDoTableViewController?.tableView.backgroundColor = TableViewCell.tableBackgroundGroupedColor
+        fluentToDoTableViewController?.tableView.separatorStyle  = .none
+        fluentToDoTableViewController?.tableView.register(TableViewCell.self,
                            forCellReuseIdentifier: cellReuseID)
-        fluentSampleTableViewController?.tableView.register(TableViewHeaderFooterView.self,
+        fluentToDoTableViewController?.tableView.register(TableViewHeaderFooterView.self,
                            forHeaderFooterViewReuseIdentifier: headerReuseID)
         
     }
     
     func updateTableView() {
         ToDoListSections.removeAll()
-        fluentSampleTableViewController?.tableView.reloadData()
+        fluentToDoTableViewController?.tableView.reloadData()
     }
     
     // MARK: - UITableViewDataSource
@@ -207,7 +207,7 @@ extension HomeViewController {
     }
     
     private func separatorType(for indexPath: IndexPath) -> TableViewCell.SeparatorType {
-        let last = indexPath.row == (fluentSampleTableViewController?.tableView.numberOfRows(inSection: indexPath.section) ?? 0) - 1
+        let last = indexPath.row == (fluentToDoTableViewController?.tableView.numberOfRows(inSection: indexPath.section) ?? 0) - 1
         return last ? .none : .inset
     }
     
@@ -389,7 +389,7 @@ extension HomeViewController {
         // MARK: - Task Actions
         
         func updateToDoListAndCharts() {
-            self.fluentSampleTableViewController?.tableView.reloadData()
+            self.fluentToDoTableViewController?.tableView.reloadData()
             self.updateLineChartData()
         }
         
@@ -397,7 +397,7 @@ extension HomeViewController {
             task.isComplete = false
             task.dateCompleted = nil
             TaskManager.sharedInstance.saveContext()
-            self.fluentSampleTableViewController?.tableView.reloadData()
+            self.fluentToDoTableViewController?.tableView.reloadData()
             self.updateLineChartData()
         }
         
@@ -405,7 +405,7 @@ extension HomeViewController {
             // Delete the task directly from the context
             TaskManager.sharedInstance.context.delete(task)
             TaskManager.sharedInstance.saveContext()
-            self.fluentSampleTableViewController?.tableView.reloadData()
+            self.fluentToDoTableViewController?.tableView.reloadData()
             self.updateLineChartData()
         }
         

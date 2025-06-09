@@ -144,8 +144,8 @@ extension HomeViewController: BadgeViewDelegate {
     func setupTableViewInForedrop() {
         // This method now sets up the FluentUI table view in foredrop
         // Initialize FluentUI sample table view controller if not already done
-        if fluentSampleTableViewController == nil {
-            fluentSampleTableViewController = FluentUISampleTableViewController(style: .insetGrouped)
+        if fluentToDoTableViewController == nil {
+            fluentToDoTableViewController = FluentUIToDoTableViewController(style: .insetGrouped)
         }
         
         // Setup the FluentUI table to fill the foredrop
@@ -327,19 +327,19 @@ extension HomeViewController: BadgeViewDelegate {
         print("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
         
         // Initialize FluentUI sample table view controller if not already done
-        if fluentSampleTableViewController == nil {
-            fluentSampleTableViewController = FluentUISampleTableViewController(style: .insetGrouped)
+        if fluentToDoTableViewController == nil {
+            fluentToDoTableViewController = FluentUIToDoTableViewController(style: .insetGrouped)
         }
         
         // Update data for the selected date
-        fluentSampleTableViewController?.updateData(for: date)
+        fluentToDoTableViewController?.updateData(for: date)
         
         // Position the FluentUI sample table view to fill the entire foredrop container
         // Account for bottom app bar height
         let bottomBarHeight = bottomAppBar.bounds.height
         let availableHeight = foredropContainer.bounds.height - bottomBarHeight
         
-        fluentSampleTableViewController?.view.frame = CGRect(
+        fluentToDoTableViewController?.view.frame = CGRect(
             x: 0,
             y: 0,
             width: self.foredropContainer.bounds.width,
@@ -347,7 +347,7 @@ extension HomeViewController: BadgeViewDelegate {
         )
         
         // Add FluentUI sample table view to foredrop container
-        if let fluentView = fluentSampleTableViewController?.view {
+        if let fluentView = fluentToDoTableViewController?.view {
             // Remove any existing views (legacy cleanup)
             // self.sampleTableView.removeFromSuperview() // Already removed from HomeViewController
             
@@ -355,8 +355,8 @@ extension HomeViewController: BadgeViewDelegate {
             self.foredropContainer.addSubview(fluentView)
             
             // Add as child view controller for proper lifecycle management
-            self.addChild(fluentSampleTableViewController!)
-            fluentSampleTableViewController?.didMove(toParent: self)
+            self.addChild(fluentToDoTableViewController!)
+            fluentToDoTableViewController?.didMove(toParent: self)
         }
         
         print("=== END FLUENT UI SAMPLE TABLE VIEW SETUP ===")

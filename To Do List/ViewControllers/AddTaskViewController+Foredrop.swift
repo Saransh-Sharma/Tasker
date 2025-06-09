@@ -62,6 +62,11 @@ extension AddTaskViewController {
     @objc func doneAddTaskAction() {
         guard !currentTaskInMaterialTextBox.isEmpty else { return }
         
+        print("💾 AddTask: Starting task creation process...")
+        print("💾 AddTask: Task name: '\(currentTaskInMaterialTextBox)'")
+        print("💾 AddTask: Due date: \(dateForAddTaskView)")
+        print("💾 AddTask: Project: '\(currenttProjectForAddTaskView)'")
+        
         // Use the selected calendar date as the due date
         let newTask = TaskManager.sharedInstance.addNewTask_Future(
             name: currentTaskInMaterialTextBox,
@@ -72,14 +77,20 @@ extension AddTaskViewController {
             project: currenttProjectForAddTaskView
         )
         
+        print("💾 AddTask: Task created with ID: \(newTask.objectID)")
+        
         // Update the task details with the description if provided
         if !currentTaskDescription.isEmpty {
+            print("💾 AddTask: Updating task details...")
             newTask.taskDetails = currentTaskDescription
             TaskManager.sharedInstance.saveContext()
+            print("💾 AddTask: Task details saved to Core Data")
         }
         
+        print("💾 AddTask: About to notify delegate...")
         // Notify delegate that a new task was added
         delegate?.didAddTask(newTask)
+        print("💾 AddTask: Delegate notified, dismissing view...")
         
         dismiss(animated: true)
     }

@@ -80,4 +80,32 @@ protocol TaskRepository {
     ///   - date: The date to filter tasks by
     ///   - completion: Completion handler that receives the fetched tasks
     func getTasksForAllCustomProjectsOpen(date: Date, completion: @escaping ([TaskData]) -> Void)
+    
+    /// Updates an existing task with new data
+    /// This method allows comprehensive updates to any and all properties of a task
+    /// - Parameters:
+    ///   - taskID: The ID of the task to update
+    ///   - data: The updated task data containing all new property values
+    ///   - completion: Optional completion handler that receives the result
+    func updateTask(taskID: NSManagedObjectID, data: TaskData, completion: ((Result<Void, Error>) -> Void)?)
+    
+    /// Saves changes to an existing task
+    /// This method is specifically designed for the task details page to persist user changes
+    /// - Parameters:
+    ///   - taskID: The ID of the task to save
+    ///   - name: Updated task name
+    ///   - details: Updated task details
+    ///   - type: Updated task type
+    ///   - priority: Updated task priority
+    ///   - dueDate: Updated due date
+    ///   - project: Updated project assignment
+    ///   - completion: Optional completion handler that receives the result
+    func saveTask(taskID: NSManagedObjectID, 
+                 name: String,
+                 details: String?,
+                 type: TaskType,
+                 priority: TaskPriority,
+                 dueDate: Date,
+                 project: String,
+                 completion: ((Result<Void, Error>) -> Void)?)
 }

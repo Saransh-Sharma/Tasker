@@ -23,11 +23,14 @@ import MaterialComponents.MaterialRipple
 // Import the delegate protocol
 import Foundation
 
-class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, UITableViewDataSource, UITableViewDelegate, SearchBarDelegate {
+class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, UITableViewDataSource, UITableViewDelegate, SearchBarDelegate, TaskRepositoryDependent {
     
     // MARK: - Stored Properties
     
-    let cellReuseID = TableViewCell.identifier   // FluentUI’s own ID
+    /// Task repository dependency (injected)
+    var taskRepository: TaskRepository!
+    
+    let cellReuseID = TableViewCell.identifier   // FluentUI's own ID
     let headerReuseID = TableViewHeaderFooterView.identifier
     
     // View containers
@@ -100,8 +103,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     // var sampleTableView = UITableView(frame: .zero, style: .grouped)
     // var sampleData: [(String, [NTask])] = []
     
-    // FluentUI Sample TableView Controller
-    var fluentSampleTableViewController: FluentUISampleTableViewController?
+    // FluentUI To Do TableView Controller
+    var fluentToDoTableViewController: FluentUIToDoTableViewController?
     
     // View state
     var projectForTheView = ProjectManager.sharedInstance.defaultProject
@@ -133,7 +136,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var isGrouped: Bool = false {
         didSet {
             // Updated to use FluentUI table view
-            fluentSampleTableViewController?.tableView.reloadData()
+            fluentToDoTableViewController?.tableView.reloadData()
             animateTableViewReload()
         }
     }
@@ -273,7 +276,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         // Enable scroll-to-contract behavior
         // Updated to use FluentUI table view
-        navigationItem.contentScrollView = fluentSampleTableViewController?.tableView
+        navigationItem.contentScrollView = fluentToDoTableViewController?.tableView
     }
     
     private func createSearchBarAccessory() -> SearchBar {
@@ -342,7 +345,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         let range: UInt32 = 40
         
         let entries = (0..<count).map { (i) -> PieChartDataEntry in
-            return PieChartDataEntry(value: Double(arc4random_uniform(range) + range / 5),
+            let randomValue = Double(arc4random_uniform(range) + range / 5)
+            // Ensure value is valid and not NaN or infinite
+            let safeValue = randomValue.isNaN || randomValue.isInfinite ? 1.0 : max(1.0, randomValue)
+            
+            return PieChartDataEntry(value: safeValue,
                                      label: tinyPieChartSections[i % tinyPieChartSections.count],
                                      icon: #imageLiteral(resourceName: "material_done_White"))
         }
@@ -478,7 +485,7 @@ extension HomeViewController {
         
         ToDoListSections = filteredSections
         // Updated to use FluentUI table view
-        fluentSampleTableViewController?.tableView.reloadData()
+        fluentToDoTableViewController?.tableView.reloadData()
         animateTableViewReload()
     }
 }
@@ -487,8 +494,29 @@ extension HomeViewController {
 
 extension HomeViewController: AddTaskViewControllerDelegate {
     func didAddTask(_ task: NTask) {
-        // Handle new task added
-        // Refresh the current view with the new task
-        refreshHomeView()
+        print("🔄 AddTask: didAddTask called for task: \(task.name) -- ")
+        
+        // This ensures that any changes made in other contexts (like AddTaskViewController) 
+        // are immediately visible in this context
+        TaskManager.sharedInstance.context.refreshAllObjects()
+        
+        // Additional step: Process pending changes to ensure consistency
+        TaskManager.sharedInstance.context.processPendingChanges()
+        
+        // Replicate EXACTLY what calendar date selection does
+        DispatchQueue.main.async {
+            print("🔄 AddTask: Replicating calendar date selection behavior")
+            
+            // Determine if we're viewing today or a custom date
+            if self.dateForTheView == Date.today() {
+                print("🔄 AddTask: Refreshing TODAY view")
+                self.updateViewForHome(viewType: .todayHomeView)
+            } else {
+                print("🔄 AddTask: Refreshing CUSTOM DATE view for: \(self.dateForTheView)")
+                self.updateViewForHome(viewType: .customDateView, dateForView: self.dateForTheView)
+            }
+            
+            print("✅ AddTask: View refreshed using calendar selection pattern")
+        }
     }
 }

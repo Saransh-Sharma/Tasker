@@ -350,4 +350,75 @@ final class CoreDataTaskRepository: TaskRepository {
             completion: completion
         )
     }
+    
+    // MARK: - Task Update Methods
+    
+    func updateTask(taskID: NSManagedObjectID, data: TaskData, completion: ((Result<Void, Error>) -> Void)?) {
+        backgroundContext.perform {
+            do {
+                guard let task = try self.backgroundContext.existingObject(with: taskID) as? NTask else {
+                    throw NSError(domain: "TaskRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found"])
+                }
+                
+                // Update all task properties with new data
+                task.name = data.name
+                task.taskDetails = data.details
+                task.taskType = data.type.rawValue
+                task.taskPriority = data.priority.rawValue
+                task.dueDate = data.dueDate as NSDate
+                task.project = data.project
+                task.isComplete = data.isComplete
+                
+                // Only update dateCompleted if completion status changed
+                if data.isComplete && task.dateCompleted == nil {
+                    task.dateCompleted = Date() as NSDate
+                } else if !data.isComplete {
+                    task.dateCompleted = nil
+                }
+                
+                try self.backgroundContext.save()
+                DispatchQueue.main.async { completion?(.success(())) }
+            } catch {
+                print("❌ Task update error: \(error)")
+                DispatchQueue.main.async { completion?(.failure(error)) }
+            }
+        }
+    }
+    
+    func saveTask(taskID: NSManagedObjectID, 
+                 name: String,
+                 details: String?,
+                 type: TaskType,
+                 priority: TaskPriority,
+                 dueDate: Date,
+                 project: String,
+                 completion: ((Result<Void, Error>) -> Void)?) {
+        backgroundContext.perform {
+            do {
+                guard let task = try self.backgroundContext.existingObject(with: taskID) as? NTask else {
+                    throw NSError(domain: "TaskRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found"])
+                }
+                
+                // Save the current completion status to preserve it
+                let wasComplete = task.isComplete
+                
+                // Update task properties from task details page
+                task.name = name
+                task.taskDetails = details
+                task.taskType = type.rawValue
+                task.taskPriority = priority.rawValue
+                task.dueDate = dueDate as NSDate
+                task.project = project
+                
+                // Preserve completion status and dateCompleted
+                task.isComplete = wasComplete
+                
+                try self.backgroundContext.save()
+                DispatchQueue.main.async { completion?(.success(())) }
+            } catch {
+                print("❌ Task save error: \(error)")
+                DispatchQueue.main.async { completion?(.failure(error)) }
+            }
+        }
+    }
 }

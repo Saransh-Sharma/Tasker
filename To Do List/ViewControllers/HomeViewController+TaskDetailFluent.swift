@@ -12,13 +12,19 @@ import FluentUI
 extension HomeViewController: TaskDetailViewFluentDelegate {
     
     func taskDetailViewFluentDidUpdateRequest(_ view: TaskDetailViewFluent, updatedTask: NTask) {
-        // Handle task update
-        TaskManager.sharedInstance.saveContext()
+        // This method is no longer used for immediate saves
+        // Changes are now batched and saved only when the save button is tapped
+    }
+    
+    func taskDetailViewFluentDidSave(_ view: TaskDetailViewFluent, savedTask: NTask) {
+        // Handle task save - repository already handled the Core Data save
         
         // Refresh UI
-        // Updated to use FluentUI table view
-        fluentSampleTableViewController?.tableView.reloadData()
+        fluentToDoTableViewController?.tableView.reloadData()
         updateLineChartData()
+        
+        // Dismiss the modal
+        dismissFluentDetailView()
     }
     
     @objc func dismissFluentDetailView() {
@@ -72,9 +78,7 @@ extension HomeViewController: TaskDetailViewFluentDelegate {
             taskToUpdate.project = selectedProjectEntity?.projectName
             view.updateProjectButtonTitle(project: selectedProjectEntity?.projectName)
             
-            TaskManager.sharedInstance.saveContext()
-            // Updated to use FluentUI table view
-            self.fluentSampleTableViewController?.tableView.reloadData()
+            // Don't save to Core Data immediately - let the save button handle it
             
             self.editingTaskForProjectPicker = nil
             self.activeTaskDetailViewFluent = nil

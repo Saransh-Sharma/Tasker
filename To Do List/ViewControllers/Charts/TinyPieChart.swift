@@ -113,7 +113,11 @@ extension HomeViewController {
         let entries = (0..<count).map { (i) -> PieChartDataEntry in
             // IMPORTANT: In a PieChart, no values (Entry) should have the same xIndex (even if from different DataSets), since no values can be drawn above each other.
             
-            return PieChartDataEntry(value: Double(arc4random_uniform(range) + range / 5),
+            let randomValue = Double(arc4random_uniform(range) + range / 5)
+            // Ensure value is valid and not NaN or infinite
+            let safeValue = randomValue.isNaN || randomValue.isInfinite ? 1.0 : max(1.0, randomValue)
+            
+            return PieChartDataEntry(value: safeValue,
                                      label: tinyPieChartSections[i % tinyPieChartSections.count],
                                      icon: #imageLiteral(resourceName: "material_done_White"))
             

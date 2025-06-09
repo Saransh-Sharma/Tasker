@@ -65,7 +65,7 @@ extension HomeViewController {
 //    
     func animateTableViewReload() {
         // Animate FluentUI table view reload
-        guard let fluentTableView = fluentSampleTableViewController?.tableView else { return }
+        guard let fluentTableView = fluentToDoTableViewController?.tableView else { return }
         UIView.transition(with: fluentTableView, duration: 0.3, options: .transitionCrossDissolve, animations: {
             fluentTableView.reloadData()
         }, completion: nil)
@@ -73,7 +73,7 @@ extension HomeViewController {
     
     func animateTableViewReloadSingleCell(at indexPath: IndexPath) {
         // Animate single cell reload in FluentUI table view
-        guard let fluentTableView = fluentSampleTableViewController?.tableView else { return }
+        guard let fluentTableView = fluentToDoTableViewController?.tableView else { return }
         UIView.transition(with: fluentTableView, duration: 0.2, options: .transitionCrossDissolve, animations: {
             fluentTableView.reloadRows(at: [indexPath], with: .none)
         }, completion: nil)
@@ -81,7 +81,7 @@ extension HomeViewController {
     
     func animateTableCellReload(at indexPath: IndexPath) {
         // Animate specific cell reload in FluentUI table view
-        guard let fluentTableView = fluentSampleTableViewController?.tableView else { return }
+        guard let fluentTableView = fluentToDoTableViewController?.tableView else { return }
         if let cell = fluentTableView.cellForRow(at: indexPath) {
             UIView.transition(with: cell, duration: 0.2, options: .transitionCrossDissolve, animations: {
                 // The cell content will be updated automatically

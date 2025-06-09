@@ -82,7 +82,14 @@ extension HomeViewController {
         // Generate chart data points for the week (Sunday to Saturday)
         for (index, day) in week.enumerated() {
             let score = calculateScoreForDate(date: day)
-            let dataEntry = ChartDataEntry(x: Double(index), y: Double(score))
+            // Ensure score is valid and not NaN or infinite
+            let validScore = max(0, score) // Ensure non-negative
+            let yValue = Double(validScore)
+            
+            // Additional safety check for NaN or infinite values
+            let safeYValue = yValue.isNaN || yValue.isInfinite ? 0.0 : yValue
+            
+            let dataEntry = ChartDataEntry(x: Double(index), y: safeYValue)
             yValues.append(dataEntry)
         }
         
@@ -92,7 +99,9 @@ extension HomeViewController {
     func generateSampleData() -> [ChartDataEntry] {
         let sampleValues = [15.0, 25.0, 35.0, 45.0, 30.0, 50.0, 40.0]
         return sampleValues.enumerated().map { index, value in
-            ChartDataEntry(x: Double(index), y: value)
+            // Ensure value is valid and not NaN or infinite
+            let safeValue = value.isNaN || value.isInfinite ? 0.0 : value
+            return ChartDataEntry(x: Double(index), y: safeValue)
         }
     }
     

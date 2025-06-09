@@ -294,13 +294,13 @@ extension HomeViewController {
         // Reload table view with new data
         DispatchQueue.main.async {
             // Updated to use FluentUI table view
-        self.fluentSampleTableViewController?.tableView.reloadData()
+        self.fluentToDoTableViewController?.tableView.reloadData()
         }
     }
     
     func reloadToDoListWithAnimation() {
         // Updated to use FluentUI table view
-        fluentSampleTableViewController?.tableView.reloadData()
+        fluentToDoTableViewController?.tableView.reloadData()
         animateTableViewReload()
     }
     

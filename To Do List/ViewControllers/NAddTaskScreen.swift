@@ -181,18 +181,14 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             
             print("Priority is: \(currentTaskPriority)")
             
-            var taskDueDate: Date
-            
             if(taskDayFromPicker == "Unknown" || taskDayFromPicker == "") {
-                taskDueDate = Date.today()
                 TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: TaskType(rawValue: Int32(getTaskType())) ?? .morning, taskPriority: TaskPriority(rawValue: Int32(currentTaskPriority)) ?? .high, isEveningTask: isThisEveningTask, project: "inbox")
             } else if (taskDayFromPicker == "Tomorrow") { //["Set Date", "Today", "Tomorrow", "Weekend", "Next Week"]
-                taskDueDate = Date.tomorrow()
                 //                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: TaskType(rawValue: Int32(getTaskType())) ?? .morning, taskPriority: TaskPriority(rawValue: Int32(currentTaskPriority)) ?? .high, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
             } else if (taskDayFromPicker == "Weekend") {
                 
                 //get the next weekend
-                taskDueDate = Date.today().changed(weekday: 5)!
+                // let taskDueDate = Date.today().changed(weekday: 5)!
                 
                 
                 //                TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: TaskType(rawValue: Int32(getTaskType())) ?? .morning, taskPriority: TaskPriority(rawValue: Int32(currentTaskPriority)) ?? .high, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask)
@@ -200,10 +196,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
                 
                 
             } else if (taskDayFromPicker == "Today") {
-                taskDueDate = Date.today()
                 TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: TaskType(rawValue: Int32(getTaskType())) ?? .morning, taskPriority: TaskPriority(rawValue: Int32(currentTaskPriority)) ?? .high, isEveningTask: isThisEveningTask, project: "inbox")
-            } else {
-                taskDueDate = Date.today() // Default fallback
             }
             
             //            else {

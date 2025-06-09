@@ -762,10 +762,10 @@ class TaskManager {
     @discardableResult
     func addNewTask_Future(name: String, taskType: TaskType, taskPriority: TaskPriority, futureTaskDate: Date, isEveningTask: Bool, project: String) -> NTask {
         
+        print("🏗️ TaskManager: Creating new task entity in Core Data...")
         let task = NSEntityDescription.insertNewObject( forEntityName: "NTask", into: context) as! NTask
         
-        
-        
+        print("🏗️ TaskManager: Setting task properties...")
         task.name = name
         task.isComplete = false
         task.taskDetails = "Fill in task details here"
@@ -782,11 +782,12 @@ class TaskManager {
             task.project = project
         }
         
-        print("addNewTask_Future: \(futureTaskDate.stringIn(dateStyle: .full, timeStyle: .none))")
+        print("🏗️ TaskManager: Task properties set - Name: '\(name)', Due: \(futureTaskDate.stringIn(dateStyle: .full, timeStyle: .none)), Project: '\(task.project ?? "nil")'")
         
         // No longer need to append to in-memory array since we're using predicate-driven fetching
+        print("🏗️ TaskManager: About to save context...")
         saveContext()
-        print("addNewTaskWithName task count now is: \(getAllTasks.count)")
+        print("🏗️ TaskManager: Context saved. Total task count: \(getAllTasks.count)")
         
         return task
     }
@@ -897,11 +898,13 @@ class TaskManager {
     /// Saves the current state of the managed object context to persist changes to Core Data
     /// This method should be called after any changes to tasks to ensure they are saved to the database
     func saveContext() {
+        print("💾 TaskManager: saveContext() called - about to save to Core Data...")
         do {
             try context.save()
-            print("✅ Saved context at", Date(), "– item count:", getAllTasks.count)
+            print("✅ TaskManager: Core Data save SUCCESSFUL at \(Date()) – Total tasks: \(getAllTasks.count)")
+            print("✅ TaskManager: Context has changes: \(context.hasChanges)")
         } catch let error as NSError {
-            print("TaskManager failed saving context ! \(error), \(error.userInfo)")
+            print("❌ TaskManager: Core Data save FAILED! Error: \(error), UserInfo: \(error.userInfo)")
         }
     }
     

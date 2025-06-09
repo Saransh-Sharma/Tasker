@@ -27,6 +27,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
         
+        // Inject dependencies
+        DependencyContainer.shared.inject(into: homeViewController)
+        
         // Embed in FluentUI NavigationController
         let navigationController = NavigationController(rootViewController: homeViewController)
         

@@ -19,10 +19,7 @@ extension HomeViewController: DateTimePickerDelegate {
             task.dueDate = startDate as NSDate
             detailView.updateDueDateButtonTitle(date: startDate)
             
-            TaskManager.sharedInstance.saveContext()
-            // Updated to use FluentUI table view
-        self.fluentSampleTableViewController?.tableView.reloadData()
-            updateLineChartData()
+            // Don't save to Core Data immediately - let the save button handle it
         }
         
         self.editingTaskForDatePicker = nil

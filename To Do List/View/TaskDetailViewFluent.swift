@@ -6,6 +6,7 @@ protocol TaskDetailViewFluentDelegate: AnyObject {
     func taskDetailViewFluentDidUpdateRequest(_ view: TaskDetailViewFluent, updatedTask: NTask)
     func taskDetailViewFluentDidRequestDatePicker(_ view: TaskDetailViewFluent, for task: NTask, currentValue: Date?)
     func taskDetailViewFluentDidRequestProjectPicker(_ view: TaskDetailViewFluent, for task: NTask, currentProject: Projects?, availableProjects: [Projects])
+    func taskDetailViewFluentDidSave(_ view: TaskDetailViewFluent, savedTask: NTask)
     func dismissFluentDetailView()
 }
 
@@ -14,6 +15,7 @@ class TaskDetailViewFluent: UIView {
     weak var delegate: TaskDetailViewFluentDelegate?
     private var currentTask: NTask?
     private var availableProjects: [Projects] = []
+    private var taskRepository: TaskRepository?
 
     private let scrollView = UIScrollView()
     private let stackView = UIStackView()
@@ -48,6 +50,16 @@ class TaskDetailViewFluent: UIView {
     // Project
     private let projectHeaderLabel = FluentUI.Label()
     private let projectButton = FluentUI.Button(style: .outlineNeutral) // Using a standard style
+    
+    // Save Button
+    private let saveButton = FluentUI.Button(style: .accent)
+    
+    // Track if changes have been made
+    private var hasUnsavedChanges = false
+    
+    // Track current UI state
+    private var currentDueDate: Date?
+    private var currentProject: String?
 
     // --- Initialization ---
     override init(frame: CGRect) {
@@ -124,6 +136,7 @@ class TaskDetailViewFluent: UIView {
         setupDueDateDisplay()
         setupPriorityControl()
         setupProjectDisplay()
+        setupSaveButton()
         
         let spacer = UIView()
         spacer.setContentHuggingPriority(.defaultLow, for: .vertical)
@@ -136,9 +149,9 @@ class TaskDetailViewFluent: UIView {
         
         titleTextField.placeholder = "Enter task title"
         titleTextField.onEditingChanged = { fluentTextField in
-            guard let task = self.currentTask else { return }
-            task.name = fluentTextField.inputText ?? ""
-            self.delegate?.taskDetailViewFluentDidUpdateRequest(self, updatedTask: task)
+            guard let _ = self.currentTask else { return }
+            self.hasUnsavedChanges = true
+            self.updateSaveButtonState()
         }
         stackView.addArrangedSubview(titleTextField)
         // Custom spacing applied in layoutSubviews or dynamically after elements are themed
@@ -153,9 +166,9 @@ class TaskDetailViewFluent: UIView {
         descriptionTextField.isMultiline = true
         descriptionTextField.maxNumberOfLines = 5
         descriptionTextField.onEditingChanged = { fluentTextField in
-            guard let task = self.currentTask else { return }
-            task.taskDetails = fluentTextField.inputText
-            self.delegate?.taskDetailViewFluentDidUpdateRequest(self, updatedTask: task)
+            guard let _ = self.currentTask else { return }
+            self.hasUnsavedChanges = true
+            self.updateSaveButtonState()
         }
         stackView.addArrangedSubview(descriptionTextField)
     }
@@ -164,7 +177,9 @@ class TaskDetailViewFluent: UIView {
         dueDateHeaderLabel.text = "DUE DATE"
         stackView.addArrangedSubview(dueDateHeaderLabel)
 
+        dueDateButton.translatesAutoresizingMaskIntoConstraints = false
         dueDateButton.addTarget(self, action: #selector(didTapDueDateButton), for: .touchUpInside)
+        dueDateButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
         stackView.addArrangedSubview(dueDateButton)
     }
 
@@ -173,11 +188,9 @@ class TaskDetailViewFluent: UIView {
         stackView.addArrangedSubview(priorityHeaderLabel)
         
         prioritySegmentedControl.onSelectAction = { [weak self] (item, selectedIndex) in
-            guard let self = self, let task = self.currentTask else { return }
-            if let newPriority = self.segmentedControlIndexToPriority[selectedIndex] {
-                 task.taskPriority = newPriority
-                 self.delegate?.taskDetailViewFluentDidUpdateRequest(self, updatedTask: task)
-            }
+            guard let self = self, let _ = self.currentTask else { return }
+            self.hasUnsavedChanges = true
+            self.updateSaveButtonState()
         }
         stackView.addArrangedSubview(prioritySegmentedControl)
     }
@@ -186,8 +199,24 @@ class TaskDetailViewFluent: UIView {
         projectHeaderLabel.text = "PROJECT"
         stackView.addArrangedSubview(projectHeaderLabel)
 
+        projectButton.translatesAutoresizingMaskIntoConstraints = false
         projectButton.addTarget(self, action: #selector(didTapProjectButton), for: .touchUpInside)
+        projectButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
         stackView.addArrangedSubview(projectButton)
+    }
+    
+    private func setupSaveButton() {
+        saveButton.translatesAutoresizingMaskIntoConstraints = false
+        saveButton.setTitle("Save Changes", for: .normal)
+        saveButton.addTarget(self, action: #selector(didTapSaveButton), for: .touchUpInside)
+        saveButton.isEnabled = false // Initially disabled
+        saveButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        stackView.addArrangedSubview(saveButton)
+    }
+    
+    private func updateSaveButtonState() {
+        saveButton.isEnabled = hasUnsavedChanges
+        saveButton.setTitle(hasUnsavedChanges ? "Save Changes" : "No Changes", for: .normal)
     }
     
     // Dynamic spacing update after theming is applied
@@ -239,10 +268,19 @@ class TaskDetailViewFluent: UIView {
 
 
     // --- Configuration ---
-    public func configure(task: NTask, availableProjects: [Projects], delegate: TaskDetailViewFluentDelegate) {
+    public func configure(task: NTask, availableProjects: [Projects], delegate: TaskDetailViewFluentDelegate, taskRepository: TaskRepository? = nil) {
         self.currentTask = task
         self.availableProjects = availableProjects
         self.delegate = delegate
+        self.taskRepository = taskRepository
+        
+        // Reset unsaved changes flag
+        self.hasUnsavedChanges = false
+        updateSaveButtonState()
+        
+        // Initialize current UI state
+        self.currentDueDate = task.dueDate as Date?
+        self.currentProject = task.project
 
         titleTextField.inputText = task.name
         descriptionTextField.inputText = task.taskDetails ?? ""
@@ -267,6 +305,9 @@ class TaskDetailViewFluent: UIView {
     
     // --- Public Update Methods (called by delegate callbacks) ---
     public func updateDueDateButtonTitle(date: Date?) {
+        // Update the current due date
+        self.currentDueDate = date
+        
         if let date = date {
             let df = DateFormatter()
             df.dateStyle = .medium
@@ -275,10 +316,23 @@ class TaskDetailViewFluent: UIView {
         } else {
             dueDateButton.setTitle("Set Due Date", for: .normal)
         }
+        // Mark as changed if this is called after initial configuration
+        if currentTask != nil {
+            hasUnsavedChanges = true
+            updateSaveButtonState()
+        }
     }
 
     public func updateProjectButtonTitle(project: String?) {
+        // Update the current project
+        self.currentProject = project
+        
         projectButton.setTitle(project ?? "Select Project", for: .normal)
+        // Mark as changed if this is called after initial configuration
+        if currentTask != nil {
+            hasUnsavedChanges = true
+            updateSaveButtonState()
+        }
     }
     
     // --- Actions ---
@@ -292,6 +346,68 @@ class TaskDetailViewFluent: UIView {
         // Find the current Projects object based on the name string from task.project
         let currentProjectEntity = self.availableProjects.first(where: { $0.projectName == task.project })
         delegate?.taskDetailViewFluentDidRequestProjectPicker(self, for: task, currentProject: currentProjectEntity, availableProjects: self.availableProjects)
+    }
+    
+    @objc private func didTapSaveButton() {
+        guard let task = currentTask, hasUnsavedChanges else { return }
+        
+        // Use repository pattern if available, otherwise fall back to direct Core Data modification
+        if let repository = taskRepository {
+            // Create TaskData from current UI state
+            let updatedTaskData = TaskData(
+                id: task.objectID,
+                name: titleTextField.inputText ?? "",
+                details: descriptionTextField.inputText,
+                type: TaskType(rawValue: task.taskType) ?? .upcoming,
+                priority: {
+                    let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
+                    if let priorityRawValue = segmentedControlIndexToPriority[selectedIndex] {
+                        return TaskPriority(rawValue: priorityRawValue) ?? .medium
+                    }
+                    return .medium
+                }(),
+                dueDate: currentDueDate ?? Date(),
+                project: currentProject ?? "Inbox",
+                isComplete: task.isComplete,
+                dateAdded: task.dateAdded as Date? ?? Date(),
+                dateCompleted: task.dateCompleted as Date?
+            )
+            
+            // Use repository to update the task
+            repository.updateTask(taskID: task.objectID, data: updatedTaskData) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        // Reset the unsaved changes flag
+                        self?.hasUnsavedChanges = false
+                        self?.updateSaveButtonState()
+                        
+                        // Call the delegate to handle post-save actions
+                        self?.delegate?.taskDetailViewFluentDidSave(self!, savedTask: task)
+                    case .failure(let error):
+                        print("Failed to save task: \(error.localizedDescription)")
+                        // Could show an alert to the user here
+                    }
+                }
+            }
+        } else {
+            // Fallback to direct Core Data modification (legacy approach)
+            task.name = titleTextField.inputText ?? ""
+            task.taskDetails = descriptionTextField.inputText
+            
+            // Update priority from segmented control
+            let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
+            if let priority = segmentedControlIndexToPriority[selectedIndex] {
+                task.taskPriority = priority
+            }
+            
+            // Call the delegate to save the task
+            delegate?.taskDetailViewFluentDidSave(self, savedTask: task)
+            
+            // Reset the unsaved changes flag
+            hasUnsavedChanges = false
+            updateSaveButtonState()
+        }
     }
 }
 

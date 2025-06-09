@@ -1,5 +1,5 @@
 //
-//  FluentUISampleTableViewController.swift
+//  FluentUIToDoTableViewController.swift
 //  To Do List
 //
 //  Created by AI Assistant
@@ -9,14 +9,15 @@
 import UIKit
 import FluentUI
 import SemiModalViewController
+import MaterialComponents.MaterialTextControls_FilledTextFields
 
-// MARK: - FluentUISampleTableViewController
+// MARK: - FluentUIToDoTableViewController
 
-class FluentUISampleTableViewController: UITableViewController {
+class FluentUIToDoTableViewController: UITableViewController {
     
     // MARK: - Properties
     
-    private var sampleData: [(String, [NTask])] = []
+    private var toDoData: [(String, [NTask])] = []
     private var selectedDate: Date = Date.today()
     
     // MARK: - Initialization
@@ -34,7 +35,7 @@ class FluentUISampleTableViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupTableView()
-        setupSampleData(for: selectedDate)
+        setupToDoData(for: selectedDate)
     }
     
     // MARK: - Setup Methods
@@ -53,7 +54,7 @@ class FluentUISampleTableViewController: UITableViewController {
         title = "Tasks Overview"
     }
     
-    private func setupSampleData(for date: Date) {
+    private func setupToDoData(for date: Date) {
         print("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
         
         // Get all tasks for the selected date
@@ -124,7 +125,7 @@ class FluentUISampleTableViewController: UITableViewController {
         
         // Update data and reload table view atomically on main thread
         DispatchQueue.main.async {
-            self.sampleData = sections
+            self.toDoData = sections
             self.tableView.reloadData()
         }
     }
@@ -133,7 +134,7 @@ class FluentUISampleTableViewController: UITableViewController {
     
     func updateData(for date: Date) {
         selectedDate = date
-        setupSampleData(for: date)
+        setupToDoData(for: date)
     }
     
     // MARK: - Helper Methods
@@ -196,27 +197,159 @@ class FluentUISampleTableViewController: UITableViewController {
         return label
     }
     
-    private func createCompletionAccessoryView(for task: NTask) -> UIView? {
-        if task.isComplete {
-            let imageView = UIImageView(image: UIImage(systemName: "checkmark.circle.fill"))
-            imageView.tintColor = UIColor.systemGreen
-            imageView.contentMode = .scaleAspectFit
-            return imageView
+    private func createCheckBox(for task: NTask, at indexPath: IndexPath) -> UIButton {
+        let checkBox = UIButton(frame: CGRect(x: 0, y: 0, width: 24, height: 24))
+        
+        // Configure checkbox appearance
+        checkBox.layer.cornerRadius = 12 // Make it circular
+        checkBox.layer.borderWidth = 1.5
+        checkBox.layer.borderColor = UIColor.systemBlue.cgColor
+        checkBox.backgroundColor = task.isComplete ? UIColor.systemBlue : UIColor.clear
+        
+        // Set checkbox image based on completion state
+        let checkmarkImage = UIImage(systemName: "checkmark")
+        checkBox.setImage(task.isComplete ? checkmarkImage : nil, for: .normal)
+        checkBox.tintColor = UIColor.white
+        checkBox.imageView?.contentMode = .scaleAspectFit
+        
+        // Set tag for identification
+        checkBox.tag = indexPath.section * 1000 + indexPath.row
+        
+        // Add target for tap action
+        checkBox.addTarget(self, action: #selector(checkBoxTapped(_:)), for: .touchUpInside)
+        
+        return checkBox
+    }
+    
+    @objc private func checkBoxTapped(_ sender: UIButton) {
+        // Find the task based on the checkbox tag
+        let section = sender.tag / 1000
+        let row = sender.tag % 1000
+        
+        guard section < toDoData.count,
+              row < toDoData[section].1.count else {
+            return
         }
-        return nil
+        
+        let task = toDoData[section].1[row]
+        
+        // Toggle task completion status
+        task.isComplete.toggle()
+        
+        // Update checkbox appearance
+        updateCheckBoxAppearance(sender, isComplete: task.isComplete)
+        
+        // Save the changes
+        TaskManager.sharedInstance.saveContext()
+        
+        // Reconfigure cell to update appearance without position shift
+        let indexPath = IndexPath(row: row, section: section)
+        reconfigureCell(at: indexPath)
+    }
+    
+    private func updateCheckBoxAppearance(_ checkBox: UIButton, isComplete: Bool) {
+        UIView.animate(withDuration: 0.2) {
+            checkBox.backgroundColor = isComplete ? UIColor.systemBlue : UIColor.clear
+            let checkmarkImage = UIImage(systemName: "checkmark")
+            checkBox.setImage(isComplete ? checkmarkImage : nil, for: .normal)
+        }
+    }
+}
+
+// MARK: - Cell Configuration Helper
+
+extension FluentUIToDoTableViewController {
+    
+    private func reconfigureCell(at indexPath: IndexPath) {
+        guard let cell = tableView.cellForRow(at: indexPath) as? TableViewCell,
+              let fluentTheme = view?.fluentTheme else { return }
+        
+        let sectionData = toDoData[indexPath.section]
+        guard indexPath.row < sectionData.1.count else { return }
+        
+        let task = sectionData.1[indexPath.row]
+        let priorityIcon = getPriorityIcon(for: Int(task.taskPriority))
+        
+        // Find existing checkbox instead of creating a new one
+        var existingCheckBox: UIButton?
+        if let accessoryView = cell.accessoryView {
+            // Look for UIButton checkbox in the accessory view
+            if let checkBox = accessoryView as? UIButton {
+                existingCheckBox = checkBox
+            } else {
+                // Search in subviews if accessory view is a container
+                for subview in accessoryView.subviews {
+                    if let checkBox = subview as? UIButton {
+                        existingCheckBox = checkBox
+                        break
+                    }
+                }
+            }
+        }
+        
+        // Update existing checkbox state or create new one if not found
+        let checkBox = existingCheckBox ?? createCheckBox(for: task, at: indexPath)
+        updateCheckBoxAppearance(checkBox, isComplete: task.isComplete)
+        
+        // Configure cell based on completion status
+        if task.isComplete {
+            // Style for completed tasks
+            let attributedTitle = NSAttributedString(
+                string: "\(priorityIcon) \(task.name)",
+                attributes: [
+                    .font: fluentTheme.typography(.body1),
+                    .foregroundColor: fluentTheme.color(.foreground2),
+                    .strikethroughStyle: NSUnderlineStyle.single.rawValue
+                ]
+            )
+            
+            let attributedSubtitle = NSAttributedString(
+                string: task.taskDetails ?? "Completed",
+                attributes: [
+                    .font: fluentTheme.typography(.caption1),
+                    .foregroundColor: fluentTheme.color(.foreground3),
+                    .strikethroughStyle: NSUnderlineStyle.single.rawValue
+                ]
+            )
+            
+            cell.setup(
+                attributedTitle: attributedTitle,
+                attributedSubtitle: attributedSubtitle,
+                customView: checkBox,
+                accessoryType: .none
+            )
+            
+        } else {
+            // Style for active tasks
+            let taskTitle = "\(priorityIcon) \(task.name)"
+            let taskSubtitle = task.taskDetails ?? "No details"
+            
+            cell.setup(
+                title: taskTitle,
+                subtitle: taskSubtitle,
+                customView: checkBox,
+                accessoryType: .disclosureIndicator
+            )
+        }
+        
+        // Add accessory views
+        cell.titleTrailingAccessoryView = createPriorityAccessoryView(for: task)
+        cell.subtitleTrailingAccessoryView = createDueDateAccessoryView(for: task)
+        
+        cell.backgroundColor = fluentTheme.color(.background1)
     }
 }
 
 // MARK: - UITableViewDataSource
 
-extension FluentUISampleTableViewController {
+extension FluentUIToDoTableViewController {
     
     override func numberOfSections(in tableView: UITableView) -> Int {
-        return sampleData.count
+        return toDoData.count
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        let sectionData = sampleData[section]
+        let sectionData = toDoData[section]
         return max(sectionData.1.count, 1) // At least 1 row for empty state
     }
     
@@ -226,14 +359,16 @@ extension FluentUISampleTableViewController {
             return UITableViewCell()
         }
         
-        let sectionData = sampleData[indexPath.section]
+        let sectionData = toDoData[indexPath.section]
         
         // Handle empty sections (placeholder)
         if sectionData.1.isEmpty {
+            let emptyStateImageView = UIImageView(image: UIImage(systemName: "calendar.badge.plus"))
+            emptyStateImageView.tintColor = fluentTheme.color(.foreground3)
             cell.setup(
                 title: "No tasks due for this date",
                 subtitle: "Add tasks to see them here",
-                customView: UIImageView(image: UIImage(systemName: "calendar.badge.plus")),
+                customView: emptyStateImageView,
                 accessoryType: .none
             )
             
@@ -275,10 +410,11 @@ extension FluentUISampleTableViewController {
                 ]
             )
             
+            let checkBox = createCheckBox(for: task, at: indexPath)
             cell.setup(
                 attributedTitle: attributedTitle,
                 attributedSubtitle: attributedSubtitle,
-                customView: UIImageView(image: UIImage(systemName: "checkmark.circle.fill")),
+                customView: checkBox,
                 accessoryType: .none
             )
             
@@ -290,10 +426,11 @@ extension FluentUISampleTableViewController {
             let taskTitle = "\(priorityIcon) \(task.name)"
             let taskSubtitle = task.taskDetails ?? "No details"
             
+            let checkBox = createCheckBox(for: task, at: indexPath)
             cell.setup(
                 title: taskTitle,
                 subtitle: taskSubtitle,
-                customView: UIImageView(image: UIImage(systemName: "circle")),
+                customView: checkBox,
                 accessoryType: .disclosureIndicator
             )
             
@@ -324,14 +461,14 @@ extension FluentUISampleTableViewController {
 
 // MARK: - UITableViewDelegate
 
-extension FluentUISampleTableViewController {
+extension FluentUIToDoTableViewController {
     
     override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         guard let header = tableView.dequeueReusableHeaderFooterView(withIdentifier: TableViewHeaderFooterView.identifier) as? TableViewHeaderFooterView else {
             return nil
         }
         
-        let sectionData = sampleData[section]
+        let sectionData = toDoData[section]
         let taskCount = sectionData.1.count
         
         // Create header title with task count
@@ -350,7 +487,7 @@ extension FluentUISampleTableViewController {
     // MARK: - Swipe Actions
     
     override func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let sectionData = sampleData[indexPath.section]
+        let sectionData = toDoData[indexPath.section]
         
         // Don't show swipe actions for empty sections
         guard !sectionData.1.isEmpty else { return nil }
@@ -383,7 +520,7 @@ extension FluentUISampleTableViewController {
     }
     
     override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let sectionData = sampleData[indexPath.section]
+        let sectionData = toDoData[indexPath.section]
         
         // Don't show swipe actions for empty sections
         guard !sectionData.1.isEmpty else { return nil }
@@ -420,7 +557,7 @@ extension FluentUISampleTableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        let sectionData = sampleData[indexPath.section]
+        let sectionData = toDoData[indexPath.section]
         
         // Don't handle selection for empty sections
         guard !sectionData.1.isEmpty else { return }
@@ -440,16 +577,21 @@ extension FluentUISampleTableViewController {
         modalView.layer.cornerRadius = 16
         modalView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         
-        // Set modal height
-        let modalHeight: CGFloat = UIScreen.main.bounds.height/2
+        // Set modal height to accommodate all form elements
+        let modalHeight: CGFloat = 600
         modalView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: modalHeight)
+        
+        // Create scroll view for content
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        modalView.addSubview(scrollView)
         
         // Create content stack view
         let stackView = UIStackView()
         stackView.axis = .vertical
         stackView.spacing = 16
         stackView.translatesAutoresizingMaskIntoConstraints = false
-        modalView.addSubview(stackView)
+        scrollView.addSubview(stackView)
         
         // Add drag indicator
         let dragIndicator = UIView()
@@ -458,36 +600,61 @@ extension FluentUISampleTableViewController {
         dragIndicator.translatesAutoresizingMaskIntoConstraints = false
         modalView.addSubview(dragIndicator)
         
-        // Task title
-        let titleLabel = UILabel()
-        titleLabel.text = task.name
-        titleLabel.font = .systemFont(ofSize: 24, weight: .bold)
-        titleLabel.numberOfLines = 0
+        // Task name text field (Material Design)
+        let taskNameTextField = MDCFilledTextField()
+        taskNameTextField.label.text = "Task Name"
+        taskNameTextField.leadingAssistiveLabel.text = "Enter task name"
+        taskNameTextField.text = task.name
+        taskNameTextField.clearButtonMode = .whileEditing
+        taskNameTextField.backgroundColor = .clear
+        taskNameTextField.translatesAutoresizingMaskIntoConstraints = false
         
-        // Task details
-        let detailsLabel = UILabel()
-        detailsLabel.text = task.taskDetails ?? "No details available"
-        detailsLabel.font = .systemFont(ofSize: 16)
-        detailsLabel.textColor = .secondaryLabel
-        detailsLabel.numberOfLines = 0
+        // Description text field (Material Design)
+        let descriptionTextField = MDCFilledTextField()
+        descriptionTextField.label.text = "Description (optional)"
+        descriptionTextField.leadingAssistiveLabel.text = "Add task details"
+        descriptionTextField.text = task.taskDetails ?? ""
+        descriptionTextField.placeholder = "Enter task description..."
+        descriptionTextField.clearButtonMode = .whileEditing
+        descriptionTextField.backgroundColor = .clear
+        descriptionTextField.translatesAutoresizingMaskIntoConstraints = false
         
-        // Due date
-        let dueDateLabel = UILabel()
-        let dueDateText = (task.dueDate as Date?)?.toTaskDisplayString() ?? "No due date"
-        dueDateLabel.text = "Due: \(dueDateText)"
-        dueDateLabel.font = .systemFont(ofSize: 14)
-        dueDateLabel.textColor = .systemBlue
+        // Project pill bar
+        let projectPillBar = createProjectPillBar(selectedProject: task.project ?? "Inbox")
+        projectPillBar.translatesAutoresizingMaskIntoConstraints = false
         
-        // Priority
-        let priorityLabel = UILabel()
-        priorityLabel.text = "Priority: \(getPriorityIcon(for: Int(task.taskPriority)))"
-        priorityLabel.font = .systemFont(ofSize: 14)
+        // Priority selector (Segmented Control)
+        let priorityItems = ["None", "Low", "High", "Highest"]
+        let prioritySegmentedControl = SegmentedControl(items: priorityItems.map { SegmentItem(title: $0) })
+        
+        // Set selected priority based on task priority
+        let priorityIndex: Int
+        switch Int(task.taskPriority) {
+        case 4: priorityIndex = 0 // None
+        case 3: priorityIndex = 1 // Low
+        case 2: priorityIndex = 2 // High
+        case 1: priorityIndex = 3 // Highest
+        default: priorityIndex = 1 // Default to Low
+        }
+        prioritySegmentedControl.selectedSegmentIndex = priorityIndex
+        prioritySegmentedControl.translatesAutoresizingMaskIntoConstraints = false
         
         // Action buttons container
         let buttonStackView = UIStackView()
         buttonStackView.axis = .horizontal
         buttonStackView.distribution = .fillEqually
         buttonStackView.spacing = 12
+        buttonStackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Save button
+        let saveButton = UIButton(type: .system)
+        saveButton.setTitle("Save Changes", for: .normal)
+        saveButton.backgroundColor = .systemBlue
+        saveButton.setTitleColor(.white, for: .normal)
+        saveButton.layer.cornerRadius = 8
+        saveButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        saveButton.addTarget(self, action: #selector(saveTaskToDatabase(_:)), for: .touchUpInside)
+        saveButton.tag = indexPath.section * 1000 + indexPath.row
         
         // Complete/Incomplete button
         let toggleButton = UIButton(type: .system)
@@ -497,38 +664,28 @@ extension FluentUISampleTableViewController {
         toggleButton.layer.cornerRadius = 8
         toggleButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
         toggleButton.addTarget(self, action: #selector(toggleTaskCompletion(_:)), for: .touchUpInside)
-        toggleButton.tag = indexPath.section * 1000 + indexPath.row // Store indexPath info
+        toggleButton.tag = indexPath.section * 1000 + indexPath.row
         
-        // Edit button
-        let editButton = UIButton(type: .system)
-        editButton.setTitle("Edit", for: .normal)
-        editButton.backgroundColor = .systemBlue
-        editButton.setTitleColor(.white, for: .normal)
-        editButton.layer.cornerRadius = 8
-        editButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        editButton.addTarget(self, action: #selector(editTask(_:)), for: .touchUpInside)
-        editButton.tag = indexPath.section * 1000 + indexPath.row
-        
-        // Close button
-        let closeButton = UIButton(type: .system)
-        closeButton.setTitle("Close", for: .normal)
-        closeButton.backgroundColor = .systemGray5
-        closeButton.setTitleColor(.label, for: .normal)
-        closeButton.layer.cornerRadius = 8
-        closeButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        closeButton.addTarget(self, action: #selector(closeSemiModal), for: .touchUpInside)
+        // Cancel button
+        let cancelButton = UIButton(type: .system)
+        cancelButton.setTitle("Cancel", for: .normal)
+        cancelButton.backgroundColor = .systemGray5
+        cancelButton.setTitleColor(.label, for: .normal)
+        cancelButton.layer.cornerRadius = 8
+        cancelButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        cancelButton.addTarget(self, action: #selector(closeSemiModal), for: .touchUpInside)
         
         // Add buttons to button stack
+        buttonStackView.addArrangedSubview(saveButton)
         buttonStackView.addArrangedSubview(toggleButton)
-        buttonStackView.addArrangedSubview(editButton)
         
         // Add all elements to main stack
-        stackView.addArrangedSubview(titleLabel)
-        stackView.addArrangedSubview(detailsLabel)
-        stackView.addArrangedSubview(dueDateLabel)
-        stackView.addArrangedSubview(priorityLabel)
+        stackView.addArrangedSubview(taskNameTextField)
+        stackView.addArrangedSubview(descriptionTextField)
+        stackView.addArrangedSubview(projectPillBar)
+        stackView.addArrangedSubview(prioritySegmentedControl)
         stackView.addArrangedSubview(buttonStackView)
-        stackView.addArrangedSubview(closeButton)
+        stackView.addArrangedSubview(cancelButton)
         
         // Set up constraints
         NSLayoutConstraint.activate([
@@ -538,24 +695,47 @@ extension FluentUISampleTableViewController {
             dragIndicator.widthAnchor.constraint(equalToConstant: 36),
             dragIndicator.heightAnchor.constraint(equalToConstant: 4),
             
+            // Scroll view
+            scrollView.topAnchor.constraint(equalTo: dragIndicator.bottomAnchor, constant: 20),
+            scrollView.leadingAnchor.constraint(equalTo: modalView.leadingAnchor, constant: 20),
+            scrollView.trailingAnchor.constraint(equalTo: modalView.trailingAnchor, constant: -20),
+            scrollView.bottomAnchor.constraint(equalTo: modalView.bottomAnchor, constant: -20),
+            
             // Stack view
-            stackView.topAnchor.constraint(equalTo: dragIndicator.bottomAnchor, constant: 20),
-            stackView.leadingAnchor.constraint(equalTo: modalView.leadingAnchor, constant: 20),
-            stackView.trailingAnchor.constraint(equalTo: modalView.trailingAnchor, constant: -20),
-            stackView.bottomAnchor.constraint(lessThanOrEqualTo: modalView.bottomAnchor, constant: -20),
+            stackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            stackView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+            
+            // Text field heights
+            taskNameTextField.heightAnchor.constraint(equalToConstant: 56),
+            descriptionTextField.heightAnchor.constraint(equalToConstant: 56),
+            
+            // Project pill bar height
+            projectPillBar.heightAnchor.constraint(equalToConstant: 60),
+            
+            // Priority segmented control height
+            prioritySegmentedControl.heightAnchor.constraint(equalToConstant: 44),
             
             // Button heights
+            saveButton.heightAnchor.constraint(equalToConstant: 44),
             toggleButton.heightAnchor.constraint(equalToConstant: 44),
-            editButton.heightAnchor.constraint(equalToConstant: 44),
-            closeButton.heightAnchor.constraint(equalToConstant: 44)
+            cancelButton.heightAnchor.constraint(equalToConstant: 44)
         ])
         
-        // Store current task for button actions
+        // Store references for button actions
         modalView.tag = indexPath.section * 1000 + indexPath.row
+        
+        // Store text fields and controls as associated objects for later access
+        objc_setAssociatedObject(modalView, "taskNameTextField", taskNameTextField, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        objc_setAssociatedObject(modalView, "descriptionTextField", descriptionTextField, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        objc_setAssociatedObject(modalView, "projectPillBar", projectPillBar, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        objc_setAssociatedObject(modalView, "prioritySegmentedControl", prioritySegmentedControl, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         
         // Present the semi modal
         let options: [SemiModalOption: Any] = [
-            .pushParentBack: true,
+            .pushParentBack: false,
             .animationDuration: 0.3,
             .parentAlpha: 0.7,
             .shadowOpacity: 0.3,
@@ -572,43 +752,136 @@ extension FluentUISampleTableViewController {
         let sectionIndex = tag / 1000
         let rowIndex = tag % 1000
         
-        guard sectionIndex < sampleData.count,
-              rowIndex < sampleData[sectionIndex].1.count else { return }
+        guard sectionIndex < toDoData.count,
+              rowIndex < toDoData[sectionIndex].1.count else { return }
         
-        let task = sampleData[sectionIndex].1[rowIndex]
+        let task = toDoData[sectionIndex].1[rowIndex]
         task.isComplete.toggle()
         
         do {
             try task.managedObjectContext?.save()
-            setupSampleData(for: selectedDate)
+            setupToDoData(for: selectedDate)
             dismissSemiModalView()
         } catch {
             print("Error saving task completion: \(error)")
         }
     }
     
-    @objc private func editTask(_ sender: UIButton) {
+    @objc private func saveTaskChanges(_ sender: UIButton) {
         let tag = sender.tag
         let sectionIndex = tag / 1000
         let rowIndex = tag % 1000
         
-        guard sectionIndex < sampleData.count,
-              rowIndex < sampleData[sectionIndex].1.count else { return }
+        guard sectionIndex < toDoData.count,
+              rowIndex < toDoData[sectionIndex].1.count else { return }
         
-        let task = sampleData[sectionIndex].1[rowIndex]
+        let task = toDoData[sectionIndex].1[rowIndex]
         
-        // Dismiss current modal first
-        dismissSemiModalView()
+        // Get the modal view and extract form values
+        guard let modalView = view.subviews.first(where: { $0.tag == tag }),
+              let taskNameTextField = objc_getAssociatedObject(modalView, "taskNameTextField") as? MDCFilledTextField,
+              let descriptionTextField = objc_getAssociatedObject(modalView, "descriptionTextField") as? MDCFilledTextField,
+              let prioritySegmentedControl = objc_getAssociatedObject(modalView, "prioritySegmentedControl") as? SegmentedControl,
+              let projectPillBarView = objc_getAssociatedObject(modalView, "projectPillBar") as? UIView else {
+            print("Could not find form elements")
+            return
+        }
         
-        // Present edit interface (you can implement this based on your existing edit functionality)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            // Add your existing task editing logic here
-            print("Edit task: \(task.name)")
+        // Update task with new values
+        if let newName = taskNameTextField.text, !newName.isEmpty {
+            task.name = newName
+        }
+        
+        task.taskDetails = descriptionTextField.text
+        
+        // Update project based on pill bar selection
+        if let pillBar = projectPillBarView.subviews.first(where: { $0 is PillButtonBar }) as? PillButtonBar,
+           let selectedItem = pillBar.selectedItem {
+            task.project = selectedItem.title
+        }
+        
+        // Update priority based on segmented control selection
+        switch prioritySegmentedControl.selectedSegmentIndex {
+        case 0: task.taskPriority = 4 // None
+        case 1: task.taskPriority = 3 // Low
+        case 2: task.taskPriority = 2 // High
+        case 3: task.taskPriority = 1 // Highest
+        default: task.taskPriority = 3 // Default to Low
+        }
+        
+        // Save changes
+        do {
+            try task.managedObjectContext?.save()
+            setupToDoData(for: selectedDate)
+            dismissSemiModalView()
+        } catch {
+            print("Error saving task changes: \(error)")
         }
     }
     
     @objc private func closeSemiModal() {
         dismissSemiModalView()
+    }
+    
+    // MARK: - Project Pill Bar Helper Methods
+    
+    private func createProjectPillBar(selectedProject: String) -> UIView {
+        let pillBarItems = buildProjectPillBarData()
+        let bar = PillButtonBar(pillButtonStyle: .primary)
+        bar.items = pillBarItems
+        
+        // Find and select the current project
+        if let selectedIndex = pillBarItems.firstIndex(where: { $0.title == selectedProject }) {
+            _ = bar.selectItem(atIndex: selectedIndex)
+        } else {
+            // Default to "Inbox" (index 0)
+            if !pillBarItems.isEmpty {
+                _ = bar.selectItem(atIndex: 0)
+            }
+        }
+        
+        bar.barDelegate = self
+        bar.centerAligned = false
+        
+        let backgroundView = UIView()
+        backgroundView.backgroundColor = .clear
+        backgroundView.addSubview(bar)
+        
+        // Set up constraints for the pill bar
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            bar.topAnchor.constraint(equalTo: backgroundView.topAnchor, constant: 8),
+            bar.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
+            bar.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor, constant: -8)
+        ])
+        
+        return backgroundView
+    }
+    
+    private func buildProjectPillBarData() -> [PillButtonBarItem] {
+        var pillBarItems: [PillButtonBarItem] = []
+        
+        // Use actual project data from ProjectManager
+        let allDisplayProjects = ProjectManager.sharedInstance.displayedProjects
+        
+        // Add all existing projects
+        for project in allDisplayProjects {
+            if let projectName = project.projectName {
+                pillBarItems.append(PillButtonBarItem(title: projectName))
+            }
+        }
+        
+        // Ensure "Inbox" is present and positioned first if it exists
+        let inboxTitle = ProjectManager.sharedInstance.defaultProject // "Inbox"
+        
+        // Remove any existing "Inbox" to avoid duplicates before re-inserting at correct position
+        pillBarItems.removeAll(where: { $0.title.lowercased() == inboxTitle.lowercased() })
+        
+        // Insert "Inbox" at the beginning
+        pillBarItems.insert(PillButtonBarItem(title: inboxTitle), at: 0)
+        
+        return pillBarItems
     }
     
     override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
@@ -619,12 +892,12 @@ extension FluentUISampleTableViewController {
     
     private func markTaskComplete(_ task: NTask) {
         task.isComplete = true
-        saveTaskChanges(task)
+        saveTask(task)
     }
     
     private func markTaskIncomplete(_ task: NTask) {
         task.isComplete = false
-        saveTaskChanges(task)
+        saveTask(task)
     }
     
     private func deleteTask(_ task: NTask) {
@@ -639,7 +912,7 @@ extension FluentUISampleTableViewController {
         do {
             try context.save()
             // Refresh the data to remove the deleted task from the view
-            setupSampleData(for: selectedDate)
+            setupToDoData(for: selectedDate)
             
             // Update any charts or scoring calculations that depend on this task
             // The task deletion will automatically remove its score from daily calculations
@@ -658,17 +931,44 @@ extension FluentUISampleTableViewController {
         }
     }
     
-    private func saveTaskChanges(_ task: NTask) {
+    @objc private func saveTaskToDatabase(_ sender: UIButton) {
+        let tag = sender.tag
+        let sectionIndex = tag / 1000
+        let rowIndex = tag % 1000
+        
+        guard sectionIndex < toDoData.count,
+              rowIndex < toDoData[sectionIndex].1.count else { return }
+        
+        let task = toDoData[sectionIndex].1[rowIndex]
+        
         do {
             try task.managedObjectContext?.save()
             // Refresh the data and reload the specific cell
-            setupSampleData(for: selectedDate)
+            setupToDoData(for: selectedDate)
         } catch {
             print("Error saving task changes: \(error)")
             // Show error alert
             let alert = UIAlertController(
                 title: "Error",
                 message: "Failed to save task changes. Please try again.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+        }
+    }
+    
+    private func saveTask(_ task: NTask) {
+        do {
+            try task.managedObjectContext?.save()
+            // Refresh the data
+            setupToDoData(for: selectedDate)
+        } catch {
+            print("Error saving task: \(error)")
+            // Show error alert
+            let alert = UIAlertController(
+                title: "Error",
+                message: "Failed to save task. Please try again.",
                 preferredStyle: .alert
             )
             alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -729,7 +1029,7 @@ extension FluentUISampleTableViewController {
     
     private func rescheduleTask(_ task: NTask, to date: Date) {
         task.dueDate = date as NSDate
-        saveTaskChanges(task)
+        saveTask(task)
         
         // Show confirmation
         let formatter = DateFormatter()
@@ -915,6 +1215,16 @@ class RescheduleViewController: UIViewController {
     
     @objc private func doneTapped() {
         selectDate(datePicker.date)
+    }
+}
+
+// MARK: - PillButtonBarDelegate
+
+extension FluentUIToDoTableViewController: PillButtonBarDelegate {
+    func pillBar(_ pillBar: PillButtonBar, didSelectItem item: PillButtonBarItem, atIndex index: Int) {
+        print("Project pill bar item selected: \(item.title) at index \(index)")
+        // Store the selected project for saving later
+        // The project selection will be handled when the user taps "Save Changes"
     }
 }
 
