@@ -196,11 +196,6 @@ extension AddTaskViewController {
     self.fab_doneTask.addTarget(self, action: #selector(self.doneAddTaskAction), for: .touchUpInside)
 }
 
-//MARK:- DONE TASK ACTION
-// doneAddTaskAction() method removed to fix duplicate declaration
-
-//MARK:- CANCEL TASK ACTION
-// cancelAddTaskAction() method removed to fix duplicate declaration
 
     func getTaskType() -> Int {
         return self.isThisEveningTask ? 2 : 1

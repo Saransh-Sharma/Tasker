@@ -183,7 +183,6 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         self.setupBottomAppBar()
         view.addSubview(bottomAppBar)
         
-        // Removed - tableView is no longer used, FluentUI table is added in setupSampleTableView
         foredropContainer.backgroundColor = UIColor.green
         backdropContainer.backgroundColor = UIColor.clear
         // Setup table view
@@ -205,10 +204,14 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         super.viewWillAppear(true)
         
         // Reload data for current view type
-        updateViewForHome(viewType: currentViewType)
+//        updateViewForHome(viewType: currentViewType)
         
-        // Animate table view reload
-        animateTableViewReload()
+        DispatchQueue.main.async { [weak self] in 
+            self?.fluentToDoTableViewController?.tableView.reloadData()
+            // Animate table view reload
+//            self?.animateTableViewReload()
+        }
+
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -494,29 +497,84 @@ extension HomeViewController {
 
 extension HomeViewController: AddTaskViewControllerDelegate {
     func didAddTask(_ task: NTask) {
-        print("🔄 AddTask: didAddTask called for task: \(task.name) -- ")
+        print("🔄 AddTask: didAddTask called for task: \(task.name) with due date: \(task.dueDate ?? Date() as NSDate)")
         
-        // This ensures that any changes made in other contexts (like AddTaskViewController) 
-        // are immediately visible in this context
+        // Step 1: Save the Core Data context to ensure the new task is persisted
+        do {
+            try TaskManager.sharedInstance.context.save()
+            print("💾 AddTask: Context saved successfully")
+        } catch {
+            print("❌ AddTask: Failed to save context: \(error)")
+            return // Exit early if save fails
+        }
+        
+        // Step 2: Refresh the context to get the latest data from persistent store
         TaskManager.sharedInstance.context.refreshAllObjects()
         
-        // Additional step: Process pending changes to ensure consistency
+        // Step 3: Process pending changes to ensure consistency
         TaskManager.sharedInstance.context.processPendingChanges()
         
-        // Replicate EXACTLY what calendar date selection does
+        // Step 4: Update the view on the main queue
         DispatchQueue.main.async {
-            print("🔄 AddTask: Replicating calendar date selection behavior")
+            print("🔄 AddTask: Updating view on main queue")
             
-            // Determine if we're viewing today or a custom date
-            if self.dateForTheView == Date.today() {
-                print("🔄 AddTask: Refreshing TODAY view")
+            // Compare dates properly using startOfDay to ignore time differences
+            let todayStartOfDay = Date.today().startOfDay
+            let viewDateStartOfDay = self.dateForTheView.startOfDay
+            let taskDueDateStartOfDay = (task.dueDate as Date?)?.startOfDay ?? Date().startOfDay
+            
+            print("📅 AddTask: Today: \(todayStartOfDay)")
+            print("📅 AddTask: View date: \(viewDateStartOfDay)")
+            print("📅 AddTask: Task due date: \(taskDueDateStartOfDay)")
+            
+            // Step 5: Determine the correct view type and update accordingly
+            // Ensure the view is updated with the correct date context before reloading data.
+            // This will repopulate ToDoListSections which is the datasource for the table.
+            if self.currentViewType == .todayHomeView && taskDueDateStartOfDay == todayStartOfDay {
+                print("🔄 AddTask: Refreshing TODAY view for a new task due today")
                 self.updateViewForHome(viewType: .todayHomeView)
-            } else {
-                print("🔄 AddTask: Refreshing CUSTOM DATE view for: \(self.dateForTheView)")
+            } else if self.currentViewType == .customDateView && taskDueDateStartOfDay == viewDateStartOfDay {
+                print("🔄 AddTask: Refreshing CUSTOM DATE view for a new task due on this custom date: \(self.dateForTheView)")
                 self.updateViewForHome(viewType: .customDateView, dateForView: self.dateForTheView)
+            } else if self.currentViewType == .allProjectsGrouped {
+                 print("🔄 AddTask: Refreshing ALL PROJECTS GROUPED view")
+                 self.updateViewForHome(viewType: .allProjectsGrouped)
+            } else if self.currentViewType == .projectView {
+                print("🔄 AddTask: Refreshing PROJECT view for project: \(self.projectForTheView)")
+                 self.updateViewForHome(viewType: .projectView)
+            } else {
+                // Fallback: If the task is for today and current view is today, refresh today view.
+                // Otherwise, if task is for the currently viewed date, refresh that.
+                // This handles cases where currentViewType might not be explicitly today/custom but the new task is relevant.
+                if taskDueDateStartOfDay == todayStartOfDay {
+                     print("🔄 AddTask: Fallback - Refreshing TODAY view as task is for today")
+                     self.updateViewForHome(viewType: .todayHomeView)
+                } else if taskDueDateStartOfDay == viewDateStartOfDay {
+                    print("🔄 AddTask: Fallback - Refreshing CUSTOM DATE view as task is for \(self.dateForTheView)")
+                    self.updateViewForHome(viewType: .customDateView, dateForView: self.dateForTheView)
+                } else {
+                    print("ℹ️ AddTask: New task is not for the current view's date (Today or \(viewDateStartOfDay)). Current view might not immediately show it unless it's an 'All Tasks' or relevant project view.")
+                    // Optionally, you could switch the view to the task's due date if desired UX
+                    // For now, we just ensure the current view is refreshed based on its existing context.
+                    // The task will appear if the user navigates to its due date or an encompassing view.
+                    self.updateViewForHome(viewType: self.currentViewType, dateForView: self.dateForTheView) // Refresh current view
+                }
             }
             
-            print("✅ AddTask: View refreshed using calendar selection pattern")
+            // Step 6: Force reload the table view to ensure UI is updated with the potentially new data from updateViewForHome
+            print("🔄 AddTask: Reloading table data")
+            // Sync FluentUI table data with updated tasks
+            self.fluentToDoTableViewController?.updateData(for: self.dateForTheView)
+            self.fluentToDoTableViewController?.tableView.reloadData()
+            
+            // Step 7: Check if the new task should be visible in current view (logging purpose)
+            if taskDueDateStartOfDay == viewDateStartOfDay {
+                print("✅ AddTask: New task *should* be visible if current view is for \(viewDateStartOfDay)")
+            } else {
+                print("ℹ️ AddTask: New task due on \(taskDueDateStartOfDay) won't appear in view for \(viewDateStartOfDay) unless it's a broader view type (e.g., All Tasks).")
+            }
+            
+            print("🔄 AddTask: View update completed")
         }
     }
 }

@@ -81,8 +81,8 @@ extension HomeViewController {
             // Update header
             toDoListHeaderLabel.text = "Today"
             dateForTheView = Date.today()
-            print("\n=== SWITCHING TO TODAY VIEW ===")
-            print("Date set to: \(dateForTheView)")
+            print("\n AddTask === SWITCHING TO TODAY VIEW ===")
+            print("AddTask Date set to: \(dateForTheView)")
             loadTasksForDateGroupedByProject()
             
         case .customDateView:
@@ -90,9 +90,9 @@ extension HomeViewController {
             let formatter = DateFormatter()
             formatter.dateFormat = "E, MMM d"
             toDoListHeaderLabel.text = formatter.string(from: dateForTheView)
-            print("\n=== SWITCHING TO CUSTOM DATE VIEW ===")
-            print("Date set to: \(dateForTheView)")
-            print("Header text: \(formatter.string(from: dateForTheView))")
+            print("\nAddTask === SWITCHING TO CUSTOM DATE VIEW ===")
+            print("AddTask Date set to: \(dateForTheView)")
+            print("AddTask Header text: \(formatter.string(from: dateForTheView))")
             loadTasksForDateGroupedByProject()
             
         case .projectView:

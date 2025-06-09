@@ -62,10 +62,11 @@ extension AddTaskViewController {
     @objc func doneAddTaskAction() {
         guard !currentTaskInMaterialTextBox.isEmpty else { return }
         
-        print("💾 AddTask: Starting task creation process...")
-        print("💾 AddTask: Task name: '\(currentTaskInMaterialTextBox)'")
-        print("💾 AddTask: Due date: \(dateForAddTaskView)")
-        print("💾 AddTask: Project: '\(currenttProjectForAddTaskView)'")
+        print(" AddTask: Starting task creation process...")
+        print(" AddTask: Task name: '\(currentTaskInMaterialTextBox)'")
+        print(" AddTask: Due date: \(dateForAddTaskView)")
+        print(" AddTask: Project: '\(currenttProjectForAddTaskView)'")
+        print(" AddTask: Delegate is set: \(delegate != nil)")
         
         // Use the selected calendar date as the due date
         let newTask = TaskManager.sharedInstance.addNewTask_Future(
@@ -77,21 +78,30 @@ extension AddTaskViewController {
             project: currenttProjectForAddTaskView
         )
         
-        print("💾 AddTask: Task created with ID: \(newTask.objectID)")
+        print(" AddTask: Task created with ID: \(newTask.objectID)")
         
         // Update the task details with the description if provided
         if !currentTaskDescription.isEmpty {
-            print("💾 AddTask: Updating task details...")
+            print(" AddTask: Updating task details...")
             newTask.taskDetails = currentTaskDescription
             TaskManager.sharedInstance.saveContext()
-            print("💾 AddTask: Task details saved to Core Data")
+            print(" AddTask: Task details saved to Core Data")
         }
         
-        print("💾 AddTask: About to notify delegate...")
-        // Notify delegate that a new task was added
-        delegate?.didAddTask(newTask)
-        print("💾 AddTask: Delegate notified, dismissing view...")
+        // Ensure Core Data changes are fully processed before notifying delegate
+        TaskManager.sharedInstance.context.processPendingChanges()
         
-        dismiss(animated: true)
+        // Dismiss view and notify delegate after dismissal
+        print(" AddTask: Dismissing view and will notify delegate after dismissal")
+        dismiss(animated: true) {
+            print(" AddTask: Notifying delegate after dismissal...")
+            if let delegate = self.delegate {
+                print(" AddTask: Calling delegate.didAddTask() after dismissal")
+                delegate.didAddTask(newTask)
+                print(" AddTask: Delegate notified successfully after dismissal")
+            } else {
+                print(" AddTask: ERROR - Delegate is nil after dismissal!")
+            }
+        }
     }
 }
