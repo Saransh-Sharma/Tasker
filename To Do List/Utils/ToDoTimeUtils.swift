@@ -33,3 +33,45 @@ class ToDoTimeUtils {
     }
     
 }
+
+// MARK: - Calendar Extension
+extension Calendar {
+    func daysWithSameWeekOfYear(as date: Date) -> [Date] {
+        let calendar = Calendar.autoupdatingCurrent
+        let weekOfYear = calendar.component(.weekOfYear, from: date)
+        let year = calendar.component(.year, from: date)
+        
+        // Find the first day of the week
+        guard let firstDayOfWeek = calendar.date(from: DateComponents(weekOfYear: weekOfYear, yearForWeekOfYear: year)) else {
+            return []
+        }
+        
+        // Create array of all 7 days in the week
+        var days: [Date] = []
+        for day in 0..<7 {
+            if let date = calendar.date(byAdding: .day, value: day, to: firstDayOfWeek) {
+                days.append(date)
+            }
+        }
+        
+        return days
+    }
+}
+
+// MARK: - Date Extension
+extension Date {
+    func onSameDay(as date: Date) -> Bool {
+        let calendar = Calendar.current
+        return calendar.isDate(self, inSameDayAs: date)
+    }
+    
+    // hour property moved to DateUtils.swift
+}
+
+// MARK: - ToDoTimeUtils Extension
+extension ToDoTimeUtils {
+    func isNightTime(date: Date) -> Bool {
+        // Consider evening/night time to be 8 PM (20:00) or later
+        return date.hour >= 20
+    }
+}

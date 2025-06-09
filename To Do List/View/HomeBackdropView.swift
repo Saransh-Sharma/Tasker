@@ -20,13 +20,13 @@ extension HomeViewController {
         backdropContainer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
         headerEndY = UIScreen.main.bounds.height/8
         setupBackdropBackground()
-        addTinyChartToBackdrop()
+        // addTinyChartToBackdrop() - removed pie chart
         setupBackdropNotch()
         setupHomeDateView()
         updateHomeViewDate(dateToDisplay: dateForTheView)
         setupLineChartView()
         updateLineChartData()
-        lineChartView.isHidden = true //remove this from here hadle elsewhere in a fuc that hides all
+        lineChartView.isHidden = false // Show chart by default with sample data
         
         // cal
         setupCalView()
@@ -37,13 +37,14 @@ extension HomeViewController {
         setupChartButton()
         setupTopSeperator()
         
-        self.setupPieChartView(pieChartView: tinyPieChartView)
-        updateTinyPieChartData()
-        tinyPieChartView.delegate = self
+        // Pie chart setup removed
+        // self.setupPieChartView(pieChartView: tinyPieChartView)
+        // updateTinyPieChartData()
+        // tinyPieChartView.delegate = self
         
-        // entry label styling
-        tinyPieChartView.entryLabelColor = .clear
-        tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .bold)
+        // entry label styling - removed
+        // tinyPieChartView.entryLabelColor = .clear
+        // tinyPieChartView.entryLabelFont = .systemFont(ofSize: 12, weight: .bold)
         
         backdropContainer.bringSubviewToFront(calendar)
         // remember original position for restore
@@ -125,8 +126,9 @@ extension HomeViewController {
     }
     
     func addTinyChartToBackdrop() {
-        tinyPieChartView.frame = CGRect(x: homeTopBar.frame.maxX-(homeTopBar.frame.height + 10), y: homeTopBar.frame.minY + 15, width: (homeTopBar.frame.height)+41, height: (homeTopBar.frame.height)+41)
-        backdropContainer.addSubview(tinyPieChartView)
+        // Pie chart removed - method disabled
+        // tinyPieChartView.frame = CGRect(x: homeTopBar.frame.maxX-(homeTopBar.frame.height + 10), y: homeTopBar.frame.minY + 15, width: (homeTopBar.frame.height)+41, height: (homeTopBar.frame.height)+41)
+        // backdropContainer.addSubview(tinyPieChartView)
     }
     
     //----------------------- *************************** -----------------------

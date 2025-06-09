@@ -35,7 +35,7 @@ extension SettingsPageViewController {
         homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
         
         
-        var settingsTitle = UILabel()
+        let settingsTitle = UILabel()
         settingsTitle.frame =  CGRect(x: 0, y: 10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
         settingsTitle.text = "Settings"
         

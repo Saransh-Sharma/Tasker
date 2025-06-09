@@ -22,29 +22,7 @@ extension AddTaskViewController {
     
     
     
-    func setupAddTaskForedrop() {
-        
-        print("Backdrop starts from: \(self.headerEndY)") //this is key to the whole view; charts, cal,
-        self.foredropStackContainer.frame = CGRect(x: 0, y: self.homeTopBar.frame.maxY*2.2, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height-self.headerEndY)
-        
-        
-        self.setupBackdropForeground()
-        //        self.foredropStackContainer.backgroundColor = .black
-        
-        self.setupAddTaskTextField()
-        self.foredropStackContainer.addArrangedSubview(UIView())
-        
-        self.setupProjectsPillBar()
-        self.foredropStackContainer.addArrangedSubview(UIView())
-        
-        self.setupPrioritySC()
-        self.foredropStackContainer.addArrangedSubview(UIView())
-        
-        //        self.setupDoneButton()
-        self.foredropStackContainer.addArrangedSubview(UIView())
-        
-        
-    }
+    // setupAddTaskForedrop() method removed to fix duplicate declaration
     
     //----------------------- *************************** -----------------------
     //MARK:-              BACKDROP PATTERN 2: SETUP FOREGROUND
@@ -71,118 +49,7 @@ extension AddTaskViewController {
     //MARK:-                    Setup Projects Pill Bar
     //----------------------- *************************** -----------------------
     
-    func setupProjectsPillBar() {
-        print("AddTaskViewController: setupProjectsPillBar called")
 
-        // Remove existing filledBar
-        if let existing = self.filledBar, existing.superview == self.foredropStackContainer {
-            self.foredropStackContainer.removeArrangedSubview(existing)
-            existing.removeFromSuperview()
-            self.filledBar = nil
-        }
-
-        // Build data
-        self.buildProojectsPillBarData()
-
-        // Only add bar if data available
-        guard !self.pillBarProjectList.isEmpty else {
-            print("AddTaskViewController: pillBarProjectList is empty, not creating filledBar.")
-            self.filledBar = nil
-            return
-        }
-
-        // Create and add new bar
-        self.filledBar = self.createProjectsBar(items: self.pillBarProjectList)
-        self.foredropStackContainer.addArrangedSubview(self.filledBar!)
-        self.filledBar!.backgroundColor = .clear
-
-        // Initial visibility based on text content
-        let currentText = self.addTaskTextBox_Material.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        self.filledBar!.isHidden = currentText.isEmpty
-        print("AddTaskViewController: setupProjectsPillBar - filledBar.isHidden set to: \(self.filledBar!.isHidden)")
-    }
-    
-    func buildProojectsPillBarData() {
-        // ProjectManager's data is expected to be refreshed by AddTaskViewController's viewWillAppear.
-        
-        let allDisplayProjects = ProjectManager.sharedInstance.displayedProjects // Use displayedProjects instead of getAllProjects
-        
-        self.pillBarProjectList = [] // Reset the list
-        
-        // 1. Add the static "Add Project" button first
-        self.pillBarProjectList.append(PillButtonBarItem(title: self.addProjectString)) // `addProjectString` should be defined, e.g., "Add Project"
-        
-        // 2. Add all existing projects
-        for each in allDisplayProjects {
-            if let projectName = each.projectName {
-                print("do9 added to pill bar, from ProjectManager: \(projectName)")
-                self.pillBarProjectList.append(PillButtonBarItem(title: projectName))
-            }
-        }
-        
-        // 2. Add actual projects from ProjectManager
-        // `displayedProjects` should already have "Inbox" sorted appropriately if it exists.
-        for project in allDisplayProjects {
-            if let projectName = project.projectName {
-                // Ensure we don't add "Add Project" if it accidentally exists as a project name
-                if projectName.lowercased() != addProjectString.lowercased() {
-                    // Avoid duplicates in pillBarProjectList
-                    if !pillBarProjectList.contains(where: { $0.title.lowercased() == projectName.lowercased() }) {
-                        pillBarProjectList.append(PillButtonBarItem(title: projectName))
-                    }
-                }
-            }
-        }
-        
-        // 3. Ensure "Inbox" is present and correctly positioned (second item, after "Add Project")
-        let inboxTitle = ProjectManager.sharedInstance.defaultProject // "Inbox"
-        let addProjectItemTitle = addProjectString
-        
-        // Remove any existing "Inbox" to avoid duplicates before re-inserting at correct position
-        pillBarProjectList.removeAll(where: { $0.title.lowercased() == inboxTitle.lowercased() })
-        
-        // Find index of "Add Project"
-        if let addProjectPillIndex = pillBarProjectList.firstIndex(where: { $0.title.lowercased() == addProjectItemTitle.lowercased() }) {
-            // Insert "Inbox" right after "Add Project" if "Add Project" exists
-            if pillBarProjectList.count > addProjectPillIndex {
-                pillBarProjectList.insert(PillButtonBarItem(title: inboxTitle), at: addProjectPillIndex + 1)
-                print("do9 - Ensured 'Inbox' is the second item in pillBarProjectList after 'Add Project'.")
-            }
-        } else {
-            // This case should ideally not happen if "Add Project" is always added first.
-            // As a fallback, add "Inbox" and then "Add Project" if "Add Project" was missing.
-            pillBarProjectList.insert(PillButtonBarItem(title: inboxTitle), at: 0)
-            pillBarProjectList.insert(PillButtonBarItem(title: addProjectItemTitle), at: 0)
-            print("do9 - Fallback: Added 'Add Project' and 'Inbox' to the start of pillBarProjectList.")
-        }
-        
-        // Log the final list for verification
-        print("do9 - Final pillBarProjectList for AddTaskScreen setup:")
-        for (index, value) in pillBarProjectList.enumerated() {
-            print("do9 --- AT INDEX \(index) value is \(value.title)")
-        }
-    }
-    
-    
-    func createProjectsBar(items: [PillButtonBarItem], centerAligned: Bool = false) -> UIView {
-        let bar = PillButtonBar()
-        bar.items = items
-        if items.count > 1 {
-            bar.selectItem(atIndex: 1) // Default to "Inbox" (index 1)
-        } else if !items.isEmpty {
-            bar.selectItem(atIndex: 0) // Fallback to first item if only one exists
-        }
-        bar.barDelegate = self
-        bar.centerAligned = centerAligned
-        
-        let backgroundView = UIView()
-        backgroundView.backgroundColor = .clear
-        
-        backgroundView.addSubview(bar)
-        let margins = UIEdgeInsets(top: 16.0, left: 0, bottom: 16.0, right: 0.0)
-        fitViewIntoSuperview(bar, margins: margins)
-        return backgroundView
-    }
     
     func fitViewIntoSuperview(_ view: UIView, margins: UIEdgeInsets) {
         guard let superview = view.superview else {
@@ -203,14 +70,12 @@ extension AddTaskViewController {
         
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         self.addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
-        //        addTaskTextBox_Material.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
-        self.addTaskTextBox_Material.label.text = "add task & tap done"
-        self.addTaskTextBox_Material.leadingAssistiveLabel.text = "add actionable items"
-        //        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
+        self.addTaskTextBox_Material.label.text = "Task Name"
+        self.addTaskTextBox_Material.leadingAssistiveLabel.text = "Enter task name"
         
         self.addTaskTextBox_Material.sizeToFit()
         
-        self.addTaskTextBox_Material.delegate = self //v
+        self.addTaskTextBox_Material.delegate = self
         self.addTaskTextBox_Material.clearButtonMode = .whileEditing
         let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
                                     "schedule 1:1 with Shelly","grab 401k from mail box",
@@ -218,14 +83,11 @@ extension AddTaskViewController {
                                     "book flight tickets to Thailand", "fix the garage door",
                                     "order Cake", "review subscriptions", "get coffee"]
         self.addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
-        //        addTaskTextBox_Material.sizeToFit()
+        self.addTaskTextBox_Material.returnKeyType = .go
         
         self.addTaskTextBox_Material.backgroundColor = .clear
         
-        
-        self.foredropStackContainer.addArrangedSubview(self.addTaskTextBox_Material)
-        
-        
+        // Don't add to stack container here - it's added in viewDidLoad
     }
     
     func setupEveningTaskSwitch() {
@@ -273,9 +135,9 @@ extension AddTaskViewController {
             self.changeTaskPriority(segmented)
         }
         
-        // 5) Keep a reference and insert into your stack
+        // 5) Keep a reference
         self.tabsSegmentedControl = segmented
-        self.foredropStackContainer.addArrangedSubview(segmented)
+        // Don't add to stack container here - it's added in viewDidLoad
     }
     //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
     @objc func changeTaskPriority(_ sender: SegmentedControl) { // Corrected sender type
@@ -302,7 +164,7 @@ extension AddTaskViewController {
     func setupDoneButton() {
     // MARK:---FAB - DONE Task
     
-    let doneButtonHeightWidth: CGFloat = 50
+    let _ = 50 // doneButtonHeightWidth - unused
     
     self.fab_doneTask.mode = .expanded
     self.fab_doneTask.setTitle("Done", for: .normal)
@@ -330,65 +192,15 @@ extension AddTaskViewController {
     
     self.fab_doneTask.isHidden = self.addTaskTextBox_Material.text?.isEmpty ?? true // Aligned with other UI elements
     
-    self.foredropStackContainer.addArrangedSubview(self.fab_doneTask)
+    // Don't add to stack container here - it's added in viewDidLoad
     self.fab_doneTask.addTarget(self, action: #selector(self.doneAddTaskAction), for: .touchUpInside)
 }
 
 //MARK:- DONE TASK ACTION
-@objc func doneAddTaskAction() {
-    //       tap DONE --> add new task + nav homeScreen
-    //MARK:- ADD TASK ACTION
-    self.isThisEveningTask = self.isEveningSwitchOn(sender: self.eveningSwitch)
-    //        var taskDueDate = Date()
-    print("task: User tapped done button at add task")
-    if self.currentTaskInMaterialTextBox != "" {
-        
-        print("Adding task: \(self.currentTaskInMaterialTextBox)")
-        print("Priority is: \(self.currentTaskPriority)")
-        print("Add ask projet is: \(self.currenttProjectForAddTaskView)")
-        
-        print("Addig task for date: \(self.dateForAddTaskView.stringIn(dateStyle: .full, timeStyle: .none))")
-        
-        let taskType = self.getTaskType() // This call should now work
-        TaskManager.sharedInstance.addNewTask_Future(name: self.currentTaskInMaterialTextBox, taskType: taskType, taskPriority: self.currentTaskPriority, futureTaskDate: self.dateForAddTaskView, isEveningTask: self.isThisEveningTask, project: self.currenttProjectForAddTaskView)
-        
-        HUD.shared.showSuccess(from: self, with: "Added to\n\(self.currenttProjectForAddTaskView)")
-        
-        let addTaskEvent = "Add_NEW_Task"
-        Analytics.logEvent(AnalyticsEventSelectContent, parameters: [
-            AnalyticsParameterItemID: "id-\(addTaskEvent)",
-            AnalyticsParameterItemName: addTaskEvent,
-            AnalyticsParameterContentType: "cont"
-        ])
-        
-    } else {
-        HUD.shared.showFailure(from: self, with: "Nothing Added")
-    }
-    
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-        // your code here
-        
-        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
-        newViewController.modalPresentationStyle = .fullScreen
-        //        self.present(newViewController, animated: true, completion: nil)
-        self.present(newViewController, animated: true, completion: { () in
-            print("SUCCESS !!!")
-            //                HUD.shared.showSuccess(from: self, with: "Success")
-            
-        })
-    }
-}
+// doneAddTaskAction() method removed to fix duplicate declaration
 
 //MARK:- CANCEL TASK ACTION
-@objc func cancelAddTaskAction() {
-    //       tap CANCEL --> homeScreen
-    let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-    let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
-    newViewController.modalPresentationStyle = .fullScreen
-    //        self.present(newViewController, animated: true, completion: nil) //Doesn't look like cancel
-    self.dismiss(animated: true) //this looks more like cancel compared to above
-}
+// cancelAddTaskAction() method removed to fix duplicate declaration
 
     func getTaskType() -> Int {
         return self.isThisEveningTask ? 2 : 1

@@ -34,6 +34,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
         TaskManager.sharedInstance.fixMissingTasksDataWithDefaults()
         
+        // Configure the dependency container
+        DependencyContainer.shared.configure(with: persistentContainer)
+        
         // 2) Observe remote-change notifications so your viewContext merges them
         NotificationCenter.default.addObserver(
             self,
@@ -155,21 +158,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Perform merging on the context's queue to avoid threading issues
         context.perform { // Changed from performAndWait to perform for potentially better responsiveness
             print("AppDelegate: Handling persistent store remote change notification.")
-            do {
-                context.mergeChanges(fromContextDidSave: notification) // Correct method signature
-                print("AppDelegate: Successfully merged changes from remote store.")
+            context.mergeChanges(fromContextDidSave: notification) // Correct method signature
+            print("AppDelegate: Successfully merged changes from remote store.")
 
-                // **CRITICAL: Call consolidation logic after merging CloudKit changes**
-                ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
-                TaskManager.sharedInstance.fixMissingTasksDataWithDefaults() // Re-check tasks
+            // **CRITICAL: Call consolidation logic after merging CloudKit changes**
+            ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
+            TaskManager.sharedInstance.fixMissingTasksDataWithDefaults() // Re-check tasks
+            
+            // Notify repository system about potential data changes
+            NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
 
-                // Consider posting a custom notification if UI needs to react strongly to these background changes
-                // NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
-
-            } catch {
-                print("AppDelegate: Error merging changes from remote store: \(error)")
-                // Handle or log the merge error appropriately
-            }
+            // Consider posting a custom notification if UI needs to react strongly to these background changes
+            // NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
         }
     }
     

@@ -20,4 +20,9 @@ class ToDoColors {
     var secondaryAccentColor = #colorLiteral(red: 0.9824339747, green: 0.5298179388, blue: 0.176022768, alpha: 1)//UIColor.systemOrange
     var completeTaskSwipeColor = UIColor(red: 46/255.0, green: 204/255.0, blue: 113/255.0, alpha: 1.0)
     
+    // Added missing properties for refactored code
+    var darkModeColor = UIColor.black
+    var primaryTextColor = UIColor.label
+    var foregroundColor = UIColor.systemBackground
+    
 }

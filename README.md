@@ -48,6 +48,248 @@ The `To Do List/View/` directory houses a variety of custom UI components, inclu
 
 ### Architecture Layers
 
+## Deep Analysis: TaskManager Architecture & Evolution
+
+### TaskManager: The Legacy Foundation
+
+`TaskManager` serves as the central hub for all task-related operations in the Tasker application. As a singleton class (`TaskManager.sharedInstance`), it provides a unified interface for task management across the entire application.
+
+#### Core Responsibilities
+
+**1. Core Data Management**
+- Manages the Core Data `NSManagedObjectContext` for database operations
+- Handles CRUD operations for `NTask` entities
+- Provides context saving and error handling
+
+**2. Task Type Management**
+- Defines `TaskType` enum: `.morning`, `.evening`, `.upcoming`
+- Defines `TaskPriority` enum: `.low`, `.medium`, `.high`
+- Manages task categorization and filtering
+
+**3. Task Lifecycle Operations**
+```swift
+// Core CRUD Operations
+func addNewMorningTaskWithName(name: String, project: String)
+func addNewEveningTaskWithName(name: String, project: String)
+func toggleTaskComplete(task: NTask)
+func removeTaskAtIndex(index: Int)
+func reschedule(task: NTask, to date: Date)
+```
+
+**4. Advanced Query Interface**
+- Date-based filtering (today, overdue, specific dates)
+- Project-based filtering
+- Completion status filtering
+- Complex predicate-based queries using `NSPredicate`
+
+#### Key Methods Analysis
+
+**Task Retrieval Methods:**
+- `getTasksForInboxForDate_All(date:)` - Inbox tasks for specific date
+- `getTasksForProjectByName(projectName:)` - All tasks for a project
+- `getTasksForAllCustomProjectsByNameForDate_Open(date:)` - Open custom project tasks
+- `getTasksDueToday()` - Tasks due today
+- `getTasksCompletedToday()` - Completed tasks for today
+- `getOverdueTasks()` - Overdue incomplete tasks
+
+**Data Integrity Methods:**
+- `fixMissingTasksDataWithDefaults()` - Ensures data consistency
+- `saveContext()` - Persists changes to Core Data
+- `fetchTasks(predicate:sortDescriptors:)` - Generic fetch with filtering
+
+### Architectural Evolution: From Monolith to Clean Architecture
+
+#### Phase 1: Legacy Architecture (Pre-2025)
+```
+┌─────────────────┐
+│  View Controllers│
+│        ↓        │
+│   TaskManager   │ ← Singleton, tightly coupled
+│        ↓        │
+│   Core Data     │
+└─────────────────┘
+```
+
+**Challenges:**
+- Tight coupling between UI and data layer
+- Difficult to test due to singleton dependencies
+- Mixed responsibilities (UI logic + data access)
+- Hard to mock for unit testing
+
+#### Phase 2: Repository Pattern Introduction (2025)
+```
+┌─────────────────┐
+│  View Controllers│
+│        ↓        │
+│ TaskRepository  │ ← Protocol-based abstraction
+│        ↓        │
+│CoreDataTaskRepo │ ← Concrete implementation
+│        ↓        │
+│   Core Data     │
+└─────────────────┘
+```
+
+**Improvements:**
+- Protocol-based abstraction (`TaskRepository`)
+- Dependency injection via `DependencyContainer`
+- Background context operations for better performance
+- `TaskData` struct for UI decoupling
+
+#### Phase 3: Clean Architecture Target
+```
+┌─────────────────┐
+│ Presentation    │ ← SwiftUI/UIKit Views
+│        ↓        │
+│ Domain          │ ← Business Logic & Use Cases
+│        ↓        │
+│ Data            │ ← Repository Pattern
+│        ↓        │
+│ Infrastructure  │ ← Core Data, Network, etc.
+└─────────────────┘
+```
+
+### Current State: Hybrid Architecture
+
+The application currently operates in a **hybrid state** where:
+
+**Legacy Components (TaskManager):**
+- Still used extensively throughout the codebase
+- Provides backward compatibility
+- Handles complex business logic and data validation
+- Used in: `HomeViewController`, `AddTaskViewController`, `ProjectManager`
+
+**Modern Components (TaskRepository):**
+- Used in newer view controllers like `TaskListViewController`
+- Provides cleaner, testable architecture
+- Better separation of concerns
+- Async operations with completion handlers
+
+### Migration Strategy
+
+#### Completed Migrations ✅
+1. **TaskListViewController** - Fully migrated to repository pattern with NSFetchedResultsController
+2. **DependencyContainer** - Centralized dependency management with injection system
+3. **TaskData struct** - UI/Core Data decoupling layer
+4. **Background contexts** - Improved performance for data operations
+5. **CoreDataTaskRepository** - Complete repository implementation with async operations
+6. **TaskScoringService** - Dedicated service for scoring logic
+7. **DateUtils & LoggingService** - Utility layer implementations
+
+#### Pending Migrations 🔄
+1. **HomeViewController** - Still heavily dependent on TaskManager singleton
+2. **AddTaskViewController** - Mixed usage of both patterns
+3. **Project Management** - ProjectManager still calls TaskManager directly
+4. **Analytics & Charts** - Direct TaskManager dependencies remain
+
+### Technical Debt & Refactoring Opportunities
+
+#### 1. Singleton Dependencies
+```swift
+// Current (Legacy)
+TaskManager.sharedInstance.toggleTaskComplete(task: task)
+
+// Target (Dependency Injection)
+class HomeViewController: TaskRepositoryDependent {
+    var taskRepository: TaskRepository!
+    // Use injected dependency
+}
+```
+
+#### 2. Mixed Responsibilities
+- TaskManager handles both data access AND business logic
+- Should be split into separate concerns
+- Business logic should move to Use Cases/Services
+
+#### 3. Error Handling
+```swift
+// Legacy: Silent failures
+TaskManager.sharedInstance.saveContext()
+
+// Modern: Explicit error handling
+taskRepository.addTask(data: taskData) { result in
+    switch result {
+    case .success: // Handle success
+    case .failure(let error): // Handle error
+    }
+}
+```
+
+### Performance Considerations
+
+#### TaskManager Optimizations
+- Uses `NSFetchedResultsController` for efficient UI updates
+- Implements lazy loading with computed properties
+- Caches frequently accessed data
+
+#### Repository Pattern Benefits
+- Background context operations prevent UI blocking
+- Better memory management with proper context handling
+- Async operations with completion handlers
+
+### Testing Strategy
+
+#### Current Challenges
+- Singleton pattern makes unit testing difficult
+- Tight coupling to Core Data
+- Hard to mock dependencies
+
+#### Repository Pattern Advantages
+```swift
+// Mockable for testing
+protocol TaskRepository {
+    func fetchTasks(completion: @escaping ([TaskData]) -> Void)
+}
+
+class MockTaskRepository: TaskRepository {
+    func fetchTasks(completion: @escaping ([TaskData]) -> Void) {
+        completion([/* mock data */])
+    }
+}
+```
+
+### Refactored Architecture (2025 Update)
+
+Tasker has undergone a comprehensive refactoring to improve maintainability, testability, and performance. This refactoring has been implemented in six phases:
+
+#### Phase 1: Predicate-Driven Fetching & Removal of Stored Arrays ✅
+- Core Data queries now use `NSPredicate` filtering for efficient data access
+- Eliminated redundant memory storage of task arrays
+- Improved memory usage and reduced data synchronization issues
+
+#### Phase 2: Type-Safe Enums & Data Model Cleanup ✅
+- Replaced raw integer constants with Swift enums (`TaskType`, `TaskPriority`)
+- Core Data attributes aligned with enum raw values for type safety
+- Added proper conversion between Int32 Core Data attributes and Swift enums
+
+#### Phase 3: Protocol-Oriented Repository & Dependency Injection ✅
+- Created `TaskRepository` protocol for data access abstraction
+- Implemented `CoreDataTaskRepository` with background context operations
+- Introduced `TaskData` struct to decouple UI from Core Data dependencies
+- Added `DependencyContainer` for proper dependency injection
+
+#### Phase 4: Concurrency & NSFetchedResultsController ✅
+- Enhanced `CoreDataTaskRepository` with background context operations
+- Implemented `NSFetchedResultsController` for efficient UI updates
+- Added table view integration with swipe actions
+- Improved UI responsiveness and memory efficiency
+
+#### Phase 5: Utility Layers ✅
+- Created comprehensive date extension utilities (`DateUtils.swift`)
+- Implemented dedicated task scoring service (`TaskScoringService.swift`)
+- Added structured logging system (`LoggingService.swift`)
+- Improved code organization and reusability
+
+#### Phase 6: SwiftUI Integration (In Progress)
+- `ProjectManagementView.swift` - SwiftUI implementation for project management
+- Hybrid UIKit/SwiftUI architecture for modern UI components
+- Settings integration with SwiftUI views
+
+#### Phase 7: Testing & Quality Assurance (Planned)
+- Unit tests for repositories and services
+- Integration tests for Core Data implementation
+- UI tests for critical user flows
+- Performance benchmarks and optimizations
+
 #### 1. Data Layer
 **Core Data Stack with CloudKit Integration**
 - `NSPersistentCloudKitContainer` for automatic CloudKit synchronization
@@ -55,10 +297,15 @@ The `To Do List/View/` directory houses a variety of custom UI components, inclu
 - Automatic conflict resolution and data merging across devices
 
 #### 2. Business Logic Layer
-**Manager Classes (Singleton Pattern)**
-- `TaskManager` - Centralized task operations and data fetching
-- `ProjectManager` - Project lifecycle management and organization
-- Separation of concerns for maintainable codebase
+**Repositories & Services (Protocol-Oriented Design)**
+- `TaskRepository` - Protocol defining task data operations
+- `CoreDataTaskRepository` - Core Data implementation of TaskRepository
+- `TaskScoringService` - Business logic for task scoring and analytics
+- `DependencyContainer` - Service locator for dependency injection
+
+**Legacy Manager Classes (Being Phased Out)**
+- `TaskManager` - Original centralized task operations (being replaced by TaskRepository)
+- `ProjectManager` - Project lifecycle management (future refactoring target)
 
 #### 3. Presentation Layer
 **View Controllers and Custom Views**
@@ -70,7 +317,10 @@ The `To Do List/View/` directory houses a variety of custom UI components, inclu
 **Helper Classes and Extensions**
 - `ToDoColors` - Centralized color theming system
 - `ToDoFont` - Typography management
-- `ToDoTimeUtils` - Date and time formatting utilities
+- `DateUtils` - Comprehensive date and time utilities
+- `LoggingService` - Structured logging system with multiple levels
+- `TaskScoringService` - Dedicated service for task scoring and analytics
+- `ToDoTimeUtils` - Legacy time utilities (being migrated to DateUtils)
 
 ## Core Entities & Data Model
 
@@ -82,8 +332,8 @@ The primary task entity (`NTask`) stores all information related to a task. Its 
 @NSManaged public var isComplete: Bool                // Completion status
 @NSManaged public var dueDate: NSDate?               // Due date for scheduling
 @NSManaged public var taskDetails: String?           // Additional task description
-@NSManaged public var taskPriority: Int32            // Priority level (1-4: P0-P3)
-@NSManaged public var taskType: Int32                // Category (1: morning, 2: evening, 3: upcoming, 4: inbox)
+@NSManaged public var taskPriority: Int32            // Priority level (stored as enum raw value)
+@NSManaged public var taskType: Int32                // Category (stored as enum raw value)
 @NSManaged public var project: String?               // Associated project name
 @NSManaged public var alertReminderTime: NSDate?     // Notification scheduling
 @NSManaged public var dateAdded: NSDate?             // Creation timestamp
@@ -91,14 +341,53 @@ The primary task entity (`NTask`) stores all information related to a task. Its 
 @NSManaged public var dateCompleted: NSDate?         // Completion timestamp
 ```
 
-**Task Priority System:**
-- **P0 (Priority 1)**: Highest priority - 7 points
-- **P1 (Priority 2)**: High priority - 4 points
-- **P2 (Priority 3)**: Medium priority - 3 points (default)
-- **P3 (Priority 4)**: Low priority - 2 points
+**Task Priority System (Type-Safe Enum):**
+```swift
+enum TaskPriority: Int32, CaseIterable {
+    case highest = 1    // P0: 7 points
+    case high = 2       // P1: 4 points
+    case medium = 3     // P2: 3 points (default)
+    case low = 4        // P3: 2 points
+}
+```
 
-**Task Type Categories:**
-- **Morning Tasks (1)**: Tasks scheduled for morning completion
+**Task Type Categories (Type-Safe Enum):**
+```swift
+enum TaskType: Int32, CaseIterable {
+    case morning = 1    // Morning tasks
+    case evening = 2    // Evening tasks
+    case upcoming = 3   // Future-dated tasks
+    case inbox = 4      // Uncategorized tasks
+}
+```
+
+### Core Data & Enum Integration
+
+The refactored architecture properly handles the conversion between Core Data's `Int32` attributes and Swift enums:
+
+**Converting from Enum to Int32 (when saving):**
+```swift
+// In CoreDataTaskRepository.swift
+managed.taskType = data.type.rawValue     // Store enum's raw value
+managed.taskPriority = data.priority.rawValue
+```
+
+**Converting from Int32 to Enum (when fetching):**
+```swift
+// In TaskData.swift initializer
+self.type = TaskType(rawValue: managedObject.taskType) ?? .morning
+self.priority = TaskPriority(rawValue: managedObject.taskPriority) ?? .medium
+```
+
+**Using Enum Values in Switch Statements:**
+```swift
+// In TaskCell.configure(with:) method
+switch task.taskPriority {
+case TaskPriority.high.rawValue:
+    priorityIndicator.backgroundColor = .systemRed
+// ...
+}
+```
 - **Evening Tasks (2)**: Tasks scheduled for evening completion
 - **Upcoming Tasks (3)**: Future-scheduled tasks
 - **Inbox Tasks (4)**: Unscheduled/default category
@@ -255,7 +544,7 @@ ProjectManager → Projects Entity → Task Association → UI Organization
 ### Analytics & Visualization
 **Multi-Chart Dashboard**
 
-**Line Chart Implementation:**
+**Line Chart Implementation (DGCharts Framework):**
 - Historical productivity trends
 - Cubic Bezier curve smoothing for elegant visualization
 - Custom color theming integration
@@ -342,25 +631,25 @@ var completeTaskSwipeColor = UIColor(red: 46/255.0, green: 204/255.0, blue: 113/
 
 ```ruby
 # Data Visualization
-pod 'Charts', '~> 3.5.0' # Advanced charting capabilities
+pod 'DGCharts', '~> 5.1' # Advanced charting capabilities (updated from Charts)
 
 # UI Frameworks
-pod 'MaterialComponents', '~> 109.2.0' # Material Design components
-pod 'MicrosoftFluentUI', '~> 0.1.0' # Microsoft's design system
+pod 'MaterialComponents', '~> 124.2' # Material Design components
+pod 'MicrosoftFluentUI', '~> 0.33.2' # Microsoft's design system
 
 # Calendar & Date
 pod 'FSCalendar', '~> 2.8.1' # Feature-rich calendar component
 pod 'Timepiece', '~> 1.3.1' # Date manipulation utilities
 
 # Animation & UI
-pod 'ViewAnimator', '~> 2.7.0' # View animation utilities
+pod 'ViewAnimator', '~> 3.1' # View animation utilities
 pod 'TinyConstraints', '~> 4.0.1' # Auto Layout helper
 pod 'SemiModalViewController', '~> 1.0.1' # Modal presentation styles
 
 # Firebase Suite
-pod 'Firebase/Analytics' # User analytics
-pod 'Firebase/Crashlytics' # Crash reporting
-pod 'Firebase/Performance' # Performance monitoring
+pod 'Firebase/Analytics', '~> 11.13' # User analytics
+pod 'Firebase/Crashlytics', '~> 11.13' # Crash reporting
+pod 'Firebase/Performance', '~> 11.13' # Performance monitoring
 ```
 
 ### Current Architecture Benefits
@@ -384,18 +673,45 @@ Firebase is initialized in `AppDelegate` and is primarily used for backend servi
 ### Code Organization
 ```
 Tasker/
-├── Model/                    # Core Data entities
-├── View/                     # Custom UI components
-│   ├── Theme/               # Design system
-│   └── Animation/           # Animation utilities
-├── ViewControllers/         # Screen controllers
-│   ├── Charts/             # Analytics implementation
-│   └── Delegates/          # Protocol implementations
-├── Utils/                   # Helper utilities
+├── To Do List/              # Main application code
+│   ├── Models/              # Core Data entities (NTask, Projects)
+│   ├── Repositories/        # Repository pattern implementation
+│   │   ├── TaskRepository.swift
+│   │   └── CoreDataTaskRepository.swift
+│   ├── Services/            # Business logic services
+│   │   └── TaskScoringService.swift
+│   ├── Managers/            # Legacy manager classes
+│   │   ├── TaskManager.swift
+│   │   ├── ProjectManager.swift
+│   │   └── DependencyContainer.swift
+│   ├── ViewControllers/     # Screen controllers
+│   │   ├── HomeViewController.swift
+│   │   ├── AddTaskViewController.swift
+│   │   ├── TaskListViewController.swift
+│   │   └── ProjectManagementViewController.swift
+│   ├── View/                # Custom UI components
+│   │   ├── ProjectManagementView.swift (SwiftUI)
+│   │   └── Theme components
+│   ├── Utils/               # Helper utilities
+│   │   ├── DateUtils.swift
+│   │   ├── LoggingService.swift
+│   │   └── ToDoTimeUtils.swift
+│   └── Storyboards/         # Interface Builder files
+├── FSCalendarSwiftExample/  # FSCalendar demo/examples
+├── FluentUI.Demo/          # Microsoft FluentUI demo
 └── Resources/              # Assets and configurations
 ```
 
 This architecture ensures Tasker delivers a robust, scalable, and delightful task management experience while maintaining code quality and development efficiency.
+
+## Project Structure
+
+The Tasker project follows a hybrid architecture combining legacy MVC patterns with modern Repository and Clean Architecture principles:
+
+- **Main Application**: `To Do List/` - Core iOS application code
+- **Demo Projects**: `FSCalendarSwiftExample/` and `FluentUI.Demo/` - Third-party component demonstrations
+- **Workspace Configuration**: Multiple `.xcworkspace` files for different development contexts
+- **Dependencies**: Managed via CocoaPods with `Podfile` and `Podfile.lock`
 
 ## Screenshots
 
@@ -408,6 +724,9 @@ This architecture ensures Tasker delivers a robust, scalable, and delightful tas
 ![004](https://user-images.githubusercontent.com/4607881/84249226-1e15ad00-ab28-11ea-85c3-27f5320bcab1.gif)
 
 ## Path to Clean Architecture
+
+### Current State and Future Direction
+Tasker is currently in a transitional phase, evolving from a traditional MVC architecture to Clean Architecture principles. This migration is being implemented incrementally to maintain stability while improving code organization and testability.
 
 ### Introduction to Clean Architecture
 Clean Architecture is a software design philosophy that separates concerns into distinct, concentric layers. It emphasizes independence from frameworks, UI, database, and external agencies. The core idea is that business logic and application logic should stand at the center, with dependencies pointing inwards.

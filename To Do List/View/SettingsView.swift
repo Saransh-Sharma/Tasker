@@ -31,8 +31,10 @@ struct SettingsView: View {
                         isDarkMode.toggle()
                         if #available(iOS 13.0, *) {
                             let newStyle: UIUserInterfaceStyle = isDarkMode ? .dark : .light
-                            UIApplication.shared.windows.forEach { window in
-                                window.overrideUserInterfaceStyle = newStyle
+                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                                windowScene.windows.forEach { window in
+                                    window.overrideUserInterfaceStyle = newStyle
+                                }
                             }
                         }
                         // No need for alerts like in the old version for now
