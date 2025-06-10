@@ -72,6 +72,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     let revealChartsAtHomeButton = UIButton(type: .system)
     let backdropBackgroundImageView = UIImageView()
     let backdropNochImageView       = UIImageView()
+    var backdropForeImageView = UIImageView()
+    let backdropForeImage = UIImage(named: "backdropFrontImage")
     var seperatorTopLineView = UIView()
     let homeDate_Day     = UILabel()
     let homeDate_WeekDay = UILabel()
@@ -183,11 +185,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         self.setupBottomAppBar()
         view.addSubview(bottomAppBar)
         
-        foredropContainer.backgroundColor = UIColor.green
+        foredropContainer.backgroundColor = todoColors.backgroundColor
         backdropContainer.backgroundColor = UIColor.clear
-        // Setup table view
-//        self.setupTableView()
-//        // Removed - tableView is no longer used, FluentUI table is added in setupSampleTableView
         
         // Load initial data
         TaskManager.sharedInstance.fixMissingTasksDataWithDefaults()
@@ -203,8 +202,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
         
-        // Reload data for current view type
-//        updateViewForHome(viewType: currentViewType)
+        
         
         DispatchQueue.main.async { [weak self] in 
             self?.fluentToDoTableViewController?.tableView.reloadData()

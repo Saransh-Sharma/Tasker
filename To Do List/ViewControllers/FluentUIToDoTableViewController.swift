@@ -200,10 +200,9 @@ class FluentUIToDoTableViewController: UITableViewController {
     // MARK: - Visual Effects
     
     private func createFrostedGlassView() -> UIView {
-        let blurEffect = UIBlurEffect(style: .systemMaterial)
-        let blurEffectView = UIVisualEffectView(effect: blurEffect)
-        blurEffectView.alpha = 0.8
-        return blurEffectView
+        let clearView = UIView()
+        clearView.backgroundColor = UIColor.clear
+        return clearView
     }
     
     private func createCheckBox(for task: NTask, at indexPath: IndexPath) -> UIButton {
@@ -212,8 +211,8 @@ class FluentUIToDoTableViewController: UITableViewController {
         // Configure checkbox appearance
         checkBox.layer.cornerRadius = 12 // Make it circular
         checkBox.layer.borderWidth = 1.5
-        checkBox.layer.borderColor = UIColor.systemBlue.cgColor
-        checkBox.backgroundColor = task.isComplete ? UIColor.systemBlue : UIColor.clear
+        checkBox.layer.borderColor = ToDoColors().primaryColor.cgColor
+        checkBox.backgroundColor = task.isComplete ? UIColor.clear : UIColor.clear
         
         // Set checkbox image based on completion state
         let checkmarkImage = UIImage(systemName: "checkmark")
@@ -257,8 +256,8 @@ class FluentUIToDoTableViewController: UITableViewController {
     }
     
     private func updateCheckBoxAppearance(_ checkBox: UIButton, isComplete: Bool) {
-        UIView.animate(withDuration: 0.2) {
-            checkBox.backgroundColor = isComplete ? UIColor.systemBlue : UIColor.clear
+        UIView.animate(withDuration: 0.7) {
+            checkBox.backgroundColor = isComplete ? UIColor.clear : UIColor.clear
             let checkmarkImage = UIImage(systemName: "checkmark")
             checkBox.setImage(isComplete ? checkmarkImage : nil, for: .normal)
         }

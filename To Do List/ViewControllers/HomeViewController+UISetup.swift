@@ -128,7 +128,7 @@ extension HomeViewController: BadgeViewDelegate {
     
     func setupTopBarInForedrop() {
         homeTopBar = UIView(frame: CGRect(x: 0, y: 0, width: foredropContainer.bounds.width, height: 50))
-        homeTopBar.backgroundColor = todoColors.backgroundColor
+        homeTopBar.backgroundColor = UIColor.clear//todoColors.backgroundColor
         
         // Set up the header label ("Today")
         toDoListHeaderLabel.frame = CGRect(x: 0, y: 0, width: homeTopBar.bounds.width, height: homeTopBar.bounds.height)
@@ -351,8 +351,15 @@ extension HomeViewController: BadgeViewDelegate {
             // Remove any existing views (legacy cleanup)
             // self.sampleTableView.removeFromSuperview() // Already removed from HomeViewController
             
+            // Setup foredrop background before adding the table view
+//            setupForedropBackground()
+            
             // Add the FluentUI table view
             self.foredropContainer.addSubview(fluentView)
+            
+            // Make the table view background transparent so the foredrop shows through
+            fluentView.backgroundColor = UIColor.clear
+            fluentToDoTableViewController?.tableView.backgroundColor = UIColor.clear
             
             // Add as child view controller for proper lifecycle management
             self.addChild(fluentToDoTableViewController!)
@@ -360,6 +367,24 @@ extension HomeViewController: BadgeViewDelegate {
         }
         
         print("=== END FLUENT UI SAMPLE TABLE VIEW SETUP ===")
+    }
+    
+    func setupForedropBackground() {
+        // Setup the foredrop background image view
+        backdropForeImageView.frame = CGRect(x: 0, y: 0, width: foredropContainer.bounds.width, height: foredropContainer.bounds.height)
+        backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
+//        backdropForeImageView.tintColor = .systemBackground
+        backdropForeImageView.backgroundColor = .clear
+        
+        // Add shadow effects
+        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
+        backdropForeImageView.layer.shadowOpacity = 0.8
+        backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0)
+        backdropForeImageView.layer.shadowRadius = 10
+        
+        // Add the foredrop background to the container (behind the table view)
+        foredropContainer.addSubview(backdropForeImageView)
+        foredropContainer.sendSubviewToBack(backdropForeImageView)
     }
     
     func getPriorityIcon(for priority: Int) -> String {
