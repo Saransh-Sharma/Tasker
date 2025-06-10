@@ -521,10 +521,26 @@ extension FluentUIToDoTableViewController {
         // Create header title with task count
         let headerTitle = taskCount > 0 ? "\(sectionData.0) (\(taskCount))" : sectionData.0
         
-        header.setup(
-            style: .header,
-            title: headerTitle
-        )
+        // Apply FluentUI typography title2 to header text
+        if let fluentTheme = view?.fluentTheme {
+            let attributedTitle = NSAttributedString(
+                string: headerTitle,
+                attributes: [
+                    .font: fluentTheme.typography(.body1Strong),
+                    .foregroundColor: fluentTheme.color(.foreground1)
+                ]
+            )
+            
+            header.setup(
+                style: .header,
+                attributedTitle: attributedTitle
+            )
+        } else {
+            header.setup(
+                style: .header,
+                title: headerTitle
+            )
+        }
         
         header.tableViewCellStyle = .grouped
         

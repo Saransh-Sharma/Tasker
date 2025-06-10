@@ -185,7 +185,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         self.setupBottomAppBar()
         view.addSubview(bottomAppBar)
         
-        foredropContainer.backgroundColor = todoColors.backgroundColor
+        foredropContainer.backgroundColor = UIColor.systemBackground
         backdropContainer.backgroundColor = UIColor.clear
         
         // Load initial data
