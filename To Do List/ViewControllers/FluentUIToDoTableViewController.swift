@@ -45,8 +45,8 @@ class FluentUIToDoTableViewController: UITableViewController {
         tableView.register(TableViewCell.self, forCellReuseIdentifier: TableViewCell.identifier)
         tableView.register(TableViewHeaderFooterView.self, forHeaderFooterViewReuseIdentifier: TableViewHeaderFooterView.identifier)
         
-        // Configure table view appearance
-        tableView.backgroundColor = TableViewCell.tableBackgroundGroupedColor
+        // Configure table view appearance with transparent background
+        tableView.backgroundColor = UIColor.clear
         tableView.separatorStyle = .none
         tableView.sectionFooterHeight = 0
         
@@ -195,6 +195,15 @@ class FluentUIToDoTableViewController: UITableViewController {
         }
         
         return label
+    }
+    
+    // MARK: - Visual Effects
+    
+    private func createFrostedGlassView() -> UIView {
+        let blurEffect = UIBlurEffect(style: .systemMaterial)
+        let blurEffectView = UIVisualEffectView(effect: blurEffect)
+        blurEffectView.alpha = 0.8
+        return blurEffectView
     }
     
     private func createCheckBox(for task: NTask, at indexPath: IndexPath) -> UIButton {
@@ -480,6 +489,9 @@ extension FluentUIToDoTableViewController {
         )
         
         header.tableViewCellStyle = .grouped
+        
+        // Apply transparent frosted glass effect to header
+        header.backgroundView = createFrostedGlassView()
         
         return header
     }

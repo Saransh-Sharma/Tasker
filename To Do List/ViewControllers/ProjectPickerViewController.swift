@@ -1,4 +1,5 @@
 import UIKit
+import FluentIcons
 import FluentUI
 
 class ProjectPickerViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
@@ -39,11 +40,9 @@ class ProjectPickerViewController: UIViewController, UITableViewDataSource, UITa
         cell.setup(title: project.projectName ?? "Unnamed Project")
         // Compare by objectID if they are CoreData objects, otherwise by name or another unique ID.
         // Assuming 'Projects' is a class or struct with an 'objectID' or comparable unique identifier.
-        if let selProject = selectedProject, selProject.objectID == project.objectID {
-            cell.accessoryType = .checkmark
-        } else {
-            cell.accessoryType = .none
-        }
+    
+            cell.accessoryType = .disclosureIndicator
+        
         return cell
     }
 

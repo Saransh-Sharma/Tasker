@@ -89,6 +89,13 @@ PODS:
     - nanopb (~> 3.30910.0)
     - PromisesSwift (~> 2.1)
   - FirebaseSharedSwift (11.13.0)
+  - FluentIcons (1.1.302):
+    - FluentIcons/Assets (= 1.1.302)
+    - FluentIcons/Code (= 1.1.302)
+    - FluentIcons/RemovalScript (= 1.1.302)
+  - FluentIcons/Assets (1.1.302)
+  - FluentIcons/Code (1.1.302)
+  - FluentIcons/RemovalScript (1.1.302)
   - FSCalendar (2.8.4)
   - GoogleAppMeasurement (11.13.0):
     - GoogleAppMeasurement/AdIdSupport (= 11.13.0)
@@ -981,6 +988,7 @@ DEPENDENCIES:
   - Firebase/Analytics (~> 11.13)
   - Firebase/Crashlytics (~> 11.13)
   - Firebase/Performance (~> 11.13)
+  - FluentIcons (~> 1.1.302)
   - FSCalendar (~> 2.8.1)
   - MaterialComponents (~> 124.2)
   - MicrosoftFluentUI (~> 0.33.2)
@@ -1008,6 +1016,7 @@ SPEC REPOS:
     - FirebaseRemoteConfigInterop
     - FirebaseSessions
     - FirebaseSharedSwift
+    - FluentIcons
     - FSCalendar
     - GoogleAppMeasurement
     - GoogleDataTransport
@@ -1044,6 +1053,7 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: 7915cec47731a806cda541f90898ad0fab8f9f86
   FirebaseSessions: eaa8ec037e7793769defe4201c20bd4d976f9677
   FirebaseSharedSwift: aca73668bc95e8efccb618e0167eab05d19d3a75
+  FluentIcons: dad4bf0f406d50d36e5d9ba45869f950c85c6611
   FSCalendar: 2d1d0d9398f12d439f55c1fe0f01525b151b8260
   GoogleAppMeasurement: 0dfca1a4b534d123de3945e28f77869d10d0d600
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
@@ -1062,6 +1072,6 @@ SPEC CHECKSUMS:
   TinyConstraints: 7b7ccc0c485bb3bb47082138ff28bc33cd49897f
   ViewAnimator: a9ceed80266e00fd435ec4fb99b2df64d580d0e4
 
-PODFILE CHECKSUM: 4f70c66218b5496c6e4c4cd3340f23e3f61d707b
+PODFILE CHECKSUM: 8f64d843a0b9e0dc890dd1e996c5a19daf45b9d9
 
 COCOAPODS: 1.16.2

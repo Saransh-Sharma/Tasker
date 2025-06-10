@@ -21,6 +21,7 @@ target 'Tasker' do
   pod 'DGCharts',                '~> 5.1'
   pod 'TinyConstraints',         '~> 4.0.1'
   pod 'MicrosoftFluentUI', '~> 0.33.2'
+  pod 'FluentIcons', '~> 1.1.302' # Added FluentIcons pod
 
 
   target 'TaskerTests' do
