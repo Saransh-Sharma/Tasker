@@ -38,6 +38,23 @@ class FluentUIToDoTableViewController: UITableViewController {
         setupToDoData(for: selectedDate)
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        // Force header background refresh to ensure transparency
+        // This fixes the issue where headers show white background on first load
+        DispatchQueue.main.async {
+            self.refreshHeaderBackgrounds()
+        }
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        // Additional refresh after view appears to ensure proper styling
+        refreshHeaderBackgrounds()
+    }
+    
     // MARK: - Setup Methods
     
     private func setupTableView() {
@@ -202,7 +219,29 @@ class FluentUIToDoTableViewController: UITableViewController {
     private func createFrostedGlassView() -> UIView {
         let clearView = UIView()
         clearView.backgroundColor = UIColor.clear
+        
+        // Ensure the view is completely transparent
+        clearView.isOpaque = false
+        clearView.alpha = 1.0
+        
         return clearView
+    }
+    
+    private func refreshHeaderBackgrounds() {
+        // Force refresh of all visible header views to ensure transparent backgrounds
+        for section in 0..<tableView.numberOfSections {
+            if let headerView = tableView.headerView(forSection: section) as? TableViewHeaderFooterView {
+                // Explicitly set the background to transparent
+                headerView.backgroundView = createFrostedGlassView()
+                
+                // Also ensure the header view itself has no background
+                headerView.backgroundColor = UIColor.clear
+                
+                // Force layout update
+                headerView.setNeedsLayout()
+                headerView.layoutIfNeeded()
+            }
+        }
     }
     
     private func createCheckBox(for task: NTask, at indexPath: IndexPath) -> UIButton {
@@ -491,6 +530,13 @@ extension FluentUIToDoTableViewController {
         
         // Apply transparent frosted glass effect to header
         header.backgroundView = createFrostedGlassView()
+        
+        // Explicitly ensure header background is transparent
+        header.backgroundColor = UIColor.clear
+        
+        // Force immediate layout to prevent white flash
+        header.setNeedsLayout()
+        header.layoutIfNeeded()
         
         return header
     }
