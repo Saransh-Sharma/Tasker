@@ -675,12 +675,16 @@ extension FluentUIToDoTableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
+        print("🔵 SEMI-MODAL APPROACH: FluentUIToDoTableViewController didSelectRowAt called")
+        
         let sectionData = toDoData[indexPath.section]
         
         // Don't handle selection for empty sections
         guard !sectionData.1.isEmpty else { return }
         
         let task = sectionData.1[indexPath.row]
+        
+        print("🔵 SEMI-MODAL: About to present semi-modal for task: \(task.name ?? "Unknown")")
         
         // Create and present SemiModalView with task details
         presentTaskDetailSemiModal(for: task, at: indexPath)
@@ -696,7 +700,7 @@ extension FluentUIToDoTableViewController {
         modalView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         
         // Set modal height to accommodate all form elements
-        let modalHeight: CGFloat = 600
+        let modalHeight: CGFloat = 800
         modalView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: modalHeight)
         
         // Create scroll view for content
@@ -704,12 +708,30 @@ extension FluentUIToDoTableViewController {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         modalView.addSubview(scrollView)
         
-        // Create content stack view
-        let stackView = UIStackView()
-        stackView.axis = .vertical
-        stackView.spacing = 16
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(stackView)
+        // Create main content stack view
+        let mainStackView = UIStackView()
+        mainStackView.axis = .vertical
+        mainStackView.spacing = 0
+        mainStackView.distribution = .fill
+        mainStackView.alignment = .fill
+        mainStackView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(mainStackView)
+        
+        // Create text fields stack view with 30pt spacing
+        let textFieldsStackView = UIStackView()
+        textFieldsStackView.axis = .vertical
+        textFieldsStackView.spacing = 30
+        textFieldsStackView.distribution = .fill
+        textFieldsStackView.alignment = .fill
+        textFieldsStackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Create bottom elements stack view with 20pt spacing
+        let bottomElementsStackView = UIStackView()
+        bottomElementsStackView.axis = .vertical
+        bottomElementsStackView.spacing = 20
+        bottomElementsStackView.distribution = .fill
+        bottomElementsStackView.alignment = .fill
+        bottomElementsStackView.translatesAutoresizingMaskIntoConstraints = false
         
         // Add drag indicator
         let dragIndicator = UIView()
@@ -720,8 +742,8 @@ extension FluentUIToDoTableViewController {
         
         // Task name text field (Material Design)
         let taskNameTextField = MDCFilledTextField()
-        taskNameTextField.label.text = "Task Name"
-        taskNameTextField.leadingAssistiveLabel.text = "Enter task name"
+        taskNameTextField.label.text = "Task"
+        taskNameTextField.leadingAssistiveLabel.text = "Edit task"
         taskNameTextField.text = task.name
         taskNameTextField.clearButtonMode = .whileEditing
         taskNameTextField.backgroundColor = .clear
@@ -797,13 +819,20 @@ extension FluentUIToDoTableViewController {
         buttonStackView.addArrangedSubview(saveButton)
         buttonStackView.addArrangedSubview(toggleButton)
         
-        // Add all elements to main stack
-        stackView.addArrangedSubview(taskNameTextField)
-        stackView.addArrangedSubview(descriptionTextField)
-        stackView.addArrangedSubview(projectPillBar)
-        stackView.addArrangedSubview(prioritySegmentedControl)
-        stackView.addArrangedSubview(buttonStackView)
-        stackView.addArrangedSubview(cancelButton)
+        // Add text fields to text fields stack view
+        textFieldsStackView.addArrangedSubview(taskNameTextField)
+        textFieldsStackView.addArrangedSubview(descriptionTextField)
+        
+        // Add remaining elements to bottom elements stack view
+        bottomElementsStackView.addArrangedSubview(projectPillBar)
+        bottomElementsStackView.addArrangedSubview(prioritySegmentedControl)
+        bottomElementsStackView.addArrangedSubview(buttonStackView)
+        bottomElementsStackView.addArrangedSubview(cancelButton)
+        
+        // Add both stack views to main stack view with custom spacing
+        mainStackView.addArrangedSubview(textFieldsStackView)
+        mainStackView.setCustomSpacing(30, after: textFieldsStackView)
+        mainStackView.addArrangedSubview(bottomElementsStackView)
         
         // Set up constraints
         NSLayoutConstraint.activate([
@@ -819,19 +848,16 @@ extension FluentUIToDoTableViewController {
             scrollView.trailingAnchor.constraint(equalTo: modalView.trailingAnchor, constant: -20),
             scrollView.bottomAnchor.constraint(equalTo: modalView.bottomAnchor, constant: -20),
             
-            // Stack view
-            stackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            stackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            stackView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+            // Main stack view
+            mainStackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            mainStackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            mainStackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            mainStackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            mainStackView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
             
             // Text field heights
             taskNameTextField.heightAnchor.constraint(equalToConstant: 56),
             descriptionTextField.heightAnchor.constraint(equalToConstant: 56),
-            
-            // Project pill bar height
-            projectPillBar.heightAnchor.constraint(equalToConstant: 60),
             
             // Priority segmented control height
             prioritySegmentedControl.heightAnchor.constraint(equalToConstant: 44),
@@ -973,7 +999,7 @@ extension FluentUIToDoTableViewController {
             bar.topAnchor.constraint(equalTo: backgroundView.topAnchor, constant: 8),
             bar.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
             bar.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
-            bar.bottomAnchor.constraint(equalTo: backgroundView.bottomAnchor, constant: -8)
+            bar.bottomAnchor.constraint(lessThanOrEqualTo: backgroundView.bottomAnchor, constant: -8)
         ])
         
         return backgroundView

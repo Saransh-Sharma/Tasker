@@ -159,6 +159,9 @@
 		75F18108245CA229004D9A69 /* TaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F18107245CA229004D9A69 /* TaskManager.swift */; };
 		75F1810B245CA7DF004D9A69 /* NTask+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F18109245CA7DF004D9A69 /* NTask+CoreDataClass.swift */; };
 		75F1810C245CA7DF004D9A69 /* NTask+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F1810A245CA7DF004D9A69 /* NTask+CoreDataProperties.swift */; };
+		75F3CB7A2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */; };
+		75F3CB7B2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */; };
+		75F3CB7C2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */; };
 		75F9937224815BF600C340EB /* ToDoColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937124815BF600C340EB /* ToDoColors.swift */; };
 		75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F993792483764C00C340EB /* DayAxisValueFormatter.swift */; };
 		75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */; };
@@ -286,6 +289,7 @@
 		75F18107245CA229004D9A69 /* TaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskManager.swift; sourceTree = "<group>"; };
 		75F18109245CA7DF004D9A69 /* NTask+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NTask+CoreDataClass.swift"; path = "To Do List/NTask+CoreDataClass.swift"; sourceTree = "<group>"; };
 		75F1810A245CA7DF004D9A69 /* NTask+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NTask+CoreDataProperties.swift"; path = "To Do List/NTask+CoreDataProperties.swift"; sourceTree = "<group>"; };
+		75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HomeViewController+FluentUIDelegate.swift"; sourceTree = "<group>"; };
 		75F9937124815BF600C340EB /* ToDoColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoColors.swift; sourceTree = "<group>"; };
 		75F993792483764C00C340EB /* DayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayAxisValueFormatter.swift; sourceTree = "<group>"; };
 		75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeBottomBarView.swift; sourceTree = "<group>"; };
@@ -534,6 +538,7 @@
 				755754792DEED864003C9757 /* AddTaskViewController+Foredrop.swift */,
 				75DFF2DB2DF2302600EB8850 /* TaskListViewController.swift */,
 				75DFF2E32DF47D4200EB8850 /* FluentUIToDoTableViewController.swift */,
+				75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */,
 			);
 			path = ViewControllers;
 			sourceTree = "<group>";
@@ -765,9 +770,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Tasker/Pods-Tasker-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Tasker/Pods-Tasker-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -806,6 +815,7 @@
 				755FE8D72479159200A71A75 /* HomeCalendarExtention.swift in Sources */,
 				7513BA322687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
 				755FE8DC2479220700A71A75 /* LineChart.swift in Sources */,
+				75F3CB7C2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
 				75F18106245CA0BC004D9A69 /* Task.swift in Sources */,
 				751074F02DEE253D00AC7F22 /* HomeViewController+Animations.swift in Sources */,
 				758D4D7824A93FB300AB57A8 /* ProjectManager.swift in Sources */,
@@ -888,6 +898,7 @@
 				75573CB12DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */,
 				751075142DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
+				75F3CB7B2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
 				751075012DEE25E700AC7F22 /* HomeViewController+TableView.swift in Sources */,
 				75DFF2B72DF22EA500EB8850 /* TaskData.swift in Sources */,
 				751074EE2DEE24EA00AC7F22 /* ToDoListViewType.swift in Sources */,
@@ -932,6 +943,7 @@
 				75573CB02DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
 				751075162DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
+				75F3CB7A2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
 				751075022DEE25E700AC7F22 /* HomeViewController+TableView.swift in Sources */,
 				75DFF2B62DF22EA500EB8850 /* TaskData.swift in Sources */,
 				751074ED2DEE24EA00AC7F22 /* ToDoListViewType.swift in Sources */,

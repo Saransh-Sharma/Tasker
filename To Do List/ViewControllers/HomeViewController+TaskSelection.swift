@@ -78,6 +78,9 @@ extension HomeViewController {
     // MARK: - Present Task Detail
     
     func presentTaskDetailView(for task: NTask) {
+        print("🟢 TASKDETAILVIEWFLUENT APPROACH: presentTaskDetailView called")
+        print("🟢 FLUENT: About to present TaskDetailViewFluent for task: \(task.name ?? "Unknown")")
+        
         // Create an overlay to dim the background
         let overlayView = UIView(frame: view.bounds)
         overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.5)
