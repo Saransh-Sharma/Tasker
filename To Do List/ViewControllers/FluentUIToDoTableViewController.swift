@@ -191,25 +191,12 @@ class FluentUIToDoTableViewController: UITableViewController {
         let label = Label(textStyle: .caption2, colorStyle: isTaskOverdue(task) ? .error : .secondary)
         label.text = dueDate.toTaskDisplayString()
         
-        if isTaskOverdue(task) {
-            // Add border for overdue tasks
-            let container = UIView()
-            container.layer.borderWidth = 1.0
-            container.layer.borderColor = UIColor.systemRed.cgColor
-            container.layer.cornerRadius = 4
-            container.backgroundColor = UIColor.systemRed.withAlphaComponent(0.1)
-            
-            label.translatesAutoresizingMaskIntoConstraints = false
-            container.addSubview(label)
-            NSLayoutConstraint.activate([
-                label.topAnchor.constraint(equalTo: container.topAnchor, constant: 2),
-                label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -2),
-                label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 4),
-                label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -4)
-            ])
-            
-            return container
-        }
+        // Configure label to be right-aligned and compress to fit text
+        label.textAlignment = .right
+        label.setContentHuggingPriority(.required, for: .horizontal)
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        
+        // Return label directly for both overdue and regular tasks
         
         return label
     }
@@ -315,7 +302,6 @@ extension FluentUIToDoTableViewController {
         guard indexPath.row < sectionData.1.count else { return }
         
         let task = sectionData.1[indexPath.row]
-        let priorityIcon = getPriorityIcon(for: Int(task.taskPriority))
         
         // Find existing checkbox instead of creating a new one
         var existingCheckBox: UIButton?
@@ -342,7 +328,7 @@ extension FluentUIToDoTableViewController {
         if task.isComplete {
             // Style for completed tasks
             let attributedTitle = NSAttributedString(
-                string: "\(priorityIcon) \(task.name)",
+                string: task.name,
                 attributes: [
                     .font: fluentTheme.typography(.body1),
                     .foregroundColor: fluentTheme.color(.foreground2),
@@ -368,19 +354,18 @@ extension FluentUIToDoTableViewController {
             
         } else {
             // Style for active tasks
-            let taskTitle = "\(priorityIcon) \(task.name)"
+            let taskTitle = task.name
             let taskSubtitle = task.taskDetails ?? "No details"
             
             cell.setup(
                 title: taskTitle,
                 subtitle: taskSubtitle,
                 customView: checkBox,
-                accessoryType: .disclosureIndicator
+                accessoryType: .none
             )
         }
         
-        // Add accessory views
-        cell.titleTrailingAccessoryView = createPriorityAccessoryView(for: task)
+        // Add accessory views (priority emoji removed)
         cell.subtitleTrailingAccessoryView = createDueDateAccessoryView(for: task)
         
         cell.backgroundColor = fluentTheme.color(.background1)
@@ -432,15 +417,13 @@ extension FluentUIToDoTableViewController {
             // Return empty cell if somehow we get here
             return UITableViewCell()
         }
-        
         let task = sectionData.1[indexPath.row]
-        let priorityIcon = getPriorityIcon(for: Int(task.taskPriority))
         
         // Configure cell based on completion status
         if task.isComplete {
             // Style for completed tasks
             let attributedTitle = NSAttributedString(
-                string: "\(priorityIcon) \(task.name)",
+                string: task.name,
                 attributes: [
                     .font: fluentTheme.typography(.body1),
                     .foregroundColor: fluentTheme.color(.foreground2),
@@ -470,7 +453,7 @@ extension FluentUIToDoTableViewController {
             
         } else {
             // Style for active tasks
-            let taskTitle = "\(priorityIcon) \(task.name)"
+            let taskTitle = task.name
             let taskSubtitle = task.taskDetails ?? "No details"
             
             let checkBox = createCheckBox(for: task, at: indexPath)
@@ -478,15 +461,14 @@ extension FluentUIToDoTableViewController {
                 title: taskTitle,
                 subtitle: taskSubtitle,
                 customView: checkBox,
-                accessoryType: .disclosureIndicator
+                accessoryType: .none
             )
             
             // Note: customView is internal, priority colors will be handled through other means
             cell.backgroundColor = fluentTheme.color(.background1)
         }
         
-        // Add accessory views
-        cell.titleTrailingAccessoryView = createPriorityAccessoryView(for: task)
+        // Add accessory views (priority emoji removed)
         cell.subtitleTrailingAccessoryView = createDueDateAccessoryView(for: task)
         
         // Configure cell appearance

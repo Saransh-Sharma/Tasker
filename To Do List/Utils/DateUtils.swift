@@ -167,13 +167,13 @@ public extension Date {
     /// - Returns: A formatted date string
     func toTaskDisplayString() -> String {
         if isToday {
-            return "Today, \(toString(format: "h:mm a"))"
+            return "Today"
         } else if isTomorrow {
-            return "Tomorrow, \(toString(format: "h:mm a"))"
+            return "Tomorrow"
         } else if isInCurrentWeek {
-            return toString(format: "EEEE, h:mm a")
+            return toString(format: "EEEE")
         } else {
-            return toString(format: "MMM d, yyyy, h:mm a")
+            return toString(format: "MMM d, yyyy")
         }
     }
     

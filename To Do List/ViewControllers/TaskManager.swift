@@ -674,7 +674,7 @@ class TaskManager {
         
         task.name = name
         task.isComplete = false
-        task.taskDetails = "Fill in task details here"
+        task.taskDetails = ""
         task.type = taskType
         task.priority = taskPriority
         
@@ -710,7 +710,7 @@ class TaskManager {
         
         task.name = name
         task.isComplete = false
-        task.taskDetails = "Fill in task details here"
+        task.taskDetails = ""
         task.type = taskType
         task.priority = taskPriority
         task.dateAdded = Date.today() as NSDate
@@ -768,7 +768,7 @@ class TaskManager {
         print("🏗️ TaskManager: Setting task properties...")
         task.name = name
         task.isComplete = false
-        task.taskDetails = "Fill in task details here"
+        task.taskDetails = ""
         task.type = taskType
         task.priority = taskPriority
         task.dateAdded = Date.today() as NSDate
@@ -818,7 +818,7 @@ class TaskManager {
         // Set all default properties on adding a task
         task.name = name
         task.isComplete = false
-        task.taskDetails = "Fill in task details here"
+        task.taskDetails = ""
         task.type = .morning
         task.priority = .medium
         
@@ -839,7 +839,7 @@ class TaskManager {
         // Set all default properties on adding a task
         task.name = name
         task.isComplete = false
-        task.taskDetails = "Fill in task details here"
+        task.taskDetails = ""
         task.type = .evening
         task.priority = .medium
         
