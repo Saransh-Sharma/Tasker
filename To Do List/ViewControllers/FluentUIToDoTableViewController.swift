@@ -189,7 +189,14 @@ class FluentUIToDoTableViewController: UITableViewController {
         guard let dueDate = task.dueDate as Date? else { return nil }
         
         let label = Label(textStyle: .caption2, colorStyle: isTaskOverdue(task) ? .error : .secondary)
-        label.text = dueDate.toTaskDisplayString()
+        
+        // Check if due date is today and make label empty
+        let today = Date().startOfDay
+        if dueDate.startOfDay == today {
+            label.text = ""
+        } else {
+            label.text = dueDate.toTaskDisplayString()
+        }
         
         // Configure label to be right-aligned and compress to fit text
         label.textAlignment = .right
@@ -232,10 +239,10 @@ class FluentUIToDoTableViewController: UITableViewController {
     }
     
     private func createCheckBox(for task: NTask, at indexPath: IndexPath) -> UIButton {
-        let checkBox = UIButton(frame: CGRect(x: 0, y: 0, width: 24, height: 24))
+        let checkBox = UIButton(frame: CGRect(x: 0, y: 0, width: 0, height: 0))
         
         // Configure checkbox appearance
-        checkBox.layer.cornerRadius = 12 // Make it circular
+        checkBox.layer.cornerRadius = 16 // Make it circular
         checkBox.layer.borderWidth = 1.5
         checkBox.layer.borderColor = ToDoColors().primaryColor.cgColor
         checkBox.backgroundColor = task.isComplete ? UIColor.clear : UIColor.clear
@@ -244,7 +251,8 @@ class FluentUIToDoTableViewController: UITableViewController {
         let checkmarkImage = UIImage(systemName: "checkmark")
         checkBox.setImage(task.isComplete ? checkmarkImage : nil, for: .normal)
         checkBox.tintColor = UIColor.white
-        checkBox.imageView?.contentMode = .scaleAspectFit
+
+        
         
         // Set tag for identification
         checkBox.tag = indexPath.section * 1000 + indexPath.row
@@ -330,7 +338,7 @@ extension FluentUIToDoTableViewController {
             let attributedTitle = NSAttributedString(
                 string: task.name,
                 attributes: [
-                    .font: fluentTheme.typography(.body1),
+                    .font: fluentTheme.typography(.body2),
                     .foregroundColor: fluentTheme.color(.foreground2),
                     .strikethroughStyle: NSUnderlineStyle.single.rawValue
                 ]
@@ -339,7 +347,7 @@ extension FluentUIToDoTableViewController {
             let attributedSubtitle = NSAttributedString(
                 string: task.taskDetails ?? "Completed",
                 attributes: [
-                    .font: fluentTheme.typography(.caption1),
+                    .font: fluentTheme.typography(.caption2),
                     .foregroundColor: fluentTheme.color(.foreground3),
                     .strikethroughStyle: NSUnderlineStyle.single.rawValue
                 ]
@@ -457,6 +465,7 @@ extension FluentUIToDoTableViewController {
             let taskSubtitle = task.taskDetails ?? "No details"
             
             let checkBox = createCheckBox(for: task, at: indexPath)
+            
             cell.setup(
                 title: taskTitle,
                 subtitle: taskSubtitle,
@@ -482,7 +491,8 @@ extension FluentUIToDoTableViewController {
         }
         
         // Add unread dot for overdue tasks
-        cell.isUnreadDotVisible = isTaskOverdue(task) && !task.isComplete
+//        cell.isUnreadDotVisible = isTaskOverdue(task) && !task.isComplete
+        
         
         return cell
     }
@@ -491,6 +501,16 @@ extension FluentUIToDoTableViewController {
 // MARK: - UITableViewDelegate
 
 extension FluentUIToDoTableViewController {
+    
+    override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        // Return consistent height for all cells
+        return 50.0
+    }
+    
+    override func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+        // Return consistent estimated height for all cells
+        return 50.0
+    }
     
     override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         guard let header = tableView.dequeueReusableHeaderFooterView(withIdentifier: TableViewHeaderFooterView.identifier) as? TableViewHeaderFooterView else {

@@ -79,29 +79,22 @@ extension AddTaskViewController {
         self.addTaskTextBox_Material.clearButtonMode = .whileEditing
         let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
                                     "schedule 1:1 with Shelly","grab 401k from mail box",
-                                    "get car serviced", "wrap Eve's birthaday gift ", "renew Gym membership",
+                                    "get car serviced", "wrap Eve's birthday gift ", "renew Gym membership",
                                     "book flight tickets to Thailand", "fix the garage door",
-                                    "order Cake", "review subscriptions", "get coffee"]
+                                    "order cake", "review subscriptions", "get coffee"]
         self.addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
         self.addTaskTextBox_Material.returnKeyType = .go
         
         self.addTaskTextBox_Material.backgroundColor = .clear
         
-        // Don't add to stack container here - it's added in viewDidLoad
     }
     
     func setupEveningTaskSwitch() {
-        // self.switchSetContainer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50) // Not needed if using StackView for layout
-        // self.switchSetContainer.backgroundColor = .clear // Not needed if using StackView for layout
+
         
         self.eveningLabel.text = "Evening Task"
         self.eveningLabel.textColor = .gray // Or use a color from ToDoColors
-        self.eveningLabel.font = self.todoFont.setFont(fontSize: 17, fontweight: .regular, fontDesign: .default) // Corrected font usage
-        
-        // self.eveningLabel.frame = CGRect(x: 0, y: 0, width: 100, height: 50) // Not needed if using StackView for layout
-        // self.eveningLabel.sizeToFit() // StackView will manage size
-        
-        // self.eveningSwitch.frame = CGRect(x: self.eveningLabel.frame.width + 15, y: 0, width: 20, height: 20) // Not needed if using StackView for layout
+        self.eveningLabel.font = self.todoFont.setFont(fontSize: 17, fontweight: .regular, fontDesign: .default) 
         self.eveningSwitch.isOn = false
         self.eveningSwitch.onTintColor = self.todoColors.primaryColor // Corrected color usage
         
