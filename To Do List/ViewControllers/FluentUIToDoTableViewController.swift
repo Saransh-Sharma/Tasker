@@ -11,12 +11,21 @@ import FluentUI
 import SemiModalViewController
 import MaterialComponents.MaterialTextControls_FilledTextFields
 
+// MARK: - FluentUIToDoTableViewController Delegate Protocol
+
+protocol FluentUIToDoTableViewControllerDelegate: AnyObject {
+    func fluentToDoTableViewControllerDidCompleteTask(_ controller: FluentUIToDoTableViewController, task: NTask)
+    func fluentToDoTableViewControllerDidUpdateTask(_ controller: FluentUIToDoTableViewController, task: NTask)
+    func fluentToDoTableViewControllerDidDeleteTask(_ controller: FluentUIToDoTableViewController, task: NTask)
+}
+
 // MARK: - FluentUIToDoTableViewController
 
 class FluentUIToDoTableViewController: UITableViewController {
     
     // MARK: - Properties
     
+    weak var delegate: FluentUIToDoTableViewControllerDelegate?
     private var toDoData: [(String, [NTask])] = []
     private var selectedDate: Date = Date.today()
     
@@ -314,6 +323,9 @@ class FluentUIToDoTableViewController: UITableViewController {
         
         // Save the changes
         TaskManager.sharedInstance.saveContext()
+        
+        // Notify delegate of task completion change
+        delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
         
         // Reconfigure cell to update appearance without position shift
         let indexPath = IndexPath(row: row, section: section)
@@ -866,6 +878,8 @@ extension FluentUIToDoTableViewController {
         
         do {
             try task.managedObjectContext?.save()
+            // Notify delegate of task completion change
+            delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
             setupToDoData(for: selectedDate)
             dismissSemiModalView()
         } catch {
@@ -999,11 +1013,13 @@ extension FluentUIToDoTableViewController {
     private func markTaskComplete(_ task: NTask) {
         task.isComplete = true
         saveTask(task)
+        delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
     }
     
     private func markTaskIncomplete(_ task: NTask) {
         task.isComplete = false
         saveTask(task)
+        delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
     }
     
     private func deleteTask(_ task: NTask) {
@@ -1017,6 +1033,8 @@ extension FluentUIToDoTableViewController {
         
         do {
             try context.save()
+            // Notify delegate before refreshing data
+            delegate?.fluentToDoTableViewControllerDidDeleteTask(self, task: task)
             // Refresh the data to remove the deleted task from the view
             setupToDoData(for: selectedDate)
             

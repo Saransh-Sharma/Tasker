@@ -78,10 +78,21 @@ extension HomeViewController {
         // Get current week dates based on calendar's current page
         let referenceDate = self.calendar?.currentPage ?? Date.today()
         let week = calendar.daysWithSameWeekOfYear(as: referenceDate)
+        let today = Date.today()
         
         // Generate chart data points for the week (Sunday to Saturday)
         for (index, day) in week.enumerated() {
-            let score = calculateScoreForDate(date: day)
+            let score: Int
+            
+            // Enhanced future date handling
+            if day > today {
+                // For future dates, show 0 but with special styling indication
+                score = 0
+            } else {
+                // For past and current dates, calculate actual score
+                score = calculateScoreForDate(date: day)
+            }
+            
             // Ensure score is valid and not NaN or infinite
             let validScore = max(0, score) // Ensure non-negative
             let yValue = Double(validScore)
@@ -90,6 +101,12 @@ extension HomeViewController {
             let safeYValue = yValue.isNaN || yValue.isInfinite ? 0.0 : yValue
             
             let dataEntry = ChartDataEntry(x: Double(index), y: safeYValue)
+            
+            // Add metadata for future date styling (if needed)
+            if day > today {
+                dataEntry.data = ["isFuture": true]
+            }
+            
             yValues.append(dataEntry)
         }
         
@@ -115,49 +132,65 @@ extension HomeViewController {
         
         // Calculate dynamic y-axis maximum (20% more than max score)
         let maxScore = dataEntries.map { $0.y }.max() ?? 0
-        let dynamicMaximum = maxScore * 1.2
+        let dynamicMaximum = max(maxScore * 1.2, 10) // Ensure minimum scale of 10
         
-        // Update left axis maximum
+        // Update left axis maximum with smooth transition
         let leftAxis = lineChartView.leftAxis
         leftAxis.axisMaximum = dynamicMaximum
         
         let dataSet = LineChartDataSet(entries: dataEntries, label: "Daily Score")
         
-        // Configure line chart with stepped mode (like LineChart1ViewController)
+        // Enhanced visual configuration
         dataSet.mode = .stepped
         dataSet.drawCirclesEnabled = true
-        dataSet.lineWidth = 3
-        dataSet.circleRadius = 5
+        dataSet.lineWidth = 3.5
+        dataSet.circleRadius = 6
         dataSet.setCircleColor(todoColors.secondaryAccentColor)
         dataSet.setColor(todoColors.primaryColor)
-        dataSet.drawCircleHoleEnabled = false
-        dataSet.valueFont = .systemFont(ofSize: 9)
+        dataSet.drawCircleHoleEnabled = true
+        dataSet.circleHoleRadius = 3
+        dataSet.circleHoleColor = UIColor.systemBackground
+        dataSet.valueFont = .systemFont(ofSize: 10, weight: .medium)
+        dataSet.valueTextColor = todoColors.primaryTextColor
         
-        // Add gradient fill
+        // Enhanced gradient fill with better visual appeal
         let gradientColors = [
-            todoColors.primaryColor.withAlphaComponent(0.9).cgColor,
+            todoColors.primaryColor.withAlphaComponent(0.8).cgColor,
+            todoColors.primaryColor.withAlphaComponent(0.3).cgColor,
             todoColors.primaryColor.withAlphaComponent(0.0).cgColor
         ]
-        let gradient = CGGradient(colorsSpace: nil, colors: gradientColors as CFArray, locations: nil)!
+        let gradient = CGGradient(colorsSpace: nil, colors: gradientColors as CFArray, locations: [0.0, 0.5, 1.0])!
         
         dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
         dataSet.drawFilledEnabled = true
         dataSet.fillAlpha = 1
         
-        // Configure line style
-        dataSet.lineDashLengths = [5, 2.5]
-        dataSet.highlightLineDashLengths = [5, 2.5]
-        dataSet.formLineDashLengths = [5, 2.5]
-        dataSet.formLineWidth = 1
-        dataSet.formSize = 15
+        // Enhanced line style for better visibility
+        dataSet.lineDashLengths = nil // Solid line for better readability
+        dataSet.highlightEnabled = true
+        dataSet.highlightColor = todoColors.secondaryAccentColor
+        dataSet.highlightLineWidth = 2
+        dataSet.drawHorizontalHighlightIndicatorEnabled = false
+        dataSet.drawVerticalHighlightIndicatorEnabled = true
         
         let data = LineChartData(dataSet: dataSet)
         data.setDrawValues(true)
         
+        // Enhanced animation with staggered effect
         lineChartView.data = data
         
-        // Animate with both X and Y axis animation (like LineChart1ViewController)
-        lineChartView.animate(xAxisDuration: 1.5, yAxisDuration: 1.5, easingOption: .easeInOutQuad)
+        // Animate with enhanced timing and easing
+        DispatchQueue.main.async { [weak self] in
+            self?.lineChartView.animate(xAxisDuration: 1.2, yAxisDuration: 1.2, easingOption: .easeInOutCubic)
+            
+            // Add subtle bounce effect after main animation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                self?.lineChartView.animate(yAxisDuration: 0.3, easingOption: .easeOutBack)
+            }
+        }
+        
+        // Log chart update for debugging
+        print("Chart updated with \(dataEntries.count) data points, max score: \(maxScore)")
     }
     
     func calculateScoreForDate(date: Date) -> Int {

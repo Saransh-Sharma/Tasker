@@ -155,6 +155,7 @@ extension HomeViewController: BadgeViewDelegate {
         // Initialize FluentUI sample table view controller if not already done
         if fluentToDoTableViewController == nil {
             fluentToDoTableViewController = FluentUIToDoTableViewController(style: .insetGrouped)
+            fluentToDoTableViewController?.delegate = self
         }
         
         // Setup the FluentUI table to fill the foredrop
@@ -344,6 +345,7 @@ extension HomeViewController: BadgeViewDelegate {
         // Initialize FluentUI sample table view controller if not already done
         if fluentToDoTableViewController == nil {
             fluentToDoTableViewController = FluentUIToDoTableViewController(style: .insetGrouped)
+            fluentToDoTableViewController?.delegate = self
         }
         
         // Update data for the selected date
