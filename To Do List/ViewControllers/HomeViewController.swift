@@ -146,6 +146,40 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var foredropClosedY: CGFloat = 0
     var revealDistance: CGFloat = 0
     var originalForedropCenterY: CGFloat = .zero // Added (Plan Step K)
+    var chartRevealDistance: CGFloat = 0 // Distance for chart animations
+    
+    // MARK: - Dynamic Animation Calculations
+    
+    func calculateRevealDistance() -> CGFloat {
+        // Get the line chart's Y position (120) with some padding above it
+        let chartStartY: CGFloat = 120
+        let padding: CGFloat = 20 // Padding above the chart
+        
+        // Calculate the target Y position where the foredrop should stop
+        let targetY = chartStartY - padding
+        
+        // Calculate the current top of the foredrop container
+        let currentForedropTop = originalForedropCenterY - (foredropContainer.bounds.height / 2)
+        
+        // Return the distance needed to move the foredrop down to reach the target
+        return max(0, targetY - currentForedropTop)
+    }
+    
+    func calculateChartRevealDistance() -> CGFloat {
+        // Get the line chart's position and dimensions
+        let chartStartY: CGFloat = 120
+        let chartHeight: CGFloat = 400
+        let padding: CGFloat = 20 // Padding below the chart
+        
+        // Calculate the target Y position where the foredrop should stop (below the entire chart)
+        let targetY = chartStartY + chartHeight + padding
+        
+        // Calculate the current top of the foredrop container
+        let currentForedropTop = originalForedropCenterY - (foredropContainer.bounds.height / 2)
+        
+        // Return the distance needed to move the foredrop down to reveal the entire chart
+        return max(0, targetY - currentForedropTop)
+    }
     
     // IBOutlets
     @IBOutlet weak var addTaskButton: MDCFloatingButton!

@@ -130,6 +130,9 @@ extension HomeViewController: BadgeViewDelegate {
         
         // Setup FluentUI table view in foredrop (main tableView removed)
         setupTableViewInForedrop()
+        
+        // Store the original foredrop center Y position for animations
+        originalForedropCenterY = foredropContainer.center.y
     }
     
     func setupTopBarInForedrop() {

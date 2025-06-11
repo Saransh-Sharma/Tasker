@@ -25,40 +25,52 @@ extension HomeViewController {
     
     func moveDown_revealJustCal(view: UIView) {
         isCalDown = true
-        print("move: CAL SHOW - down: \(UIScreen.main.bounds.height/4)")
-        view.center.y += UIScreen.main.bounds.height/4
+        let dynamicDistance = calculateRevealDistance()
+        revealDistance = dynamicDistance // Store for moveUp method
+        
+        print("move: CAL SHOW - down: \(dynamicDistance) (dynamic calculation)")
+        view.center.y += dynamicDistance
     }
     
     func moveUp_toHideCal(view: UIView) {
         isCalDown = false
-        print("move: CAL HIDE - down: \(UIScreen.main.bounds.height/4)")
-        view.center.y -= UIScreen.main.bounds.height/4
+        print("move: CAL HIDE - up: \(revealDistance) (stored distance)")
+        view.center.y -= revealDistance // Use stored distance to ensure exact return
     }
     
     // MARK: - Charts Animations
     
     func moveDown_revealCharts(view: UIView) {
         isChartsDown = true
-        print("move: CHARTS SHOW - down: \(UIScreen.main.bounds.height/2)")
-        view.center.y += UIScreen.main.bounds.height/2
+        let dynamicDistance = calculateChartRevealDistance()
+        chartRevealDistance = dynamicDistance // Store for moveUp method
+        
+        print("move: CHARTS SHOW - down: \(dynamicDistance) (dynamic calculation)")
+        view.center.y += dynamicDistance
     }
     
     func moveDown_revealChartsKeepCal(view: UIView) {
         isChartsDown = true
-        print("move: CHARTS SHOW, CAL SHOW - down some: \(UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12)")
-        view.center.y += UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12
+        // Calculate additional distance needed when calendar is already shown
+        let baseChartDistance = calculateChartRevealDistance()
+        let calendarDistance = revealDistance // Use stored calendar distance
+        let additionalDistance = max(0, baseChartDistance - calendarDistance)
+        chartRevealDistance = additionalDistance // Store for moveUp method
+        
+        print("move: CHARTS SHOW, CAL SHOW - down additional: \(additionalDistance) (dynamic calculation)")
+        view.center.y += additionalDistance
     }
     
     func moveUp_hideCharts(view: UIView) {
         isChartsDown = false
-        print("move: CHARTS HIDE - up some: \(UIScreen.main.bounds.height/2)")
-        view.center.y -= UIScreen.main.bounds.height/2
+        print("move: CHARTS HIDE - up: \(chartRevealDistance) (stored distance)")
+        view.center.y -= chartRevealDistance // Use stored distance to ensure exact return
     }
     
     func moveUp_hideChartsKeepCal(view: UIView) {
         isChartsDown = false
-        print("move: CHARTS HIDE, CAL SHOW - up some: \(UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12)")
-        view.center.y -= UIScreen.main.bounds.height/4 + UIScreen.main.bounds.height/12
+        print("move: CHARTS HIDE, CAL SHOW - up: \(chartRevealDistance) (stored distance)")
+        view.center.y -= chartRevealDistance // Use stored distance to ensure exact return
     }
     
 //    // MARK: - TableView Animations
