@@ -80,6 +80,14 @@ extension HomeViewController {
         let week = calendar.daysWithSameWeekOfYear(as: referenceDate)
         let today = Date.today()
         
+        // Log weekly chart generation
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMM dd, yyyy"
+        print("📊 Generating chart data for week of \(dateFormatter.string(from: referenceDate))")
+        
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "EEE, MMM dd"
+        
         // Generate chart data points for the week (Sunday to Saturday)
         for (index, day) in week.enumerated() {
             let score: Int
@@ -92,6 +100,11 @@ extension HomeViewController {
                 // For past and current dates, calculate actual score
                 score = calculateScoreForDate(date: day)
             }
+            
+            // Log each day's score
+            let dayName = dayFormatter.string(from: day)
+            let status = day > today ? "(Future)" : day.onSameDay(as: today) ? "(Today)" : "(Past)"
+            print("   • \(dayName): \(score) points \(status)")
             
             // Ensure score is valid and not NaN or infinite
             let validScore = max(0, score) // Ensure non-negative
@@ -109,6 +122,10 @@ extension HomeViewController {
             
             yValues.append(dataEntry)
         }
+        
+        // Log weekly total
+        let weeklyTotal = yValues.reduce(0) { $0 + Int($1.y) }
+        print("   📈 Weekly Total: \(weeklyTotal) points")
         
         return yValues
     }
@@ -197,14 +214,20 @@ extension HomeViewController {
         var score = 0
         let allTasks = TaskManager.sharedInstance.getAllTasksForDate(date: date)
         
+        // Debug logging
+        print("🔍 calculateScoreForDate for \(date): Found \(allTasks.count) tasks")
+        
         for task in allTasks {
             if task.isComplete {
-                if let dateCompleted = task.dateCompleted as Date?, dateCompleted.onSameDay(as: date) {
-                    score = score + task.getTaskScore(task: task)
-                }
+                // getAllTasksForDate already filters completed tasks by dateCompleted range
+                // so we don't need the additional onSameDay check
+                let taskScore = task.getTaskScore(task: task)
+                score = score + taskScore
+                print("   ✅ Task '\(task.name)' completed: +\(taskScore) points")
             }
         }
         
+        print("   📊 Total score for \(date): \(score) points")
         return score
     }
     

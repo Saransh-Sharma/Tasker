@@ -24,10 +24,18 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
             self?.updateLineChartData()
         }
         
-        // Log with more detailed information
-         let status = task.isComplete ? "completed" : "uncompleted"
-         let score = task.getTaskScore(task: task)
-         print("Task \(status): '\(task.name)' (Score: \(score))")
+        // Log with detailed task and daily score information
+        let status = task.isComplete ? "completed" : "uncompleted"
+        let taskScore = task.getTaskScore(task: task)
+        let dailyTotal = calculateScoreForDate(date: Date())
+        print("📋 Task \(status): '\(task.name)'")
+        print("   • Task Score: \(taskScore)")
+        print("   • Daily Total Score: \(dailyTotal)")
+        print("   • Priority: \(task.taskPriority)")
+        print("   • Type: \(task.isEveningTask ? "Evening" : "Morning")")
+        if let project = task.project {
+            print("   • Project: \(project)")
+        }
     }
     
     func fluentToDoTableViewControllerDidUpdateTask(_ controller: FluentUIToDoTableViewController, task: NTask) {
@@ -41,11 +49,24 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
             self?.updateLineChartData()
         }
         
+        // Log detailed task update information
+        let taskScore = task.getTaskScore(task: task)
+        let dailyTotal = calculateScoreForDate(date: Date())
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium
         dateFormatter.timeStyle = .short
         let dueDateString = task.dueDate != nil ? dateFormatter.string(from: task.dueDate! as Date) : "No date"
-        print("Task updated: '\(task.name)' (Priority: \(task.taskPriority), Due: \(dueDateString))")
+        
+        print("✏️ Task updated: '\(task.name)'")
+        print("   • Task Score: \(taskScore)")
+        print("   • Daily Total Score: \(dailyTotal)")
+        print("   • Priority: \(task.taskPriority)")
+        print("   • Due Date: \(dueDateString)")
+        print("   • Type: \(task.isEveningTask ? "Evening" : "Morning")")
+        print("   • Completed: \(task.isComplete)")
+        if let project = task.project {
+            print("   • Project: \(project)")
+        }
     }
     
     func fluentToDoTableViewControllerDidDeleteTask(_ controller: FluentUIToDoTableViewController, task: NTask) {
@@ -57,9 +78,17 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         // Update chart immediately for deletion to show instant feedback
         updateLineChartData()
         
-        // Log deletion with task details
-         let score = task.getTaskScore(task: task)
-         print("Task deleted: '\(task.name)' (Score: \(score), Was completed: \(task.isComplete))")
+        // Log deletion with detailed task information
+        let taskScore = task.getTaskScore(task: task)
+        let dailyTotal = calculateScoreForDate(date: Date())
+        print("🗑️ Task deleted: '\(task.name)'")
+        print("   • Task Score: \(taskScore)")
+        print("   • Was Completed: \(task.isComplete)")
+        print("   • Updated Daily Total: \(dailyTotal)")
+        print("   • Priority: \(task.taskPriority)")
+        if let project = task.project {
+            print("   • Project: \(project)")
+        }
         
         // Optional: Show brief confirmation (could be enhanced with toast notification)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
