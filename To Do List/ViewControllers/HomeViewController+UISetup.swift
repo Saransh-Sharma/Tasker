@@ -297,7 +297,10 @@ extension HomeViewController: BadgeViewDelegate {
     // MARK: - Calendar and Charts Toggles
     
     @objc func toggleCalendar() {
-        if isCalDown {
+        if isChartsDown {
+            // Charts are down, need two-step animation: return to original then show calendar
+            returnToOriginalThenRevealCalendar()
+        } else if isCalDown {
             // Calendar is currently showing (monthly) - hide it and switch to weekly
             // Reset calendar to week scope BEFORE hiding animation
             calendar.setScope(.week, animated: true)
@@ -317,7 +320,10 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     @objc func toggleCharts() {
-        if isChartsDown {
+        if isCalDown {
+            // Calendar is down, need two-step animation: return to original then show charts
+            returnToOriginalThenRevealCharts()
+        } else if isChartsDown {
             // Hide charts
             UIView.animate(withDuration: 0.3) {
                 self.moveUp_hideCharts(view: self.foredropContainer)
@@ -409,5 +415,36 @@ extension HomeViewController: BadgeViewDelegate {
     func refreshSampleTableView(for date: Date) {
         setupSampleTableView(for: date)
         // FluentUI table view will automatically reload when updateData is called
+    }
+    
+    // MARK: - Two-Step Animation Helper Functions
+    
+    private func returnToOriginalThenRevealCalendar() {
+        // First animation: Hide charts and return to original position
+        UIView.animate(withDuration: 0.2, animations: {
+            self.moveUp_hideCharts(view: self.foredropContainer)
+        }) { _ in
+            // Second animation: Show calendar
+            UIView.animate(withDuration: 0.2) {
+                self.moveDown_revealJustCal(view: self.foredropContainer)
+            }
+            // Expand calendar to week scope when showing
+            self.calendar.setScope(.week, animated: true)
+        }
+    }
+    
+    private func returnToOriginalThenRevealCharts() {
+        // First animation: Hide calendar and return to original position
+        self.calendar.setScope(.week, animated: true)
+        UIView.animate(withDuration: 0.2, animations: {
+            self.moveUp_toHideCal(view: self.foredropContainer)
+        }) { _ in
+            // Second animation: Show charts
+            UIView.animate(withDuration: 0.3) {
+                self.moveDown_revealCharts(view: self.foredropContainer)
+            }
+            // Animate the chart axes when showing charts
+            self.animateLineChart(chartView: self.lineChartView)
+        }
     }
 }
