@@ -37,7 +37,7 @@ extension HomeViewController: BadgeViewDelegate {
     
     func setupBackdrop() {
         backdropContainer.frame = view.bounds
-        backdropContainer.backgroundColor = todoColors.backgroundColor
+        backdropContainer.backgroundColor = todoColors.primaryColor
         
         // Add calendar and charts to backdrop
         setupCalendarInBackdrop()

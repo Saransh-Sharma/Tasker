@@ -253,8 +253,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     private func setupFluentUINavigationBar() {
         // Configure navigation item properties
         navigationItem.titleStyle = .largeLeading
-        navigationItem.navigationBarStyle = .primary
+        navigationItem.navigationBarStyle = .custom
         navigationItem.navigationBarShadow = .automatic
+        
+        // Set custom navigation bar background color
+        navigationItem.customNavigationBarColor = todoColors.primaryColor
         
         // Set title
         title = "Today"
@@ -262,6 +265,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         // Create search bar accessory
         let searchBar = createSearchBarAccessory()
         navigationItem.accessoryView = searchBar
+        
         
         // Create custom leading button (menu/hamburger)
         let menuButtonItem = UIBarButtonItem(
@@ -285,6 +289,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         searchBar.style = .onBrandNavigationBar
         searchBar.placeholderText = "Search tasks..."
         searchBar.delegate = self
+        
+        // Customize the search bar background color
+        searchBar.tokenSet[.backgroundColor] = .uiColor { self.todoColors.primaryColor }
+        
         return searchBar
     }
     
