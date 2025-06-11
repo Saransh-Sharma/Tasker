@@ -87,8 +87,14 @@ extension HomeViewController: BadgeViewDelegate {
         // Calculate dimensions
         let screenWidth = view.bounds.width
         let screenHeight = view.bounds.height
-        let foredropHeight = screenHeight * 0.85 // Adjust to match your design
         
+        // Get the navigation bar height
+        let navigationBarHeight = navigationController?.navigationBar.frame.height ?? 0
+
+        // Total top area height (status bar + navigation bar)
+        let totalTopHeight = navigationBarHeight
+        
+        let foredropHeight = screenHeight-totalTopHeight
         // Calculate bottom safe area inset
         let safeAreaBottomInset: CGFloat
         if #available(iOS 11.0, *) {
