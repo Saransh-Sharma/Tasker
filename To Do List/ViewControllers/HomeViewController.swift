@@ -438,8 +438,8 @@ extension HomeViewController {
         let searchText = newSearchText?.lowercased() ?? ""
         
         if searchText.isEmpty {
-            // Show all tasks when search is empty
-            updateViewForHome(viewType: currentViewType)
+            // Show all tasks when search is empty - restore normal view
+            fluentToDoTableViewController?.updateData(for: dateForTheView)
         } else {
             // Filter tasks based on search text
             filterTasksForSearch(searchText: searchText)
@@ -449,7 +449,8 @@ extension HomeViewController {
     func searchBarDidCancel(_ searchBar: SearchBar) {
         // Handle search cancellation
         searchBar.progressSpinner.state.isAnimating = false
-        updateViewForHome(viewType: currentViewType)
+        // Restore normal view
+        fluentToDoTableViewController?.updateData(for: dateForTheView)
     }
     
     func searchBarDidRequestSearch(_ searchBar: SearchBar) {
@@ -458,10 +459,8 @@ extension HomeViewController {
     }
     
     private func filterTasksForSearch(searchText: String) {
-        // Get all tasks from TaskManager to search across everything
-        let allMorningTasks = TaskManager.sharedInstance.getMorningTasks(for: dateForTheView)
-        let allEveningTasks = TaskManager.sharedInstance.getEveningTasksForToday()
-        let allTasks = allMorningTasks + allEveningTasks
+        // Get ALL tasks from TaskManager (across all dates and projects)
+        let allTasks = TaskManager.sharedInstance.getAllTasks
         
         // Filter tasks based on search text
         let filteredTasks = allTasks.filter { task in
@@ -471,31 +470,58 @@ extension HomeViewController {
                    (task.project?.lowercased().contains(searchTextLower) ?? false)
         }
         
+        // Group tasks by project for better organization
+        let groupedTasks = Dictionary(grouping: filteredTasks) { task in
+            task.project ?? "Inbox"
+        }
+        
         // Create filtered sections
         var filteredSections: [ToDoListData.Section] = []
         
         if !filteredTasks.isEmpty {
-            // Convert filtered NTask objects to TaskListItem objects
-            let filteredTaskItems = filteredTasks.map { task in
-                ToDoListData.TaskListItem(
-                    text1: task.name,
-                    text2: task.taskDetails ?? "",
-                    text3: "",
-                    image: ""
-                )
+            // Sort projects alphabetically, but put Inbox first
+            let sortedProjects = groupedTasks.keys.sorted { project1, project2 in
+                if project1 == "Inbox" { return true }
+                if project2 == "Inbox" { return false }
+                return project1 < project2
             }
             
-            let searchSection = ToDoListData.Section(
-                title: "Search Results (\(filteredTasks.count))",
-                taskListItems: filteredTaskItems
+            for project in sortedProjects {
+                let tasksForProject = groupedTasks[project] ?? []
+                
+                // Convert filtered NTask objects to TaskListItem objects with enhanced info
+                let filteredTaskItems = tasksForProject.map { task in
+                    let dateFormatter = DateFormatter()
+                    dateFormatter.dateStyle = .medium
+                    let dueDateString = task.dueDate != nil ? dateFormatter.string(from: task.dueDate! as Date) : "No due date"
+                    
+                    let taskTypeString = task.taskType == 1 ? "Morning" : task.taskType == 2 ? "Evening" : "Upcoming"
+                    
+                    return ToDoListData.TaskListItem(
+                        text1: task.name,
+                        text2: task.taskDetails ?? "",
+                        text3: "\(taskTypeString) • \(dueDateString)",
+                        image: ""
+                    )
+                }
+                
+                let searchSection = ToDoListData.Section(
+                    title: "\(project) (\(tasksForProject.count))",
+                    taskListItems: filteredTaskItems
+                )
+                filteredSections.append(searchSection)
+            }
+        } else {
+            // Show "No results" section when no tasks match
+            let noResultsSection = ToDoListData.Section(
+                title: "No results found",
+                taskListItems: []
             )
-            filteredSections.append(searchSection)
+            filteredSections.append(noResultsSection)
         }
         
-        ToDoListSections = filteredSections
-        // Updated to use FluentUI table view
-        fluentToDoTableViewController?.tableView.reloadData()
-        animateTableViewReload()
+        // Update the FluentUI table view with search results
+        fluentToDoTableViewController?.updateDataWithSearchResults(filteredSections)
     }
 }
 

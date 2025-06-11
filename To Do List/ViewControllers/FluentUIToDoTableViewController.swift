@@ -154,6 +154,37 @@ class FluentUIToDoTableViewController: UITableViewController {
         setupToDoData(for: date)
     }
     
+    func updateDataWithSearchResults(_ searchSections: [ToDoListData.Section]) {
+        // Convert ToDoListData.Section to the format expected by toDoData
+        var convertedSections: [(String, [NTask])] = []
+        
+        for section in searchSections {
+            // For search results, we need to extract the actual NTask objects
+            // Since search results don't contain the actual NTask objects, we need to find them
+            var tasksForSection: [NTask] = []
+            
+            // Get all tasks and match them by name and details
+            let allTasks = TaskManager.sharedInstance.getAllTasks
+            
+            for taskItem in section.items {
+                if let matchingTask = allTasks.first(where: { task in
+                    task.name == taskItem.TaskTitle && 
+                    (task.taskDetails ?? "") == taskItem.text2
+                }) {
+                    tasksForSection.append(matchingTask)
+                }
+            }
+            
+            convertedSections.append((section.sectionTitle, tasksForSection))
+        }
+        
+        // Update data and reload table view on main thread
+        DispatchQueue.main.async {
+            self.toDoData = convertedSections
+            self.tableView.reloadData()
+        }
+    }
+    
     // MARK: - Helper Methods
     
     private func formatDate(_ date: Date) -> String {
