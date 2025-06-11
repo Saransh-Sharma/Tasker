@@ -70,8 +70,8 @@ extension AddTaskViewController {
         
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         self.addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
-        self.addTaskTextBox_Material.label.text = "Task Name"
-        self.addTaskTextBox_Material.leadingAssistiveLabel.text = "Enter task name"
+        self.addTaskTextBox_Material.label.text = "Task"
+        self.addTaskTextBox_Material.leadingAssistiveLabel.text = "Add task"
         
         self.addTaskTextBox_Material.sizeToFit()
         
@@ -122,13 +122,17 @@ extension AddTaskViewController {
         // 3) Show/hide based on eveningSwitch
         segmented.isHidden = eveningSwitch.isOn
         
-        // 4) Wire up selection using FluentUI closure API
+        // 4) Configure to prevent text wrapping by using shorter text if needed
+        // FluentUI SegmentedControl doesn't support setTitleTextAttributes
+        // Instead, we'll ensure the container has enough width and use shorter labels if needed
+        
+        // 5) Wire up selection using FluentUI closure API
         segmented.onSelectAction = { [weak self] (item: SegmentItem, selectedIndex: Int) in
             guard let self = self else { return }
             self.changeTaskPriority(segmented)
         }
         
-        // 5) Keep a reference
+        // 6) Keep a reference
         self.tabsSegmentedControl = segmented
         // Don't add to stack container here - it's added in viewDidLoad
     }

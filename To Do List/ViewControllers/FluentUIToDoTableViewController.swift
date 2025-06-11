@@ -64,7 +64,7 @@ class FluentUIToDoTableViewController: UITableViewController {
         
         // Configure table view appearance with transparent background
         tableView.backgroundColor = UIColor.clear
-        tableView.separatorStyle = .none
+        tableView.separatorStyle = .singleLine
         tableView.sectionFooterHeight = 0
         
         // Set title

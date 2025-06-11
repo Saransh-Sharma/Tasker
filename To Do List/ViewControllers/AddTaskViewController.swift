@@ -73,7 +73,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     var addTaskTextBox_Material = MDCFilledTextField()
     let nCancelButton = UIButton()
     let fab_doneTask = MDCFloatingButton(shape: .default)
-    let p = ["None", "Low", "High", "Highest"] // Used by AddTaskForedropView extension
+    let p = ["None", "Low", "High", "Max"] // Used by AddTaskForedropView extension - shortened "Highest" to "Max" to prevent text wrapping
 
     var tabsSegmentedControl = SegmentedControl() // Initialized in AddTaskForedropView extension
 
