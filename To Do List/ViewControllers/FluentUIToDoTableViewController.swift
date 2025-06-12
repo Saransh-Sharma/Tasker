@@ -29,6 +29,14 @@ class FluentUIToDoTableViewController: UITableViewController {
     private var toDoData: [(String, [NTask])] = []
     private var selectedDate: Date = Date.today()
     
+    // Modal form elements - stored as instance variables for reliability
+    private var currentModalTaskNameTextField: MDCFilledTextField?
+    private var currentModalDescriptionTextField: MDCFilledTextField?
+    private var currentModalProjectPillBar: UIView?
+    private var currentModalPrioritySegmentedControl: SegmentedControl?
+    private var currentModalTask: NTask?
+    private var currentModalIndexPath: IndexPath?
+    
     // MARK: - Initialization
     
     override init(style: UITableView.Style) {
@@ -690,18 +698,27 @@ extension FluentUIToDoTableViewController {
         presentTaskDetailSemiModal(for: task, at: indexPath)
     }
     
-    // MARK: - SemiModal Presentation
+    // MARK: - Modal Presentation
     
     private func presentTaskDetailSemiModal(for task: NTask, at indexPath: IndexPath) {
+        print("[DEBUG] === Starting presentTaskDetailSemiModal ===")
+        print("[DEBUG] Task: \(task.name ?? "Unknown")")
+        print("[DEBUG] IndexPath: section=\(indexPath.section), row=\(indexPath.row)")
+        print("[DEBUG] Calculated tag: \(indexPath.section * 1000 + indexPath.row)")
+        
+        // Create a modal view controller
+        let modalViewController = UIViewController()
+        modalViewController.modalPresentationStyle = .pageSheet
+        modalViewController.modalTransitionStyle = .coverVertical
+        print("[DEBUG] Created modalViewController: \(modalViewController)")
+        
         // Create a container view for the modal content
         let modalView = UIView()
         modalView.backgroundColor = .systemBackground
-        modalView.layer.cornerRadius = 16
-        modalView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        
-        // Set modal height to accommodate all form elements
-        let modalHeight: CGFloat = 800
-        modalView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: modalHeight)
+        modalView.translatesAutoresizingMaskIntoConstraints = false
+        modalViewController.view.addSubview(modalView)
+        print("[DEBUG] Created modalView: \(modalView)")
+        print("[DEBUG] Added modalView to modalViewController.view")
         
         // Create scroll view for content
         let scrollView = UIScrollView()
@@ -793,7 +810,7 @@ extension FluentUIToDoTableViewController {
         saveButton.setTitleColor(.white, for: .normal)
         saveButton.layer.cornerRadius = 8
         saveButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        saveButton.addTarget(self, action: #selector(saveTaskToDatabase(_:)), for: .touchUpInside)
+        saveButton.addTarget(self, action: #selector(saveTaskChanges(_:)), for: .touchUpInside)
         saveButton.tag = indexPath.section * 1000 + indexPath.row
         
         // Complete/Incomplete button
@@ -870,23 +887,36 @@ extension FluentUIToDoTableViewController {
         
         // Store references for button actions
         modalView.tag = indexPath.section * 1000 + indexPath.row
+        print("[DEBUG] Set modalView.tag to: \(modalView.tag)")
         
-        // Store text fields and controls as associated objects for later access
-        objc_setAssociatedObject(modalView, "taskNameTextField", taskNameTextField, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        objc_setAssociatedObject(modalView, "descriptionTextField", descriptionTextField, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        objc_setAssociatedObject(modalView, "projectPillBar", projectPillBar, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        objc_setAssociatedObject(modalView, "prioritySegmentedControl", prioritySegmentedControl, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        // Store form elements as instance variables for reliable access
+        self.currentModalTaskNameTextField = taskNameTextField
+        self.currentModalDescriptionTextField = descriptionTextField
+        self.currentModalProjectPillBar = projectPillBar
+        self.currentModalPrioritySegmentedControl = prioritySegmentedControl
+        self.currentModalTask = task
+        self.currentModalIndexPath = indexPath
+        print("[DEBUG] Stored form elements as instance variables:")
+        print("[DEBUG] - taskNameTextField: \(taskNameTextField)")
+        print("[DEBUG] - task: \(task.name ?? "nil")")
+        print("[DEBUG] - indexPath: \(indexPath)")
+        print("[DEBUG] - descriptionTextField: \(descriptionTextField)")
+        print("[DEBUG] - projectPillBar: \(projectPillBar)")
+        print("[DEBUG] - prioritySegmentedControl: \(prioritySegmentedControl)")
         
-        // Present the semi modal
-        let options: [SemiModalOption: Any] = [
-            .pushParentBack: false,
-            .animationDuration: 0.3,
-            .parentAlpha: 0.7,
-            .shadowOpacity: 0.3,
-            .transitionStyle: SemiModalTransitionStyle.slideUp
-        ]
+        // Set up modal view constraints
+        NSLayoutConstraint.activate([
+            modalView.topAnchor.constraint(equalTo: modalViewController.view.safeAreaLayoutGuide.topAnchor),
+            modalView.leadingAnchor.constraint(equalTo: modalViewController.view.leadingAnchor),
+            modalView.trailingAnchor.constraint(equalTo: modalViewController.view.trailingAnchor),
+            modalView.bottomAnchor.constraint(equalTo: modalViewController.view.bottomAnchor)
+        ])
         
-        presentSemiView(modalView, options: options) {
+        // Store the modal view controller for later access
+        objc_setAssociatedObject(modalView, "modalViewController", modalViewController, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        
+        // Present the modal
+        present(modalViewController, animated: true) {
             print("Task detail modal presented")
         }
     }
@@ -907,31 +937,28 @@ extension FluentUIToDoTableViewController {
             // Notify delegate of task completion change
             delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
             setupToDoData(for: selectedDate)
-            dismissSemiModalView()
+            clearModalReferences()
+            dismiss(animated: true)
         } catch {
             print("Error saving task completion: \(error)")
         }
     }
     
     @objc private func saveTaskChanges(_ sender: UIButton) {
-        let tag = sender.tag
-        let sectionIndex = tag / 1000
-        let rowIndex = tag % 1000
+        print("[DEBUG] === Starting saveTaskChanges ===")
         
-        guard sectionIndex < toDoData.count,
-              rowIndex < toDoData[sectionIndex].1.count else { return }
-        
-        let task = toDoData[sectionIndex].1[rowIndex]
-        
-        // Get the modal view and extract form values
-        guard let modalView = view.subviews.first(where: { $0.tag == tag }),
-              let taskNameTextField = objc_getAssociatedObject(modalView, "taskNameTextField") as? MDCFilledTextField,
-              let descriptionTextField = objc_getAssociatedObject(modalView, "descriptionTextField") as? MDCFilledTextField,
-              let prioritySegmentedControl = objc_getAssociatedObject(modalView, "prioritySegmentedControl") as? SegmentedControl,
-              let projectPillBarView = objc_getAssociatedObject(modalView, "projectPillBar") as? UIView else {
-            print("Could not find form elements")
+        // Use instance variables instead of associated objects for reliability
+        guard let taskNameTextField = currentModalTaskNameTextField,
+              let descriptionTextField = currentModalDescriptionTextField,
+              let prioritySegmentedControl = currentModalPrioritySegmentedControl,
+              let projectPillBar = currentModalProjectPillBar,
+              let task = currentModalTask else {
+            print("[DEBUG] Could not find form elements - instance variables are nil")
             return
         }
+        
+        print("[DEBUG] All form elements found successfully from instance variables!")
+        print("[DEBUG] Task: \(task.name ?? "Unknown")")
         
         // Update task with new values
         if let newName = taskNameTextField.text, !newName.isEmpty {
@@ -941,7 +968,7 @@ extension FluentUIToDoTableViewController {
         task.taskDetails = descriptionTextField.text
         
         // Update project based on pill bar selection
-        if let pillBar = projectPillBarView.subviews.first(where: { $0 is PillButtonBar }) as? PillButtonBar,
+        if let pillBar = projectPillBar.subviews.first(where: { $0 is PillButtonBar }) as? PillButtonBar,
            let selectedItem = pillBar.selectedItem {
             task.project = selectedItem.title
         }
@@ -959,14 +986,26 @@ extension FluentUIToDoTableViewController {
         do {
             try task.managedObjectContext?.save()
             setupToDoData(for: selectedDate)
-            dismissSemiModalView()
+            clearModalReferences()
+            dismiss(animated: true)
         } catch {
             print("Error saving task changes: \(error)")
         }
     }
     
     @objc private func closeSemiModal() {
-        dismissSemiModalView()
+        clearModalReferences()
+        dismiss(animated: true)
+    }
+    
+    private func clearModalReferences() {
+        currentModalTaskNameTextField = nil
+        currentModalDescriptionTextField = nil
+        currentModalProjectPillBar = nil
+        currentModalPrioritySegmentedControl = nil
+        currentModalTask = nil
+        currentModalIndexPath = nil
+        print("[DEBUG] Cleared modal instance variables")
     }
     
     // MARK: - Project Pill Bar Helper Methods

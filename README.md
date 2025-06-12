@@ -68,7 +68,7 @@ Tasker follows a **Model-View-Controller (MVC)** architecture pattern with addit
 
 - **Core Data** with **CloudKit** integration for data persistence and synchronization
 - **Material Design Components** and **FluentUI** for modern UI components
-- **Charts framework** for advanced data visualization
+- **DGCharts framework** for advanced data visualization
 - **Firebase** for analytics, crashlytics, and performance monitoring
 - **Singleton pattern** for data managers to ensure consistent state management
 
@@ -316,16 +316,18 @@ Tasker has undergone a comprehensive refactoring to improve maintainability, tes
 - Added structured logging system (`LoggingService.swift`)
 - Improved code organization and reusability
 
-#### Phase 6: SwiftUI Integration (In Progress)
+#### Phase 6: SwiftUI Integration (Partial Implementation)
 - `ProjectManagementView.swift` - SwiftUI implementation for project management
+- `SettingsView.swift` - SwiftUI-based settings interface
 - Hybrid UIKit/SwiftUI architecture for modern UI components
-- Settings integration with SwiftUI views
+- SwiftUI integration in HomeViewController for hosting SwiftUI views
 
-#### Phase 7: Testing & Quality Assurance (Planned)
-- Unit tests for repositories and services
-- Integration tests for Core Data implementation
-- UI tests for critical user flows
-- Performance benchmarks and optimizations
+#### Phase 7: Testing & Quality Assurance (Minimal Implementation)
+- Basic test file structure exists (`To_Do_ListTests.swift`, `To_Do_ListUITests.swift`)
+- Test files contain placeholder templates without actual test implementations
+- **Needs Implementation**: Unit tests for repositories and services
+- **Needs Implementation**: Integration tests for Core Data implementation
+- **Needs Implementation**: UI tests for critical user flows
 
 #### 1. Data Layer
 **Core Data Stack with CloudKit Integration**
@@ -707,7 +709,7 @@ AddTaskViewController → TaskManager → Core Data → CloudKit
 ```
 HomeViewController → TaskManager → Core Data Fetch → UI Rendering
                  ↓
-         Analytics Update → Charts Framework
+         Analytics Update → DGCharts Framework
 ```
 **Detailed Flow:**
 When `HomeViewController` needs to display tasks, it calls methods on `TaskManager` (e.g., `getMorningTasksForDate(date:)`). The `TaskManager` then constructs and executes an `NSFetchRequest` against the Core Data stack. The results (`[NTask]`) are returned to `HomeViewController`, which then processes this data to populate its UITableView. Similar flows occur for project filtering, where `ProjectManager` might be consulted first to get relevant projects before tasks are fetched.
@@ -790,7 +792,7 @@ ProjectManager → Projects Entity → Task Association → UI Organization
 ### 🏠 **Home Screen (HomeViewController)**
 The main dashboard provides comprehensive task management:
 - **Daily Task Overview**: Today's tasks grouped by project with FluentUI styling
-- **Interactive Analytics Charts**: Charts.framework integration for visual productivity trends
+- **Interactive Analytics Charts**: DGCharts framework integration for visual productivity trends
 - **Real-time Score Display**: Dynamic scoring with streak counter and daily totals
 - **Quick Actions**: Fast access to task creation via floating action buttons
 - **Calendar Integration**: FSCalendar for date-based task navigation
@@ -831,14 +833,15 @@ Streamlined task creation with advanced UI components:
 - **Validation & Error Handling**: Comprehensive input validation with user feedback
 
 ### 📊 **Analytics & Visualization**
-Comprehensive productivity insights powered by Charts.framework:
-- **Completion Trends**: Daily, weekly, and monthly completion rate charts
-- **Priority Distribution**: Pie charts showing task priority patterns
+Comprehensive productivity insights powered by **DGCharts** (version 5.1):
+- **Completion Trends**: Daily, weekly, and monthly completion rate charts with dynamic scaling
+- **Priority Distribution**: Pie charts showing task priority patterns with TinyPieChart implementation
 - **Project Performance**: Bar charts with per-project completion statistics
-- **Streak Visualization**: Line charts tracking consecutive completion days
-- **Score Progression**: Historical score tracking with trend analysis
-- **Interactive Charts**: Touch-enabled charts with detailed data points
-- **Export Functionality**: Data export capabilities for external analysis
+- **Streak Visualization**: Line charts tracking consecutive completion days with cubic Bezier smoothing
+- **Score Progression**: Historical score tracking via TaskScoringService with trend analysis
+- **Interactive Charts**: Touch-enabled charts with custom markers, balloon tooltips, and animations
+- **Calendar Integration**: Charts synchronized with FSCalendar for weekly/monthly views
+- **Real-time Updates**: Charts update automatically with NSFetchedResultsController integration
 
 ### 🗂️ **Project Management System (ProjectManagementView)**
 Robust project organization with SwiftUI integration:
@@ -1102,23 +1105,39 @@ func fixMissingProjectsDataWithDefaults() {
 ```
 
 ### CloudKit Integration
-**Seamless Multi-Device Synchronization**
+**Fully Implemented Multi-Device Synchronization**
 
 **Configuration:**
 ```swift
 lazy var persistentContainer: NSPersistentCloudKitContainer = {
     let container = NSPersistentCloudKitContainer(name: "TaskModel")
-    // CloudKit container configuration
-    // Automatic sync setup
+    
+    guard let description = container.persistentStoreDescriptions.first else {
+        fatalError("Failed to retrieve a persistent store description.")
+    }
+    
+    // CloudKit container setup
+    description.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
+        containerIdentifier: "iCloud.TaskerCloudKit"
+    )
+    
+    // Enable history tracking and remote notifications
+    description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+    description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+    
     return container
 }()
 ```
 
 **Sync Features:**
-- Automatic background synchronization
-- Conflict resolution handling
-- Offline capability with sync on reconnection
-- Privacy-focused private database usage
+- **Container Identifier**: `iCloud.TaskerCloudKit` for dedicated CloudKit container
+- **Remote Change Notifications**: Real-time sync with silent push notifications
+- **History Tracking**: `NSPersistentHistoryTrackingKey` for robust sync conflict resolution
+- **Merge Policy**: `NSMergeByPropertyStoreTrumpMergePolicy` for intelligent conflict handling
+- **Background Sync**: Automatic merging of remote changes via `handlePersistentStoreRemoteChange`
+- **Data Consolidation**: Post-sync validation and cleanup with ProjectManager and TaskManager
+- **Offline Capability**: Local-first architecture with automatic sync on reconnection
+- **Privacy-focused**: User data remains in their personal iCloud private database
 
 ### Theming & Design System
 **Consistent Visual Identity**
@@ -1207,8 +1226,6 @@ Tasker/
 │   │   ├── LoggingService.swift
 │   │   └── ToDoTimeUtils.swift
 │   └── Storyboards/         # Interface Builder files
-├── FSCalendarSwiftExample/  # FSCalendar demo/examples
-├── FluentUI.Demo/          # Microsoft FluentUI demo
 └── Resources/              # Assets and configurations
 ```
 
@@ -1216,12 +1233,50 @@ This architecture ensures Tasker delivers a robust, scalable, and delightful tas
 
 ## Project Structure
 
-The Tasker project follows a hybrid architecture combining legacy MVC patterns with modern Repository and Clean Architecture principles:
+The Tasker project follows a hybrid architecture combining MVC patterns with Repository pattern and dependency injection:
 
-- **Main Application**: `To Do List/` - Core iOS application code
-- **Demo Projects**: `FSCalendarSwiftExample/` and `FluentUI.Demo/` - Third-party component demonstrations
-- **Workspace Configuration**: Multiple `.xcworkspace` files for different development contexts
-- **Dependencies**: Managed via CocoaPods with `Podfile` and `Podfile.lock`
+```
+To Do List/
+├── Assets/                     # App icons, images, and visual assets
+├── Managers/                   # Core business logic managers
+│   ├── TaskManager.swift       # Task operations and business logic
+│   ├── ProjectManager.swift    # Project management functionality
+│   └── DependencyContainer.swift # Dependency injection container
+├── Model/                      # Core Data model files
+│   └── TaskModel.xcdatamodeld  # Core Data schema
+├── Models/                     # Data models and entities
+│   ├── TaskData.swift          # Task presentation model
+│   ├── ToDoListViewType.swift  # View type enumeration
+│   └── TaskType/Priority enums # Task categorization
+├── Repositories/               # Data access layer
+│   ├── TaskRepository.swift    # Task repository protocol
+│   └── CoreDataTaskRepository.swift # Core Data implementation
+├── Services/                   # Business services
+│   ├── TaskScoringService.swift # Task scoring algorithms
+│   └── NotificationService.swift # Push notification handling
+├── Utils/                      # Utility classes and extensions
+│   ├── DateUtils.swift         # Date manipulation utilities
+│   └── Core Data Models/       # NTask entity and extensions
+├── View/                       # Custom UI components
+│   ├── Charts/                 # Chart components and formatters
+│   ├── Animation/              # Chart and UI animations
+│   └── Theme/                  # Color schemes and typography
+├── ViewControllers/            # MVC view controllers
+│   ├── HomeViewController.swift # Main dashboard
+│   ├── TaskListViewController.swift # Task list management
+│   └── AddTask/                # Task creation interfaces
+└── Storyboards/                # Interface Builder files
+    └── Main.storyboard         # Primary UI layout
+
+Demo Projects:
+├── FSCalendarSwiftExample/     # Calendar component demo
+└── FluentUI.Demo/              # Microsoft FluentUI showcase
+
+Configuration:
+├── Podfile                     # CocoaPods dependencies
+├── Podfile.lock               # Locked dependency versions
+└── *.xcworkspace              # Xcode workspace files
+```
 
 ## Screenshots
 
