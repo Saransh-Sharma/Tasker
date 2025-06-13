@@ -49,6 +49,13 @@ struct SettingsView: View {
                     // If specific text color is needed: .foregroundColor(Color(todoColors.textColor))
                 }
 
+                // New section for LLM / AI Assistant settings
+                Section(header: Text("AI Assistant").foregroundColor(Color(todoColors.primaryColor))) {
+                    NavigationLink(destination: LLMSettingsView(currentThread: .constant(nil))) {
+                        Text("LLM Settings")
+                    }
+                }
+
                 Section(header: Text("About").foregroundColor(Color(todoColors.primaryColor))) {
                     HStack {
                         Text("Version") // Standard text color
