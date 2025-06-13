@@ -8,6 +8,7 @@
 import MarkdownUI
 import SwiftUI
 import Combine
+import SwiftData
 
 struct ChatView: View {
     @EnvironmentObject var appManager: AppManager
@@ -20,6 +21,7 @@ struct ChatView: View {
     @FocusState.Binding var isPromptFocused: Bool
     @Binding var showChats: Bool
     @Binding var showSettings: Bool
+    @Environment(\.dismiss) var dismissView
     
     @State var thinkingTime: TimeInterval?
     
@@ -259,6 +261,11 @@ struct ChatView: View {
                 }
                 .toolbar {
                     #if os(iOS) || os(visionOS)
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(action: { dismissView() }) {
+                            Image(systemName: "chevron.backward")
+                        }
+                    }
                     if appManager.userInterfaceIdiom == .phone {
                         ToolbarItem(placement: .topBarLeading) {
                             Button(action: {
