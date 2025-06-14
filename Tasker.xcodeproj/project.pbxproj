@@ -63,6 +63,17 @@
 		7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */; };
+		7529F6F32DFDE9BC000CBE36 /* LLMDataController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */; };
+		7529F6F42DFDE9BC000CBE36 /* LLMDataController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */; };
+		7529F6F52DFDE9BC000CBE36 /* LLMDataController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */; };
+		7529F6F82DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */; };
+		7529F6F92DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */; };
+		7529F6FA2DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */; };
+		7529F6FD2DFDEFB3000CBE36 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 7529F6FC2DFDEFB3000CBE36 /* Lottie */; };
+		7529F7022DFDF758000CBE36 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 7529F7012DFDF758000CBE36 /* Lottie */; };
+		7529F7042DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
+		7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
+		7529F7062DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
 		7537B62324A2AF0800B978E5 /* NewProjectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */; };
 		7539AAB92DE988C900619EDD /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7539AAB82DE988C900619EDD /* TaskDetailView.swift */; };
 		7539AABA2DE988C900619EDD /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7539AAB82DE988C900619EDD /* TaskDetailView.swift */; };
@@ -106,6 +117,11 @@
 		758D4D8024AB20F000AB57A8 /* ToDoListData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758D4D7F24AB20F000AB57A8 /* ToDoListData.swift */; };
 		758D4D8624ABA7CE00AB57A8 /* FluentUIFramework.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758D4D8524ABA7CE00AB57A8 /* FluentUIFramework.swift */; };
 		759F18F92468B70200293A32 /* NAddTaskScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 759F18F82468B70200293A32 /* NAddTaskScreen.swift */; };
+		75A328B22DFB604000F36C31 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328B12DFB604000F36C31 /* MLX */; };
+		75A328B42DFB604000F36C31 /* MLXFast in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328B32DFB604000F36C31 /* MLXFast */; };
+		75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328B52DFB604000F36C31 /* MLXRandom */; };
+		75A328B92DFB606700F36C31 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328B82DFB606700F36C31 /* MLXLLM */; };
+		75A328BB2DFB606700F36C31 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328BA2DFB606700F36C31 /* MLXLMCommon */; };
 		75A400FD248C57DD002F0E7A /* ToDoAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A400FC248C57DC002F0E7A /* ToDoAnimations.swift */; };
 		75B7121D246AFF5B00453AEC /* UpcominngTasksViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75B7121C246AFF5B00453AEC /* UpcominngTasksViewController.swift */; };
 		75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */; };
@@ -162,6 +178,46 @@
 		75F3CB7A2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */; };
 		75F3CB7B2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */; };
 		75F3CB7C2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */; };
+		75F89F452DFC44E6009EDD8F /* ModelsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3F2DFC44E6009EDD8F /* ModelsSettingsView.swift */; };
+		75F89F462DFC44E6009EDD8F /* ChatHostViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */; };
+		75F89F472DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F382DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift */; };
+		75F89F482DFC44E6009EDD8F /* RequestLLMIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F302DFC44E6009EDD8F /* RequestLLMIntent.swift */; };
+		75F89F492DFC44E6009EDD8F /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2F2DFC44E6009EDD8F /* Models.swift */; };
+		75F89F4A2DFC44E6009EDD8F /* Data.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2C2DFC44E6009EDD8F /* Data.swift */; };
+		75F89F4B2DFC44E6009EDD8F /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3A2DFC44E6009EDD8F /* OnboardingView.swift */; };
+		75F89F4C2DFC44E6009EDD8F /* LLMEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2E2DFC44E6009EDD8F /* LLMEvaluator.swift */; };
+		75F89F4D2DFC44E6009EDD8F /* ChatsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F322DFC44E6009EDD8F /* ChatsListView.swift */; };
+		75F89F4E2DFC44E6009EDD8F /* DeviceNotSupportedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F362DFC44E6009EDD8F /* DeviceNotSupportedView.swift */; };
+		75F89F4F2DFC44E6009EDD8F /* CreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3E2DFC44E6009EDD8F /* CreditsView.swift */; };
+		75F89F502DFC44E6009EDD8F /* ChatsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3D2DFC44E6009EDD8F /* ChatsSettingsView.swift */; };
+		75F89F512DFC44E6009EDD8F /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F342DFC44E6009EDD8F /* ConversationView.swift */; };
+		75F89F522DFC44E6009EDD8F /* OnboardingInstallModelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F392DFC44E6009EDD8F /* OnboardingInstallModelView.swift */; };
+		75F89F532DFC44E6009EDD8F /* AppearanceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3C2DFC44E6009EDD8F /* AppearanceSettingsView.swift */; };
+		75F89F542DFC44E6009EDD8F /* DeviceStat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2D2DFC44E6009EDD8F /* DeviceStat.swift */; };
+		75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F372DFC44E6009EDD8F /* MoonAnimationView.swift */; };
+		75F89F572DFC44E6009EDD8F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F332DFC44E6009EDD8F /* ChatView.swift */; };
+		75F89F682DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F5E2DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift */; };
+		75F89F692DFC4E5D009EDD8F /* OnboardingInstallModelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F5F2DFC4E5D009EDD8F /* OnboardingInstallModelView.swift */; };
+		75F89F6A2DFC4E5D009EDD8F /* CreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F642DFC4E5D009EDD8F /* CreditsView.swift */; };
+		75F89F6B2DFC4E5D009EDD8F /* MoonAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F5D2DFC4E5D009EDD8F /* MoonAnimationView.swift */; };
+		75F89F6C2DFC4E5D009EDD8F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F592DFC4E5D009EDD8F /* ChatView.swift */; };
+		75F89F6E2DFC4E5D009EDD8F /* AppearanceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F622DFC4E5D009EDD8F /* AppearanceSettingsView.swift */; };
+		75F89F6F2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F5C2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift */; };
+		75F89F702DFC4E5D009EDD8F /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F602DFC4E5D009EDD8F /* OnboardingView.swift */; };
+		75F89F712DFC4E5D009EDD8F /* ChatsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F582DFC4E5D009EDD8F /* ChatsListView.swift */; };
+		75F89F722DFC4E5D009EDD8F /* ChatsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F632DFC4E5D009EDD8F /* ChatsSettingsView.swift */; };
+		75F89F732DFC4E5D009EDD8F /* ModelsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F662DFC4E5D009EDD8F /* ModelsSettingsView.swift */; };
+		75F89F742DFC4E5D009EDD8F /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F5A2DFC4E5D009EDD8F /* ConversationView.swift */; };
+		75F89F762DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */; };
+		75F89F772DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */; };
+		75F89F782DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */; };
+		75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 75F89FB12DFC62C3009EDD8F /* MarkdownUI */; };
+		75F89FB82DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
+		75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
+		75F89FBA2DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
+		75F89FBC2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */; };
+		75F89FBD2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */; };
+		75F89FBE2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */; };
 		75F9937224815BF600C340EB /* ToDoColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937124815BF600C340EB /* ToDoColors.swift */; };
 		75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F993792483764C00C340EB /* DayAxisValueFormatter.swift */; };
 		75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */; };
@@ -224,6 +280,9 @@
 		751075172DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AddTaskViewController+Foredrop.swift"; sourceTree = "<group>"; };
 		7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsBackdrop.swift; sourceTree = "<group>"; };
 		7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMDataController.swift; sourceTree = "<group>"; };
+		7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+IfModifier.swift"; sourceTree = "<group>"; };
+		7529F7032DFDF7E3000CBE36 /* loading-animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "loading-animation.json"; sourceTree = "<group>"; };
 		7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewProjectViewController.swift; sourceTree = "<group>"; };
 		7539AAB82DE988C900619EDD /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailView.swift; sourceTree = "<group>"; };
 		7539AABC2DE9A1F000619EDD /* FluentUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = FluentUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -290,6 +349,39 @@
 		75F18109245CA7DF004D9A69 /* NTask+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NTask+CoreDataClass.swift"; path = "To Do List/NTask+CoreDataClass.swift"; sourceTree = "<group>"; };
 		75F1810A245CA7DF004D9A69 /* NTask+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "NTask+CoreDataProperties.swift"; path = "To Do List/NTask+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HomeViewController+FluentUIDelegate.swift"; sourceTree = "<group>"; };
+		75F89F2C2DFC44E6009EDD8F /* Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Data.swift; sourceTree = "<group>"; };
+		75F89F2D2DFC44E6009EDD8F /* DeviceStat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStat.swift; sourceTree = "<group>"; };
+		75F89F2E2DFC44E6009EDD8F /* LLMEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMEvaluator.swift; sourceTree = "<group>"; };
+		75F89F2F2DFC44E6009EDD8F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		75F89F302DFC44E6009EDD8F /* RequestLLMIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestLLMIntent.swift; sourceTree = "<group>"; };
+		75F89F322DFC44E6009EDD8F /* ChatsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsListView.swift; sourceTree = "<group>"; };
+		75F89F332DFC44E6009EDD8F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		75F89F342DFC44E6009EDD8F /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
+		75F89F362DFC44E6009EDD8F /* DeviceNotSupportedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceNotSupportedView.swift; sourceTree = "<group>"; };
+		75F89F372DFC44E6009EDD8F /* MoonAnimationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoonAnimationView.swift; sourceTree = "<group>"; };
+		75F89F382DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDownloadingModelProgressView.swift; sourceTree = "<group>"; };
+		75F89F392DFC44E6009EDD8F /* OnboardingInstallModelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingInstallModelView.swift; sourceTree = "<group>"; };
+		75F89F3A2DFC44E6009EDD8F /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		75F89F3C2DFC44E6009EDD8F /* AppearanceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsView.swift; sourceTree = "<group>"; };
+		75F89F3D2DFC44E6009EDD8F /* ChatsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsSettingsView.swift; sourceTree = "<group>"; };
+		75F89F3E2DFC44E6009EDD8F /* CreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsView.swift; sourceTree = "<group>"; };
+		75F89F3F2DFC44E6009EDD8F /* ModelsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSettingsView.swift; sourceTree = "<group>"; };
+		75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHostViewController.swift; sourceTree = "<group>"; };
+		75F89F582DFC4E5D009EDD8F /* ChatsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsListView.swift; sourceTree = "<group>"; };
+		75F89F592DFC4E5D009EDD8F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		75F89F5A2DFC4E5D009EDD8F /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
+		75F89F5C2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceNotSupportedView.swift; sourceTree = "<group>"; };
+		75F89F5D2DFC4E5D009EDD8F /* MoonAnimationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoonAnimationView.swift; sourceTree = "<group>"; };
+		75F89F5E2DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDownloadingModelProgressView.swift; sourceTree = "<group>"; };
+		75F89F5F2DFC4E5D009EDD8F /* OnboardingInstallModelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingInstallModelView.swift; sourceTree = "<group>"; };
+		75F89F602DFC4E5D009EDD8F /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		75F89F622DFC4E5D009EDD8F /* AppearanceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsView.swift; sourceTree = "<group>"; };
+		75F89F632DFC4E5D009EDD8F /* ChatsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsSettingsView.swift; sourceTree = "<group>"; };
+		75F89F642DFC4E5D009EDD8F /* CreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsView.swift; sourceTree = "<group>"; };
+		75F89F662DFC4E5D009EDD8F /* ModelsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSettingsView.swift; sourceTree = "<group>"; };
+		75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMSettingsView.swift; sourceTree = "<group>"; };
+		75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptMiddleware.swift; sourceTree = "<group>"; };
+		75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMTaskContextBuilder.swift; sourceTree = "<group>"; };
 		75F9937124815BF600C340EB /* ToDoColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoColors.swift; sourceTree = "<group>"; };
 		75F993792483764C00C340EB /* DayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayAxisValueFormatter.swift; sourceTree = "<group>"; };
 		75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeBottomBarView.swift; sourceTree = "<group>"; };
@@ -305,8 +397,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				75A328B92DFB606700F36C31 /* MLXLLM in Frameworks */,
+				75A328B22DFB604000F36C31 /* MLX in Frameworks */,
+				7529F6FD2DFDEFB3000CBE36 /* Lottie in Frameworks */,
 				750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */,
+				75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */,
+				7529F7022DFDF758000CBE36 /* Lottie in Frameworks */,
+				75A328B42DFB604000F36C31 /* MLXFast in Frameworks */,
+				75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */,
 				6A200163BA7A387862068F73 /* Pods_Tasker.framework in Frameworks */,
+				75A328BB2DFB606700F36C31 /* MLXLMCommon in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -362,6 +462,14 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		7529F6F72DFDE9F0000CBE36 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
 		753EFC912445A24500A739E3 = {
 			isa = PBXGroup;
 			children = (
@@ -410,6 +518,7 @@
 				75DFF2B02DF22E6B00EB8850 /* Managers */,
 				75DFF2C72DF22F5200EB8850 /* Repositories */,
 				75DFF2CF2DF22F8B00EB8850 /* Services */,
+				75F89F442DFC44E6009EDD8F /* LLM */,
 			);
 			path = "To Do List";
 			sourceTree = "<group>";
@@ -576,6 +685,113 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
+		75F89F312DFC44E6009EDD8F /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				75F89F2C2DFC44E6009EDD8F /* Data.swift */,
+				75F89F2D2DFC44E6009EDD8F /* DeviceStat.swift */,
+				75F89F2E2DFC44E6009EDD8F /* LLMEvaluator.swift */,
+				75F89F2F2DFC44E6009EDD8F /* Models.swift */,
+				75F89F302DFC44E6009EDD8F /* RequestLLMIntent.swift */,
+				75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */,
+				75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */,
+				7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		75F89F352DFC44E6009EDD8F /* Chat */ = {
+			isa = PBXGroup;
+			children = (
+				75F89F322DFC44E6009EDD8F /* ChatsListView.swift */,
+				75F89F332DFC44E6009EDD8F /* ChatView.swift */,
+				75F89F342DFC44E6009EDD8F /* ConversationView.swift */,
+			);
+			path = Chat;
+			sourceTree = "<group>";
+		};
+		75F89F3B2DFC44E6009EDD8F /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				75F89F362DFC44E6009EDD8F /* DeviceNotSupportedView.swift */,
+				75F89F372DFC44E6009EDD8F /* MoonAnimationView.swift */,
+				75F89F382DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift */,
+				75F89F392DFC44E6009EDD8F /* OnboardingInstallModelView.swift */,
+				75F89F3A2DFC44E6009EDD8F /* OnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		75F89F412DFC44E6009EDD8F /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				75F89F3C2DFC44E6009EDD8F /* AppearanceSettingsView.swift */,
+				75F89F3D2DFC44E6009EDD8F /* ChatsSettingsView.swift */,
+				75F89F3E2DFC44E6009EDD8F /* CreditsView.swift */,
+				75F89F3F2DFC44E6009EDD8F /* ModelsSettingsView.swift */,
+				75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		75F89F422DFC44E6009EDD8F /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				75F89F352DFC44E6009EDD8F /* Chat */,
+				75F89F3B2DFC44E6009EDD8F /* Onboarding */,
+				75F89F412DFC44E6009EDD8F /* Settings */,
+				75F89F5B2DFC4E5D009EDD8F /* Chat */,
+				75F89F612DFC4E5D009EDD8F /* Onboarding */,
+				75F89F672DFC4E5D009EDD8F /* Settings */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		75F89F442DFC44E6009EDD8F /* LLM */ = {
+			isa = PBXGroup;
+			children = (
+				75F89F312DFC44E6009EDD8F /* Models */,
+				75F89F422DFC44E6009EDD8F /* Views */,
+				75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */,
+				7529F6F72DFDE9F0000CBE36 /* Extensions */,
+				7529F7032DFDF7E3000CBE36 /* loading-animation.json */,
+			);
+			path = LLM;
+			sourceTree = "<group>";
+		};
+		75F89F5B2DFC4E5D009EDD8F /* Chat */ = {
+			isa = PBXGroup;
+			children = (
+				75F89F582DFC4E5D009EDD8F /* ChatsListView.swift */,
+				75F89F592DFC4E5D009EDD8F /* ChatView.swift */,
+				75F89F5A2DFC4E5D009EDD8F /* ConversationView.swift */,
+			);
+			path = Chat;
+			sourceTree = "<group>";
+		};
+		75F89F612DFC4E5D009EDD8F /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				75F89F5C2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift */,
+				75F89F5D2DFC4E5D009EDD8F /* MoonAnimationView.swift */,
+				75F89F5E2DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift */,
+				75F89F5F2DFC4E5D009EDD8F /* OnboardingInstallModelView.swift */,
+				75F89F602DFC4E5D009EDD8F /* OnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		75F89F672DFC4E5D009EDD8F /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				75F89F622DFC4E5D009EDD8F /* AppearanceSettingsView.swift */,
+				75F89F632DFC4E5D009EDD8F /* ChatsSettingsView.swift */,
+				75F89F642DFC4E5D009EDD8F /* CreditsView.swift */,
+				75F89F662DFC4E5D009EDD8F /* ModelsSettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
 		75F9937524824E7E00C340EB /* Animation */ = {
 			isa = PBXGroup;
 			children = (
@@ -676,6 +892,12 @@
 				Base,
 			);
 			mainGroup = 753EFC912445A24500A739E3;
+			packageReferences = (
+				75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */,
+				75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */,
+				75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				7529F7002DFDF758000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */,
+			);
 			productRefGroup = 753EFC9B2445A24500A739E3 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -696,6 +918,7 @@
 				7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */,
 				753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */,
 				753EFCA52445A24500A739E3 /* Main.storyboard in Resources */,
+				7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -704,6 +927,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				750F9ED82685C01E00C008C4 /* GoogleService-Info.plist in Resources */,
+				7529F7062DFDF7E3000CBE36 /* loading-animation.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -712,6 +936,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				750F9ED92685C01E00C008C4 /* GoogleService-Info.plist in Resources */,
+				7529F7042DFDF7E3000CBE36 /* loading-animation.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -792,11 +1017,13 @@
 			files = (
 				751075122DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				75F1810B245CA7DF004D9A69 /* NTask+CoreDataClass.swift in Sources */,
+				75F89FBD2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */,
 				75DFF2DE2DF2302600EB8850 /* TaskListViewController.swift in Sources */,
 				75F1810C245CA7DF004D9A69 /* NTask+CoreDataProperties.swift in Sources */,
 				75DFF2D72DF22FC300EB8850 /* LoggingService.swift in Sources */,
 				75DFF2D82DF22FC300EB8850 /* DateUtils.swift in Sources */,
 				75F18102245C99CD004D9A69 /* TaskModel.xcdatamodeld in Sources */,
+				7529F6F82DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
 				75DFF2D12DF22F8B00EB8850 /* TaskScoringService.swift in Sources */,
 				758D4D7C24A940C300AB57A8 /* Projects+CoreDataClass.swift in Sources */,
 				758D4D7A24A940BD00AB57A8 /* Projects+CoreDataProperties.swift in Sources */,
@@ -809,6 +1036,7 @@
 				750F9EDF2685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				753EFCA22445A24500A739E3 /* HomeViewController.swift in Sources */,
 				751074FA2DEE25A000AC7F22 /* HomeViewController+DateTimePicker.swift in Sources */,
+				75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */,
 				751074EC2DEE24EA00AC7F22 /* ToDoListViewType.swift in Sources */,
 				75F993802485B04200C340EB /* Score.swift in Sources */,
 				75DFF2E42DF47D4200EB8850 /* FluentUIToDoTableViewController.swift in Sources */,
@@ -834,6 +1062,37 @@
 				75DFF3212DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
 				75DFF3222DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				75F18108245CA229004D9A69 /* TaskManager.swift in Sources */,
+				75F89F452DFC44E6009EDD8F /* ModelsSettingsView.swift in Sources */,
+				75F89F462DFC44E6009EDD8F /* ChatHostViewController.swift in Sources */,
+				75F89F472DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */,
+				75F89F482DFC44E6009EDD8F /* RequestLLMIntent.swift in Sources */,
+				75F89F682DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */,
+				75F89F692DFC4E5D009EDD8F /* OnboardingInstallModelView.swift in Sources */,
+				75F89F6A2DFC4E5D009EDD8F /* CreditsView.swift in Sources */,
+				75F89F6B2DFC4E5D009EDD8F /* MoonAnimationView.swift in Sources */,
+				75F89F6C2DFC4E5D009EDD8F /* ChatView.swift in Sources */,
+				75F89F6E2DFC4E5D009EDD8F /* AppearanceSettingsView.swift in Sources */,
+				75F89F6F2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift in Sources */,
+				75F89F702DFC4E5D009EDD8F /* OnboardingView.swift in Sources */,
+				75F89F712DFC4E5D009EDD8F /* ChatsListView.swift in Sources */,
+				75F89F722DFC4E5D009EDD8F /* ChatsSettingsView.swift in Sources */,
+				75F89F732DFC4E5D009EDD8F /* ModelsSettingsView.swift in Sources */,
+				75F89F742DFC4E5D009EDD8F /* ConversationView.swift in Sources */,
+				75F89F782DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */,
+				75F89F492DFC44E6009EDD8F /* Models.swift in Sources */,
+				75F89F4A2DFC44E6009EDD8F /* Data.swift in Sources */,
+				75F89F4B2DFC44E6009EDD8F /* OnboardingView.swift in Sources */,
+				75F89F4C2DFC44E6009EDD8F /* LLMEvaluator.swift in Sources */,
+				75F89F4D2DFC44E6009EDD8F /* ChatsListView.swift in Sources */,
+				75F89F4E2DFC44E6009EDD8F /* DeviceNotSupportedView.swift in Sources */,
+				75F89F4F2DFC44E6009EDD8F /* CreditsView.swift in Sources */,
+				75F89F502DFC44E6009EDD8F /* ChatsSettingsView.swift in Sources */,
+				75F89F512DFC44E6009EDD8F /* ConversationView.swift in Sources */,
+				75F89F522DFC44E6009EDD8F /* OnboardingInstallModelView.swift in Sources */,
+				75F89F532DFC44E6009EDD8F /* AppearanceSettingsView.swift in Sources */,
+				75F89F542DFC44E6009EDD8F /* DeviceStat.swift in Sources */,
+				75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */,
+				75F89F572DFC44E6009EDD8F /* ChatView.swift in Sources */,
 				75DFF2B52DF22EA500EB8850 /* TaskData.swift in Sources */,
 				751075152DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
 				7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */,
@@ -853,6 +1112,7 @@
 				75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */,
 				751074E72DEE10BF00AC7F22 /* FluentUITokenExtensions.swift in Sources */,
 				7539AABB2DE988C900619EDD /* TaskDetailView.swift in Sources */,
+				7529F6F32DFDE9BC000CBE36 /* LLMDataController.swift in Sources */,
 				755FE8D92479169400A71A75 /* ToDoList.swift in Sources */,
 				759F18F92468B70200293A32 /* NAddTaskScreen.swift in Sources */,
 				751075192DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift in Sources */,
@@ -873,12 +1133,14 @@
 				75DFF2D92DF22FC300EB8850 /* LoggingService.swift in Sources */,
 				75DFF2DA2DF22FC300EB8850 /* DateUtils.swift in Sources */,
 				751074F92DEE25A000AC7F22 /* HomeViewController+DateTimePicker.swift in Sources */,
+				7529F6F52DFDE9BC000CBE36 /* LLMDataController.swift in Sources */,
 				75DFF2BA2DF22EF200EB8850 /* NTask+Extensions.swift in Sources */,
 				751075082DEE262000AC7F22 /* HomeViewController+TaskSelection.swift in Sources */,
 				75DFF2D22DF22F8B00EB8850 /* TaskScoringService.swift in Sources */,
 				751074FC2DEE25C700AC7F22 /* HomeViewController+ProjectFiltering.swift in Sources */,
 				75F0C70B2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */,
 				75F0C7112DE9EFAD008F4460 /* TableViewCell Sample Data.swift in Sources */,
+				75F89FB82DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */,
 				750F9EE02685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75DFF2B32DF22E6B00EB8850 /* DependencyContainer.swift in Sources */,
 				751075182DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift in Sources */,
@@ -891,18 +1153,21 @@
 				751074F12DEE253D00AC7F22 /* HomeViewController+Animations.swift in Sources */,
 				751074E42DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				7557547C2DEED864003C9757 /* AddTaskViewController+Foredrop.swift in Sources */,
+				7529F6F92DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
 				75DFF2E52DF47D4200EB8850 /* FluentUIToDoTableViewController.swift in Sources */,
 				7539AAB92DE988C900619EDD /* TaskDetailView.swift in Sources */,
 				75F0C7142DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
 				7510750E2DEE268D00AC7F22 /* HomeViewController+UISetup.swift in Sources */,
 				75573CB12DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */,
+				75F89FBC2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */,
 				751075142DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
 				75F3CB7B2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
 				751075012DEE25E700AC7F22 /* HomeViewController+TableView.swift in Sources */,
 				75DFF2B72DF22EA500EB8850 /* TaskData.swift in Sources */,
 				751074EE2DEE24EA00AC7F22 /* ToDoListViewType.swift in Sources */,
 				75DFF2CC2DF22F5200EB8850 /* TaskRepository.swift in Sources */,
+				75F89F772DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */,
 				75DFF2CD2DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
 				75DFF3232DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
 				75DFF3242DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
@@ -918,12 +1183,14 @@
 				75DFF2D52DF22FC300EB8850 /* LoggingService.swift in Sources */,
 				75DFF2D62DF22FC300EB8850 /* DateUtils.swift in Sources */,
 				751074F82DEE25A000AC7F22 /* HomeViewController+DateTimePicker.swift in Sources */,
+				7529F6F42DFDE9BC000CBE36 /* LLMDataController.swift in Sources */,
 				75DFF2BB2DF22EF200EB8850 /* NTask+Extensions.swift in Sources */,
 				7510750A2DEE262000AC7F22 /* HomeViewController+TaskSelection.swift in Sources */,
 				75DFF2D02DF22F8B00EB8850 /* TaskScoringService.swift in Sources */,
 				751074FD2DEE25C700AC7F22 /* HomeViewController+ProjectFiltering.swift in Sources */,
 				75F0C70D2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */,
 				75F0C7102DE9EFAD008F4460 /* TableViewCell Sample Data.swift in Sources */,
+				75F89FBA2DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */,
 				750F9EE12685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75DFF2B12DF22E6B00EB8850 /* DependencyContainer.swift in Sources */,
 				7510751A2DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift in Sources */,
@@ -936,18 +1203,21 @@
 				751074F22DEE253D00AC7F22 /* HomeViewController+Animations.swift in Sources */,
 				751074E32DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				7557547B2DEED864003C9757 /* AddTaskViewController+Foredrop.swift in Sources */,
+				7529F6FA2DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
 				75DFF2E62DF47D4200EB8850 /* FluentUIToDoTableViewController.swift in Sources */,
 				7539AABA2DE988C900619EDD /* TaskDetailView.swift in Sources */,
 				75F0C7132DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
 				7510750C2DEE268D00AC7F22 /* HomeViewController+UISetup.swift in Sources */,
 				75573CB02DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
+				75F89FBE2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */,
 				751075162DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
 				75F3CB7A2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
 				751075022DEE25E700AC7F22 /* HomeViewController+TableView.swift in Sources */,
 				75DFF2B62DF22EA500EB8850 /* TaskData.swift in Sources */,
 				751074ED2DEE24EA00AC7F22 /* ToDoListViewType.swift in Sources */,
 				75DFF2C82DF22F5200EB8850 /* TaskRepository.swift in Sources */,
+				75F89F762DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */,
 				75DFF2C92DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
 				75DFF3252DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
 				75DFF3262DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
@@ -1119,7 +1389,7 @@
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1144,7 +1414,7 @@
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1166,7 +1436,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do ListTests/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1189,7 +1459,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do ListTests/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1209,7 +1479,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do ListUITests/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1229,7 +1499,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do ListUITests/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1283,6 +1553,92 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.2;
+			};
+		};
+		7529F7002DFDF758000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.2;
+			};
+		};
+		75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.25.4;
+			};
+		};
+		75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift-examples.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.25.4;
+			};
+		};
+		75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7529F6FC2DFDEFB3000CBE36 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+		7529F7012DFDF758000CBE36 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7529F7002DFDF758000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+		75A328B12DFB604000F36C31 /* MLX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */;
+			productName = MLX;
+		};
+		75A328B32DFB604000F36C31 /* MLXFast */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */;
+			productName = MLXFast;
+		};
+		75A328B52DFB604000F36C31 /* MLXRandom */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */;
+			productName = MLXRandom;
+		};
+		75A328B82DFB606700F36C31 /* MLXLLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
+			productName = MLXLLM;
+		};
+		75A328BA2DFB606700F36C31 /* MLXLMCommon */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
+			productName = MLXLMCommon;
+		};
+		75F89FB12DFC62C3009EDD8F /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
 		750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */ = {

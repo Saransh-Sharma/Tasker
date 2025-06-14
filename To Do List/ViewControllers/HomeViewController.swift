@@ -644,3 +644,38 @@ extension HomeViewController: AddTaskViewControllerDelegate {
         }
     }
 }
+
+// MARK: - Bottom App Bar Setup & Chat Integration
+
+extension HomeViewController {
+    /// Configures the Material Components bottom app bar and adds a Chat button which opens the LLM chat pane.
+    fileprivate func configureBottomAppBar() {
+        // Basic appearance
+        bottomAppBar.barTintColor = todoColors.primaryColor
+        bottomAppBar.tintColor = .white
+        bottomAppBar.layer.zPosition = 1000 // Ensure it stays above other views
+
+        // Remove default floating button (we already have a separate add-task FAB)
+        bottomAppBar.floatingButton.isHidden = true
+
+        // Create the chat bar button item
+        let chatImage = UIImage(systemName: "bubble.left.and.bubble.right.fill")
+        let chatButtonItem = UIBarButtonItem(image: chatImage,
+                                             style: .plain,
+                                             target: self,
+                                             action: #selector(chatButtonTapped))
+        chatButtonItem.accessibilityLabel = "Chat with LLM"
+
+        // Place the chat button on the trailing side
+        bottomAppBar.trailingBarButtonItems = [chatButtonItem]
+
+        // Size & position will be finalised in viewDidLayoutSubviews
+    }
+
+    /// Presents the ChatHostViewController modally.
+    @objc func chatButtonTapped() {
+        let chatHostVC = ChatHostViewController()
+        chatHostVC.modalPresentationStyle = UIModalPresentationStyle.fullScreen
+        present(chatHostVC, animated: true)
+    }
+}

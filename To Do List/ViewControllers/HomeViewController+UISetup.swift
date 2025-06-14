@@ -209,7 +209,12 @@ extension HomeViewController: BadgeViewDelegate {
         let settingsItem = UIBarButtonItem(image: menuImage, style: .plain, target: self, action: #selector(onMenuButtonTapped))
         settingsItem.tintColor = UIColor.white
         
-        bottomAppBar.trailingBarButtonItems = [settingsItem]
+        // Chat button
+        let chatImage = UIImage(systemName: "bubble.left.and.bubble.right.fill")
+        let chatItem = UIBarButtonItem(image: chatImage, style: .plain, target: self, action: #selector(chatButtonTapped))
+        chatItem.tintColor = UIColor.white
+        
+        bottomAppBar.trailingBarButtonItems = [chatItem, settingsItem]
     }
     
     func createButton(title: String, action: Selector) -> FluentUI.Button {
