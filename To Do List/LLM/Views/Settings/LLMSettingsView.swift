@@ -15,10 +15,6 @@ struct LLMSettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    NavigationLink(destination: AppearanceSettingsView()) {
-                        Label("appearance", systemImage: "paintpalette")
-                    }
-
                     NavigationLink(destination: ChatsSettingsView(currentThread: $currentThread)) {
                         Label("chats", systemImage: "message")
                     }
@@ -34,30 +30,12 @@ struct LLMSettingsView: View {
                     }
                 }
 
-                Section {
-                    NavigationLink(destination: CreditsView()) {
-                        Text("credits")
-                    }
-                }
-
                 Section {} footer: {
                     HStack {
                         Spacer()
-                        VStack(spacing: 4) {
-                            Image(systemName: appManager.getMoonPhaseIcon())
-                                .foregroundStyle(.quaternary)
-                            Text("v\(Bundle.main.releaseVersionNumber ?? "0").\(Bundle.main.buildVersionNumber ?? "0")")
-                                .font(.footnote)
-                                .foregroundStyle(.tertiary)
-                            Text("made by Mainframe")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                            #if os(macOS)
-                                .padding(.top, 11)
-                            #else
-                                .padding(.top, 16)
-                            #endif
-                        }
+                        Text("made by Saransh")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
                         Spacer()
                     }
                     .padding(.vertical)

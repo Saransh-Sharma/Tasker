@@ -82,6 +82,31 @@ class AppManager: ObservableObject {
         }
     }
     
+    func removeInstalledModel(_ model: String) {
+        // Remove from list if present
+        if let idx = installedModels.firstIndex(of: model) {
+            installedModels.remove(at: idx)
+        }
+        // Attempt to delete the model files from disk
+        do {
+            if let folder = modelFolderURL(for: model), FileManager.default.fileExists(atPath: folder.path) {
+                try FileManager.default.removeItem(at: folder)
+            }
+        } catch {
+            print("Failed to delete model files for \(model): \(error)")
+        }
+    }
+    
+    /// Returns the expected local folder URL where the model is stored, based on MLXLMCommon's default.
+    /// Adjust this path if the underlying library changes its cache location.
+    private func modelFolderURL(for model: String) -> URL? {
+        // Application Support/MLXLM/<model-name>
+        if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            return appSupport.appendingPathComponent("MLXLM").appendingPathComponent(model)
+        }
+        return nil
+    }
+    
     func addInstalledModel(_ model: String) {
         if !installedModels.contains(model) {
             installedModels.append(model)
