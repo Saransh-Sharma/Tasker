@@ -303,6 +303,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // Default to "Inbox" (index 0) since we ensure Inbox is first in buildSamplePillBarData
         if !items.isEmpty {
             _ = bar.selectItem(atIndex: 0) // Default to Inbox
+            // Update current selected project to the first item (usually "Inbox")
+            self.currenttProjectForAddTaskView = items[0].title
         }
         
         bar.barDelegate = self
@@ -331,9 +333,9 @@ extension AddTaskViewController {
         if let samplePillBarView = samplePillBar,
            let samplePillBarComponent = samplePillBarView.subviews.first as? PillButtonBar,
            pillBar === samplePillBarComponent {
-            // Handle sample pill bar selection
+            // Update current project based on pill selection
             print("Sample pill bar item selected: \(item.title) at index \(index)")
-            // You can add custom logic here for the sample pill bar
+            self.currenttProjectForAddTaskView = item.title
             return
         }
         
