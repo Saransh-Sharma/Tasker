@@ -353,10 +353,8 @@ struct ChatView: View {
                     // Add task/project context only once per thread to keep prompts small
                     let tID = currentThread.id
                     if !ChatView.contextInjectedThreads.contains(tID) {
-                        let tasksJSON = LLMTaskContextBuilder.weeklyTasksJSONCached()
-                        dynamicSystemPrompt += "\n\n### Weekly Tasks (JSON):\n" + tasksJSON
-                        let projectsJSON = LLMTaskContextBuilder.projectDetailsJSONCached()
-                        dynamicSystemPrompt += "\n\n### Project Details (JSON):\n" + projectsJSON
+                        let tasksText = LLMTaskContextBuilder.weeklyTasksTextCached()
+                        dynamicSystemPrompt += "\n\n" + tasksText
                         ChatView.contextInjectedThreads.insert(tID)
                     }
 

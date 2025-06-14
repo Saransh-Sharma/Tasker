@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 class AppManager: ObservableObject {
-    @AppStorage("systemPrompt") var systemPrompt = "You Are Eva. You are a helpful personal assistant. Your goal is to help user manage their tasks and calender. "
+    @AppStorage("systemPrompt") var systemPrompt = "You Are Eva. You are a helpful personal assistant. Your goal is to help user manage their tasks and calendar. Extensively use markdown formatting headers of different kinds, bold, italics, tables to format your responses really well. In your responses, keep the dates human readable as Today, Ysterday, Last Thursday, next Tuesday, so on. Keep your responses short and crisp unless user asks you to go into details. Respond per the following details on their tasks and projects: "
     @AppStorage("appTintColor") var appTintColor: AppTintColor = .monochrome
     @AppStorage("appFontDesign") var appFontDesign: AppFontDesign = .standard
     @AppStorage("appFontSize") var appFontSize: AppFontSize = .medium

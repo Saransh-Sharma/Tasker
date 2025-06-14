@@ -32,6 +32,97 @@ struct LLMTaskContextBuilder {
     }
 
     /// Public helper that fetches project details JSON with cache.
+    static func weeklyTasksTextCached() -> String {
+        if let cached = cachedWeekly, Date().timeIntervalSince(cached.generated) < cacheTTL {
+            // convert cached JSON to txt quickly? regenerate for now
+        }
+        return weeklyTasksText()
+    }
+
+    private static func weeklyTasksText() -> String {
+        let jsonString = weeklyTasksJSON()
+        guard let data = jsonString.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return ""
+        }
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let prettyDate: DateFormatter = {
+            let f = DateFormatter()
+            f.dateFormat = "EEEE, MMM d"
+            return f
+        }()
+        let todayDate = Date()
+        func relativeLabel(for dateStr: String) -> String {
+            guard let date = df.date(from: dateStr) else { return dateStr }
+            let cal = Calendar.current
+            if cal.isDateInToday(date) { return "Today" }
+            if cal.isDateInYesterday(date) { return "Yesterday" }
+            if cal.isDateInTomorrow(date) { return "Tomorrow" }
+            let weekday = DateFormatter().weekdaySymbols[cal.component(.weekday, from: date)-1]
+            if date > todayDate {
+                // future
+                if let diff = cal.dateComponents([.day], from: todayDate, to: date).day, diff <= 7 {
+                    return "next " + weekday
+                }
+            } else {
+                if let diff = cal.dateComponents([.day], from: date, to: todayDate).day, diff <= 7 {
+                    return "last " + weekday
+                }
+            }
+            return weekday + ", " + DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .none)
+        }
+
+        func priorityLabel(_ raw: Int) -> String {
+            switch raw {
+            case 3: return "high"
+            case 2: return "medium"
+            default: return "low"
+            }
+        }
+        func renderTasks(_ arr: [[String: Any]]) -> String {
+            arr.compactMap { t in
+                let title = t["title"] as? String ?? ""
+                let project = (t["project"] as? String ?? "").isEmpty ? "inbox" : (t["project"] as! String)
+                let dueRaw = t["dueDate"] as? String ?? ""
+                let due = dueRaw.isEmpty ? "" : relativeLabel(for: dueRaw)
+                let prio = priorityLabel(t["priority"] as? Int ?? 0)
+                return "- \(title) project: \(project) priority: \(prio) due \(due)"
+            }.joined(separator: "\n")
+        }
+        var output = "Date: " + prettyDate.string(from: todayDate) + "\n\n"
+        if let todayArr = obj["tasks_due_today"] as? [[String: Any]], !todayArr.isEmpty {
+            output += "Tasks due today or overdue:\n" + renderTasks(todayArr) + "\n\n"
+        }
+        if let weekArr = obj["tasks_week"] as? [[String: Any]], !weekArr.isEmpty {
+            output += "Other tasks this week:\n" + renderTasks(weekArr) + "\n\n"
+        }
+        // Build open projects section
+        var projectCounts: [String: Int] = [:]
+        if let all = obj["tasks_week"] as? [[String: Any]] {
+            for t in all {
+                guard (t["isCompleted"] as? Bool) == false else { continue }
+                let proj = (t["project"] as? String ?? "").isEmpty ? "inbox" : (t["project"] as! String)
+                projectCounts[proj, default: 0] += 1
+            }
+        }
+        if let todayArr = obj["tasks_due_today"] as? [[String: Any]] {
+            for t in todayArr {
+                guard (t["isCompleted"] as? Bool) == false else { continue }
+                let proj = (t["project"] as? String ?? "").isEmpty ? "inbox" : (t["project"] as! String)
+                projectCounts[proj, default: 0] += 1
+            }
+        }
+        let openProjects = projectCounts.filter { $0.value > 0 }
+        if !openProjects.isEmpty {
+            output += "Open projects with active tasks:\n"
+            for (proj, count) in openProjects.sorted(by: { $0.key < $1.key }) {
+                output += "- \(proj) (\(count) tasks)\n"
+            }
+        }
+        return output
+    }
+
     static func projectDetailsJSONCached() -> String {
         if let cached = cachedProjects, Date().timeIntervalSince(cached.generated) < cacheTTL {
             return cached.json
@@ -72,8 +163,17 @@ struct LLMTaskContextBuilder {
             return df
         }()
 
-        // Map NTask -> Dictionary
-        let encodedTasks: [[String: Any]] = tasks.map { task in
+        // Build list of tasks due today including overdue ones
+        let endOfToday = cal.date(byAdding: .day, value: 1, to: startOfToday)!
+        let tasksDueToday: [NTask] = TaskManager.sharedInstance.getAllTasks.filter { task in
+            if task.isComplete { return false }
+            guard let due = task.dueDate as Date? else { return false }
+            // Due date passed or today
+            return due < endOfToday
+        }
+        // Helper to format dates as YYYY-MM-DD strings
+        
+        let encodedWeekly: [[String: Any]] = tasks.map { task in
             var dict: [String: Any] = [
                 "id": task.objectID.uriRepresentation().absoluteString,
                 "title": task.name ?? "",
@@ -93,11 +193,29 @@ struct LLMTaskContextBuilder {
             return dict
         }
 
+        let encodedToday: [[String: Any]] = tasksDueToday.map { task in
+            var dict: [String: Any] = [
+                "id": task.objectID.uriRepresentation().absoluteString,
+                "title": task.name ?? "",
+                "project": task.project ?? "",
+                "priority": task.taskPriority,
+                "isCompleted": task.isComplete
+            ]
+            if let due = task.dueDate as Date? {
+                dict["dueDate"] = dateFormatter.string(from: due)
+            }
+            if let notes = task.taskDetails, !(notes.isEmpty ?? true) {
+                dict["notes"] = notes
+            }
+            return dict
+        }
+
         let payload: [String: Any] = [
             "context_type": "weekly_tasks",
             "current_date": dateFormatter.string(from: today),
             "week_start_date": dateFormatter.string(from: startOfToday),
-            "tasks": encodedTasks
+            "tasks_due_today": encodedToday,
+            "tasks_week": encodedWeekly
         ]
 
         guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
