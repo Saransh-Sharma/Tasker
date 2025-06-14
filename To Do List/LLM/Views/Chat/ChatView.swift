@@ -330,7 +330,18 @@ struct ChatView: View {
                 let newThread = Thread()
                 currentThread = newThread
                 modelContext.insert(newThread)
-                try? modelContext.save()
+                do {
+                    try modelContext.save()
+                    print("[DEBUG] saved new thread OK")
+                } catch {
+                    print("[DEBUG] save thread error: \(error)")
+                }
+                do {
+                    let all = try modelContext.fetch(FetchDescriptor<Thread>())
+                    print("[DEBUG] after creating thread, total threads: \(all.count)")
+                } catch {
+                    print("[DEBUG] fetch threads error: \(error)")
+                }
             }
 
             if let currentThread = currentThread {
@@ -388,7 +399,18 @@ struct ChatView: View {
     private func sendMessage(_ message: Message) {
         appManager.playHaptic()
         modelContext.insert(message)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            print("[DEBUG] saved message OK")
+        } catch {
+            print("[DEBUG] save message error: \(error)")
+        }
+        do {
+            let all = try modelContext.fetch(FetchDescriptor<Message>())
+            print("[DEBUG] after inserting message, total messages: \(all.count)")
+        } catch {
+            print("[DEBUG] fetch messages error: \(error)")
+        }
     }
 
     // MARK: - Slash command parsing

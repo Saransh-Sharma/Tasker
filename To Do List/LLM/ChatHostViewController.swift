@@ -8,11 +8,19 @@
 
 import UIKit
 import SwiftUI
+import SwiftData
+
+
+
+
+
 
 /// UIKit wrapper that embeds the SwiftUI LLM module.
 class ChatHostViewController: UIViewController {
     private let appManager = AppManager()
     private let llmEvaluator = LLMEvaluator()
+    // Shared SwiftData container for the LLM module (persistent on-disk, CloudKit disabled)
+    private let container: ModelContainer = LLMDataController.shared
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -22,6 +30,7 @@ class ChatHostViewController: UIViewController {
         let rootView = ChatContainerView()
             .environmentObject(appManager)
             .environment(llmEvaluator)
+            .modelContainer(container)
 
         let hostingController = UIHostingController(rootView: rootView)
         addChild(hostingController)
@@ -71,5 +80,14 @@ private struct ChatContainerView: View {
         .environmentObject(appManager)
         .environment(llm)
         .ignoresSafeArea()
+        // Present chat history list when showChats toggled (iPhone)
+        .sheet(isPresented: $showChats) {
+            ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
+                .environmentObject(appManager)
+                #if os(iOS)
+                .presentationDragIndicator(.hidden)
+                .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium, .large] : [.large])
+            #endif
+        }
     }
 }
