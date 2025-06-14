@@ -207,6 +207,9 @@
 		75F89FB82DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
 		75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
 		75F89FBA2DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
+		75F89FBC2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */; };
+		75F89FBD2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */; };
+		75F89FBE2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */; };
 		75F9937224815BF600C340EB /* ToDoColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937124815BF600C340EB /* ToDoColors.swift */; };
 		75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F993792483764C00C340EB /* DayAxisValueFormatter.swift */; };
 		75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */; };
@@ -368,6 +371,7 @@
 		75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMSettingsView.swift; sourceTree = "<group>"; };
 		75F89FB32DFC7F67009EDD8F /* moon-phases.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "moon-phases.mp4"; sourceTree = "<group>"; };
 		75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptMiddleware.swift; sourceTree = "<group>"; };
+		75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMTaskContextBuilder.swift; sourceTree = "<group>"; };
 		75F9937124815BF600C340EB /* ToDoColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoColors.swift; sourceTree = "<group>"; };
 		75F993792483764C00C340EB /* DayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayAxisValueFormatter.swift; sourceTree = "<group>"; };
 		75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeBottomBarView.swift; sourceTree = "<group>"; };
@@ -670,6 +674,7 @@
 				75F89F2F2DFC44E6009EDD8F /* Models.swift */,
 				75F89F302DFC44E6009EDD8F /* RequestLLMIntent.swift */,
 				75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */,
+				75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -989,6 +994,7 @@
 			files = (
 				751075122DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				75F1810B245CA7DF004D9A69 /* NTask+CoreDataClass.swift in Sources */,
+				75F89FBD2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */,
 				75DFF2DE2DF2302600EB8850 /* TaskListViewController.swift in Sources */,
 				75F1810C245CA7DF004D9A69 /* NTask+CoreDataProperties.swift in Sources */,
 				75DFF2D72DF22FC300EB8850 /* LoggingService.swift in Sources */,
@@ -1127,6 +1133,7 @@
 				7510750E2DEE268D00AC7F22 /* HomeViewController+UISetup.swift in Sources */,
 				75573CB12DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */,
+				75F89FBC2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */,
 				751075142DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
 				75F3CB7B2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
 				751075012DEE25E700AC7F22 /* HomeViewController+TableView.swift in Sources */,
@@ -1174,6 +1181,7 @@
 				7510750C2DEE268D00AC7F22 /* HomeViewController+UISetup.swift in Sources */,
 				75573CB02DE88A8000F5A873 /* SettingsView.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
+				75F89FBE2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */,
 				751075162DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
 				75F3CB7A2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
 				751075022DEE25E700AC7F22 /* HomeViewController+TableView.swift in Sources */,

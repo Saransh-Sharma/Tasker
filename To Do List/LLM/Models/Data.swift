@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 class AppManager: ObservableObject {
-    @AppStorage("systemPrompt") var systemPrompt = "you are a helpful assistant"
+    @AppStorage("systemPrompt") var systemPrompt = "You Are Eva. You are a helpful personal assistant. Your goal is to help user manage their tasks and calender. "
     @AppStorage("appTintColor") var appTintColor: AppTintColor = .monochrome
     @AppStorage("appFontDesign") var appFontDesign: AppFontDesign = .standard
     @AppStorage("appFontSize") var appFontSize: AppFontSize = .medium

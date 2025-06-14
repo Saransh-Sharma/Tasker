@@ -9,6 +9,7 @@ import MarkdownUI
 import SwiftUI
 import Combine
 import SwiftData
+import os
 
 struct ChatView: View {
     @EnvironmentObject var appManager: AppManager
@@ -26,6 +27,8 @@ struct ChatView: View {
     @State var thinkingTime: TimeInterval?
     
     @State private var generatingThreadID: UUID?
+    // Track which threads already received task/project context to avoid bloating each prompt
+    static private var contextInjectedThreads = Set<UUID>()
 
     var isPromptEmpty: Bool {
         prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -338,7 +341,7 @@ struct ChatView: View {
                     appManager.playHaptic()
 
                     // Build dynamic system prompt based on action
-                    var dynamicSystemPrompt = appManager.systemPrompt
+                    var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
 
                     switch action {
                     case let .summary(range, project):
@@ -346,6 +349,15 @@ struct ChatView: View {
                         dynamicSystemPrompt += "\n\nTasks (\(range.description)):\n" + summary
                     default:
                         break
+                    }
+                    // Add task/project context only once per thread to keep prompts small
+                    let tID = currentThread.id
+                    if !ChatView.contextInjectedThreads.contains(tID) {
+                        let tasksJSON = LLMTaskContextBuilder.weeklyTasksJSONCached()
+                        dynamicSystemPrompt += "\n\n### Weekly Tasks (JSON):\n" + tasksJSON
+                        let projectsJSON = LLMTaskContextBuilder.projectDetailsJSONCached()
+                        dynamicSystemPrompt += "\n\n### Project Details (JSON):\n" + projectsJSON
+                        ChatView.contextInjectedThreads.insert(tID)
                     }
 
                     await MainActor.run {
@@ -361,7 +373,11 @@ struct ChatView: View {
                                 generatingThreadID = nil
                                 return
                             }
+                            os_log("SystemPrompt length %d", dynamicSystemPrompt.count)
+                            print("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
+                            print("USER MESSAGE ->\n\(message)")
                             let output = await llm.generate(modelName: modelName, thread: currentThread, systemPrompt: dynamicSystemPrompt)
+                            print("LLM RESPONSE ->\n\(output)")
                             sendMessage(Message(role: .assistant, content: output, thread: currentThread, generatingTime: llm.thinkingTime))
                             generatingThreadID = nil
                         }
