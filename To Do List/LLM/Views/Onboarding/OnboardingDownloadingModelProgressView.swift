@@ -1,8 +1,6 @@
 //
 //  OnboardingDownloadingModelProgressView.swift
-//  fullmoon
 //
-//  Created by Jordan Singer on 10/4/24.
 //
 
 import SwiftUI
@@ -23,7 +21,7 @@ struct OnboardingDownloadingModelProgressView: View {
         VStack {
             Spacer()
             
-            VStack(spacing: 16) {
+            VStack(spacing: 128) {
                 MoonAnimationView(isDone: installed)
                 
                 VStack(spacing: 4) {
@@ -66,7 +64,7 @@ struct OnboardingDownloadingModelProgressView: View {
             }
         }
         .padding()
-        .navigationTitle("sit back and relax")
+        .navigationTitle("downloading AI model..")
         .toolbar(installed ? .hidden : .visible)
         .navigationBarBackButtonHidden()
         .task {

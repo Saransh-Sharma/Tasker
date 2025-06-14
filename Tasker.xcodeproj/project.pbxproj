@@ -69,6 +69,11 @@
 		7529F6F82DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */; };
 		7529F6F92DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */; };
 		7529F6FA2DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */; };
+		7529F6FD2DFDEFB3000CBE36 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 7529F6FC2DFDEFB3000CBE36 /* Lottie */; };
+		7529F7022DFDF758000CBE36 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 7529F7012DFDF758000CBE36 /* Lottie */; };
+		7529F7042DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
+		7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
+		7529F7062DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
 		7537B62324A2AF0800B978E5 /* NewProjectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */; };
 		7539AAB92DE988C900619EDD /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7539AAB82DE988C900619EDD /* TaskDetailView.swift */; };
 		7539AABA2DE988C900619EDD /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7539AAB82DE988C900619EDD /* TaskDetailView.swift */; };
@@ -207,9 +212,6 @@
 		75F89F772DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */; };
 		75F89F782DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */; };
 		75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 75F89FB12DFC62C3009EDD8F /* MarkdownUI */; };
-		75F89FB42DFC7F67009EDD8F /* moon-phases.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 75F89FB32DFC7F67009EDD8F /* moon-phases.mp4 */; };
-		75F89FB52DFC7F67009EDD8F /* moon-phases.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 75F89FB32DFC7F67009EDD8F /* moon-phases.mp4 */; };
-		75F89FB62DFC7F67009EDD8F /* moon-phases.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 75F89FB32DFC7F67009EDD8F /* moon-phases.mp4 */; };
 		75F89FB82DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
 		75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
 		75F89FBA2DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
@@ -280,6 +282,7 @@
 		7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMDataController.swift; sourceTree = "<group>"; };
 		7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+IfModifier.swift"; sourceTree = "<group>"; };
+		7529F7032DFDF7E3000CBE36 /* loading-animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "loading-animation.json"; sourceTree = "<group>"; };
 		7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewProjectViewController.swift; sourceTree = "<group>"; };
 		7539AAB82DE988C900619EDD /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailView.swift; sourceTree = "<group>"; };
 		7539AABC2DE9A1F000619EDD /* FluentUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = FluentUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -377,7 +380,6 @@
 		75F89F642DFC4E5D009EDD8F /* CreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsView.swift; sourceTree = "<group>"; };
 		75F89F662DFC4E5D009EDD8F /* ModelsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSettingsView.swift; sourceTree = "<group>"; };
 		75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMSettingsView.swift; sourceTree = "<group>"; };
-		75F89FB32DFC7F67009EDD8F /* moon-phases.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "moon-phases.mp4"; sourceTree = "<group>"; };
 		75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptMiddleware.swift; sourceTree = "<group>"; };
 		75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMTaskContextBuilder.swift; sourceTree = "<group>"; };
 		75F9937124815BF600C340EB /* ToDoColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoColors.swift; sourceTree = "<group>"; };
@@ -397,8 +399,10 @@
 			files = (
 				75A328B92DFB606700F36C31 /* MLXLLM in Frameworks */,
 				75A328B22DFB604000F36C31 /* MLX in Frameworks */,
+				7529F6FD2DFDEFB3000CBE36 /* Lottie in Frameworks */,
 				750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */,
 				75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */,
+				7529F7022DFDF758000CBE36 /* Lottie in Frameworks */,
 				75A328B42DFB604000F36C31 /* MLXFast in Frameworks */,
 				75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */,
 				6A200163BA7A387862068F73 /* Pods_Tasker.framework in Frameworks */,
@@ -749,8 +753,8 @@
 				75F89F312DFC44E6009EDD8F /* Models */,
 				75F89F422DFC44E6009EDD8F /* Views */,
 				75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */,
-				75F89FB32DFC7F67009EDD8F /* moon-phases.mp4 */,
 				7529F6F72DFDE9F0000CBE36 /* Extensions */,
+				7529F7032DFDF7E3000CBE36 /* loading-animation.json */,
 			);
 			path = LLM;
 			sourceTree = "<group>";
@@ -892,6 +896,7 @@
 				75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */,
 				75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */,
 				75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				7529F7002DFDF758000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */,
 			);
 			productRefGroup = 753EFC9B2445A24500A739E3 /* Products */;
 			projectDirPath = "";
@@ -909,11 +914,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				75F89FB52DFC7F67009EDD8F /* moon-phases.mp4 in Resources */,
 				753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */,
 				7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */,
 				753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */,
 				753EFCA52445A24500A739E3 /* Main.storyboard in Resources */,
+				7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -921,8 +926,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				75F89FB42DFC7F67009EDD8F /* moon-phases.mp4 in Resources */,
 				750F9ED82685C01E00C008C4 /* GoogleService-Info.plist in Resources */,
+				7529F7062DFDF7E3000CBE36 /* loading-animation.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -930,8 +935,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				75F89FB62DFC7F67009EDD8F /* moon-phases.mp4 in Resources */,
 				750F9ED92685C01E00C008C4 /* GoogleService-Info.plist in Resources */,
+				7529F7042DFDF7E3000CBE36 /* loading-animation.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1550,6 +1555,22 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.2;
+			};
+		};
+		7529F7002DFDF758000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.2;
+			};
+		};
 		75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ml-explore/mlx-swift.git";
@@ -1577,6 +1598,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		7529F6FC2DFDEFB3000CBE36 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
+		7529F7012DFDF758000CBE36 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7529F7002DFDF758000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */;
+			productName = Lottie;
+		};
 		75A328B12DFB604000F36C31 /* MLX */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */;

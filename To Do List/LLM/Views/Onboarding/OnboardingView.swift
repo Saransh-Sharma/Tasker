@@ -1,8 +1,6 @@
 //
 //  OnboardingView.swift
-//  fullmoon
 //
-//  Created by Jordan Singer on 10/4/24.
 //
 
 import SwiftUI
@@ -16,16 +14,17 @@ struct OnboardingView: View {
                 Spacer()
                 
                 VStack(spacing: 12) {
-                    Image(systemName: "moon.circle.fill")
+                    Image(systemName: "bubble.left.and.text.bubble.right")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 64, height: 64)
+                        .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
                     
                     VStack(spacing: 4) {
-                        Text("fullmoon")
+                        Text("I am Eva !\nyour personal AI assistant")
                             .font(.title)
                             .fontWeight(.semibold)
-                        Text("chat with private and local large language models")
+                        Text("chat about your tasks, projects, and more with me")
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                     }
@@ -53,7 +52,7 @@ struct OnboardingView: View {
                     
                     Label {
                         VStack(alignment: .leading) {
-                            Text("private")
+                            Text("offline")
                                 .font(.headline)
                             Text("runs locally on your device")
                                 .font(.callout)
@@ -68,16 +67,71 @@ struct OnboardingView: View {
                             .padding(.trailing, 8)
                     }
                     
+                    // Insightful
                     Label {
                         VStack(alignment: .leading) {
-                            Text("open source")
+                            Text("insightful")
                                 .font(.headline)
-                            Text("view and contribute to the source code")
+                            Text("smart suggestions and task insights")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                         }
                     } icon: {
-                        Image(systemName: "chevron.left.forwardslash.chevron.right")
+                        Image(systemName: "lightbulb")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
+                            .foregroundStyle(.secondary)
+                            .padding(.trailing, 8)
+                    }
+                    
+                    // Context-Aware
+                    Label {
+                        VStack(alignment: .leading) {
+                            Text("context-aware")
+                                .font(.headline)
+                            Text("adapts to your current projects and tasks")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "brain.head.profile")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
+                            .foregroundStyle(.secondary)
+                            .padding(.trailing, 8)
+                    }
+                    
+                    // Battery-Light
+                    Label {
+                        VStack(alignment: .leading) {
+                            Text("battery-light")
+                                .font(.headline)
+                            Text("tiny power footprint")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "battery.100.bolt")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 24, height: 24)
+                            .foregroundStyle(.secondary)
+                            .padding(.trailing, 8)
+                    }
+                    
+                    // Smart Recap
+                    Label {
+                        VStack(alignment: .leading) {
+                            Text("smart recap")
+                                .font(.headline)
+                            Text("daily / weekly digests")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "list.bullet.rectangle")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 24, height: 24)

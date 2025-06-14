@@ -1,8 +1,6 @@
 //
 //  DeviceNotSupportedView.swift
-//  fullmoon
 //
-//  Created by Xavier on 10/12/2024.
 //
 
 import SwiftUI

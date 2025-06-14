@@ -1,8 +1,6 @@
 //
 //  ConversationView.swift
-//  fullmoon
 //
-//  Created by Xavier on 16/12/2024.
 //
 
 import MarkdownUI

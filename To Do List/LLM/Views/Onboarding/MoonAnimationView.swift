@@ -1,12 +1,11 @@
 //
 //  MoonAnimationView.swift
-//  fullmoon
 //
-//  Created by Xavier on 17/12/2024.
 //
 
 import AVKit
 import SwiftUI
+import Lottie
 
 #if os(macOS)
 import AppKit
@@ -142,6 +141,27 @@ class LoopingPlayerNSView: NSView {
 }
 #endif
 
+/// SwiftUI wrapper for a looping Lottie animation
+#if os(iOS) || os(visionOS)
+struct LottieView: UIViewRepresentable {
+    let animationName: String
+
+    func makeUIView(context: Context) -> LottieAnimationView {
+                let configuration = LottieConfiguration(renderingEngine: .coreAnimation)
+        let animationView = LottieAnimationView(name: animationName, configuration: configuration)
+        animationView.loopMode = .loop
+        animationView.contentMode = .scaleAspectFit
+        animationView.translatesAutoresizingMaskIntoConstraints = false
+        animationView.play()
+        return animationView
+    }
+
+    func updateUIView(_ uiView: LottieAnimationView, context: Context) {
+        // No dynamic updates needed yet
+    }
+}
+#endif
+
 struct MoonAnimationView: View {
     var isDone: Bool
     
@@ -153,18 +173,26 @@ struct MoonAnimationView: View {
                     .aspectRatio(contentMode: .fit)
                     .foregroundStyle(.green)
             } else {
-                // placeholder
-                Image(systemName: "moon")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                // video loop
+                // Lottie loading animation
                 
-                PlayerView(videoName: "moon-phases")
+                #if os(iOS) || os(visionOS)
+                LottieView(animationName: "loading-animation")
                     .aspectRatio(contentMode: .fit)
                     .mask {
                         Circle()
-                            .scale(0.99)
+                            .scale(0.30)
                     }
+#else
+                // Fallback on macOS: chat bubbles symbol with wiggle effect
+                Image(systemName: "bubble.left.and.text.bubble.right")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
+                    .mask {
+                        Circle()
+                            .scale(0.40)
+                    }
+#endif
             }
         }
         .frame(width: 64, height: 64)

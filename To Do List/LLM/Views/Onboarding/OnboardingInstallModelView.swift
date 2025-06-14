@@ -1,8 +1,6 @@
 //
 //  OnboardingInstallModelView.swift
-//  fullmoon
 //
-//  Created by Jordan Singer on 10/4/24.
 //
 
 import MLXLMCommon
@@ -33,6 +31,7 @@ struct OnboardingInstallModelView: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 64, height: 64)
+                        .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
                         .foregroundStyle(.primary, .tertiary)
 
                     VStack(spacing: 4) {

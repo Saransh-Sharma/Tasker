@@ -1,8 +1,6 @@
 //
 //  ChatsListView.swift
-//  fullmoon
 //
-//  Created by Jordan Singer on 10/5/24.
 //
 
 import StoreKit

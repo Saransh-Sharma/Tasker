@@ -2,7 +2,6 @@
 //  PromptMiddleware.swift
 //  Tasker LLM
 //
-//  Created by Cascade AI on 13/06/2025.
 //
 
 import Foundation

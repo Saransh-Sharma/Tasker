@@ -1,8 +1,6 @@
 //
 //  Models.swift
-//  fullmoon
 //
-//  Created by Jordan Singer on 10/4/24.
 //
 
 import Foundation

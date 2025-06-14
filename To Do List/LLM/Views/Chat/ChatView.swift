@@ -1,8 +1,6 @@
 //
 //  ChatView.swift
-//  fullmoon
 //
-//  Created by Jordan Singer on 12/3/24.
 //
 
 import MarkdownUI

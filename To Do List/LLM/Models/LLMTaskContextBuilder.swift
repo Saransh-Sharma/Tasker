@@ -2,7 +2,6 @@
 //  LLMTaskContextBuilder.swift
 //  To Do List
 //
-//  Created by Cascade AI on 14/06/2025.
 //
 //  Utility responsible for exporting the user's tasks for the current week
 //  as a compact JSON string that can be injected into the LLM system prompt.
