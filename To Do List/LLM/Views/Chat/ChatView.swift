@@ -188,7 +188,7 @@ struct ChatView: View {
                     ConversationView(thread: currentThread, generatingThreadID: generatingThreadID)
                 } else {
                     Spacer()
-                    Image(systemName: appManager.getMoonPhaseIcon())
+                    Image(systemName: "checkmark.circle")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 32, height: 32)
@@ -260,6 +260,7 @@ struct ChatView: View {
                     }
                     #endif
                 }
+                // MARK: - Main Toolbar
                 .toolbar {
                     #if os(iOS) || os(visionOS)
                     ToolbarItem(placement: .topBarLeading) {
@@ -278,14 +279,14 @@ struct ChatView: View {
                         }
                     }
 
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button(action: {
-                            appManager.playHaptic()
-                            showSettings.toggle()
-                        }) {
-                            Image(systemName: "gear")
-                        }
-                    }
+                    // ToolbarItem(placement: .topBarTrailing) {
+                    //     Button(action: {
+                    //         appManager.playHaptic()
+                    //         showSettings.toggle()
+                    //     }) {
+                    //         Image(systemName: "gear")
+                    //     }
+                    // }
                     #elseif os(macOS)
                     ToolbarItem(placement: .primaryAction) {
                         Button(action: {

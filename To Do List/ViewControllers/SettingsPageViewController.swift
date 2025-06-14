@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SwiftUI
 
 // Data structures for settings table view
 struct SettingsItem {
@@ -25,6 +26,8 @@ class SettingsPageViewController: UIViewController {
     // Properties
     var settingsTableView: UITableView!
     var sections: [SettingsSection] = [] // Data source for the table
+    // LLM/AI Manager
+    let appManager = AppManager()
     
     // Track the current mode state
     private var isDarkMode: Bool = false
@@ -83,9 +86,12 @@ class SettingsPageViewController: UIViewController {
     
     // MARK: - Data Setup
     private func setupSettingsSections() {
-        // Use the tracked mode state
+        // Determine dynamic titles/icons
         let modeTitle = isDarkMode ? "Light Mode" : "Dark Mode"
         let modeIcon = isDarkMode ? "sun.max.fill" : "moon.fill"
+        
+        // Compute LLM model display name to show as badge/detail
+        let modelDisplayName = appManager.modelDisplayName(appManager.currentModelName ?? "")
         
         sections = [
             SettingsSection(title: "Projects", items: [
@@ -98,6 +104,15 @@ class SettingsPageViewController: UIViewController {
                     self?.toggleDarkMode()
                 })
             ]),
+            // LLM Settings
+            SettingsSection(title: "LLM Settings", items: [
+                SettingsItem(title: "Chats", iconName: "message", action: { [weak self] in
+                    self?.navigateToLLMChatsSettings()
+                }),
+                SettingsItem(title: "Models", iconName: "arrow.down.circle", action: { [weak self] in
+                    self?.navigateToLLMModelsSettings()
+                }, detailText: modelDisplayName)
+            ]),
             SettingsSection(title: "About", items: [
                 SettingsItem(title: "Version", iconName: "info.circle.fill", action: { [weak self] in
                     self?.showVersionInfo()
@@ -109,6 +124,25 @@ class SettingsPageViewController: UIViewController {
     // MARK: - Actions
     @objc func doneTapped() {
         self.dismiss(animated: true, completion: nil)
+    }
+    
+    // MARK: - LLM Navigation
+    private func navigateToLLMChatsSettings() {
+        let view = ChatsSettingsView(currentThread: .constant(nil))
+            .environmentObject(appManager)
+            .environment(LLMEvaluator())
+        let vc = UIHostingController(rootView: view)
+        vc.title = "Chats"
+        self.navigationController?.pushViewController(vc, animated: true)
+    }
+    
+    private func navigateToLLMModelsSettings() {
+        let view = ModelsSettingsView()
+            .environmentObject(appManager)
+            .environment(LLMEvaluator())
+        let vc = UIHostingController(rootView: view)
+        vc.title = "Models"
+        self.navigationController?.pushViewController(vc, animated: true)
     }
     
     private func navigateToProjectManagement() {
