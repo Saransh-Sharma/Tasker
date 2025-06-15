@@ -191,30 +191,32 @@ extension HomeViewController: BadgeViewDelegate {
         fab.setImage(addTaskImage, for: .normal)
         fab.backgroundColor = todoColors.secondaryAccentColor
         fab.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
-        bottomAppBar.floatingButtonPosition = .center
+        bottomAppBar.floatingButtonPosition = .trailing
         
         // Add navigation items for leading side (left)
+        
+        // Settings button (leftmost)
+        let settingsImage = UIImage(systemName: "gearshape")
+        let settingsItem = UIBarButtonItem(image: settingsImage, style: .plain, target: self, action: #selector(onMenuButtonTapped))
+        settingsItem.tintColor = UIColor.white
         let calendarImage = UIImage(systemName: "calendar")
         let calendarItem = UIBarButtonItem(image: calendarImage, style: .plain, target: self, action: #selector(toggleCalendar))
         calendarItem.tintColor = UIColor.white
         
-        let chartImage = UIImage(systemName: "chart.bar")
+        let chartImage = UIImage(systemName: "chart.bar.xaxis.ascending")
         let chartItem = UIBarButtonItem(image: chartImage, style: .plain, target: self, action: #selector(toggleCharts))
         chartItem.tintColor = UIColor.white
         
-        bottomAppBar.leadingBarButtonItems = [calendarItem, chartItem]
-        
-        // Add navigation items for trailing side (right)
-        let menuImage = UIImage(named: "menu_icon") ?? UIImage(systemName: "line.horizontal.3")
-        let settingsItem = UIBarButtonItem(image: menuImage, style: .plain, target: self, action: #selector(onMenuButtonTapped))
-        settingsItem.tintColor = UIColor.white
-        
         // Chat button
-        let chatImage = UIImage(systemName: "bubble.left.and.bubble.right.fill")
+        let chatImage = UIImage(systemName: "bubble.left.and.text.bubble.right")
         let chatItem = UIBarButtonItem(image: chatImage, style: .plain, target: self, action: #selector(chatButtonTapped))
         chatItem.tintColor = UIColor.white
         
-        bottomAppBar.trailingBarButtonItems = [chatItem, settingsItem]
+        bottomAppBar.leadingBarButtonItems = [settingsItem, calendarItem, chartItem, chatItem]
+        
+        
+        
+        // No trailing bar button items; FAB occupies the trailing position
     }
     
     func createButton(title: String, action: Selector) -> FluentUI.Button {
