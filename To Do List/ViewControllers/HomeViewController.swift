@@ -194,6 +194,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         print("Initial dateForTheView: \(dateForTheView)")
         
         print("=== HOME VIEW CONTROLLER SETUP COMPLETE ===")
+        // Observe theme changes for lifetime of this controller
+        notificationCenter.addObserver(self, selector: #selector(themeChanged), name: .themeChanged, object: nil)
         
         // Setup FluentUI Navigation Bar
         setupFluentUINavigationBar()
@@ -220,7 +222,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         view.addSubview(bottomAppBar)
         
         foredropContainer.backgroundColor = UIColor.systemBackground
-        backdropContainer.backgroundColor = UIColor.clear
+        // Apply initial themed backgrounds
+        view.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
+        backdropContainer.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
         
         // Load initial data
         TaskManager.sharedInstance.fixMissingTasksDataWithDefaults()
@@ -279,6 +283,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
     
     deinit {
+        notificationCenter.removeObserver(self, name: .themeChanged, object: nil)
         notificationCenter.removeObserver(self)
     }
     
@@ -645,6 +650,86 @@ extension HomeViewController: AddTaskViewControllerDelegate {
     }
 }
 
+// MARK: - Theme Handling
+extension HomeViewController {
+    /// Re-applies current theme colors to primary UI elements.
+    fileprivate func applyTheme() {
+        // Refresh color source
+        todoColors = ToDoColors()
+        // Navigation bar (FluentUI custom property)
+        navigationItem.customNavigationBarColor = todoColors.primaryColor
+        // System/global tint
+        // Global tint
+        view.tintColor = todoColors.primaryColor
+        // Main view background color should follow theme immediately
+        view.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
+        
+        
+        
+        
+        
+        // Bottom app bar
+        bottomAppBar.barTintColor = todoColors.primaryColor
+        // Backdrop container background (subtle tint for blurred backdrop)
+        backdropContainer.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
+        // Floating action button (if instantiated via storyboard & bottom bar)
+        if let fab = addTaskButton {
+            // For MDCFloatingButton use setBackgroundColor to ensure ripple layer also updates
+            fab.setBackgroundColor(todoColors.primaryColor, for: .normal)
+            fab.setBackgroundColor(todoColors.primaryColor.withAlphaComponent(0.8), for: .highlighted)
+            fab.tintColor = .white
+            fab.backgroundColor = todoColors.primaryColor
+        }
+        // Also recolor hidden floating button in BottomAppBar (if later shown)
+        bottomAppBar.floatingButton.setBackgroundColor(todoColors.primaryColor, for: .normal)
+        bottomAppBar.floatingButton.setBackgroundColor(todoColors.primaryColor.withAlphaComponent(0.8), for: .highlighted)
+        bottomAppBar.floatingButton.tintColor = .white
+        // Update any search bar accessory background
+        if let accSearchBar = navigationItem.accessoryView as? SearchBar {
+            accSearchBar.tokenSet[.backgroundColor] = .uiColor { self.todoColors.primaryColor }
+        }
+        if let controllerSearchBar = navigationItem.searchController?.searchBar as? SearchBar {
+            controllerSearchBar.tokenSet[.backgroundColor] = .uiColor { self.todoColors.primaryColor }
+        }
+        // Update chart accent colors if present
+        if let dataSets = lineChartView.data?.dataSets {
+            dataSets.forEach { set in
+                if let lineSet = set as? LineChartDataSet {
+                    lineSet.colors = [todoColors.primaryColor]
+                    lineSet.fillColor = todoColors.primaryColor.withAlphaComponent(0.2)
+                    lineSet.circleColors = [todoColors.primaryColor]
+                }
+            }
+            lineChartView.data?.notifyDataChanged()
+            lineChartView.notifyDataSetChanged()
+        }
+        // Update calendar appearance & refresh
+        if let cal = calendar {
+            // Header & weekday background colours
+            cal.calendarHeaderView.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.5)
+            cal.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker
+        }
+        if let cal = calendar {
+            cal.appearance.selectionColor = todoColors.primaryColor
+            cal.appearance.todayColor = todoColors.primaryColor
+            cal.appearance.headerTitleColor = todoColors.primaryColor
+            cal.appearance.weekdayTextColor = todoColors.primaryColor
+            cal.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
+            cal.collectionView.backgroundColor = cal.backgroundColor
+            // Reapply full appearance settings (header, weekday, selection etc.)
+            DispatchQueue.main.async {
+                self.setupCalAppearence()
+            }
+        }
+        // Reload table views to reflect accent changes inside cells
+        fluentToDoTableViewController?.tableView.reloadData()
+    }
+    
+    @objc func themeChanged() {
+        applyTheme()
+    }
+}
+
 // MARK: - Bottom App Bar Setup & Chat Integration
 
 extension HomeViewController {
@@ -675,7 +760,10 @@ extension HomeViewController {
     /// Presents the ChatHostViewController modally.
     @objc func chatButtonTapped() {
         let chatHostVC = ChatHostViewController()
-        chatHostVC.modalPresentationStyle = UIModalPresentationStyle.fullScreen
-        present(chatHostVC, animated: true)
+        let navController = NavigationController(rootViewController: chatHostVC)
+        navController.modalPresentationStyle = .fullScreen
+        // Prefer FluentUI styling if available
+        navController.navigationBar.prefersLargeTitles = false
+        present(navController, animated: true)
     }
 }

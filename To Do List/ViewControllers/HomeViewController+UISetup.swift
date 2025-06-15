@@ -111,7 +111,7 @@ extension HomeViewController: BadgeViewDelegate {
                                       y: screenHeight - foredropHeight - bottomBarHeight + 24, 
                                       width: screenWidth, 
                                       height: foredropHeight)
-        foredropContainer.backgroundColor = todoColors.backgroundColor
+        foredropContainer.backgroundColor = todoColors.backgroundColor        
         foredropContainer.layer.cornerRadius = 24
         foredropContainer.clipsToBounds = true
         

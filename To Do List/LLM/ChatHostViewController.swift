@@ -9,6 +9,7 @@
 import UIKit
 import SwiftUI
 import SwiftData
+import FluentUI
 
 
 
@@ -16,11 +17,17 @@ import SwiftData
 
 
 /// UIKit wrapper that embeds the SwiftUI LLM module.
+extension Notification.Name {
+    static let toggleChatHistory = Notification.Name("toggleChatHistory")
+}
+
 class ChatHostViewController: UIViewController {
     private let appManager = AppManager()
     private let llmEvaluator = LLMEvaluator()
     // Shared SwiftData container for the LLM module (persistent on-disk, CloudKit disabled)
     private let container: ModelContainer = LLMDataController.shared
+
+    private var hostingController: UIHostingController<AnyView>!
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -32,7 +39,7 @@ class ChatHostViewController: UIViewController {
             .environment(llmEvaluator)
             .modelContainer(container)
 
-        let hostingController = UIHostingController(rootView: rootView)
+        hostingController = UIHostingController(rootView: AnyView(rootView))
         addChild(hostingController)
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(hostingController.view)
@@ -43,6 +50,44 @@ class ChatHostViewController: UIViewController {
             hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         hostingController.didMove(toParent: self)
+        // Configure FluentUI navigation bar
+        setupFluentNavigationBar()
+    }
+    // MARK: - FluentUI Navigation Bar Setup
+    private func setupFluentNavigationBar() {
+        navigationItem.titleStyle = .largeLeading
+        navigationItem.navigationBarStyle = .custom
+        navigationItem.navigationBarShadow = .automatic
+        navigationItem.customNavigationBarColor = ToDoColors().primaryColor
+        title = "Chat"
+
+        // Left: Back button
+        let backButton = UIBarButtonItem(
+            image: UIImage(systemName: "chevron.backward"),
+            style: .plain,
+            target: self,
+            action: #selector(onBackTapped)
+        )
+        backButton.accessibilityLabel = "Back"
+        navigationItem.leftBarButtonItem = backButton
+
+        // Right: History button
+        let historyButton = UIBarButtonItem(
+            image: UIImage(systemName: "list.bullet"),
+            style: .plain,
+            target: self,
+            action: #selector(onHistoryTapped)
+        )
+        historyButton.accessibilityLabel = "History"
+        navigationItem.rightBarButtonItem = historyButton
+    }
+
+    @objc private func onBackTapped() {
+        dismiss(animated: true)
+    }
+
+    @objc private func onHistoryTapped() {
+        NotificationCenter.default.post(name: .toggleChatHistory, object: nil)
     }
 }
 
@@ -88,6 +133,9 @@ private struct ChatContainerView: View {
                 .presentationDragIndicator(.hidden)
                 .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium, .large] : [.large])
             #endif
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleChatHistory)) { _ in
+            showChats.toggle()
         }
     }
 }

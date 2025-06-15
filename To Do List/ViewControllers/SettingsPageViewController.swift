@@ -66,9 +66,19 @@ class SettingsPageViewController: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        // Add observer for theme changes
+        NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeChanged, object: nil)
+        
         // Refresh table data when view appears
         setupSettingsSections()
+        todoColors = ToDoColors()
         settingsTableView.reloadData()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        // Remove observer to avoid memory leaks
+        NotificationCenter.default.removeObserver(self, name: .themeChanged, object: nil)
     }
     
     // MARK: - UI Setup
@@ -78,6 +88,7 @@ class SettingsPageViewController: UIViewController {
         settingsTableView.delegate = self
         settingsTableView.dataSource = self
         settingsTableView.register(UITableViewCell.self, forCellReuseIdentifier: "settingsCell")
+        settingsTableView.register(ThemeSelectionCell.self, forCellReuseIdentifier: ThemeSelectionCell.reuseID)
         settingsTableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         
         // Add to view hierarchy
@@ -102,14 +113,15 @@ class SettingsPageViewController: UIViewController {
             SettingsSection(title: "Appearance", items: [
                 SettingsItem(title: modeTitle, iconName: modeIcon, action: { [weak self] in
                     self?.toggleDarkMode()
-                })
+                }),
+                SettingsItem(title: "Theme", iconName: nil, action: nil)
             ]),
             // LLM Settings
             SettingsSection(title: "LLM Settings", items: [
                 SettingsItem(title: "Chats", iconName: "message", action: { [weak self] in
                     self?.navigateToLLMChatsSettings()
                 }),
-                SettingsItem(title: "Models", iconName: "arrow.down.circle", action: { [weak self] in
+                SettingsItem(title: "Models", iconName: "brain.filled.head.profile", action: { [weak self] in
                     self?.navigateToLLMModelsSettings()
                 }, detailText: modelDisplayName)
             ]),
@@ -126,6 +138,12 @@ class SettingsPageViewController: UIViewController {
         self.dismiss(animated: true, completion: nil)
     }
     
+    // MARK: - Theme Navigation
+    private func navigateToThemeSelection() {
+        let vc = ThemeSelectionViewController()
+        self.navigationController?.pushViewController(vc, animated: true)
+    }
+
     // MARK: - LLM Navigation
     private func navigateToLLMChatsSettings() {
         let view = ChatsSettingsView(currentThread: .constant(nil))
@@ -223,6 +241,15 @@ extension SettingsPageViewController: UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        // Provide custom theme picker cell for the "Theme" item under the Appearance section
+        if sections[indexPath.section].title == "Appearance" && sections[indexPath.section].items[indexPath.row].title == "Theme" {
+            let themeCell = tableView.dequeueReusableCell(withIdentifier: ThemeSelectionCell.reuseID, for: indexPath)
+            themeCell.selectionStyle = .none
+            // Hide the default text label so only the collection view is visible
+            themeCell.textLabel?.text = nil
+            return themeCell
+        }
+
         let cell = tableView.dequeueReusableCell(withIdentifier: "settingsCell", for: indexPath)
         let item = sections[indexPath.section].items[indexPath.row]
         
@@ -247,11 +274,23 @@ extension SettingsPageViewController: UITableViewDataSource {
 
 // MARK: - UITableViewDelegate
 extension SettingsPageViewController: UITableViewDelegate {
+    // Provide taller height for theme picker cell
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        if sections[indexPath.section].title == "Appearance" && sections[indexPath.section].items[indexPath.row].title == "Theme" {
+            return 110
+        }
+        return UITableView.automaticDimension
+    }
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
         // Execute the action if available
-        if let action = sections[indexPath.section].items[indexPath.row].action {
+        let item = sections[indexPath.section].items[indexPath.row]
+        // Ignore selection for theme picker row
+        if item.title == "Theme" && sections[indexPath.section].title == "Appearance" {
+            return
+        }
+        if let action = item.action {
             action()
         }
     }
@@ -403,6 +442,8 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
         present(alertController, animated: true)
     }
     
+    
+
     // MARK: - Utility Methods
     private func showSuccess(message: String) {
         let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
@@ -414,6 +455,15 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
         let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+}
+
+// MARK: - Theme Change Handling
+extension SettingsPageViewController {
+    @objc func themeChanged() {
+        todoColors = ToDoColors()
+        view.tintColor = todoColors.primaryColor
+        settingsTableView.reloadData()
     }
 }
 

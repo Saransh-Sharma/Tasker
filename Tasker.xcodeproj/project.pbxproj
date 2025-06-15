@@ -161,6 +161,12 @@
 		75DFF3242DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */; };
 		75DFF3252DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */; };
 		75DFF3262DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */; };
+		75E866D72DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */; };
+		75E866D82DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */; };
+		75E866D92DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */; };
+		75E866DC2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */; };
+		75E866DD2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */; };
+		75E866DE2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */; };
 		75F0C70B2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
 		75F0C70C2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
 		75F0C70D2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
@@ -340,6 +346,8 @@
 		75DFF2E32DF47D4200EB8850 /* FluentUIToDoTableViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluentUIToDoTableViewController.swift; sourceTree = "<group>"; };
 		75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalloonMarker.swift; sourceTree = "<group>"; };
 		75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekDayAxisValueFormatter.swift; sourceTree = "<group>"; };
+		75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSelectionViewController.swift; sourceTree = "<group>"; };
+		75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSelectionCell.swift; sourceTree = "<group>"; };
 		75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColoredPillBackgroundView.swift; sourceTree = "<group>"; };
 		75F0C70E2DE9EFAD008F4460 /* TableViewCell Sample Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TableViewCell Sample Data.swift"; sourceTree = "<group>"; };
 		75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPillCell.swift; sourceTree = "<group>"; };
@@ -648,6 +656,8 @@
 				75DFF2DB2DF2302600EB8850 /* TaskListViewController.swift */,
 				75DFF2E32DF47D4200EB8850 /* FluentUIToDoTableViewController.swift */,
 				75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */,
+				75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */,
+				75E866DB2DFF1BB1000470B4 /* Settings */,
 			);
 			path = ViewControllers;
 			sourceTree = "<group>";
@@ -683,6 +693,14 @@
 				75DFF2CE2DF22F8B00EB8850 /* TaskScoringService.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		75E866DB2DFF1BB1000470B4 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		75F89F312DFC44E6009EDD8F /* Models */ = {
@@ -1070,6 +1088,7 @@
 				75F89F692DFC4E5D009EDD8F /* OnboardingInstallModelView.swift in Sources */,
 				75F89F6A2DFC4E5D009EDD8F /* CreditsView.swift in Sources */,
 				75F89F6B2DFC4E5D009EDD8F /* MoonAnimationView.swift in Sources */,
+				75E866D92DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */,
 				75F89F6C2DFC4E5D009EDD8F /* ChatView.swift in Sources */,
 				75F89F6E2DFC4E5D009EDD8F /* AppearanceSettingsView.swift in Sources */,
 				75F89F6F2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift in Sources */,
@@ -1100,6 +1119,7 @@
 				75573CB42DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */,
 				751074F52DEE256100AC7F22 /* HomeViewController+Charts.swift in Sources */,
+				75E866DE2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */,
 				751074E52DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				75B7121D246AFF5B00453AEC /* UpcominngTasksViewController.swift in Sources */,
 				75DFF2B92DF22EF200EB8850 /* NTask+Extensions.swift in Sources */,
@@ -1151,10 +1171,12 @@
 				751075052DEE260300AC7F22 /* HomeViewController+TaskDetailFluent.swift in Sources */,
 				751074E92DEE10C000AC7F22 /* FluentUITokenExtensions.swift in Sources */,
 				751074F12DEE253D00AC7F22 /* HomeViewController+Animations.swift in Sources */,
+				75E866D72DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */,
 				751074E42DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				7557547C2DEED864003C9757 /* AddTaskViewController+Foredrop.swift in Sources */,
 				7529F6F92DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
 				75DFF2E52DF47D4200EB8850 /* FluentUIToDoTableViewController.swift in Sources */,
+				75E866DD2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */,
 				7539AAB92DE988C900619EDD /* TaskDetailView.swift in Sources */,
 				75F0C7142DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
 				7510750E2DEE268D00AC7F22 /* HomeViewController+UISetup.swift in Sources */,
@@ -1201,10 +1223,12 @@
 				751075042DEE260300AC7F22 /* HomeViewController+TaskDetailFluent.swift in Sources */,
 				751074E82DEE10BF00AC7F22 /* FluentUITokenExtensions.swift in Sources */,
 				751074F22DEE253D00AC7F22 /* HomeViewController+Animations.swift in Sources */,
+				75E866D82DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */,
 				751074E32DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				7557547B2DEED864003C9757 /* AddTaskViewController+Foredrop.swift in Sources */,
 				7529F6FA2DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
 				75DFF2E62DF47D4200EB8850 /* FluentUIToDoTableViewController.swift in Sources */,
+				75E866DC2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */,
 				7539AABA2DE988C900619EDD /* TaskDetailView.swift in Sources */,
 				75F0C7132DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
 				7510750C2DEE268D00AC7F22 /* HomeViewController+UISetup.swift in Sources */,
@@ -1384,7 +1408,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -1394,7 +1418,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_NAME = "This Day";
 				SWIFT_VERSION = 5.0;
@@ -1409,7 +1433,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = "This Day.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = "To Do List/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Tasker;
@@ -1419,7 +1443,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_NAME = "This Day";
 				SWIFT_VERSION = 5.0;

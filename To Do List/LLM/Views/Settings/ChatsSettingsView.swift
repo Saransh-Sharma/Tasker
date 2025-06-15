@@ -16,6 +16,7 @@ struct ChatsSettingsView: View {
         Form {
             Section(header: Text("system prompt")) {
                 TextEditor(text: $appManager.systemPrompt)
+                    .frame(minHeight: 150)
                     .textEditorStyle(.plain)
             }
             

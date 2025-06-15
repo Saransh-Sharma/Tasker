@@ -205,6 +205,7 @@ struct ChatView: View {
             .navigationTitle(chatTitle)
             #if os(iOS) || os(visionOS)
                 .navigationBarTitleDisplayMode(.inline)
+                .navigationBarHidden(true)
             #endif
                 .sheet(isPresented: $showModelPicker) {
                     NavigationStack {
@@ -262,32 +263,8 @@ struct ChatView: View {
                 }
                 // MARK: - Main Toolbar
                 .toolbar {
-                    #if os(iOS) || os(visionOS)
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button(action: { dismissView() }) {
-                            Image(systemName: "chevron.backward")
-                        }
-                    }
-                    if appManager.userInterfaceIdiom == .phone {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button(action: {
-                                appManager.playHaptic()
-                                showChats.toggle()
-                            }) {
-                                Image(systemName: "list.bullet")
-                            }
-                        }
-                    }
+                    #if os(macOS)
 
-                    // ToolbarItem(placement: .topBarTrailing) {
-                    //     Button(action: {
-                    //         appManager.playHaptic()
-                    //         showSettings.toggle()
-                    //     }) {
-                    //         Image(systemName: "gear")
-                    //     }
-                    // }
-                    #elseif os(macOS)
                     ToolbarItem(placement: .primaryAction) {
                         Button(action: {
                             appManager.playHaptic()
