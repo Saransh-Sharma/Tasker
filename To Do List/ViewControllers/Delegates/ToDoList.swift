@@ -59,6 +59,8 @@ extension HomeViewController: BEMCheckBoxDelegate {
         self.fluentToDoTableViewController?.tableView.reloadData()
                     self.updateLineChartData()
                     self.animateTableViewReloadSingleCell(at: indexPath)
+                    // Rebuild sections so completed/overdue tasks display correctly
+                    self.loadTasksForDateGroupedByProject()
                 }
             case 2:
                 if !projectsTasks[indexPath.row].isComplete {
@@ -67,6 +69,8 @@ extension HomeViewController: BEMCheckBoxDelegate {
         self.fluentToDoTableViewController?.tableView.reloadData()
                     self.updateLineChartData()
                     self.animateTableViewReloadSingleCell(at: indexPath)
+                    // Rebuild sections so completed/overdue tasks display correctly
+                    self.loadTasksForDateGroupedByProject()
                 }
             default:
                 break
@@ -83,6 +87,8 @@ extension HomeViewController: BEMCheckBoxDelegate {
         self.fluentToDoTableViewController?.tableView.reloadData()
                     self.updateLineChartData()
                     self.animateTableViewReloadSingleCell(at: indexPath)
+                    // Rebuild sections so completed/overdue tasks display correctly
+                    self.loadTasksForDateGroupedByProject()
                 }
             case 2:
                 if !projectsTasks[indexPath.row].isComplete {
@@ -91,6 +97,8 @@ extension HomeViewController: BEMCheckBoxDelegate {
         self.fluentToDoTableViewController?.tableView.reloadData()
                     self.updateLineChartData()
                     self.animateTableViewReloadSingleCell(at: indexPath)
+                    // Rebuild sections so completed/overdue tasks display correctly
+                    self.loadTasksForDateGroupedByProject()
                 }
             default:
                 break

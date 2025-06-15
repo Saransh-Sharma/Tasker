@@ -60,11 +60,17 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         
         
         //weekday title
-        self.calendar.appearance.weekdayTextColor = .lightGray//.lightGray
+        self.calendar.appearance.weekdayTextColor = .white
+        // Customize weekday label colors for weekends
+        for (index,label) in self.calendar.calendarWeekdayView.weekdayLabels.enumerated() {
+            label.textColor = (index == 0 || index == 6) ? .systemRed : .white
+        }
         self.calendar.appearance.weekdayFont = setFont(fontSize: 14, fontweight: .light, fontDesign: .rounded) as UIFont
         
         //weekend
         self.calendar.appearance.titleWeekendColor = .systemRed
+        self.calendar.appearance.subtitleWeekendColor = .systemRed
+        self.calendar.appearance.subtitleWeekendColor = .systemRed
         
         //date
         self.calendar.appearance.titleFont = setFont(fontSize: 16, fontweight: .regular, fontDesign: .rounded) as UIFont
@@ -74,13 +80,15 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         //selection
         self.calendar.appearance.selectionColor = todoColors.secondaryAccentColor
         self.calendar.appearance.subtitleDefaultColor = .white
+        self.calendar.appearance.subtitleSelectionColor = .white
+        self.calendar.appearance.subtitleTodayColor = .white
         
         self.calendar.firstWeekday = 2
         
         //today
         self.calendar.appearance.todayColor = todoColors.primaryColorDarker
-        self.calendar.appearance.titleTodayColor = todoColors.secondaryAccentColor
-        self.calendar.appearance.titleSelectionColor = todoColors.primaryColorDarker
+        self.calendar.appearance.titleTodayColor = .white
+        self.calendar.appearance.titleSelectionColor = .white
         self.calendar.appearance.subtitleSelectionColor = todoColors.primaryColorDarker
         self.calendar.appearance.subtitleFont = setFont(fontSize: 8, fontweight: .regular, fontDesign: .rounded) as UIFont
         self.calendar.appearance.borderSelectionColor = todoColors.primaryColorDarker
@@ -90,6 +98,78 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         self.calendar.delegate = self
         
         self.calendar.scope = FSCalendarScope.week
+        
+        // Ensure today's date is selected by default so filled circle is shown
+        self.calendar.select(Date())
+        self.calendar.reloadData()
+    }
+    
+    // MARK: Text color customization to enforce white text and red weekends
+    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleDefaultColorFor date: Date) -> UIColor? {
+        let weekday = Calendar.current.component(.weekday, from: date)
+        return .white
+    }
+    
+    // Date numbers/subtitles always white
+    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, subtitleDefaultColorFor date: Date) -> UIColor? {
+        let weekday = Calendar.current.component(.weekday, from: date)
+        return .white
+    }
+    
+    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleSelectionColorFor date: Date) -> UIColor? {
+        return .white
+    }
+    
+    func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, subtitleSelectionColorFor date: Date) -> UIColor? {
+        return .white
+    }
+    
+    // Additional customization for cell appearance (selected and today)
+    func calendar(_ calendar: FSCalendar, willDisplay cell: FSCalendarCell, for date: Date, at monthPosition: FSCalendarMonthPosition) {
+        let isToday = Calendar.current.isDateInToday(date)
+        let isSelected = calendar.selectedDates.contains(date)
+        let diameter = min(cell.bounds.width, cell.bounds.height) * 1.1 // 10% bigger than cell
+        let rect = CGRect(x: (cell.bounds.width - diameter)/3, y: (cell.bounds.height - diameter)/3, width: diameter, height: diameter)
+
+        // Draw outline circle for **today** only when it is *not* the currently selected date
+        if isToday && !isSelected {
+            cell.shapeLayer.fillColor = UIColor.clear.cgColor
+            cell.shapeLayer.strokeColor = self.todoColors.secondaryAccentColor.cgColor
+            cell.shapeLayer.lineWidth = 5
+            cell.shapeLayer.path = UIBezierPath(ovalIn: rect).cgPath
+            cell.shapeLayer.isHidden = false
+        } else {
+            cell.shapeLayer.isHidden = true
+        }
+        
+
+
+        // Handle filled selection circle
+        let innerTag = "selectedFillLayer"
+        // Remove any existing inner layer first
+        cell.contentView.layer.sublayers?.removeAll(where: { $0.name == innerTag })
+
+        if isToday && isSelected {
+            let innerDiameter = diameter * 1 // slightly smaller to stay inside outline
+            let innerRect = CGRect(x: (cell.bounds.width - innerDiameter)/2, y: (cell.bounds.height - innerDiameter)/2, width: innerDiameter, height: innerDiameter)
+            let innerLayer = CAShapeLayer()
+            innerLayer.name = innerTag
+            innerLayer.path = UIBezierPath(ovalIn: innerRect).cgPath
+            innerLayer.fillColor = (calendar.appearance.selectionColor ?? self.todoColors.secondaryAccentColor).cgColor
+            cell.contentView.layer.insertSublayer(innerLayer, above: cell.shapeLayer)
+        }
+        
+        if isSelected {
+            let innerDiameter = diameter * 1 // slightly smaller to stay inside outline
+            let innerRect = CGRect(x: (cell.bounds.width - innerDiameter)/2, y: (cell.bounds.height - innerDiameter)/2, width: innerDiameter, height: innerDiameter)
+            let innerLayer = CAShapeLayer()
+            innerLayer.name = innerTag
+            innerLayer.path = UIBezierPath(ovalIn: innerRect).cgPath
+            innerLayer.fillColor = (calendar.appearance.selectionColor ?? self.todoColors.secondaryAccentColor).cgColor
+            cell.contentView.layer.insertSublayer(innerLayer, above: cell.shapeLayer)
+        }
+        
+
     }
     
     //----------------------- *************************** -----------------------
@@ -146,6 +226,9 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         
         // Refresh sample table view with selected date
         refreshSampleTableView(for: date)
+        
+        // Reload calendar to update custom cell appearance (today outline etc.)
+        self.calendar.reloadData()
         
     }
     

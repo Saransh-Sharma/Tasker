@@ -355,15 +355,6 @@ extension HomeViewController {
             
             return UISwipeActionsConfiguration(actions: [deleteAction, reopenAction])
         } else {
-            let completeAction = UIContextualAction(style: .normal, title: "Complete") { [weak self] (_, _, completion) in
-                task.isComplete = true
-                task.dateCompleted = Date() as NSDate
-                TaskManager.sharedInstance.saveContext()
-                self?.updateToDoListAndCharts()
-                completion(true)
-            }
-            completeAction.backgroundColor = todoColors.secondaryAccentColor
-            
             let rescheduleAction = UIContextualAction(style: .normal, title: "Reschedule") { [weak self] (_, _, completion) in
                 self?.rescheduleAlertActionMenu(tasks: [task], indexPath: indexPath, tableView: tableView)
                 completion(true)
@@ -375,7 +366,7 @@ extension HomeViewController {
                 completion(true)
             }
             
-            return UISwipeActionsConfiguration(actions: [deleteAction, rescheduleAction, completeAction])
+            return UISwipeActionsConfiguration(actions: [deleteAction, rescheduleAction])
         }
     }
     
@@ -392,6 +383,8 @@ extension HomeViewController {
         // MARK: - Task Actions
         
         func updateToDoListAndCharts() {
+            // Rebuild sections so that just-completed tasks remain visible
+            self.loadTasksForDateGroupedByProject()
             self.fluentToDoTableViewController?.tableView.reloadData()
             self.updateLineChartData()
         }
