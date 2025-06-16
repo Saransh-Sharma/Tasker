@@ -84,8 +84,8 @@ class FluentUIToDoTableViewController: UITableViewController {
         tableView.separatorStyle = .singleLine
         tableView.sectionFooterHeight = 0
         
-        // Set title
-        title = "Tasks Overview"
+        // Set dynamic title based on selected date
+        updateNavigationTitle(for: selectedDate)
     }
     
     private func setupToDoData(for date: Date) {
@@ -168,7 +168,59 @@ class FluentUIToDoTableViewController: UITableViewController {
     
     func updateData(for date: Date) {
         selectedDate = date
+        updateNavigationTitle(for: date)
         setupToDoData(for: date)
+    }
+    
+    // MARK: - Private Methods
+    
+    private func updateNavigationTitle(for date: Date) {
+        let calendar = Calendar.current
+        let today = Date.today()
+        
+        if calendar.isDate(date, inSameDayAs: today) {
+            title = "Today"
+        } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: today)!) {
+            title = "Yesterday"
+        } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: today)!) {
+            title = "Tomorrow"
+        } else {
+            // Format as "Weekday, Ordinal" (e.g., "Friday, 13th" or "Monday, 3rd")
+            let weekdayFormatter = DateFormatter()
+            weekdayFormatter.dateFormat = "EEEE" // Full weekday name
+            
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "d" // Day number
+            
+            let weekday = weekdayFormatter.string(from: date)
+            let day = Int(dayFormatter.string(from: date)) ?? 1
+            let ordinalDay = formatDayWithOrdinalSuffix(day)
+            
+            title = "\(weekday), \(ordinalDay)"
+        }
+    }
+    
+    // Helper method to add ordinal suffix to day numbers
+    private func formatDayWithOrdinalSuffix(_ day: Int) -> String {
+        let suffix: String
+        
+        switch day {
+        case 11, 12, 13:
+            suffix = "th" // Special cases for 11th, 12th, 13th
+        default:
+            switch day % 10 {
+            case 1:
+                suffix = "st"
+            case 2:
+                suffix = "nd"
+            case 3:
+                suffix = "rd"
+            default:
+                suffix = "th"
+            }
+        }
+        
+        return "\(day)\(suffix)"
     }
     
     func updateDataWithSearchResults(_ searchSections: [ToDoListData.Section]) {

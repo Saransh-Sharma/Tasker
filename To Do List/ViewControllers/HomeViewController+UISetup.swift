@@ -136,11 +136,11 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     func setupTopBarInForedrop() {
-        homeTopBar = UIView(frame: CGRect(x: 0, y: 0, width: foredropContainer.bounds.width, height: 50))
+        homeTopBar = UIView(frame: CGRect(x: 0, y: 0, width: foredropContainer.bounds.width, height: 25))
         homeTopBar.backgroundColor = UIColor.clear//todoColors.backgroundColor
         
         // Set up the header label ("Today")
-        toDoListHeaderLabel.frame = CGRect(x: 0, y: 0, width: homeTopBar.bounds.width, height: homeTopBar.bounds.height)
+        toDoListHeaderLabel.frame = CGRect(x: 0, y: 10, width: homeTopBar.bounds.width, height: homeTopBar.bounds.height)
         toDoListHeaderLabel.text = "Today"
         toDoListHeaderLabel.textAlignment = .center
         toDoListHeaderLabel.font = UIFont.preferredFont(forTextStyle: .headline)
@@ -358,14 +358,17 @@ extension HomeViewController: BadgeViewDelegate {
         // Update data for the selected date
         fluentToDoTableViewController?.updateData(for: date)
         
-        // Position the FluentUI sample table view to fill the entire foredrop container
-        // Account for bottom app bar height
+        // Calculate the top bar height dynamically
+        let topBarHeight = homeTopBar.bounds.height ?? 0
+        
+        // Position the FluentUI sample table view to fill the available space
+        // Account for both top bar and bottom app bar heights
         let bottomBarHeight = bottomAppBar.bounds.height
-        let availableHeight = foredropContainer.bounds.height - bottomBarHeight
+        let availableHeight = foredropContainer.bounds.height - topBarHeight - bottomBarHeight
         
         fluentToDoTableViewController?.view.frame = CGRect(
             x: 0,
-            y: 0,
+            y: topBarHeight,
             width: self.foredropContainer.bounds.width,
             height: availableHeight
         )
@@ -390,7 +393,7 @@ extension HomeViewController: BadgeViewDelegate {
             fluentToDoTableViewController?.didMove(toParent: self)
         }
         
-        print("=== END FLUENT UI SAMPLE TABLE VIEW SETUP ===")
+        print("=== END FLUENT UI SAMPLE TABLE VIEW SETUP with top bar height: \(topBarHeight) ===")
     }
     
     func setupForedropBackground() {

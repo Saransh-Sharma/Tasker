@@ -34,14 +34,61 @@ extension HomeViewController {
     // MARK: - UI Updates
     
     func updateHomeDateLabel(date: Date) {
+        let titleText = formatDateTitle(for: date)
+        
         // Update date label with formatted date
-        if date == Date.today() {
-            toDoListHeaderLabel.text = "Today"
+        toDoListHeaderLabel.text = titleText
+        
+        // Update navigation bar title
+        title = titleText
+    }
+    
+    private func formatDateTitle(for date: Date) -> String {
+        let calendar = Calendar.current
+        let today = Date.today()
+        
+        if calendar.isDate(date, inSameDayAs: today) {
+            return "Today"
+        } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: -1, to: today)!) {
+            return "Yesterday"
+        } else if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: today)!) {
+            return "Tomorrow"
         } else {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "E, MMM d"
-            toDoListHeaderLabel.text = formatter.string(from: date)
+            // Format as "Weekday, Ordinal" (e.g., "Friday, 13th" or "Monday, 3rd")
+            let weekdayFormatter = DateFormatter()
+            weekdayFormatter.dateFormat = "EEEE" // Full weekday name
+            
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "d" // Day number
+            
+            let weekday = weekdayFormatter.string(from: date)
+            let day = Int(dayFormatter.string(from: date)) ?? 1
+            let ordinalDay = formatDayWithOrdinalSuffix(day)
+            
+            return "\(weekday), \(ordinalDay)"
         }
+    }
+    
+    private func formatDayWithOrdinalSuffix(_ day: Int) -> String {
+        let suffix: String
+        
+        switch day {
+        case 11, 12, 13:
+            suffix = "th" // Special cases for 11th, 12th, 13th
+        default:
+            switch day % 10 {
+            case 1:
+                suffix = "st"
+            case 2:
+                suffix = "nd"
+            case 3:
+                suffix = "rd"
+            default:
+                suffix = "th"
+            }
+        }
+        
+        return "\(day)\(suffix)"
     }
     
     // MARK: - Task Counting
