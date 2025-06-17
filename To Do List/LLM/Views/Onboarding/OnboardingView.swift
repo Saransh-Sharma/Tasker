@@ -13,26 +13,30 @@ struct OnboardingView: View {
             VStack {
                 Spacer()
                 
-                VStack(spacing: 12) {
+                VStack(spacing: 4) {
                     Image(systemName: "bubble.left.and.text.bubble.right")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 64, height: 64)
+                        .frame(width: 40, height: 40)
                         .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
                     
                     VStack(spacing: 4) {
-                        Text("I am Eva !\nyour personal AI assistant")
+                        Text("I am Eva !")
                             .font(.title)
                             .fontWeight(.semibold)
-                        Text("chat about your tasks, projects, and more with me")
-                            .foregroundStyle(.secondary)
+                        Text("your personal AI assistant")
+                            .font(.title3)
+                            .fontWeight(.semibold).foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
+//                        Text("chat about your tasks, projects, and more with me")
+//                            .foregroundStyle(.secondary)
+//                            .multilineTextAlignment(.center)
                     }
                 }
                 
                 Spacer()
                                 
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 16) {
                     Label {
                         VStack(alignment: .leading) {
                             Text("fast")
@@ -72,7 +76,7 @@ struct OnboardingView: View {
                         VStack(alignment: .leading) {
                             Text("insightful")
                                 .font(.headline)
-                            Text("smart suggestions and task insights")
+                            Text("smart productivity suggestions")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                         }
@@ -90,7 +94,7 @@ struct OnboardingView: View {
                         VStack(alignment: .leading) {
                             Text("context-aware")
                                 .font(.headline)
-                            Text("adapts to your current projects and tasks")
+                            Text("adapts to your current projects")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                         }

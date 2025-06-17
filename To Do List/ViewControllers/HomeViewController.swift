@@ -94,6 +94,44 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     lazy var lineChartView: LineChartView = { return LineChartView() }()
     lazy var tinyPieChartView: PieChartView = { return PieChartView() }()
     var navigationPieChartView: PieChartView?
+
+// MARK: - Pie-chart helpers
+
+/// Returns a dictionary of counts of completed tasks grouped by priority for a given date
+private func priorityBreakdown(for date: Date) -> [TaskPriority: Int] {
+    var counts: [TaskPriority: Int] = [.high: 0, .medium: 0, .low: 0]
+    let allTasks = TaskManager.sharedInstance.getAllTasks
+    let calendar = Calendar.current
+    
+    for task in allTasks {
+        guard task.isComplete else { continue }
+        // Prefer recorded completion date; fall back to due date (covers legacy data)
+        let referenceDate: Date?
+        if let completed = task.dateCompleted as Date? {
+            referenceDate = completed
+        } else if let due = task.dueDate as Date? {
+            referenceDate = due
+        } else {
+            referenceDate = nil
+        }
+        guard let ref = referenceDate,
+              calendar.isDate(ref, inSameDayAs: date) else { continue }
+        let priority = TaskPriority(rawValue: task.taskPriority) ?? .low
+        counts[priority, default: 0] += 1
+    }
+    return counts
+}
+
+/// Animates + refreshes the navigation pie chart using current `dateForTheView`.
+func refreshNavigationPieChart() {
+    setNavigationPieChartData()
+    navigationPieChartView?.animate(xAxisDuration: 0.3, easingOption: .easeOutBack)
+}
+
+/// Compatibility shim for existing calendar extension call
+@objc func reloadTinyPicChartWithAnimation() {
+    refreshNavigationPieChart()
+}
     var shouldHideData: Bool = false
     var tinyPieChartSections: [String] = ["Done", "In Progress", "Not Started", "Overdue"]
     
@@ -253,7 +291,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         shouldAnimateCells = false
-    }
+        refreshNavigationPieChart()
+    } // end of viewDidAppear
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
@@ -262,24 +301,19 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
-        // Reposition bottom app bar with correct safe area insets
-        let bottomAppBar = self.bottomAppBar
-            let screenWidth = view.bounds.width
-            let screenHeight = view.bounds.height
-            let barHeight: CGFloat = 64
-            let safeAreaBottomInset: CGFloat
-            
-            if #available(iOS 11.0, *) {
-                safeAreaBottomInset = view.safeAreaInsets.bottom
-            } else {
-                safeAreaBottomInset = 0
-            }
-            
-            // Ensure the bottom bar is properly positioned above the safe area
-            bottomAppBar.frame = CGRect(x: 0, 
-                                        y: screenHeight - barHeight - safeAreaBottomInset, 
-                                        width: screenWidth, 
-                                        height: barHeight + safeAreaBottomInset)
+        // If bottomAppBar uses Auto Layout (translatesAutoresizingMaskIntoConstraints == false), skip manual frame adjustments
+        if bottomAppBar.translatesAutoresizingMaskIntoConstraints == false {
+            return
+        }
+        // Legacy support for views instantiated before Auto Layout migration
+        let screenWidth = view.bounds.width
+        let screenHeight = view.bounds.height
+        let barHeight: CGFloat = 64
+        let safeAreaBottomInset: CGFloat = view.safeAreaInsets.bottom
+        bottomAppBar.frame = CGRect(x: 0,
+                                    y: screenHeight - barHeight - safeAreaBottomInset,
+                                    width: screenWidth,
+                                    height: barHeight + safeAreaBottomInset)
     }
     
     deinit {
@@ -300,6 +334,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         // Set title
         title = "Today"
+        // Ensure the navigation bar title label background is transparent so the pie chart is not obscured
+        if let navBar = navigationController?.navigationBar {
+            navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
+        }
         
         // Create search bar accessory
         let searchBar = createSearchBarAccessory()
@@ -316,11 +354,40 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         menuButtonItem.accessibilityLabel = "Menu"
         navigationItem.leftBarButtonItem = menuButtonItem
         
-        // Removed pie chart button from navigation bar
+        // Embed pie chart inside search bar accessory instead of right bar button
+        // embedNavigationPieChart(in: searchBar)
         
         // Enable scroll-to-contract behavior
         // Updated to use FluentUI table view
         navigationItem.contentScrollView = fluentToDoTableViewController?.tableView
+    }
+    
+    private func embedNavigationPieChart(in hostView: UIView) {
+        // Avoid duplicate embedding
+        if navigationPieChartView != nil { return }
+        let size: CGFloat = 32
+        let containerView = UIView()
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        hostView.addSubview(containerView)
+        NSLayoutConstraint.activate([
+            containerView.widthAnchor.constraint(equalToConstant: size),
+            containerView.heightAnchor.constraint(equalToConstant: size),
+            containerView.trailingAnchor.constraint(equalTo: hostView.trailingAnchor, constant: -8),
+            containerView.centerYAnchor.constraint(equalTo: hostView.centerYAnchor)
+        ])
+        let navPieChart = PieChartView(frame: CGRect(x: 0, y: 0, width: size, height: size))
+        navigationPieChartView = navPieChart
+        containerView.addSubview(navPieChart)
+        navPieChart.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        setupPieChartView(pieChartView: navPieChart)
+        navPieChart.holeRadiusPercent = 0.7
+        navPieChart.backgroundColor = .red.withAlphaComponent(0.4) // DEBUG
+        setNavigationPieChartData()
+        // Ensure chart has correct initial data & animation
+        refreshNavigationPieChart()
+        let tap = UITapGestureRecognizer(target: self, action: #selector(toggleCharts))
+        navPieChart.addGestureRecognizer(tap)
+        navPieChart.isUserInteractionEnabled = true
     }
     
     private func createSearchBarAccessory() -> SearchBar {
@@ -331,50 +398,47 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         // Customize the search bar background color
         searchBar.tokenSet[.backgroundColor] = .uiColor { self.todoColors.primaryColor }
-        
         return searchBar
     }
-    
+
+    // MARK: - Pie Chart Button
+
     private func createPieChartBarButton() -> UIBarButtonItem {
-        // Create a container view for the pie chart
-        let containerView = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
-        containerView.backgroundColor = UIColor.clear
+        // Create a container for the chart
+        let containerView = UIView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+        containerView.backgroundColor = .clear
         
-        // Create a smaller pie chart view for the navigation bar
-        let navPieChart = PieChartView(frame: CGRect(x: 0, y: 0, width: 40, height: 40))
-        
-        // Store reference for later updates
+        // Create chart view
+        let navPieChart = PieChartView(frame: containerView.bounds)
         navigationPieChartView = navPieChart
+        containerView.addSubview(navPieChart)
+        navPieChart.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         
-        // Setup the navigation pie chart with the same configuration as the main one
+        // Configure appearance
         setupPieChartView(pieChartView: navPieChart)
-        
-        // Make it smaller and more suitable for navigation bar
         navPieChart.holeRadiusPercent = 0.7
         navPieChart.layer.shadowRadius = 4
         navPieChart.layer.shadowOpacity = 0.4
-        
-        // Ensure the chart is visible above other elements
         navPieChart.layer.zPosition = 1000
         containerView.layer.zPosition = 1000
-        navPieChart.backgroundColor = UIColor.clear
+        // DEBUG: set background to red to verify visibility
+        navPieChart.backgroundColor = .red.withAlphaComponent(0.4)
         
-        // Populate with data
+        // Populate data
         setNavigationPieChartData()
         
-        // Add tap gesture to show/hide charts
+        // Interaction
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(toggleCharts))
         navPieChart.addGestureRecognizer(tapGesture)
         navPieChart.isUserInteractionEnabled = true
         
-        containerView.addSubview(navPieChart)
-        
-        // Create bar button item with custom view
+        // Wrap in bar button item
         let barButtonItem = UIBarButtonItem(customView: containerView)
         barButtonItem.accessibilityLabel = "Charts"
-        
         return barButtonItem
     }
+        
+
     
     // MARK: - Navigation Actions
     
@@ -386,35 +450,51 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
 
     
-    private func setNavigationPieChartData() {
-        guard let navPieChart = navigationPieChartView else { return }
-        
-        let count = 4
-        let range: UInt32 = 40
-        
-        let entries = (0..<count).map { (i) -> PieChartDataEntry in
-            let randomValue = Double(arc4random_uniform(range) + range / 5)
-            // Ensure value is valid and not NaN or infinite
-            let safeValue = randomValue.isNaN || randomValue.isInfinite ? 1.0 : max(1.0, randomValue)
-            
-            return PieChartDataEntry(value: safeValue,
-                                     label: tinyPieChartSections[i % tinyPieChartSections.count],
-                                     icon: #imageLiteral(resourceName: "material_done_White"))
-        }
-        
-        let set = PieChartDataSet(entries: entries, label: "")
-        set.drawIconsEnabled = false
-        set.drawValuesEnabled = false
-        set.sliceSpace = 2
-        set.colors = ChartColorTemplates.vordiplom()
-        
-        let data = PieChartData(dataSet: set)
-        
-        navPieChart.drawEntryLabelsEnabled = false
-        navPieChart.data = data
+    /// Updates navigation pie chart with real completed-task breakdown for the supplied date (defaults to today's view date)
+// Core pie-chart data builder – DO NOT overload with same name without parameter
+private func buildNavigationPieChartData(for date: Date) {
+    guard let navPieChart = navigationPieChartView else { return }
+
+    // Fetch priority counts for completed tasks on the given date
+    let breakdown = priorityBreakdown(for: date)
+    // Weighting: High=3, Medium=2, Low=1
+    let weights: [TaskPriority: Double] = [.high: 3, .medium: 2, .low: 1]
+    let entries: [PieChartDataEntry] = [
+        (TaskPriority.high, "High"),
+        (TaskPriority.medium, "Medium"),
+        (TaskPriority.low, "Low")
+    ].compactMap { (priority, label) in
+        let rawCount = Double(breakdown[priority] ?? 0)
+        let weight = weights[priority] ?? 1
+        let weightedValue = rawCount * weight
+        return weightedValue > 0 ? PieChartDataEntry(value: weightedValue, label: label) : nil
     }
-    
-    private func presentSideDrawer() {
+
+    // Guard against no-data scenario – just clear chart and exit
+    guard !entries.isEmpty else {
+        navPieChart.data = nil
+        navPieChart.setNeedsDisplay()
+        return
+    }
+
+    let set = PieChartDataSet(entries: entries, label: "")
+    set.drawIconsEnabled = false
+    set.drawValuesEnabled = false
+    set.sliceSpace = 2
+    set.colors = [todoColors.secondaryAccentColor, todoColors.primaryColor, todoColors.primaryColorDarker]
+
+    let data = PieChartData(dataSet: set)
+    navPieChart.drawEntryLabelsEnabled = false
+    navPieChart.data = data
+}
+
+/// Parameterless wrapper used by existing call sites
+private func setNavigationPieChartData() {
+    buildNavigationPieChartData(for: dateForTheView)
+}
+
+        
+        private func presentSideDrawer() {
         // Create the settings page view controller
         let settingsVC = SettingsPageViewController()
         
@@ -638,6 +718,9 @@ extension HomeViewController: AddTaskViewControllerDelegate {
             self.fluentToDoTableViewController?.updateData(for: self.dateForTheView)
             self.fluentToDoTableViewController?.tableView.reloadData()
             
+            // Update pie chart as tasks have potentially changed
+            self.refreshNavigationPieChart()
+            
             // Step 7: Check if the new task should be visible in current view (logging purpose)
             if taskDueDateStartOfDay == viewDateStartOfDay {
                 print("✅ AddTask: New task *should* be visible if current view is for \(viewDateStartOfDay)")
@@ -658,6 +741,10 @@ extension HomeViewController {
         todoColors = ToDoColors()
         // Navigation bar (FluentUI custom property)
         navigationItem.customNavigationBarColor = todoColors.primaryColor
+        // Keep title label transparent on theme change
+        if let navBar = navigationController?.navigationBar {
+            navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
+        }
         // System/global tint
         // Global tint
         view.tintColor = todoColors.primaryColor

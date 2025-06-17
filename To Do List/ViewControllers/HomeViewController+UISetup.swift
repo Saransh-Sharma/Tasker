@@ -165,24 +165,12 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     func setupBottomAppBar() {
-        // Calculate position for the bottom app bar
-        let screenWidth = view.bounds.width
-        let screenHeight = view.bounds.height
-        let barHeight: CGFloat = 64 // Standard height for bottom app bar
-        
-        // Account for safe area insets to avoid being cut off at the bottom
-        let safeAreaBottomInset: CGFloat
-        if #available(iOS 11.0, *) {
-            safeAreaBottomInset = view.safeAreaInsets.bottom
-        } else {
-            safeAreaBottomInset = 0
-        }
-        
-        // Configure the bottom app bar - position it correctly with safe area insets
-        bottomAppBar = MDCBottomAppBarView(frame: CGRect(x: 0, y: screenHeight - barHeight - safeAreaBottomInset, width: screenWidth, height: barHeight))
+        // Instantiate bottom app bar and rely on Auto Layout instead of manual frames
+        bottomAppBar = MDCBottomAppBarView()
+        bottomAppBar.translatesAutoresizingMaskIntoConstraints = false
         bottomAppBar.barTintColor = todoColors.primaryColor
         bottomAppBar.shadowColor = UIColor.black.withAlphaComponent(0.4)
-        bottomAppBar.autoresizingMask = [.flexibleWidth, .flexibleTopMargin] // Keep it at the bottom when screen resizes
+        // Use Auto Layout, no need for autoresizing masks
         
         // Configure floating action button
         let fab = bottomAppBar.floatingButton
@@ -195,26 +183,42 @@ extension HomeViewController: BadgeViewDelegate {
         
         // Add navigation items for leading side (left)
         
-        // Settings button (leftmost)
+        // Settings button (leftmost) - increased size by 20%
         let settingsImage = UIImage(systemName: "gearshape")
-        let settingsItem = UIBarButtonItem(image: settingsImage, style: .plain, target: self, action: #selector(onMenuButtonTapped))
+        let settingsImageResized = settingsImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
+        let settingsItem = UIBarButtonItem(image: settingsImageResized, style: .plain, target: self, action: #selector(onMenuButtonTapped))
         settingsItem.tintColor = UIColor.white
+        
         let calendarImage = UIImage(systemName: "calendar")
-        let calendarItem = UIBarButtonItem(image: calendarImage, style: .plain, target: self, action: #selector(toggleCalendar))
+        let calendarImageResized = calendarImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
+        let calendarItem = UIBarButtonItem(image: calendarImageResized, style: .plain, target: self, action: #selector(toggleCalendar))
         calendarItem.tintColor = UIColor.white
         
         let chartImage = UIImage(systemName: "chart.bar.xaxis.ascending")
-        let chartItem = UIBarButtonItem(image: chartImage, style: .plain, target: self, action: #selector(toggleCharts))
+        let chartImageResized = chartImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
+        let chartItem = UIBarButtonItem(image: chartImageResized, style: .plain, target: self, action: #selector(toggleCharts))
         chartItem.tintColor = UIColor.white
         
-        // Chat button
+        // Chat button - increased size by 20%
         let chatImage = UIImage(systemName: "bubble.left.and.text.bubble.right")
-        let chatItem = UIBarButtonItem(image: chatImage, style: .plain, target: self, action: #selector(chatButtonTapped))
+        let chatImageResized = chatImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
+        let chatItem = UIBarButtonItem(image: chatImageResized, style: .plain, target: self, action: #selector(chatButtonTapped))
         chatItem.tintColor = UIColor.white
         
         bottomAppBar.leadingBarButtonItems = [settingsItem, calendarItem, chartItem, chatItem]
         
         
+        
+        // Add the bottom app bar to view and pin it to safe area so it adapts to all screen sizes
+        // Determine appropriate height (taller on iPad to avoid clipped icons)
+        let barHeight: CGFloat = UIDevice.current.userInterfaceIdiom == .pad ? 100 : 80
+        view.addSubview(bottomAppBar)
+        NSLayoutConstraint.activate([
+            bottomAppBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomAppBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomAppBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 0),
+            bottomAppBar.heightAnchor.constraint(equalToConstant: barHeight)
+        ])
         
         // No trailing bar button items; FAB occupies the trailing position
     }

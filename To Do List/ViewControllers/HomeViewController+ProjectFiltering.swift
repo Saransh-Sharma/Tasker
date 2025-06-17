@@ -118,10 +118,7 @@ extension HomeViewController {
         reloadTinyPicChartWithAnimation()
     }
     
-    func reloadTinyPicChartWithAnimation() {
-        // Update and animate tiny pie chart - REMOVED
-        // toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView)
-    }
+
     
     func loadTasksForDateGroupedByProject() {
         // Clear existing sections

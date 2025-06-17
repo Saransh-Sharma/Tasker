@@ -112,6 +112,8 @@ extension HomeViewController: BEMCheckBoxDelegate {
         let score = self.calculateTodaysScore()
         self.scoreCounter.text = "\(score)"
         self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView)
+        // Refresh navigation pie chart to reflect task completion changes
+        self.refreshNavigationPieChart()
         self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
         self.title = "\(score)"
     }
