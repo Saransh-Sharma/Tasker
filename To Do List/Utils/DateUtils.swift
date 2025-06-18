@@ -1,5 +1,62 @@
 import Foundation
 
+//
+
+import Foundation
+
+/// DateUtils provides static utility methods for date formatting and manipulation
+class DateUtils {
+    
+    // MARK: - Date Formatting
+    
+    /// Formats a date for display in the UI
+    /// - Parameter date: The date to format
+    /// - Returns: A formatted string representation of the date
+    static func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        
+        if calendar.isDateInToday(date) {
+            return "Today"
+        } else if calendar.isDateInTomorrow(date) {
+            return "Tomorrow"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else if calendar.isDate(date, equalTo: Date(), toGranularity: .weekOfYear) {
+            // Same week - show day name
+            formatter.dateFormat = "EEEE"
+            return formatter.string(from: date)
+        } else if calendar.isDate(date, equalTo: Date(), toGranularity: .year) {
+            // Same year - show month and day
+            formatter.dateFormat = "MMM d"
+            return formatter.string(from: date)
+        } else {
+            // Different year - show full date
+            formatter.dateFormat = "MMM d, yyyy"
+            return formatter.string(from: date)
+        }
+    }
+    
+    /// Formats a date with time for detailed display
+    /// - Parameter date: The date to format
+    /// - Returns: A formatted string with date and time
+    static func formatDateTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+    /// Formats a date for short display (e.g., "12/25")
+    /// - Parameter date: The date to format
+    /// - Returns: A short formatted string
+    static func formatShortDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M/d"
+        return formatter.string(from: date)
+    }
+}
+
 /// A comprehensive utility for Date operations used throughout the app
 public extension Date {
     // MARK: - Day Comparisons

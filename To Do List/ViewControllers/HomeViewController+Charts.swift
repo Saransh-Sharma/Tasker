@@ -158,7 +158,7 @@ extension HomeViewController {
         let dataSet = LineChartDataSet(entries: dataEntries, label: "Daily Score")
         
         // Enhanced visual configuration
-        dataSet.mode = .stepped
+        dataSet.mode = .linear
         dataSet.drawCirclesEnabled = true
         dataSet.lineWidth = 3.5
         dataSet.circleRadius = 6
@@ -172,15 +172,15 @@ extension HomeViewController {
         
         // Enhanced gradient fill with better visual appeal
         let gradientColors = [
-            todoColors.primaryColor.withAlphaComponent(0.8).cgColor,
-            todoColors.primaryColor.withAlphaComponent(0.3).cgColor,
-            todoColors.primaryColor.withAlphaComponent(0.0).cgColor
+            todoColors.secondaryAccentColor.withAlphaComponent(0.5).cgColor,
+            todoColors.secondaryAccentColor.withAlphaComponent(0.25).cgColor,
+            todoColors.secondaryAccentColor.withAlphaComponent(0.0).cgColor
         ]
         let gradient = CGGradient(colorsSpace: nil, colors: gradientColors as CFArray, locations: [0.0, 0.5, 1.0])!
         
         dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
         dataSet.drawFilledEnabled = true
-        dataSet.fillAlpha = 1
+        dataSet.fillAlpha = 0.5
         
         // Enhanced line style for better visibility
         dataSet.lineDashLengths = nil // Solid line for better readability
