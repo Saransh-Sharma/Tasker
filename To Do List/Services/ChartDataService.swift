@@ -98,35 +98,42 @@ class ChartDataService {
         
         // Enhanced debug logging
         let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        print("🔍 calculateScoreForDate for \(dateFormatter.string(from: date)): Found \(allTasks.count) tasks")
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "yyyy-MM-dd"
+        print("\n🔍 [ChartDataService] calculateScoreForDate for \(dayFormatter.string(from: date)): Found \(allTasks.count) tasks")
         
         // Debug: Check all tasks in the database
         let allTasksInDB = TaskManager.sharedInstance.getAllTasks
-        print("📊 Total tasks in database: \(allTasksInDB.count)")
+        print("📊 [ChartDataService] Total tasks in database: \(allTasksInDB.count)")
         
         // Debug: Show completed tasks for this date
         let completedTasksForDate = allTasks.filter { $0.isComplete }
-        print("✅ Completed tasks for this date: \(completedTasksForDate.count)")
+        print("✅ [ChartDataService] Completed tasks for this date: \(completedTasksForDate.count)")
+        
+        // Debug: Show tasks completed on this specific date
+        let startOfDay = date.startOfDay
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+        let tasksCompletedOnDate = allTasksInDB.filter { task in
+            guard let completedDate = task.dateCompleted as Date? else { return false }
+            return completedDate >= startOfDay && completedDate < endOfDay
+        }
+        print("📅 [ChartDataService] Tasks actually completed on \(dayFormatter.string(from: date)): \(tasksCompletedOnDate.count)")
         
         for (index, task) in allTasks.enumerated() {
-            let taskName = task.name ?? "Unnamed Task"
-            let isCompleted = task.isComplete
-            let dateCompleted = task.dateCompleted as Date?
-            let taskPriority = task.taskPriority
-            let taskScore = task.getTaskScore(task: task)
+            let taskScore = TaskScoringService.calculateScore(for: task)
+            let completedDateStr = task.dateCompleted != nil ? dateFormatter.string(from: task.dateCompleted! as Date) : "nil"
+            let dueDateStr = task.dueDate != nil ? dayFormatter.string(from: task.dueDate! as Date) : "nil"
             
-            print("   📋 Task \(index + 1): '\(taskName)'")
-            print("      - Completed: \(isCompleted)")
-            print("      - Priority: \(taskPriority)")
-            print("      - Score: \(taskScore)")
-            print("      - Date Completed: \(dateCompleted?.description ?? "nil")")
+            print("📝 [ChartDataService] Task \(index + 1): '\(task.name ?? "Unknown")'")
+            print("   - Complete: \(task.isComplete), Priority: \(task.priority), Score: \(taskScore)")
+            print("   - Due Date: \(dueDateStr), Completed Date: \(completedDateStr)")
             
             if task.isComplete {
-                score = score + taskScore
-                print("      ✅ Adding \(taskScore) points to total")
+                score += taskScore
+                print("   ✅ Adding \(taskScore) to total score")
             } else {
-                print("      ❌ Task not completed, no points added")
+                print("   ❌ Task not complete, not adding to score")
             }
         }
         

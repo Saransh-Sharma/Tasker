@@ -884,13 +884,21 @@ class TaskManager {
     
     /// Toggle a task's completion status and update dateCompleted
     func toggleTaskComplete(task: NTask) {
+        let wasComplete = task.isComplete
         task.isComplete.toggle()
         if task.isComplete {
             task.dateCompleted = Date.today() as NSDate
+            print("🎯 TaskManager: Task completed: '\(task.name ?? "Unknown")' at \(Date.today())")
         } else {
             task.dateCompleted = nil
+            print("↩️ TaskManager: Task marked incomplete: '\(task.name ?? "Unknown")'")
         }
+        print("📊 TaskManager: Task '\(task.name ?? "Unknown")' status changed from \(wasComplete) to \(task.isComplete)")
         saveContext()
+        
+        // Notify that charts should be refreshed
+        NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
+        print("📡 TaskManager: Posted TaskCompletionChanged notification")
     }
 
     /// Reschedule a task's dueDate to a new date

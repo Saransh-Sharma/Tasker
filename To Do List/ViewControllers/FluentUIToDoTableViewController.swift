@@ -1129,12 +1129,16 @@ extension FluentUIToDoTableViewController {
     
     private func markTaskComplete(_ task: NTask) {
         task.isComplete = true
+        task.dateCompleted = Date() as NSDate  // Set completion date for scoring
+        print("🎯 Task completed: '\(task.name ?? "Unknown")' at \(Date())")
         saveTask(task)
         delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
     }
     
     private func markTaskIncomplete(_ task: NTask) {
         task.isComplete = false
+        task.dateCompleted = nil  // Clear completion date when marking incomplete
+        print("↩️ Task marked incomplete: '\(task.name ?? "Unknown")'")
         saveTask(task)
         delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
     }

@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SwiftUI
 import DGCharts
 
 extension HomeViewController {
@@ -188,8 +189,7 @@ extension HomeViewController {
         lineChartView.data = data
         
         // Phase 5: Primary focus on SwiftUI chart card
-        // Note: updateSwiftUIChartCard is handled by HomeBackdropView
-        // The SwiftUI chart will be updated when the backdrop view refreshes
+        updateSwiftUIChartCard()
         
         // Log chart update for debugging
         print("📊 Phase 5: SwiftUI chart updated with \(dataEntries.count) data points, max score: \(maxScore)")
@@ -274,5 +274,15 @@ extension HomeViewController {
     func animateLineChart(chartView: LineChartView) {
         // Animate with both X and Y axis like LineChart1ViewController
         chartView.animate(xAxisDuration: 1.5, yAxisDuration: 1.5, easingOption: .easeInOutQuad)
+    }
+    
+    func updateSwiftUIChartCard() {
+        // Update the SwiftUI chart with new data when needed
+        guard let hostingController = swiftUIChartHostingController else { return }
+        
+        let updatedChartCard = TaskProgressCard(referenceDate: dateForTheView)
+        hostingController.rootView = AnyView(updatedChartCard)
+        
+        print("📊 SwiftUI Chart Card updated with new reference date")
     }
 }

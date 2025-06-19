@@ -24,7 +24,7 @@ struct ChartCard: View {
         self.referenceDate = referenceDate
     }
     
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header with enhanced theming (Phase 4: Feature Parity)
             VStack(alignment: .leading, spacing: 4) {
@@ -226,7 +226,7 @@ public struct TaskProgressCard: View {
         self.referenceDate = referenceDate
     }
     
-    var body: some View {
+    public var body: some View {
         ChartCard(
             title: "Weekly Progress",
             subtitle: "Task completion scores",

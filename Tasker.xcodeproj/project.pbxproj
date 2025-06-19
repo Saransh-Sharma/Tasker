@@ -170,6 +170,9 @@
 		75DFF3242DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */; };
 		75DFF3252DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */; };
 		75DFF3262DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */; };
+		75E5ACAD2E048D3A00535D0A /* ChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E5ACAA2E048D3A00535D0A /* ChartCard.swift */; };
+		75E5ACAE2E048D3A00535D0A /* ChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E5ACAA2E048D3A00535D0A /* ChartCard.swift */; };
+		75E5ACAF2E048D3A00535D0A /* ChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E5ACAA2E048D3A00535D0A /* ChartCard.swift */; };
 		75E866D72DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */; };
 		75E866D82DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */; };
 		75E866D92DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */; };
@@ -358,6 +361,7 @@
 		75DFF2E32DF47D4200EB8850 /* FluentUIToDoTableViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluentUIToDoTableViewController.swift; sourceTree = "<group>"; };
 		75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalloonMarker.swift; sourceTree = "<group>"; };
 		75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekDayAxisValueFormatter.swift; sourceTree = "<group>"; };
+		75E5ACAA2E048D3A00535D0A /* ChartCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartCard.swift; sourceTree = "<group>"; };
 		75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSelectionViewController.swift; sourceTree = "<group>"; };
 		75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSelectionCell.swift; sourceTree = "<group>"; };
 		75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColoredPillBackgroundView.swift; sourceTree = "<group>"; };
@@ -539,6 +543,7 @@
 				75DFF2C72DF22F5200EB8850 /* Repositories */,
 				75DFF2CF2DF22F8B00EB8850 /* Services */,
 				75F89F442DFC44E6009EDD8F /* LLM */,
+				75E5ACAC2E048D3A00535D0A /* Views */,
 			);
 			path = "To Do List";
 			sourceTree = "<group>";
@@ -708,6 +713,22 @@
 				75D5D3252E0331F0007A243A /* ChartDataService.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		75E5ACAB2E048D3A00535D0A /* Cards */ = {
+			isa = PBXGroup;
+			children = (
+				75E5ACAA2E048D3A00535D0A /* ChartCard.swift */,
+			);
+			path = Cards;
+			sourceTree = "<group>";
+		};
+		75E5ACAC2E048D3A00535D0A /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				75E5ACAB2E048D3A00535D0A /* Cards */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 		75E866DB2DFF1BB1000470B4 /* Settings */ = {
@@ -1144,6 +1165,7 @@
 				7551DA0024880D8E005CF826 /* AddTaskBackdropView.swift in Sources */,
 				7551DA0424882A78005CF826 /* AddTaskViewController.swift in Sources */,
 				755FE8DE2479227A00A71A75 /* TinyPieChart.swift in Sources */,
+				75E5ACAE2E048D3A00535D0A /* ChartCard.swift in Sources */,
 				7537B62324A2AF0800B978E5 /* NewProjectViewController.swift in Sources */,
 				751074FE2DEE25C700AC7F22 /* HomeViewController+ProjectFiltering.swift in Sources */,
 				758D4D7E24AA67F900AB57A8 /* HomeDrawerFilterView.swift in Sources */,
@@ -1172,6 +1194,7 @@
 				75DFF2DA2DF22FC300EB8850 /* DateUtils.swift in Sources */,
 				751074F92DEE25A000AC7F22 /* HomeViewController+DateTimePicker.swift in Sources */,
 				7529F6F52DFDE9BC000CBE36 /* LLMDataController.swift in Sources */,
+				75E5ACAD2E048D3A00535D0A /* ChartCard.swift in Sources */,
 				75DFF2BA2DF22EF200EB8850 /* NTask+Extensions.swift in Sources */,
 				751075082DEE262000AC7F22 /* HomeViewController+TaskSelection.swift in Sources */,
 				75DFF2D22DF22F8B00EB8850 /* TaskScoringService.swift in Sources */,
@@ -1227,6 +1250,7 @@
 				75DFF2D62DF22FC300EB8850 /* DateUtils.swift in Sources */,
 				751074F82DEE25A000AC7F22 /* HomeViewController+DateTimePicker.swift in Sources */,
 				7529F6F42DFDE9BC000CBE36 /* LLMDataController.swift in Sources */,
+				75E5ACAF2E048D3A00535D0A /* ChartCard.swift in Sources */,
 				75DFF2BB2DF22EF200EB8850 /* NTask+Extensions.swift in Sources */,
 				7510750A2DEE262000AC7F22 /* HomeViewController+TaskSelection.swift in Sources */,
 				75DFF2D02DF22F8B00EB8850 /* TaskScoringService.swift in Sources */,
