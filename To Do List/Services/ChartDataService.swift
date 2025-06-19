@@ -45,8 +45,10 @@ class ChartDataService {
             if day > today {
                 // For future dates, show 0 but with special styling indication
                 score = 0
+                print("   🔮 Future date \(dayFormatter.string(from: day)): Setting score to 0")
             } else {
                 // For past and current dates, calculate actual score
+                print("   📅 Processing \(dayFormatter.string(from: day))...")
                 score = calculateScoreForDate(date: day)
             }
             
@@ -94,20 +96,41 @@ class ChartDataService {
         var score = 0
         let allTasks = TaskManager.sharedInstance.getAllTasksForDate(date: date)
         
-        // Debug logging
-        print("🔍 calculateScoreForDate for \(date): Found \(allTasks.count) tasks")
+        // Enhanced debug logging
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        print("🔍 calculateScoreForDate for \(dateFormatter.string(from: date)): Found \(allTasks.count) tasks")
         
-        for task in allTasks {
+        // Debug: Check all tasks in the database
+        let allTasksInDB = TaskManager.sharedInstance.getAllTasks
+        print("📊 Total tasks in database: \(allTasksInDB.count)")
+        
+        // Debug: Show completed tasks for this date
+        let completedTasksForDate = allTasks.filter { $0.isComplete }
+        print("✅ Completed tasks for this date: \(completedTasksForDate.count)")
+        
+        for (index, task) in allTasks.enumerated() {
+            let taskName = task.name ?? "Unnamed Task"
+            let isCompleted = task.isComplete
+            let dateCompleted = task.dateCompleted as Date?
+            let taskPriority = task.taskPriority
+            let taskScore = task.getTaskScore(task: task)
+            
+            print("   📋 Task \(index + 1): '\(taskName)'")
+            print("      - Completed: \(isCompleted)")
+            print("      - Priority: \(taskPriority)")
+            print("      - Score: \(taskScore)")
+            print("      - Date Completed: \(dateCompleted?.description ?? "nil")")
+            
             if task.isComplete {
-                // getAllTasksForDate already filters completed tasks by dateCompleted range
-                // so we don't need the additional onSameDay check
-                let taskScore = task.getTaskScore(task: task)
                 score = score + taskScore
-                print("   ✅ Task '\(task.name)' completed: +\(taskScore) points")
+                print("      ✅ Adding \(taskScore) points to total")
+            } else {
+                print("      ❌ Task not completed, no points added")
             }
         }
         
-        print("   📊 Total score for \(date): \(score) points")
+        print("   📊 Final score for \(dateFormatter.string(from: date)): \(score) points")
         return score
     }
     

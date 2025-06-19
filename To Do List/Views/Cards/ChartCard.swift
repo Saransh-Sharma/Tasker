@@ -26,19 +26,23 @@ struct ChartCard: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header
+            // Header with enhanced theming (Phase 4: Feature Parity)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
+                    .dynamicTypeSize(.large...(.accessibility5))  // Dynamic type support
+                    .accessibilityAddTraits(.isHeader)
                 
                 if let subtitle = subtitle {
                     Text(subtitle)
                         .font(.caption)
                         .foregroundColor(.secondary)
+                        .dynamicTypeSize(.large...(.accessibility3))  // Dynamic type support
                 }
             }
+            .accessibilityElement(children: .combine)
             
             // Chart Container
             ZStack {
@@ -80,12 +84,19 @@ struct ChartCard: View {
     private func loadChartData() {
         isLoading = true
         
-        // Simulate async data loading to match original behavior
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            chartData = ChartDataService.shared.generateLineChartData(for: referenceDate)
+        // Enhanced data loading with error handling (Phase 4: Feature Parity)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let newData = ChartDataService.shared.generateLineChartData(for: referenceDate)
             
-            withAnimation(.easeInOut(duration: 0.3)) {
-                isLoading = false
+            DispatchQueue.main.async {
+                self.chartData = newData
+                
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self.isLoading = false
+                }
+                
+                // Log data update for debugging
+                print("📊 SwiftUI Chart Card loaded \(newData.count) data points")
             }
         }
     }
@@ -109,18 +120,22 @@ struct LineChartViewRepresentable: UIViewRepresentable {
     private func setupChartView(_ chartView: LineChartView) {
         let colors = ToDoColors()
         
-        // Basic chart configuration
+        // Enhanced chart configuration for feature parity (Phase 4)
         chartView.backgroundColor = UIColor.clear
         chartView.gridBackgroundColor = UIColor.clear
         chartView.drawGridBackgroundEnabled = false
         chartView.drawBordersEnabled = false
         chartView.chartDescription.enabled = false
         chartView.legend.enabled = false
+        
+        // Enhanced interaction capabilities (Phase 4: Feature Parity)
         chartView.scaleXEnabled = true
-        chartView.scaleYEnabled = false
+        chartView.scaleYEnabled = true  // Enable Y-axis scaling like original
         chartView.pinchZoomEnabled = true
-        chartView.doubleTapToZoomEnabled = false
+        chartView.doubleTapToZoomEnabled = true  // Enable double-tap zoom like original
         chartView.dragEnabled = true
+        chartView.highlightPerTapEnabled = true  // Enable tap highlighting
+        chartView.highlightPerDragEnabled = false
         chartView.setViewPortOffsets(left: 20, top: 20, right: 20, bottom: 50)
         
         // X-axis configuration
@@ -159,7 +174,13 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         marker.minimumSize = CGSize(width: 80, height: 40)
         chartView.marker = marker
         
-        // Animation configuration
+        // Accessibility configuration (Phase 4: Feature Parity)
+        chartView.isAccessibilityElement = true
+        chartView.accessibilityLabel = "Weekly task completion chart"
+        chartView.accessibilityHint = "Shows daily task completion scores for the current week. Double tap to zoom, pinch to scale, drag to pan."
+        chartView.accessibilityTraits = [.adjustable, .updatesFrequently]
+        
+        // Animation configuration with enhanced easing
         chartView.animate(xAxisDuration: 0.8, yAxisDuration: 0.8, easingOption: .easeInOutCubic)
     }
     
@@ -198,10 +219,10 @@ struct LineChartViewRepresentable: UIViewRepresentable {
 }
 
 // MARK: - Task Progress Card
-struct TaskProgressCard: View {
+public struct TaskProgressCard: View {
     let referenceDate: Date?
     
-    init(referenceDate: Date? = nil) {
+    public init(referenceDate: Date? = nil) {
         self.referenceDate = referenceDate
     }
     

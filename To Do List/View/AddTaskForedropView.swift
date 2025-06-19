@@ -142,19 +142,19 @@ extension AddTaskViewController {
         switch sender.selectedSegmentIndex {
         case 0:
             print("Priority is None - priority 4")
-            self.currentTaskPriority = 4
+            self.currentTaskPriority = .low  // Map "None" to low priority
         case 1:
             print("Priority is Low - priority 3")
-            self.currentTaskPriority = 3
+            self.currentTaskPriority = .low
         case 2:
             print("Priority is High - priority 2")
-            self.currentTaskPriority = 2
+            self.currentTaskPriority = .high
         case 3:
             print("Priority is Highest - priority 1")
-            self.currentTaskPriority = 1
+            self.currentTaskPriority = .high  // Map "Highest" to high priority
         default:
             print("Failed to get Task Priority, defaulting to Low/3")
-            self.currentTaskPriority = 3
+            self.currentTaskPriority = .medium
         }
     }
     
@@ -194,8 +194,8 @@ extension AddTaskViewController {
 }
 
 
-    func getTaskType() -> Int {
-        return self.isThisEveningTask ? 2 : 1
+    func getTaskType() -> TaskType {
+        return self.isThisEveningTask ? .evening : .morning
     }
     
     @objc func isEveningSwitchOn(sender: UISwitch!) -> Bool {

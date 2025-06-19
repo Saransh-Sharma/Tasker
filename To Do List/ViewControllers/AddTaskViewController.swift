@@ -15,10 +15,13 @@ import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
-class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate, UIScrollViewDelegate {
+class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate, UIScrollViewDelegate, TaskRepositoryDependent {
     
     // Delegate for communicating back to the presenter
     weak var delegate: AddTaskViewControllerDelegate?
+    
+    // MARK: - Repository Dependency
+    var taskRepository: TaskRepository!
 
     //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()
@@ -43,7 +46,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     var samplePillBar: UIView?
     var samplePillBarItems: [PillButtonBarItem] = []
 
-    var currentTaskPriority: Int = 3
+    var currentTaskPriority: TaskPriority = .medium
     
     // Description text field
     var descriptionTextBox_Material = MDCFilledTextField()
@@ -121,7 +124,22 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        print("AddTaskViewController: viewDidLoad called")
+        print("🚀 AddTaskViewController: viewDidLoad called")
+        print("🔍 AddTaskViewController: Checking dependency injection state...")
+        
+        // Check if taskRepository was injected properly
+        if taskRepository == nil {
+            print("❌ AddTaskViewController: taskRepository is nil in viewDidLoad!")
+            print("🔧 AddTaskViewController: This indicates dependency injection hasn't happened yet")
+        } else {
+            print("✅ AddTaskViewController: taskRepository is properly injected")
+            print("📊 AddTaskViewController: Repository type: \(String(describing: type(of: taskRepository)))")
+        }
+        
+        print("🤝 AddTaskViewController: Delegate state: \(delegate != nil ? "Set" : "Nil")")
+        if let delegate = delegate {
+            print("📊 AddTaskViewController: Delegate type: \(String(describing: type(of: delegate)))")
+        }
         
         // Setup backdrop with navigation bar and calendar
         view.addSubview(backdropContainer)
@@ -176,10 +194,31 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        print("AddTaskViewController: viewWillAppear called")
+        print("👁️ AddTaskViewController: viewWillAppear called")
+        
+        // Re-check dependency injection state before view appears
+        print("🔍 AddTaskViewController: Re-checking dependency injection state...")
+        if taskRepository == nil {
+            print("❌ AddTaskViewController: taskRepository is STILL nil in viewWillAppear!")
+            print("🚨 AddTaskViewController: This is a critical issue - attempting fallback injection")
+            
+            // Try to inject dependencies as a fallback
+            DependencyContainer.shared.inject(into: self)
+            
+            if taskRepository != nil {
+                print("✅ AddTaskViewController: Fallback injection successful")
+            } else {
+                print("💥 AddTaskViewController: Fallback injection FAILED - this will likely cause crashes")
+            }
+        } else {
+            print("✅ AddTaskViewController: taskRepository is properly available")
+        }
+        
+        print("🤝 AddTaskViewController: Delegate state: \(delegate != nil ? "Set" : "Nil")")
         
         // Set default project to Inbox
         currenttProjectForAddTaskView = "Inbox"
+        print("📁 AddTaskViewController: Default project set to: \(currenttProjectForAddTaskView)")
     }
     
     // MARK:- Build Page Header

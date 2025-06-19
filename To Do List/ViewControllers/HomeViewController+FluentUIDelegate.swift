@@ -22,12 +22,15 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         // Delay chart update slightly to allow UI to settle
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.updateLineChartData()
+            // CRITICAL FIX: Update SwiftUI chart as well
+            self?.updateSwiftUIChartCard()
         }
         
         // Log with detailed task and daily score information
         let status = task.isComplete ? "completed" : "uncompleted"
         let taskScore = task.getTaskScore(task: task)
-        let dailyTotal = calculateScoreForDate(date: Date())
+        // Use ChartDataService for accurate score calculation
+        let dailyTotal = ChartDataService.shared.calculateScoreForDate(date: Date())
         print("📋 Task \(status): '\(task.name)'")
         print("   • Task Score: \(taskScore)")
         print("   • Daily Total Score: \(dailyTotal)")
@@ -47,6 +50,8 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         // Update chart data with slight delay for smooth experience
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             self?.updateLineChartData()
+            // CRITICAL FIX: Update SwiftUI chart as well
+            self?.updateSwiftUIChartCard()
         }
         
         // Log detailed task update information
@@ -77,10 +82,13 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         
         // Update chart immediately for deletion to show instant feedback
         updateLineChartData()
+        // CRITICAL FIX: Update SwiftUI chart as well
+        updateSwiftUIChartCard()
         
         // Log deletion with detailed task information
         let taskScore = task.getTaskScore(task: task)
-        let dailyTotal = calculateScoreForDate(date: Date())
+        // Use ChartDataService for accurate score calculation
+        let dailyTotal = ChartDataService.shared.calculateScoreForDate(date: Date())
         print("🗑️ Task deleted: '\(task.name)'")
         print("   • Task Score: \(taskScore)")
         print("   • Was Completed: \(task.isComplete)")

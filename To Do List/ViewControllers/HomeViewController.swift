@@ -23,6 +23,9 @@ import MaterialComponents.MaterialRipple
 // Import the delegate protocol
 import Foundation
 
+// Import TaskProgressCard from Views/Cards
+// Note: TaskProgressCard is defined in ChartCard.swift
+
 class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, UITableViewDataSource, UITableViewDelegate, SearchBarDelegate, TaskRepositoryDependent {
     
     // MARK: - Stored Properties
@@ -90,10 +93,17 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     static let verticalSpacing: CGFloat = 16
     static let rowTextWidth: CGFloat = 75
     
-    // Charts
-    lazy var lineChartView: LineChartView = { return LineChartView() }()
+    // Charts (Phase 5: Transition Complete)
+    // Legacy UIKit charts - kept for compatibility but deprecated
+    lazy var lineChartView: LineChartView = { return LineChartView() }() // DEPRECATED: Hidden in Phase 5
     lazy var tinyPieChartView: PieChartView = { return PieChartView() }()
     var navigationPieChartView: PieChartView?
+    
+    // Primary SwiftUI Chart Card (Phase 5: Now the main chart implementation)
+    // Note: TaskProgressCard is defined in ChartCard.swift
+    // Using AnyView to work around type resolution issue
+    var swiftUIChartHostingController: UIHostingController<AnyView>?
+    var swiftUIChartContainer: UIView?
 
 // MARK: - Pie-chart helpers
 
@@ -515,6 +525,7 @@ private func setNavigationPieChartData() {
         // Present add task interface
         let addTaskVC = AddTaskViewController()
         addTaskVC.delegate = self
+        DependencyContainer.shared.inject(into: addTaskVC) // Use dependency container for injection
         addTaskVC.modalPresentationStyle = .fullScreen
         present(addTaskVC, animated: true, completion: nil)
     }

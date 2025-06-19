@@ -28,19 +28,27 @@ struct TaskCard: View {
     }
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Completion checkbox
-            Button(action: {
-                onToggleComplete?()
-            }) {
-                Image(systemName: task.isComplete ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundColor(task.isComplete ? Color(ToDoColors.themes[ToDoColors.currentIndex].primary) : .secondary)
-                    .animation(.easeInOut(duration: 0.2), value: task.isComplete)
-            }
-            .buttonStyle(PlainButtonStyle())
+        cardBody
+    }
+    
+    private var completionButton: some View {
+        Button(action: {
+            onToggleComplete?()
+        }) {
+            let iconName = task.isComplete ? "checkmark.circle.fill" : "circle"
+            let primaryColor = ToDoColors.themes[ToDoColors.currentIndex].primary
+            let iconColor = task.isComplete ? Color(primaryColor) : .secondary
             
-            // Task content
+            Image(systemName: iconName)
+                .font(.title2)
+                .foregroundColor(iconColor)
+                .animation(.easeInOut(duration: 0.2), value: task.isComplete)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+    
+    private var taskContent: some View {
+        HStack {
             VStack(alignment: .leading, spacing: 4) {
                 // Task title
                 Text(task.name ?? "Untitled Task")
@@ -92,8 +100,15 @@ struct TaskCard: View {
             if onTap != nil {
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundColor(.tertiary)
+                    .foregroundColor(Color.secondary)
             }
+        }
+    }
+    
+    var cardBody: some View {
+        HStack(spacing: 12) {
+            completionButton
+            taskContent
         }
         .padding(16)
         .themedMediumCard()
@@ -177,7 +192,7 @@ struct TaskCard: View {
             label += ", due \(DateUtils.formatDate(dueDate as Date))"
         }
         
-        if task.rawValue.priority > 0 {
+        if task.priority.rawValue > 0 {
             label += ", \(priorityText) priority"
         }
         
@@ -234,7 +249,7 @@ struct CompactTaskCard: View {
             
             Spacer()
             
-            if task.rawValue.priority > 0 {
+            if task.priority.rawValue > 0 {
                 Circle()
                     .fill(priorityColor)
                     .frame(width: 8, height: 8)
@@ -276,7 +291,7 @@ struct FeaturedTaskCard: View {
                 
                 Spacer()
                 
-                if task.rawValue.priority > 0 {
+                if task.priority.rawValue > 0 {
                     Text(priorityText)
                         .font(.caption)
                         .padding(.horizontal, 8)

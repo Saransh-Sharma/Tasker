@@ -41,6 +41,10 @@ enum TaskPriority: Int32, CaseIterable {
         case .high: return "High"
         }
     }
+    
+    var scoreValue: Int {
+        return Int(self.rawValue)
+    }
 }
 
 /// TaskManager is a singleton class responsible for managing all task-related operations in the Tasker app.

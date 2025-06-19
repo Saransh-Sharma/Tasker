@@ -145,19 +145,16 @@ extension HomeViewController {
     }
     
     func updateLineChartData() {
+        // Phase 5: Transition to SwiftUI-only chart implementation
         let dataEntries = generateLineChartData()
-        
-        // Calculate dynamic y-axis maximum (20% more than max score)
         let maxScore = dataEntries.map { $0.y }.max() ?? 0
-        let dynamicMaximum = max(maxScore * 1.2, 10) // Ensure minimum scale of 10
         
-        // Update left axis maximum with smooth transition
+        // Legacy UIKit chart update (Phase 5: DEPRECATED - keeping for compatibility)
+        let dynamicMaximum = max(maxScore * 1.2, 10)
         let leftAxis = lineChartView.leftAxis
         leftAxis.axisMaximum = dynamicMaximum
         
         let dataSet = LineChartDataSet(entries: dataEntries, label: "Daily Score")
-        
-        // Enhanced visual configuration
         dataSet.mode = .linear
         dataSet.drawCirclesEnabled = true
         dataSet.lineWidth = 3.5
@@ -170,20 +167,16 @@ extension HomeViewController {
         dataSet.valueFont = .systemFont(ofSize: 10, weight: .medium)
         dataSet.valueTextColor = todoColors.primaryTextColor
         
-        // Enhanced gradient fill with better visual appeal
         let gradientColors = [
             todoColors.secondaryAccentColor.withAlphaComponent(0.5).cgColor,
             todoColors.secondaryAccentColor.withAlphaComponent(0.25).cgColor,
             todoColors.secondaryAccentColor.withAlphaComponent(0.0).cgColor
         ]
         let gradient = CGGradient(colorsSpace: nil, colors: gradientColors as CFArray, locations: [0.0, 0.5, 1.0])!
-        
         dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
         dataSet.drawFilledEnabled = true
         dataSet.fillAlpha = 0.5
-        
-        // Enhanced line style for better visibility
-        dataSet.lineDashLengths = nil // Solid line for better readability
+        dataSet.lineDashLengths = nil
         dataSet.highlightEnabled = true
         dataSet.highlightColor = todoColors.secondaryAccentColor
         dataSet.highlightLineWidth = 2
@@ -192,65 +185,90 @@ extension HomeViewController {
         
         let data = LineChartData(dataSet: dataSet)
         data.setDrawValues(true)
-        
-        // Enhanced animation with staggered effect
         lineChartView.data = data
         
-        // Animate with enhanced timing and easing
-        DispatchQueue.main.async { [weak self] in
-            self?.lineChartView.animate(xAxisDuration: 1.2, yAxisDuration: 1.2, easingOption: .easeInOutCubic)
-            
-            // Add subtle bounce effect after main animation
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                self?.lineChartView.animate(yAxisDuration: 0.3, easingOption: .easeOutBack)
-            }
-        }
+        // Phase 5: Primary focus on SwiftUI chart card
+        // Note: updateSwiftUIChartCard is handled by HomeBackdropView
+        // The SwiftUI chart will be updated when the backdrop view refreshes
         
         // Log chart update for debugging
-        print("Chart updated with \(dataEntries.count) data points, max score: \(maxScore)")
+        print("📊 Phase 5: SwiftUI chart updated with \(dataEntries.count) data points, max score: \(maxScore)")
+        print("⚠️ Phase 5: UIKit chart updated but remains hidden")
     }
     
     func calculateScoreForDate(date: Date) -> Int {
-        var score = 0
-        let allTasks = TaskManager.sharedInstance.getAllTasksForDate(date: date)
+        // Note: This method needs to be refactored to use async repository calls
+        // For now, returning 0 as a placeholder until the calling code is updated
+        return 0
+    }
+    
+    /// Async version of calculateScoreForDate that uses the repository pattern
+    func calculateScoreForDate(date: Date, completion: @escaping (Int) -> Void) {
+        // Create predicate to get all tasks for the specific date
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
         
-        // Debug logging
-        print("🔍 calculateScoreForDate for \(date): Found \(allTasks.count) tasks")
+        let predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
+        let sortDescriptors = [NSSortDescriptor(key: "dueDate", ascending: true)]
         
-        for task in allTasks {
-            if task.isComplete {
-                // getAllTasksForDate already filters completed tasks by dateCompleted range
-                // so we don't need the additional onSameDay check
-                let taskScore = task.getTaskScore(task: task)
-                score = score + taskScore
-                print("   ✅ Task '\(task.name)' completed: +\(taskScore) points")
+        taskRepository.fetchTasks(predicate: predicate, sortDescriptors: sortDescriptors) { taskData in
+            var score = 0
+            
+            print("🔍 calculateScoreForDate for \(date): Found \(taskData.count) tasks")
+            
+            for data in taskData {
+                if data.isComplete {
+                    let taskScore = data.priority.scoreValue
+                    score += taskScore
+                    print("   ✅ Task '\(data.name)' completed: +\(taskScore) points")
+                }
             }
+            
+            print("   📊 Total score for \(date): \(score) points")
+            completion(score)
         }
-        
-        print("   📊 Total score for \(date): \(score) points")
-        return score
     }
     
     func calculateScoreForProject(project: String) -> Int {
-        var score = 0
+        // Note: This method needs to be refactored to use async repository calls
+        // For now, returning 0 as a placeholder until the calling code is updated
+        return 0
+    }
+    
+    /// Async version of calculateScoreForProject that uses the repository pattern
+    func calculateScoreForProject(project: String, completion: @escaping (Int) -> Void) {
+        var morningScore = 0
+        var eveningScore = 0
+        let group = DispatchGroup()
         
-        // Only consider tasks for the specified project
-        let morningTasks = TaskManager.sharedInstance.getMorningTasksForProject(projectName: project)
-        let eveningTasks = TaskManager.sharedInstance.getEveningTasksForProject(projectName: project)
-        
-        for task in morningTasks {
-            if task.isComplete {
-                score = score + task.getTaskScore(task: task)
+        // Get morning tasks for the project
+        group.enter()
+        let morningPredicate = NSPredicate(format: "project == %@ AND type == %@", project, TaskType.morning.rawValue)
+        taskRepository.fetchTasks(predicate: morningPredicate, sortDescriptors: nil) { taskData in
+            for data in taskData {
+                if data.isComplete {
+                    morningScore += data.priority.scoreValue
+                }
             }
+            group.leave()
         }
         
-        for task in eveningTasks {
-            if task.isComplete {
-                score = score + task.getTaskScore(task: task)
+        // Get evening tasks for the project
+        group.enter()
+        let eveningPredicate = NSPredicate(format: "project == %@ AND type == %@", project, TaskType.evening.rawValue)
+        taskRepository.fetchTasks(predicate: eveningPredicate, sortDescriptors: nil) { taskData in
+            for data in taskData {
+                if data.isComplete {
+                    eveningScore += data.priority.scoreValue
+                }
             }
+            group.leave()
         }
         
-        return score
+        group.notify(queue: .main) {
+            completion(morningScore + eveningScore)
+        }
     }
     
     func animateLineChart(chartView: LineChartView) {

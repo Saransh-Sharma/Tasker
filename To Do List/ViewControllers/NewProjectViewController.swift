@@ -148,6 +148,8 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
             
             let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
             let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as! AddTaskViewController
+            // Inject repository dependency using dependency container
+            DependencyContainer.shared.inject(into: newViewController)
             newViewController.modalPresentationStyle = .fullScreen
             self.present(newViewController, animated: true, completion: { () in
                 print("SUCCESS !!!")

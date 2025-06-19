@@ -60,47 +60,110 @@ extension AddTaskViewController {
     }
 
     @objc func doneAddTaskAction() {
-        guard !currentTaskInMaterialTextBox.isEmpty else { return }
-        
-        print(" AddTask: Starting task creation process...")
-        print(" AddTask: Task name: '\(currentTaskInMaterialTextBox)'")
-        print(" AddTask: Due date: \(dateForAddTaskView)")
-        print(" AddTask: Project: '\(currenttProjectForAddTaskView)'")
-        print(" AddTask: Delegate is set: \(delegate != nil)")
-        
-        // Use the selected calendar date as the due date
-        let newTask = TaskManager.sharedInstance.addNewTask_Future(
-            name: currentTaskInMaterialTextBox,
-            taskType: isThisEveningTask ? 2 : 1,
-            taskPriority: currentTaskPriority,
-            futureTaskDate: dateForAddTaskView,
-            isEveningTask: isThisEveningTask,
-            project: currenttProjectForAddTaskView
-        )
-        
-        print(" AddTask: Task created with ID: \(newTask.objectID)")
-        
-        // Update the task details with the description if provided
-        if !currentTaskDescription.isEmpty {
-            print(" AddTask: Updating task details...")
-            newTask.taskDetails = currentTaskDescription
-            TaskManager.sharedInstance.saveContext()
-            print(" AddTask: Task details saved to Core Data")
+        guard !currentTaskInMaterialTextBox.isEmpty else { 
+            print("⚠️ AddTask: Task name is empty, returning early")
+            return 
         }
         
-        // Ensure Core Data changes are fully processed before notifying delegate
-        TaskManager.sharedInstance.context.processPendingChanges()
+        print("🚀 AddTask: Starting task creation process...")
+        print("📝 AddTask: Task name: '\(currentTaskInMaterialTextBox)'")
+        print("📅 AddTask: Due date: \(dateForAddTaskView)")
+        print("📁 AddTask: Project: '\(currenttProjectForAddTaskView)'")
+        print("🤝 AddTask: Delegate is set: \(delegate != nil)")
         
-        // Dismiss view and notify delegate after dismissal
-        print(" AddTask: Dismissing view and will notify delegate after dismissal")
-        dismiss(animated: true) {
-            print(" AddTask: Notifying delegate after dismissal...")
-            if let delegate = self.delegate {
-                print(" AddTask: Calling delegate.didAddTask() after dismissal")
-                delegate.didAddTask(newTask)
-                print(" AddTask: Delegate notified successfully after dismissal")
+        // CRITICAL: Check taskRepository state before using it
+        print("🔍 AddTask: Checking taskRepository state...")
+        if taskRepository == nil {
+            print("❌ AddTask: CRITICAL ERROR - taskRepository is nil!")
+            print("🔧 AddTask: This indicates dependency injection failed")
+            print("📊 AddTask: View controller type: \(String(describing: type(of: self)))")
+            print("🏗️ AddTask: Attempting to get repository from DependencyContainer...")
+            
+            // Fallback: try to get repository from dependency container
+            if let fallbackRepository = DependencyContainer.shared.taskRepository {
+                print("✅ AddTask: Found fallback repository from DependencyContainer")
+                taskRepository = fallbackRepository
             } else {
-                print(" AddTask: ERROR - Delegate is nil after dismissal!")
+                print("💥 AddTask: FATAL - No repository available anywhere!")
+                // Show error to user instead of crashing
+                DispatchQueue.main.async {
+                    let alert = UIAlertController(title: "Error", message: "Unable to save task. Please try again.", preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                }
+                return
+            }
+        } else {
+            print("✅ AddTask: taskRepository is properly initialized")
+            print("📊 AddTask: Repository type: \(String(describing: type(of: taskRepository)))")
+        }
+        
+        // Determine task type based on evening switch
+        let taskType: TaskType = isThisEveningTask ? .evening : .morning
+        print("🌅 AddTask: Task type: \(taskType)")
+        
+        // Create TaskData object
+        let taskData = TaskData(
+            name: currentTaskInMaterialTextBox,
+            details: currentTaskDescription.isEmpty ? nil : currentTaskDescription,
+            type: taskType,
+            priority: currentTaskPriority,
+            dueDate: dateForAddTaskView,
+            project: currenttProjectForAddTaskView
+        )
+        print("📦 AddTask: TaskData created successfully")
+        
+        // Add task using repository pattern
+        print("💾 AddTask: Calling taskRepository.addTask...")
+        taskRepository.addTask(data: taskData) { [weak self] (result: Result<NTask, Error>) in
+            print("📬 AddTask: Received response from taskRepository.addTask")
+            DispatchQueue.main.async {
+                print("🔄 AddTask: Processing result on main queue")
+                switch result {
+                case .success(let createdTask):
+                    print("✅ AddTask: Task created successfully!")
+                    print("🆔 AddTask: Task ID: \(createdTask.objectID)")
+                    print("📝 AddTask: Task name: \(createdTask.name ?? "Unknown")")
+                    print("📅 AddTask: Task due date: \(createdTask.dueDate ?? Date() as NSDate)")
+                    
+                    // Dismiss view and notify delegate after dismissal
+                    print("🚪 AddTask: Dismissing view and will notify delegate after dismissal")
+                    self?.dismiss(animated: true) {
+                        print("🔔 AddTask: View dismissed, now notifying delegate...")
+                        if let delegate = self?.delegate {
+                            print("👥 AddTask: Delegate found, calling didAddTask()")
+                            print("📊 AddTask: Delegate type: \(String(describing: type(of: delegate)))")
+                            delegate.didAddTask(createdTask)
+                            print("✅ AddTask: Delegate notified successfully!")
+                        } else {
+                            print("❌ AddTask: ERROR - Delegate is nil after dismissal!")
+                            print("🔍 AddTask: This might indicate the parent view controller was deallocated")
+                        }
+                    }
+                    
+                case .failure(let error):
+                    print("❌ AddTask: Failed to create task!")
+                    print("💥 AddTask: Error: \(error)")
+                    print("🔍 AddTask: Error type: \(String(describing: type(of: error)))")
+                    if let nsError = error as NSError? {
+                        print("📊 AddTask: Error domain: \(nsError.domain)")
+                        print("🔢 AddTask: Error code: \(nsError.code)")
+                        print("📝 AddTask: Error description: \(nsError.localizedDescription)")
+                        if let userInfo = nsError.userInfo as? [String: Any], !userInfo.isEmpty {
+                            print("ℹ️ AddTask: Error userInfo: \(userInfo)")
+                        }
+                    }
+                    
+                    // Show error alert to user
+                    let alert = UIAlertController(
+                        title: "Error Creating Task",
+                        message: "Failed to create task: \(error.localizedDescription)",
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self?.present(alert, animated: true)
+                    print("🚨 AddTask: Error alert presented to user")
+                }
             }
         }
     }

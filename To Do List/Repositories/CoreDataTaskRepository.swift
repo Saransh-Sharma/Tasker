@@ -49,7 +49,23 @@ final class CoreDataTaskRepository: TaskRepository {
         }
     }
     
-    func addTask(data: TaskData, completion: ((Result<Void, Error>) -> Void)?) {
+    func fetchTask(by taskID: NSManagedObjectID, completion: @escaping (Result<NTask, Error>) -> Void) {
+        backgroundContext.perform {
+            do {
+                let task = try self.backgroundContext.existingObject(with: taskID) as? NTask
+                if let task = task {
+                    DispatchQueue.main.async { completion(.success(task)) }
+                } else {
+                    let error = NSError(domain: "TaskRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found"])
+                    DispatchQueue.main.async { completion(.failure(error)) }
+                }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+    
+    func addTask(data: TaskData, completion: ((Result<NTask, Error>) -> Void)?) {
         backgroundContext.perform {
             let managed = NTask(context: self.backgroundContext)
             managed.name = data.name
@@ -64,7 +80,13 @@ final class CoreDataTaskRepository: TaskRepository {
             
             do {
                 try self.backgroundContext.save()
-                DispatchQueue.main.async { completion?(.success(())) }
+                // Get the object in the main context for the delegate
+                guard let mainContextTask = self.viewContext.object(with: managed.objectID) as? NTask else {
+                    let error = NSError(domain: "CoreDataTaskRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve saved task in main context"])
+                    DispatchQueue.main.async { completion?(.failure(error)) }
+                    return
+                }
+                DispatchQueue.main.async { completion?(.success(mainContextTask)) }
             } catch {
                 print("❌ Task add error: \(error)")
                 DispatchQueue.main.async { completion?(.failure(error)) }
