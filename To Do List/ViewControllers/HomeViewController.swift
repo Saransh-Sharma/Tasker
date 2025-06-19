@@ -253,6 +253,10 @@ func refreshNavigationPieChart() {
         notificationCenter.addObserver(self, selector: #selector(appMovedToBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         notificationCenter.addObserver(self, selector: #selector(appTerminated), name: UIApplication.willTerminateNotification, object: nil)
         
+        // Setup chart refresh notification observer
+        notificationCenter.addObserver(self, selector: #selector(taskCompletionChanged), name: NSNotification.Name("TaskCompletionChanged"), object: nil)
+        print("📡 HomeViewController: Added TaskCompletionChanged notification observer")
+        
         // Configure UI
         dateForTheView = Date.today()
         
@@ -595,7 +599,7 @@ extension HomeViewController {
         // Filter tasks based on search text
         let filteredTasks = allTasks.filter { task in
             let searchTextLower = searchText.lowercased()
-            return task.name.lowercased().contains(searchTextLower) ||
+            return (task.name ?? "").lowercased().contains(searchTextLower) ||
                    (task.taskDetails?.lowercased().contains(searchTextLower) ?? false) ||
                    (task.project?.lowercased().contains(searchTextLower) ?? false)
         }
@@ -628,7 +632,7 @@ extension HomeViewController {
                     let taskTypeString = task.taskType == 1 ? "Morning" : task.taskType == 2 ? "Evening" : "Upcoming"
                     
                     return ToDoListData.TaskListItem(
-                        text1: task.name,
+                        text1: task.name ?? "Untitled Task",
                         text2: task.taskDetails ?? "",
                         text3: "\(taskTypeString) • \(dueDateString)",
                         image: ""
@@ -863,5 +867,15 @@ extension HomeViewController {
         // Prefer FluentUI styling if available
         navController.navigationBar.prefersLargeTitles = false
         present(navController, animated: true)
+    }
+    
+    @objc private func taskCompletionChanged() {
+        print("📊 HomeViewController: Received TaskCompletionChanged notification - refreshing charts")
+        DispatchQueue.main.async { [weak self] in
+            self?.updateLineChartData()
+            self?.updateSwiftUIChartCard()
+            self?.refreshNavigationPieChart()
+            print("✅ HomeViewController: Charts refreshed successfully")
+        }
     }
 }

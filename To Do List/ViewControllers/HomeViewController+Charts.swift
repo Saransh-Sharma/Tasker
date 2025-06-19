@@ -70,7 +70,7 @@ extension HomeViewController {
         updateLineChartData()
     }
     
-    func generateLineChartData() -> [ChartDataEntry] {
+    func generateLineChartData(completion: @escaping ([ChartDataEntry]) -> Void) {
         var yValues: [ChartDataEntry] = []
         
         var calendar = Calendar.autoupdatingCurrent
@@ -89,46 +89,59 @@ extension HomeViewController {
         let dayFormatter = DateFormatter()
         dayFormatter.dateFormat = "EEE, MMM dd"
         
+        let dispatchGroup = DispatchGroup()
+        var dayScores: [(Int, Int)] = [] // (index, score) pairs
+        
         // Generate chart data points for the week (Sunday to Saturday)
         for (index, day) in week.enumerated() {
-            let score: Int
-            
             // Enhanced future date handling
             if day > today {
                 // For future dates, show 0 but with special styling indication
-                score = 0
+                let dayName = dayFormatter.string(from: day)
+                print("   • \(dayName): 0 points (Future)")
+                dayScores.append((index, 0))
             } else {
-                // For past and current dates, calculate actual score
-                score = calculateScoreForDate(date: day)
+                // For past and current dates, calculate actual score using async method
+                dispatchGroup.enter()
+                calculateScoreForDate(date: day) { score in
+                    let dayName = dayFormatter.string(from: day)
+                    let status = day.onSameDay(as: today) ? "(Today)" : "(Past)"
+                    print("   • \(dayName): \(score) points \(status)")
+                    dayScores.append((index, score))
+                    dispatchGroup.leave()
+                }
             }
-            
-            // Log each day's score
-            let dayName = dayFormatter.string(from: day)
-            let status = day > today ? "(Future)" : day.onSameDay(as: today) ? "(Today)" : "(Past)"
-            print("   • \(dayName): \(score) points \(status)")
-            
-            // Ensure score is valid and not NaN or infinite
-            let validScore = max(0, score) // Ensure non-negative
-            let yValue = Double(validScore)
-            
-            // Additional safety check for NaN or infinite values
-            let safeYValue = yValue.isNaN || yValue.isInfinite ? 0.0 : yValue
-            
-            let dataEntry = ChartDataEntry(x: Double(index), y: safeYValue)
-            
-            // Add metadata for future date styling (if needed)
-            if day > today {
-                dataEntry.data = ["isFuture": true]
-            }
-            
-            yValues.append(dataEntry)
         }
         
-        // Log weekly total
-        let weeklyTotal = yValues.reduce(0) { $0 + Int($1.y) }
-        print("   📈 Weekly Total: \(weeklyTotal) points")
-        
-        return yValues
+        dispatchGroup.notify(queue: .main) {
+            // Sort by index to maintain correct order
+            dayScores.sort { $0.0 < $1.0 }
+            
+            for (index, score) in dayScores {
+                // Ensure score is valid and not NaN or infinite
+                let validScore = max(0, score) // Ensure non-negative
+                let yValue = Double(validScore)
+                
+                // Additional safety check for NaN or infinite values
+                let safeYValue = yValue.isNaN || yValue.isInfinite ? 0.0 : yValue
+                
+                let dataEntry = ChartDataEntry(x: Double(index), y: safeYValue)
+                
+                // Add metadata for future date styling (if needed)
+                let day = week[index]
+                if day > today {
+                    dataEntry.data = ["isFuture": true]
+                }
+                
+                yValues.append(dataEntry)
+            }
+            
+            // Log weekly total
+            let weeklyTotal = yValues.reduce(0) { $0 + Int($1.y) }
+            print("   📈 Weekly Total: \(weeklyTotal) points")
+            
+            completion(yValues)
+        }
     }
     
     func generateSampleData() -> [ChartDataEntry] {
@@ -147,53 +160,56 @@ extension HomeViewController {
     
     func updateLineChartData() {
         // Phase 5: Transition to SwiftUI-only chart implementation
-        let dataEntries = generateLineChartData()
-        let maxScore = dataEntries.map { $0.y }.max() ?? 0
-        
-        // Legacy UIKit chart update (Phase 5: DEPRECATED - keeping for compatibility)
-        let dynamicMaximum = max(maxScore * 1.2, 10)
-        let leftAxis = lineChartView.leftAxis
-        leftAxis.axisMaximum = dynamicMaximum
-        
-        let dataSet = LineChartDataSet(entries: dataEntries, label: "Daily Score")
-        dataSet.mode = .linear
-        dataSet.drawCirclesEnabled = true
-        dataSet.lineWidth = 3.5
-        dataSet.circleRadius = 6
-        dataSet.setCircleColor(todoColors.secondaryAccentColor)
-        dataSet.setColor(todoColors.primaryColor)
-        dataSet.drawCircleHoleEnabled = true
-        dataSet.circleHoleRadius = 3
-        dataSet.circleHoleColor = UIColor.systemBackground
-        dataSet.valueFont = .systemFont(ofSize: 10, weight: .medium)
-        dataSet.valueTextColor = todoColors.primaryTextColor
-        
-        let gradientColors = [
-            todoColors.secondaryAccentColor.withAlphaComponent(0.5).cgColor,
-            todoColors.secondaryAccentColor.withAlphaComponent(0.25).cgColor,
-            todoColors.secondaryAccentColor.withAlphaComponent(0.0).cgColor
-        ]
-        let gradient = CGGradient(colorsSpace: nil, colors: gradientColors as CFArray, locations: [0.0, 0.5, 1.0])!
-        dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
-        dataSet.drawFilledEnabled = true
-        dataSet.fillAlpha = 0.5
-        dataSet.lineDashLengths = nil
-        dataSet.highlightEnabled = true
-        dataSet.highlightColor = todoColors.secondaryAccentColor
-        dataSet.highlightLineWidth = 2
-        dataSet.drawHorizontalHighlightIndicatorEnabled = false
-        dataSet.drawVerticalHighlightIndicatorEnabled = true
-        
-        let data = LineChartData(dataSet: dataSet)
-        data.setDrawValues(true)
-        lineChartView.data = data
-        
-        // Phase 5: Primary focus on SwiftUI chart card
-        updateSwiftUIChartCard()
-        
-        // Log chart update for debugging
-        print("📊 Phase 5: SwiftUI chart updated with \(dataEntries.count) data points, max score: \(maxScore)")
-        print("⚠️ Phase 5: UIKit chart updated but remains hidden")
+        generateLineChartData { [weak self] dataEntries in
+            guard let self = self else { return }
+            
+            let maxScore = dataEntries.map { $0.y }.max() ?? 0
+            
+            // Legacy UIKit chart update (Phase 5: DEPRECATED - keeping for compatibility)
+            let dynamicMaximum = max(maxScore * 1.2, 10)
+            let leftAxis = self.lineChartView.leftAxis
+            leftAxis.axisMaximum = dynamicMaximum
+            
+            let dataSet = LineChartDataSet(entries: dataEntries, label: "Daily Score")
+            dataSet.mode = .linear
+            dataSet.drawCirclesEnabled = true
+            dataSet.lineWidth = 3.5
+            dataSet.circleRadius = 6
+            dataSet.setCircleColor(self.todoColors.secondaryAccentColor)
+            dataSet.setColor(self.todoColors.primaryColor)
+            dataSet.drawCircleHoleEnabled = true
+            dataSet.circleHoleRadius = 3
+            dataSet.circleHoleColor = UIColor.systemBackground
+            dataSet.valueFont = .systemFont(ofSize: 10, weight: .medium)
+            dataSet.valueTextColor = self.todoColors.primaryTextColor
+            
+            let gradientColors = [
+                self.todoColors.secondaryAccentColor.withAlphaComponent(0.5).cgColor,
+                self.todoColors.secondaryAccentColor.withAlphaComponent(0.25).cgColor,
+                self.todoColors.secondaryAccentColor.withAlphaComponent(0.0).cgColor
+            ]
+            let gradient = CGGradient(colorsSpace: nil, colors: gradientColors as CFArray, locations: [0.0, 0.5, 1.0])!
+            dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
+            dataSet.drawFilledEnabled = true
+            dataSet.fillAlpha = 0.5
+            dataSet.lineDashLengths = nil
+            dataSet.highlightEnabled = true
+            dataSet.highlightColor = self.todoColors.secondaryAccentColor
+            dataSet.highlightLineWidth = 2
+            dataSet.drawHorizontalHighlightIndicatorEnabled = false
+            dataSet.drawVerticalHighlightIndicatorEnabled = true
+            
+            let data = LineChartData(dataSet: dataSet)
+            data.setDrawValues(true)
+            self.lineChartView.data = data
+            
+            // Phase 5: Primary focus on SwiftUI chart card
+            self.updateSwiftUIChartCard()
+            
+            // Log chart update for debugging
+            print("📊 Phase 5: SwiftUI chart updated with \(dataEntries.count) data points, max score: \(maxScore)")
+            print("⚠️ Phase 5: UIKit chart updated but remains hidden")
+        }
     }
     
     func calculateScoreForDate(date: Date) -> Int {
@@ -203,31 +219,19 @@ extension HomeViewController {
     }
     
     /// Async version of calculateScoreForDate that uses the repository pattern
-    func calculateScoreForDate(date: Date, completion: @escaping (Int) -> Void) {
-        // Create predicate to get all tasks for the specific date
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: date)
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+    private func calculateScoreForDate(date: Date, completion: @escaping (Int) -> Void) {
+        // Use the same approach as ChartDataService for consistency
+        let allTasks = TaskManager.sharedInstance.getAllTasksForDate(date: date)
         
-        let predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
-        let sortDescriptors = [NSSortDescriptor(key: "dueDate", ascending: true)]
-        
-        taskRepository.fetchTasks(predicate: predicate, sortDescriptors: sortDescriptors) { taskData in
-            var score = 0
-            
-            print("🔍 calculateScoreForDate for \(date): Found \(taskData.count) tasks")
-            
-            for data in taskData {
-                if data.isComplete {
-                    let taskScore = data.priority.scoreValue
-                    score += taskScore
-                    print("   ✅ Task '\(data.name)' completed: +\(taskScore) points")
-                }
-            }
-            
-            print("   📊 Total score for \(date): \(score) points")
-            completion(score)
+        let score = allTasks.filter { $0.isComplete }.reduce(0) { total, task in
+            let taskScore = TaskScoringService.shared.calculateScore(for: task)
+            return total + taskScore
         }
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        print("📊 [HomeViewController] Score for \(dateFormatter.string(from: date)): \(score) from \(allTasks.filter { $0.isComplete }.count) completed tasks")
+        completion(score)
     }
     
     func calculateScoreForProject(project: String) -> Int {

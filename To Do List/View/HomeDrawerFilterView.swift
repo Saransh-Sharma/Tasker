@@ -330,7 +330,7 @@ extension HomeViewController: PillButtonBarDelegate {
                 print("-----------------------")
                 print("project Task: \(each.name)")
                 print("name project \(projectForTheView)")
-                list.append(each.name)
+                list.append(each.name ?? "Untitled Task")
                 print("-----------------------\n")
                 
             }

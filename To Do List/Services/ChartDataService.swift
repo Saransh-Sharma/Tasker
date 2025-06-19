@@ -121,7 +121,7 @@ class ChartDataService {
         print("📅 [ChartDataService] Tasks actually completed on \(dayFormatter.string(from: date)): \(tasksCompletedOnDate.count)")
         
         for (index, task) in allTasks.enumerated() {
-            let taskScore = TaskScoringService.calculateScore(for: task)
+            let taskScore = TaskScoringService.shared.calculateScore(for: task)
             let completedDateStr = task.dateCompleted != nil ? dateFormatter.string(from: task.dateCompleted! as Date) : "nil"
             let dueDateStr = task.dueDate != nil ? dayFormatter.string(from: task.dueDate! as Date) : "nil"
             

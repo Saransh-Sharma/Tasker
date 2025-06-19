@@ -235,7 +235,7 @@ extension HomeViewController {
             
             return sortedTasks.map { task in
                 ToDoListData.TaskListItem(
-                    text1: task.name,
+                    text1: task.name ?? "Untitled Task",
                     text2: task.taskDetails ?? "",
                     text3: "",
                     image: ""

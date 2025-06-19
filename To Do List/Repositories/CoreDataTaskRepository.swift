@@ -103,9 +103,16 @@ final class CoreDataTaskRepository: TaskRepository {
                 
                 task.isComplete.toggle()
                 task.dateCompleted = task.isComplete ? Date() as NSDate : nil
+                print("🎯 CoreDataTaskRepository: Task '\(task.name ?? "Unknown")' completion toggled to \(task.isComplete)")
                 
                 try self.backgroundContext.save()
-                DispatchQueue.main.async { completion?(.success(())) }
+                
+                // Notify that charts should be refreshed
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
+                    print("📡 CoreDataTaskRepository: Posted TaskCompletionChanged notification")
+                    completion?(.success(()))
+                }
             } catch {
                 print("❌ Task toggle complete error: \(error)")
                 DispatchQueue.main.async { completion?(.failure(error)) }
