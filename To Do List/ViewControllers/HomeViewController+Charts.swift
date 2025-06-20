@@ -16,9 +16,17 @@ extension HomeViewController {
     
     func setupCharts() {
         // LineChart setup - Based on LineChart1ViewController
-        lineChartView.backgroundColor = .clear
+        lineChartView.backgroundColor = todoColors.backgroundColor
         lineChartView.legend.form = .line
         lineChartView.rightAxis.enabled = false
+        
+        // Add card view styling
+        lineChartView.layer.cornerRadius = 12
+        lineChartView.layer.shadowColor = todoColors.primaryColorDarker.cgColor
+        lineChartView.layer.shadowOpacity = 0.1
+        lineChartView.layer.shadowOffset = CGSize(width: 0, height: 2)
+        lineChartView.layer.shadowRadius = 8
+        lineChartView.layer.masksToBounds = false
         
         // Enable chart description and interactions
         lineChartView.chartDescription.enabled = false
@@ -213,9 +221,19 @@ extension HomeViewController {
     }
     
     func calculateScoreForDate(date: Date) -> Int {
-        // Note: This method needs to be refactored to use async repository calls
-        // For now, returning 0 as a placeholder until the calling code is updated
-        return 0
+        // Use the same logic as ChartDataService for consistency
+        let allTasks = TaskManager.sharedInstance.getAllTasksForDate(date: date)
+        
+        let score = allTasks.filter { $0.isComplete }.reduce(0) { total, task in
+            let taskScore = TaskScoringService.shared.calculateScore(for: task)
+            return total + taskScore
+        }
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        print("📊 [HomeViewController] Score for \(dateFormatter.string(from: date)): \(score) from \(allTasks.filter { $0.isComplete }.count) completed tasks")
+        
+        return score
     }
     
     /// Async version of calculateScoreForDate that uses the repository pattern
@@ -235,9 +253,25 @@ extension HomeViewController {
     }
     
     func calculateScoreForProject(project: String) -> Int {
-        // Note: This method needs to be refactored to use async repository calls
-        // For now, returning 0 as a placeholder until the calling code is updated
-        return 0
+        var score = 0
+        
+        // Only consider tasks for the specified project
+        let morningTasks = TaskManager.sharedInstance.getMorningTasksForProject(projectName: project)
+        let eveningTasks = TaskManager.sharedInstance.getEveningTasksForProject(projectName: project)
+        
+        for task in morningTasks {
+            if task.isComplete {
+                score = score + task.getTaskScore(task: task)
+            }
+        }
+        
+        for task in eveningTasks {
+            if task.isComplete {
+                score = score + task.getTaskScore(task: task)
+            }
+        }
+        
+        return score
     }
     
     /// Async version of calculateScoreForProject that uses the repository pattern
