@@ -95,7 +95,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     // Charts (Phase 5: Transition Complete)
     // Legacy UIKit charts - kept for compatibility but deprecated
-    lazy var lineChartView: LineChartView = { return LineChartView() }() // DEPRECATED: Hidden in Phase 5
+    lazy var lineChartView: LineChartView = {
+        let chart = LineChartView()
+        chart.isHidden = true // keep legacy chart invisible
+        return chart
+    }() // Legacy DGCharts view kept only for backward compatibility
     lazy var tinyPieChartView: PieChartView = { return PieChartView() }()
     var navigationPieChartView: PieChartView?
     
@@ -198,37 +202,27 @@ func refreshNavigationPieChart() {
     
     // MARK: - Dynamic Animation Calculations
     
+    
+    
     func calculateRevealDistance() -> CGFloat {
-        // Get the line chart's Y position (120) with some padding above it
-        let chartStartY: CGFloat = 120
-        let padding: CGFloat = 20 // Padding above the chart
-        
-        // Calculate the target Y position where the foredrop should stop
+        guard let chartContainer = swiftUIChartContainer else { return 300 } // Default fallback
+        let chartStartY = chartContainer.frame.minY
+        let padding: CGFloat = 20
         let targetY = chartStartY - padding
-        
-        // Calculate the current top of the foredrop container
         let currentForedropTop = originalForedropCenterY - (foredropContainer.bounds.height / 2)
-        
-        // Return the distance needed to move the foredrop down to reach the target
         return max(0, targetY - currentForedropTop)
     }
-    
+
     func calculateChartRevealDistance() -> CGFloat {
-        // Get the line chart's position and dimensions
-        let chartStartY: CGFloat = 120
-        let chartHeight: CGFloat = 400
-        let padding: CGFloat = 20 // Padding below the chart
-        
-        // Calculate the target Y position where the foredrop should stop (below the entire chart)
+        guard let chartContainer = swiftUIChartContainer else { return 500 } // Default fallback
+        let chartStartY = chartContainer.frame.minY
+        let chartHeight = chartContainer.frame.height
+        let padding: CGFloat = 20
         let targetY = chartStartY + chartHeight + padding
-        
-        // Calculate the current top of the foredrop container
         let currentForedropTop = originalForedropCenterY - (foredropContainer.bounds.height / 2)
-        
-        // Return the distance needed to move the foredrop down to reveal the entire chart
         return max(0, targetY - currentForedropTop)
     }
-    
+
     // IBOutlets
     @IBOutlet weak var addTaskButton: MDCFloatingButton!
     @IBOutlet weak var darkModeToggle: UISwitch!
@@ -798,17 +792,7 @@ extension HomeViewController {
             controllerSearchBar.tokenSet[.backgroundColor] = .uiColor { self.todoColors.primaryColor }
         }
         // Update chart accent colors if present
-        if let dataSets = lineChartView.data?.dataSets {
-            dataSets.forEach { set in
-                if let lineSet = set as? LineChartDataSet {
-                    lineSet.colors = [todoColors.primaryColor]
-                    lineSet.fillColor = todoColors.primaryColor.withAlphaComponent(0.2)
-                    lineSet.circleColors = [todoColors.primaryColor]
-                }
-            }
-            lineChartView.data?.notifyDataChanged()
-            lineChartView.notifyDataSetChanged()
-        }
+        
         // Update calendar appearance & refresh
         if let cal = calendar {
             // Header & weekday background colours
@@ -890,7 +874,7 @@ extension HomeViewController {
 extension HomeViewController {
     
     /// Sets up the SwiftUI chart card and embeds it in the view hierarchy.
-    private func setupSwiftUIChartCard() {
+    func setupSwiftUIChartCard() {
         // 1. Initialize the SwiftUI View
         let chartView = TaskProgressCard(referenceDate: dateForTheView)
         

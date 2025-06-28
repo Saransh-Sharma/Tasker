@@ -21,7 +21,7 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         
         // Delay chart update slightly to allow UI to settle
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.updateLineChartData()
+            self?.updateSwiftUIChartCard()
             // CRITICAL FIX: Update SwiftUI chart as well
             self?.updateSwiftUIChartCard()
         }
@@ -49,14 +49,14 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         
         // Update chart data with slight delay for smooth experience
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            self?.updateLineChartData()
+            self?.updateSwiftUIChartCard()
             // CRITICAL FIX: Update SwiftUI chart as well
             self?.updateSwiftUIChartCard()
         }
         
         // Log detailed task update information
         let taskScore = task.getTaskScore(task: task)
-        let dailyTotal = calculateScoreForDate(date: Date())
+        let dailyTotal = ChartDataService.shared.calculateScoreForDate(date: Date())
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium
         dateFormatter.timeStyle = .short
@@ -81,7 +81,7 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         impactFeedback.impactOccurred()
         
         // Update chart immediately for deletion to show instant feedback
-        updateLineChartData()
+        updateSwiftUIChartCard()
         // CRITICAL FIX: Update SwiftUI chart as well
         updateSwiftUIChartCard()
         

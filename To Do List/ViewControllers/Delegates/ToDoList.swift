@@ -57,7 +57,7 @@ extension HomeViewController: BEMCheckBoxDelegate {
                     self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
                     // Updated to use FluentUI table view
         self.fluentToDoTableViewController?.tableView.reloadData()
-                    self.updateLineChartData()
+                    self.updateSwiftUIChartCard()
                     self.animateTableViewReloadSingleCell(at: indexPath)
                     // Rebuild sections so completed/overdue tasks display correctly
                     self.loadTasksForDateGroupedByProject()
@@ -67,7 +67,7 @@ extension HomeViewController: BEMCheckBoxDelegate {
                     self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
                     // Updated to use FluentUI table view
         self.fluentToDoTableViewController?.tableView.reloadData()
-                    self.updateLineChartData()
+                    self.updateSwiftUIChartCard()
                     self.animateTableViewReloadSingleCell(at: indexPath)
                     // Rebuild sections so completed/overdue tasks display correctly
                     self.loadTasksForDateGroupedByProject()
@@ -85,7 +85,7 @@ extension HomeViewController: BEMCheckBoxDelegate {
                     self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
                     // Updated to use FluentUI table view
         self.fluentToDoTableViewController?.tableView.reloadData()
-                    self.updateLineChartData()
+                    self.updateSwiftUIChartCard()
                     self.animateTableViewReloadSingleCell(at: indexPath)
                     // Rebuild sections so completed/overdue tasks display correctly
                     self.loadTasksForDateGroupedByProject()
@@ -95,7 +95,7 @@ extension HomeViewController: BEMCheckBoxDelegate {
                     self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
                     // Updated to use FluentUI table view
         self.fluentToDoTableViewController?.tableView.reloadData()
-                    self.updateLineChartData()
+                    self.updateSwiftUIChartCard()
                     self.animateTableViewReloadSingleCell(at: indexPath)
                     // Rebuild sections so completed/overdue tasks display correctly
                     self.loadTasksForDateGroupedByProject()
