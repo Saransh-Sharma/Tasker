@@ -287,6 +287,9 @@ func refreshNavigationPieChart() {
         
         // Initial view update
         updateViewForHome(viewType: .todayHomeView)
+        
+        // Setup the SwiftUI chart card
+        setupSwiftUIChartCard()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -749,6 +752,7 @@ extension HomeViewController: AddTaskViewControllerDelegate {
 }
 
 // MARK: - Theme Handling
+
 extension HomeViewController {
     /// Re-applies current theme colors to primary UI elements.
     fileprivate func applyTheme() {
@@ -832,6 +836,8 @@ extension HomeViewController {
     }
 }
 
+
+
 // MARK: - Bottom App Bar Setup & Chat Integration
 
 extension HomeViewController {
@@ -872,10 +878,67 @@ extension HomeViewController {
     @objc private func taskCompletionChanged() {
         print("📊 HomeViewController: Received TaskCompletionChanged notification - refreshing charts")
         DispatchQueue.main.async { [weak self] in
-            self?.updateLineChartData()
             self?.updateSwiftUIChartCard()
             self?.refreshNavigationPieChart()
             print("✅ HomeViewController: Charts refreshed successfully")
         }
+    }
+}
+
+// MARK: - SwiftUI Chart Card Integration
+
+extension HomeViewController {
+    
+    /// Sets up the SwiftUI chart card and embeds it in the view hierarchy.
+    private func setupSwiftUIChartCard() {
+        // 1. Initialize the SwiftUI View
+        let chartView = TaskProgressCard(referenceDate: dateForTheView)
+        
+        // 2. Create a UIHostingController
+        let hostingController = UIHostingController(rootView: AnyView(chartView))
+        self.swiftUIChartHostingController = hostingController
+        
+        // 3. Configure the hosting controller's view
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        
+        // 4. Create a container view
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = .clear
+        container.clipsToBounds = false // Allow shadow to be visible
+        self.swiftUIChartContainer = container
+        
+        // 5. Add the hosting controller's view to the container
+        container.addSubview(hostingController.view)
+        
+        // 6. Add the container to the backdrop
+        backdropContainer.addSubview(container)
+        
+        // 7. Set constraints
+        NSLayoutConstraint.activate([
+            // Container constraints (with padding for shadow)
+            container.leadingAnchor.constraint(equalTo: backdropContainer.leadingAnchor, constant: 16),
+            container.trailingAnchor.constraint(equalTo: backdropContainer.trailingAnchor, constant: -16),
+            container.topAnchor.constraint(equalTo: backdropContainer.topAnchor, constant: 120),
+            container.heightAnchor.constraint(equalToConstant: 250),
+            
+            // Hosting controller's view constraints (pinned to container)
+            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        
+        // 8. Add child view controller
+        addChild(hostingController)
+        hostingController.didMove(toParent: self)
+    }
+    
+    /// Updates the SwiftUI chart card with the latest data.
+    func updateSwiftUIChartCard() {
+        let chartView = TaskProgressCard(referenceDate: dateForTheView)
+        swiftUIChartHostingController?.rootView = AnyView(chartView)
+        print("📊 SwiftUI Chart Card updated with new reference date")
     }
 }
