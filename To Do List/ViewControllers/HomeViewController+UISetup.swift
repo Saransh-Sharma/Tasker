@@ -375,6 +375,9 @@ extension HomeViewController: BadgeViewDelegate {
             // Make the table view background transparent so the foredrop shows through
             fluentView.backgroundColor = UIColor.clear
             fluentToDoTableViewController?.tableView.backgroundColor = UIColor.clear
+            fluentToDoTableViewController?.tableView.isOpaque = false
+            fluentToDoTableViewController?.tableView.backgroundView = nil
+            fluentToDoTableViewController?.tableView.separatorStyle = .none
             
             // Add as child view controller for proper lifecycle management
             self.addChild(fluentToDoTableViewController!)

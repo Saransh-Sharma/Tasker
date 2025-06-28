@@ -254,6 +254,13 @@ func refreshNavigationPieChart() {
         // Configure UI
         dateForTheView = Date.today()
         
+        // Set contentScrollView to prevent ShyHeaderController from creating dummy UITableView
+        // This must be done after fluentToDoTableViewController is initialized
+        if let tableView = fluentToDoTableViewController?.tableView {
+            navigationItem.contentScrollView = tableView
+            print("✅ Set navigationItem.contentScrollView to prevent ShyHeaderController dummy table view")
+        }
+        
         highestPrioritySymbol = (UIImage(systemName: "circle.fill", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal))!
         highPrioritySymbol = (UIImage(systemName: "circle", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal))!
         
@@ -303,7 +310,36 @@ func refreshNavigationPieChart() {
         super.viewDidAppear(animated)
         shouldAnimateCells = false
         refreshNavigationPieChart()
+        
+        // Runtime backup fix: Find and fix any dummy table views created by ShyHeaderController
+        findAndFixDummyTableView()
     } // end of viewDidAppear
+    
+    /// Recursively searches the view hierarchy for UITableView instances (excluding our main table view)
+    /// and makes them transparent. This is a backup fix for any dummy table views created by ShyHeaderController.
+    private func findAndFixDummyTableView() {
+        func searchViewHierarchy(_ view: UIView) {
+            for subview in view.subviews {
+                if let tableView = subview as? UITableView,
+                   tableView != fluentToDoTableViewController?.tableView {
+                    // Found a dummy table view - make it transparent
+                    tableView.backgroundColor = UIColor.clear
+                    tableView.isOpaque = false
+                    tableView.backgroundView = nil
+                    print("🔧 Fixed dummy UITableView at \(tableView)")
+                }
+                // Recursively search subviews
+                searchViewHierarchy(subview)
+            }
+        }
+        
+        // Start search from navigation controller's view if available
+        if let navView = navigationController?.view {
+            searchViewHierarchy(navView)
+        }
+        // Also search our own view hierarchy
+        searchViewHierarchy(view)
+    }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
