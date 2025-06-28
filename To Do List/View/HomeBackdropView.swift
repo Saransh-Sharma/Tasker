@@ -28,6 +28,9 @@ extension HomeViewController {
         updateLineChartData()
         lineChartView.isHidden = false // Show chart by default with sample data
         
+        // Phase 3: Setup SwiftUI Chart Card alongside existing chart
+        setupSwiftUIChartCard()
+        
         // cal
         setupCalView()
         setupCalAppearence()
@@ -250,10 +253,14 @@ extension HomeViewController {
     
     @objc func toggleCharts() {
         let padding: CGFloat = 8
-        let isOpening = lineChartView.isHidden
-        let targetY = isOpening ? lineChartView.frame.maxY + padding : foredropClosedY
+        // Use SwiftUI chart container instead of lineChartView (Phase 5)
+        let isOpening = swiftUIChartContainer?.isHidden ?? true
+        let chartHeight: CGFloat = swiftUIChartContainer?.frame.height ?? 200
+        let targetY = isOpening ? foredropClosedY + chartHeight + padding : foredropClosedY
         animateForedrop(to: targetY) {
-            self.lineChartView.isHidden.toggle()
+            self.swiftUIChartContainer?.isHidden.toggle()
+            // Keep old chart hidden (Phase 5: Cleanup)
+            self.lineChartView.isHidden = true
         }
     }
     
@@ -274,15 +281,18 @@ extension HomeViewController {
     }
     
     //----------------------- *************************** -----------------------
-    //MARK:-                    setup line chart
+    //MARK:-                    setup line chart (Phase 5: DEPRECATED)
     //----------------------- *************************** -----------------------
     func setupLineChartView() {
-        
+        // Phase 5: Legacy UIKit chart setup - keeping for compatibility but chart will remain hidden
         backdropContainer.addSubview(lineChartView)
         lineChartView.centerInSuperview()
         lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: 2*headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
-        //lineChartView.edges(to: backdropBackgroundImageView, insets: TinyEdgeInsets(top: headerEndY, left: 0, bottom: UIScreen.main.bounds.height/2.5, right: 0))
         
+        // Immediately hide the old chart (Phase 5: Transition)
+        lineChartView.isHidden = true
+        
+        print("⚠️ Phase 5: Legacy UIKit chart setup completed but hidden")
     }
     
     @objc func hideChartsAndCalendar() {
@@ -299,11 +309,70 @@ extension HomeViewController {
           self.foredropContainer.center.y = self.originalForedropCenterY
         } completion: { _ in
           self.calendar.isHidden      = true
+          // Phase 5: Only hide SwiftUI chart, keep old chart permanently hidden
           self.lineChartView.isHidden = true
+          self.swiftUIChartContainer?.isHidden = true
           self.isCalDown    = false
           self.isChartsDown = false
           self.tableView.reloadData()
         }
+    }
+    
+    //----------------------- *************************** -----------------------
+    //MARK:-                    setup SwiftUI chart card (Phase 5: Transition)
+    //----------------------- *************************** -----------------------
+    func setupSwiftUIChartCard() {
+        // Create SwiftUI chart card
+        let chartCard = TaskProgressCard(referenceDate: dateForTheView)
+        swiftUIChartHostingController = UIHostingController(rootView: AnyView(chartCard))
+        
+        guard let hostingController = swiftUIChartHostingController else { return }
+        
+        // Create container view for the SwiftUI chart
+        swiftUIChartContainer = UIView()
+        guard let container = swiftUIChartContainer else { return }
+        
+        // Add hosting controller as child
+        addChild(hostingController)
+        container.addSubview(hostingController.view)
+        hostingController.didMove(toParent: self)
+        
+        // Configure container
+        container.backgroundColor = .clear
+        backdropContainer.addSubview(container)
+        
+        // Position SwiftUI chart in the original chart location (Phase 5)
+        container.translatesAutoresizingMaskIntoConstraints = false
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            // Container constraints - same position as original lineChartView
+            container.leadingAnchor.constraint(equalTo: backdropBackgroundImageView.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: backdropBackgroundImageView.trailingAnchor),
+            container.topAnchor.constraint(equalTo: backdropBackgroundImageView.topAnchor, constant: 2*headerEndY),
+            container.bottomAnchor.constraint(equalTo: backdropBackgroundImageView.bottomAnchor, constant: -UIScreen.main.bounds.height/2.5),
+            
+            // Hosting controller view constraints
+            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        
+        // Show SwiftUI chart as primary chart (Phase 5)
+        container.isHidden = false
+        
+        print("✅ Phase 5: SwiftUI Chart Card positioned as primary chart")
+    }
+    
+    func updateSwiftUIChartCard() {
+        // Update the SwiftUI chart with new data when needed
+        guard let hostingController = swiftUIChartHostingController else { return }
+        
+        let updatedChartCard = TaskProgressCard(referenceDate: dateForTheView)
+        hostingController.rootView = updatedChartCard
+        
+        print("📊 SwiftUI Chart Card updated with new reference date")
     }
 
 }

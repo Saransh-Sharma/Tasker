@@ -24,6 +24,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         FirebaseApp.configure()
         
+        // Configure UIAppearance to make ShyHeaderController's dummy table view transparent
+        UITableView.appearance().backgroundColor = UIColor.clear
+        UITableView.appearance().isOpaque = false
+        
         // Register for CloudKit silent pushes
         application.registerForRemoteNotifications()
         

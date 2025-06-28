@@ -56,6 +56,14 @@ Tasker is a sophisticated iOS productivity application that transforms task mana
 | ------------- | ------------- | --------|
 ---
 
+## Recent Improvements (2025)
+
+- Added BEMCheckBox integration for inline checkboxes and automatic strike-through of completed tasks (June 2025)
+- Fixed project filter logic ensuring the main filter button stays visible when project filters are active (June 2025)
+- Introduced Chat assistant interface (`ChatHostViewController`) accessible from the bottom app bar (May 2025)
+- Implemented automatic merging of duplicate "Inbox" projects during data integrity checks (April 2025)
+- Refactored core data flow toward a Repository & Dependency-Injection pattern for better testability (March 2025)
+
 ## Installation
 - Run `pod install` on project directory ([CocoaPods Installation](https://guides.cocoapods.org/using/getting-started.html))
 - Open `Tasker.xcworkspace`

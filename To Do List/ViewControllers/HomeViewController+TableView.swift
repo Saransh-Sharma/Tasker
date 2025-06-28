@@ -224,14 +224,14 @@ extension HomeViewController {
         
         let accessory: TableViewCellAccessoryType = task.isComplete ? .checkmark : .none
         
-        cell.setup(title: task.name,
+        cell.setup(title: task.name ?? "Untitled Task",
                    subtitle: task.taskDetails ?? "",
                    accessoryType: accessory)
         
         if task.isComplete {
             let strike = [NSAttributedString.Key.strikethroughStyle:
                             NSUnderlineStyle.single.rawValue]
-            cell.setup(attributedTitle   : NSAttributedString(string: task.name,
+            cell.setup(attributedTitle   : NSAttributedString(string: task.name ?? "Untitled Task",
                                                               attributes: strike),
                        attributedSubtitle: NSAttributedString(string: task.taskDetails ?? "",
                                                               attributes: strike),

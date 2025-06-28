@@ -222,7 +222,7 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         reloadToDoListWithAnimation()
         
         // Update line chart data for the new week
-        updateLineChartForCurrentWeek()
+        updateSwiftUIChartCard()
         
         // Refresh sample table view with selected date
         refreshSampleTableView(for: date)
@@ -238,7 +238,7 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         print("Calendar current page: \(calendar.currentPage)")
         
         // Update line chart data for the new week
-        updateLineChartForCurrentWeek()
+        updateSwiftUIChartCard()
         
         print("=== CALENDAR PAGE CHANGE COMPLETE ===")
     }

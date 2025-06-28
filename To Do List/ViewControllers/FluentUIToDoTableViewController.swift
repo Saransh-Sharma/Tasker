@@ -439,7 +439,7 @@ extension FluentUIToDoTableViewController {
         if task.isComplete {
             // Style for completed tasks
             let attributedTitle = NSAttributedString(
-                string: task.name,
+                string: task.name ?? "Untitled Task",
                 attributes: [
                     .font: fluentTheme.typography(.body2),
                     .foregroundColor: fluentTheme.color(.foreground2),
@@ -465,8 +465,10 @@ extension FluentUIToDoTableViewController {
             
         } else {
             // Style for active tasks
-            let taskTitle = task.name
+            let taskTitle = task.name ?? "Untitled Task"
             let taskSubtitle = task.taskDetails ?? "No details"
+            
+            let checkBox = createCheckBox(for: task, at: indexPath)
             
             cell.setup(
                 title: taskTitle,
@@ -534,7 +536,7 @@ extension FluentUIToDoTableViewController {
         if task.isComplete {
             // Style for completed tasks
             let attributedTitle = NSAttributedString(
-                string: task.name,
+                string: task.name ?? "Untitled Task",
                 attributes: [
                     .font: fluentTheme.typography(.body1),
                     .foregroundColor: fluentTheme.color(.foreground2),
@@ -564,7 +566,7 @@ extension FluentUIToDoTableViewController {
             
         } else {
             // Style for active tasks
-            let taskTitle = task.name
+            let taskTitle = task.name ?? "Untitled Task"
             let taskSubtitle = task.taskDetails ?? "No details"
             
             let checkBox = createCheckBox(for: task, at: indexPath)
@@ -1129,14 +1131,26 @@ extension FluentUIToDoTableViewController {
     
     private func markTaskComplete(_ task: NTask) {
         task.isComplete = true
+        task.dateCompleted = Date() as NSDate  // Set completion date for scoring
+        print("🎯 Task completed: '\(task.name ?? "Unknown")' at \(Date())")
         saveTask(task)
         delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
+        
+        // Notify that charts should be refreshed
+        NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
+        print("📡 FluentUI: Posted TaskCompletionChanged notification")
     }
     
     private func markTaskIncomplete(_ task: NTask) {
         task.isComplete = false
+        task.dateCompleted = nil  // Clear completion date when marking incomplete
+        print("↩️ Task marked incomplete: '\(task.name ?? "Unknown")'")
         saveTask(task)
         delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
+        
+        // Notify that charts should be refreshed
+        NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
+        print("📡 FluentUI: Posted TaskCompletionChanged notification")
     }
     
     private func deleteTask(_ task: NTask) {

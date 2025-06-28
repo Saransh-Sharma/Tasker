@@ -66,22 +66,7 @@ extension HomeViewController: BadgeViewDelegate {
         backdropContainer.addSubview(calendar)
     }
     
-    func setupChartsInBackdrop() {
-        // Setup line chart
-        lineChartView.frame = CGRect(x: 20, y: 120, width: view.bounds.width - 40, height: 400)
-        lineChartView.backgroundColor = .clear
-        lineChartView.delegate = self
-        
-        // Setup pie chart - REMOVED
-        // tinyPieChartView.frame = CGRect(x: view.bounds.width - 90, y: 20, width: 70, height: 70)
-        // tinyPieChartView.backgroundColor = .clear
-        
-        backdropContainer.addSubview(lineChartView)
-        // backdropContainer.addSubview(tinyPieChartView) - REMOVED
-        
-        // Configure chart appearance and data
-        setupCharts()
-    }
+    
     
     func setupHomeFordrop() {
         // Calculate dimensions
@@ -286,7 +271,7 @@ extension HomeViewController: BadgeViewDelegate {
         print("App moved to ForeGround!")
         // toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView) - REMOVED
         
-        updateLineChartData()
+        updateSwiftUIChartCard()
         updateHomeDateLabel(date: dateForTheView)
         
         if dateForTheView == Date.today() {
@@ -345,8 +330,7 @@ extension HomeViewController: BadgeViewDelegate {
             UIView.animate(withDuration: 0.3) {
                 self.moveDown_revealCharts(view: self.foredropContainer)
             }
-            // Animate the chart axes when showing charts
-            animateLineChart(chartView: lineChartView)
+            
         }
     }
     
@@ -391,6 +375,9 @@ extension HomeViewController: BadgeViewDelegate {
             // Make the table view background transparent so the foredrop shows through
             fluentView.backgroundColor = UIColor.clear
             fluentToDoTableViewController?.tableView.backgroundColor = UIColor.clear
+            fluentToDoTableViewController?.tableView.isOpaque = false
+            fluentToDoTableViewController?.tableView.backgroundView = nil
+            fluentToDoTableViewController?.tableView.separatorStyle = .none
             
             // Add as child view controller for proper lifecycle management
             self.addChild(fluentToDoTableViewController!)

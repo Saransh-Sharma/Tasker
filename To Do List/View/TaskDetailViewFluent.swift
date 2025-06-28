@@ -40,11 +40,10 @@ class TaskDetailViewFluent: UIView {
         SegmentItem(title: "Medium"),
         SegmentItem(title: "High")
     ])
-    // Priority mapping: NTask priority values (e.g., 4 for Low, 3 for Med, 2 for High)
-    // Assuming your NTask stores priorities like P0=1 (Highest), P1=2 (High), P2=3 (Medium), P3=4 (Low)
+    // Priority mapping: Using TaskPriority enum values (low=1, medium=2, high=3)
     // SegmentedControl indices: Low (0), Medium (1), High (2)
-    private let segmentedControlIndexToPriority: [Int: Int32] = [0: 4, 1: 3, 2: 2] // Maps Segment Index to NTask Priority
-    private let priorityToSegmentedControlIndex: [Int32: Int] = [4: 0, 3: 1, 2: 2] // Maps NTask Priority to Segment Index
+    private let segmentedControlIndexToPriority: [Int: Int32] = [0: TaskPriority.low.rawValue, 1: TaskPriority.medium.rawValue, 2: TaskPriority.high.rawValue] // Maps Segment Index to TaskPriority enum values
+    private let priorityToSegmentedControlIndex: [Int32: Int] = [TaskPriority.low.rawValue: 0, TaskPriority.medium.rawValue: 1, TaskPriority.high.rawValue: 2] // Maps TaskPriority enum values to Segment Index
 
 
     // Project
@@ -416,7 +415,7 @@ class TaskDetailViewFluent: UIView {
     var name: String = ""
     var taskDetails: String?
     var dueDate: NSDate? // In CoreData, this is likely NSDate
-    var taskPriority: Int32 = 3 // Default to Medium
+    var taskPriority: Int32 = TaskPriority.medium.rawValue // Default to Medium using enum
     var project: Projects? // Relationship to Projects entity
  }
 

@@ -14,8 +14,10 @@ import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
-class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate, UITextFieldDelegate
+class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate, UITextFieldDelegate, TaskRepositoryDependent
 {
+    // MARK: - Repository Dependency
+    var taskRepository: TaskRepository!
     // MARK: Theming
     //    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var primaryColor =  #colorLiteral(red: 1, green: 1, blue: 1, alpha: 1)
@@ -27,7 +29,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     var currentTaskInMaterialTextBox: String = ""
     var isThisEveningTask: Bool = false
     var taskDayFromPicker: String =  "Unknown"//change datatype tp task type
-    var currentTaskPriority: Int = 3
+    var currentTaskPriority: TaskPriority = .medium
     
     //MARK: Positioning
     var textBoxEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
@@ -168,35 +170,73 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         // TODO: Re-implement the actual task adding logic from OLD_doneAddTaskAction here.
         // This includes checking currentTaskInMaterialTextBox, getting task type, priority, and date,
         // and then calling the appropriate TaskManager.sharedInstance.addNewTask_Today or addNewTask_Future method.
-        // Example structure:
-        /*
-         isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
-         // let taskDueDate = ... (determine based on picker)
-         if currentTaskInMaterialTextBox != "" {
-         print("Adding task: \(currentTaskInMaterialTextBox)")
-         let taskTypeToSave = TaskType(rawValue: Int32(getTaskType())) ?? .morning // Ensure getTaskType() is available or reimplemented
-         let taskPriorityToSave = TaskPriority(rawValue: Int32(currentTaskPriority)) ?? .high
-         
-         // Simplified logic from OLD_doneAddTaskAction - expand as needed
-         if (taskDayFromPicker == "Unknown" || taskDayFromPicker == "" || taskDayFromPicker == "Today") {
-         TaskManager.sharedInstance.addNewTask_Today(name: currentTaskInMaterialTextBox, taskType: taskTypeToSave, taskPriority: taskPriorityToSave, isEveningTask: isThisEveningTask, project: "inbox")
-         } else {
-         // Handle future dates, e.g., Tomorrow, Weekend, Next Week by calculating taskDueDate
-         // TaskManager.sharedInstance.addNewTask_Future(name: currentTaskInMaterialTextBox, taskType: taskTypeToSave, taskPriority: taskPriorityToSave, futureTaskDate: taskDueDate, isEveningTask: isThisEveningTask, project: "inbox")
-         print("Future task saving not fully implemented in this placeholder.")
-         }
-         } else {
-         print("EMPTY TASK ! - Nothing to add")
-         // Optionally, show an alert to the user
-         return // Don't navigate if task is empty
-         }
-         */
+        // Add task using repository pattern
+        isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
         
-        // Navigation logic (moved from top level)
-        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
-        newViewController.modalPresentationStyle = .fullScreen
-        self.present(newViewController, animated: true, completion: nil)
+        if currentTaskInMaterialTextBox != "" {
+            print("Adding task: \(currentTaskInMaterialTextBox)")
+            let taskTypeToSave = getTaskType() // Now returns TaskType directly
+            let taskPriorityToSave = currentTaskPriority // Now already a TaskPriority enum
+            
+            // Determine due date based on picker selection
+            let dueDate: Date
+            if (taskDayFromPicker == "Unknown" || taskDayFromPicker == "" || taskDayFromPicker == "Today") {
+                dueDate = Date()
+            } else {
+                // Calculate future dates based on picker selection
+                switch taskDayFromPicker {
+                case "Tomorrow":
+                    dueDate = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+                case "Weekend":
+                    if let weekend = Foundation.Calendar.current.nextWeekend(startingAfter: Date()) {
+                        dueDate = weekend.start
+                    } else {
+                        dueDate = Date()
+                    }
+                case "Next Week":
+                    dueDate = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: Date()) ?? Date()
+                default:
+                    dueDate = Date()
+                }
+            }
+            
+            // Add task using repository
+            let taskData = TaskData(
+                id: nil,
+                name: currentTaskInMaterialTextBox,
+                details: nil,
+                type: taskTypeToSave,
+                priority: taskPriorityToSave,
+                dueDate: dueDate,
+                project: "Inbox",
+                isComplete: false,
+                dateAdded: Date(),
+                dateCompleted: nil
+            )
+            
+            taskRepository.addTask(data: taskData) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        print("Task added successfully")
+                        // Navigation logic
+                        let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+                        let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
+                        DependencyContainer.shared.inject(into: newViewController)
+                        newViewController.modalPresentationStyle = .fullScreen
+                        self?.present(newViewController, animated: true, completion: nil)
+                    case .failure(let error):
+                        print("Failed to add task: \(error)")
+                        // Show error alert to user
+                    }
+                }
+            }
+        } else {
+            print("EMPTY TASK ! - Nothing to add")
+            // Optionally, show an alert to the user
+            return // Don't navigate if task is empty
+        }
+
     }
     
     //MARK:- CANCEL TASK ACTION
@@ -251,7 +291,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         prioritySC.selectedSegmentTintColor =  secondryColor
         prioritySC.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
         
-        prioritySC.addTarget(self, action: #selector(changeTaskPriority), for: .valueChanged)
+        prioritySC.addTarget(self, action: #selector(changeTaskPriority(sender:)), for: .valueChanged)
         mView.addSubview(prioritySC)
         
         return mView
@@ -259,29 +299,24 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
     @objc
-    func changeTaskPriority(sender: UISegmentedControl) -> Int {
+    func changeTaskPriority(sender: UISegmentedControl) {
         
         switch sender.selectedSegmentIndex {
         case 0:
-            print("Priority is None - no priority 4")
-            currentTaskPriority = 4
-            return 4
+            print("Priority is None - no priority")
+            currentTaskPriority = .low  // Map "None" to low priority
         case 1:
-            
-            print("Priority is P2- low 3")
-            currentTaskPriority = 3
-            return 3
+            print("Priority is Low")
+            currentTaskPriority = .low
         case 2:
-            print("Priority is P1- high 2")
-            currentTaskPriority = 2
-            return 2
+            print("Priority is Medium")
+            currentTaskPriority = .medium
         case 3:
-            print("Priority is p0 - highest 1")
-            currentTaskPriority = 1
-            return 1
+            print("Priority is High")
+            currentTaskPriority = .high
         default:
-            print("Failed to get Task Priority")
-            return 3
+            print("Failed to get Task Priority, defaulting to medium")
+            currentTaskPriority = .medium
         }
     }
     
@@ -494,21 +529,21 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         ("", .clear)
     ]
     
-    func getTaskType() -> Int { //extend this to return for inbox & upcoming/someday
+    func getTaskType() -> TaskType { //extend this to return for inbox & upcoming/someday
         if eveningSwitch.isOn {
-            print("Adding eveninng task")
-            return 2
+            print("Adding evening task")
+            return .evening
         }
         //        else if isInboxTask {
-        //
+        //            return .inbox  // Future enhancement
         //        }
         //        else if isUpcomingTask {
-        //
+        //            return .upcoming  // Future enhancement
         //        }
         else {
             //this is morning task
-            print("adding mornig task")
-            return 1
+            print("Adding morning task")
+            return .morning
         }
     }
     

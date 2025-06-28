@@ -26,38 +26,42 @@ class ToDoColors {
         Theme(primary: UIColor(hex: "#E84444FF"), secondary: UIColor(hex: "#E1AFD1")),
         Theme(primary: UIColor(hex: "#D1E9F6"), secondary: UIColor(hex: "#F1D3CE")),
         Theme(primary: UIColor(hex: "#8EA6E97E"), secondary: UIColor(hex: "#E5E0FF")),
-        Theme(primary: UIColor(hex: "#ECE3CE8E"), secondary: UIColor(hex: "#739072")),
-        Theme(primary: UIColor(hex: "#BFECFFA7"), secondary: UIColor(hex: "#CDC1FF")),
-        Theme(primary: UIColor(hex: "#D2E0FB"), secondary: UIColor(hex: "#F9F3CC")),
-        Theme(primary: UIColor(hex: "#789DBC"), secondary: UIColor(hex: "#FFE3E3")),
-        Theme(primary: UIColor(hex: "#304FFEFF"), secondary: UIColor(hex: "#FEE764FF")), // Indigo ↔ sunflower
-        Theme(primary: UIColor(hex: "#00695CFF"), secondary: UIColor(hex: "#B27079FF")), // Deep teal ↔ muted rose
-        Theme(primary: UIColor(hex: "#8E24AAFF"), secondary: UIColor(hex: "#70BF5BFF")), // Royal purple ↔ fresh spring green
-        Theme(primary: UIColor(hex: "#C23C13FF"), secondary: UIColor(hex: "#4EB2D1FF")), // Burnt orange ↔ clear-sky cyan
-        Theme(primary: UIColor(hex: "#455A64FF"), secondary: UIColor(hex: "#FF9940FF")), // Blue-grey ↔ warm tangerine
-        Theme(primary: UIColor(hex: "#C2185BFF"), secondary: UIColor(hex: "#52D19FFF")), // Vivid magenta ↔ minty green
-        Theme(primary: UIColor(hex: "#5D4037FF"), secondary: UIColor(hex: "#82A3B1FF")),
-        Theme(primary: UIColor(hex: "#0D47A1FF"), secondary: UIColor(hex: "#FFB300FF")), // deep navy ↔ bold amber
-        Theme(primary: UIColor(hex: "#B71C1CFF"), secondary: UIColor(hex: "#1CB7B7FF")), // fierce crimson ↔ tropical teal
-        Theme(primary: UIColor(hex: "#2E7D32FF"), secondary: UIColor(hex: "#7D2E79FF")), // forest green ↔ royal magenta
-        Theme(primary: UIColor(hex: "#512DA8FF"), secondary: UIColor(hex: "#A85B2DFF")), // rich indigo ↔ toasted copper
-        Theme(primary: UIColor(hex: "#006064FF"), secondary: UIColor(hex: "#640D00FF")), // ocean teal ↔ burnt sienna
-        Theme(primary: UIColor(hex: "#37474FFF"), secondary: UIColor(hex: "#FFB539FF")), // blue-gray ↔ sunset apricot
-        Theme(primary: UIColor(hex: "#0277BDFF"), secondary: UIColor(hex: "#BD6F02FF")), // cerulean ↔ harvest orange
-        Theme(primary: UIColor(hex: "#00897BFF"), secondary: UIColor(hex: "#890800FF")), // jade teal ↔ oxblood
-        Theme(primary: UIColor(hex: "#C2185BFF"), secondary: UIColor(hex: "#18C269FF")), // vivid rose ↔ spring green
-        Theme(primary: UIColor(hex: "#5D4037FF"), secondary: UIColor(hex: "#37805DFF")), // cocoa brown ↔ pine teal
-        Theme(primary: UIColor(hex: "#1E88E5FF"), secondary: UIColor(hex: "#E5A31EFF")), // royal blue ↔ goldenrod
-        Theme(primary: UIColor(hex: "#3949ABFF"), secondary: UIColor(hex: "#AB8D39FF")), // indigo dusk ↔ antique brass
-        Theme(primary: UIColor(hex: "#7B1FA2FF"), secondary: UIColor(hex: "#1FA266FF")), // velvet violet ↔ emerald sea
-        Theme(primary: UIColor(hex: "#E65100FF"), secondary: UIColor(hex: "#0066E6FF")), // blaze orange ↔ cobalt sky
-        Theme(primary: UIColor(hex: "#004D40FF"), secondary: UIColor(hex: "#4D000CFF")), // dark cyan ↔ deep burgundy
-        Theme(primary: UIColor(hex: "#283593FF"), secondary: UIColor(hex: "#939C28FF")), // midnight indigo ↔ electric chartreuse
-        Theme(primary: UIColor(hex: "#AD1457FF"), secondary: UIColor(hex: "#14AD6AFF")), // raspberry wine ↔ mint surf
-        Theme(primary: UIColor(hex: "#4527A0FF"), secondary: UIColor(hex: "#A06B27FF")), // cosmic purple ↔ bronze spice
-        Theme(primary: UIColor(hex: "#2962FFFF"), secondary: UIColor(hex: "#FFBC29FF")), // strike-blue ↔ marigold
-        Theme(primary: UIColor(hex: "#BF360CFF"), secondary: UIColor(hex: "#0C9ABFFF"))  // volcanic red ↔ bright cyan
-  // Cocoa brown ↔ cool slate
+         // New user-selectable themes
+        Theme(primary: UIColor(hex: "#E84444FF"), secondary: UIColor(hex: "#E1AFD1")),
+        Theme(primary: UIColor(hex: "#D1E9F6"), secondary: UIColor(hex: "#F1D3CE")),
+        Theme(primary: UIColor(hex: "#8EA6E97E"), secondary: UIColor(hex: "#E5E0FF")),
+        
+        // New Light Green themes
+        Theme(primary: UIColor(hex: "#AFF8A2"), secondary: UIColor(hex: "#FFC15E")), // Light Green + Orange
+        Theme(primary: UIColor(hex: "#AFF8A2"), secondary: UIColor(hex: "#626D58")), // Light Green + Dark Green
+        Theme(primary: UIColor(hex: "#AFF8A2"), secondary: UIColor(hex: "#2E4052")), // Light Green + Dark Blue
+        Theme(primary: UIColor(hex: "#AFF8A2"), secondary: UIColor(hex: "#246EB9")), // Light Green + Blue
+        Theme(primary: UIColor(hex: "#AFF8A2"), secondary: UIColor(hex: "#000000")), // Light Green + Black
+        
+        // New Mustard themes
+        Theme(primary: UIColor(hex: "#F9D749"), secondary: UIColor(hex: "#F05D5E")), // Mustard + Red
+        Theme(primary: UIColor(hex: "#F9D749"), secondary: UIColor(hex: "#C1DBE3")), // Mustard + Light Blue
+        Theme(primary: UIColor(hex: "#F9D749"), secondary: UIColor(hex: "#16302B")), // Mustard + Dark Green
+        Theme(primary: UIColor(hex: "#F9D749"), secondary: UIColor(hex: "#FE4A49")), // Mustard + Bright Red
+        Theme(primary: UIColor(hex: "#F9D749"), secondary: UIColor(hex: "#12100E")), // Mustard + Dark Brown
+        
+        // New Baby Blue themes
+        Theme(primary: UIColor(hex: "#97CDE8"), secondary: UIColor(hex: "#B10F2E")), // Baby Blue + Dark Red
+        Theme(primary: UIColor(hex: "#97CDE8"), secondary: UIColor(hex: "#DFD5A5")), // Baby Blue + Cream
+        Theme(primary: UIColor(hex: "#97CDE8"), secondary: UIColor(hex: "#FC7753")), // Baby Blue + Orange
+        Theme(primary: UIColor(hex: "#97CDE8"), secondary: UIColor(hex: "#1B4079")), // Baby Blue + Navy
+        
+        // New Coral themes
+        Theme(primary: UIColor(hex: "#EE7470"), secondary: UIColor(hex: "#909CC2")), // Coral + Lavender
+        Theme(primary: UIColor(hex: "#EE7470"), secondary: UIColor(hex: "#F2F3AE")), // Coral + Light Yellow
+        Theme(primary: UIColor(hex: "#EE7470"), secondary: UIColor(hex: "#87F1FF")), // Coral + Cyan
+        
+        // New Plum themes
+        Theme(primary: UIColor(hex: "#D4A4DA"), secondary: UIColor(hex: "#E59F71")), // Plum + Peach
+        Theme(primary: UIColor(hex: "#D4A4DA"), secondary: UIColor(hex: "#1B264F")), // Plum + Navy
+        Theme(primary: UIColor(hex: "#D4A4DA"), secondary: UIColor(hex: "#4EFFEF")), // Plum + Bright Cyan
+        Theme(primary: UIColor(hex: "#D4A4DA"), secondary: UIColor(hex: "#2B4162"))  // Plum + Dark Blue
+  
     ]
     
     // Key for persisting selected theme

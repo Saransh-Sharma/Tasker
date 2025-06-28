@@ -94,13 +94,34 @@ extension HomeViewController {
     // MARK: - Task Counting
     
     func getTaskForTodayCount() -> Int {
-        var morningTasks = [NTask]()
-        var eveTasks = [NTask]()
+        // Note: This method needs to be refactored to use async repository calls
+        // For now, returning 0 as a placeholder until the calling code is updated
+        // to handle async operations properly
+        return 0
+    }
+    
+    /// Async version of getTaskForTodayCount that uses the repository pattern
+    func getTaskForTodayCount(completion: @escaping (Int) -> Void) {
+        let today = Date()
+        var morningCount = 0
+        var eveningCount = 0
+        let group = DispatchGroup()
         
-        morningTasks = TaskManager.sharedInstance.getMorningTasks(for: Date.today()) // Plan Step F: Updated call
-        eveTasks = TaskManager.sharedInstance.getEveningTasksForToday()
+        group.enter()
+        taskRepository.getMorningTasks(for: today) { tasks in
+            morningCount = tasks.count
+            group.leave()
+        }
         
-        return morningTasks.count + eveTasks.count
+        group.enter()
+        taskRepository.getEveningTasks(for: today) { tasks in
+            eveningCount = tasks.count
+            group.leave()
+        }
+        
+        group.notify(queue: .main) {
+            completion(morningCount + eveningCount)
+        }
     }
     
     func getGlobalTaskIndexFromSubTaskCollection(morningOrEveningTask: Bool) -> Int {

@@ -28,24 +28,49 @@ class DependencyContainer {
     /// Call this method during app initialization (in AppDelegate)
     /// - Parameter container: The Core Data persistent container to use
     func configure(with container: NSPersistentContainer) {
+        print("🔧 DependencyContainer: Starting configuration...")
         self.persistentContainer = container
         self.taskRepository = CoreDataTaskRepository(container: container)
+        print("✅ DependencyContainer: Configuration completed successfully")
+        print("📊 DependencyContainer: TaskRepository initialized: \(taskRepository != nil)")
     }
     
     /// Injects dependencies into the specified view controller
     /// - Parameter viewController: The view controller to inject dependencies into
     func inject(into viewController: UIViewController) {
+        let vcType = String(describing: type(of: viewController))
+        print("💉 DependencyContainer: Starting injection for \(vcType)")
+        
+        // Check if container is properly configured
+        guard taskRepository != nil else {
+            print("❌ DependencyContainer: ERROR - TaskRepository is nil! Container not configured properly.")
+            return
+        }
+        
         // Use reflection to inject dependencies
         if let _ = class_getProperty(type(of: viewController), "taskRepository") {
-            if let viewController = viewController as? TaskRepositoryDependent {
-                viewController.taskRepository = taskRepository
+            print("🔍 DependencyContainer: Found taskRepository property in \(vcType)")
+            if let dependentVC = viewController as? TaskRepositoryDependent {
+                print("✅ DependencyContainer: \(vcType) conforms to TaskRepositoryDependent")
+                dependentVC.taskRepository = taskRepository
+                print("💉 DependencyContainer: Successfully injected taskRepository into \(vcType)")
+                print("📊 DependencyContainer: Verification - taskRepository is nil: \(dependentVC.taskRepository == nil)")
+            } else {
+                print("⚠️ DependencyContainer: \(vcType) has taskRepository property but doesn't conform to TaskRepositoryDependent")
             }
+        } else {
+            print("ℹ️ DependencyContainer: \(vcType) doesn't have taskRepository property")
         }
         
         // Recursively inject into child view controllers
-        for child in viewController.children {
-            inject(into: child)
+        if !viewController.children.isEmpty {
+            print("🔄 DependencyContainer: Injecting into \(viewController.children.count) child view controllers")
+            for child in viewController.children {
+                inject(into: child)
+            }
         }
+        
+        print("✅ DependencyContainer: Injection completed for \(vcType)")
     }
 }
 

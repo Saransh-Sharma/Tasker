@@ -14,11 +14,17 @@ protocol TaskRepository {
                    sortDescriptors: [NSSortDescriptor]?, 
                    completion: @escaping ([TaskData]) -> Void)
     
+    /// Fetches a single task by its ID
+    /// - Parameters:
+    ///   - taskID: The ID of the task to fetch
+    ///   - completion: Completion handler that receives the result
+    func fetchTask(by taskID: NSManagedObjectID, completion: @escaping (Result<NTask, Error>) -> Void)
+    
     /// Adds a new task to the repository
     /// - Parameters:
     ///   - data: The task data to add
     ///   - completion: Optional completion handler that receives the result
-    func addTask(data: TaskData, completion: ((Result<Void, Error>) -> Void)?)
+    func addTask(data: TaskData, completion: ((Result<NTask, Error>) -> Void)?)
     
     /// Toggles the completion status of a task
     /// - Parameters:

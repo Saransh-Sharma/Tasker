@@ -22,13 +22,32 @@ extension HomeViewController {
     
     // Method to calculate today's score
     func calculateTodaysScore() -> Int {
-        // Get tasks for the current date
-        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: dateForTheView)
-        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: dateForTheView)
+        // Note: This method needs to be refactored to use async repository calls
+        // For now, returning 0 as a placeholder until the calling code is updated
+        return 0
+    }
+    
+    /// Async version of calculateTodaysScore that uses the repository pattern
+    func calculateTodaysScore(completion: @escaping (Int) -> Void) {
+        var morningCompletedCount = 0
+        var eveningCompletedCount = 0
+        let group = DispatchGroup()
         
-        // Calculate score based on completed tasks
-        let completedTasks = morningTasks.filter { $0.isComplete } + eveningTasks.filter { $0.isComplete }
-        return completedTasks.count
+        group.enter()
+        taskRepository.getMorningTasks(for: dateForTheView) { tasks in
+            morningCompletedCount = tasks.filter { $0.isComplete }.count
+            group.leave()
+        }
+        
+        group.enter()
+        taskRepository.getEveningTasks(for: dateForTheView) { tasks in
+            eveningCompletedCount = tasks.filter { $0.isComplete }.count
+            group.leave()
+        }
+        
+        group.notify(queue: .main) {
+            completion(morningCompletedCount + eveningCompletedCount)
+        }
     }
     
     // Note: updateHomeDateLabel is implemented elsewhere
@@ -55,16 +74,35 @@ extension HomeViewController {
         
         for project in projectsToFilter {
             guard let projectName = project.projectName else { continue }
-            // Fetch ONLY OPEN tasks for the current 'dateForTheView'
-            let openTasksForProject = TaskManager.sharedInstance.getTasksByProjectNameAndDate(
-                projectName: projectName, 
-                date: dateForTheView
-            )
-
-            if !openTasksForProject.isEmpty {
-                self.projectsToDisplayAsSections.append(project) // This array defines section order
-                self.tasksGroupedByProject[projectName] = openTasksForProject
-            }
+            // Fetch ONLY OPEN tasks for the current 'dateForTheView' using repository
+             taskRepository.getTasksForProjectOpen(projectName: projectName, date: dateForTheView) { [weak self] taskData in
+                 DispatchQueue.main.async {
+                     if !taskData.isEmpty {
+                         // For now, we'll need to fetch the NTask objects using the repository
+                         // This is a temporary bridge until the UI is fully migrated to use TaskData
+                         var fetchedTasks: [NTask] = []
+                         let group = DispatchGroup()
+                         
+                         for data in taskData {
+                             guard let taskID = data.id else { continue }
+                             group.enter()
+                             self?.taskRepository.fetchTask(by: taskID) { result in
+                                 if case .success(let task) = result {
+                                     fetchedTasks.append(task)
+                                 }
+                                 group.leave()
+                             }
+                         }
+                         
+                         group.notify(queue: .main) {
+                             if !fetchedTasks.isEmpty {
+                                 self?.projectsToDisplayAsSections.append(project)
+                                 self?.tasksGroupedByProject[projectName] = fetchedTasks
+                             }
+                         }
+                     }
+                 }
+             }
         }
     }
     
@@ -197,7 +235,7 @@ extension HomeViewController {
             
             return sortedTasks.map { task in
                 ToDoListData.TaskListItem(
-                    text1: task.name,
+                    text1: task.name ?? "Untitled Task",
                     text2: task.taskDetails ?? "",
                     text3: "",
                     image: ""

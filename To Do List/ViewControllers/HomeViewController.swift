@@ -23,6 +23,9 @@ import MaterialComponents.MaterialRipple
 // Import the delegate protocol
 import Foundation
 
+// Import TaskProgressCard from Views/Cards
+// Note: TaskProgressCard is defined in ChartCard.swift
+
 class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, UITableViewDataSource, UITableViewDelegate, SearchBarDelegate, TaskRepositoryDependent {
     
     // MARK: - Stored Properties
@@ -90,10 +93,21 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     static let verticalSpacing: CGFloat = 16
     static let rowTextWidth: CGFloat = 75
     
-    // Charts
-    lazy var lineChartView: LineChartView = { return LineChartView() }()
+    // Charts (Phase 5: Transition Complete)
+    // Legacy UIKit charts - kept for compatibility but deprecated
+    lazy var lineChartView: LineChartView = {
+        let chart = LineChartView()
+        chart.isHidden = true // keep legacy chart invisible
+        return chart
+    }() // Legacy DGCharts view kept only for backward compatibility
     lazy var tinyPieChartView: PieChartView = { return PieChartView() }()
     var navigationPieChartView: PieChartView?
+    
+    // Primary SwiftUI Chart Card (Phase 5: Now the main chart implementation)
+    // Note: TaskProgressCard is defined in ChartCard.swift
+    // Using AnyView to work around type resolution issue
+    var swiftUIChartHostingController: UIHostingController<AnyView>?
+    var swiftUIChartContainer: UIView?
 
 // MARK: - Pie-chart helpers
 
@@ -188,37 +202,27 @@ func refreshNavigationPieChart() {
     
     // MARK: - Dynamic Animation Calculations
     
+    
+    
     func calculateRevealDistance() -> CGFloat {
-        // Get the line chart's Y position (120) with some padding above it
-        let chartStartY: CGFloat = 120
-        let padding: CGFloat = 20 // Padding above the chart
-        
-        // Calculate the target Y position where the foredrop should stop
+        guard let chartContainer = swiftUIChartContainer else { return 300 } // Default fallback
+        let chartStartY = chartContainer.frame.minY
+        let padding: CGFloat = 20
         let targetY = chartStartY - padding
-        
-        // Calculate the current top of the foredrop container
         let currentForedropTop = originalForedropCenterY - (foredropContainer.bounds.height / 2)
-        
-        // Return the distance needed to move the foredrop down to reach the target
         return max(0, targetY - currentForedropTop)
     }
-    
+
     func calculateChartRevealDistance() -> CGFloat {
-        // Get the line chart's position and dimensions
-        let chartStartY: CGFloat = 120
-        let chartHeight: CGFloat = 400
-        let padding: CGFloat = 20 // Padding below the chart
-        
-        // Calculate the target Y position where the foredrop should stop (below the entire chart)
+        guard let chartContainer = swiftUIChartContainer else { return 500 } // Default fallback
+        let chartStartY = chartContainer.frame.minY
+        let chartHeight = chartContainer.frame.height
+        let padding: CGFloat = 20
         let targetY = chartStartY + chartHeight + padding
-        
-        // Calculate the current top of the foredrop container
         let currentForedropTop = originalForedropCenterY - (foredropContainer.bounds.height / 2)
-        
-        // Return the distance needed to move the foredrop down to reveal the entire chart
         return max(0, targetY - currentForedropTop)
     }
-    
+
     // IBOutlets
     @IBOutlet weak var addTaskButton: MDCFloatingButton!
     @IBOutlet weak var darkModeToggle: UISwitch!
@@ -243,8 +247,19 @@ func refreshNavigationPieChart() {
         notificationCenter.addObserver(self, selector: #selector(appMovedToBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         notificationCenter.addObserver(self, selector: #selector(appTerminated), name: UIApplication.willTerminateNotification, object: nil)
         
+        // Setup chart refresh notification observer
+        notificationCenter.addObserver(self, selector: #selector(taskCompletionChanged), name: NSNotification.Name("TaskCompletionChanged"), object: nil)
+        print("📡 HomeViewController: Added TaskCompletionChanged notification observer")
+        
         // Configure UI
         dateForTheView = Date.today()
+        
+        // Set contentScrollView to prevent ShyHeaderController from creating dummy UITableView
+        // This must be done after fluentToDoTableViewController is initialized
+        if let tableView = fluentToDoTableViewController?.tableView {
+            navigationItem.contentScrollView = tableView
+            print("✅ Set navigationItem.contentScrollView to prevent ShyHeaderController dummy table view")
+        }
         
         highestPrioritySymbol = (UIImage(systemName: "circle.fill", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal))!
         highPrioritySymbol = (UIImage(systemName: "circle", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal))!
@@ -273,6 +288,9 @@ func refreshNavigationPieChart() {
         
         // Initial view update
         updateViewForHome(viewType: .todayHomeView)
+        
+        // Setup the SwiftUI chart card
+        setupSwiftUIChartCard()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -292,7 +310,36 @@ func refreshNavigationPieChart() {
         super.viewDidAppear(animated)
         shouldAnimateCells = false
         refreshNavigationPieChart()
+        
+        // Runtime backup fix: Find and fix any dummy table views created by ShyHeaderController
+        findAndFixDummyTableView()
     } // end of viewDidAppear
+    
+    /// Recursively searches the view hierarchy for UITableView instances (excluding our main table view)
+    /// and makes them transparent. This is a backup fix for any dummy table views created by ShyHeaderController.
+    private func findAndFixDummyTableView() {
+        func searchViewHierarchy(_ view: UIView) {
+            for subview in view.subviews {
+                if let tableView = subview as? UITableView,
+                   tableView != fluentToDoTableViewController?.tableView {
+                    // Found a dummy table view - make it transparent
+                    tableView.backgroundColor = UIColor.clear
+                    tableView.isOpaque = false
+                    tableView.backgroundView = nil
+                    print("🔧 Fixed dummy UITableView at \(tableView)")
+                }
+                // Recursively search subviews
+                searchViewHierarchy(subview)
+            }
+        }
+        
+        // Start search from navigation controller's view if available
+        if let navView = navigationController?.view {
+            searchViewHierarchy(navView)
+        }
+        // Also search our own view hierarchy
+        searchViewHierarchy(view)
+    }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
@@ -515,6 +562,7 @@ private func setNavigationPieChartData() {
         // Present add task interface
         let addTaskVC = AddTaskViewController()
         addTaskVC.delegate = self
+        DependencyContainer.shared.inject(into: addTaskVC) // Use dependency container for injection
         addTaskVC.modalPresentationStyle = .fullScreen
         present(addTaskVC, animated: true, completion: nil)
     }
@@ -584,7 +632,7 @@ extension HomeViewController {
         // Filter tasks based on search text
         let filteredTasks = allTasks.filter { task in
             let searchTextLower = searchText.lowercased()
-            return task.name.lowercased().contains(searchTextLower) ||
+            return (task.name ?? "").lowercased().contains(searchTextLower) ||
                    (task.taskDetails?.lowercased().contains(searchTextLower) ?? false) ||
                    (task.project?.lowercased().contains(searchTextLower) ?? false)
         }
@@ -617,7 +665,7 @@ extension HomeViewController {
                     let taskTypeString = task.taskType == 1 ? "Morning" : task.taskType == 2 ? "Evening" : "Upcoming"
                     
                     return ToDoListData.TaskListItem(
-                        text1: task.name,
+                        text1: task.name ?? "Untitled Task",
                         text2: task.taskDetails ?? "",
                         text3: "\(taskTypeString) • \(dueDateString)",
                         image: ""
@@ -734,6 +782,7 @@ extension HomeViewController: AddTaskViewControllerDelegate {
 }
 
 // MARK: - Theme Handling
+
 extension HomeViewController {
     /// Re-applies current theme colors to primary UI elements.
     fileprivate func applyTheme() {
@@ -779,17 +828,7 @@ extension HomeViewController {
             controllerSearchBar.tokenSet[.backgroundColor] = .uiColor { self.todoColors.primaryColor }
         }
         // Update chart accent colors if present
-        if let dataSets = lineChartView.data?.dataSets {
-            dataSets.forEach { set in
-                if let lineSet = set as? LineChartDataSet {
-                    lineSet.colors = [todoColors.primaryColor]
-                    lineSet.fillColor = todoColors.primaryColor.withAlphaComponent(0.2)
-                    lineSet.circleColors = [todoColors.primaryColor]
-                }
-            }
-            lineChartView.data?.notifyDataChanged()
-            lineChartView.notifyDataSetChanged()
-        }
+        
         // Update calendar appearance & refresh
         if let cal = calendar {
             // Header & weekday background colours
@@ -816,6 +855,8 @@ extension HomeViewController {
         applyTheme()
     }
 }
+
+
 
 // MARK: - Bottom App Bar Setup & Chat Integration
 
@@ -852,5 +893,72 @@ extension HomeViewController {
         // Prefer FluentUI styling if available
         navController.navigationBar.prefersLargeTitles = false
         present(navController, animated: true)
+    }
+    
+    @objc private func taskCompletionChanged() {
+        print("📊 HomeViewController: Received TaskCompletionChanged notification - refreshing charts")
+        DispatchQueue.main.async { [weak self] in
+            self?.updateSwiftUIChartCard()
+            self?.refreshNavigationPieChart()
+            print("✅ HomeViewController: Charts refreshed successfully")
+        }
+    }
+}
+
+// MARK: - SwiftUI Chart Card Integration
+
+extension HomeViewController {
+    
+    /// Sets up the SwiftUI chart card and embeds it in the view hierarchy.
+    func setupSwiftUIChartCard() {
+        // 1. Initialize the SwiftUI View
+        let chartView = TaskProgressCard(referenceDate: dateForTheView)
+        
+        // 2. Create a UIHostingController
+        let hostingController = UIHostingController(rootView: AnyView(chartView))
+        self.swiftUIChartHostingController = hostingController
+        
+        // 3. Configure the hosting controller's view
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        
+        // 4. Create a container view
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = .clear
+        container.clipsToBounds = false // Allow shadow to be visible
+        self.swiftUIChartContainer = container
+        
+        // 5. Add the hosting controller's view to the container
+        container.addSubview(hostingController.view)
+        
+        // 6. Add the container to the backdrop
+        backdropContainer.addSubview(container)
+        
+        // 7. Set constraints
+        NSLayoutConstraint.activate([
+            // Container constraints (with padding for shadow)
+            container.leadingAnchor.constraint(equalTo: backdropContainer.leadingAnchor, constant: 16),
+            container.trailingAnchor.constraint(equalTo: backdropContainer.trailingAnchor, constant: -16),
+            container.topAnchor.constraint(equalTo: backdropContainer.topAnchor, constant: 120),
+            container.heightAnchor.constraint(equalToConstant: 250),
+            
+            // Hosting controller's view constraints (pinned to container)
+            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+        
+        // 8. Add child view controller
+        addChild(hostingController)
+        hostingController.didMove(toParent: self)
+    }
+    
+    /// Updates the SwiftUI chart card with the latest data.
+    func updateSwiftUIChartCard() {
+        let chartView = TaskProgressCard(referenceDate: dateForTheView)
+        swiftUIChartHostingController?.rootView = AnyView(chartView)
+        print("📊 SwiftUI Chart Card updated with new reference date")
     }
 }
