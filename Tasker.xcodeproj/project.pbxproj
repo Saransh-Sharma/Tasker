@@ -108,6 +108,9 @@
 		757F87D22E10550900278E0C /* HomeViewController+LegacyChartShims.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757F87D12E10550900278E0C /* HomeViewController+LegacyChartShims.swift */; };
 		757F87D32E10550900278E0C /* HomeViewController+LegacyChartShims.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757F87D12E10550900278E0C /* HomeViewController+LegacyChartShims.swift */; };
 		757F87D42E10550900278E0C /* HomeViewController+LegacyChartShims.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757F87D12E10550900278E0C /* HomeViewController+LegacyChartShims.swift */; };
+		757F87D62E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757F87D52E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift */; };
+		757F87D72E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757F87D52E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift */; };
+		757F87D82E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 757F87D52E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift */; };
 		758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A803F2450BFA300BFB571 /* InboxViewController.swift */; };
 		758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A80632451E86E00BFB571 /* WeeklyViewController.swift */; };
 		758D4D7824A93FB300AB57A8 /* ProjectManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758D4D7724A93FB300AB57A8 /* ProjectManager.swift */; };
@@ -334,6 +337,7 @@
 		755FE8DD2479227A00A71A75 /* TinyPieChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TinyPieChart.swift; sourceTree = "<group>"; };
 		755FE8E12479EA5300A71A75 /* RippleDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RippleDelegate.swift; sourceTree = "<group>"; };
 		757F87D12E10550900278E0C /* HomeViewController+LegacyChartShims.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HomeViewController+LegacyChartShims.swift"; sourceTree = "<group>"; };
+		757F87D52E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "HomeViewController+NavigationBarTitle.swift"; sourceTree = "<group>"; };
 		758A803F2450BFA300BFB571 /* InboxViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxViewController.swift; sourceTree = "<group>"; };
 		758A80632451E86E00BFB571 /* WeeklyViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyViewController.swift; sourceTree = "<group>"; };
 		758D4D7724A93FB300AB57A8 /* ProjectManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManager.swift; sourceTree = "<group>"; };
@@ -677,6 +681,7 @@
 				75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */,
 				75E866DB2DFF1BB1000470B4 /* Settings */,
 				757F87D12E10550900278E0C /* HomeViewController+LegacyChartShims.swift */,
+				757F87D52E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift */,
 			);
 			path = ViewControllers;
 			sourceTree = "<group>";
@@ -1145,6 +1150,7 @@
 				75F89F4E2DFC44E6009EDD8F /* DeviceNotSupportedView.swift in Sources */,
 				75F89F4F2DFC44E6009EDD8F /* CreditsView.swift in Sources */,
 				75F89F502DFC44E6009EDD8F /* ChatsSettingsView.swift in Sources */,
+				757F87D62E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift in Sources */,
 				75F89F512DFC44E6009EDD8F /* ConversationView.swift in Sources */,
 				75F89F522DFC44E6009EDD8F /* OnboardingInstallModelView.swift in Sources */,
 				75F89F532DFC44E6009EDD8F /* AppearanceSettingsView.swift in Sources */,
@@ -1206,6 +1212,7 @@
 				75DFF2B32DF22E6B00EB8850 /* DependencyContainer.swift in Sources */,
 				751075182DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift in Sources */,
 				75D5D3282E0331F0007A243A /* ChartDataService.swift in Sources */,
+				757F87D72E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift in Sources */,
 				75573CB32DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				751074E02DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */,
 				75DFF2DC2DF2302600EB8850 /* TaskListViewController.swift in Sources */,
@@ -1262,6 +1269,7 @@
 				75DFF2B12DF22E6B00EB8850 /* DependencyContainer.swift in Sources */,
 				7510751A2DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift in Sources */,
 				75D5D3262E0331F0007A243A /* ChartDataService.swift in Sources */,
+				757F87D82E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift in Sources */,
 				75573CB52DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				751074E12DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */,
 				75DFF2DD2DF2302600EB8850 /* TaskListViewController.swift in Sources */,

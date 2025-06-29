@@ -178,7 +178,7 @@ func refreshNavigationPieChart() {
     // Legacy scoreCounter kept for backward-compatibility with existing code paths
     var scoreCounter = UILabel()
     // New navigation title label containing date + score
-    private var navigationTitleLabel: UILabel?
+    var navigationTitleLabel: UILabel?
     
     // Bottom app bar
     var bottomAppBar = MDCBottomAppBarView()
@@ -1031,22 +1031,4 @@ extension HomeViewController {
     }
  }
 
-// MARK: - Navigation Bar Title Helper
-extension HomeViewController {
-    /// Formats and sets the navigation bar title based on the given date and score.
-    /// Uses the dedicated `navigationTitleLabel` if present; otherwise falls back to `navigationItem.title`.
-    func updateNavigationBarTitle(date: Date, score: Int) {
-        let formatter = DateFormatter()
-        formatter.locale = Locale.current
-        formatter.dateFormat = "d MMM"
-        let dateString = formatter.string(from: date)
-        let titleDatePart = Calendar.current.isDateInToday(date) ? "Today · \(dateString)" : dateString
-        let composed = "\(titleDatePart)  •  \(score)"
-        if let label = navigationTitleLabel {
-            label.text = composed
-        } else {
-            navigationItem.title = composed
-        }
-    }
-}
 
