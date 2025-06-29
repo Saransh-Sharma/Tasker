@@ -40,7 +40,8 @@ extension HomeViewController: BEMCheckBoxDelegate {
     
     func checkBoxCompleteAction(indexPath: IndexPath, checkBox: BEMCheckBox) {
         if checkBox.tag == indexPath.row {
-            checkBox.setOn(true, animated: true)
+            // Toggle the visual state to reflect the new completion status
+            checkBox.on.toggle()
         }
         
         var inboxTasks: [NTask]
@@ -53,25 +54,23 @@ extension HomeViewController: BEMCheckBoxDelegate {
             projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
             switch indexPath.section {
             case 1:
-                if !inboxTasks[indexPath.row].isComplete {
-                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-                    // Updated to use FluentUI table view
+                // Toggle completion state (complete ↔ reopen)
+                self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                // Updated to use FluentUI table view
         self.fluentToDoTableViewController?.tableView.reloadData()
-                    self.updateSwiftUIChartCard()
-                    self.animateTableViewReloadSingleCell(at: indexPath)
-                    // Rebuild sections so completed/overdue tasks display correctly
-                    self.loadTasksForDateGroupedByProject()
-                }
+                // refresh chart later
+                self.animateTableViewReloadSingleCell(at: indexPath)
+                // Rebuild sections so completed/overdue tasks display correctly
+                self.loadTasksForDateGroupedByProject()
             case 2:
-                if !projectsTasks[indexPath.row].isComplete {
-                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-                    // Updated to use FluentUI table view
+                // Toggle completion state (complete ↔ reopen)
+                self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                // Updated to use FluentUI table view
         self.fluentToDoTableViewController?.tableView.reloadData()
-                    self.updateSwiftUIChartCard()
-                    self.animateTableViewReloadSingleCell(at: indexPath)
-                    // Rebuild sections so completed/overdue tasks display correctly
-                    self.loadTasksForDateGroupedByProject()
-                }
+                // refresh chart later
+                self.animateTableViewReloadSingleCell(at: indexPath)
+                // Rebuild sections so completed/overdue tasks display correctly
+                self.loadTasksForDateGroupedByProject()
             default:
                 break
             }
@@ -81,25 +80,23 @@ extension HomeViewController: BEMCheckBoxDelegate {
             projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
             switch indexPath.section {
             case 1:
-                if !inboxTasks[indexPath.row].isComplete {
-                    self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
-                    // Updated to use FluentUI table view
+                // Toggle completion state (complete ↔ reopen)
+                self.markTaskCompleteOnSwipe(task: inboxTasks[indexPath.row])
+                // Updated to use FluentUI table view
         self.fluentToDoTableViewController?.tableView.reloadData()
-                    self.updateSwiftUIChartCard()
-                    self.animateTableViewReloadSingleCell(at: indexPath)
-                    // Rebuild sections so completed/overdue tasks display correctly
-                    self.loadTasksForDateGroupedByProject()
-                }
+                // refresh chart later
+                self.animateTableViewReloadSingleCell(at: indexPath)
+                // Rebuild sections so completed/overdue tasks display correctly
+                self.loadTasksForDateGroupedByProject()
             case 2:
-                if !projectsTasks[indexPath.row].isComplete {
-                    self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
-                    // Updated to use FluentUI table view
+                // Toggle completion state (complete ↔ reopen)
+                self.markTaskCompleteOnSwipe(task: projectsTasks[indexPath.row])
+                // Updated to use FluentUI table view
         self.fluentToDoTableViewController?.tableView.reloadData()
-                    self.updateSwiftUIChartCard()
-                    self.animateTableViewReloadSingleCell(at: indexPath)
-                    // Rebuild sections so completed/overdue tasks display correctly
-                    self.loadTasksForDateGroupedByProject()
-                }
+                // refresh chart later
+                self.animateTableViewReloadSingleCell(at: indexPath)
+                // Rebuild sections so completed/overdue tasks display correctly
+                self.loadTasksForDateGroupedByProject()
             default:
                 break
             }
@@ -115,7 +112,10 @@ extension HomeViewController: BEMCheckBoxDelegate {
         // Refresh navigation pie chart to reflect task completion changes
         self.refreshNavigationPieChart()
         self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-        self.title = "\(score)"
+        // Update navigation title (Today · date • score)
+        // Update navigation title and score, then refresh chart to guarantee latest data
+        self.updateDailyScore()
+        self.updateSwiftUIChartCard()
     }
     
     @objc private func selectionBarButtonTapped(sender: UIBarButtonItem) {

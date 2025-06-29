@@ -79,6 +79,10 @@ struct ChartCard: View {
         .onChange(of: referenceDate) { _ in
             loadChartData()
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("TaskCompletionChanged"))) { _ in
+            print("📡 ChartCard: Received TaskCompletionChanged - reloading chart data")
+            loadChartData()
+        }
     }
     
     private func loadChartData() {

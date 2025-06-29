@@ -165,9 +165,9 @@ class ProjectManager: ObservableObject {
             // a `fetchProjects()` might still be beneficial, or ensure `self.projects` is already up-to-date.
             // For simplicity, if `requiresCoreDataSave` is false, we assume `self.projects` was accurate
             // regarding the Inbox state or no changes were needed.
-            print("ProjectManager: Inbox project is already consistent or no DB changes made by fixMissingProjecsDataWithDefaultsInternal.")
+//            print("ProjectManager: Inbox project is already consistent or no DB changes made by fixMissingProjecsDataWithDefaultsInternal.")
         }
-        print("ProjectManager: fixMissingProjecsDataWithDefaultsInternal finished. Total projects now: \(self.projects.count)")
+//        print("ProjectManager: fixMissingProjecsDataWithDefaultsInternal finished. Total projects now: \(self.projects.count)")
     }
     
     // Public method that calls the internal version - for backward compatibility

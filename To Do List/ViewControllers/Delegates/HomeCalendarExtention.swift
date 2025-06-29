@@ -197,25 +197,9 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         print("=== CALENDAR SELECTION COMPLETE ===")
         
         self.updateHomeDateLabel(date: dateForTheView)
-        self.scoreCounter.text = "\(self.calculateTodaysScore())"
-        
-        let scoreNumber = "\(self.calculateTodaysScore())"
-        let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
-        paragraphStyle.lineBreakMode = .byTruncatingTail
-        paragraphStyle.alignment = .center
-        
-        let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
-        if scoreNumber.count == 1 {
-            centerText.setAttributes([NSAttributedString.Key.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded) as UIFont,
-                                      NSAttributedString.Key.paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-        } else if scoreNumber.count == 2 {
-            centerText.setAttributes([NSAttributedString.Key.font : setFont(fontSize: 45, fontweight: .medium, fontDesign: .rounded) as UIFont,
-                                      NSAttributedString.Key.paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-        } else {
-            centerText.setAttributes([NSAttributedString.Key.font : setFont(fontSize: 28, fontweight: .medium, fontDesign: .rounded) as UIFont,
-                                      NSAttributedString.Key.paragraphStyle : paragraphStyle], range: NSRange(location: 0, length: centerText.length))
-            
-        }
+        // Asynchronously calculate and display the new score for the selected date
+        self.updateDailyScore(for: date)
+
         
         
         reloadTinyPicChartWithAnimation()

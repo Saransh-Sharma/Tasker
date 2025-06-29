@@ -175,7 +175,10 @@ func refreshNavigationPieChart() {
     // Scores and labels
     var scoreForTheDay: UILabel! = nil
     let scoreAtHomeLabel = UILabel()
+    // Legacy scoreCounter kept for backward-compatibility with existing code paths
     var scoreCounter = UILabel()
+    // New navigation title label containing date + score
+    private var navigationTitleLabel: UILabel?
     
     // Bottom app bar
     var bottomAppBar = MDCBottomAppBarView()
@@ -291,6 +294,9 @@ func refreshNavigationPieChart() {
         
         // Setup the SwiftUI chart card
         setupSwiftUIChartCard()
+        
+        // Display today's initial score in navigation bar
+        updateDailyScore()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -379,9 +385,10 @@ func refreshNavigationPieChart() {
         // Set custom navigation bar background color
         navigationItem.customNavigationBarColor = todoColors.primaryColor
         
-        // Set title
-        title = "Today"
-        // Ensure the navigation bar title label background is transparent so the pie chart is not obscured
+        // Disable large titles so our score label is not obscured
+        navigationController?.navigationBar.prefersLargeTitles = false
+        navigationItem.largeTitleDisplayMode = .never
+        title = "" // Clear default title
         if let navBar = navigationController?.navigationBar {
             navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
         }
@@ -391,17 +398,23 @@ func refreshNavigationPieChart() {
         navigationItem.accessoryView = searchBar
         
         
-        // Create custom leading button (menu/hamburger)
-        let menuButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "line.horizontal.3"),
-            style: .plain,
-            target: self,
-            action: #selector(onMenuButtonTapped)
-        )
-        menuButtonItem.accessibilityLabel = "Menu"
-        navigationItem.leftBarButtonItem = menuButtonItem
+        // ---- Navigation title setup ----
+        // A single label that will display "Today · 29 Jun  • 42" style string
+        let navTitleLabel = UILabel()
+        navTitleLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        navTitleLabel.textColor = .white
+        navTitleLabel.textAlignment = .center
+        navTitleLabel.adjustsFontSizeToFitWidth = true
+        navTitleLabel.minimumScaleFactor = 0.5
+        // Store for later updates
+        self.navigationTitleLabel = navTitleLabel
+        navigationItem.titleView = navTitleLabel
         
-        // Embed pie chart inside search bar accessory instead of right bar button
+        // Keep the existing scoreCounter (used by legacy code) but hide it
+        scoreCounter.isHidden = true
+        // Ensure initial title is displayed
+        updateDailyScore()
+      // Embed pie chart inside search bar accessory instead of right bar button
         // embedNavigationPieChart(in: searchBar)
         
         // Enable scroll-to-contract behavior
@@ -896,16 +909,48 @@ extension HomeViewController {
     }
     
     @objc private func taskCompletionChanged() {
+
         print("📊 HomeViewController: Received TaskCompletionChanged notification - refreshing charts")
         DispatchQueue.main.async { [weak self] in
             self?.updateSwiftUIChartCard()
             self?.refreshNavigationPieChart()
-            print("✅ HomeViewController: Charts refreshed successfully")
+            self?.updateDailyScore()
+            print(" HomeViewController: Charts refreshed successfully")
         }
     }
 }
 
-// MARK: - SwiftUI Chart Card Integration
+// MARK: - Daily Score Updates
+extension HomeViewController {
+    /// Calculates the score for the provided date (defaults to `dateForTheView`) asynchronously and updates the navigation title and the legacy `scoreCounter` label.
+    func updateDailyScore(for date: Date? = nil) {
+        let targetDate = date ?? dateForTheView
+        if let repository = taskRepository {
+            TaskScoringService.shared.calculateTotalScore(for: targetDate, using: repository) { [weak self] total in
+                DispatchQueue.main.async {
+                    self?.scoreCounter.text = "\(total)"
+                    self?.updateNavigationBarTitle(date: targetDate, score: total)
+                }
+            }
+        } else {
+            // Fallback: calculate using TaskManager directly if repository not injected yet
+            // Fallback: count tasks whose *completion* date equals the target day
+            let allTasks = TaskManager.sharedInstance.getAllTasks
+            let calendar = Calendar.current
+            let completedToday = allTasks.filter { task in
+                guard task.isComplete, let doneDate = task.dateCompleted as Date? else { return false }
+                return calendar.isDate(doneDate, inSameDayAs: targetDate)
+            }
+            let total = completedToday.reduce(0) { sum, task in
+                sum + TaskScoringService.shared.calculateScore(for: task)
+            }
+            DispatchQueue.main.async { [weak self] in
+                self?.scoreCounter.text = "\(total)"
+                self?.updateNavigationBarTitle(date: targetDate, score: total)
+            }
+        }
+    }
+}
 
 extension HomeViewController {
     
@@ -957,8 +1002,51 @@ extension HomeViewController {
     
     /// Updates the SwiftUI chart card with the latest data.
     func updateSwiftUIChartCard() {
-        let chartView = TaskProgressCard(referenceDate: dateForTheView)
-        swiftUIChartHostingController?.rootView = AnyView(chartView)
-        print("📊 SwiftUI Chart Card updated with new reference date")
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self,
+                  let container = self.swiftUIChartContainer else { return }
+            // Remove old hosting controller
+            if let oldHost = self.swiftUIChartHostingController {
+                oldHost.willMove(toParent: nil)
+                oldHost.view.removeFromSuperview()
+                oldHost.removeFromParent()
+            }
+            // Create a fresh chart view and hosting controller
+            let chartView = TaskProgressCard(referenceDate: self.dateForTheView)
+            let newHost = UIHostingController(rootView: AnyView(chartView))
+            self.swiftUIChartHostingController = newHost
+            newHost.view.backgroundColor = .clear
+            newHost.view.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(newHost.view)
+            NSLayoutConstraint.activate([
+                newHost.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                newHost.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                newHost.view.topAnchor.constraint(equalTo: container.topAnchor),
+                newHost.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+            ])
+            self.addChild(newHost)
+            newHost.didMove(toParent: self)
+            print("📊 SwiftUI Chart Card completely rebuilt with latest data")
+        }
+    }
+ }
+
+// MARK: - Navigation Bar Title Helper
+extension HomeViewController {
+    /// Formats and sets the navigation bar title based on the given date and score.
+    /// Uses the dedicated `navigationTitleLabel` if present; otherwise falls back to `navigationItem.title`.
+    func updateNavigationBarTitle(date: Date, score: Int) {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.dateFormat = "d MMM"
+        let dateString = formatter.string(from: date)
+        let titleDatePart = Calendar.current.isDateInToday(date) ? "Today · \(dateString)" : dateString
+        let composed = "\(titleDatePart)  •  \(score)"
+        if let label = navigationTitleLabel {
+            label.text = composed
+        } else {
+            navigationItem.title = composed
+        }
     }
 }
+
