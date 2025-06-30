@@ -87,23 +87,21 @@ struct ChartCard: View {
     
     private func loadChartData() {
         isLoading = true
-        
-        // Enhanced data loading with error handling (Phase 4: Feature Parity)
-        DispatchQueue.global(qos: .userInitiated).async {
+        // Generate chart data on the Core Data context queue to ensure freshest state
+        TaskManager.sharedInstance.context.perform {
             let newData = ChartDataService.shared.generateLineChartData(for: referenceDate)
-            
             DispatchQueue.main.async {
                 self.chartData = newData
-                
                 withAnimation(.easeInOut(duration: 0.3)) {
                     self.isLoading = false
                 }
-                
-                // Log data update for debugging
+                #if DEBUG
                 print("📊 SwiftUI Chart Card loaded \(newData.count) data points")
+                #endif
             }
         }
     }
+
 }
 
 // MARK: - Line Chart View Representable

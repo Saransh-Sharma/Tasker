@@ -375,14 +375,12 @@ class FluentUIToDoTableViewController: UITableViewController {
         
         let task = toDoData[section].1[row]
         
-        // Toggle task completion status
-        task.isComplete.toggle()
+        // Toggle task completion status using central TaskManager helper so that
+        // dateCompleted is always maintained correctly and notifications are posted
+        TaskManager.sharedInstance.toggleTaskComplete(task: task)
         
-        // Update checkbox appearance
+        // Update checkbox appearance based on the new completion state
         updateCheckBoxAppearance(sender, isComplete: task.isComplete)
-        
-        // Save the changes
-        TaskManager.sharedInstance.saveContext()
         
         // Notify delegate of task completion change
         delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
@@ -984,18 +982,17 @@ extension FluentUIToDoTableViewController {
               rowIndex < toDoData[sectionIndex].1.count else { return }
         
         let task = toDoData[sectionIndex].1[rowIndex]
-        task.isComplete.toggle()
         
-        do {
-            try task.managedObjectContext?.save()
-            // Notify delegate of task completion change
-            delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
-            setupToDoData(for: selectedDate)
-            clearModalReferences()
-            dismiss(animated: true)
-        } catch {
-            print("Error saving task completion: \(error)")
-        }
+        // Use TaskManager helper so that dateCompleted is set/cleared correctly
+        TaskManager.sharedInstance.toggleTaskComplete(task: task)
+        
+        // Notify delegate of task completion change
+        delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
+        
+        // Refresh data and UI
+        setupToDoData(for: selectedDate)
+        clearModalReferences()
+        dismiss(animated: true)
     }
     
     @objc private func saveTaskChanges(_ sender: UIButton) {
