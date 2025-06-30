@@ -44,7 +44,19 @@ extension HomeViewController {
                 default: suffix = "th"
                 }
             }
-            return "\(day)\(suffix)"
+            // Convert suffix letters to Unicode superscript where possible
+            func superscript(_ letters: String) -> String {
+                let map: [Character: Character] = [
+                    "s": "ˢ", // U+02E2
+                    "t": "ᵗ", // U+1D57
+                    "n": "ⁿ", // U+207F
+                    "d": "ᵈ", // U+1D48
+                    "r": "ʳ", // U+02B3
+                    "h": "ʰ"  // U+02B0
+                ]
+                return String(letters.compactMap { map[$0] })
+            }
+            return "\(day)\(superscript(suffix))"
         }
 
         // Format parts we’ll need
@@ -96,13 +108,57 @@ extension HomeViewController {
             xpString = isFuture ? "\(score) XP planned" : "\(score) XP gained!"
         }
 
-        let composedTitle = "\(datePrefix)\(dateBody) • \(xpString)"
+        // Build two-line attributed string
+        let dateLine = "\(datePrefix)\(dateBody)"
+        let scoreLine = xpString
 
-        // Prefer dedicated label if present (allows custom styling), else fallback
-        if let label = navigationTitleLabel {
-            label.text = composedTitle
+        let attributed = NSMutableAttributedString(
+            string: dateLine + "\n",
+            attributes: [
+                .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
+            ])
+        attributed.append(NSAttributedString(
+            string: scoreLine,
+            attributes: [
+                .font: UIFont.systemFont(ofSize: 13, weight: .thin)
+            ]))
+
+        // Ensure label exists and is configured only once
+        let label: UILabel
+        if let existing = navigationTitleLabel {
+            label = existing
+            // Ensure proper styling (in case it was lost)
+            label.numberOfLines = 2
+            label.textAlignment = .center
+            label.adjustsFontSizeToFitWidth = true
+            label.minimumScaleFactor = 0.5
+            label.textColor = .white
+            label.lineBreakMode = .byWordWrapping
         } else {
-            navigationItem.title = composedTitle
+            let newLabel = UILabel()
+            newLabel.numberOfLines = 2
+            newLabel.textAlignment = .center
+            newLabel.adjustsFontSizeToFitWidth = true
+            newLabel.minimumScaleFactor = 0.5
+            newLabel.textColor = .white
+            newLabel.lineBreakMode = .byWordWrapping
+            navigationTitleLabel = newLabel
+            label = newLabel
+        }
+        label.attributedText = attributed
+        label.sizeToFit()
+        // Attach to navigation bar directly to avoid being hidden behind FluentUI accessory views
+        if let navBar = navigationController?.navigationBar {
+            if label.superview != navBar {
+                label.translatesAutoresizingMaskIntoConstraints = false
+                navBar.addSubview(label)
+                NSLayoutConstraint.activate([
+                    label.centerXAnchor.constraint(equalTo: navBar.centerXAnchor),
+                    label.centerYAnchor.constraint(equalTo: navBar.centerYAnchor)
+                ])
+            }
+            // Make sure it stays on top of other subviews
+            label.layer.zPosition = 999
         }
     }
 }
