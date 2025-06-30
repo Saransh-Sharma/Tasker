@@ -398,19 +398,9 @@ func refreshNavigationPieChart() {
         navigationItem.accessoryView = searchBar
         
         
-        // ---- Navigation title setup ----
-        // A single label that will display "Today · 29 Jun  • 42" style string
-        let navTitleLabel = UILabel()
-        navTitleLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
-        navTitleLabel.textColor = .white
-        navTitleLabel.textAlignment = .center
-        navTitleLabel.adjustsFontSizeToFitWidth = true
-        navTitleLabel.minimumScaleFactor = 0.5
-        // Store for later updates
-        self.navigationTitleLabel = navTitleLabel
-        navigationItem.titleView = navTitleLabel
+
         
-        // Keep the existing scoreCounter (used by legacy code) but hide it
+        // Hide legacy scoreCounter label (we now show score in title)
         scoreCounter.isHidden = true
         // Ensure initial title is displayed
         updateDailyScore()
