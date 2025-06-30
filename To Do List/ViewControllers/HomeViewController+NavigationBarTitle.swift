@@ -147,6 +147,8 @@ extension HomeViewController {
         }
         label.attributedText = attributed
         label.sizeToFit()
+        // Clear legacy title to prevent FluentUI large-leading label
+        navigationItem.title = ""
         // Attach to navigation bar directly to avoid being hidden behind FluentUI accessory views
         if let navBar = navigationController?.navigationBar {
             if label.superview != navBar {

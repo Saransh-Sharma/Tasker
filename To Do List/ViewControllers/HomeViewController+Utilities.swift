@@ -39,8 +39,7 @@ extension HomeViewController {
         // Update date label with formatted date
         toDoListHeaderLabel.text = titleText
         
-        // Update navigation bar title
-        title = titleText
+
     }
     
     private func formatDateTitle(for date: Date) -> String {
