@@ -17,6 +17,9 @@ extension HomeViewController {
     //setup chart
     func setupPieChartView(pieChartView chartView: PieChartView) {
         chartView.drawSlicesUnderHoleEnabled = true
+        // Hide default 'no chart data available' label when there is no data
+        chartView.noDataText = ""
+        chartView.noDataTextColor = .clear
         chartView.holeRadiusPercent = 0.85
         chartView.holeColor = todoColors.primaryColor
         chartView.transparentCircleRadiusPercent = 0.41
@@ -58,15 +61,21 @@ extension HomeViewController {
         chartView.layer.shadowRadius = 4//2
     }
     
-    func setTinyPieChartScoreText(pieChartView chartView: PieChartView) -> NSAttributedString {
+    /// Sets the center text of a small pie chart to the supplied score (defaults to today's score if none provided).
+    /// - Parameters:
+    ///   - chartView: The `PieChartView` whose center text should be updated.
+    ///   - scoreOverride: If non-nil, uses this score instead of recalculating.
+    /// - Returns: The attributed string applied to `centerAttributedText`.
+    func setTinyPieChartScoreText(pieChartView chartView: PieChartView, scoreOverride: Int? = nil) -> NSAttributedString {
         let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
         paragraphStyle.lineBreakMode = .byTruncatingTail
         paragraphStyle.alignment = .center
-        let scoreNumber = "\(self.calculateTodaysScore())"
+        let effectiveScore = scoreOverride ?? self.calculateTodaysScore()
+        let scoreNumber = "\(effectiveScore)"
         
         
         let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
-        if (self.calculateTodaysScore() < 9) {
+        if (effectiveScore < 9) {
             print("FONT SMALL")
             centerText.setAttributes([
                 .font : setFont(fontSize: 55, fontweight: .medium, fontDesign: .rounded),

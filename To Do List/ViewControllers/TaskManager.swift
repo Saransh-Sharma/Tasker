@@ -30,20 +30,28 @@ enum TaskType: Int32, CaseIterable {
 /// Defines the priority level of a task
 /// Higher values indicate higher priority
 enum TaskPriority: Int32, CaseIterable {
-    case low = 1
-    case medium = 2
-    case high = 3
+    case low = 1          // P0 – Highest priority
+    case medium = 2       // P1
+    case high = 3         // P2
+    case veryLow = 4      // P3 – Lowest priority
     
     var description: String {
         switch self {
         case .low: return "Low"
         case .medium: return "Medium"
         case .high: return "High"
+        case .veryLow: return "Very Low"
         }
     }
     
     var scoreValue: Int {
-        return Int(self.rawValue)
+        // Provide a basic score value (higher priority ⇒ higher score)
+        switch self {
+        case .high:      return 3
+        case .medium:    return 2
+        case .low:       return 1
+        case .veryLow:   return 0
+        }
     }
 }
 

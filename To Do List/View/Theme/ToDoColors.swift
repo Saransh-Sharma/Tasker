@@ -85,6 +85,12 @@ class ToDoColors {
     var secondaryAccentColor: UIColor
     
     // Derived colours
+    // MARK: - Priority Pie Chart Colors
+    static let piePriorityHighest = UIColor(hex: "#841C26")
+    static let piePriorityHigh    = UIColor(hex: "#FF746C")
+    static let piePriorityMedium  = UIColor(hex: "#F4D35E")
+    static let piePriorityLow     = UIColor(hex: "#008080")
+
     var primaryColorDarker: UIColor {
         return primaryColor.withBrightness(0.8)
     }

@@ -19,7 +19,8 @@ final class TaskScoringService {
         switch taskPriority {
         case .high:   return 7  // Highest priority
         case .medium: return 4  // Medium priority
-        case .low:    return 2  // Low priority
+        case .low:    return 2
+        case .veryLow: return 1  // Low priority
         @unknown default:
             return 1  // Fallback
         }

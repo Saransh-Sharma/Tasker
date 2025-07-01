@@ -167,6 +167,8 @@ struct TaskCard: View {
             return "Medium"
         case .high:
             return "High"
+        case .veryLow:
+            return "Very Low"
         }
     }
     
@@ -178,6 +180,8 @@ struct TaskCard: View {
             return .orange
         case .high:
             return .red
+        case .veryLow:
+            return .green
         }
     }
     
@@ -267,6 +271,7 @@ struct CompactTaskCard: View {
         case .low: return .blue
         case .medium: return .orange
         case .high: return .red
+        case .veryLow: return .green
         }
     }
 }
@@ -338,6 +343,7 @@ struct FeaturedTaskCard: View {
         case .low: return "Low Priority"
         case .medium: return "Medium Priority"
         case .high: return "High Priority"
+        case .veryLow: return "Very Low Priority"
         }
     }
     
@@ -346,6 +352,7 @@ struct FeaturedTaskCard: View {
         case .low: return .blue
         case .medium: return .orange
         case .high: return .red
+        case .veryLow: return .green
         }
     }
     

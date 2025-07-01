@@ -113,7 +113,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 
 /// Returns a dictionary of counts of completed tasks grouped by priority for a given date
 private func priorityBreakdown(for date: Date) -> [TaskPriority: Int] {
-    var counts: [TaskPriority: Int] = [.high: 0, .medium: 0, .low: 0]
+    var counts: [TaskPriority: Int] = [.high: 0, .medium: 0, .low: 0, .veryLow: 0]
     let allTasks = TaskManager.sharedInstance.getAllTasks
     let calendar = Calendar.current
     
@@ -448,7 +448,7 @@ func refreshNavigationPieChart() {
         guard navigationPieChartView == nil else { return }
         guard let navBar = self.navigationController?.navigationBar else { return }
         navBar.clipsToBounds = false // allow chart to render outside if needed
-        let size: CGFloat = 120
+        let size: CGFloat = 100
         let containerView = UIView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
         navBar.addSubview(containerView)
@@ -556,11 +556,12 @@ private func buildNavigationPieChartData(for date: Date) {
     // Fetch priority counts for completed tasks on the given date
     let breakdown = priorityBreakdown(for: date)
     // Weighting: High=3, Medium=2, Low=1
-    let weights: [TaskPriority: Double] = [.high: 3, .medium: 2, .low: 1]
+    let weights: [TaskPriority: Double] = [.high: 3, .medium: 2, .low: 1, .veryLow: 0.5]
     let entries: [PieChartDataEntry] = [
         (TaskPriority.high, "High"),
         (TaskPriority.medium, "Medium"),
-        (TaskPriority.low, "Low")
+        (TaskPriority.low, "Low"),
+        (TaskPriority.veryLow, "Very Low")
     ].compactMap { (priority, label) in
         let rawCount = Double(breakdown[priority] ?? 0)
         let weight = weights[priority] ?? 1
@@ -575,11 +576,28 @@ private func buildNavigationPieChartData(for date: Date) {
         return
     }
 
+    // Build matching colour array for each entry to avoid index mismatch when some priorities have zero count
+    var sliceColors: [UIColor] = []
+    for entry in entries {
+        switch entry.label {
+        case "High":
+            sliceColors.append(ToDoColors.piePriorityHighest)
+        case "Medium":
+            sliceColors.append(ToDoColors.piePriorityHigh)
+        case "Low":
+            sliceColors.append(ToDoColors.piePriorityMedium)
+        case "Very Low":
+            sliceColors.append(ToDoColors.piePriorityLow)
+        default:
+            sliceColors.append(todoColors.secondaryAccentColor) // fallback
+        }
+    }
+
     let set = PieChartDataSet(entries: entries, label: "")
     set.drawIconsEnabled = false
     set.drawValuesEnabled = false
     set.sliceSpace = 2
-    set.colors = [todoColors.secondaryAccentColor, todoColors.primaryColor, todoColors.primaryColorDarker]
+    set.colors = sliceColors
 
     let data = PieChartData(dataSet: set)
     navPieChart.drawEntryLabelsEnabled = false
@@ -968,6 +986,14 @@ extension HomeViewController {
                 DispatchQueue.main.async {
                     self?.scoreCounter.text = "\(total)"
                     self?.updateNavigationBarTitle(date: targetDate, score: total)
+                    // Update tiny pie chart center text (legacy chart)
+                    if let chartView = self?.tinyPieChartView {
+                        chartView.centerAttributedText = self?.setTinyPieChartScoreText(pieChartView: chartView, scoreOverride: total)
+                    }
+                    // Update navigation bar pie chart center text
+                    if let navChart = self?.navigationPieChartView {
+                        navChart.centerAttributedText = self?.setTinyPieChartScoreText(pieChartView: navChart, scoreOverride: total)
+                    }
                 }
             }
         } else {
@@ -985,13 +1011,20 @@ extension HomeViewController {
             DispatchQueue.main.async { [weak self] in
                 self?.scoreCounter.text = "\(total)"
                 self?.updateNavigationBarTitle(date: targetDate, score: total)
+                // Update tiny pie chart center text (legacy chart)
+                if let chartView = self?.tinyPieChartView {
+                    chartView.centerAttributedText = self?.setTinyPieChartScoreText(pieChartView: chartView, scoreOverride: total)
+                }
+                // Update navigation bar pie chart center text
+                if let navChart = self?.navigationPieChartView {
+                    navChart.centerAttributedText = self?.setTinyPieChartScoreText(pieChartView: navChart, scoreOverride: total)
+                }
             }
         }
     }
 }
-
-extension HomeViewController {
     
+extension HomeViewController {
     /// Sets up the SwiftUI chart card and embeds it in the view hierarchy.
     func setupSwiftUIChartCard() {
         // 1. Initialize the SwiftUI View

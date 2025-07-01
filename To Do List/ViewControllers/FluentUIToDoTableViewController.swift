@@ -464,7 +464,7 @@ extension FluentUIToDoTableViewController {
         } else {
             // Style for active tasks
             let taskTitle = task.name ?? "Untitled Task"
-            let taskSubtitle = task.taskDetails ?? "No details"
+            let taskSubtitle = task.taskDetails ?? ""
             
             let checkBox = createCheckBox(for: task, at: indexPath)
             
@@ -565,7 +565,7 @@ extension FluentUIToDoTableViewController {
         } else {
             // Style for active tasks
             let taskTitle = task.name ?? "Untitled Task"
-            let taskSubtitle = task.taskDetails ?? "No details"
+            let taskSubtitle = task.taskDetails ?? ""
             
             let checkBox = createCheckBox(for: task, at: indexPath)
             
