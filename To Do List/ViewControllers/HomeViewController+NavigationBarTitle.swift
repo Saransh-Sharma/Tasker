@@ -115,12 +115,13 @@ extension HomeViewController {
         let attributed = NSMutableAttributedString(
             string: dateLine + "\n",
             attributes: [
-                .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
+                // .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
+                .font: UIFont.systemFont(ofSize: 24, weight: .semibold)
             ])
         attributed.append(NSAttributedString(
             string: scoreLine,
             attributes: [
-                .font: UIFont.systemFont(ofSize: 13, weight: .thin)
+                .font: UIFont.systemFont(ofSize: 15, weight: .thin)
             ]))
 
         // Ensure label exists and is configured only once

@@ -405,7 +405,7 @@ func refreshNavigationPieChart() {
         // Ensure initial title is displayed
         updateDailyScore()
       // Embed pie chart inside search bar accessory instead of right bar button
-        // embedNavigationPieChart(in: searchBar)
+        embedNavigationPieChartOnNavigationBar()
         
         // Enable scroll-to-contract behavior
         // Updated to use FluentUI table view
@@ -431,9 +431,57 @@ func refreshNavigationPieChart() {
         navPieChart.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         setupPieChartView(pieChartView: navPieChart)
         navPieChart.holeRadiusPercent = 0.7
-        navPieChart.backgroundColor = .red.withAlphaComponent(0.4) // DEBUG
+        // Ensure the chart is visible above the navigation bar
+        navPieChart.layer.zPosition = 999
+        containerView.layer.zPosition = 999
+        navPieChart.backgroundColor = .clear
         setNavigationPieChartData()
         // Ensure chart has correct initial data & animation
+        refreshNavigationPieChart()
+        let tap = UITapGestureRecognizer(target: self, action: #selector(toggleCharts))
+        navPieChart.addGestureRecognizer(tap)
+        navPieChart.isUserInteractionEnabled = true
+    }
+    
+    // MARK: - Embed Pie Chart on Navigation Bar (Right Aligned)
+    private func embedNavigationPieChartOnNavigationBar() {
+        guard navigationPieChartView == nil else { return }
+        guard let navBar = self.navigationController?.navigationBar else { return }
+        navBar.clipsToBounds = false // allow chart to render outside if needed
+        let size: CGFloat = 120
+        let containerView = UIView()
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        navBar.addSubview(containerView)
+        NSLayoutConstraint.activate([
+            containerView.widthAnchor.constraint(equalToConstant: size),
+            containerView.heightAnchor.constraint(equalToConstant: size),
+            containerView.trailingAnchor.constraint(equalTo: navBar.trailingAnchor, constant: -2),
+            containerView.centerYAnchor.constraint(equalTo: navBar.centerYAnchor)
+        ])
+        let navPieChart = PieChartView(frame: .zero)
+        navigationPieChartView = navPieChart
+        containerView.addSubview(navPieChart)
+        navPieChart.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            navPieChart.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            navPieChart.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            navPieChart.topAnchor.constraint(equalTo: containerView.topAnchor),
+            navPieChart.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+        ])
+        setupPieChartView(pieChartView: navPieChart)
+        navPieChart.holeRadiusPercent = 0.7
+        // Minimal appearance: no slice labels, legend, or description
+        navPieChart.drawEntryLabelsEnabled = false
+        navPieChart.legend.enabled = false
+        navPieChart.chartDescription.enabled = false
+        // Ensure full circle render
+        navPieChart.drawHoleEnabled = false
+        navPieChart.setExtraOffsets(left: 0, top: 0, right: 0, bottom: 0)
+        navPieChart.minOffset = 0
+        navPieChart.layer.zPosition = 900
+        containerView.layer.zPosition = 900
+        navPieChart.backgroundColor = .clear
+        setNavigationPieChartData()
         refreshNavigationPieChart()
         let tap = UITapGestureRecognizer(target: self, action: #selector(toggleCharts))
         navPieChart.addGestureRecognizer(tap)
