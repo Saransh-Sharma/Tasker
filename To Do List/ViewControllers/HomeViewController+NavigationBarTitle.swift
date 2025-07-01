@@ -116,12 +116,12 @@ extension HomeViewController {
             string: dateLine + "\n",
             attributes: [
                 // .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
-                .font: UIFont.systemFont(ofSize: 24, weight: .semibold)
+                .font: UIFont.systemFont(ofSize: 22, weight: .semibold)
             ])
         attributed.append(NSAttributedString(
             string: scoreLine,
             attributes: [
-                .font: UIFont.systemFont(ofSize: 15, weight: .thin)
+                .font: UIFont.systemFont(ofSize: 14, weight: .thin)
             ]))
 
         // Ensure label exists and is configured only once
@@ -161,7 +161,7 @@ extension HomeViewController {
                 ])
             }
             // Make sure it stays on top of other subviews
-            label.layer.zPosition = 999
+            label.layer.zPosition = 800
         }
     }
 }

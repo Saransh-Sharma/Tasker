@@ -24,7 +24,7 @@ extension HomeViewController {
         chartView.holeColor = todoColors.primaryColor
         chartView.transparentCircleRadiusPercent = 0.41
         //        chartView.setExtraOffsets(left: 7, top: 5, right: 5, bottom: 7)
-        chartView.setExtraOffsets(left: 7, top: 2, right: 5, bottom: 10)
+        chartView.setExtraOffsets(left: 7, top: 2, right: 5, bottom: 0)
         
         
         chartView.drawCenterTextEnabled = true
@@ -78,10 +78,10 @@ extension HomeViewController {
         if (effectiveScore < 9) {
             print("FONT SMALL")
             centerText.setAttributes([
-                .font : setFont(fontSize: 55, fontweight: .medium, fontDesign: .rounded),
+                .font : setFont(fontSize: 60, fontweight: .medium, fontDesign: .rounded),
                 .paragraphStyle : paragraphStyle,
                 .strokeColor : UIColor.label,
-                .foregroundColor : UIColor.systemGray6
+                .foregroundColor : todoColors.primaryColor
             ],
             
             range: NSRange(location: 0, length: centerText.length))
@@ -91,7 +91,7 @@ extension HomeViewController {
                 .font : setFont(fontSize: 44, fontweight: .medium, fontDesign: .rounded),
                 .paragraphStyle : paragraphStyle,
                 .strokeColor : UIColor.label,
-                .foregroundColor : UIColor.systemGray6
+                .foregroundColor : todoColors.primaryColor
             ], range: NSRange(location: 0, length: centerText.length))
         }
         
