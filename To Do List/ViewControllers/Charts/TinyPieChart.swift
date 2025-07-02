@@ -16,13 +16,13 @@ extension HomeViewController {
     
     //setup chart
     func setupPieChartView(pieChartView chartView: PieChartView) {
-        chartView.drawSlicesUnderHoleEnabled = true
+        chartView.drawSlicesUnderHoleEnabled = false
         // Hide default 'no chart data available' label when there is no data
         chartView.noDataText = ""
         chartView.noDataTextColor = .clear
-        chartView.holeRadiusPercent = 0.85
-        chartView.holeColor = todoColors.primaryColor
-        chartView.transparentCircleRadiusPercent = 0.41
+        chartView.holeRadiusPercent = 0.90
+        chartView.holeColor = todoColors.primaryColorDarker //UIColor.systemBackground
+        chartView.transparentCircleRadiusPercent = 0.60
         //        chartView.setExtraOffsets(left: 7, top: 5, right: 5, bottom: 7)
         chartView.setExtraOffsets(left: 7, top: 2, right: 5, bottom: 0)
         
@@ -78,20 +78,20 @@ extension HomeViewController {
         if (effectiveScore < 9) {
             print("FONT SMALL")
             centerText.setAttributes([
-                .font : setFont(fontSize: 60, fontweight: .medium, fontDesign: .rounded),
+                .font : setFont(fontSize: 44, fontweight: .medium, fontDesign: .rounded),
                 .paragraphStyle : paragraphStyle,
                 .strokeColor : UIColor.label,
-                .foregroundColor : todoColors.primaryColor
+                .foregroundColor : todoColors.backgroundColor //todoColors.primaryColorDarker
             ],
             
             range: NSRange(location: 0, length: centerText.length))
         } else {
             print("FONT BIG")
             centerText.setAttributes([
-                .font : setFont(fontSize: 44, fontweight: .medium, fontDesign: .rounded),
+                .font : setFont(fontSize: 32, fontweight: .medium, fontDesign: .rounded),
                 .paragraphStyle : paragraphStyle,
                 .strokeColor : UIColor.label,
-                .foregroundColor : todoColors.primaryColor
+                .foregroundColor : todoColors.backgroundColor //todoColors.primaryColorDarker
             ], range: NSRange(location: 0, length: centerText.length))
         }
         

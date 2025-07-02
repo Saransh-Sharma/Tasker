@@ -430,10 +430,10 @@ func refreshNavigationPieChart() {
         containerView.addSubview(navPieChart)
         navPieChart.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         setupPieChartView(pieChartView: navPieChart)
-        navPieChart.holeRadiusPercent = 0.7
+        navPieChart.holeRadiusPercent = 0.58
         // Ensure the chart is visible above the navigation bar
-        navPieChart.layer.zPosition = 999
-        containerView.layer.zPosition = 999
+        navPieChart.layer.zPosition = 952
+        containerView.layer.zPosition = 952
         navPieChart.backgroundColor = .clear
         setNavigationPieChartData()
         // Ensure chart has correct initial data & animation
@@ -448,7 +448,7 @@ func refreshNavigationPieChart() {
         guard navigationPieChartView == nil else { return }
         guard let navBar = self.navigationController?.navigationBar else { return }
         navBar.clipsToBounds = false // allow chart to render outside if needed
-        let size: CGFloat = 100
+        let size: CGFloat = 110
         let containerView = UIView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
         navBar.addSubview(containerView)
@@ -469,13 +469,13 @@ func refreshNavigationPieChart() {
             navPieChart.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
         ])
         setupPieChartView(pieChartView: navPieChart)
-        navPieChart.holeRadiusPercent = 0.7
+        navPieChart.holeRadiusPercent = 0.58
         // Minimal appearance: no slice labels, legend, or description
         navPieChart.drawEntryLabelsEnabled = false
         navPieChart.legend.enabled = false
         navPieChart.chartDescription.enabled = false
-        // Ensure full circle render
-        navPieChart.drawHoleEnabled = false
+        // Enable hole in center like demo
+        navPieChart.drawHoleEnabled = true
         navPieChart.setExtraOffsets(left: 0, top: 0, right: 0, bottom: 0)
         navPieChart.minOffset = 0
         navPieChart.layer.zPosition = 900
@@ -514,7 +514,7 @@ func refreshNavigationPieChart() {
         
         // Configure appearance
         setupPieChartView(pieChartView: navPieChart)
-        navPieChart.holeRadiusPercent = 0.7
+        navPieChart.holeRadiusPercent = 0.58
         navPieChart.layer.shadowRadius = 4
         navPieChart.layer.shadowOpacity = 0.4
         navPieChart.layer.zPosition = 1000

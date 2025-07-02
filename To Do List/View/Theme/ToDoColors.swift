@@ -92,7 +92,8 @@ class ToDoColors {
     static let piePriorityLow     = UIColor(hex: "#008080")
 
     var primaryColorDarker: UIColor {
-        return primaryColor.withBrightness(0.8)
+//        return primaryColor.withBrightness(0.8)
+        return primaryColor.withBrightness(1.2)
     }
     var completeTaskSwipeColor = UIColor(red: 46/255.0, green: 204/255.0, blue: 113/255.0, alpha: 1.0)
     
