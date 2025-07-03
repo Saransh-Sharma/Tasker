@@ -20,10 +20,9 @@ extension HomeViewController {
         // Hide default 'no chart data available' label when there is no data
         chartView.noDataText = ""
         chartView.noDataTextColor = .clear
-        chartView.holeRadiusPercent = 0.90
-        chartView.holeColor = todoColors.primaryColorDarker //UIColor.systemBackground
+        chartView.holeRadiusPercent = 0.60
+        chartView.holeColor = todoColors.primaryColorDarker
         chartView.transparentCircleRadiusPercent = 0.60
-        //        chartView.setExtraOffsets(left: 7, top: 5, right: 5, bottom: 7)
         chartView.setExtraOffsets(left: 7, top: 2, right: 5, bottom: 0)
         
         
@@ -56,9 +55,21 @@ extension HomeViewController {
         //        chartView.layer.shadowColor = UIColor.black.cgColor
         chartView.layer.shadowColor = todoColors.primaryColorDarker.cgColor
         
-        chartView.layer.shadowOpacity = 0.4//0.3
-        chartView.layer.shadowOffset = .zero//CGSize(width: -2.0, height: -2.0) //.zero
-        chartView.layer.shadowRadius = 4//2
+        chartView.layer.shadowOpacity = 0.4
+        chartView.layer.shadowOffset = .zero
+        chartView.layer.shadowRadius = 4
+    }
+    
+    /// Makes the tiny pie chart spin with animation
+    /// - Parameters:
+    ///   - chartView: The PieChartView to animate
+    ///   - duration: Animation duration in seconds (default: 2.0)
+    ///   - easingOption: Animation easing option (default: .easeInCubic)
+    func spinTinyPieChart(_ chartView: PieChartView, duration: TimeInterval = 2.0, easingOption: ChartEasingOption = .easeInCubic) {
+        chartView.spin(duration: duration,
+                       fromAngle: chartView.rotationAngle,
+                       toAngle: chartView.rotationAngle + 360,
+                       easingOption: easingOption)
     }
     
     /// Sets the center text of a small pie chart to the supplied score (defaults to today's score if none provided).
