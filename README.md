@@ -1,5 +1,14 @@
 # Tasker - Gamified Tasks & Productivity Pulse
 
+## Table of Contents
+- [Key Features](#key-features)
+- [Project Architecture](#project-architecture)
+- [Entity Attribute Reference & ER Diagram](#entity-attribute-reference--er-diagram)
+- [Use-Case Sequence Flows](#use-case-sequence-flows)
+- [Legacy vs. Repository Architecture (2025 Snapshot)](#legacy-vs-repository-architecture-2025-snapshot)
+- [Testing Strategy Roadmap](#testing-strategy-roadmap)
+- [Feature Implementation Details](#feature-implementation-details)
+
 Tasker is a sophisticated iOS productivity application that transforms task management into an engaging, gamified experience. Built with Swift and UIKit, it combines modern iOS design patterns with powerful productivity features including CloudKit synchronization, advanced analytics, and a comprehensive scoring system.
 
 ## Key Features
@@ -209,7 +218,63 @@ The application currently operates in a **hybrid state** where:
 - Better separation of concerns
 - Async operations with completion handlers
 
-### Migration Strategy
+### Migration Roadmap Toward Full Clean Architecture
+
+| Phase | Goal | Status | Completed Actions | Next Action Items |
+|-------|------|--------|-------------------|-------------------|
+| 1. Predicate-Driven Fetching | Replace stored arrays with Core-Data predicates for memory efficiency | ✅ Done (2025-Q1) | • Rewrote fetch helpers using `NSPredicate`<br>• Removed in-memory caches | • Monitor fetch performance w/ Instruments |
+| 2. Type-Safe Enums & Model Cleanup | Use Swift enums for priority/type; remove magic numbers | ✅ Done (2025-Q1) | • Added `TaskPriority`, `TaskType` enums<br>• Aligned Core Data raw values | • Audit UI for any residual int literals |
+| 3. Repository Layer & DI | Introduce `TaskRepository` protocol, `CoreDataTaskRepository`, and `DependencyContainer` | ✅ 60% shipped (2025-Q2) | • Repository written<br>• New VCs injected via DI | • Migrate `HomeViewController`, `AddTaskViewController`<br>• Deprecate `TaskManager.sharedInstance` |
+| 4. Concurrency & NSFetchedResultsController | Switch to background contexts & diffable feeds | ✅ Done (2025-Q2) | • Background saving<br>• FRC in `TaskListVC` | • Apply FRC to Home & Project screens |
+| 5. Utility & Service Layer Extraction | Move business logic (scoring, logging, date utils) out of managers | ✅ Done | • `TaskScoringService`, `LoggingService`, `DateUtils` | • Extract validation rules into `TaskValidationService` |
+| 6. SwiftUI Presentation | Gradually swap UIKit screens with SwiftUI equivalents | ⏳ In-progress (20% complete) | • `ProjectManagementView.swift`, `SettingsView.swift` | • Prototype SwiftUI Home dashboard<br>• Create shared ViewModel layer |
+| 7. Core Data → Domain Mapping | Introduce domain models & mappers (e.g., `TaskEntity` ⇄ `Task`) | ⏳ Not started | — | • Define pure Swift `Task` struct<br>• Implement mapper inside repository |
+| 8. Project Repository & Relations | Convert `project` string FK into Core-Data relationship | 🚧 Planned | — | • Update `.xcdatamodeld` with relationship<br>• Write migration script<br>• Implement `ProjectRepository` |
+| 9. Test Coverage Expansion | Achieve 70% unit coverage on domain & data layers | 🚧 Planned | • Templates present | • Implement tests listed in testing roadmap |
+
+> The table doubles as a kanban board: each "Next Action Item" should translate into GitHub issues.
+
+#### Phase-Wise Detailed Checklists
+
+<details>
+<summary><strong>Phase 3 — Repository Layer & DI (60% done)</strong></summary>
+
+- [x] Define `TaskRepository` protocol and default CRUD signatures
+- [x] Implement `CoreDataTaskRepository` with background context
+- [x] Register `TaskRepository` inside `DependencyContainer`
+- [x] Inject into `TaskListViewController`
+- [ ] Refactor `HomeViewController` to repository pattern *(ETA 2025-Q3)*
+- [ ] Refactor `AddTaskViewController`
+- [ ] Annotate `TaskManager` APIs with `@available(*, deprecated, message:"Use TaskRepository")`
+</details>
+
+<details>
+<summary><strong>Phase 4 — Concurrency & FRC (Done)</strong></summary>
+
+- Background context saving implemented
+- `NSFetchedResultsController` integrated in `TaskListViewController`
+- **Next (optional):** Adopt diffable data source on Home & Project screens for smoother UI updates
+</details>
+
+<details>
+<summary><strong>Phase 6 — SwiftUI Presentation (20% done)</strong></summary>
+
+- [x] Delivered `ProjectManagementView.swift` & `SettingsView.swift`
+- [ ] Prototype SwiftUI Home dashboard in branch `swiftui/home`
+- [ ] Establish `HomeViewModel` shared between SwiftUI and UIKit
+</details>
+
+<details>
+<summary><strong>Phase 8 — Project Repository & Relations (Planned)</strong></summary>
+
+- [ ] Add one-to-many relationship `Projects.tasks` in `.xcdatamodeld`
+- [ ] Create lightweight migration (Xcode automatic)
+- [ ] Generate `ProjectRepository` with CRUD & fetch joined tasks
+- [ ] Replace string-based project lookups in managers
+</details>
+
+
+---
 
 #### Completed Migrations ✅
 1. **TaskListViewController** - Fully migrated to repository pattern with NSFetchedResultsController
@@ -794,6 +859,145 @@ ProjectManager → Projects Entity → Task Association → UI Organization
 3. **Streak Monitoring**: Track consecutive completion days for motivation
 4. **Performance Insights**: Identify peak productivity periods and patterns
 5. **Goal Setting**: Use historical data to set realistic productivity goals
+
+## Entity Attribute Reference & ER Diagram
+
+### Entity Overview
+| Entity | Description |
+| ------ | ----------- |
+| `NTask` | Primary task record – one row per user task |
+| `Projects` | Simple categorisation master list. Each `NTask` references a project via the `project` string column. |
+
+### `NTask` – Attribute Table
+| Attribute | Type | Optional | Default | Notes |
+|-----------|------|----------|---------|-------|
+| `name` | `String` | ❌ | — | Task title shown in lists & detail pages |
+| `isComplete` | `Bool` | ❌ | `false` | Flag when a task has been marked done |
+| `dueDate` | `Date` | ✅ | — | When the task is scheduled to be completed (nil → unscheduled) |
+| `taskDetails` | `String` | ✅ | — | Rich description / notes |
+| `taskPriority` | `Int32` (`TaskPriority`) | ❌ | `3` (`.medium`) | Enum-backed 1→4 => P0…P3 |
+| `taskType` | `Int32` (`TaskType`) | ❌ | `1` (`.morning`) | Enum-backed 1→4 => Morning/Evening/Upcoming/Inbox |
+| `project` | `String` | ✅ | “Inbox” | Foreign-key (string) to `Projects.projectName` |
+| `alertReminderTime` | `Date` | ✅ | — | Local notification trigger time |
+| `dateAdded` | `Date` | ✅ | *now()* | Creation timestamp (set automatically) |
+| `isEveningTask` | `Bool` | ❌ | `false` | Redundant convenience flag – kept for legacy UI logic |
+| `dateCompleted` | `Date` | ✅ | — | Set when `isComplete` toggles to true |
+
+> **Delete Rule:** `NTask` objects persist even if their `project` string no longer matches an existing `Projects` row. A future migration intends to convert this string into a formal Core-Data relationship with *Nullify* delete rule.
+
+### `Projects` – Attribute Table
+| Attribute | Type | Optional | Default | Notes |
+|-----------|------|----------|---------|-------|
+| `projectName` | `String` | ✅ | — | Primary identifier (acts as natural key) |
+| `projecDescription` | `String` | ✅ | — | User-facing description *(attribute typo preserved for Core Data compatibility)* |
+
+> **Relationship:** `Projects 1 — * NTask` (logical). Currently enforced in UI/business-logic level, not Core Data. Deleting a project uses a manual merge routine (`mergeInboxDuplicates`) to re-assign tasks to *Inbox*.
+
+### Mermaid ER Diagram
+```mermaid
+erDiagram
+    PROJECTS ||--o{ NTASK : "contains"
+    PROJECTS {
+        string projectName PK
+        string projecDescription
+    }
+    NTASK {
+        string name
+        bool   isComplete
+        date   dueDate
+        string taskDetails
+        int    taskPriority
+        int    taskType
+        string project FK
+        date   alertReminderTime
+        date   dateAdded
+        bool   isEveningTask
+        date   dateCompleted
+    }
+```
+
+### Computed Properties & Helpers (`NTask+Extensions`)
+* `type` & `priority` – enum-safe wrappers around `taskType` / `taskPriority`.
+* Convenience booleans: `isMorningTask`, `isUpcomingTask`, `isHighPriority` …
+* `updateEveningTaskStatus(_:)` synchronises `isEveningTask` with `taskType`.
+
+---
+
+## Use-Case Sequence Flows
+
+### 1. Task CRUD Flow (`Add / Edit / Complete / Delete`)
+```mermaid
+sequenceDiagram
+    participant UI as ViewController
+    participant Service as TaskManager / TaskRepository
+    participant CD as Core Data
+    participant CK as CloudKit
+
+    UI->>Service: addTask(name, details, ...)
+    Service->>CD: INSERT NTask
+    CD-->>Service: managedObjectID
+    Service->>CK: (async sync)
+    Service-->>UI: completion(result)
+    UI-->>UI: refresh tableView
+
+    Note over Service,CK: CloudKit sync occurs on background thread
+```
+
+### 2. Project Filtering Flow
+```mermaid
+sequenceDiagram
+    UI->>Service: getTasksForProject(projectName)
+    Service->>CD: FETCH NTask WHERE project == projectName
+    CD-->>Service: [tasks]
+    Service-->>UI: [TaskData]
+    UI-->>UI: reload table grouped by section
+```
+
+### 3. Daily Scoring & Analytics Flow
+```mermaid
+sequenceDiagram
+    participant UI as HomeViewController
+    participant Repo as TaskRepository
+    participant Score as TaskScoringService
+
+    UI->>Repo: fetchTasks(for: today)
+    Repo->>CD: predicate(today)
+    CD-->>Repo: [tasks]
+    Repo-->>UI: [TaskData]
+    UI->>Score: calculateDailyScore(tasks)
+    Score-->>UI: Int score
+    UI-->>UI: update charts / labels
+```
+
+---
+
+## Legacy vs. Repository Architecture (2025 Snapshot)
+| Layer | Legacy Component | Modern Replacement | Status |
+|-------|-----------------|--------------------|--------|
+| Data Access | `TaskManager` (singleton) | `TaskRepository` protocol + `CoreDataTaskRepository` | 60% migrated |
+| Project Ops | `ProjectManager` | *Planned:* `ProjectRepository` | Not started |
+| Presentation | UIKit VCs | Mixed UIKit/SwiftUI | Ongoing |
+| DI | Direct singleton access | `DependencyContainer` injection | Implemented in new VCs |
+
+Pending migration tasks:
+1. Refactor `HomeViewController` to use repository.
+2. Move project CRUD to dedicated repository.
+3. Remove remaining singleton usage; mark as deprecated.
+
+---
+
+## Testing Strategy Roadmap
+| Area | Test Type | Tools / Frameworks | Priority |
+|------|-----------|--------------------|----------|
+| TaskData mapping | Unit | XCTest | High |
+| CoreDataTaskRepository fetch/save | Unit (in-memory store) | XCTest + NSPersistentStoreDescription | High |
+| TaskScoringService logic | Unit | XCTest | Medium |
+| HomeViewController table rendering | UI | XCUITest | Medium |
+| CloudKit sync (happy path) | Integration | XCTest + CKRecord mocks | Low |
+
+> See `To Do ListTests/` for templates – implement these suites during refactor.
+
+---
 
 ## Feature Implementation Details
 
