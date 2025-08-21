@@ -456,7 +456,7 @@ func refreshNavigationPieChart() {
             containerView.widthAnchor.constraint(equalToConstant: size),
             containerView.heightAnchor.constraint(equalToConstant: size),
             containerView.trailingAnchor.constraint(equalTo: navBar.trailingAnchor, constant: -2),
-            containerView.centerYAnchor.constraint(equalTo: navBar.centerYAnchor, constant:25)
+            containerView.centerYAnchor.constraint(equalTo: navBar.centerYAnchor, constant:30)
         ])
         let navPieChart = PieChartView(frame: .zero)
         navigationPieChartView = navPieChart

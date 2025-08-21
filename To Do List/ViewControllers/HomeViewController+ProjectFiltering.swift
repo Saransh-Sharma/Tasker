@@ -20,11 +20,20 @@ extension HomeViewController {
         dateForTheView = dateToSetForView
     }
     
-    // Method to calculate today's score
+    // Method to calculate today's score (synchronous, main-context)
+    // Returns the total score for tasks whose *completion* date is the same as `dateForTheView`.
+    // This is used for instant UI updates right after a checkbox tap.
     func calculateTodaysScore() -> Int {
-        // Note: This method needs to be refactored to use async repository calls
-        // For now, returning 0 as a placeholder until the calling code is updated
-        return 0
+        let targetDate = dateForTheView
+        let calendar = Calendar.current
+        // Fetch from TaskManager which uses main/view context – so it already includes the latest toggle.
+        let completedToday = TaskManager.sharedInstance.getAllTasks.filter { task in
+            guard task.isComplete, let doneDate = task.dateCompleted as Date? else { return false }
+            return calendar.isDate(doneDate, inSameDayAs: targetDate)
+        }
+        return completedToday.reduce(0) { partial, task in
+            partial + TaskScoringService.shared.calculateScore(for: task)
+        }
     }
     
     /// Async version of calculateTodaysScore that uses the repository pattern

@@ -33,13 +33,14 @@ final class CoreDataTaskRepository: TaskRepository {
     // MARK: - Core Methods
     
     func fetchTasks(predicate: NSPredicate?, sortDescriptors: [NSSortDescriptor]?, completion: @escaping ([TaskData]) -> Void) {
-        backgroundContext.perform {
+        // Use viewContext for read operations so that we always see the latest data saved on the main context (e.g., when a user marks an overdue task complete).
+        viewContext.perform {
             let request: NSFetchRequest<NTask> = NTask.fetchRequest()
             request.predicate = predicate
             request.sortDescriptors = sortDescriptors
             
             do {
-                let results = try self.backgroundContext.fetch(request)
+                let results = try self.viewContext.fetch(request)
                 let data = results.map { TaskData(managedObject: $0) }
                 DispatchQueue.main.async { completion(data) }
             } catch {
