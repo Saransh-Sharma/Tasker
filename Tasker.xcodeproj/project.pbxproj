@@ -60,6 +60,27 @@
 		7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
 		7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */; };
+		7529DB4C2E5C8CB6003F528E /* RescheduleTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB4B2E5C8CB6003F528E /* RescheduleTaskUseCase.swift */; };
+		7529DB4D2E5C8CB6003F528E /* RescheduleTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB4B2E5C8CB6003F528E /* RescheduleTaskUseCase.swift */; };
+		7529DB4E2E5C8CB6003F528E /* RescheduleTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB4B2E5C8CB6003F528E /* RescheduleTaskUseCase.swift */; };
+		7529DB502E5C8CC4003F528E /* DeleteTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB4F2E5C8CC4003F528E /* DeleteTaskUseCase.swift */; };
+		7529DB512E5C8CC4003F528E /* DeleteTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB4F2E5C8CC4003F528E /* DeleteTaskUseCase.swift */; };
+		7529DB522E5C8CC4003F528E /* DeleteTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB4F2E5C8CC4003F528E /* DeleteTaskUseCase.swift */; };
+		7529DB542E5C9349003F528E /* UpdateTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB532E5C9349003F528E /* UpdateTaskUseCase.swift */; };
+		7529DB552E5C9349003F528E /* UpdateTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB532E5C9349003F528E /* UpdateTaskUseCase.swift */; };
+		7529DB562E5C9349003F528E /* UpdateTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB532E5C9349003F528E /* UpdateTaskUseCase.swift */; };
+		7529DB582E5C9365003F528E /* AddTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB572E5C9365003F528E /* AddTaskUseCase.swift */; };
+		7529DB592E5C9365003F528E /* AddTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB572E5C9365003F528E /* AddTaskUseCase.swift */; };
+		7529DB5A2E5C9365003F528E /* AddTaskUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB572E5C9365003F528E /* AddTaskUseCase.swift */; };
+		7529DB5D2E5C93F7003F528E /* ProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB5C2E5C93F7003F528E /* ProjectRepository.swift */; };
+		7529DB5E2E5C93F7003F528E /* CoreDataProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB5B2E5C93F7003F528E /* CoreDataProjectRepository.swift */; };
+		7529DB5F2E5C93F7003F528E /* ProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB5C2E5C93F7003F528E /* ProjectRepository.swift */; };
+		7529DB602E5C93F7003F528E /* CoreDataProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB5B2E5C93F7003F528E /* CoreDataProjectRepository.swift */; };
+		7529DB612E5C93F7003F528E /* ProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB5C2E5C93F7003F528E /* ProjectRepository.swift */; };
+		7529DB622E5C93F7003F528E /* CoreDataProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB5B2E5C93F7003F528E /* CoreDataProjectRepository.swift */; };
+		7529DB642E5C9482003F528E /* ProjectData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB632E5C9482003F528E /* ProjectData.swift */; };
+		7529DB652E5C9482003F528E /* ProjectData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB632E5C9482003F528E /* ProjectData.swift */; };
+		7529DB662E5C9482003F528E /* ProjectData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529DB632E5C9482003F528E /* ProjectData.swift */; };
 		7529F6F32DFDE9BC000CBE36 /* LLMDataController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */; };
 		7529F6F42DFDE9BC000CBE36 /* LLMDataController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */; };
 		7529F6F52DFDE9BC000CBE36 /* LLMDataController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */; };
@@ -243,6 +264,15 @@
 		75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F993792483764C00C340EB /* DayAxisValueFormatter.swift */; };
 		75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */; };
 		75F993802485B04200C340EB /* Score.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937F2485B04200C340EB /* Score.swift */; };
+		75F9D0012E00000100AA0001 /* TaskDomain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9D0002E00000100AA0001 /* TaskDomain.swift */; };
+		75FA00112E00000200AA0001 /* GetMorningTasksForDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FA00012E00000200AA0001 /* GetMorningTasksForDate.swift */; };
+		75FA00122E00000200AA0001 /* GetEveningTasksForDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FA00022E00000200AA0001 /* GetEveningTasksForDate.swift */; };
+		75FA00132E00000200AA0001 /* GetInboxTasksForDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FA00032E00000200AA0001 /* GetInboxTasksForDate.swift */; };
+		75FA00142E00000200AA0001 /* ToggleTaskCompletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FA00042E00000200AA0001 /* ToggleTaskCompletion.swift */; };
+		75FA00152E00000200AA0001 /* GetTasksUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FA00052E00000200AA0001 /* GetTasksUseCase.swift */; };
+		75FA00162E00000200AA0001 /* GetTasksUseCaseImpl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FA00062E00000200AA0001 /* GetTasksUseCaseImpl.swift */; };
+		75FA00172E00000200AA0001 /* GetTaskByIdUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FA00072E00000200AA0001 /* GetTaskByIdUseCase.swift */; };
+		75FA00182E00000200AA0001 /* GetTaskByIdUseCaseImpl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75FA00082E00000200AA0001 /* GetTaskByIdUseCaseImpl.swift */; };
 		CC669337234F8443ABFD17F7 /* Pods_TaskerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A9F61136DA907F814857D67E /* Pods_TaskerTests.framework */; };
 /* End PBXBuildFile section */
 
@@ -300,6 +330,13 @@
 		751075172DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AddTaskViewController+Foredrop.swift"; sourceTree = "<group>"; };
 		7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsBackdrop.swift; sourceTree = "<group>"; };
 		7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		7529DB4B2E5C8CB6003F528E /* RescheduleTaskUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RescheduleTaskUseCase.swift; sourceTree = "<group>"; };
+		7529DB4F2E5C8CC4003F528E /* DeleteTaskUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteTaskUseCase.swift; sourceTree = "<group>"; };
+		7529DB532E5C9349003F528E /* UpdateTaskUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateTaskUseCase.swift; sourceTree = "<group>"; };
+		7529DB572E5C9365003F528E /* AddTaskUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskUseCase.swift; sourceTree = "<group>"; };
+		7529DB5B2E5C93F7003F528E /* CoreDataProjectRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataProjectRepository.swift; sourceTree = "<group>"; };
+		7529DB5C2E5C93F7003F528E /* ProjectRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectRepository.swift; sourceTree = "<group>"; };
+		7529DB632E5C9482003F528E /* ProjectData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectData.swift; sourceTree = "<group>"; };
 		7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMDataController.swift; sourceTree = "<group>"; };
 		7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+IfModifier.swift"; sourceTree = "<group>"; };
 		7529F7032DFDF7E3000CBE36 /* loading-animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "loading-animation.json"; sourceTree = "<group>"; };
@@ -414,6 +451,15 @@
 		75F993792483764C00C340EB /* DayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayAxisValueFormatter.swift; sourceTree = "<group>"; };
 		75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeBottomBarView.swift; sourceTree = "<group>"; };
 		75F9937F2485B04200C340EB /* Score.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Score.swift; sourceTree = "<group>"; };
+		75F9D0002E00000100AA0001 /* TaskDomain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDomain.swift; sourceTree = "<group>"; };
+		75FA00012E00000200AA0001 /* GetMorningTasksForDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetMorningTasksForDate.swift; sourceTree = "<group>"; };
+		75FA00022E00000200AA0001 /* GetEveningTasksForDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetEveningTasksForDate.swift; sourceTree = "<group>"; };
+		75FA00032E00000200AA0001 /* GetInboxTasksForDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetInboxTasksForDate.swift; sourceTree = "<group>"; };
+		75FA00042E00000200AA0001 /* ToggleTaskCompletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToggleTaskCompletion.swift; sourceTree = "<group>"; };
+		75FA00052E00000200AA0001 /* GetTasksUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetTasksUseCase.swift; sourceTree = "<group>"; };
+		75FA00062E00000200AA0001 /* GetTasksUseCaseImpl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetTasksUseCaseImpl.swift; sourceTree = "<group>"; };
+		75FA00072E00000200AA0001 /* GetTaskByIdUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetTaskByIdUseCase.swift; sourceTree = "<group>"; };
+		75FA00082E00000200AA0001 /* GetTaskByIdUseCaseImpl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetTaskByIdUseCaseImpl.swift; sourceTree = "<group>"; };
 		9DD40461B8B59873524E185B /* Pods_Tasker.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Tasker.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A4C3CA198A4EAEB126367B3F /* Pods-Tasker.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Tasker.release.xcconfig"; path = "Target Support Files/Pods-Tasker/Pods-Tasker.release.xcconfig"; sourceTree = "<group>"; };
 		A9F61136DA907F814857D67E /* Pods_TaskerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_TaskerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -486,6 +532,7 @@
 			children = (
 				751074EA2DEE24EA00AC7F22 /* ToDoListViewType.swift */,
 				75DFF2B42DF22EA500EB8850 /* TaskData.swift */,
+				7529DB632E5C9482003F528E /* ProjectData.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -546,6 +593,7 @@
 				75DFF2B02DF22E6B00EB8850 /* Managers */,
 				75DFF2C72DF22F5200EB8850 /* Repositories */,
 				75DFF2CF2DF22F8B00EB8850 /* Services */,
+				75FA00D02E00000200AA0001 /* Domain */,
 				75F89F442DFC44E6009EDD8F /* LLM */,
 				75E5ACAC2E048D3A00535D0A /* Views */,
 			);
@@ -690,6 +738,7 @@
 			isa = PBXGroup;
 			children = (
 				75F18105245CA0BC004D9A69 /* Task.swift */,
+				75F9D0002E00000100AA0001 /* TaskDomain.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -707,6 +756,8 @@
 			children = (
 				75DFF2C52DF22F5200EB8850 /* CoreDataTaskRepository.swift */,
 				75DFF2C62DF22F5200EB8850 /* TaskRepository.swift */,
+				7529DB5B2E5C93F7003F528E /* CoreDataProjectRepository.swift */,
+				7529DB5C2E5C93F7003F528E /* ProjectRepository.swift */,
 			);
 			path = Repositories;
 			sourceTree = "<group>";
@@ -857,6 +908,33 @@
 				75A400FC248C57DC002F0E7A /* ToDoAnimations.swift */,
 			);
 			path = Animation;
+			sourceTree = "<group>";
+		};
+		75FA00D02E00000200AA0001 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				75FA00D12E00000200AA0001 /* UseCases */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		75FA00D12E00000200AA0001 /* UseCases */ = {
+			isa = PBXGroup;
+			children = (
+				75FA00012E00000200AA0001 /* GetMorningTasksForDate.swift */,
+				75FA00022E00000200AA0001 /* GetEveningTasksForDate.swift */,
+				75FA00032E00000200AA0001 /* GetInboxTasksForDate.swift */,
+				75FA00042E00000200AA0001 /* ToggleTaskCompletion.swift */,
+				75FA00052E00000200AA0001 /* GetTasksUseCase.swift */,
+				75FA00062E00000200AA0001 /* GetTasksUseCaseImpl.swift */,
+				75FA00072E00000200AA0001 /* GetTaskByIdUseCase.swift */,
+				75FA00082E00000200AA0001 /* GetTaskByIdUseCaseImpl.swift */,
+				7529DB4B2E5C8CB6003F528E /* RescheduleTaskUseCase.swift */,
+				7529DB4F2E5C8CC4003F528E /* DeleteTaskUseCase.swift */,
+				7529DB532E5C9349003F528E /* UpdateTaskUseCase.swift */,
+				7529DB572E5C9365003F528E /* AddTaskUseCase.swift */,
+			);
+			path = UseCases;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1089,6 +1167,7 @@
 				75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */,
 				75F0C70C2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */,
 				7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */,
+				7529DB522E5C8CC4003F528E /* DeleteTaskUseCase.swift in Sources */,
 				758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */,
 				7551DA0B24883478005CF826 /* AddTaskCalendarExtention.swift in Sources */,
 				75F0C7152DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
@@ -1107,6 +1186,7 @@
 				75F3CB7C2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
 				75F18106245CA0BC004D9A69 /* Task.swift in Sources */,
 				751074F02DEE253D00AC7F22 /* HomeViewController+Animations.swift in Sources */,
+				7529DB4E2E5C8CB6003F528E /* RescheduleTaskUseCase.swift in Sources */,
 				758D4D7824A93FB300AB57A8 /* ProjectManager.swift in Sources */,
 				7510750D2DEE268D00AC7F22 /* HomeViewController+UISetup.swift in Sources */,
 				75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */,
@@ -1124,6 +1204,7 @@
 				75DFF3222DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				75F18108245CA229004D9A69 /* TaskManager.swift in Sources */,
 				75F89F452DFC44E6009EDD8F /* ModelsSettingsView.swift in Sources */,
+				7529DB5A2E5C9365003F528E /* AddTaskUseCase.swift in Sources */,
 				75F89F462DFC44E6009EDD8F /* ChatHostViewController.swift in Sources */,
 				75F89F472DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */,
 				75F89F482DFC44E6009EDD8F /* RequestLLMIntent.swift in Sources */,
@@ -1154,12 +1235,14 @@
 				75F89F512DFC44E6009EDD8F /* ConversationView.swift in Sources */,
 				75F89F522DFC44E6009EDD8F /* OnboardingInstallModelView.swift in Sources */,
 				75F89F532DFC44E6009EDD8F /* AppearanceSettingsView.swift in Sources */,
+				7529DB542E5C9349003F528E /* UpdateTaskUseCase.swift in Sources */,
 				75F89F542DFC44E6009EDD8F /* DeviceStat.swift in Sources */,
 				75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */,
 				75F89F572DFC44E6009EDD8F /* ChatView.swift in Sources */,
 				75DFF2B52DF22EA500EB8850 /* TaskData.swift in Sources */,
 				75D5D3272E0331F0007A243A /* ChartDataService.swift in Sources */,
 				751075152DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
+				7529DB652E5C9482003F528E /* ProjectData.swift in Sources */,
 				7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */,
 				751075092DEE262000AC7F22 /* HomeViewController+TaskSelection.swift in Sources */,
 				75573CB42DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
@@ -1189,6 +1272,17 @@
 				75A400FD248C57DD002F0E7A /* ToDoAnimations.swift in Sources */,
 				75DFF2B22DF22E6B00EB8850 /* DependencyContainer.swift in Sources */,
 				753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */,
+				75F9D0012E00000100AA0001 /* TaskDomain.swift in Sources */,
+				75FA00112E00000200AA0001 /* GetMorningTasksForDate.swift in Sources */,
+				75FA00122E00000200AA0001 /* GetEveningTasksForDate.swift in Sources */,
+				75FA00132E00000200AA0001 /* GetInboxTasksForDate.swift in Sources */,
+				75FA00142E00000200AA0001 /* ToggleTaskCompletion.swift in Sources */,
+				75FA00152E00000200AA0001 /* GetTasksUseCase.swift in Sources */,
+				75FA00162E00000200AA0001 /* GetTasksUseCaseImpl.swift in Sources */,
+				7529DB5D2E5C93F7003F528E /* ProjectRepository.swift in Sources */,
+				7529DB5E2E5C93F7003F528E /* CoreDataProjectRepository.swift in Sources */,
+				75FA00172E00000200AA0001 /* GetTaskByIdUseCase.swift in Sources */,
+				75FA00182E00000200AA0001 /* GetTaskByIdUseCaseImpl.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1210,6 +1304,7 @@
 				75F89FB82DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */,
 				750F9EE02685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75DFF2B32DF22E6B00EB8850 /* DependencyContainer.swift in Sources */,
+				7529DB562E5C9349003F528E /* UpdateTaskUseCase.swift in Sources */,
 				751075182DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift in Sources */,
 				75D5D3282E0331F0007A243A /* ChartDataService.swift in Sources */,
 				757F87D72E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift in Sources */,
@@ -1224,6 +1319,7 @@
 				751074E42DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				7557547C2DEED864003C9757 /* AddTaskViewController+Foredrop.swift in Sources */,
 				7529F6F92DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
+				7529DB4C2E5C8CB6003F528E /* RescheduleTaskUseCase.swift in Sources */,
 				75DFF2E52DF47D4200EB8850 /* FluentUIToDoTableViewController.swift in Sources */,
 				75E866DD2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */,
 				7539AAB92DE988C900619EDD /* TaskDetailView.swift in Sources */,
@@ -1233,16 +1329,21 @@
 				753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */,
 				75F89FBC2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */,
 				75D5D3232E0330EF007A243A /* CardViewModifier.swift in Sources */,
+				7529DB662E5C9482003F528E /* ProjectData.swift in Sources */,
 				75D5D3242E0330EF007A243A /* TaskCard.swift in Sources */,
 				751075142DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
 				75F3CB7B2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
+				7529DB582E5C9365003F528E /* AddTaskUseCase.swift in Sources */,
 				751075012DEE25E700AC7F22 /* HomeViewController+TableView.swift in Sources */,
 				75DFF2B72DF22EA500EB8850 /* TaskData.swift in Sources */,
 				751074EE2DEE24EA00AC7F22 /* ToDoListViewType.swift in Sources */,
 				75DFF2CC2DF22F5200EB8850 /* TaskRepository.swift in Sources */,
+				7529DB512E5C8CC4003F528E /* DeleteTaskUseCase.swift in Sources */,
 				75F89F772DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */,
 				75DFF2CD2DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
 				75DFF3232DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
+				7529DB612E5C93F7003F528E /* ProjectRepository.swift in Sources */,
+				7529DB622E5C93F7003F528E /* CoreDataProjectRepository.swift in Sources */,
 				75DFF3242DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				751075112DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
@@ -1267,6 +1368,7 @@
 				75F89FBA2DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */,
 				750F9EE12685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75DFF2B12DF22E6B00EB8850 /* DependencyContainer.swift in Sources */,
+				7529DB552E5C9349003F528E /* UpdateTaskUseCase.swift in Sources */,
 				7510751A2DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift in Sources */,
 				75D5D3262E0331F0007A243A /* ChartDataService.swift in Sources */,
 				757F87D82E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift in Sources */,
@@ -1281,6 +1383,7 @@
 				751074E32DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				7557547B2DEED864003C9757 /* AddTaskViewController+Foredrop.swift in Sources */,
 				7529F6FA2DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
+				7529DB4D2E5C8CB6003F528E /* RescheduleTaskUseCase.swift in Sources */,
 				75DFF2E62DF47D4200EB8850 /* FluentUIToDoTableViewController.swift in Sources */,
 				75E866DC2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */,
 				7539AABA2DE988C900619EDD /* TaskDetailView.swift in Sources */,
@@ -1290,16 +1393,21 @@
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
 				75F89FBE2DFD813F009EDD8F /* LLMTaskContextBuilder.swift in Sources */,
 				75D5D31F2E0330EE007A243A /* CardViewModifier.swift in Sources */,
+				7529DB642E5C9482003F528E /* ProjectData.swift in Sources */,
 				75D5D3202E0330EE007A243A /* TaskCard.swift in Sources */,
 				751075162DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
 				75F3CB7A2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
+				7529DB592E5C9365003F528E /* AddTaskUseCase.swift in Sources */,
 				751075022DEE25E700AC7F22 /* HomeViewController+TableView.swift in Sources */,
 				75DFF2B62DF22EA500EB8850 /* TaskData.swift in Sources */,
 				751074ED2DEE24EA00AC7F22 /* ToDoListViewType.swift in Sources */,
 				75DFF2C82DF22F5200EB8850 /* TaskRepository.swift in Sources */,
+				7529DB502E5C8CC4003F528E /* DeleteTaskUseCase.swift in Sources */,
 				75F89F762DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */,
 				75DFF2C92DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
 				75DFF3252DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
+				7529DB5F2E5C93F7003F528E /* ProjectRepository.swift in Sources */,
+				7529DB602E5C93F7003F528E /* CoreDataProjectRepository.swift in Sources */,
 				75DFF3262DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				751075102DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,

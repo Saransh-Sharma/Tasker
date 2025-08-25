@@ -16,6 +16,7 @@ class TaskDetailViewFluent: UIView {
     private var currentTask: NTask?
     private var availableProjects: [Projects] = []
     private var taskRepository: TaskRepository?
+    private var updateTaskUseCase: UpdateTaskUseCase?
 
     private let scrollView = UIScrollView()
     private let stackView = UIStackView()
@@ -267,11 +268,11 @@ class TaskDetailViewFluent: UIView {
 
 
     // --- Configuration ---
-    public func configure(task: NTask, availableProjects: [Projects], delegate: TaskDetailViewFluentDelegate, taskRepository: TaskRepository? = nil) {
+    public func configure(task: NTask, availableProjects: [Projects], delegate: TaskDetailViewFluentDelegate, updateTaskUseCase: UpdateTaskUseCase? = nil) {
         self.currentTask = task
         self.availableProjects = availableProjects
         self.delegate = delegate
-        self.taskRepository = taskRepository
+        self.updateTaskUseCase = updateTaskUseCase
         
         // Reset unsaved changes flag
         self.hasUnsavedChanges = false
@@ -350,60 +351,65 @@ class TaskDetailViewFluent: UIView {
     @objc private func didTapSaveButton() {
         guard let task = currentTask, hasUnsavedChanges else { return }
         
-        // Use repository pattern if available, otherwise fall back to direct Core Data modification
-        if let repository = taskRepository {
-            // Create TaskData from current UI state
-            let updatedTaskData = TaskData(
-                id: task.objectID,
-                name: titleTextField.inputText ?? "",
-                details: descriptionTextField.inputText,
-                type: TaskType(rawValue: task.taskType) ?? .upcoming,
-                priority: {
-                    let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
-                    if let priorityRawValue = segmentedControlIndexToPriority[selectedIndex] {
-                        return TaskPriority(rawValue: priorityRawValue) ?? .medium
+        // Create TaskData from current UI state
+        let updatedTaskData = TaskData(
+            id: task.objectID,
+            name: titleTextField.inputText ?? "",
+            details: descriptionTextField.inputText,
+            type: TaskType(rawValue: task.taskType) ?? .upcoming,
+            priority: {
+                let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
+                if let priorityRawValue = segmentedControlIndexToPriority[selectedIndex] {
+                    return TaskPriority(rawValue: priorityRawValue) ?? .medium
+                }
+                return .medium
+            }(),
+            dueDate: currentDueDate ?? Date(),
+            project: currentProject ?? "Inbox",
+            isComplete: task.isComplete,
+            dateAdded: task.dateAdded as Date? ?? Date(),
+            dateCompleted: task.dateCompleted as Date?
+        )
+        
+        if let useCase = updateTaskUseCase {
+            // Use the UpdateTaskUseCase to update the task
+            useCase.execute(taskID: task.objectID, data: updatedTaskData) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        self?.hasUnsavedChanges = false
+                        self?.updateSaveButtonState()
+                        self?.delegate?.taskDetailViewFluentDidSave(self!, savedTask: task)
+                    case .failure(let error):
+                        print("Failed to save task via use case: \(error.localizedDescription)")
                     }
-                    return .medium
-                }(),
-                dueDate: currentDueDate ?? Date(),
-                project: currentProject ?? "Inbox",
-                isComplete: task.isComplete,
-                dateAdded: task.dateAdded as Date? ?? Date(),
-                dateCompleted: task.dateCompleted as Date?
-            )
-            
-            // Use repository to update the task
+                }
+            }
+        } else if let repository = taskRepository {
+            // Fallback: use repository directly if provided
             repository.updateTask(taskID: task.objectID, data: updatedTaskData) { [weak self] result in
                 DispatchQueue.main.async {
                     switch result {
                     case .success:
-                        // Reset the unsaved changes flag
                         self?.hasUnsavedChanges = false
                         self?.updateSaveButtonState()
-                        
-                        // Call the delegate to handle post-save actions
                         self?.delegate?.taskDetailViewFluentDidSave(self!, savedTask: task)
                     case .failure(let error):
                         print("Failed to save task: \(error.localizedDescription)")
-                        // Could show an alert to the user here
                     }
                 }
             }
         } else {
-            // Fallback to direct Core Data modification (legacy approach)
+            // Legacy fallback: direct Core Data modification
             task.name = titleTextField.inputText ?? ""
             task.taskDetails = descriptionTextField.inputText
             
-            // Update priority from segmented control
             let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
             if let priority = segmentedControlIndexToPriority[selectedIndex] {
                 task.taskPriority = priority
             }
             
-            // Call the delegate to save the task
             delegate?.taskDetailViewFluentDidSave(self, savedTask: task)
-            
-            // Reset the unsaved changes flag
             hasUnsavedChanges = false
             updateSaveButtonState()
         }

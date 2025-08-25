@@ -71,32 +71,18 @@ extension AddTaskViewController {
         print("📁 AddTask: Project: '\(currenttProjectForAddTaskView)'")
         print("🤝 AddTask: Delegate is set: \(delegate != nil)")
         
-        // CRITICAL: Check taskRepository state before using it
-        print("🔍 AddTask: Checking taskRepository state...")
-        if taskRepository == nil {
-            print("❌ AddTask: CRITICAL ERROR - taskRepository is nil!")
-            print("🔧 AddTask: This indicates dependency injection failed")
-            print("📊 AddTask: View controller type: \(String(describing: type(of: self)))")
-            print("🏗️ AddTask: Attempting to get repository from DependencyContainer...")
-            
-            // Fallback: try to get repository from dependency container
-            if let fallbackRepository = DependencyContainer.shared.taskRepository {
-                print("✅ AddTask: Found fallback repository from DependencyContainer")
-                taskRepository = fallbackRepository
-            } else {
-                print("💥 AddTask: FATAL - No repository available anywhere!")
-                // Show error to user instead of crashing
-                DispatchQueue.main.async {
-                    let alert = UIAlertController(title: "Error", message: "Unable to save task. Please try again.", preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: "OK", style: .default))
-                    self.present(alert, animated: true)
-                }
-                return
+        // CRITICAL: Check addTaskUseCase state before using it
+        print("🔍 AddTask: Checking addTaskUseCase state...")
+        guard let addTaskUseCase = self.addTaskUseCase else {
+            print("❌ AddTask: CRITICAL ERROR - addTaskUseCase is nil! Dependency injection failed.")
+            DispatchQueue.main.async {
+                let alert = UIAlertController(title: "Error", message: "Unable to save task. Please try again.", preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                self.present(alert, animated: true)
             }
-        } else {
-            print("✅ AddTask: taskRepository is properly initialized")
-            print("📊 AddTask: Repository type: \(String(describing: type(of: taskRepository)))")
+            return
         }
+        print("✅ AddTask: addTaskUseCase is available")
         
         // Determine task type based on evening switch
         let taskType: TaskType = isThisEveningTask ? .evening : .morning
@@ -113,10 +99,10 @@ extension AddTaskViewController {
         )
         print("📦 AddTask: TaskData created successfully")
         
-        // Add task using repository pattern
-        print("💾 AddTask: Calling taskRepository.addTask...")
-        taskRepository.addTask(data: taskData) { [weak self] (result: Result<NTask, Error>) in
-            print("📬 AddTask: Received response from taskRepository.addTask")
+        // Add task using use case pattern
+        print("💾 AddTask: Calling addTaskUseCase.execute...")
+        addTaskUseCase.execute(data: taskData) { [weak self] (result: Result<NTask, Error>) in
+            print("📬 AddTask: Received response from addTaskUseCase.execute")
             DispatchQueue.main.async {
                 print("🔄 AddTask: Processing result on main queue")
                 switch result {

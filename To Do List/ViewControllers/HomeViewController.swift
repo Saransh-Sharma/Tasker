@@ -766,24 +766,11 @@ extension HomeViewController {
 extension HomeViewController: AddTaskViewControllerDelegate {
     func didAddTask(_ task: NTask) {
         print("🔄 AddTask: didAddTask called for task: \(task.name) with due date: \(task.dueDate ?? Date() as NSDate)")
-        
-        // Step 1: Save the Core Data context to ensure the new task is persisted
-        do {
-            try TaskManager.sharedInstance.context.save()
-            print("💾 AddTask: Context saved successfully")
-        } catch {
-            print("❌ AddTask: Failed to save context: \(error)")
-            return // Exit early if save fails
-        }
-        
-        // Step 2: Refresh the context to get the latest data from persistent store
-        TaskManager.sharedInstance.context.refreshAllObjects()
-        
-        // Step 3: Process pending changes to ensure consistency
-        TaskManager.sharedInstance.context.processPendingChanges()
-        
-        // Step 4: Update the view on the main queue
+        // Core Data writes are performed in background by repository and auto-merged into viewContext.
+        // Avoid refreshAllObjects() as it can fault objects and crash when UI holds references.
+        // Process any pending changes on main thread, then update UI.
         DispatchQueue.main.async {
+            TaskManager.sharedInstance.context.processPendingChanges()
             print("🔄 AddTask: Updating view on main queue")
             
             // Compare dates properly using startOfDay to ignore time differences
@@ -795,7 +782,7 @@ extension HomeViewController: AddTaskViewControllerDelegate {
             print("📅 AddTask: View date: \(viewDateStartOfDay)")
             print("📅 AddTask: Task due date: \(taskDueDateStartOfDay)")
             
-            // Step 5: Determine the correct view type and update accordingly
+            // Determine the correct view type and update accordingly
             // Ensure the view is updated with the correct date context before reloading data.
             // This will repopulate ToDoListSections which is the datasource for the table.
             if self.currentViewType == .todayHomeView && taskDueDateStartOfDay == todayStartOfDay {
@@ -829,7 +816,7 @@ extension HomeViewController: AddTaskViewControllerDelegate {
                 }
             }
             
-            // Step 6: Force reload the table view to ensure UI is updated with the potentially new data from updateViewForHome
+            // Force reload the table view to ensure UI is updated with the potentially new data from updateViewForHome
             print("🔄 AddTask: Reloading table data")
             // Sync FluentUI table data with updated tasks
             self.fluentToDoTableViewController?.updateData(for: self.dateForTheView)
@@ -838,7 +825,7 @@ extension HomeViewController: AddTaskViewControllerDelegate {
             // Update pie chart as tasks have potentially changed
             self.refreshNavigationPieChart()
             
-            // Step 7: Check if the new task should be visible in current view (logging purpose)
+            // Check if the new task should be visible in current view (logging purpose)
             if taskDueDateStartOfDay == viewDateStartOfDay {
                 print("✅ AddTask: New task *should* be visible if current view is for \(viewDateStartOfDay)")
             } else {

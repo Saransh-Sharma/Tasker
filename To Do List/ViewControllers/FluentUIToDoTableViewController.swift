@@ -445,8 +445,9 @@ extension FluentUIToDoTableViewController {
                 ]
             )
             
+            let subtitleText = (task.taskDetails?.isEmpty == false) ? task.taskDetails! : ""
             let attributedSubtitle = NSAttributedString(
-                string: task.taskDetails ?? "Completed",
+                string: subtitleText,
                 attributes: [
                     .font: fluentTheme.typography(.caption2),
                     .foregroundColor: fluentTheme.color(.foreground3),
@@ -542,8 +543,9 @@ extension FluentUIToDoTableViewController {
                 ]
             )
             
+            let subtitleText = (task.taskDetails?.isEmpty == false) ? task.taskDetails! : ""
             let attributedSubtitle = NSAttributedString(
-                string: task.taskDetails ?? "Completed",
+                string: subtitleText,
                 attributes: [
                     .font: fluentTheme.typography(.caption1),
                     .foregroundColor: fluentTheme.color(.foreground3),

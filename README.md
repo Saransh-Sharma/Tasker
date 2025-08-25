@@ -232,7 +232,180 @@ The application currently operates in a **hybrid state** where:
 | 8. Project Repository & Relations | Convert `project` string FK into Core-Data relationship | 🚧 Planned | — | • Update `.xcdatamodeld` with relationship<br>• Write migration script<br>• Implement `ProjectRepository` |
 | 9. Test Coverage Expansion | Achieve 70% unit coverage on domain & data layers | 🚧 Planned | • Templates present | • Implement tests listed in testing roadmap |
 
-> The table doubles as a kanban board: each "Next Action Item" should translate into GitHub issues.
+ > The table doubles as a kanban board: each "Next Action Item" should translate into GitHub issues.
+
+### Clean Architecture Migration — Status Review (Aug 2025)
+
+**Phase 1 – Inventory & Shims**
+
+*Done*
+- All `TaskManager` / `ProjectManager` call-sites have been catalogued (see list below).
+
+*Pending*
+- Add thin adapter methods in both managers that forward to repositories/use-cases.
+- Annotate singletons with `@available(*, deprecated)` to warn during compilation.
+- Enforce contributor rule: no new direct Core Data or manager logic in new code.
+
+**Phase 2 – Project Data Layer**
+
+*Done*
+- — *(implementation not started)*
+
+*Pending*
+- Create `ProjectRepository` protocol + `CoreDataProjectRepository` implementation.
+- Register repository in `DependencyContainer`.
+- Migrate `ProjectManager` methods to adapters; controllers fetch projects via DI.
+
+**Supporting Evidence**
+- *Predicate-driven fetching* — `CoreDataTaskRepository.swift` uses `NSPredicate` in all query helpers.
+- *Type-safe enums & mapping* — `NTask+Extensions.swift` and `TaskData.swift` convert Core Data `Int32` to `TaskType` / `TaskPriority` enums and back.
+
+#### Detailed Phase Progress & Next Steps (Aug 2025)
+
+| Phase | Done | Pending | Acceptance Criteria / Improvements |
+|-------|------|---------|------------------------------------|
+| **1. Inventory & Shims** | • Call-sites catalogued | • Adapter methods inside managers forward to repos / use cases<br>• Deprecation annotations on singletons<br>• Enforce “no new manager logic” rule | Build passes with deprecation warnings; all new code uses repos / use cases |
+| **2. Project Data Layer** | — | • `ProjectRepository` protocol + `CoreDataProjectRepository`<br>• Register in `DependencyContainer`<br>• Adapter delegation in `ProjectManager` | All project CRUD flows execute through `ProjectRepository` via DI |
+| **3. Task Use Case Coverage** | • Read use cases (`GetTasks`) | • Write use cases: Add / Toggle / Delete / Reschedule / Update<br>• Controllers and delegates call use cases only | `HomeViewController`, `ToDoList.swift`, `AddTaskViewController` interact only with use cases |
+| **4. Presentation Refactor (MVVM)** | • DI-ready controllers; SwiftUI views for Settings & Projects | • Introduce `HomeViewModel`, `AddTaskViewModel`, `ProjectListViewModel`<br>• Move formatting / filtering / scoring into VMs | Home & Add Task run through ViewModels with unit-testable logic |
+| **5. Concurrency & Core Data Hygiene** | • Background writes in `CoreDataTaskRepository`<br>• FRC in `TaskListViewController` | • Verify background writes in new repositories<br>• Adopt diffable data source on Home & Project lists | No main-thread Core Data writes; smooth UI during bulk edits |
+| **6. Tests** | Templates scaffolded | • Unit tests for use cases (mock repos)<br>• Integration tests for repos (in-memory store)<br>• Smoke UI tests for Home list | CI runs green; ≥40 % overall coverage |
+| **7. Remove Legacy** | — | • Remove `TaskManager` & `ProjectManager` after adapters phased out<br>• Delete direct Core Data access from UI | Search in app sources shows 0 results for singletons |
+| **8. SwiftUI Expansion (Parallel)** | • `ProjectManagementView`, `SettingsView` | • SwiftUI Home and Add Task screens wrapping ViewModels | SwiftUI Home & AddTask achieve feature parity with UIKit versions |
+
+---
+
+### 📋 Deep-Dive Action Plan & Acceptance Criteria
+
+<details>
+<summary><strong>Phase 1 — Inventory & Shims</strong></summary>
+
+**Tasks**
+- [ ] Generate adapter methods in `TaskManager` / `ProjectManager` that delegate to repositories / use-cases.
+- [ ] Annotate both singletons with `@available(*, deprecated, message:"Use TaskRepository / ProjectRepository")`.
+- [ ] Add SwiftLint custom rule forbidding new references to the singletons (outside adapters).
+- [ ] Update contributor guidelines + PR template to highlight the rule.
+
+**Acceptance**
+- Build succeeds with *only* deprecation warnings for remaining legacy calls.
+- SwiftLint passes with **0** violations for the custom rule.
+</details>
+
+<details>
+<summary><strong>Phase 2 — Project Data Layer</strong></summary>
+
+**Tasks**
+- [ ] Define `ProjectRepository` protocol (CRUD + filtered fetch helpers).
+- [ ] Implement `CoreDataProjectRepository` using background contexts & CloudKit sync.
+- [ ] Register repository in `DependencyContainer`; add property-wrapper injection helper `@Inject var projectRepository`.
+- [ ] Add adapter delegation in `ProjectManager` *without* changing public API (keeps UI compiling).
+- [ ] Unit-test repository functions with in-memory store.
+- [ ] Migrate `ProjectManagementViewController` & SwiftUI `ProjectManagementView` to `ProjectRepository`.
+
+**Acceptance**
+- All project CRUD flows (add / rename / delete / list) run through `ProjectRepository` via DI.
+- Legacy `ProjectManager` methods reach **adapter path only** (confirmed by breakpoints / logs).
+- Unit tests for repository cover ≥90 % of lines.
+</details>
+
+<details>
+<summary><strong>Phase 3 — Task Use-Case Coverage</strong></summary>
+
+**Tasks**
+- [ ] Create use-case structs: `AddTask`, `ToggleTaskCompletion`, `DeleteTask`, `RescheduleTask`, `UpdateTask` (async completion-handler API).
+- [ ] Refactor `GetTasks` variants into one generic `GetTasksUseCase` with filters.
+- [ ] Inject use-cases into `HomeViewController`, `ToDoList.swift`, `AddTaskViewController`, calendar delegates.
+- [ ] Remove any direct repository or `TaskManager` calls from UI after migration.
+- [ ] Unit-test all use-cases with mock repositories.
+
+**Acceptance**
+- Above controllers / delegates compile *only* against use-cases (search check).
+- Unit tests cover success + failure cases for each use-case.
+</details>
+
+<details>
+<summary><strong>Phase 4 — Presentation Refactor (MVVM)</strong></summary>
+
+**Tasks**
+- [ ] Introduce `HomeViewModel`, `AddTaskViewModel`, `ProjectListViewModel` (Combine publishers for state updates).
+- [ ] Move formatting / filtering / scoring logic from controllers to VMs.
+- [ ] Bridge UIKit controllers via property observers or diffable snapshots.
+- [ ] Prepare SwiftUI equivalents to bind VMs directly.
+- [ ] Add snapshot unit tests validating VM → view-state mapping.
+
+**Acceptance**
+- Home & Add-Task screens render via ViewModel state only.
+- Corresponding controllers shrink to ≤100 LOC (logic-less).
+</details>
+
+<details>
+<summary><strong>Phase 5 — Concurrency & Core Data Hygiene</strong></summary>
+
+**Tasks**
+- [ ] Audit all repository write paths; wrap in `context.perform{}` blocks.
+- [ ] Ensure main-thread UI updates use diffable data sources.
+- [ ] Run Instruments `Main Thread Checker` + `Time Profiler` during bulk imports (≥1 k tasks).
+- [ ] Adopt `NSPersistentCloudKitContainer` quality-of-service tuning for background sync.
+
+**Acceptance**
+- Zero “CoreData main-thread write” warnings at runtime.
+- Scrolling FPS ≥55 on iPhone 11 simulator with 1 k tasks.
+</details>
+
+<details>
+<summary><strong>Phase 6 — Tests</strong></summary>
+
+**Tasks**
+- [ ] Implement mock repository factory (`MockTaskRepository`, `MockProjectRepository`).
+- [ ] Build in-memory Core Data stack helper for integration tests.
+- [ ] Add unit tests for all use-cases and ViewModels.
+- [ ] Add integration tests for repositories (CRUD + predicate filtering).
+- [ ] Add UI test: create → toggle → delete task in Home list.
+- [ ] Configure CI (GitHub Actions) with code-coverage threshold 40 % (raise to 70 % in Phase 9).
+
+**Acceptance**
+- CI pipeline green; coverage ≥40 % overall and trending upward.
+</details>
+
+<details>
+<summary><strong>Phase 7 — Remove Legacy Managers</strong></summary>
+
+**Tasks**
+- [ ] Gradually delete adapter methods once call-sites migrated.
+- [ ] Remove `TaskManager.swift` & `ProjectManager.swift` files.
+- [ ] Delete associated unit tests / docs.
+- [ ] Re-run SwiftLint custom rule to ensure zero violations.
+
+**Acceptance**
+- `rg "TaskManager|ProjectManager" To\ Do\ List/` returns **0** results.
+- Build / tests pass without singletons present.
+</details>
+
+<details>
+<summary><strong>Phase 8 — SwiftUI Expansion (parallel)</strong></summary>
+
+**Tasks**
+- [ ] Implement SwiftUI `HomeView` & `AddTaskView` bound to shared ViewModels.
+- [ ] Refactor navigation flow to use `UIHostingController` wrappers where UIKit persists.
+- [ ] Support Dynamic-Type & Dark-Mode in new SwiftUI screens.
+- [ ] Regression test on iOS 14–17 devices.
+
+**Acceptance**
+- SwiftUI Home & Add-Task achieve feature parity with UIKit versions and pass snapshot tests.
+</details>
+
+ - **Known legacy usages to migrate off TaskManager**
+   - `To Do List/ViewControllers/HomeViewController.swift`
+   - `To Do List/ViewControllers/HomeViewController+ProjectFiltering.swift`
+   - `To Do List/ViewControllers/HomeViewController+TableView.swift`
+   - `To Do List/ViewControllers/Delegates/ToDoList.swift`
+   - `To Do List/ViewControllers/Delegates/HomeCalendarExtention.swift`
+   - `To Do List/ViewControllers/Delegates/AddTaskCalendarExtention.swift`
+   - `To Do List/ViewControllers/SettingsPageViewController.swift`
+   - `To Do List/ViewControllers/ProjectManagementViewController.swift`
+   - `To Do List/ViewControllers/ProjectManager.swift` (contains calls into `TaskManager`)
+   - `AddTaskViewController.swift` has no direct `TaskManager` references; its calendar delegate extension still does.
+   - `TaskListViewController.swift` is fully on the repository pattern; use it as a migration reference.
 
 #### Phase-Wise Detailed Checklists
 
@@ -240,7 +413,7 @@ The application currently operates in a **hybrid state** where:
 <summary><strong>Phase 3 — Repository Layer & DI (60% done)</strong></summary>
 
 - [x] Define `TaskRepository` protocol and default CRUD signatures
-- [x] Implement `CoreDataTaskRepository` with background context
+- [x] Implement `CoreDataTaskRepository` with background context operations
 - [x] Register `TaskRepository` inside `DependencyContainer`
 - [x] Inject into `TaskListViewController`
 - [ ] Refactor `HomeViewController` to repository pattern *(ETA 2025-Q3)*
@@ -525,47 +698,54 @@ extension NTask {
 ### TaskData Presentation Model
 
 The `TaskData.swift` struct serves as a clean presentation layer model:
-
 ```swift
 struct TaskData {
-    let id: UUID
+    let id: NSManagedObjectID?
     let name: String
     let details: String?
     let type: TaskType
     let priority: TaskPriority
-    let dueDate: Date?
-    let project: String?
+    let dueDate: Date
+    let project: String
     let isComplete: Bool
-    let dateAdded: Date?
+    let dateAdded: Date
     let dateCompleted: Date?
     
     // Initializer from Core Data managed object
-    init(from managedObject: NTask) {
-        self.id = managedObject.objectID.uriRepresentation().absoluteString
-        self.name = managedObject.name ?? ""
+    init(managedObject: NTask) {
+        self.id = managedObject.objectID
+        self.name = managedObject.name ?? "Untitled Task"
         self.details = managedObject.taskDetails
         self.type = TaskType(rawValue: managedObject.taskType) ?? .morning
         self.priority = TaskPriority(rawValue: managedObject.taskPriority) ?? .medium
-        self.dueDate = managedObject.dueDate as Date?
-        self.project = managedObject.project
+        self.dueDate = (managedObject.dueDate as Date?) ?? Date()
+        self.project = managedObject.project ?? "Inbox"
         self.isComplete = managedObject.isComplete
-        self.dateAdded = managedObject.dateAdded as Date?
+        self.dateAdded = (managedObject.dateAdded as Date?) ?? Date()
         self.dateCompleted = managedObject.dateCompleted as Date?
     }
     
     // Initializer for new tasks
-    init(name: String, details: String?, type: TaskType, priority: TaskPriority, 
-         dueDate: Date?, project: String?) {
-        self.id = UUID()
+    init(id: NSManagedObjectID? = nil,
+         name: String,
+         details: String? = nil,
+         type: TaskType,
+         priority: TaskPriority,
+         dueDate: Date,
+         project: String = "Inbox",
+         isComplete: Bool = false,
+         dateAdded: Date = Date(),
+         dateCompleted: Date? = nil) {
+        self.id = id
         self.name = name
         self.details = details
         self.type = type
         self.priority = priority
         self.dueDate = dueDate
         self.project = project
-        self.isComplete = false
-        self.dateAdded = Date()
-        self.dateCompleted = nil
+        self.isComplete = isComplete
+        self.dateAdded = dateAdded
+        self.dateCompleted = dateCompleted
     }
 }
 ```
@@ -589,65 +769,33 @@ enum ToDoListViewType {
 ### Core Data Repository Pattern
 
 The repository pattern abstracts data access:
-
 ```swift
-class CoreDataTaskRepository {
-    private let context: NSManagedObjectContext
-    
-    init(context: NSManagedObjectContext) {
-        self.context = context
+final class CoreDataTaskRepository: TaskRepository {
+    private let viewContext: NSManagedObjectContext
+    private let backgroundContext: NSManagedObjectContext
+
+    init(container: NSPersistentContainer, defaultProject: String = "Inbox") {
+        self.viewContext = container.viewContext
+        self.backgroundContext = container.newBackgroundContext()
+        self.viewContext.automaticallyMergesChangesFromParent = true
+        self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
-    
-    func fetchTasks(for viewType: ToDoListViewType, date: Date? = nil, 
-                   project: String? = nil) -> [TaskData] {
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        
-        switch viewType {
-        case .todayHomeView:
-            request.predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", 
-                                          Calendar.current.startOfDay(for: Date()) as NSDate,
-                                          Calendar.current.date(byAdding: .day, value: 1, 
-                                          to: Calendar.current.startOfDay(for: Date()))! as NSDate)
-        case .projectView:
-            if let project = project {
-                request.predicate = NSPredicate(format: "project == %@", project)
-            }
-        case .upcomingView:
-            request.predicate = NSPredicate(format: "dueDate > %@", Date() as NSDate)
-        case .historyView:
-            request.predicate = NSPredicate(format: "isComplete == YES")
-        default:
-            break
-        }
-        
-        request.sortDescriptors = [
-            NSSortDescriptor(key: "taskPriority", ascending: true),
-            NSSortDescriptor(key: "dueDate", ascending: true)
-        ]
-        
-        do {
-            let managedTasks = try context.fetch(request)
-            return managedTasks.map { TaskData(from: $0) }
-        } catch {
-            print("Error fetching tasks: \(error)")
-            return []
-        }
-    }
-    
-    func save(task: TaskData) throws {
-        let managedTask = NTask(context: context)
-        managedTask.name = task.name
-        managedTask.taskDetails = task.details
-        managedTask.taskType = task.type.rawValue
-        managedTask.taskPriority = task.priority.rawValue
-        managedTask.dueDate = task.dueDate as NSDate?
-        managedTask.project = task.project
-        managedTask.isComplete = task.isComplete
-        managedTask.dateAdded = task.dateAdded as NSDate?
-        managedTask.dateCompleted = task.dateCompleted as NSDate?
-        
-        try context.save()
-    }
+
+    func fetchTasks(predicate: NSPredicate?,
+                    sortDescriptors: [NSSortDescriptor]?,
+                    completion: @escaping ([TaskData]) -> Void) { /* ... */ }
+
+    func addTask(data: TaskData,
+                 completion: ((Result<NTask, Error>) -> Void)?) { /* ... */ }
+
+    func toggleComplete(taskID: NSManagedObjectID,
+                        completion: ((Result<Void, Error>) -> Void)?) { /* ... */ }
+
+    func deleteTask(taskID: NSManagedObjectID,
+                    completion: ((Result<Void, Error>) -> Void)?) { /* ... */ }
+
+    func reschedule(taskID: NSManagedObjectID, to newDate: Date,
+                    completion: ((Result<Void, Error>) -> Void)?) { /* ... */ }
 }
 ```
 
@@ -1500,117 +1648,69 @@ Configuration:
 
 ![004](https://user-images.githubusercontent.com/4607881/84249226-1e15ad00-ab28-11ea-85c3-27f5320bcab1.gif)
 
-## Path to Clean Architecture
+## Clean Architecture Migration
+This section tracks the live migration of Tasker from legacy MVC + singletons to a Clean Architecture with repositories, use cases, and centralized dependency injection.
 
-### Current State and Future Direction
-Tasker is currently in a transitional phase, evolving from a traditional MVC architecture to Clean Architecture principles. This migration is being implemented incrementally to maintain stability while improving code organization and testability.
+### Migration Status (TL;DR)
+- **Dependency Injection:** Centralized via `DependencyContainer` in `To Do List/Managers/DependencyContainer.swift`.
+  - Injects `TaskRepository` and Core Data `viewContext` into view controllers that conform to `TaskRepositoryDependent` and `ViewContextDependent`.
+  - Recursively injects across child, navigation stacks, and presented controllers.
+- **Repositories:**
+  - `TaskRepository` protocol and `CoreDataTaskRepository` implementation in `To Do List/Repositories/` are in use.
+  - `ProjectRepository` is planned and not yet implemented.
+- **Use Cases:**
+  - Read-side use cases in `To Do List/Domain/UseCases/` (e.g., `GetTasksUseCase`, `GetTaskByIdUseCase`) are implemented and delegate to `TaskRepository`.
+  - Write-side use cases (toggle, delete, reschedule, add/update) are partially present and will be unified and adopted across controllers.
+- **Presentation:**
+  - Controllers such as `TaskListViewController` now receive dependencies via DI and use `NSFetchedResultsController` with the injected `viewContext`.
+  - MVVM adoption is planned; initial screens will be migrated to ViewModels.
+- **Legacy:**
+  - `TaskManager` and `ProjectManager` singletons still exist and have call sites. They will be replaced by use cases and repositories, then removed.
 
-### Introduction to Clean Architecture
-Clean Architecture is a software design philosophy that separates concerns into distinct, concentric layers. It emphasizes independence from frameworks, UI, database, and external agencies. The core idea is that business logic and application logic should stand at the center, with dependencies pointing inwards.
+### Scope and Principles
+- **Domain first:** UI never talks directly to Core Data. Business rules live in use cases that depend on repository protocols.
+- **DI everywhere:** All dependencies are provided via `DependencyContainer` or initializer injection for testability.
+- **Incremental, safe refactors:** Migrate feature-by-feature with shims/adapters to avoid regressions.
 
-**Core Principles:**
--   **Entities:** Represent enterprise-wide business rules and data structures. They are the most general and high-level rules and are typically plain Swift objects or structs, having no knowledge of other layers.
--   **Use Cases (Interactors):** Contain application-specific business rules. They orchestrate the flow of data to and from Entities and direct those Entities to use their critical business rules to achieve the goals of the use case.
--   **Interface Adapters:** This layer converts data from the format most convenient for Use Cases and Entities to the format most convenient for external agencies like the UI or database. This includes Presenters, ViewModels, and Controllers (in an MVC context adapted for Clean Architecture).
--   **Frameworks & Drivers:** The outermost layer consists of frameworks and tools such as the Database (e.g., Core Data), the UI (e.g., UIKit), and external interfaces. This layer is where all the details go.
+### Code Map (current)
+- Repositories: `To Do List/Repositories/TaskRepository.swift`, `To Do List/Repositories/CoreDataTaskRepository.swift`
+- Use Cases: `To Do List/Domain/UseCases/GetTasksUseCase(.swift|Impl.swift)`, `To Do List/Domain/UseCases/GetTaskByIdUseCase(.swift|Impl.swift)`
+- DI: `To Do List/Managers/DependencyContainer.swift`
+- Example VC using DI: `To Do List/ViewControllers/TaskListViewController.swift`
 
-**Benefits:**
-Adopting Clean Architecture can lead to systems that are:
--   **Independent of Frameworks:** The core business logic is not tied to specific frameworks.
--   **Testable:** Business rules can be tested without the UI, Database, Web Server, or any other external element.
--   **Independent of UI:** The UI can change easily, without changing the rest of the system.
--   **Independent of Database:** You can swap out Oracle or SQL Server for Mongo, BigTable, or CouchDB. Your business rules are not bound to the database.
--   **Maintainable & Scalable:** Changes in one area are less likely to impact others, making the system easier to maintain and scale.
+### Phase-wise Roadmap
+- [x] Centralize DI and inject `TaskRepository` + Core Data `viewContext` into view controllers.
+- [x] Implement task read use cases and delegate to `TaskRepository`.
+- [ ] Implement/standardize task write use cases: toggle, delete, reschedule, add/update; adopt across controllers.
+- [ ] Introduce `ProjectRepository` protocol + `CoreDataProjectRepository`; wire via `DependencyContainer`.
+- [ ] Migrate UI flows to use cases only (no repository/UI coupling) and begin MVVM for key screens (Home, Add Task, Project List).
+- [ ] Concurrency hygiene: background writes, main-thread UI updates in repositories.
+- [ ] Tests: unit tests for use cases (mock repos) and integration tests for repos using in-memory Core Data.
+- [ ] Remove `TaskManager` and `ProjectManager` and any direct Core Data access from UI.
 
-### Proposed Layers for Tasker (Clean Architecture)
+### Implementation Details
+- **Dependency Injection** (`DependencyContainer`):
+  - Provides a configured `NSPersistentCloudKitContainer` and exposes `viewContext`.
+  - Injects into any `UIViewController` conforming to:
+    - `TaskRepositoryDependent` → `taskRepository: TaskRepository!`
+    - `ViewContextDependent` → `viewContext: NSManagedObjectContext!`
+- **Repositories:**
+  - `CoreDataTaskRepository` encapsulates fetches/updates, predicate-based filters, and persistence; controllers call use cases instead of Core Data APIs.
+- **Use Cases:**
+  - `GetTasksUseCaseImpl` and `GetTaskByIdUseCaseImpl` wrap repository calls for clearer intent and easier testing.
+  - Upcoming: Add/Update/Delete/Toggle/Reschedule use cases to eliminate remaining manager calls.
 
-Here's a potential structure for Tasker if it were to adopt Clean Architecture:
+### Contributor Guidelines (during migration)
+- Do not add new references to `TaskManager`/`ProjectManager`. Use use cases.
+- Prefer constructor injection for structs/classes; for view controllers, conform to the DI protocols for property injection.
+- No direct Core Data access from UI or services outside repositories.
+- When adding a feature, introduce/extend a use case and test it in isolation.
 
-#### 1. Domain Layer
-This is the core of the application, containing the enterprise-wide and application-specific business rules.
--   **Entities:**
-    *   Plain Swift structs/classes representing `CleanTask` and `CleanProject`. These would be independent of Core Data.
-        *   Example: `struct CleanTask { let id: UUID; var name: String; var priority: Int; var isCompleted: Bool; var dueDate: Date?; ... }`
-        *   Example: `struct CleanProject { let id: UUID; var name: String; var description: String?; ... }`
-    *   **Use Cases (Interactors):**
-        *   Classes that encapsulate specific application actions and orchestrate data flow using Entities.
-        *   Examples:
-            *   `AddTaskUseCase(taskRepository: TaskRepositoryProtocol)`
-            *   `CompleteTaskUseCase(taskRepository: TaskRepositoryProtocol, scoringService: ScoringServiceProtocol)`
-            *   `GetTasksForDateUseCase(taskRepository: TaskRepositoryProtocol)`
-            *   `CalculateDailyScoreUseCase(taskRepository: TaskRepositoryProtocol)` // Could also be part of a broader `ScoringService`
-            *   `ManageProjectUseCase(projectRepository: ProjectRepositoryProtocol)` // For creating, updating, deleting projects
-    *   **Repository Protocols:**
-        *   Abstract interfaces defining data operations for entities. These protocols are owned by the Domain layer.
-        *   Example: `protocol TaskRepositoryProtocol { func getAllTasks() async throws -> [CleanTask]; func getTask(byId id: UUID) async throws -> CleanTask?; func save(task: CleanTask) async throws; func delete(taskId: UUID) async throws; ... }`
-        *   Example: `protocol ProjectRepositoryProtocol { func getAllProjects() async throws -> [CleanProject]; func save(project: CleanProject) async throws; ... }`
+### How to Continue the Migration
+1. Implement `ProjectRepository` and register it in `DependencyContainer`.
+2. Create missing task write use cases and update controllers (`HomeViewController`, `ToDoList.swift`, `AddTaskViewController`) to call them.
+3. Introduce initial ViewModels for Home/Add Task and move formatting/filtering logic out of controllers.
+4. Add unit tests for use cases and an integration test target for repositories.
+5. Remove legacy managers and delete dead code once all call sites are migrated.
 
-#### 2. Data Layer (Infrastructure)
-This layer is responsible for data persistence and retrieval, implementing the repository protocols defined in the Domain layer.
--   **Repositories (Implementations):**
-    *   `CoreDataTaskRepository(context: NSManagedObjectContext): TaskRepositoryProtocol`: This class would handle fetching `NTask` (Core Data managed objects) and mapping them to/from `CleanTask` domain entities. It would also manage saving `CleanTask` entities back to Core Data.
-    *   `CoreDataProjectRepository(context: NSManagedObjectContext): ProjectRepositoryProtocol`: Similar responsibilities for `Projects` and `CleanProject` entities.
--   **Data Sources:**
-    *   Direct interaction with Core Data (`NSPersistentCloudKitContainer`).
-    *   CloudKit synchronization would continue to be managed by Core Data's `NSPersistentCloudKitContainer`. The Data layer abstracts these details away from the Domain layer, meaning the Use Cases are unaware of Core Data or CloudKit.
--   **Mappers:**
-    *   Utility functions or structs responsible for converting data between Core Data `NSManagedObject`s (e.g., `NTask`) and Domain `Entities` (e.g., `CleanTask`), and vice-versa.
-
-#### 3. Presentation Layer (e.g., MVVM - Model-View-ViewModel)
-This layer is responsible for presenting data to the user and handling user interactions.
--   **ViewModels:** (e.g., `HomeViewModel`, `AddTaskViewModel`, `ProjectListViewModel`)
-    *   Each ViewModel would own and call relevant Use Cases to fetch or modify data.
-    *   They transform data received from Use Cases into a format suitable for display (e.g., formatting dates, calculating progress percentages for UI elements).
-    *   They expose data to the Views, often using reactive programming frameworks like Combine or RxSwift, or through simple observable properties with callbacks.
-    *   Handle user input by invoking appropriate Use Cases.
--   **Views (ViewControllers & Custom Views):**
-    *   Would become significantly thinner and more focused on UI responsibilities.
-    *   Display data provided by their respective ViewModels.
-    *   Forward user input and events to their ViewModels.
-    *   Contain minimal to no business logic or direct data access. `HomeViewController`, for example, would delegate most of its current responsibilities to a `HomeViewModel`.
-
-#### 4. Dependency Injection
--   A mechanism for constructing and providing dependencies throughout the application would be essential.
--   This could be achieved through:
-    *   **Manual Dependency Injection:** Passing dependencies through initializers (constructor injection) or properties (property injection).
-    *   **DI Containers:** Using libraries like Swinject or Factory to manage dependencies and their lifetimes.
--   Example: An `AddTaskViewModel` would receive an `AddTaskUseCase` instance, which in turn would have received a `CoreDataTaskRepository` (conforming to `TaskRepositoryProtocol`) instance.
-
-### Key Refactoring Steps & Considerations
-
-Migrating Tasker to a Clean Architecture would be a significant undertaking. Here are some key steps and considerations:
-
--   **Define Domain Entities:** Start by defining the pure Swift `CleanTask` and `CleanProject` structs/classes. These will form the core of your Domain layer.
--   **Define Repository Protocols:** Create the `TaskRepositoryProtocol` and `ProjectRepositoryProtocol` in the Domain layer.
--   **Implement Data Layer Repositories:**
-    *   Create `CoreDataTaskRepository` and `CoreDataProjectRepository`.
-    *   Implement data mapping functions to convert between Core Data `NTask`/`Projects` and `CleanTask`/`CleanProject` entities. This is a critical step for decoupling.
--   **Identify and Implement Use Cases:**
-    *   Break down the existing functionality of `TaskManager` and `ProjectManager` into specific Use Cases.
-    *   For example, `TaskManager.createTask(...)` could become `AddTaskUseCase.execute(taskData: ...)`.
-    *   Scoring logic could be encapsulated within specific Use Cases or a dedicated `ScoringService` in the Domain layer.
--   **Refactor ViewControllers to use ViewModels (MVVM):**
-    *   **`HomeViewController`:** This would be a major refactoring target.
-        *   Introduce a `HomeViewModel`.
-        *   The ViewModel would use Use Cases like `GetTasksForDateUseCase`, `GetProjectsUseCase`, and `CalculateDailyScoreUseCase`.
-        *   The ViewController would observe the ViewModel for data to display (tasks, projects, score, chart data) and forward user actions (date changes, project selection) to the ViewModel.
-    *   **`AddTaskViewController`:**
-        *   Introduce an `AddTaskViewModel`.
-        *   The ViewModel would use an `AddTaskUseCase` and potentially a `ManageProjectUseCase` (for fetching projects for selection or adding new ones).
--   **Decouple Managers:**
-    *   The existing `TaskManager` and `ProjectManager` singletons mix data access, business rules, and sometimes state management. Their responsibilities need to be carefully disentangled:
-        *   Data fetching and persistence logic moves to the Repository implementations in the Data Layer.
-        *   Application-specific business rules (e.g., task validation, setting default values) move to Use Cases in the Domain Layer.
-        *   Cross-cutting concerns like scoring, if complex, might become their own services within the Domain Layer, injected into Use Cases.
--   **Establish Dependency Injection:** Choose a DI strategy (manual or container) and apply it consistently to provide dependencies to Use Cases, Repositories, and ViewModels.
--   **Incremental Adoption:**
-    *   It's highly recommended to adopt Clean Architecture incrementally rather than attempting a "big bang" refactor.
-    *   Start with one feature or a small part of the application (e.g., the task creation flow or the display of morning tasks). Refactor this slice fully to the new architecture.
-    *   This allows the team to learn and adapt, and provides value sooner.
--   **Testing:**
-    *   A major driver for Clean Architecture is improved testability.
-    *   **Domain Layer:** Entities and Use Cases can be unit tested in isolation. Use Cases can be tested by providing mock repository implementations.
-    *   **Presentation Layer:** ViewModels can be unit tested by mocking the Use Cases they depend on.
-    *   **Data Layer:** Repositories can be integration tested against a test Core Data stack.
-
-By following these steps, Tasker can transition towards a more robust, maintainable, and testable architecture, better equipped for future growth and changes.
+This plan keeps the app stable while steadily moving toward a maintainable, testable Clean Architecture.

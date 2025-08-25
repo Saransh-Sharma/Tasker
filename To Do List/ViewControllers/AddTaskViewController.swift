@@ -15,13 +15,15 @@ import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
-class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate, UIScrollViewDelegate, TaskRepositoryDependent {
+class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate, UIScrollViewDelegate, TaskRepositoryDependent, AddTaskUseCaseDependent {
     
     // Delegate for communicating back to the presenter
     weak var delegate: AddTaskViewControllerDelegate?
     
     // MARK: - Repository Dependency
     var taskRepository: TaskRepository!
+    // MARK: - Use Case Dependency
+    var addTaskUseCase: AddTaskUseCase!
 
     //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()

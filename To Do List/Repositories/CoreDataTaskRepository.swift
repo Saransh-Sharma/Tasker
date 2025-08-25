@@ -51,9 +51,9 @@ final class CoreDataTaskRepository: TaskRepository {
     }
     
     func fetchTask(by taskID: NSManagedObjectID, completion: @escaping (Result<NTask, Error>) -> Void) {
-        backgroundContext.perform {
+        viewContext.perform {
             do {
-                let task = try self.backgroundContext.existingObject(with: taskID) as? NTask
+                let task = try self.viewContext.existingObject(with: taskID) as? NTask
                 if let task = task {
                     DispatchQueue.main.async { completion(.success(task)) }
                 } else {
@@ -81,13 +81,20 @@ final class CoreDataTaskRepository: TaskRepository {
             
             do {
                 try self.backgroundContext.save()
-                // Get the object in the main context for the delegate
-                guard let mainContextTask = self.viewContext.object(with: managed.objectID) as? NTask else {
-                    let error = NSError(domain: "CoreDataTaskRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve saved task in main context"])
-                    DispatchQueue.main.async { completion?(.failure(error)) }
-                    return
+                let objectID = managed.objectID
+                // Hop to the viewContext's queue to materialize the object safely for UI usage
+                self.viewContext.perform {
+                    do {
+                        guard let mainContextTask = try self.viewContext.existingObject(with: objectID) as? NTask else {
+                            let error = NSError(domain: "CoreDataTaskRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve saved task in main context"])
+                            DispatchQueue.main.async { completion?(.failure(error)) }
+                            return
+                        }
+                        DispatchQueue.main.async { completion?(.success(mainContextTask)) }
+                    } catch {
+                        DispatchQueue.main.async { completion?(.failure(error)) }
+                    }
                 }
-                DispatchQueue.main.async { completion?(.success(mainContextTask)) }
             } catch {
                 print("❌ Task add error: \(error)")
                 DispatchQueue.main.async { completion?(.failure(error)) }

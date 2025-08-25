@@ -3,7 +3,7 @@ import CoreData
 
 /// A generic task list view controller that uses NSFetchedResultsController for efficient UI updates
 /// This class serves as a template for other task list views in the app
-class TaskListViewController: UIViewController, TaskRepositoryDependent {
+class TaskListViewController: UIViewController, TaskRepositoryDependent, ViewContextDependent, ToggleTaskCompletionUseCaseDependent, DeleteTaskUseCaseDependent, RescheduleTaskUseCaseDependent {
     
     // MARK: - Properties
     
@@ -15,6 +15,15 @@ class TaskListViewController: UIViewController, TaskRepositoryDependent {
     
     /// Task repository dependency (injected)
     var taskRepository: TaskRepository!
+    
+    /// Use case: toggle task completion (injected)
+    var toggleTaskCompletionUseCase: ToggleTaskCompletionUseCase!
+    
+    /// Use case: delete task (injected)
+    var deleteTaskUseCase: DeleteTaskUseCase!
+    
+    /// Use case: reschedule task (injected)
+    var rescheduleTaskUseCase: RescheduleTaskUseCase!
     
     /// Core Data view context (injected)
     var viewContext: NSManagedObjectContext!
@@ -200,7 +209,7 @@ class TaskListViewController: UIViewController, TaskRepositoryDependent {
         
         // Set sort descriptors - priority first, then due date
         fetchRequest.sortDescriptors = [
-            NSSortDescriptor(key: "taskPriority.rawValue", ascending: false),  // Higher priority first
+            NSSortDescriptor(key: "taskPriority", ascending: false),  // Higher priority first (uses Int32 attribute directly)
             NSSortDescriptor(key: "dueDate", ascending: true)                  // Earlier due date first
         ]
         
@@ -277,8 +286,8 @@ extension TaskListViewController: UITableViewDelegate {
         tableView.deselectRow(at: indexPath, animated: true)
         
         if let task = fetchedResultsController?.object(at: indexPath) {
-            // Toggle task completion
-            taskRepository.toggleComplete(taskID: task.objectID) { [weak self] result in
+            // Toggle task completion via use case
+            toggleTaskCompletionUseCase.execute(taskID: task.objectID) { [weak self] result in
                 switch result {
                 case .success:
                     // The UI will update automatically through NSFetchedResultsController
@@ -304,7 +313,7 @@ extension TaskListViewController: UITableViewDelegate {
         
         // Delete action
         let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, completion in
-            self?.taskRepository.deleteTask(taskID: task.objectID) { result in
+            self?.deleteTaskUseCase.execute(taskID: task.objectID) { result in
                 switch result {
                 case .success:
                     completion(true)
@@ -320,7 +329,7 @@ extension TaskListViewController: UITableViewDelegate {
             // This is just a placeholder - you'd implement a proper date selection UI
             let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
             
-            self?.taskRepository.reschedule(taskID: task.objectID, to: tomorrow) { result in
+            self?.rescheduleTaskUseCase.execute(taskID: task.objectID, to: tomorrow) { result in
                 switch result {
                 case .success:
                     completion(true)
@@ -330,7 +339,7 @@ extension TaskListViewController: UITableViewDelegate {
             }
         }
         
-        rescheduleAction.backgroundColor = .systemBlue
+        rescheduleAction.backgroundColor = UIColor.systemBlue
         
         return UISwipeActionsConfiguration(actions: [deleteAction, rescheduleAction])
     }

@@ -14,10 +14,12 @@ import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
-class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate, UITextFieldDelegate, TaskRepositoryDependent
+class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSource, CircleMenuDelegate, UITextFieldDelegate, TaskRepositoryDependent, AddTaskUseCaseDependent
 {
     // MARK: - Repository Dependency
     var taskRepository: TaskRepository!
+    // MARK: - Use Case Dependency
+    var addTaskUseCase: AddTaskUseCase!
     // MARK: Theming
     //    var primaryColor =  #colorLiteral(red: 0.6941176471, green: 0.9294117647, blue: 0.9098039216, alpha: 1)
     var primaryColor =  #colorLiteral(red: 1, green: 1, blue: 1, alpha: 1)
@@ -165,6 +167,16 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         view.bringSubviewToFront(addTaskTextBox_Material)
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // Defensive: ensure DI occurred
+        if addTaskUseCase == nil {
+            print("⚠️ NAddTaskScreen: addTaskUseCase is nil in viewWillAppear, attempting injection...")
+            DependencyContainer.shared.inject(into: self)
+            print("✅ NAddTaskScreen: addTaskUseCase injection \(self.addTaskUseCase == nil ? "failed" : "succeeded")")
+        }
+    }
+    
     //MARK:- DONE TASK ACTION
     @objc func doneAddTaskAction() {
         // TODO: Re-implement the actual task adding logic from OLD_doneAddTaskAction here.
@@ -200,7 +212,13 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
                 }
             }
             
-            // Add task using repository
+            // Ensure use case is available
+            guard let addTaskUseCase = self.addTaskUseCase else {
+                print("❌ AddTask (Legacy Screen): addTaskUseCase is nil")
+                // Optionally alert user
+                return
+            }
+            // Add task using use case
             let taskData = TaskData(
                 id: nil,
                 name: currentTaskInMaterialTextBox,
@@ -214,7 +232,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
                 dateCompleted: nil
             )
             
-            taskRepository.addTask(data: taskData) { [weak self] result in
+            addTaskUseCase.execute(data: taskData) { [weak self] result in
                 DispatchQueue.main.async {
                     switch result {
                     case .success:

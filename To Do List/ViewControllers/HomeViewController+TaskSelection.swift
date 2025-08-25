@@ -94,7 +94,7 @@ extension HomeViewController {
         
         // Setup the Fluent detail view
         let detailView = TaskDetailViewFluent(frame: CGRect(x: 0, y: 0, width: view.bounds.width * 0.9, height: view.bounds.height * 0.8))
-        detailView.configure(task: task, availableProjects: ProjectManager.sharedInstance.getAllProjects(), delegate: self, taskRepository: taskRepository)
+        detailView.configure(task: task, availableProjects: ProjectManager.sharedInstance.getAllProjects(), delegate: self, updateTaskUseCase: DependencyContainer.shared.updateTaskUseCase)
         detailView.alpha = 0
         detailView.translatesAutoresizingMaskIntoConstraints = false
         

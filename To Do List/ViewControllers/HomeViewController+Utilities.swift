@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import SemiModalViewController
 
 extension HomeViewController {
     
@@ -214,11 +213,22 @@ extension HomeViewController {
     }
     
     func semiViewDefaultOptions(viewToBePrsented: UIView) {
-        let options: [SemiModalOption : Any] = [
-            SemiModalOption.pushParentBack: true,
-            SemiModalOption.animationDuration: 0.2
-        ]
-        
-        presentSemiView(viewToBePrsented, options: options)
+        // Fallback implementation using UIKit's sheet presentation
+        let wrapper = UIViewController()
+        wrapper.view.backgroundColor = .clear
+        viewToBePrsented.translatesAutoresizingMaskIntoConstraints = false
+        wrapper.view.addSubview(viewToBePrsented)
+        NSLayoutConstraint.activate([
+            viewToBePrsented.leadingAnchor.constraint(equalTo: wrapper.view.leadingAnchor),
+            viewToBePrsented.trailingAnchor.constraint(equalTo: wrapper.view.trailingAnchor),
+            viewToBePrsented.bottomAnchor.constraint(equalTo: wrapper.view.safeAreaLayoutGuide.bottomAnchor),
+            viewToBePrsented.heightAnchor.constraint(greaterThanOrEqualToConstant: 300)
+        ])
+        wrapper.modalPresentationStyle = .pageSheet
+        if let sheet = wrapper.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(wrapper, animated: true)
     }
 }
