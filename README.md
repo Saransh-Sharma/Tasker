@@ -218,60 +218,266 @@ The application currently operates in a **hybrid state** where:
 - Better separation of concerns
 - Async operations with completion handlers
 
-### Migration Roadmap Toward Full Clean Architecture
+### Clean Architecture Migration Roadmap
 
-| Phase | Goal | Status | Completed Actions | Next Action Items |
-|-------|------|--------|-------------------|-------------------|
-| 1. Predicate-Driven Fetching | Replace stored arrays with Core-Data predicates for memory efficiency | ✅ Done (2025-Q1) | • Rewrote fetch helpers using `NSPredicate`<br>• Removed in-memory caches | • Monitor fetch performance w/ Instruments |
-| 2. Type-Safe Enums & Model Cleanup | Use Swift enums for priority/type; remove magic numbers | ✅ Done (2025-Q1) | • Added `TaskPriority`, `TaskType` enums<br>• Aligned Core Data raw values | • Audit UI for any residual int literals |
-| 3. Repository Layer & DI | Introduce `TaskRepository` protocol, `CoreDataTaskRepository`, and `DependencyContainer` | ✅ 60% shipped (2025-Q2) | • Repository written<br>• New VCs injected via DI | • Migrate `HomeViewController`, `AddTaskViewController`<br>• Deprecate `TaskManager.sharedInstance` |
-| 4. Concurrency & NSFetchedResultsController | Switch to background contexts & diffable feeds | ✅ Done (2025-Q2) | • Background saving<br>• FRC in `TaskListVC` | • Apply FRC to Home & Project screens |
-| 5. Utility & Service Layer Extraction | Move business logic (scoring, logging, date utils) out of managers | ✅ Done | • `TaskScoringService`, `LoggingService`, `DateUtils` | • Extract validation rules into `TaskValidationService` |
-| 6. SwiftUI Presentation | Gradually swap UIKit screens with SwiftUI equivalents | ⏳ In-progress (20% complete) | • `ProjectManagementView.swift`, `SettingsView.swift` | • Prototype SwiftUI Home dashboard<br>• Create shared ViewModel layer |
-| 7. Core Data → Domain Mapping | Introduce domain models & mappers (e.g., `TaskEntity` ⇄ `Task`) | ⏳ Not started | — | • Define pure Swift `Task` struct<br>• Implement mapper inside repository |
-| 8. Project Repository & Relations | Convert `project` string FK into Core-Data relationship | 🚧 Planned | — | • Update `.xcdatamodeld` with relationship<br>• Write migration script<br>• Implement `ProjectRepository` |
-| 9. Test Coverage Expansion | Achieve 70% unit coverage on domain & data layers | 🚧 Planned | • Templates present | • Implement tests listed in testing roadmap |
+Based on the Clean Architecture principles (State Management, Use Cases, Presentation layers), this roadmap provides a structured approach to refactor Tasker into a maintainable, testable, and scalable architecture. Each phase ensures the app builds and runs successfully before proceeding to the next.
 
-> The table doubles as a kanban board: each "Next Action Item" should translate into GitHub issues.
+## Migration Overview
 
-#### Phase-Wise Detailed Checklists
+The migration follows a three-layer Clean Architecture approach:
 
-<details>
-<summary><strong>Phase 3 — Repository Layer & DI (60% done)</strong></summary>
+```
+┌─────────────────────────────────────┐
+│      Presentation Layer             │ ← UI, Controllers, ViewModels
+│   (SwiftUI/UIKit Views)             │
+├─────────────────────────────────────┤
+│      Use Cases / Business Layer     │ ← Business Logic, Workflows
+│   (Stateless Operations)            │
+├─────────────────────────────────────┤
+│      State Management Layer         │ ← Repositories, Data Sources
+│   (Core Data, CloudKit, Cache)      │
+└─────────────────────────────────────┘
+```
 
-- [x] Define `TaskRepository` protocol and default CRUD signatures
-- [x] Implement `CoreDataTaskRepository` with background context
-- [x] Register `TaskRepository` inside `DependencyContainer`
-- [x] Inject into `TaskListViewController`
-- [ ] Refactor `HomeViewController` to repository pattern *(ETA 2025-Q3)*
-- [ ] Refactor `AddTaskViewController`
-- [ ] Annotate `TaskManager` APIs with `@available(*, deprecated, message:"Use TaskRepository")`
-</details>
+**Core Principles:**
+- ✅ Downward dependencies only (no upward communication)
+- ✅ Communicate via interfaces (protocols)
+- ✅ Pass domain objects between layers
+- ✅ Test at boundaries
+- ✅ Each phase produces a working, buildable app
 
-<details>
-<summary><strong>Phase 4 — Concurrency & FRC (Done)</strong></summary>
+## Phase-by-Phase Migration Plan
 
-- Background context saving implemented
-- `NSFetchedResultsController` integrated in `TaskListViewController`
-- **Next (optional):** Adopt diffable data source on Home & Project screens for smoother UI updates
-</details>
+| Phase | Layer | Goal | Status | Timeline |
+|-------|-------|------|--------|----------|
+| **Phase 1** | Foundation | Domain Models & Interfaces | 🚧 Planning | Week 1-2 |
+| **Phase 2** | State Management | Repository Pattern Implementation | ⏳ 60% Complete | Week 3-4 |
+| **Phase 3** | Business Layer | Use Cases Extraction | 🚧 Planning | Week 5-6 |
+| **Phase 4** | Presentation | ViewModels & UI Decoupling | ⏳ 20% Complete | Week 7-8 |
+| **Phase 5** | Testing | Contract & Integration Tests | 🚧 Planning | Week 9 |
+| **Phase 6** | Optimization | Performance & Clean-up | 🚧 Planning | Week 10 |
 
-<details>
-<summary><strong>Phase 6 — SwiftUI Presentation (20% done)</strong></summary>
+---
 
-- [x] Delivered `ProjectManagementView.swift` & `SettingsView.swift`
-- [ ] Prototype SwiftUI Home dashboard in branch `swiftui/home`
-- [ ] Establish `HomeViewModel` shared between SwiftUI and UIKit
-</details>
+### 📦 **Phase 1: Domain Models & Interfaces** 
+*Timeline: Week 1-2 | Status: 🚧 Planning*
 
-<details>
-<summary><strong>Phase 8 — Project Repository & Relations (Planned)</strong></summary>
+**Goal:** Define pure Swift domain models and interface protocols that represent business concepts without framework dependencies.
 
-- [ ] Add one-to-many relationship `Projects.tasks` in `.xcdatamodeld`
-- [ ] Create lightweight migration (Xcode automatic)
-- [ ] Generate `ProjectRepository` with CRUD & fetch joined tasks
-- [ ] Replace string-based project lookups in managers
-</details>
+#### Deliverables:
+1. **Domain Models** (`domain/`)
+   - [ ] Create pure Swift `Task` struct (no Core Data dependencies)
+   - [ ] Create `Project` domain model
+   - [ ] Define `TaskPriority` and `TaskType` as domain enums
+   - [ ] Add domain validation rules in models
+
+2. **Interface Definitions** (`domain/interfaces/`)
+   - [ ] Define `TaskRepositoryProtocol` interface
+   - [ ] Define `ProjectRepositoryProtocol` interface
+   - [ ] Define `SyncServiceProtocol` for CloudKit operations
+   - [ ] Define `CacheServiceProtocol` for caching strategy
+
+3. **Mappers** (`state/mappers/`)
+   - [ ] Implement `TaskMapper`: NTask ⇄ Task domain conversion
+   - [ ] Implement `ProjectMapper`: Projects ⇄ Project domain conversion
+   - [ ] Add mapping tests
+
+**Build Verification:** 
+- ✅ App compiles with new domain models alongside existing Core Data entities
+- ✅ No breaking changes to existing functionality
+
+---
+
+### 🗄️ **Phase 2: State Management Layer** 
+*Timeline: Week 3-4 | Status: ⏳ 60% Complete*
+
+**Goal:** Complete repository pattern implementation with proper abstraction of data sources.
+
+#### Current Progress:
+- ✅ `TaskRepository` protocol defined
+- ✅ `CoreDataTaskRepository` implemented (60%)
+- ✅ `DependencyContainer` for DI
+- ✅ Background context operations
+
+#### Remaining Work:
+
+1. **Complete Repository Implementation**
+   - [ ] Finish `CoreDataTaskRepository` missing methods
+   - [ ] Implement `ProjectRepository` with Core Data
+   - [ ] Add CloudKit sync to repositories
+   - [ ] Implement caching layer with TTL strategy
+
+2. **Data Source Abstraction**
+   - [ ] Create `LocalDataSource` protocol
+   - [ ] Create `RemoteDataSource` protocol (CloudKit)
+   - [ ] Implement offline-first strategy
+   - [ ] Add retry logic for failed syncs
+
+3. **Migration from Singletons**
+   - [ ] Replace `TaskManager.sharedInstance` calls with DI
+   - [ ] Deprecate `TaskManager` methods
+   - [ ] Update `ProjectManager` to use repository
+
+**Build Verification:**
+- ✅ All existing features work with repository pattern
+- ✅ Data persistence and sync continue to function
+
+---
+
+### 🎯 **Phase 3: Use Cases / Business Layer**
+*Timeline: Week 5-6 | Status: 🚧 Planning*
+
+**Goal:** Extract business logic into stateless use case classes.
+
+#### Deliverables:
+
+1. **Core Use Cases** (`usecases/task/`)
+   - [ ] `CreateTaskUseCase` - Task creation with validation
+   - [ ] `CompleteTaskUseCase` - Mark task complete with scoring
+   - [ ] `RescheduleTaskUseCase` - Task rescheduling logic
+   - [ ] `DeleteTaskUseCase` - Task deletion with cleanup
+
+2. **Project Use Cases** (`usecases/project/`)
+   - [ ] `CreateProjectUseCase` - Project creation
+   - [ ] `AssignTaskToProjectUseCase` - Task-project association
+   - [ ] `GetProjectStatisticsUseCase` - Analytics per project
+
+3. **Analytics Use Cases** (`usecases/analytics/`)
+   - [ ] `CalculateDailyScoreUseCase` - Daily scoring logic
+   - [ ] `GetStreakDataUseCase` - Streak calculation
+   - [ ] `GenerateProductivityReportUseCase` - Charts data
+
+4. **Validation & Rules**
+   - [ ] Extract `TaskValidationService`
+   - [ ] Move scoring logic to use cases
+   - [ ] Implement business rule constraints
+
+**Build Verification:**
+- ✅ All business logic flows through use cases
+- ✅ View controllers simplified (no business logic)
+
+---
+
+### 🎨 **Phase 4: Presentation Layer Decoupling**
+*Timeline: Week 7-8 | Status: ⏳ 20% Complete*
+
+**Goal:** Decouple UI from business logic using ViewModels and clean controllers.
+
+#### Current Progress:
+- ✅ `ProjectManagementView` (SwiftUI)
+- ✅ `SettingsView` (SwiftUI)
+
+#### Remaining Work:
+
+1. **ViewModels** (`presentation/viewmodels/`)
+   - [ ] `HomeViewModel` - Home screen state management
+   - [ ] `TaskListViewModel` - Task list logic
+   - [ ] `AddTaskViewModel` - Task creation flow
+   - [ ] `AnalyticsViewModel` - Dashboard data
+
+2. **UI Migration**
+   - [ ] Refactor `HomeViewController` to use ViewModel
+   - [ ] Refactor `AddTaskViewController` with ViewModel
+   - [ ] Create SwiftUI versions of key screens
+   - [ ] Implement proper navigation patterns
+
+3. **UI State Management**
+   - [ ] Define UI state models separate from domain
+   - [ ] Implement reactive bindings (Combine/RxSwift)
+   - [ ] Add loading/error states handling
+
+**Build Verification:**
+- ✅ UI remains responsive and functional
+- ✅ SwiftUI and UIKit views coexist
+
+---
+
+### 🧪 **Phase 5: Testing Infrastructure**
+*Timeline: Week 9 | Status: 🚧 Planning*
+
+**Goal:** Implement comprehensive testing at all architectural boundaries.
+
+#### Test Strategy:
+
+1. **Contract Tests** (`tests/contracts/`)
+   - [ ] Repository contract tests
+   - [ ] Use case contract tests
+   - [ ] Service interface tests
+
+2. **Unit Tests** (`tests/unit/`)
+   - [ ] Domain model validation tests
+   - [ ] Mapper conversion tests
+   - [ ] Use case logic tests (with mocks)
+   - [ ] ViewModel state tests
+
+3. **Integration Tests** (`tests/integration/`)
+   - [ ] Repository ↔ Core Data tests
+   - [ ] CloudKit sync tests
+   - [ ] End-to-end use case flows
+
+4. **Mock Implementations**
+   - [ ] `MockTaskRepository` for testing
+   - [ ] `MockCacheService`
+   - [ ] `InMemoryDataStore` for fast tests
+
+**Target Coverage:** 70% for business and data layers
+
+---
+
+### ⚡ **Phase 6: Performance & Optimization**
+*Timeline: Week 10 | Status: 🚧 Planning*
+
+**Goal:** Optimize performance and clean up legacy code.
+
+#### Tasks:
+
+1. **Performance Optimization**
+   - [ ] Implement efficient caching with LRU
+   - [ ] Optimize Core Data fetch requests
+   - [ ] Add background processing for heavy operations
+   - [ ] Implement pagination for large datasets
+
+2. **Code Cleanup**
+   - [ ] Remove deprecated `TaskManager` code
+   - [ ] Clean up unused legacy methods
+   - [ ] Standardize error handling
+   - [ ] Update documentation
+
+3. **Monitoring**
+   - [ ] Add performance metrics
+   - [ ] Implement error tracking
+   - [ ] Add analytics for feature usage
+
+**Build Verification:**
+- ✅ App performance improved
+- ✅ Reduced memory footprint
+- ✅ No regressions in functionality
+
+---
+
+## Implementation Checklist
+
+### Quick Start (Do This First!)
+- [ ] Create folder structure: `domain/`, `usecases/`, `state/`, `presentation/`, `tests/`
+- [ ] Copy interface definitions from Phase 1
+- [ ] Set up DI container configuration
+- [ ] Create first domain model and mapper
+- [ ] Write first contract test
+
+### Per-Phase Verification
+After each phase, ensure:
+- [ ] App builds without errors
+- [ ] All tests pass
+- [ ] No functionality regression
+- [ ] Documentation updated
+- [ ] Code reviewed and merged
+
+### Migration Rules
+1. **Never break the build** - Each commit should compile
+2. **Incremental changes** - Small, reviewable PRs
+3. **Test first** - Write tests before refactoring
+4. **Document decisions** - Update architecture docs
+5. **Backwards compatible** - Maintain existing functionality
 
 
 ---
