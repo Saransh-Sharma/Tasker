@@ -12,6 +12,7 @@ import FluentUI
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
+    var appCoordinator: AppCoordinator?
 
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
@@ -20,22 +21,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
         guard let windowScene = (scene as? UIWindowScene) else { return }
         
-        // Create window programmatically to use FluentUI NavigationController
+        // Create window programmatically
         window = UIWindow(windowScene: windowScene)
         
-        // Load HomeViewController from storyboard
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
+        // Create navigation controller
+        let navigationController = NavigationController()
         
-        // Inject dependencies
-        DependencyContainer.shared.inject(into: homeViewController)
+        // Initialize coordinator with dependency container
+        appCoordinator = AppCoordinator(
+            navigationController: navigationController,
+            dependencyContainer: DependencyContainer.shared
+        )
         
-        // Embed in FluentUI NavigationController
-        let navigationController = NavigationController(rootViewController: homeViewController)
-        
-        // Set as root view controller
         window?.rootViewController = navigationController
         window?.makeKeyAndVisible()
+        
+        // Start the app flow (will choose between Legacy and Liquid Glass UI)
+        appCoordinator?.start()
+        
+        // Add shake gesture for debug menu in development
+        #if DEBUG
+        addShakeGestureForDebugMenu()
+        #endif
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
@@ -65,7 +72,41 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Use this method to save data, release shared resources, and store enough scene-specific state information
         // to restore the scene back to its current state.
     }
+    
+    // MARK: - Debug Menu Support
+    
+    #if DEBUG
+    private func addShakeGestureForDebugMenu() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(showDebugMenu),
+            name: UIDevice.deviceDidShakeNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func showDebugMenu() {
+        guard FeatureFlags.enableDebugMenu else { return }
+        
+        let debugVC = LGDebugMenuViewController()
+        let nav = UINavigationController(rootViewController: debugVC)
+        window?.rootViewController?.present(nav, animated: true)
+    }
+    #endif
 
 
+}
+
+// MARK: - Shake Detection Extension
+extension UIDevice {
+    static let deviceDidShakeNotification = Notification.Name("DeviceDidShakeNotification")
+}
+
+extension UIWindow {
+    open override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        if motion == .motionShake {
+            NotificationCenter.default.post(name: UIDevice.deviceDidShakeNotification, object: nil)
+        }
+    }
 }
 

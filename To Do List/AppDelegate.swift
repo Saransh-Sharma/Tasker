@@ -42,6 +42,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         print("✅ Clean Architecture setup complete")
         
+        // Initialize Liquid Glass theme system
+        _ = LGThemeManager.shared
+        
+        // Setup feature flags for development
+        #if DEBUG
+        setupDevelopmentFeatureFlags()
+        #endif
+        
         // 2) Observe remote-change notifications so your viewContext merges them
         NotificationCenter.default.addObserver(
             self,
@@ -187,6 +195,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         print("❌ APNs registration failed: \(error)")
     }
     
+    // MARK: - Liquid Glass UI Setup
+    
+    #if DEBUG
+    private func setupDevelopmentFeatureFlags() {
+        // Initialize feature flags for development
+        if !UserDefaults.standard.bool(forKey: "feature_flags_initialized") {
+            FeatureFlags.resetToDefaults()
+            FeatureFlags.showMigrationProgress = true
+            UserDefaults.standard.set(true, forKey: "feature_flags_initialized")
+        }
+    }
+    #endif
 
 
 }

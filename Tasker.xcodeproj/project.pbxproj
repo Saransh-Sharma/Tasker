@@ -240,7 +240,16 @@
 		75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */; };
 		75F993802485B04200C340EB /* Score.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937F2485B04200C340EB /* Score.swift */; };
 		CC669337234F8443ABFD17F7 /* Pods_TaskerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A9F61136DA907F814857D67E /* Pods_TaskerTests.framework */; };
-/* End PBXBuildFile section */
+		2D6E8C7CC6924548B0911318 /* FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA6543CCACB4F58A8A3BE79 /* FeatureFlags.swift */; };
+		95EE4E69D0304BA487155EA3 /* LGThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 911755867A7241C1A9AD3C8B /* LGThemeManager.swift */; };
+		624B6390689149A8B76A9B7F /* LGBaseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81DC63B8F0394C86915EDCE2 /* LGBaseView.swift */; };
+		14C600F09758445A8A0404D0 /* LGMigrationBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74C7987050B849338AF0F439 /* LGMigrationBanner.swift */; };
+		993BB1F4CECF444A92B5C00A /* LGDeviceAdaptive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F1A92D298EC4C9FADA3C2D1 /* LGDeviceAdaptive.swift */; };
+		DE9DFAB433CE4EC5B022E3E2 /* LGSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD245D1723148449B633224 /* LGSplitViewController.swift */; };
+		4224D8053CE84D3390C1CF20 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEFDE3522C884357A7BF93D1 /* AppCoordinator.swift */; };
+		BA5B7A337C0443ADADD7EA9E /* LGDebugMenuViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEF3C6BCE447438C9F971766 /* LGDebugMenuViewController.swift */; };
+		BFD1FED860F44E6DB02E858F /* LGComponentTestViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 473CF04E048D4FC1B9628AEA /* LGComponentTestViewController.swift */; };
+		/* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		753EFCB12445A24700A739E3 /* PBXContainerItemProxy */ = {
@@ -410,7 +419,17 @@
 		A4C3CA198A4EAEB126367B3F /* Pods-Tasker.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Tasker.release.xcconfig"; path = "Target Support Files/Pods-Tasker/Pods-Tasker.release.xcconfig"; sourceTree = "<group>"; };
 		A9F61136DA907F814857D67E /* Pods_TaskerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_TaskerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA24780B80E3A71D9B6856A2 /* Pods-Tasker.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Tasker.debug.xcconfig"; path = "Target Support Files/Pods-Tasker/Pods-Tasker.debug.xcconfig"; sourceTree = "<group>"; };
-/* End PBXFileReference section */
+		FFA6543CCACB4F58A8A3BE79 /* FeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FeatureFlags.swift"; sourceTree = "<group>"; };
+		911755867A7241C1A9AD3C8B /* LGThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LGThemeManager.swift"; sourceTree = "<group>"; };
+		81DC63B8F0394C86915EDCE2 /* LGBaseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LGBaseView.swift"; sourceTree = "<group>"; };
+		74C7987050B849338AF0F439 /* LGMigrationBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LGMigrationBanner.swift"; sourceTree = "<group>"; };
+		1F1A92D298EC4C9FADA3C2D1 /* LGDeviceAdaptive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LGDeviceAdaptive.swift"; sourceTree = "<group>"; };
+		7DD245D1723148449B633224 /* LGSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LGSplitViewController.swift"; sourceTree = "<group>"; };
+		AEFDE3522C884357A7BF93D1 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppCoordinator.swift"; sourceTree = "<group>"; };
+		CEF3C6BCE447438C9F971766 /* LGDebugMenuViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LGDebugMenuViewController.swift"; sourceTree = "<group>"; };
+		473CF04E048D4FC1B9628AEA /* LGComponentTestViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LGComponentTestViewController.swift"; sourceTree = "<group>"; };
+		LG000010000000000000000010 /* PresentationNew */ = {isa = PBXFileReference; lastKnownFileType = folder; path = PresentationNew; sourceTree = "<group>"; };
+		/* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		753EFC972445A24500A739E3 /* Frameworks */ = {
@@ -540,6 +559,7 @@
 				75DFF2CF2DF22F8B00EB8850 /* Services */,
 				75F89F442DFC44E6009EDD8F /* LLM */,
 				75E5ACAC2E048D3A00535D0A /* Views */,
+				LG000010000000000000000010 /* PresentationNew */,
 			);
 			path = "To Do List";
 			sourceTree = "<group>";
@@ -846,6 +866,62 @@
 				75A400FC248C57DC002F0E7A /* ToDoAnimations.swift */,
 			);
 			path = Animation;
+			sourceTree = "<group>";
+		};
+		LG000010000000000000000010 /* PresentationNew */ = {
+			isa = PBXGroup;
+			children = (
+				FFA6543CCACB4F58A8A3BE79 /* FeatureFlags.swift */,
+				LG000011000000000000000011 /* LiquidGlass */,
+				LG000012000000000000000012 /* Coordinators */,
+				LG000013000000000000000013 /* Debug */,
+			);
+			path = PresentationNew;
+			sourceTree = "<group>";
+		};
+		LG000011000000000000000011 /* LiquidGlass */ = {
+			isa = PBXGroup;
+			children = (
+				LG000014000000000000000014 /* Components */,
+				LG000015000000000000000015 /* Theme */,
+			);
+			path = LiquidGlass;
+			sourceTree = "<group>";
+		};
+		LG000014000000000000000014 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				81DC63B8F0394C86915EDCE2 /* LGBaseView.swift */,
+				74C7987050B849338AF0F439 /* LGMigrationBanner.swift */,
+				1F1A92D298EC4C9FADA3C2D1 /* LGDeviceAdaptive.swift */,
+				7DD245D1723148449B633224 /* LGSplitViewController.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		LG000015000000000000000015 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				911755867A7241C1A9AD3C8B /* LGThemeManager.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		LG000012000000000000000012 /* Coordinators */ = {
+			isa = PBXGroup;
+			children = (
+				AEFDE3522C884357A7BF93D1 /* AppCoordinator.swift */,
+			);
+			path = Coordinators;
+			sourceTree = "<group>";
+		};
+		LG000013000000000000000013 /* Debug */ = {
+			isa = PBXGroup;
+			children = (
+				CEF3C6BCE447438C9F971766 /* LGDebugMenuViewController.swift */,
+				473CF04E048D4FC1B9628AEA /* LGComponentTestViewController.swift */,
+			);
+			path = Debug;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1170,6 +1246,15 @@
 				75A400FD248C57DD002F0E7A /* ToDoAnimations.swift in Sources */,
 				75DFF2B22DF22E6B00EB8850 /* DependencyContainer.swift in Sources */,
 				753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */,
+				2D6E8C7CC6924548B0911318 /* FeatureFlags.swift in Sources */,
+				95EE4E69D0304BA487155EA3 /* LGThemeManager.swift in Sources */,
+				624B6390689149A8B76A9B7F /* LGBaseView.swift in Sources */,
+				14C600F09758445A8A0404D0 /* LGMigrationBanner.swift in Sources */,
+				993BB1F4CECF444A92B5C00A /* LGDeviceAdaptive.swift in Sources */,
+				DE9DFAB433CE4EC5B022E3E2 /* LGSplitViewController.swift in Sources */,
+				4224D8053CE84D3390C1CF20 /* AppCoordinator.swift in Sources */,
+				BA5B7A337C0443ADADD7EA9E /* LGDebugMenuViewController.swift in Sources */,
+				BFD1FED860F44E6DB02E858F /* LGComponentTestViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1227,6 +1312,15 @@
 				75DFF3242DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				751075112DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
+				2D6E8C7CC6924548B0911318 /* FeatureFlags.swift in Sources */,
+				95EE4E69D0304BA487155EA3 /* LGThemeManager.swift in Sources */,
+				624B6390689149A8B76A9B7F /* LGBaseView.swift in Sources */,
+				14C600F09758445A8A0404D0 /* LGMigrationBanner.swift in Sources */,
+				993BB1F4CECF444A92B5C00A /* LGDeviceAdaptive.swift in Sources */,
+				DE9DFAB433CE4EC5B022E3E2 /* LGSplitViewController.swift in Sources */,
+				4224D8053CE84D3390C1CF20 /* AppCoordinator.swift in Sources */,
+				BA5B7A337C0443ADADD7EA9E /* LGDebugMenuViewController.swift in Sources */,
+				BFD1FED860F44E6DB02E858F /* LGComponentTestViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1284,6 +1378,15 @@
 				75DFF3262DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				751075102DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
+				2D6E8C7CC6924548B0911318 /* FeatureFlags.swift in Sources */,
+				95EE4E69D0304BA487155EA3 /* LGThemeManager.swift in Sources */,
+				624B6390689149A8B76A9B7F /* LGBaseView.swift in Sources */,
+				14C600F09758445A8A0404D0 /* LGMigrationBanner.swift in Sources */,
+				993BB1F4CECF444A92B5C00A /* LGDeviceAdaptive.swift in Sources */,
+				DE9DFAB433CE4EC5B022E3E2 /* LGSplitViewController.swift in Sources */,
+				4224D8053CE84D3390C1CF20 /* AppCoordinator.swift in Sources */,
+				BA5B7A337C0443ADADD7EA9E /* LGDebugMenuViewController.swift in Sources */,
+				BFD1FED860F44E6DB02E858F /* LGComponentTestViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -22,6 +22,13 @@ target 'Tasker' do
   pod 'TinyConstraints',         '~> 4.0.1'
   pod 'MicrosoftFluentUI', '~> 0.34.0'
   pod 'FluentIcons', '~> 1.1.302' # Added FluentIcons pod
+  
+  # Liquid Glass UI Dependencies
+  pod 'SnapKit', '~> 5.6.0'        # Programmatic constraints
+  pod 'RxSwift', '~> 6.5.0'        # Reactive programming
+  pod 'RxCocoa', '~> 6.5.0'        # UI bindings
+  pod 'Lottie', '~> 4.3.0'         # Liquid animations
+  pod 'Hero', '~> 1.6.2'           # Smooth transitions
 
 
   target 'TaskerTests' do
