@@ -114,7 +114,7 @@ extension AddTaskViewController {
         //MARK:- -this is in foredrop (tablsegcontrol: to allow users to pick which list stays in today and which goes)
         
         // 1) Initialize with your array of titles directly
-        let segmented = SegmentedControl(items: p.map { SegmentItem(title: $0) })
+        let segmented = UISegmentedControl(items: p)
         
         // 2) Default to the penultimate segment (or whatever index makes sense)
         segmented.selectedSegmentIndex = max(0, p.count - 2)
@@ -126,18 +126,15 @@ extension AddTaskViewController {
         // FluentUI SegmentedControl doesn't support setTitleTextAttributes
         // Instead, we'll ensure the container has enough width and use shorter labels if needed
         
-        // 5) Wire up selection using FluentUI closure API
-        segmented.onSelectAction = { [weak self] (item: SegmentItem, selectedIndex: Int) in
-            guard let self = self else { return }
-            self.changeTaskPriority(segmented)
-        }
+        // 5) Wire up selection using standard UISegmentedControl API
+        segmented.addTarget(self, action: #selector(changeTaskPriority(_:)), for: .valueChanged)
         
         // 6) Keep a reference
         self.tabsSegmentedControl = segmented
         // Don't add to stack container here - it's added in viewDidLoad
     }
     //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
-    @objc func changeTaskPriority(_ sender: SegmentedControl) { // Corrected sender type
+    @objc func changeTaskPriority(_ sender: UISegmentedControl) { // Corrected sender type
         //"None", "Low", "High", "Highest"]
         switch sender.selectedSegmentIndex {
         case 0:

@@ -55,11 +55,20 @@ class ChatHostViewController: UIViewController {
     }
     // MARK: - FluentUI Navigation Bar Setup
     private func setupFluentNavigationBar() {
-        navigationItem.titleStyle = .largeLeading
-        navigationItem.navigationBarStyle = .custom
-        navigationItem.navigationBarShadow = .automatic
-        navigationItem.customNavigationBarColor = ToDoColors().primaryColor
+        // Configure navigation bar appearance using standard iOS APIs
         title = "Chat"
+        
+        // Configure navigation bar appearance
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = ToDoColors().primaryColor
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+        
+        navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.compactAppearance = appearance
+        navigationController?.navigationBar.prefersLargeTitles = true
 
         // Left: Back button
         let backButton = UIBarButtonItem(

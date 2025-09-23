@@ -26,7 +26,7 @@ import Foundation
 // Import TaskProgressCard from Views/Cards
 // Note: TaskProgressCard is defined in ChartCard.swift
 
-class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, UITableViewDataSource, UITableViewDelegate, SearchBarDelegate, TaskRepositoryDependent {
+class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, UITableViewDataSource, UITableViewDelegate, UISearchBarDelegate, TaskRepositoryDependent {
     
     // MARK: - Stored Properties
     
@@ -264,12 +264,8 @@ func refreshNavigationPieChart() {
         // Configure UI
         dateForTheView = Date.today()
         
-        // Set contentScrollView to prevent ShyHeaderController from creating dummy UITableView
-        // This must be done after fluentToDoTableViewController is initialized
-        if let tableView = fluentToDoTableViewController?.tableView {
-            navigationItem.contentScrollView = tableView
-            print("✅ Set navigationItem.contentScrollView to prevent ShyHeaderController dummy table view")
-        }
+        // Note: contentScrollView is FluentUI-specific, removed for native iOS compatibility
+        // ShyHeaderController behavior will be handled differently if needed
         
         highestPrioritySymbol = (UIImage(systemName: "circle.fill", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal))!
         highPrioritySymbol = (UIImage(systemName: "circle", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal))!
@@ -382,13 +378,16 @@ func refreshNavigationPieChart() {
     // MARK: - FluentUI Navigation Bar Setup
     
     private func setupFluentUINavigationBar() {
-        // Configure navigation item properties
-        navigationItem.titleStyle = .largeLeading
-        navigationItem.navigationBarStyle = .custom
-        navigationItem.navigationBarShadow = .automatic
+        // Configure navigation bar appearance using standard iOS APIs
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = todoColors.primaryColor
+        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
+        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
         
-        // Set custom navigation bar background color
-        navigationItem.customNavigationBarColor = todoColors.primaryColor
+        navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.compactAppearance = appearance
         
         // Disable large titles so our score label is not obscured
         navigationController?.navigationBar.prefersLargeTitles = false
@@ -398,9 +397,9 @@ func refreshNavigationPieChart() {
             navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
         }
         
-        // Create search bar accessory
+        // Create search bar accessory (using titleView instead of accessoryView)
         let searchBar = createSearchBarAccessory()
-        navigationItem.accessoryView = searchBar
+        navigationItem.titleView = searchBar
         
         
 
@@ -413,8 +412,7 @@ func refreshNavigationPieChart() {
         embedNavigationPieChartOnNavigationBar()
         
         // Enable scroll-to-contract behavior
-        // Updated to use FluentUI table view
-        navigationItem.contentScrollView = fluentToDoTableViewController?.tableView
+        // Note: contentScrollView is FluentUI-specific, removed for native iOS compatibility
     }
     
     private func embedNavigationPieChart(in hostView: UIView) {
@@ -493,14 +491,25 @@ func refreshNavigationPieChart() {
         navPieChart.isUserInteractionEnabled = true
     }
     
-    private func createSearchBarAccessory() -> SearchBar {
-        let searchBar = SearchBar()
-        searchBar.style = .onBrandNavigationBar
-        searchBar.placeholderText = "Search tasks..."
+    private func createSearchBarAccessory() -> UISearchBar {
+        let searchBar = UISearchBar()
+        searchBar.placeholder = "Search tasks..."
         searchBar.delegate = self
         
-        // Customize the search bar background color
-        searchBar.tokenSet[.backgroundColor] = .uiColor { self.todoColors.primaryColor }
+        // Make the search bar background transparent
+        searchBar.backgroundColor = UIColor.clear
+        searchBar.barTintColor = UIColor.clear
+        searchBar.searchBarStyle = .minimal
+        
+        // Make the search field background semi-transparent
+        let textField = searchBar.searchTextField
+        textField.backgroundColor = UIColor.white.withAlphaComponent(0.2)
+        textField.textColor = UIColor.white
+        textField.attributedPlaceholder = NSAttributedString(
+            string: "Search tasks...",
+            attributes: [NSAttributedString.Key.foregroundColor: UIColor.white.withAlphaComponent(0.7)]
+        )
+        
         return searchBar
     }
 
@@ -859,8 +868,11 @@ extension HomeViewController {
     fileprivate func applyTheme() {
         // Refresh color source
         todoColors = ToDoColors()
-        // Navigation bar (FluentUI custom property)
-        navigationItem.customNavigationBarColor = todoColors.primaryColor
+        // Navigation bar (using standard iOS appearance)
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = todoColors.primaryColor
+        navigationController?.navigationBar.standardAppearance = appearance
         // Keep title label transparent on theme change
         if let navBar = navigationController?.navigationBar {
             navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
@@ -891,12 +903,22 @@ extension HomeViewController {
         bottomAppBar.floatingButton.setBackgroundColor(todoColors.primaryColor, for: .normal)
         bottomAppBar.floatingButton.setBackgroundColor(todoColors.primaryColor.withAlphaComponent(0.8), for: .highlighted)
         bottomAppBar.floatingButton.tintColor = .white
-        // Update any search bar accessory background
-        if let accSearchBar = navigationItem.accessoryView as? SearchBar {
-            accSearchBar.tokenSet[.backgroundColor] = .uiColor { self.todoColors.primaryColor }
+        // Update any search bar accessory background (keep transparent)
+        if let accSearchBar = navigationItem.titleView as? UISearchBar {
+            accSearchBar.backgroundColor = UIColor.clear
+            accSearchBar.barTintColor = UIColor.clear
+            // Update the search field styling
+            let textField = accSearchBar.searchTextField
+            textField.backgroundColor = UIColor.white.withAlphaComponent(0.2)
+            textField.textColor = UIColor.white
+            textField.attributedPlaceholder = NSAttributedString(
+                string: "Search tasks...",
+                attributes: [NSAttributedString.Key.foregroundColor: UIColor.white.withAlphaComponent(0.7)]
+            )
         }
-        if let controllerSearchBar = navigationItem.searchController?.searchBar as? SearchBar {
-            controllerSearchBar.tokenSet[.backgroundColor] = .uiColor { self.todoColors.primaryColor }
+        if let controllerSearchBar = navigationItem.searchController?.searchBar {
+            controllerSearchBar.backgroundColor = UIColor.clear
+            controllerSearchBar.barTintColor = UIColor.clear
         }
         // Update chart accent colors if present
         

@@ -78,7 +78,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     let fab_doneTask = MDCFloatingButton(shape: .default)
     let p = ["None", "Low", "High", "Max"] // Used by AddTaskForedropView extension - shortened "Highest" to "Max" to prevent text wrapping
 
-    var tabsSegmentedControl = SegmentedControl() // Initialized in AddTaskForedropView extension
+    var tabsSegmentedControl = UISegmentedControl() // Initialized in AddTaskForedropView extension
 
     var todoColors = ToDoColors()
     var todoFont = ToDoFont()
