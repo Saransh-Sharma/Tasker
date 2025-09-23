@@ -1,13 +1,18 @@
 import SwiftUI
-import FluentUI // If specific FluentUI components will be used directly
+import CoreData
+import FluentUI
 
 struct ProjectManagementView: View {
-    let todoColors = ToDoColors() // Instantiate ToDoColors
-
-    @ObservedObject var projectManager = ProjectManager.sharedInstance
+    let todoColors = ToDoColors()
+    
+    @State private var projects: [Projects] = []
     @State private var showingAddProjectAlert = false
     @State private var newProjectName = ""
     @State private var newProjectDescription = ""
+    
+    init() {
+        // Use direct Core Data access instead of complex dependencies
+    }
 
     // For status alert after save attempt
     @State private var showingStatusAlert = false
@@ -25,18 +30,16 @@ struct ProjectManagementView: View {
     @State private var projectToDelete: Projects? = nil
 
     var body: some View {
-        // Note: NavigationView wrapper is removed from here, assuming it's part of SettingsView's navigation stack.
         VStack {
-            // Use `projectManager.displayedProjects` which is a computed property
-            // and does not trigger fetches on its own.
-            if projectManager.displayedProjects.filter({ $0.projectName?.lowercased() != projectManager.defaultProject.lowercased() }).isEmpty && projectManager.projects.count <= 1 { // Check if only Inbox exists or it's truly empty
-                Text("Tap '+' to add your first custom project") // Modified empty state text
+            // Use direct Core Data access
+            if projects.filter({ $0.projectName?.lowercased() != "inbox" }).isEmpty && projects.count <= 1 {
+                Text("Tap '+' to add your first custom project")
                     .foregroundColor(.gray)
                     .padding()
-                Spacer() // Push text to center or top
+                Spacer()
             } else {
                 List {
-                    ForEach(projectManager.displayedProjects, id: \.objectID) { project in
+                    ForEach(projects, id: \.objectID) { project in
                         VStack(alignment: .leading) {
                                 Text(project.projectName ?? "Unknown Project")
                                     .font(.headline)
@@ -49,7 +52,7 @@ struct ProjectManagementView: View {
                         }
                         .contentShape(Rectangle()) // Ensure the whole area is tappable for context menu
                         .contextMenu {
-                            if project.projectName?.lowercased() != projectManager.defaultProject.lowercased() {
+                            if project.projectName?.lowercased() != "inbox" {
                                 Button("Edit") {
                                     projectToEdit = project
                                     editProjectName = project.projectName ?? ""
@@ -81,7 +84,7 @@ struct ProjectManagementView: View {
             TextField("Project Name", text: $newProjectName)
             TextField("Description (Optional)", text: $newProjectDescription)
             Button("Save") {
-                let success = projectManager.addNewProject(with: newProjectName, and: newProjectDescription)
+                let success = createProject(name: newProjectName, description: newProjectDescription)
                 if success {
                     statusAlertTitle = "Success"
                     statusAlertMessage = "Project added successfully."
@@ -103,7 +106,7 @@ struct ProjectManagementView: View {
             TextField("Description (Optional)", text: $editProjectDescription)
             Button("Save") {
                 if let project = projectToEdit {
-                    let success = projectManager.updateProject(project, newName: editProjectName, newDescription: editProjectDescription)
+                    let success = updateProject(project, newName: editProjectName, newDescription: editProjectDescription)
                     if success {
                         statusAlertTitle = "Success"
                         statusAlertMessage = "Project updated."
@@ -126,7 +129,7 @@ struct ProjectManagementView: View {
         .alert("Delete Project", isPresented: $showingDeleteConfirmAlert) {
             Button("Delete", role: .destructive) {
                 if let project = projectToDelete {
-                    let success = projectManager.deleteProject(project)
+                    let success = deleteProject(project)
                     if success {
                         statusAlertTitle = "Success"
                         statusAlertMessage = "Project deleted and tasks moved to Inbox."
@@ -143,10 +146,97 @@ struct ProjectManagementView: View {
             Text("Delete '\(projectToDelete?.projectName ?? "Selected")' project? Tasks will be moved to 'Inbox'.")
         }
         .onAppear {
-            // Asynchronously call the centralized data loading and preparation method.
-            DispatchQueue.main.async {
-                projectManager.refreshAndPrepareProjects()
+            loadProjects()
+        }
+    }
+    
+    // MARK: - Core Data Helper Methods
+    
+    private func loadProjects() {
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        projects = (try? context?.fetch(request)) ?? []
+    }
+    
+    private func createProject(name: String, description: String) -> Bool {
+        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              name.lowercased() != "inbox" else { return false }
+        
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        guard let context = context else { return false }
+        
+        // Check if project already exists
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        request.predicate = NSPredicate(format: "projectName == %@", name)
+        if let existingProjects = try? context.fetch(request), !existingProjects.isEmpty {
+            return false
+        }
+        
+        let newProject = Projects(context: context)
+        newProject.projectName = name
+        newProject.projecDescription = description
+        
+        do {
+            try context.save()
+            loadProjects() // Refresh the list
+            return true
+        } catch {
+            print("❌ Failed to create project: \(error)")
+            return false
+        }
+    }
+    
+    private func updateProject(_ project: Projects, newName: String, newDescription: String) -> Bool {
+        guard !newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              newName.lowercased() != "inbox" else { return false }
+        
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        guard let context = context else { return false }
+        
+        // Check if another project with this name already exists
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        request.predicate = NSPredicate(format: "projectName == %@ AND objectID != %@", newName, project.objectID)
+        if let existingProjects = try? context.fetch(request), !existingProjects.isEmpty {
+            return false
+        }
+        
+        project.projectName = newName
+        project.projecDescription = newDescription
+        
+        do {
+            try context.save()
+            loadProjects() // Refresh the list
+            return true
+        } catch {
+            print("❌ Failed to update project: \(error)")
+            return false
+        }
+    }
+    
+    private func deleteProject(_ project: Projects) -> Bool {
+        guard project.projectName?.lowercased() != "inbox" else { return false }
+        
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        guard let context = context else { return false }
+        
+        // Move tasks to Inbox before deleting project
+        let taskRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
+        taskRequest.predicate = NSPredicate(format: "project == %@", project.projectName ?? "")
+        if let tasks = try? context.fetch(taskRequest) {
+            for task in tasks {
+                task.project = "Inbox"
             }
+        }
+        
+        context.delete(project)
+        
+        do {
+            try context.save()
+            loadProjects() // Refresh the list
+            return true
+        } catch {
+            print("❌ Failed to delete project: \(error)")
+            return false
         }
     }
 }

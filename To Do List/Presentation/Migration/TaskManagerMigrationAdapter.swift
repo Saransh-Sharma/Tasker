@@ -116,6 +116,58 @@ public final class TaskManagerMigrationAdapter {
         }
     }
     
+    /// Get tasks for inbox for date (legacy compatibility)
+    public func getTasksForInboxForDate_All(date: Date) -> [NTask] {
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        request.predicate = NSPredicate(
+            format: "(project == %@ OR project == nil) AND dueDate >= %@ AND dueDate < %@",
+            "Inbox",
+            startOfDay as NSDate,
+            endOfDay as NSDate
+        )
+        return (try? context.fetch(request)) ?? []
+    }
+    
+    /// Get tasks for all custom projects by date (legacy compatibility)
+    public func getTasksForAllCustomProjectsByNameForDate_Open(date: Date) -> [NTask] {
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        request.predicate = NSPredicate(
+            format: "project != %@ AND project != nil AND dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
+            "Inbox",
+            startOfDay as NSDate,
+            endOfDay as NSDate
+        )
+        return (try? context.fetch(request)) ?? []
+    }
+    
+    /// Get tasks for all custom projects by date - all (legacy compatibility)
+    public func getTasksForAllCustomProjectsByNameForDate_All(date: Date) -> [NTask] {
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        request.predicate = NSPredicate(
+            format: "project != %@ AND project != nil AND dueDate >= %@ AND dueDate < %@",
+            "Inbox",
+            startOfDay as NSDate,
+            endOfDay as NSDate
+        )
+        return (try? context.fetch(request)) ?? []
+    }
+    
+    /// Get tasks for project by name (legacy compatibility)
+    public func getTasksForProjectByName(projectName: String) -> [NTask] {
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        request.predicate = NSPredicate(format: "project == %@", projectName)
+        return (try? context.fetch(request)) ?? []
+    }
+    
     // MARK: - Helper Methods
     
     private func getTaskId(from nTask: NTask) -> UUID? {
@@ -158,6 +210,13 @@ public final class ProjectManagerMigrationAdapter {
                 completion(["Inbox"])
             }
         }
+    }
+    
+    /// Get all projects synchronously (for migration)
+    public func getAllProjectsSync() -> [Projects] {
+        // This is a temporary method for migration
+        // Returns empty array as we're moving away from Projects entity
+        return []
     }
     
     /// Create project (legacy compatibility)

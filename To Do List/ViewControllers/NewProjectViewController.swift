@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 import FluentUI
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
@@ -120,7 +121,10 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
             button.isEnabled = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
             
-            let allProjects = ProjectManager.sharedInstance.displayedProjects
+            // Use direct Core Data access instead of ProjectManager
+            let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            let allProjects = (try? context?.fetch(request)) ?? []
             var allProjectList = [String]()
             
             for e in allProjects {
@@ -131,7 +135,16 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
             
             currentProjectInTexField = currentProjectInTexField.trimmingLeadingAndTrailingSpaces()
             if !allProjectList.contains(currentProjectInTexField) {
-                _ = ProjectManager.sharedInstance.addNewProject(with: currentProjectInTexField, and: currentProjectInTexField)
+                // Add new project using direct Core Data access
+                let newProject = Projects(context: context!)
+                newProject.projectName = currentProjectInTexField
+                newProject.projecDescription = currentProjectInTexField
+                
+                do {
+                    try context?.save()
+                } catch {
+                    print("❌ Failed to save new project: \(error)")
+                }
                 HUD.shared.showSuccess(from: self, with: "New Project\n\(currentProjectInTexField)")
             } else {
                 HUD.shared.showFailure(from: self, with: "\(currentProjectInTexField) already exists !")

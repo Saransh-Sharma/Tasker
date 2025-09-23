@@ -7,14 +7,18 @@
 //
 
 import Foundation
+import CoreData
 import DGCharts
 import UIKit
 
 // MARK: - Chart Data Service
 class ChartDataService {
-    static let shared = ChartDataService()
+    // Remove singleton, use dependency injection
+    private let context: NSManagedObjectContext
     
-    private init() {}
+    init(context: NSManagedObjectContext) {
+        self.context = context
+    }
     
     // MARK: - Line Chart Data Generation
     
@@ -105,7 +109,9 @@ class ChartDataService {
         let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
         
         // Fetch **all** tasks once – cheaper than multiple Core-Data fetches during week generation
-        let allTasks = TaskManager.sharedInstance.getAllTasks
+        // Fetch all tasks using Core Data directly
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let allTasks = (try? context.fetch(request)) ?? []
         
         #if DEBUG
         print("────────────────────────────────────────────────────────")
@@ -146,7 +152,7 @@ class ChartDataService {
             let dueDateStr = task.dueDate != nil ? dayFormatter.string(from: task.dueDate! as Date) : "nil"
             
             print("📝 [ChartDataService] Task \(index + 1): '\(task.name ?? "Unknown")'")
-            print("   - Complete: \(task.isComplete), Priority: \(task.priority), Score: \(taskScore)")
+            print("   - Complete: \(task.isComplete), Priority: \(task.taskPriority), Score: \(taskScore)")
             print("   - Due Date: \(dueDateStr), Completed Date: \(completedDateStr)")
             score += taskScore
             #if DEBUG
@@ -164,8 +170,12 @@ class ChartDataService {
         var score = 0
         
         // Only consider tasks for the specified project
-        let morningTasks = TaskManager.sharedInstance.getMorningTasksForProject(projectName: project)
-        let eveningTasks = TaskManager.sharedInstance.getEveningTasksForProject(projectName: project)
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        request.predicate = NSPredicate(format: "project == %@", project)
+        let projectTasks = (try? context.fetch(request)) ?? []
+        
+        let morningTasks = projectTasks.filter { $0.taskType == 1 } // TaskType.morning.rawValue
+        let eveningTasks = projectTasks.filter { $0.taskType == 2 } // TaskType.evening.rawValue
         
         for task in morningTasks {
             if task.isComplete {

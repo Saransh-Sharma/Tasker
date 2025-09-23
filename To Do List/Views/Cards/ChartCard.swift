@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import CoreData
 import DGCharts
 import UIKit
 
@@ -87,9 +88,15 @@ struct ChartCard: View {
     
     private func loadChartData() {
         isLoading = true
-        // Generate chart data on the Core Data context queue to ensure freshest state
-        TaskManager.sharedInstance.context.perform {
-            let newData = ChartDataService.shared.generateLineChartData(for: referenceDate)
+        // Generate chart data using injected context
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            isLoading = false
+            return
+        }
+        
+        context.perform {
+            let chartService = ChartDataService(context: context)
+            let newData = chartService.generateLineChartData(for: referenceDate)
             DispatchQueue.main.async {
                 self.chartData = newData
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -194,12 +201,16 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         
         let colors = ToDoColors()
         
+        // Use ChartDataService with dependency injection
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let chartService = ChartDataService(context: context!)
+        
         // Calculate dynamic maximum for better scaling
-        let dynamicMaximum = ChartDataService.shared.calculateDynamicMaximum(for: data)
+        let dynamicMaximum = chartService.calculateDynamicMaximum(for: data)
         chartView.leftAxis.axisMaximum = dynamicMaximum
         
         // Create and configure data set
-        let dataSet = ChartDataService.shared.createLineChartDataSet(with: data, colors: colors)
+        let dataSet = chartService.createLineChartDataSet(with: data, colors: colors)
         
         // Create chart data and apply to chart
         let chartData = LineChartData(dataSet: dataSet)

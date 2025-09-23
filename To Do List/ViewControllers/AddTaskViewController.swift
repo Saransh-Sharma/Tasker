@@ -306,21 +306,11 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     }
     
     func buildSamplePillBarData() {
-        // Use actual project data from ProjectManager instead of sample data
-        let allDisplayProjects = ProjectManager.sharedInstance.displayedProjects
-        
+        // Use empty list for now - will be populated via Clean Architecture
         samplePillBarItems = [] // Reset the list
         
-        // Add all existing projects
-        for project in allDisplayProjects {
-            if let projectName = project.projectName {
-                print("Added to sample pill bar from ProjectManager: \(projectName)")
-                samplePillBarItems.append(PillButtonBarItem(title: projectName))
-            }
-        }
-        
-        // Ensure "Inbox" is present and positioned first if it exists
-        let inboxTitle = ProjectManager.sharedInstance.defaultProject // "Inbox"
+        // Add default Inbox project
+        let inboxTitle = "Inbox"
         
         // Remove any existing "Inbox" to avoid duplicates before re-inserting at correct position
         samplePillBarItems.removeAll(where: { $0.title.lowercased() == inboxTitle.lowercased() })

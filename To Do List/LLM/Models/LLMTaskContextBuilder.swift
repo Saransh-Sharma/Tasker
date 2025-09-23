@@ -10,7 +10,8 @@
 //
 
 import Foundation
-
+import CoreData
+import UIKit
 import os
 
 struct LLMTaskContextBuilder {
@@ -143,7 +144,12 @@ struct LLMTaskContextBuilder {
             return "{}"
         }
 
-        let tasks = TaskManager.sharedInstance.getAllTasks.filter { task in
+        // Get tasks from Core Data directly
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let allTasks = (try? context?.fetch(request)) ?? []
+        
+        let tasks = allTasks.filter { task in
             // Include tasks whose dueDate or completion falls within [today, today+7)
             if let due = task.dueDate as Date?, due >= startOfToday && due < endOfWeek {
                 return true
@@ -164,13 +170,12 @@ struct LLMTaskContextBuilder {
 
         // Build list of tasks due today including overdue ones
         let endOfToday = cal.date(byAdding: .day, value: 1, to: startOfToday)!
-        let tasksDueToday: [NTask] = TaskManager.sharedInstance.getAllTasks.filter { task in
+        let tasksDueToday: [NTask] = allTasks.filter { task in
             if task.isComplete { return false }
             guard let due = task.dueDate as Date? else { return false }
             // Due date passed or today
             return due < endOfToday
         }
-        // Helper to format dates as YYYY-MM-DD strings
         
         let encodedWeekly: [[String: Any]] = tasks.map { task in
             var dict: [String: Any] = [
@@ -227,7 +232,10 @@ struct LLMTaskContextBuilder {
     /// Groups tasks by `project` field (case-insensitive). Tasks with empty project
     /// are grouped under "inbox" (default project).
     static func projectDetailsJSON() -> String {
-        let tasks = TaskManager.sharedInstance.getAllTasks
+        // Get tasks from Core Data directly
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let tasks = (try? context?.fetch(request)) ?? []
         // Group tasks by project name
         let groups = Dictionary(grouping: tasks) { (task: NTask) -> String in
             let proj = (task.project ?? "").trimmingCharacters(in: .whitespacesAndNewlines)

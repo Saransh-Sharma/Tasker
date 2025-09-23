@@ -30,7 +30,9 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         let status = task.isComplete ? "completed" : "uncompleted"
         let taskScore = task.getTaskScore(task: task)
         // Use ChartDataService for accurate score calculation
-        let dailyTotal = ChartDataService.shared.calculateScoreForDate(date: Date())
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let chartService = ChartDataService(context: context!)
+        let dailyTotal = chartService.calculateScoreForDate(date: Date())
         print("📋 Task \(status): '\(task.name)'")
         print("   • Task Score: \(taskScore)")
         print("   • Daily Total Score: \(dailyTotal)")
@@ -56,7 +58,9 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         
         // Log detailed task update information
         let taskScore = task.getTaskScore(task: task)
-        let dailyTotal = ChartDataService.shared.calculateScoreForDate(date: Date())
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let chartService = ChartDataService(context: context!)
+        let dailyTotal = chartService.calculateScoreForDate(date: Date())
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium
         dateFormatter.timeStyle = .short
@@ -88,7 +92,9 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         // Log deletion with detailed task information
         let taskScore = task.getTaskScore(task: task)
         // Use ChartDataService for accurate score calculation
-        let dailyTotal = ChartDataService.shared.calculateScoreForDate(date: Date())
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let chartService = ChartDataService(context: context!)
+        let dailyTotal = chartService.calculateScoreForDate(date: Date())
         print("🗑️ Task deleted: '\(task.name)'")
         print("   • Task Score: \(taskScore)")
         print("   • Was Completed: \(task.isComplete)")

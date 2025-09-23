@@ -99,7 +99,7 @@ extension AddTaskViewController {
         }
         
         // Determine task type based on evening switch
-        let taskType: TaskType = isThisEveningTask ? .evening : .morning
+        let taskType: Int32 = isThisEveningTask ? 2 : 1 // 2=evening, 1=morning
         print("🌅 AddTask: Task type: \(taskType)")
         
         // Create TaskData object
@@ -107,7 +107,7 @@ extension AddTaskViewController {
             name: currentTaskInMaterialTextBox,
             details: currentTaskDescription.isEmpty ? nil : currentTaskDescription,
             type: taskType,
-            priority: currentTaskPriority,
+            priorityRawValue: Int32(currentTaskPriority.rawValue),
             dueDate: dateForAddTaskView,
             project: currenttProjectForAddTaskView
         )

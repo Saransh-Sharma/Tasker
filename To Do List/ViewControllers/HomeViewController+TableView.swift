@@ -8,6 +8,9 @@
 
 import UIKit
 import FluentUI
+import CoreData
+
+// TaskListItem is defined in ToDoListData.swift
 
 extension HomeViewController {
     
@@ -176,7 +179,7 @@ extension HomeViewController {
                 if indexPath.row < section.items.count {
                     let taskListItem = section.items[indexPath.row]
                     print("Table - HomeViewController: Getting task for TaskListItem with title '\(taskListItem.TaskTitle)'")
-                    task = TaskManager.sharedInstance.getTaskFromTaskListItem(taskListItem: taskListItem)
+                    task = getTaskFromTaskListItem(taskListItem)
                     if task == nil {
                         print("Table - Error: Expected a task item in cellForRowAt, but found nil at indexPath: \(indexPath)")
                     }
@@ -186,7 +189,7 @@ extension HomeViewController {
             let allTaskItems = ToDoListSections.flatMap({ $0.items })
             if indexPath.row < allTaskItems.count {
                 let taskListItem = allTaskItems[indexPath.row]
-                task = TaskManager.sharedInstance.getTaskFromTaskListItem(taskListItem: taskListItem)
+                task = getTaskFromTaskListItem(taskListItem)
                 if task == nil {
                     print("Table - Error: Expected a task item in cellForRowAt, but found nil at indexPath: \(indexPath)")
                 }
@@ -321,7 +324,7 @@ extension HomeViewController {
                 let section = ToDoListSections[indexPath.section]
                 if indexPath.row < section.items.count {
                     let taskListItem = section.items[indexPath.row]
-                    task = TaskManager.sharedInstance.getTaskFromTaskListItem(taskListItem: taskListItem)
+                    task = getTaskFromTaskListItem(taskListItem)
                     if task == nil {
                         print("Error: Expected a task item for swipe actions, but found nil at indexPath: \(indexPath)")
                     }
@@ -331,7 +334,7 @@ extension HomeViewController {
             let allTaskItems = ToDoListSections.flatMap({ $0.items })
             if indexPath.row < allTaskItems.count {
                 let taskListItem = allTaskItems[indexPath.row]
-                task = TaskManager.sharedInstance.getTaskFromTaskListItem(taskListItem: taskListItem)
+                task = getTaskFromTaskListItem(taskListItem)
                 if task == nil {
                     print("Error: Expected a task item for swipe actions, but found nil at indexPath: \(indexPath)")
                 }
@@ -392,15 +395,14 @@ extension HomeViewController {
         func markTaskOpenOnSwipe(task: NTask) {
             task.isComplete = false
             task.dateCompleted = nil
-            TaskManager.sharedInstance.saveContext()
+            saveContext()
             self.fluentToDoTableViewController?.tableView.reloadData()
             self.updateLineChartData()
         }
         
         func deleteTaskOnSwipe(task: NTask) {
             // Delete the task directly from the context
-            TaskManager.sharedInstance.context.delete(task)
-            TaskManager.sharedInstance.saveContext()
+            deleteTaskDirectly(task)
             self.fluentToDoTableViewController?.tableView.reloadData()
             self.updateLineChartData()
         }
@@ -415,7 +417,7 @@ extension HomeViewController {
                 for task in tasks {
                     task.dueDate = tomorrow as NSDate
                 }
-                TaskManager.sharedInstance.saveContext()
+                saveContext()
                 tableView.reloadData()
             }
             
@@ -423,7 +425,7 @@ extension HomeViewController {
                 for task in tasks {
                     task.dueDate = nextWeek as NSDate
                 }
-                TaskManager.sharedInstance.saveContext()
+                saveContext()
                 tableView.reloadData()
             }
             
@@ -446,5 +448,43 @@ extension HomeViewController {
             
             self.present(alertController, animated: true, completion: nil)
         }
+    }
+    
+    // MARK: - Helper Methods (duplicated from HomeViewController+Helpers.swift for build compatibility)
+    
+    /// Get task from TaskListItem without using TaskManager singleton
+    private func getTaskFromTaskListItem(_ item: ToDoListData.TaskListItem) -> NTask? {
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        
+        // Match by task name (TaskListItem only has TaskTitle, no TaskDueDate)
+        request.predicate = NSPredicate(format: "name == %@", item.TaskTitle)
+        
+        return try? context?.fetch(request).first
+    }
+    
+    /// Save context without using TaskManager singleton
+    private func saveContext() {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return
+        }
+        
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                print("Error saving context: \(error)")
+            }
+        }
+    }
+    
+    /// Delete task without using TaskManager singleton
+    private func deleteTaskDirectly(_ task: NTask) {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return
+        }
+        
+        context.delete(task)
+        saveContext()
     }
 

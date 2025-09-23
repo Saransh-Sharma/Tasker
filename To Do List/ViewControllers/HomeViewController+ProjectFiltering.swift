@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 
 extension HomeViewController {
     
@@ -26,8 +27,11 @@ extension HomeViewController {
     func calculateTodaysScore() -> Int {
         let targetDate = dateForTheView
         let calendar = Calendar.current
-        // Fetch from TaskManager which uses main/view context – so it already includes the latest toggle.
-        let completedToday = TaskManager.sharedInstance.getAllTasks.filter { task in
+        // Use direct Core Data access instead of TaskManager
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let allTasks = (try? context?.fetch(request)) ?? []
+        let completedToday = allTasks.filter { task in
             guard task.isComplete, let doneDate = task.dateCompleted as Date? else { return false }
             return calendar.isDate(doneDate, inSameDayAs: targetDate)
         }
@@ -67,13 +71,16 @@ extension HomeViewController {
 
         let projectsToFilter: [Projects]
         
+        // Use direct Core Data access instead of migration adapters
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+        let allProjects = (try? context?.fetch(projectRequest)) ?? []
+        
         switch currentViewType {
             case .allProjectsGrouped:
-                // Get all projects
-                projectsToFilter = ProjectManager.sharedInstance.getAllProjects()
+                projectsToFilter = allProjects
             case .selectedProjectsGrouped:
-                // Get only the selected projects
-                projectsToFilter = ProjectManager.sharedInstance.getAllProjects().filter { project in
+                projectsToFilter = allProjects.filter { project in
                     guard let projectName = project.projectName else { return false }
                     return selectedProjectNamesForFilter.contains(projectName)
                 }
@@ -173,8 +180,20 @@ extension HomeViewController {
         
         print("\n=== LOADING TASKS FOR DATE: \(dateForTheView) ===")
         
-        // Get all tasks for the selected date
-        let allTasksForDate = TaskManager.sharedInstance.getAllTasksForDate(date: dateForTheView)
+        // Get all tasks for the selected date using direct Core Data access
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: dateForTheView)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        request.predicate = NSPredicate(
+            format: "dueDate >= %@ AND dueDate < %@",
+            startOfDay as NSDate, endOfDay as NSDate
+        )
+        
+        let allTasksForDate = (try? context?.fetch(request)) ?? []
         
         print("📅 Found \(allTasksForDate.count) total tasks for \(dateForTheView)")
         
@@ -190,7 +209,7 @@ extension HomeViewController {
         var tasksByProject: [String: [NTask]] = [:]
         
         for task in allTasksForDate {
-            let projectName = task.project?.lowercased() ?? ProjectManager.sharedInstance.defaultProject
+            let projectName = task.project?.lowercased() ?? "inbox"
             if tasksByProject[projectName] == nil {
                 tasksByProject[projectName] = []
             }
@@ -198,7 +217,7 @@ extension HomeViewController {
         }
         
         print("\n📊 TASK COUNT BY PROJECT:")
-        let inboxProjectName = ProjectManager.sharedInstance.defaultProject
+        let inboxProjectName = "inbox"
         
         // Show Inbox count first
         if let inboxTasks = tasksByProject[inboxProjectName] {

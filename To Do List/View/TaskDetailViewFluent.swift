@@ -42,8 +42,8 @@ class TaskDetailViewFluent: UIView {
     ])
     // Priority mapping: Using TaskPriority enum values (low=1, medium=2, high=3)
     // SegmentedControl indices: Low (0), Medium (1), High (2)
-    private let segmentedControlIndexToPriority: [Int: Int32] = [0: TaskPriority.low.rawValue, 1: TaskPriority.medium.rawValue, 2: TaskPriority.high.rawValue] // Maps Segment Index to TaskPriority enum values
-    private let priorityToSegmentedControlIndex: [Int32: Int] = [TaskPriority.low.rawValue: 0, TaskPriority.medium.rawValue: 1, TaskPriority.high.rawValue: 2] // Maps TaskPriority enum values to Segment Index
+    private let segmentedControlIndexToPriority: [Int: Int32] = [0: 4, 1: 3, 2: 2] // Maps Segment Index to TaskPriority raw values (low=4, medium=3, high=2)
+    private let priorityToSegmentedControlIndex: [Int32: Int] = [4: 0, 3: 1, 2: 2] // Maps TaskPriority raw values to Segment Index
 
 
     // Project
@@ -350,62 +350,39 @@ class TaskDetailViewFluent: UIView {
     @objc private func didTapSaveButton() {
         guard let task = currentTask, hasUnsavedChanges else { return }
         
-        // Use repository pattern if available, otherwise fall back to direct Core Data modification
-        if let repository = taskRepository {
-            // Create TaskData from current UI state
-            let updatedTaskData = TaskData(
-                id: task.objectID,
-                name: titleTextField.inputText ?? "",
-                details: descriptionTextField.inputText,
-                type: TaskType(rawValue: task.taskType) ?? .upcoming,
-                priority: {
-                    let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
-                    if let priorityRawValue = segmentedControlIndexToPriority[selectedIndex] {
-                        return TaskPriority(rawValue: priorityRawValue) ?? .medium
-                    }
-                    return .medium
-                }(),
-                dueDate: currentDueDate ?? Date(),
-                project: currentProject ?? "Inbox",
-                isComplete: task.isComplete,
-                dateAdded: task.dateAdded as Date? ?? Date(),
-                dateCompleted: task.dateCompleted as Date?
-            )
-            
-            // Use repository to update the task
-            repository.updateTask(taskID: task.objectID, data: updatedTaskData) { [weak self] result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success:
-                        // Reset the unsaved changes flag
-                        self?.hasUnsavedChanges = false
-                        self?.updateSaveButtonState()
-                        
-                        // Call the delegate to handle post-save actions
-                        self?.delegate?.taskDetailViewFluentDidSave(self!, savedTask: task)
-                    case .failure(let error):
-                        print("Failed to save task: \(error.localizedDescription)")
-                        // Could show an alert to the user here
-                    }
-                }
+        // Update task directly using Core Data
+        task.name = titleTextField.inputText ?? ""
+        task.taskDetails = descriptionTextField.inputText
+        
+        // Update priority
+        let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
+        if let priorityRawValue = segmentedControlIndexToPriority[selectedIndex] {
+            task.taskPriority = priorityRawValue
+        }
+        
+        // Update due date and project
+        task.dueDate = (currentDueDate ?? Date()) as NSDate
+        task.project = currentProject ?? "Inbox"
+        
+        // Reset the unsaved changes flag
+        hasUnsavedChanges = false
+        updateSaveButtonState()
+        
+        // Call the delegate to handle post-save actions
+        delegate?.taskDetailViewFluentDidSave(self, savedTask: task)
+    }
+    
+    private func saveContext() {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return
+        }
+        
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                print("Error saving context: \(error)")
             }
-        } else {
-            // Fallback to direct Core Data modification (legacy approach)
-            task.name = titleTextField.inputText ?? ""
-            task.taskDetails = descriptionTextField.inputText
-            
-            // Update priority from segmented control
-            let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
-            if let priority = segmentedControlIndexToPriority[selectedIndex] {
-                task.taskPriority = priority
-            }
-            
-            // Call the delegate to save the task
-            delegate?.taskDetailViewFluentDidSave(self, savedTask: task)
-            
-            // Reset the unsaved changes flag
-            hasUnsavedChanges = false
-            updateSaveButtonState()
         }
     }
 }

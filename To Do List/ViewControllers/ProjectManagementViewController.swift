@@ -13,15 +13,31 @@ class ProjectManagementViewController: UIViewController {
     var projectsTableView: UITableView!
     var projects: [Projects] = []
     
-    // Managers
-    let projectManager = ProjectManager.sharedInstance
-    let taskManager = TaskManager.sharedInstance
+    // Managers - removed, using Clean Architecture now
     
     // UI Elements
     var emptyStateLabel: UILabel?
     
     // HUD
     var todoColors = ToDoColors()
+    
+    // MARK: - Helper Methods
+    private func saveContext() -> Bool {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return false
+        }
+        
+        if context.hasChanges {
+            do {
+                try context.save()
+                return true
+            } catch {
+                print("Error saving context: \(error)")
+                return false
+            }
+        }
+        return true
+    }
     
     // MARK: - Lifecycle Methods
     override func viewDidLoad() {
@@ -81,8 +97,10 @@ class ProjectManagementViewController: UIViewController {
     
     // MARK: - Data Management
     private func loadProjects() {
-        projectManager.refreshAndPrepareProjects()
-        projects = projectManager.displayedProjects
+        // Load projects from Core Data
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        projects = (try? context?.fetch(request)) ?? []
         projectsTableView.reloadData()
         updateEmptyStateVisibility()
     }
@@ -126,7 +144,10 @@ class ProjectManagementViewController: UIViewController {
             // Different handling for new vs existing project
             if let existingProject = project {
                 // Update existing project
-                let success = self.projectManager.updateProject(existingProject, newName: projectName, newDescription: projectDescription)
+                // Update existing project
+                existingProject.projectName = projectName
+                existingProject.projecDescription = projectDescription
+                let success = self.saveContext()
                 if success {
                     self.showSuccess(message: "Project updated")
                     self.loadProjects()
@@ -135,7 +156,13 @@ class ProjectManagementViewController: UIViewController {
                 }
             } else {
                 // Create new project
-                let success = self.projectManager.addNewProject(with: projectName, and: projectDescription)
+                // Create new project
+                let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+                let newProject = Projects(context: context!)
+                newProject.projectName = projectName
+                newProject.projecDescription = projectDescription
+                newProject.projectID = UUID().uuidString
+                let success = self.saveContext()
                 if success {
                     self.showSuccess(message: "Project created")
                     self.loadProjects()
@@ -203,7 +230,7 @@ extension ProjectManagementViewController: UITableViewDataSource {
         cell.textLabel?.text = project.projectName
         cell.detailTextLabel?.text = project.projecDescription
         
-        if trimmed == projectManager.defaultProject.lowercased() {
+        if trimmed == "inbox" {
             cell.textLabel?.textColor = .gray
             cell.accessoryView = nil
             cell.selectionStyle = .none
@@ -233,7 +260,7 @@ extension ProjectManagementViewController: UITableViewDelegate {
         let project = projects[indexPath.row]
         
         // Don't allow editing the default Inbox project
-        if project.projectName?.lowercased() == projectManager.defaultProject.lowercased() {
+        if project.projectName?.lowercased() == "inbox" {
             return
         }
         
@@ -245,7 +272,7 @@ extension ProjectManagementViewController: UITableViewDelegate {
         let project = projects[indexPath.row]
         
         // Don't allow deleting the default Inbox project
-        if project.projectName?.lowercased() == projectManager.defaultProject.lowercased() {
+        if project.projectName?.lowercased() == "inbox" {
             return nil
         }
         
@@ -267,7 +294,21 @@ extension ProjectManagementViewController: UITableViewDelegate {
             }
             
             let confirmAction = UIAlertAction(title: "Delete", style: .destructive) { _ in
-                let success = self.projectManager.deleteProject(project)
+                // Delete project and move tasks to Inbox
+                let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+                
+                // Move all tasks from this project to Inbox
+                let taskRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
+                taskRequest.predicate = NSPredicate(format: "project == %@", project.projectName ?? "")
+                if let tasks = try? context?.fetch(taskRequest) {
+                    for task in tasks {
+                        task.project = "Inbox"
+                    }
+                }
+                
+                // Delete the project
+                context?.delete(project)
+                let success = self.saveContext()
                 if success {
                     self.showSuccess(message: "Project deleted and tasks moved to Inbox")
                     self.loadProjects()

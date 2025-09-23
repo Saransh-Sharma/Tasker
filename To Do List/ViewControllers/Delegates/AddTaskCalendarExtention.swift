@@ -7,15 +7,20 @@
 //
 
 import Foundation
+import CoreData
 import FSCalendar
 
 extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
     
     func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
         
-        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
-        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
-        let allTasks = morningTasks+eveningTasks
+        // Get tasks from Core Data directly
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+        request.predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
+        let allTasks = (try? context?.fetch(request)) ?? []
         
         if(allTasks.count == 0) {
             return "-"

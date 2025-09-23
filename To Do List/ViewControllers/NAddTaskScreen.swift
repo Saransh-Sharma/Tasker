@@ -167,15 +167,13 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     //MARK:- DONE TASK ACTION
     @objc func doneAddTaskAction() {
-        // TODO: Re-implement the actual task adding logic from OLD_doneAddTaskAction here.
-        // This includes checking currentTaskInMaterialTextBox, getting task type, priority, and date,
-        // and then calling the appropriate TaskManager.sharedInstance.addNewTask_Today or addNewTask_Future method.
+        // Task adding logic now handled through Clean Architecture
         // Add task using repository pattern
         isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
         
         if currentTaskInMaterialTextBox != "" {
             print("Adding task: \(currentTaskInMaterialTextBox)")
-            let taskTypeToSave = getTaskType() // Now returns TaskType directly
+            let taskTypeToSave = getTaskType() // Now returns Int32 directly
             let taskPriorityToSave = currentTaskPriority // Now already a TaskPriority enum
             
             // Determine due date based on picker selection
@@ -206,7 +204,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
                 name: currentTaskInMaterialTextBox,
                 details: nil,
                 type: taskTypeToSave,
-                priority: taskPriorityToSave,
+                priorityRawValue: Int32(taskPriorityToSave.rawValue),
                 dueDate: dueDate,
                 project: "Inbox",
                 isComplete: false,
@@ -529,21 +527,21 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         ("", .clear)
     ]
     
-    func getTaskType() -> TaskType { //extend this to return for inbox & upcoming/someday
+    func getTaskType() -> Int32 { //extend this to return for inbox & upcoming/someday
         if eveningSwitch.isOn {
             print("Adding evening task")
-            return .evening
+            return 2 // .evening
         }
         //        else if isInboxTask {
-        //            return .inbox  // Future enhancement
+        //            return 4  // .inbox - Future enhancement
         //        }
         //        else if isUpcomingTask {
-        //            return .upcoming  // Future enhancement
+        //            return 3  // .upcoming - Future enhancement
         //        }
         else {
             //this is morning task
             print("Adding morning task")
-            return .morning
+            return 1 // .morning
         }
     }
     

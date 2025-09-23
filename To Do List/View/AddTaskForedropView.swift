@@ -194,8 +194,8 @@ extension AddTaskViewController {
 }
 
 
-    func getTaskType() -> TaskType {
-        return self.isThisEveningTask ? .evening : .morning
+    func getTaskType() -> Int32 {
+        return self.isThisEveningTask ? 2 : 1 // 2=evening, 1=morning
     }
     
     @objc func isEveningSwitchOn(sender: UISwitch!) -> Bool {

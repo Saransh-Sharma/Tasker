@@ -1,6 +1,9 @@
 import Foundation
 import CoreData
 
+// TaskPriority enum is defined in Domain/Models/TaskPriority.swift
+// Make sure it's accessible in this scope
+
 /// Service responsible for handling task scoring and gamification logic
 final class TaskScoringService {
     
@@ -16,13 +19,12 @@ final class TaskScoringService {
     /// - Parameter taskPriority: The priority level of the task (TaskPriority enum)
     /// - Returns: Integer score value
     func calculateScore(for taskPriority: TaskPriority) -> Int {
-        switch taskPriority {
-        case .high:   return 7  // Highest priority
-        case .medium: return 4  // Medium priority
-        case .low:    return 2
-        case .veryLow: return 1  // Low priority
-        @unknown default:
-            return 1  // Fallback
+        switch taskPriority.rawValue {
+        case 1: return 7  // highest (P0)
+        case 2: return 4  // high (P1)  
+        case 3: return 3  // medium (P2)
+        case 4: return 2  // low (P3)
+        default: return 1  // Fallback
         }
     }
     
@@ -30,15 +32,30 @@ final class TaskScoringService {
     /// - Parameter taskData: The task data to calculate score for
     /// - Returns: Integer score value
     func calculateScore(for taskData: TaskData) -> Int {
-        return calculateScore(for: taskData.priority)
+        // Use raw value approach to avoid enum type issues
+        let priorityRawValue = taskData.priorityRawValue
+        switch priorityRawValue {
+        case 1: return 7  // highest (P0)
+        case 2: return 4  // high (P1)
+        case 3: return 2  // medium (P2)
+        case 4: return 1  // low (P3)
+        default: return 2 // default to medium
+        }
     }
     
     /// Calculate the score value of an individual managed task
     /// - Parameter task: The managed task to calculate score for
     /// - Returns: Integer score value
     func calculateScore(for task: NTask) -> Int {
-        let priority = TaskPriority(rawValue: task.taskPriority) ?? .low
-        return calculateScore(for: priority)
+        // Use raw value approach to avoid persistent type conversion issues
+        let priorityRawValue = task.taskPriority
+        switch priorityRawValue {
+        case 1: return 7  // highest (P0)
+        case 2: return 4  // high (P1)
+        case 3: return 3  // medium (P2)
+        case 4: return 2  // low (P3)
+        default: return 1 // fallback
+        }
     }
     
     /// Calculate the total score for a given date
@@ -70,7 +87,7 @@ final class TaskScoringService {
             var totalScore = 0
             for task in tasks {
                 // Calculate score for each task
-                totalScore += self.calculateScore(for: task.priority)
+                totalScore += self.calculateScore(for: task)
             }
             
             completion(totalScore)

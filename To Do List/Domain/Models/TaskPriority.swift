@@ -8,7 +8,7 @@
 import Foundation
 
 /// Represents the priority level of a task
-public enum TaskPriority: Int32, CaseIterable {
+public enum TaskPriority: Int32, CaseIterable, Hashable {
     case highest = 1  // P0
     case high = 2     // P1
     case medium = 3   // P2 (default)

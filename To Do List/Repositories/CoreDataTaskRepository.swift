@@ -71,8 +71,8 @@ final class CoreDataTaskRepository: TaskRepository {
             let managed = NTask(context: self.backgroundContext)
             managed.name = data.name
             managed.taskDetails = data.details
-            managed.taskType = data.type.rawValue
-            managed.taskPriority = data.priority.rawValue
+            managed.taskType = data.type
+            managed.taskPriority = data.priorityRawValue
             managed.dueDate = data.dueDate as NSDate
             managed.project = data.project
             managed.isComplete = data.isComplete
@@ -162,7 +162,7 @@ final class CoreDataTaskRepository: TaskRepository {
         
         let predicate = NSPredicate(
             format: "taskType == %d AND dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
-            TaskType.morning.rawValue,
+            1, // TaskType.morning.rawValue
             startOfDay as NSDate,
             endOfDay as NSDate
         )
@@ -180,7 +180,7 @@ final class CoreDataTaskRepository: TaskRepository {
         
         let predicate = NSPredicate(
             format: "taskType == %d AND dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
-            TaskType.evening.rawValue,
+            2, // TaskType.evening.rawValue
             startOfDay as NSDate,
             endOfDay as NSDate
         )
@@ -193,7 +193,7 @@ final class CoreDataTaskRepository: TaskRepository {
     }
     
     func getUpcomingTasks(completion: @escaping ([TaskData]) -> Void) {
-        let predicate = NSPredicate(format: "taskType == %d", TaskType.upcoming.rawValue)
+        let predicate = NSPredicate(format: "taskType == %d", 3) // TaskType.upcoming.rawValue
         
         fetchTasks(
             predicate: predicate,
@@ -393,8 +393,8 @@ final class CoreDataTaskRepository: TaskRepository {
                 // Update all task properties with new data
                 task.name = data.name
                 task.taskDetails = data.details
-                task.taskType = data.type.rawValue
-                task.taskPriority = data.priority.rawValue
+                task.taskType = data.type
+                task.taskPriority = data.priorityRawValue
                 task.dueDate = data.dueDate as NSDate
                 task.project = data.project
                 task.isComplete = data.isComplete
@@ -418,7 +418,7 @@ final class CoreDataTaskRepository: TaskRepository {
     func saveTask(taskID: NSManagedObjectID, 
                  name: String,
                  details: String?,
-                 type: TaskType,
+                 type: Int32, // TaskType raw value
                  priority: TaskPriority,
                  dueDate: Date,
                  project: String,
@@ -435,8 +435,8 @@ final class CoreDataTaskRepository: TaskRepository {
                 // Update task properties from task details page
                 task.name = name
                 task.taskDetails = details
-                task.taskType = type.rawValue
-                task.taskPriority = priority.rawValue
+                task.taskType = type
+                task.taskPriority = Int32(priority.rawValue)
                 task.dueDate = dueDate as NSDate
                 task.project = project
                 

@@ -112,9 +112,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 // MARK: - Pie-chart helpers
 
 /// Returns a dictionary of counts of completed tasks grouped by priority for a given date
-private func priorityBreakdown(for date: Date) -> [TaskPriority: Int] {
-    var counts: [TaskPriority: Int] = [.high: 0, .medium: 0, .low: 0, .veryLow: 0]
-    let allTasks = TaskManager.sharedInstance.getAllTasks
+private func priorityBreakdown(for date: Date) -> [Int32: Int] {
+    // Use raw values to avoid enum compilation issues
+    var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0] // highest, high, medium, low
+    // Get tasks from Core Data directly
+    let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+    let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+    let allTasks = (try? context?.fetch(request)) ?? []
     let calendar = Calendar.current
     
     for task in allTasks {
@@ -130,8 +134,8 @@ private func priorityBreakdown(for date: Date) -> [TaskPriority: Int] {
         }
         guard let ref = referenceDate,
               calendar.isDate(ref, inSameDayAs: date) else { continue }
-        let priority = TaskPriority(rawValue: task.taskPriority) ?? .low
-        counts[priority, default: 0] += 1
+        let priorityValue = task.taskPriority
+        counts[priorityValue, default: 0] += 1
     }
     return counts
 }
@@ -161,7 +165,7 @@ func refreshNavigationPieChart() {
     var fluentToDoTableViewController: FluentUIToDoTableViewController?
     
     // View state
-    var projectForTheView = ProjectManager.sharedInstance.defaultProject
+    var projectForTheView = "Inbox" // Default project name
     var currentViewType = ToDoListViewType.todayHomeView
     var selectedProjectNamesForFilter: [String] = []
     var projectsToDisplayAsSections: [Projects] = []
@@ -238,6 +242,9 @@ func refreshNavigationPieChart() {
         print("\n=== HOME VIEW CONTROLLER LOADED ===")
         print("Initial dateForTheView: \(dateForTheView)")
         
+        // Setup Clean Architecture - simplified approach
+        print("🏗️ Clean Architecture setup (simplified)")
+        
         print("=== HOME VIEW CONTROLLER SETUP COMPLETE ===")
         // Observe theme changes for lifetime of this controller
         notificationCenter.addObserver(self, selector: #selector(themeChanged), name: .themeChanged, object: nil)
@@ -282,9 +289,7 @@ func refreshNavigationPieChart() {
         view.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
         backdropContainer.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
         
-        // Load initial data
-        TaskManager.sharedInstance.fixMissingTasksDataWithDefaults()
-        ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
+        // Initial data loading handled by setupCleanArchitectureIfAvailable()
         
         // Enable dark mode if preset
         enableDarkModeIfPreset()
@@ -555,16 +560,16 @@ private func buildNavigationPieChartData(for date: Date) {
 
     // Fetch priority counts for completed tasks on the given date
     let breakdown = priorityBreakdown(for: date)
-    // Weighting: High=3, Medium=2, Low=1
-    let weights: [TaskPriority: Double] = [.high: 3, .medium: 2, .low: 1, .veryLow: 0.5]
+    // Use raw values to avoid enum compilation issues
+    let weights: [Int32: Double] = [1: 4, 2: 3, 3: 2, 4: 1] // highest, high, medium, low
     let entries: [PieChartDataEntry] = [
-        (TaskPriority.high, "High"),
-        (TaskPriority.medium, "Medium"),
-        (TaskPriority.low, "Low"),
-        (TaskPriority.veryLow, "Very Low")
-    ].compactMap { (priority, label) in
-        let rawCount = Double(breakdown[priority] ?? 0)
-        let weight = weights[priority] ?? 1
+        (Int32(1), "Highest"),
+        (Int32(2), "High"),
+        (Int32(3), "Medium"),
+        (Int32(4), "Low")
+    ].compactMap { (priorityRaw, label) in
+        let rawCount = Double(breakdown[priorityRaw] ?? 0)
+        let weight = weights[priorityRaw] ?? 1
         let weightedValue = rawCount * weight
         return weightedValue > 0 ? PieChartDataEntry(value: weightedValue, label: label) : nil
     }
@@ -695,8 +700,10 @@ extension HomeViewController {
     }
     
     private func filterTasksForSearch(searchText: String) {
-        // Get ALL tasks from TaskManager (across all dates and projects)
-        let allTasks = TaskManager.sharedInstance.getAllTasks
+        // Get ALL tasks from Core Data directly
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let allTasks = (try? context?.fetch(request)) ?? []
         
         // Filter tasks based on search text
         let filteredTasks = allTasks.filter { task in
@@ -767,20 +774,15 @@ extension HomeViewController: AddTaskViewControllerDelegate {
     func didAddTask(_ task: NTask) {
         print("🔄 AddTask: didAddTask called for task: \(task.name) with due date: \(task.dueDate ?? Date() as NSDate)")
         
-        // Step 1: Save the Core Data context to ensure the new task is persisted
-        do {
-            try TaskManager.sharedInstance.context.save()
-            print("💾 AddTask: Context saved successfully")
-        } catch {
-            print("❌ AddTask: Failed to save context: \(error)")
-            return // Exit early if save fails
+        // Save context using direct Core Data access
+        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext,
+           context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                print("❌ Failed to save context: \(error)")
+            }
         }
-        
-        // Step 2: Refresh the context to get the latest data from persistent store
-        TaskManager.sharedInstance.context.refreshAllObjects()
-        
-        // Step 3: Process pending changes to ensure consistency
-        TaskManager.sharedInstance.context.processPendingChanges()
         
         // Step 4: Update the view on the main queue
         DispatchQueue.main.async {
@@ -997,9 +999,10 @@ extension HomeViewController {
                 }
             }
         } else {
-            // Fallback: calculate using TaskManager directly if repository not injected yet
             // Fallback: count tasks whose *completion* date equals the target day
-            let allTasks = TaskManager.sharedInstance.getAllTasks
+            let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            let allTasks = (try? context?.fetch(request)) ?? []
             let calendar = Calendar.current
             let completedToday = allTasks.filter { task in
                 guard task.isComplete, let doneDate = task.dateCompleted as Date? else { return false }

@@ -5,6 +5,8 @@
 //
 
 import Foundation
+import CoreData
+import UIKit
 
 // Enum describing the task time range requested by the user
 public enum TaskRange: String {
@@ -28,7 +30,11 @@ struct PromptMiddleware {
     ///   - project: Optional project to scope tasks.
     /// - Returns: String summary, one task per line or "(no tasks)".
     static func buildTasksSummary(range: TaskRange, project: Projects? = nil) -> String {
-        let tasks = TaskManager.sharedInstance.getAllTasks.filter { task in
+        // Use direct Core Data access instead of TaskManager
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let allTasks = (try? context?.fetch(request)) ?? []
+        let tasks = allTasks.filter { task in
             guard !task.isComplete else { return false }
             // project filter
             if let project, let projName = task.project?.lowercased() {

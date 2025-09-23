@@ -8,6 +8,7 @@
 
 import UIKit
 import SwiftUI
+import CoreData
 
 // Data structures for settings table view
 struct SettingsItem {
@@ -36,9 +37,7 @@ class SettingsPageViewController: UIViewController {
     var todoColors = ToDoColors()
     var todoFont = ToDoFont()
     
-    // Manager instances
-    let projectManager = ProjectManager.sharedInstance
-    let taskManager = TaskManager.sharedInstance
+    // Manager instances - removed, using Clean Architecture now
     
     // MARK: - Backdrop compatibility properties (needed for SettingsBackdrop.swift)
     var backdropContainer = UIView()
@@ -303,15 +302,31 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
     var projectsTableView: UITableView!
     var projects: [Projects] = []
     
-    // Managers
-    let projectManager = ProjectManager.sharedInstance
-    let taskManager = TaskManager.sharedInstance
+    // Managers - removed, using Clean Architecture now
     
     // UI Elements
     var emptyStateLabel: UILabel?
     
     // Colors
     var todoColors = ToDoColors()
+    
+    // MARK: - Helper Methods
+    private func saveContext() -> Bool {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return false
+        }
+        
+        if context.hasChanges {
+            do {
+                try context.save()
+                return true
+            } catch {
+                print("Error saving context: \(error)")
+                return false
+            }
+        }
+        return true
+    }
     
     // MARK: - Lifecycle Methods
     override func viewDidLoad() {
@@ -327,7 +342,7 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        projectManager.refreshAndPrepareProjects() // Ensure data is fresh
+        // Data refresh handled by Core Data
         loadProjects()
     }
     
@@ -373,7 +388,10 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
     
     // MARK: - Data Management
     private func loadProjects() {
-        projects = projectManager.displayedProjects
+        // Load projects from Core Data
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        projects = (try? context?.fetch(request)) ?? []
         projectsTableView.reloadData()
         updateEmptyStateVisibility()
     }
@@ -417,7 +435,10 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
             // Different handling for new vs existing project
             if let existingProject = project {
                 // Update existing project
-                let success = self.projectManager.updateProject(existingProject, newName: projectName, newDescription: projectDescription)
+                // Update existing project
+                existingProject.projectName = projectName
+                existingProject.projecDescription = projectDescription
+                let success = self.saveContext()
                 if success {
                     self.showSuccess(message: "Project updated")
                     self.loadProjects()
@@ -426,7 +447,12 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
                 }
             } else {
                 // Create new project
-                let success = self.projectManager.addNewProject(with: projectName, and: projectDescription)
+                // Create new project
+                let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+                let newProject = Projects(context: context!)
+                newProject.projectName = projectName
+                newProject.projecDescription = projectDescription
+                let success = self.saveContext()
                 if success {
                     self.showSuccess(message: "Project created")
                     self.loadProjects()
@@ -483,7 +509,7 @@ extension ProjectManagementViewControllerEmbedded: UITableViewDataSource {
         cell.detailTextLabel?.text = project.projecDescription
         
         // Special styling for default "Inbox" project
-        if project.projectName?.lowercased() == projectManager.defaultProject.lowercased() {
+        if project.projectName?.lowercased() == "inbox" {
             cell.textLabel?.textColor = .gray
             cell.accessoryType = .none
             cell.selectionStyle = .none
@@ -505,7 +531,7 @@ extension ProjectManagementViewControllerEmbedded: UITableViewDelegate {
         let project = projects[indexPath.row]
         
         // Don't allow editing the default Inbox project
-        if project.projectName?.lowercased() == projectManager.defaultProject.lowercased() {
+        if project.projectName?.lowercased() == "inbox" {
             return
         }
         
@@ -517,12 +543,12 @@ extension ProjectManagementViewControllerEmbedded: UITableViewDelegate {
         let project = projects[indexPath.row]
         
         // Don't allow deleting the default Inbox project
-        if project.projectName?.lowercased() == projectManager.defaultProject.lowercased() {
+        if project.projectName?.lowercased() == "inbox" {
             return nil
         }
         
         // Create delete action for non-Inbox projects
-        let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] (_, _, completionHandler) in
+        let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] (action: UIContextualAction, view: UIView, completionHandler: @escaping (Bool) -> Void) in
             guard let self = self else {
                 completionHandler(false)
                 return
@@ -539,10 +565,24 @@ extension ProjectManagementViewControllerEmbedded: UITableViewDelegate {
             }
             
             let confirmAction = UIAlertAction(title: "Delete", style: .destructive) { _ in
-                let success = self.projectManager.deleteProject(project)
+                // Delete project and move tasks to Inbox
+                let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+                
+                // Move all tasks from this project to Inbox
+                let taskRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
+                taskRequest.predicate = NSPredicate(format: "project == %@", project.projectName ?? "")
+                if let tasks = try? context?.fetch(taskRequest) {
+                    for task in tasks {
+                        task.project = "Inbox"
+                    }
+                }
+                
+                // Delete the project
+                context?.delete(project)
+                let success = self.saveContext()
                 if success {
                     self.showSuccess(message: "Project deleted and tasks moved to Inbox")
-                    self.projectManager.refreshAndPrepareProjects() // Ensure manager has latest data
+                    // Data refresh handled by Core Data
                     self.loadProjects()
                     completionHandler(true)
                 } else {
