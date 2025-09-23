@@ -1,5 +1,4 @@
-// Debug Menu View Controller
-// Provides testing interface for Liquid Glass UI features and migration progress
+// File: To Do List/PresentationNew/Debug/LGDebugMenuViewController.swift
 
 import UIKit
 
@@ -19,8 +18,8 @@ class LGDebugMenuViewController: UIViewController {
             switch self {
             case .uiToggles: return "UI Feature Flags"
             case .screenToggles: return "Screen Toggles"
-            case .animations: return "Animations & Effects"
-            case .theme: return "Theme Selection"
+            case .animations: return "Animations"
+            case .theme: return "Theme"
             case .actions: return "Actions"
             }
         }
@@ -43,17 +42,10 @@ class LGDebugMenuViewController: UIViewController {
             action: #selector(dismissTapped)
         )
         
-        // Add glass effect to navigation bar
-        if let navigationBar = navigationController?.navigationBar {
-            navigationBar.isTranslucent = true
-            navigationBar.backgroundColor = LGThemeManager.shared.primaryGlassColor
-        }
-        
         tableView.delegate = self
         tableView.dataSource = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "Cell")
         tableView.register(SwitchTableViewCell.self, forCellReuseIdentifier: "SwitchCell")
-        tableView.backgroundColor = .clear
         
         view.addSubview(tableView)
         tableView.translatesAutoresizingMaskIntoConstraints = false
@@ -90,29 +82,12 @@ extension LGDebugMenuViewController: UITableViewDataSource {
         case .theme:
             return LGTheme.allCases.count
         case .actions:
-            return 4 // Reset, Enable All, Show Stats, Test Components
+            return 3 // Reset, Enable All, Show Stats
         }
     }
     
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         return Section(rawValue: section)?.title
-    }
-    
-    func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        guard let section = Section(rawValue: section) else { return nil }
-        
-        switch section {
-        case .uiToggles:
-            return "Toggle between Legacy UI and new Liquid Glass UI system"
-        case .screenToggles:
-            return "Enable individual screens for gradual migration testing"
-        case .animations:
-            return "Control animation and effect features"
-        case .theme:
-            return "Select glass theme for the new UI system"
-        case .actions:
-            return "Utility actions for testing and development"
-        }
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -184,22 +159,8 @@ extension LGDebugMenuViewController: UITableViewDataSource {
         case .theme:
             let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
             let theme = LGTheme.allCases[indexPath.row]
-            cell.textLabel?.text = theme.displayName
+            cell.textLabel?.text = theme.rawValue
             cell.accessoryType = LGThemeManager.shared.currentTheme == theme ? .checkmark : .none
-            
-            // Add theme preview
-            let previewView = UIView(frame: CGRect(x: 0, y: 0, width: 30, height: 20))
-            previewView.backgroundColor = getThemePreviewColor(for: theme)
-            previewView.layer.cornerRadius = 4
-            previewView.layer.borderWidth = 1
-            previewView.layer.borderColor = UIColor.systemGray4.cgColor
-            
-            let containerView = UIView(frame: CGRect(x: 0, y: 0, width: 40, height: 30))
-            containerView.addSubview(previewView)
-            previewView.center = containerView.center
-            
-            cell.accessoryView = LGThemeManager.shared.currentTheme == theme ? nil : containerView
-            
             return cell
             
         case .actions:
@@ -214,30 +175,10 @@ extension LGDebugMenuViewController: UITableViewDataSource {
             case 2:
                 cell.textLabel?.text = "Show Migration Stats"
                 cell.textLabel?.textColor = .systemBlue
-            case 3:
-                cell.textLabel?.text = "Test Components"
-                cell.textLabel?.textColor = .systemPurple
             default:
                 break
             }
             return cell
-        }
-    }
-    
-    private func getThemePreviewColor(for theme: LGTheme) -> UIColor {
-        switch theme {
-        case .light:
-            return UIColor.white
-        case .dark:
-            return UIColor.black
-        case .auto:
-            return UIColor.systemBackground
-        case .aurora:
-            return UIColor(red: 0.5, green: 0.8, blue: 1.0, alpha: 1.0)
-        case .ocean:
-            return UIColor(red: 0.2, green: 0.6, blue: 0.9, alpha: 1.0)
-        case .sunset:
-            return UIColor(red: 1.0, green: 0.6, blue: 0.4, alpha: 1.0)
         }
     }
 }
@@ -261,7 +202,7 @@ extension LGDebugMenuViewController: UITableViewDelegate {
             case 0: // Reset
                 FeatureFlags.resetToDefaults()
                 tableView.reloadData()
-                showAlert(title: "Reset Complete", message: "All feature flags reset to defaults")
+                showAlert(title: "Reset", message: "All feature flags reset to defaults")
                 
             case 1: // Enable All
                 FeatureFlags.enableAllLiquidGlass()
@@ -270,9 +211,6 @@ extension LGDebugMenuViewController: UITableViewDelegate {
                 
             case 2: // Stats
                 showMigrationStats()
-                
-            case 3: // Test Components
-                showComponentTestScreen()
                 
             default:
                 break
@@ -291,45 +229,23 @@ extension LGDebugMenuViewController: UITableViewDelegate {
     
     private func showMigrationStats() {
         let stats = """
-        🚀 Liquid Glass UI Migration Progress
+        Migration Progress: Phase 1 of 7
         
-        Phase 1: Foundation & Infrastructure ✅
-        Phase 2: Core Components ⏳
-        Phase 3: Home Screen ⏳
-        Phase 4: Task Screens ⏳
-        Phase 5: Projects/Settings ⏳
-        Phase 6: Integration ⏳
-        Phase 7: Legacy Removal ⏳
+        ✅ Foundation Setup
+        ⏳ Component Library
+        ⏳ Home Screen
+        ⏳ Task Screens
+        ⏳ Project/Settings
+        ⏳ Integration
+        ⏳ Legacy Removal
         
-        📊 Current Status:
-        • Components Built: 3/15
-        • Screens Migrated: 0/8
-        • Code Coverage: 85%
-        • Performance: ✅ 60 FPS
-        • Memory Usage: ✅ Optimized
-        
-        🎨 Features Available:
-        • Glass morphism effects
-        • Theme system (6 themes)
-        • Feature toggle system
-        • Migration banner
-        • Debug menu
-        
-        📱 Next Steps:
-        • Build core component library
-        • Implement home screen
-        • Add advanced animations
+        Components Built: 3
+        Screens Migrated: 0
+        Code Coverage: 85%
+        Performance: ✅ 60 FPS
         """
         
-        let alert = UIAlertController(title: "Migration Statistics", message: stats, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Close", style: .default))
-        present(alert, animated: true)
-    }
-    
-    private func showComponentTestScreen() {
-        let testVC = LGComponentTestViewController()
-        let nav = UINavigationController(rootViewController: testVC)
-        present(nav, animated: true)
+        showAlert(title: "Migration Stats", message: stats)
     }
 }
 
@@ -353,9 +269,6 @@ class SwitchTableViewCell: UITableViewCell {
         selectionStyle = .none
         accessoryView = switchControl
         switchControl.addTarget(self, action: #selector(switchChanged), for: .valueChanged)
-        
-        // Style the switch with theme colors
-        switchControl.onTintColor = LGThemeManager.shared.accentColor
     }
     
     func configure(title: String, isOn: Bool, onChange: @escaping (Bool) -> Void) {
@@ -366,11 +279,5 @@ class SwitchTableViewCell: UITableViewCell {
     
     @objc private func switchChanged() {
         onChange?(switchControl.isOn)
-        
-        // Haptic feedback
-        if FeatureFlags.enableHapticFeedback {
-            let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-            impactFeedback.impactOccurred()
-        }
     }
 }

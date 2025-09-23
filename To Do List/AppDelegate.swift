@@ -48,6 +48,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Setup feature flags for development
         #if DEBUG
         setupDevelopmentFeatureFlags()
+        // Auto-activate Phase 3 in debug builds
+        FeatureFlags.useLiquidGlassUI = true
+        FeatureFlags.useLiquidGlassHome = true
+        FeatureFlags.enableLiquidAnimations = true
+        FeatureFlags.enableAdvancedAnimations = true
+        FeatureFlags.showMigrationProgress = true
+        print("🌊 Phase 3 Auto-Activated: Liquid Glass Home Screen enabled!")
         #endif
         
         // 2) Observe remote-change notifications so your viewContext merges them

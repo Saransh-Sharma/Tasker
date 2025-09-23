@@ -1,7 +1,54 @@
 // Base Liquid Glass View
-// Provides glass morphism effects and liquid animations for all Liquid Glass UI components
+// Provides advanced glass morphism effects and liquid animations with morphing transitions
+// Based on Apple's Liquid Glass documentation for custom views
 
 import UIKit
+import QuartzCore
+
+// MARK: - Morph State Enum
+enum LGMorphState {
+    case idle
+    case hovering
+    case pressed
+    case expanding
+    case contracting
+    case liquidWave
+    case shimmerPulse
+    case glassRipple
+}
+
+// MARK: - Morphing Configuration
+struct LGMorphConfig {
+    let duration: TimeInterval
+    let intensity: CGFloat
+    let waveAmplitude: CGFloat
+    let rippleRadius: CGFloat
+    let shimmerSpeed: CGFloat
+    
+    static let `default` = LGMorphConfig(
+        duration: 0.6,
+        intensity: 0.8,
+        waveAmplitude: 8.0,
+        rippleRadius: 50.0,
+        shimmerSpeed: 1.2
+    )
+    
+    static let subtle = LGMorphConfig(
+        duration: 0.4,
+        intensity: 0.4,
+        waveAmplitude: 4.0,
+        rippleRadius: 30.0,
+        shimmerSpeed: 0.8
+    )
+    
+    static let dramatic = LGMorphConfig(
+        duration: 1.0,
+        intensity: 1.2,
+        waveAmplitude: 12.0,
+        rippleRadius: 80.0,
+        shimmerSpeed: 1.8
+    )
+}
 
 class LGBaseView: UIView {
     
@@ -10,6 +57,17 @@ class LGBaseView: UIView {
     private var gradientLayer: CAGradientLayer?
     private var shimmerLayer: CAGradientLayer?
     private var borderLayer: CAShapeLayer?
+    private var morphingLayer: CALayer?
+    private var liquidAnimationTimer: Timer?
+    
+    // Morphing Properties
+    private var morphingIntensity: CGFloat = 0.0
+    private var liquidWavePhase: CGFloat = 0.0
+    private var morphingGradientColors: [CGColor] = []
+    
+    // Animation State
+    private var isAnimating: Bool = false
+    private var currentMorphState: LGMorphState = .idle
     
     // Configuration
     var glassIntensity: CGFloat = 0.8 {
@@ -238,9 +296,227 @@ class LGBaseView: UIView {
         }
     }
     
-    // MARK: - Touch Handling
+    // MARK: - Advanced Morphing Effects
+    
+    /// Morphs the glass effect with liquid-like transitions
+    func morphGlass(to state: LGMorphState, config: LGMorphConfig = .default, completion: (() -> Void)? = nil) {
+        guard currentMorphState != state else { return }
+        
+        currentMorphState = state
+        isAnimating = true
+        
+        switch state {
+        case .idle:
+            morphToIdle(config: config, completion: completion)
+        case .hovering:
+            morphToHover(config: config, completion: completion)
+        case .pressed:
+            morphToPressed(config: config, completion: completion)
+        case .expanding:
+            morphToExpanding(config: config, completion: completion)
+        case .contracting:
+            morphToContracting(config: config, completion: completion)
+        case .liquidWave:
+            morphToLiquidWave(config: config, completion: completion)
+        case .shimmerPulse:
+            morphToShimmerPulse(config: config, completion: completion)
+        case .glassRipple:
+            morphToGlassRipple(config: config, completion: completion)
+        }
+    }
+    
+    private func morphToIdle(config: LGMorphConfig, completion: (() -> Void)?) {
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(config.duration)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeInEaseOut))
+        CATransaction.setCompletionBlock {
+            self.isAnimating = false
+            completion?()
+        }
+        
+        // Reset to base state
+        layer.transform = CATransform3DIdentity
+        glassIntensity = 0.8
+        alpha = 1.0
+        
+        CATransaction.commit()
+    }
+    
+    private func morphToHover(config: LGMorphConfig, completion: (() -> Void)?) {
+        let scaleTransform = CATransform3DMakeScale(1.02, 1.02, 1.0)
+        let rotationTransform = CATransform3DMakeRotation(0.01, 0, 0, 1)
+        let combinedTransform = CATransform3DConcat(scaleTransform, rotationTransform)
+        
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(config.duration * 0.6)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+        CATransaction.setCompletionBlock {
+            self.isAnimating = false
+            completion?()
+        }
+        
+        layer.transform = combinedTransform
+        glassIntensity = 0.9
+        
+        // Add subtle glow effect
+        layer.shadowColor = LGThemeManager.shared.primaryGlassColor.cgColor
+        layer.shadowRadius = 8
+        layer.shadowOpacity = 0.3
+        layer.shadowOffset = CGSize(width: 0, height: 2)
+        
+        CATransaction.commit()
+    }
+    
+    private func morphToPressed(config: LGMorphConfig, completion: (() -> Void)?) {
+        let scaleTransform = CATransform3DMakeScale(0.96, 0.96, 1.0)
+        
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(config.duration * 0.3)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeIn))
+        CATransaction.setCompletionBlock {
+            self.isAnimating = false
+            completion?()
+        }
+        
+        layer.transform = scaleTransform
+        glassIntensity = 0.6
+        alpha = 0.9
+        
+        CATransaction.commit()
+    }
+    
+    private func morphToExpanding(config: LGMorphConfig, completion: (() -> Void)?) {
+        let animation = CASpringAnimation(keyPath: "transform.scale")
+        animation.fromValue = 1.0
+        animation.toValue = 1.1
+        animation.duration = config.duration
+        animation.damping = 8
+        animation.initialVelocity = 3
+        animation.stiffness = 80
+        
+        layer.add(animation, forKey: "expandingMorph")
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + config.duration) {
+            self.isAnimating = false
+            completion?()
+        }
+    }
+    
+    private func morphToContracting(config: LGMorphConfig, completion: (() -> Void)?) {
+        let animation = CASpringAnimation(keyPath: "transform.scale")
+        animation.fromValue = 1.0
+        animation.toValue = 0.9
+        animation.duration = config.duration
+        animation.damping = 12
+        animation.initialVelocity = 2
+        animation.stiffness = 120
+        
+        layer.add(animation, forKey: "contractingMorph")
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + config.duration) {
+            self.isAnimating = false
+            completion?()
+        }
+    }
+    
+    private func morphToLiquidWave(config: LGMorphConfig, completion: (() -> Void)?) {
+        startLiquidWaveAnimation(config: config)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + config.duration * 2) {
+            self.stopLiquidWaveAnimation()
+            self.isAnimating = false
+            completion?()
+        }
+    }
+    
+    private func morphToShimmerPulse(config: LGMorphConfig, completion: (() -> Void)?) {
+        startShimmerPulseAnimation(config: config)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + config.duration * 3) {
+            self.stopShimmerPulseAnimation()
+            self.isAnimating = false
+            completion?()
+        }
+    }
+    
+    private func morphToGlassRipple(config: LGMorphConfig, completion: (() -> Void)?) {
+        let centerPoint = CGPoint(x: bounds.midX, y: bounds.midY)
+        animateGlassRipple(at: centerPoint)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + config.duration) {
+            self.isAnimating = false
+            completion?()
+        }
+    }
+    
+    // MARK: - Continuous Animations
+    
+    private func startLiquidWaveAnimation(config: LGMorphConfig) {
+        liquidAnimationTimer?.invalidate()
+        liquidWavePhase = 0.0
+        
+        liquidAnimationTimer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
+            self.liquidWavePhase += CGFloat(config.shimmerSpeed * 0.1)
+            self.updateLiquidWave(amplitude: config.waveAmplitude)
+        }
+    }
+    
+    private func updateLiquidWave(amplitude: CGFloat) {
+        let waveOffset = sin(liquidWavePhase) * amplitude
+        let transform = CATransform3DMakeTranslation(waveOffset, 0, 0)
+        layer.transform = transform
+        
+        // Update glass intensity with wave
+        let intensityVariation = (sin(liquidWavePhase * 2) + 1) * 0.1
+        glassIntensity = 0.8 + intensityVariation
+    }
+    
+    private func stopLiquidWaveAnimation() {
+        liquidAnimationTimer?.invalidate()
+        liquidAnimationTimer = nil
+        
+        // Smooth return to normal
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.3)
+        layer.transform = CATransform3DIdentity
+        glassIntensity = 0.8
+        CATransaction.commit()
+    }
+    
+    private func startShimmerPulseAnimation(config: LGMorphConfig) {
+        guard let shimmerLayer = shimmerLayer else { return }
+        
+        let pulseAnimation = CABasicAnimation(keyPath: "opacity")
+        pulseAnimation.fromValue = 0.0
+        pulseAnimation.toValue = 0.8
+        pulseAnimation.duration = config.duration / 2
+        pulseAnimation.autoreverses = true
+        pulseAnimation.repeatCount = .infinity
+        pulseAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        
+        shimmerLayer.add(pulseAnimation, forKey: "shimmerPulse")
+    }
+    
+    private func stopShimmerPulseAnimation() {
+        shimmerLayer?.removeAnimation(forKey: "shimmerPulse")
+    }
+    
+    /// Creates a liquid morphing transition between two states
+    func createLiquidTransition(from startState: LGMorphState, to endState: LGMorphState, duration: TimeInterval = 0.8) {
+        // First morph to intermediate liquid state
+        morphGlass(to: .liquidWave, config: LGMorphConfig(duration: duration * 0.3, intensity: 1.0, waveAmplitude: 6.0, rippleRadius: 40.0, shimmerSpeed: 1.5)) {
+            // Then morph to final state
+            self.morphGlass(to: endState, config: LGMorphConfig(duration: duration * 0.7, intensity: 0.8, waveAmplitude: 4.0, rippleRadius: 30.0, shimmerSpeed: 1.0))
+        }
+    }
+    
+    // MARK: - Touch Handling with Morphing
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
+        
+        if FeatureFlags.enableLiquidAnimations {
+            morphGlass(to: .pressed, config: .subtle)
+        }
         
         if FeatureFlags.enableAdvancedAnimations,
            let touch = touches.first {
@@ -254,4 +530,37 @@ class LGBaseView: UIView {
             impactFeedback.impactOccurred()
         }
     }
+    
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesEnded(touches, with: event)
+        
+        if FeatureFlags.enableLiquidAnimations {
+            createLiquidTransition(from: .pressed, to: .idle, duration: 0.4)
+        }
+    }
+    
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        super.touchesCancelled(touches, with: event)
+        
+        if FeatureFlags.enableLiquidAnimations {
+            morphGlass(to: .idle, config: .subtle)
+        }
+    }
+    
+    // MARK: - Hover Support (iPad)
+    #if targetEnvironment(macCatalyst)
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        if FeatureFlags.enableLiquidAnimations {
+            morphGlass(to: .hovering, config: .subtle)
+        }
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        if FeatureFlags.enableLiquidAnimations {
+            morphGlass(to: .idle, config: .subtle)
+        }
+    }
+    #endif
 }

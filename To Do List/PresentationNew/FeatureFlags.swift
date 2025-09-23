@@ -14,6 +14,11 @@ struct FeatureFlags {
         }
     }
     
+    static var enableLiquidAnimations: Bool {
+        get { UserDefaults.standard.bool(forKey: "feature_liquid_animations") }
+        set { UserDefaults.standard.set(newValue, forKey: "feature_liquid_animations") }
+    }
+    
     static var enableAdvancedAnimations: Bool {
         get { UserDefaults.standard.bool(forKey: "feature_advanced_animations") }
         set { UserDefaults.standard.set(newValue, forKey: "feature_advanced_animations") }
@@ -67,6 +72,7 @@ struct FeatureFlags {
     // MARK: - Helper Methods
     static func resetToDefaults() {
         useLiquidGlassUI = false
+        enableLiquidAnimations = true
         enableAdvancedAnimations = true
         enableHapticFeedback = true
         enableParticleEffects = false

@@ -3,13 +3,24 @@
 
 import UIKit
 
-enum LGTheme: String, CaseIterable {
-    case light = "Light"
-    case dark = "Dark"
-    case auto = "Auto"
-    case aurora = "Aurora"      // Special glass theme
-    case ocean = "Ocean"        // Blue-tinted glass
-    case sunset = "Sunset"      // Warm glass theme
+enum LGTheme: Int, CaseIterable {
+    case light = 0
+    case dark = 1
+    case auto = 2
+    case aurora = 3      // Special glass theme
+    case ocean = 4       // Blue-tinted glass
+    case sunset = 5      // Warm glass theme
+    
+    var displayName: String {
+        switch self {
+        case .light: return "Light"
+        case .dark: return "Dark"
+        case .auto: return "Auto"
+        case .aurora: return "Aurora"
+        case .ocean: return "Ocean"
+        case .sunset: return "Sunset"
+        }
+    }
 }
 
 class LGThemeManager {
@@ -21,7 +32,7 @@ class LGThemeManager {
     }
     
     // MARK: - Properties
-    private(set) var currentTheme: LGTheme = .auto {
+    var currentTheme: LGTheme = .auto {
         didSet {
             saveTheme()
             applyTheme()
@@ -120,8 +131,8 @@ class LGThemeManager {
     }
     
     private func loadTheme() {
-        if let themeString = UserDefaults.standard.string(forKey: "lg_theme"),
-           let theme = LGTheme(rawValue: themeString) {
+        let themeValue = UserDefaults.standard.integer(forKey: "lg_theme")
+        if let theme = LGTheme(rawValue: themeValue) {
             currentTheme = theme
         }
     }
