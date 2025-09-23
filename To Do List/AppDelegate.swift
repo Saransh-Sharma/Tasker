@@ -35,11 +35,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ = persistentContainer
         
         // Setup Clean Architecture - replaces all singleton initialization
-        // Temporarily inline setup due to extension compilation issues
         print("🏗️ Setting up Clean Architecture...")
         
-        // Basic setup without complex dependencies
-        print("✅ Clean Architecture setup complete (simplified)")
+        // Configure dependency container with Core Data
+        DependencyContainer.shared.configure(with: persistentContainer)
+        
+        print("✅ Clean Architecture setup complete")
         
         // 2) Observe remote-change notifications so your viewContext merges them
         NotificationCenter.default.addObserver(
