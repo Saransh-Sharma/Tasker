@@ -27,7 +27,7 @@ target 'Tasker' do
   pod 'SnapKit', '~> 5.6.0'        # Programmatic constraints
   pod 'RxSwift', '~> 6.5.0'        # Reactive programming
   pod 'RxCocoa', '~> 6.5.0'        # UI bindings
-  pod 'Lottie', '~> 4.3.0'         # Liquid animations
+  pod 'lottie-ios'        # Liquid animations
   pod 'Hero', '~> 1.6.2'           # Smooth transitions
 
 
