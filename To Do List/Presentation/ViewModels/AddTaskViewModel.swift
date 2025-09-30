@@ -17,7 +17,7 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var taskName: String = ""
     @Published public var taskDetails: String = ""
     @Published public var selectedType: TaskType = .morning
-    @Published public var selectedPriority: TaskPriority = .medium
+    @Published public var selectedPriority: TaskPriority = .low
     @Published public var selectedDate: Date = Date()
     @Published public var selectedProject: String = "Inbox"
     @Published public var reminderEnabled: Bool = false
@@ -121,7 +121,7 @@ public final class AddTaskViewModel: ObservableObject {
         taskName = ""
         taskDetails = ""
         selectedType = .morning
-        selectedPriority = .medium
+        selectedPriority = .low
         selectedDate = Date()
         selectedProject = "Inbox"
         reminderEnabled = false
@@ -192,7 +192,7 @@ public final class AddTaskViewModel: ObservableObject {
         let request = CreateTaskRequest(
             name: name,
             type: determineQuickTaskType(),
-            priority: .medium,
+            priority: .low,
             dueDate: Date(),
             projectName: "Inbox"
         )

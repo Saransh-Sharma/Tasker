@@ -32,7 +32,7 @@ public struct Task {
         name: String,
         details: String? = nil,
         type: TaskType = .morning,
-        priority: TaskPriority = .medium,
+        priority: TaskPriority = .low,
         dueDate: Date? = nil,
         project: String? = "Inbox",
         isComplete: Bool = false,
@@ -60,7 +60,7 @@ public struct Task {
     /// Calculate the score for this task based on priority
     public var score: Int {
         guard isComplete else { return 0 }
-        return priority.scoreValue
+        return priority.scorePoints
     }
     
     /// Check if the task is overdue

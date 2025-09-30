@@ -112,47 +112,67 @@ extension HomeViewController {
     
     //---------- SETUP: CHART
     
+    /// Updates tiny pie chart with real task data based on priority breakdown
     func updateTinyPieChartData() {
         if self.shouldHideData {
             tinyPieChartView.data = nil
             return
         }
-        print("--------------------------")
-        print("X: \(10)")//print("X: \(Int(sliderX.value))")
-        print("Y: \(40)")//print("Y: \(UInt32(sliderY.value))")
-        print("--------------------------")
         
-        //            self.setDataCount(Int(sliderX.value), range: UInt32(sliderY.value))
-        self.setTinyPieChartDataCount(4, range: 40)
-    }
-    
-    
-    
-    //MARK:-GET THIS 1
-    func setTinyPieChartDataCount(_ count: Int, range: UInt32) {
-        let entries = (0..<count).map { (i) -> PieChartDataEntry in
-            // IMPORTANT: In a PieChart, no values (Entry) should have the same xIndex (even if from different DataSets), since no values can be drawn above each other.
-            
-            let randomValue = Double(arc4random_uniform(range) + range / 5)
-            // Ensure value is valid and not NaN or infinite
-            let safeValue = randomValue.isNaN || randomValue.isInfinite ? 1.0 : max(1.0, randomValue)
-            
-            return PieChartDataEntry(value: safeValue,
-                                     label: tinyPieChartSections[i % tinyPieChartSections.count],
-                                     icon: #imageLiteral(resourceName: "material_done_White"))
-            
+        print("🥧 Updating tiny pie chart data for date: \(dateForTheView)")
+        
+        // Get priority breakdown for current view date
+        let breakdown = priorityBreakdown(for: dateForTheView)
+        print("📊 Tiny chart priority breakdown: \(breakdown)")
+        
+        // Build entries using chart weights from config
+        let entries: [PieChartDataEntry] = [
+            (Int32(1), "None"),    // None priority
+            (Int32(2), "Low"),     // Low priority
+            (Int32(3), "High"),    // High priority
+            (Int32(4), "Max")      // Max priority
+        ].compactMap { (priorityRaw, label) in
+            let rawCount = Double(breakdown[priorityRaw] ?? 0)
+            let weight = TaskPriorityConfig.chartWeightForPriority(priorityRaw)
+            let weightedValue = rawCount * weight
+            return weightedValue > 0 ? PieChartDataEntry(value: weightedValue, label: label) : nil
+        }
+        
+        // If no data, show empty chart
+        guard !entries.isEmpty else {
+            print("⚠️ No data for tiny pie chart")
+            tinyPieChartView.data = nil
+            return
+        }
+        
+        // Build colors array matching entries
+        var sliceColors: [UIColor] = []
+        for entry in entries {
+            switch entry.label {
+            case "None":
+                sliceColors.append(TaskPriorityConfig.Priority.none.color)
+            case "Low":
+                sliceColors.append(TaskPriorityConfig.Priority.low.color)
+            case "High":
+                sliceColors.append(TaskPriorityConfig.Priority.high.color)
+            case "Max":
+                sliceColors.append(TaskPriorityConfig.Priority.max.color)
+            default:
+                sliceColors.append(todoColors.secondaryAccentColor)
+            }
         }
         
         let set = PieChartDataSet(entries: entries, label: "")
         set.drawIconsEnabled = false
         set.drawValuesEnabled = false
         set.sliceSpace = 2
-        set.colors = ChartColorTemplates.vordiplom()
+        set.colors = sliceColors
         
         let data = PieChartData(dataSet: set)
-        
         tinyPieChartView.drawEntryLabelsEnabled = false
         tinyPieChartView.data = data
+        
+        print("✅ Tiny pie chart updated with \(entries.count) slices")
     }
     
     

@@ -46,7 +46,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     var samplePillBar: UIView?
     var samplePillBarItems: [PillButtonBarItem] = []
 
-    var currentTaskPriority: TaskPriority = .medium
+    var currentTaskPriority: TaskPriority = .low
     
     // Description text field
     var descriptionTextBox_Material = MDCFilledTextField()

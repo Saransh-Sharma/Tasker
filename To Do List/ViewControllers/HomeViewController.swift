@@ -400,6 +400,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         // Setup Clean Architecture - simplified approach
         print("🏗️ Clean Architecture setup (simplified)")
         
+        // Fix invalid priority values in database
+        fixInvalidTaskPriorities()
+        
         print("=== HOME VIEW CONTROLLER SETUP COMPLETE ===")
         // Observe theme changes for lifetime of this controller
         notificationCenter.addObserver(self, selector: #selector(themeChanged), name: .themeChanged, object: nil)
@@ -478,6 +481,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         shouldAnimateCells = false
+        
+        // Ensure navigation pie chart exists - recreate if needed
+        if navigationPieChartView == nil {
+            print("⚠️ Navigation pie chart is nil in viewDidAppear, attempting to create...")
+            embedNavigationPieChartOnNavigationBar()
+        }
+        
         refreshNavigationPieChart()
         
         // Runtime backup fix: Find and fix any dummy table views created by ShyHeaderController
@@ -615,12 +625,21 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     // MARK: - Embed Pie Chart on Navigation Bar (Right Aligned)
     private func embedNavigationPieChartOnNavigationBar() {
-        guard navigationPieChartView == nil else { return }
-        guard let navBar = self.navigationController?.navigationBar else { return }
+        guard navigationPieChartView == nil else {
+            print("🥧 Navigation pie chart already exists, skipping creation")
+            return
+        }
+        guard let navBar = self.navigationController?.navigationBar else {
+            print("❌ Navigation bar not available, cannot embed pie chart")
+            return
+        }
+        
+        print("🥧 Creating navigation pie chart...")
         navBar.clipsToBounds = false // allow chart to render outside if needed
         let size: CGFloat = 110
         let containerView = UIView()
         containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.backgroundColor = .clear
         navBar.addSubview(containerView)
         NSLayoutConstraint.activate([
             containerView.widthAnchor.constraint(equalToConstant: size),
@@ -651,11 +670,22 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         navPieChart.layer.zPosition = 900
         containerView.layer.zPosition = 900
         navPieChart.backgroundColor = .clear
+        
+        // Ensure visibility
+        navPieChart.isHidden = false
+        navPieChart.alpha = 1.0
+        containerView.isHidden = false
+        containerView.alpha = 1.0
+        
         setNavigationPieChartData()
         refreshNavigationPieChart()
         let tap = UITapGestureRecognizer(target: self, action: #selector(toggleCharts))
         navPieChart.addGestureRecognizer(tap)
         navPieChart.isUserInteractionEnabled = true
+        
+        print("✅ Navigation pie chart created successfully at frame: \(navPieChart.frame)")
+        print("   Container frame: \(containerView.frame)")
+        print("   Navigation bar frame: \(navBar.frame)")
     }
     
     private func createSearchBarAccessory() -> UISearchBar {
@@ -730,45 +760,53 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 
     
     /// Updates navigation pie chart with real completed-task breakdown for the supplied date (defaults to today's view date)
+    /// Priorities: 1=None (2pts), 2=Low (3pts), 3=High (5pts), 4=Max (7pts)
 // Core pie-chart data builder – DO NOT overload with same name without parameter
 private func buildNavigationPieChartData(for date: Date) {
-    guard let navPieChart = navigationPieChartView else { return }
+    guard let navPieChart = navigationPieChartView else {
+        print("⚠️ buildNavigationPieChartData called but navigationPieChartView is nil")
+        return
+    }
 
     // Fetch priority counts for completed tasks on the given date
     let breakdown = priorityBreakdown(for: date)
-    // Use raw values to avoid enum compilation issues
-    let weights: [Int32: Double] = [1: 4, 2: 3, 3: 2, 4: 1] // highest, high, medium, low
+    print("📊 Priority breakdown for \(date): \(breakdown)")
+    
+    // Use chart weights from centralized config
     let entries: [PieChartDataEntry] = [
-        (Int32(1), "Highest"),
-        (Int32(2), "High"),
-        (Int32(3), "Medium"),
-        (Int32(4), "Low")
+        (Int32(1), "None"),    // None priority
+        (Int32(2), "Low"),     // Low priority
+        (Int32(3), "High"),    // High priority
+        (Int32(4), "Max")      // Max priority
     ].compactMap { (priorityRaw, label) in
         let rawCount = Double(breakdown[priorityRaw] ?? 0)
-        let weight = weights[priorityRaw] ?? 1
+        let weight = TaskPriorityConfig.chartWeightForPriority(priorityRaw)
         let weightedValue = rawCount * weight
         return weightedValue > 0 ? PieChartDataEntry(value: weightedValue, label: label) : nil
     }
 
+    print("📊 Pie chart entries: \(entries.count) slices")
+    
     // Guard against no-data scenario – just clear chart and exit
     guard !entries.isEmpty else {
+        print("⚠️ No data for pie chart, clearing chart")
         navPieChart.data = nil
         navPieChart.setNeedsDisplay()
         return
     }
 
-    // Build matching colour array for each entry to avoid index mismatch when some priorities have zero count
+    // Build matching colour array using centralized config colors
     var sliceColors: [UIColor] = []
     for entry in entries {
         switch entry.label {
-        case "High":
-            sliceColors.append(ToDoColors.piePriorityHighest)
-        case "Medium":
-            sliceColors.append(ToDoColors.piePriorityHigh)
+        case "None":
+            sliceColors.append(TaskPriorityConfig.Priority.none.color)
         case "Low":
-            sliceColors.append(ToDoColors.piePriorityMedium)
-        case "Very Low":
-            sliceColors.append(ToDoColors.piePriorityLow)
+            sliceColors.append(TaskPriorityConfig.Priority.low.color)
+        case "High":
+            sliceColors.append(TaskPriorityConfig.Priority.high.color)
+        case "Max":
+            sliceColors.append(TaskPriorityConfig.Priority.max.color)
         default:
             sliceColors.append(todoColors.secondaryAccentColor) // fallback
         }
@@ -783,6 +821,7 @@ private func buildNavigationPieChartData(for date: Date) {
     let data = PieChartData(dataSet: set)
     navPieChart.drawEntryLabelsEnabled = false
     navPieChart.data = data
+    print("✅ Navigation pie chart data set with \(entries.count) entries")
 }
 
 /// Parameterless wrapper used by existing call sites
@@ -1210,21 +1249,60 @@ extension HomeViewController {
         present(navController, animated: true)
     }
     
+    /// Public method called directly by FluentUIToDoTableViewController when task completion changes
+    /// This is more reliable than notifications
+    func refreshChartsAfterTaskCompletion() {
+        print("🎯 HomeViewController: refreshChartsAfterTaskCompletion() called DIRECTLY")
+        
+        // Calculate new score
+        let score = self.calculateTodaysScore()
+        self.scoreCounter.text = "\(score)"
+        print("📊 New score calculated: \(score)")
+        
+        // Update tiny pie chart DATA
+        print("🥧 Updating tiny pie chart data...")
+        self.updateTinyPieChartData()
+        
+        // Update tiny pie chart CENTER TEXT with new score
+        print("📝 Updating tiny pie chart center text with score: \(score)")
+        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(
+            pieChartView: self.tinyPieChartView,
+            scoreOverride: score
+        )
+        
+        // Animate tiny pie chart
+        print("🎬 Animating tiny pie chart...")
+        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
+        
+        // Refresh navigation pie chart
+        print("🔄 Refreshing navigation pie chart...")
+        self.refreshNavigationPieChart()
+        
+        // Update SwiftUI chart card and daily score
+        print("📊 Updating SwiftUI chart and daily score...")
+        self.updateSwiftUIChartCard()
+        self.updateDailyScore()
+        
+        print("✅ HomeViewController: ALL charts refreshed successfully (including tiny pie chart)")
+    }
+    
     @objc private func taskCompletionChanged() {
-
-        print("📊 HomeViewController: Received TaskCompletionChanged notification - refreshing charts")
+        print("📊 HomeViewController: Received TaskCompletionChanged notification - refreshing ALL charts")
         DispatchQueue.main.async { [weak self] in
-            self?.updateSwiftUIChartCard()
-            self?.refreshNavigationPieChart()
-            self?.updateDailyScore()
-            print(" HomeViewController: Charts refreshed successfully")
+            self?.refreshChartsAfterTaskCompletion()
         }
     }
     
     /// Animates + refreshes the navigation pie chart using current `dateForTheView`.
     func refreshNavigationPieChart() {
+        guard let navChart = navigationPieChartView else {
+            print("⚠️ refreshNavigationPieChart called but navigationPieChartView is nil")
+            return
+        }
+        print("🔄 Refreshing navigation pie chart for date: \(dateForTheView)")
         setNavigationPieChartData()
-        navigationPieChartView?.animate(xAxisDuration: 0.3, easingOption: .easeOutBack)
+        navChart.animate(xAxisDuration: 0.3, easingOption: .easeOutBack)
+        print("✅ Navigation pie chart refreshed - isHidden: \(navChart.isHidden), alpha: \(navChart.alpha), data: \(navChart.data?.entryCount ?? 0) entries")
     }
     
     /// Compatibility shim for existing calendar extension call
@@ -1232,10 +1310,45 @@ extension HomeViewController {
         refreshNavigationPieChart()
     }
     
+    /// Fixes invalid task priority values in the database (one-time migration)
+    /// Priorities: 1=None, 2=Low, 3=High, 4=Max
+    private func fixInvalidTaskPriorities() {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return
+        }
+        
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        guard let allTasks = try? context.fetch(request) else { return }
+        
+        var fixedCount = 0
+        for task in allTasks {
+            let priority = task.taskPriority
+            // Check if priority is invalid (not 1, 2, 3, or 4)
+            if !TaskPriorityConfig.isValidPriority(priority) {
+                let normalized = TaskPriorityConfig.normalizePriority(priority)
+                print("🔧 Fixing invalid priority \(priority) for task '\(task.name ?? "")' -> setting to \(TaskPriority(rawValue: normalized).displayName) (\(normalized))")
+                task.taskPriority = normalized
+                fixedCount += 1
+            }
+        }
+        
+        if fixedCount > 0 {
+            do {
+                try context.save()
+                print("✅ Fixed \(fixedCount) tasks with invalid priorities")
+            } catch {
+                print("❌ Failed to save priority fixes: \(error)")
+            }
+        } else {
+            print("✅ All task priorities are valid")
+        }
+    }
+    
     /// Returns a dictionary of counts of completed tasks grouped by priority for a given date
-    private func priorityBreakdown(for date: Date) -> [Int32: Int] {
+    /// Priorities: 1=None, 2=Low, 3=High, 4=Max
+    func priorityBreakdown(for date: Date) -> [Int32: Int] {
         // Use raw values to avoid enum compilation issues
-        var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0] // highest, high, medium, low
+        var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0] // none, low, high, max
         // Get tasks from Core Data directly
         let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
         let request: NSFetchRequest<NTask> = NTask.fetchRequest()
@@ -1255,8 +1368,10 @@ extension HomeViewController {
             }
             guard let ref = referenceDate,
                   currentCalendar.isDate(ref, inSameDayAs: date) else { continue }
-            let priorityValue = task.taskPriority
-            counts[priorityValue, default: 0] += 1
+            
+            // Normalize priority value using centralized config
+            let normalizedPriority = TaskPriorityConfig.normalizePriority(task.taskPriority)
+            counts[normalizedPriority, default: 0] += 1
         }
         return counts
     }
@@ -1389,5 +1504,3 @@ extension HomeViewController {
         }
     }
  }
-
-

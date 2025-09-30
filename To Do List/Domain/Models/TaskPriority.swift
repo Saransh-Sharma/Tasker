@@ -3,87 +3,36 @@
 //  Tasker
 //
 //  Domain enum for Task Priority
+//  UPDATED: Now uses centralized TaskPriorityConfig
 //
 
 import Foundation
 
 /// Represents the priority level of a task
-public enum TaskPriority: Int32, CaseIterable, Hashable {
-    case highest = 1  // P0
-    case high = 2     // P1
-    case medium = 3   // P2 (default)
-    case low = 4      // P3
-    
-    /// Human-readable name for the priority
-    public var displayName: String {
-        switch self {
-        case .highest:
-            return "P0 - Highest"
-        case .high:
-            return "P1 - High"
-        case .medium:
-            return "P2 - Medium"
-        case .low:
-            return "P3 - Low"
-        }
-    }
-    
-    /// Short priority code
-    public var code: String {
-        switch self {
-        case .highest:
-            return "P0"
-        case .high:
-            return "P1"
-        case .medium:
-            return "P2"
-        case .low:
-            return "P3"
-        }
-    }
-    
-    /// Score value for gamification
+/// This is now a type alias to TaskPriorityConfig.Priority for centralized configuration
+public typealias TaskPriority = TaskPriorityConfig.Priority
+
+// MARK: - Legacy Compatibility Extensions
+
+extension TaskPriority {
+    /// Legacy property - use displayName instead
+    @available(*, deprecated, message: "Use displayName instead")
     public var scoreValue: Int {
-        switch self {
-        case .highest:
-            return 7
-        case .high:
-            return 4
-        case .medium:
-            return 3
-        case .low:
-            return 2
-        }
+        return self.scorePoints
     }
     
-    /// Initialize from Core Data raw value with default fallback
-    public init(rawValue: Int32) {
-        switch rawValue {
-        case 1:
-            self = .highest
-        case 2:
-            self = .high
-        case 3:
-            self = .medium
-        case 4:
-            self = .low
-        default:
-            self = .medium // Default fallback
-        }
-    }
-    
-    /// Check if this is a high priority (P0 or P1)
+    /// Check if this is a high priority (High or Max)
     public var isHighPriority: Bool {
-        return self == .highest || self == .high
+        return self == .high || self == .max
     }
     
-    /// Check if this is a medium priority
+    /// Check if this is a medium priority (Low)
     public var isMediumPriority: Bool {
-        return self == .medium
+        return self == .low
     }
     
-    /// Check if this is a low priority
+    /// Check if this is a low priority (None)
     public var isLowPriority: Bool {
-        return self == .low
+        return self == .none
     }
 }

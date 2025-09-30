@@ -1164,6 +1164,12 @@ extension FluentUIToDoTableViewController {
         // Notify that charts should be refreshed
         NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
         print("📡 FluentUI: Posted TaskCompletionChanged notification")
+        
+        // DIRECT CALL: Refresh charts immediately (more reliable than notification)
+        if let homeVC = delegate as? HomeViewController {
+            print("🔄 FluentUI: Calling HomeViewController chart refresh directly")
+            homeVC.refreshChartsAfterTaskCompletion()
+        }
     }
     
     private func markTaskIncomplete(_ task: NTask) {
@@ -1176,6 +1182,12 @@ extension FluentUIToDoTableViewController {
         // Notify that charts should be refreshed
         NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
         print("📡 FluentUI: Posted TaskCompletionChanged notification")
+        
+        // DIRECT CALL: Refresh charts immediately (more reliable than notification)
+        if let homeVC = delegate as? HomeViewController {
+            print("🔄 FluentUI: Calling HomeViewController chart refresh directly")
+            homeVC.refreshChartsAfterTaskCompletion()
+        }
     }
     
     private func deleteTask(_ task: NTask) {

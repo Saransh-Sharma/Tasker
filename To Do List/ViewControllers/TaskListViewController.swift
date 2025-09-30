@@ -472,7 +472,7 @@ class TaskCell: UITableViewCell {
         switch task.taskPriority {
         case 2: // TaskPriority.high.rawValue
             priorityIndicator.backgroundColor = .systemRed
-        case 3: // TaskPriority.medium.rawValue
+        case 3: // TaskPriority.high.rawValue
             priorityIndicator.backgroundColor = .systemOrange
         case 4: // TaskPriority.low.rawValue
             priorityIndicator.backgroundColor = .systemBlue

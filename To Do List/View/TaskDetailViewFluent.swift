@@ -398,7 +398,7 @@ class TaskDetailViewFluent: UIView, UITextViewDelegate {
     var name: String = ""
     var taskDetails: String?
     var dueDate: NSDate? // In CoreData, this is likely NSDate
-    var taskPriority: Int32 = TaskPriority.medium.rawValue // Default to Medium using enum
+    var taskPriority: Int32 = TaskPriority.low.rawValue // Default to Low using enum
     var project: Projects? // Relationship to Projects entity
  }
 

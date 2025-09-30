@@ -404,7 +404,7 @@ struct TaskCard_Previews: PreviewProvider {
         task.name = "Sample Task"
         task.taskDetails = "This is a sample task for preview"
         task.dueDate = Date().addingTimeInterval(86400) as NSDate // Tomorrow
-        task.taskPriority = Int32(TaskPriority.medium.rawValue)
+        task.taskPriority = Int32(TaskPriority.low.rawValue)
         task.isComplete = false
         return task
     }

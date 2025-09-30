@@ -97,7 +97,7 @@ extension AppDelegate {
                 
                 // Fix missing priority
                 if task.taskPriority == 0 {
-                    task.taskPriority = TaskPriority.medium.rawValue
+                    task.taskPriority = TaskPriority.low.rawValue
                     needsSave = true
                 }
             }

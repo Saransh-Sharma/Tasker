@@ -103,7 +103,7 @@ public final class CreateTaskUseCase {
             name: request.name,
             details: request.details,
             type: taskType,
-            priority: request.priority ?? .medium,
+            priority: request.priority ?? .low,
             dueDate: dueDate,
             project: projectName,
             isComplete: false,

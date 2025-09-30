@@ -1,10 +1,8 @@
 import Foundation
 import CoreData
 
-// TaskPriority enum is defined in Domain/Models/TaskPriority.swift
-// Make sure it's accessible in this scope
-
 /// Service responsible for handling task scoring and gamification logic
+/// UPDATED: Now uses centralized TaskPriorityConfig for all scoring
 final class TaskScoringService {
     
     // MARK: - Singleton Instance (for backward compatibility)
@@ -13,49 +11,27 @@ final class TaskScoringService {
     /// Note: Using dependency injection is preferred over singleton when possible
     static let shared = TaskScoringService()
     
-    // MARK: - Scoring Methods
+    // MARK: - Scoring Methods (Updated to use TaskPriorityConfig)
     
     /// Calculate the score value of an individual task based on its priority
     /// - Parameter taskPriority: The priority level of the task (TaskPriority enum)
-    /// - Returns: Integer score value
+    /// - Returns: Integer score value from centralized config
     func calculateScore(for taskPriority: TaskPriority) -> Int {
-        switch taskPriority.rawValue {
-        case 1: return 7  // highest (P0)
-        case 2: return 4  // high (P1)  
-        case 3: return 3  // medium (P2)
-        case 4: return 2  // low (P3)
-        default: return 1  // Fallback
-        }
+        return taskPriority.scorePoints
     }
     
     /// Calculate the score value of an individual task
     /// - Parameter taskData: The task data to calculate score for
-    /// - Returns: Integer score value
+    /// - Returns: Integer score value from centralized config
     func calculateScore(for taskData: TaskData) -> Int {
-        // Use raw value approach to avoid enum type issues
-        let priorityRawValue = taskData.priorityRawValue
-        switch priorityRawValue {
-        case 1: return 7  // highest (P0)
-        case 2: return 4  // high (P1)
-        case 3: return 2  // medium (P2)
-        case 4: return 1  // low (P3)
-        default: return 2 // default to medium
-        }
+        return TaskPriorityConfig.scoreForRawValue(taskData.priorityRawValue)
     }
     
     /// Calculate the score value of an individual managed task
     /// - Parameter task: The managed task to calculate score for
-    /// - Returns: Integer score value
+    /// - Returns: Integer score value from centralized config
     func calculateScore(for task: NTask) -> Int {
-        // Use raw value approach to avoid persistent type conversion issues
-        let priorityRawValue = task.taskPriority
-        switch priorityRawValue {
-        case 1: return 7  // highest (P0)
-        case 2: return 4  // high (P1)
-        case 3: return 3  // medium (P2)
-        case 4: return 2  // low (P3)
-        default: return 1 // fallback
-        }
+        return TaskPriorityConfig.scoreForRawValue(task.taskPriority)
     }
     
     /// Calculate the total score for a given date

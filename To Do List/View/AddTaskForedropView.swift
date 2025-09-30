@@ -151,7 +151,7 @@ extension AddTaskViewController {
             self.currentTaskPriority = .high  // Map "Highest" to high priority
         default:
             print("Failed to get Task Priority, defaulting to Low/3")
-            self.currentTaskPriority = .medium
+            self.currentTaskPriority = .low
         }
     }
     

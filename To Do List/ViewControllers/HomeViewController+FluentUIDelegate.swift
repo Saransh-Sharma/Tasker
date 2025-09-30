@@ -19,10 +19,12 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         impactFeedback.prepare()
         impactFeedback.impactOccurred()
         
-        // Delay chart update slightly to allow UI to settle
+        // CRITICAL: Refresh ALL charts including tiny pie chart
+        print("🎯 FluentUIDelegate: Task completion changed - refreshing ALL charts")
+        refreshChartsAfterTaskCompletion()
+        
+        // Also update SwiftUI chart with slight delay for smooth animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.updateSwiftUIChartCard()
-            // CRITICAL FIX: Update SwiftUI chart as well
             self?.updateSwiftUIChartCard()
         }
         

@@ -29,7 +29,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     var currentTaskInMaterialTextBox: String = ""
     var isThisEveningTask: Bool = false
     var taskDayFromPicker: String =  "Unknown"//change datatype tp task type
-    var currentTaskPriority: TaskPriority = .medium
+    var currentTaskPriority: TaskPriority = .low
     
     //MARK: Positioning
     var textBoxEndY:CGFloat = UIScreen.main.bounds.minY+UIScreen.main.bounds.maxY/4
@@ -307,14 +307,14 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
             print("Priority is Low")
             currentTaskPriority = .low
         case 2:
-            print("Priority is Medium")
-            currentTaskPriority = .medium
-        case 3:
             print("Priority is High")
             currentTaskPriority = .high
+        case 3:
+            print("Priority is Max")
+            currentTaskPriority = .max
         default:
-            print("Failed to get Task Priority, defaulting to medium")
-            currentTaskPriority = .medium
+            print("Failed to get Task Priority, defaulting to low")
+            currentTaskPriority = .low
         }
     }
     

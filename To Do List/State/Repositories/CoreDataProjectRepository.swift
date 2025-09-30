@@ -111,7 +111,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         dummyTask.name = "Welcome to Tasker"
                         dummyTask.project = self.defaultProjectName
                         dummyTask.taskType = TaskType.inbox.rawValue
-                        dummyTask.taskPriority = TaskPriority.medium.rawValue
+                        dummyTask.taskPriority = TaskPriority.low.rawValue
                         dummyTask.dueDate = Date() as NSDate
                         dummyTask.dateAdded = Date() as NSDate
                         dummyTask.isComplete = false

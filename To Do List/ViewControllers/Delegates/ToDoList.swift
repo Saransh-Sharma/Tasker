@@ -107,16 +107,36 @@ extension HomeViewController: BEMCheckBoxDelegate {
             break
         }
         
+        print("🔄 Task completion toggled - starting chart refresh sequence")
+        
+        // Calculate and update score
         let score = self.calculateTodaysScore()
         self.scoreCounter.text = "\(score)"
-        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView)
-        // Refresh navigation pie chart to reflect task completion changes
-        self.refreshNavigationPieChart()
+        print("📊 Score calculated: \(score)")
+        
+        // Update tiny pie chart data (slices based on priority breakdown)
+        print("🥧 About to call updateTinyPieChartData()")
+        self.updateTinyPieChartData()
+        print("🥧 updateTinyPieChartData() called")
+        
+        // Update tiny pie chart center text with new score
+        print("📝 Updating tiny pie chart center text")
+        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView, scoreOverride: score)
+        
+        // Animate tiny pie chart
+        print("🎬 Animating tiny pie chart")
         self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-        // Update navigation title (Today · date • score)
-        // Update navigation title and score, then refresh chart to guarantee latest data
+        
+        // Refresh navigation pie chart to reflect task completion changes
+        print("🔄 Refreshing navigation pie chart")
+        self.refreshNavigationPieChart()
+        
+        // Update navigation title and backdrop line chart
+        print("📊 Updating daily score and SwiftUI chart")
         self.updateDailyScore()
         self.updateSwiftUIChartCard()
+        
+        print("✅ Tiny pie chart refresh sequence completed")
     }
     
     @objc private func selectionBarButtonTapped(sender: UIBarButtonItem) {
