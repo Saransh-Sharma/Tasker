@@ -20,6 +20,197 @@ import MaterialComponents.MaterialBottomAppBar
 import SwiftUI
 import MaterialComponents.MaterialButtons_Theming
 import MaterialComponents.MaterialRipple
+
+// MARK: - Liquid Glass Bottom App Bar
+
+/// iOS 26 style bottom app bar with liquid glass transparent material background
+class LiquidGlassBottomAppBar: UIView, UITabBarDelegate {
+    
+    // MARK: - Properties
+    
+    /// Native tab bar configured with liquid glass appearance
+    private let tabBar = UITabBar()
+    
+    /// Mapping from tab index to original target/action
+    private var itemActions: [(target: AnyObject?, action: Selector?)] = []
+    
+    /// Glass morphism background layers
+    private let blurEffectView = UIVisualEffectView()
+    private let gradientLayer = CAGradientLayer()
+    private let borderLayer = CAShapeLayer()
+    
+    /// Expose a custom floating button (not Material)
+    let floatingButton: UIButton = {
+        let b = UIButton(type: .custom)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        b.backgroundColor = .systemOrange
+        b.tintColor = .white
+        b.layer.cornerRadius = 28
+        b.layer.shadowColor = UIColor.black.cgColor
+        b.layer.shadowOpacity = 0.25
+        b.layer.shadowOffset = CGSize(width: 0, height: 4)
+        b.layer.shadowRadius = 8
+        b.clipsToBounds = false
+        b.isHidden = true
+        return b
+    }()
+    
+    /// Tint color for tab items
+    override var tintColor: UIColor! {
+        didSet {
+            tabBar.tintColor = tintColor
+            tabBar.unselectedItemTintColor = tintColor?.withAlphaComponent(0.6)
+            updateGlassAppearance()
+        }
+    }
+    
+    // MARK: - Initialization
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupLiquidGlassView()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupLiquidGlassView()
+    }
+    
+    // MARK: - Setup
+    
+    private func setupLiquidGlassView() {
+        // Ensure container view is fully transparent
+        backgroundColor = .clear
+        isOpaque = false
+
+        // Configure the tab bar
+        tabBar.translatesAutoresizingMaskIntoConstraints = false
+        tabBar.isTranslucent = true
+        tabBar.backgroundImage = UIImage()
+        tabBar.shadowImage = UIImage()
+        tabBar.backgroundColor = .clear
+        tabBar.clipsToBounds = false
+        tabBar.delegate = self
+        setupTabBarAppearance()
+        addSubview(tabBar)
+
+        // Add floating button
+        addSubview(floatingButton)
+
+        // Layout constraints
+        NSLayoutConstraint.activate([
+            tabBar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            tabBar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            tabBar.topAnchor.constraint(equalTo: topAnchor),
+            tabBar.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            floatingButton.centerXAnchor.constraint(equalTo: centerXAnchor),
+            // Position FAB to overlap the top edge slightly
+            floatingButton.centerYAnchor.constraint(equalTo: topAnchor),
+            floatingButton.widthAnchor.constraint(equalToConstant: 56),
+            floatingButton.heightAnchor.constraint(equalToConstant: 56)
+        ])
+
+        // No extra background layers; rely on transparent tab bar appearance only
+        setupGlassLayers()
+
+        // Initial appearance
+        updateGlassAppearance()
+    }
+    
+    private func setupGlassLayers() {
+        // Remove any previously added background layers to avoid a rectangle behind the tab bar
+        if blurEffectView.superview != nil { blurEffectView.removeFromSuperview() }
+        gradientLayer.removeFromSuperlayer()
+        borderLayer.removeFromSuperlayer()
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateGlassLayers()
+    }
+    
+    private func updateGlassLayers() {
+        // No-op: we removed background layers
+    }
+    
+    // MARK: - Glass Morphism Appearance
+    
+    private func updateGlassAppearance() {
+        // No background layers; keep items only
+        updateBorder()
+    }
+    
+    private func updateBlurEffect() {
+        // No blur view used; rely on UITabBarAppearance only
+    }
+    
+    private func updateGradientOverlay() {
+        // No gradient overlay
+    }
+    
+    private func updateBorder() {
+        // No border to keep the bar fully clean
+        borderLayer.lineWidth = 0
+        borderLayer.strokeColor = UIColor.clear.cgColor
+    }
+    
+    // MARK: - Convenience Methods
+    
+    /// Sets up the bottom app bar with common configuration
+    func configureStandardAppBar(leadingItems: [UIBarButtonItem] = [],
+                                 trailingItems: [UIBarButtonItem] = [],
+                                 showFloatingButton: Bool = false) {
+        // Map UIBarButtonItems to UITabBarItems and store actions
+        let allItems = leadingItems + trailingItems
+        itemActions = allItems.map { ($0.target as AnyObject?, $0.action) }
+        let tabItems: [UITabBarItem] = allItems.enumerated().map { (idx, barItem) in
+            let item = UITabBarItem(title: nil, image: barItem.image, tag: idx)
+            return item
+        }
+        tabBar.items = tabItems
+        tabBar.selectedItem = nil
+
+        // Show or hide floating button
+        floatingButton.isHidden = !showFloatingButton
+
+        // Ensure it stays above other views
+        layer.zPosition = 1000
+    }
+
+    private func setupTabBarAppearance() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithTransparentBackground()
+        // No background effect; keep the tab bar fully clear (no rectangle view behind)
+        appearance.backgroundEffect = nil
+        appearance.backgroundColor = .clear
+        appearance.shadowColor = .clear
+
+        // Optional: tweak item appearance
+        let normalColor = (tintColor ?? .white).withAlphaComponent(0.6)
+        appearance.stackedLayoutAppearance.normal.iconColor = normalColor
+        appearance.inlineLayoutAppearance.normal.iconColor = normalColor
+        appearance.compactInlineLayoutAppearance.normal.iconColor = normalColor
+
+        tabBar.standardAppearance = appearance
+        if #available(iOS 15.0, *) {
+            tabBar.scrollEdgeAppearance = appearance
+        }
+        // Also clear any existing layer shadow
+        tabBar.layer.shadowOpacity = 0
+    }
+
+    // MARK: - UITabBarDelegate
+    func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
+        guard let idx = tabBar.items?.firstIndex(of: item) else { return }
+        let mapping = itemActions[idx]
+        if let action = mapping.action {
+            UIApplication.shared.sendAction(action, to: mapping.target, from: self, for: nil)
+        }
+        // Deselect to behave like buttons rather than persistent selection
+        tabBar.selectedItem = nil
+    }
+}
 // Import the delegate protocol
 import Foundation
 
@@ -63,6 +254,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var highestPrioritySymbol = UIImage()
     var highPrioritySymbol = UIImage()
     
+    // FSCalendar instance for backdrop calendar (initialized in UISetup extension)
+    var calendar: FSCalendar!
+    
     // Table view state
     var shouldAnimateCells = true
     var ToDoListSections: [ToDoListData.Section] = []
@@ -103,60 +297,16 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     lazy var tinyPieChartView: PieChartView = { return PieChartView() }()
     var navigationPieChartView: PieChartView?
     
+    // Tiny pie chart config (used by TinyPieChart.swift)
+    var shouldHideData: Bool = false
+    var tinyPieChartSections: [String] = ["Done", "In Progress", "Not Started", "Overdue"]
+    
     // Primary SwiftUI Chart Card (Phase 5: Now the main chart implementation)
     // Note: TaskProgressCard is defined in ChartCard.swift
     // Using AnyView to work around type resolution issue
     var swiftUIChartHostingController: UIHostingController<AnyView>?
     var swiftUIChartContainer: UIView?
 
-// MARK: - Pie-chart helpers
-
-/// Returns a dictionary of counts of completed tasks grouped by priority for a given date
-private func priorityBreakdown(for date: Date) -> [Int32: Int] {
-    // Use raw values to avoid enum compilation issues
-    var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0] // highest, high, medium, low
-    // Get tasks from Core Data directly
-    let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-    let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-    let allTasks = (try? context?.fetch(request)) ?? []
-    let calendar = Calendar.current
-    
-    for task in allTasks {
-        guard task.isComplete else { continue }
-        // Prefer recorded completion date; fall back to due date (covers legacy data)
-        let referenceDate: Date?
-        if let completed = task.dateCompleted as Date? {
-            referenceDate = completed
-        } else if let due = task.dueDate as Date? {
-            referenceDate = due
-        } else {
-            referenceDate = nil
-        }
-        guard let ref = referenceDate,
-              calendar.isDate(ref, inSameDayAs: date) else { continue }
-        let priorityValue = task.taskPriority
-        counts[priorityValue, default: 0] += 1
-    }
-    return counts
-}
-
-/// Animates + refreshes the navigation pie chart using current `dateForTheView`.
-func refreshNavigationPieChart() {
-    setNavigationPieChartData()
-    navigationPieChartView?.animate(xAxisDuration: 0.3, easingOption: .easeOutBack)
-}
-
-/// Compatibility shim for existing calendar extension call
-@objc func reloadTinyPicChartWithAnimation() {
-    refreshNavigationPieChart()
-}
-    var shouldHideData: Bool = false
-    var tinyPieChartSections: [String] = ["Done", "In Progress", "Not Started", "Overdue"]
-    
-    // Calendar and FluentUI TableView
-    var calendar: FSCalendar!
-    // Removed main tableView - using only FluentUI table now
-    
     // Legacy properties removed - sampleTableView and sampleData
     // var sampleTableView = UITableView(frame: .zero, style: .grouped)
     // var sampleData: [(String, [NTask])] = []
@@ -184,8 +334,8 @@ func refreshNavigationPieChart() {
     // New navigation title label containing date + score
     var navigationTitleLabel: UILabel?
     
-    // Bottom app bar
-    var bottomAppBar = MDCBottomAppBarView()
+    // Bottom app bar - Liquid Glass UI
+    var liquidGlassBottomBar: LiquidGlassBottomAppBar?
     var isCalDown: Bool = false
     var isChartsDown: Bool = false
     
@@ -277,8 +427,12 @@ func refreshNavigationPieChart() {
         self.setupHomeFordrop()
         
         // Setup and add bottom app bar - it should be the topmost view
-        self.setupBottomAppBar()
-        view.addSubview(bottomAppBar)
+        self.configureLiquidGlassBottomAppBar()
+        if let lgBottomBar = liquidGlassBottomBar {
+            view.addSubview(lgBottomBar)
+            // Set up constraints immediately after adding to view hierarchy
+            setupLiquidGlassBottomBarConstraints(lgBottomBar)
+        }
         
         foredropContainer.backgroundColor = UIColor.systemBackground
         // Apply initial themed backgrounds
@@ -355,19 +509,26 @@ func refreshNavigationPieChart() {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         
-        // If bottomAppBar uses Auto Layout (translatesAutoresizingMaskIntoConstraints == false), skip manual frame adjustments
-        if bottomAppBar.translatesAutoresizingMaskIntoConstraints == false {
-            return
-        }
-        // Legacy support for views instantiated before Auto Layout migration
-        let screenWidth = view.bounds.width
-        let screenHeight = view.bounds.height
+        // Liquid Glass bottom app bar uses Auto Layout constraints set up in viewDidLoad
+    }
+    
+    /// Sets up Auto Layout constraints for the Liquid Glass bottom app bar
+    private func setupLiquidGlassBottomBarConstraints(_ lgBottomBar: LiquidGlassBottomAppBar) {
+        // Ensure Auto Layout is enabled
+        lgBottomBar.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Use safe area for proper positioning
+        let safeArea = view.safeAreaLayoutGuide
         let barHeight: CGFloat = 64
-        let safeAreaBottomInset: CGFloat = view.safeAreaInsets.bottom
-        bottomAppBar.frame = CGRect(x: 0,
-                                    y: screenHeight - barHeight - safeAreaBottomInset,
-                                    width: screenWidth,
-                                    height: barHeight + safeAreaBottomInset)
+        
+        NSLayoutConstraint.activate([
+            lgBottomBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            lgBottomBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            lgBottomBar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            lgBottomBar.topAnchor.constraint(equalTo: safeArea.bottomAnchor, constant: -barHeight)
+        ])
+        
+        print("🌊 Liquid Glass bottom app bar constraints activated with height: \(barHeight)")
     }
     
     deinit {
@@ -887,8 +1048,11 @@ extension HomeViewController {
         
         
         
-        // Bottom app bar
-        bottomAppBar.barTintColor = todoColors.primaryColor
+        // Bottom app bar - update Liquid Glass version
+        if let lgBottomBar = liquidGlassBottomBar {
+            lgBottomBar.tintColor = UIColor.white
+            // Liquid Glass bottom bar automatically updates its appearance based on theme
+        }
         // Backdrop container background (subtle tint for blurred backdrop)
         backdropContainer.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
         // Floating action button (if instantiated via storyboard & bottom bar)
@@ -899,10 +1063,7 @@ extension HomeViewController {
             fab.tintColor = .white
             fab.backgroundColor = todoColors.primaryColor
         }
-        // Also recolor hidden floating button in BottomAppBar (if later shown)
-        bottomAppBar.floatingButton.setBackgroundColor(todoColors.primaryColor, for: .normal)
-        bottomAppBar.floatingButton.setBackgroundColor(todoColors.primaryColor.withAlphaComponent(0.8), for: .highlighted)
-        bottomAppBar.floatingButton.tintColor = .white
+        // Custom floating button color handled in setupLiquidGlassBottomBar
         // Update any search bar accessory background (keep transparent)
         if let accSearchBar = navigationItem.titleView as? UISearchBar {
             accSearchBar.backgroundColor = UIColor.clear
@@ -923,12 +1084,12 @@ extension HomeViewController {
         // Update chart accent colors if present
         
         // Update calendar appearance & refresh
-        if let cal = calendar {
+        if let cal = self.calendar {
             // Header & weekday background colours
             cal.calendarHeaderView.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.5)
             cal.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker
         }
-        if let cal = calendar {
+        if let cal = self.calendar {
             cal.appearance.selectionColor = todoColors.primaryColor
             cal.appearance.todayColor = todoColors.primaryColor
             cal.appearance.headerTitleColor = todoColors.primaryColor
@@ -954,29 +1115,72 @@ extension HomeViewController {
 // MARK: - Bottom App Bar Setup & Chat Integration
 
 extension HomeViewController {
-    /// Configures the Material Components bottom app bar and adds a Chat button which opens the LLM chat pane.
-    fileprivate func configureBottomAppBar() {
-        // Basic appearance
-        bottomAppBar.barTintColor = todoColors.primaryColor
-        bottomAppBar.tintColor = .white
-        bottomAppBar.layer.zPosition = 1000 // Ensure it stays above other views
-
-        // Remove default floating button (we already have a separate add-task FAB)
-        bottomAppBar.floatingButton.isHidden = true
-
-        // Create the chat bar button item
-        let chatImage = UIImage(systemName: "bubble.left.and.bubble.right.fill")
-        let chatButtonItem = UIBarButtonItem(image: chatImage,
-                                             style: .plain,
-                                             target: self,
-                                             action: #selector(chatButtonTapped))
-        chatButtonItem.accessibilityLabel = "Chat with LLM"
-
-        // Place the chat button on the trailing side
-        bottomAppBar.trailingBarButtonItems = [chatButtonItem]
-
-        // Size & position will be finalised in viewDidLayoutSubviews
+    
+    /// Sets up the bottom app bar - always uses Liquid Glass UI
+    fileprivate func configureLiquidGlassBottomAppBar() {
+        setupLiquidGlassBottomBar()
     }
+    
+    /// Sets up the Liquid Glass bottom app bar with iOS 26 transparent material
+    private func setupLiquidGlassBottomBar() {
+        // Create Liquid Glass bottom app bar
+        liquidGlassBottomBar = LiquidGlassBottomAppBar()
+        guard let lgBottomBar = liquidGlassBottomBar else { return }
+        
+        // Configure with Auto Layout
+        lgBottomBar.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Create all bar button items matching original layout
+        
+        // Settings button (leftmost)
+        let settingsImage = UIImage(systemName: "gearshape")
+        let settingsImageResized = settingsImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
+        let settingsItem = UIBarButtonItem(image: settingsImageResized, style: .plain, target: self, action: #selector(onMenuButtonTapped))
+        settingsItem.tintColor = UIColor.white
+        settingsItem.accessibilityLabel = "Settings"
+        
+        // Calendar button
+        let calendarImage = UIImage(systemName: "calendar")
+        let calendarImageResized = calendarImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
+        let calendarItem = UIBarButtonItem(image: calendarImageResized, style: .plain, target: self, action: #selector(toggleCalendar))
+        calendarItem.tintColor = UIColor.white
+        calendarItem.accessibilityLabel = "Calendar"
+        
+        // Charts/Analytics button
+        let chartImage = UIImage(systemName: "chart.bar.xaxis.ascending")
+        let chartImageResized = chartImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
+        let chartItem = UIBarButtonItem(image: chartImageResized, style: .plain, target: self, action: #selector(toggleCharts))
+        chartItem.tintColor = UIColor.white
+        chartItem.accessibilityLabel = "Analytics"
+        
+        // Chat button (rightmost)
+        let chatImage = UIImage(systemName: "bubble.left.and.text.bubble.right")
+        let chatImageResized = chatImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
+        let chatButtonItem = UIBarButtonItem(image: chatImageResized, style: .plain, target: self, action: #selector(chatButtonTapped))
+        chatButtonItem.tintColor = UIColor.white
+        chatButtonItem.accessibilityLabel = "Chat with LLM"
+        
+        // Configure the bottom app bar with all buttons
+        lgBottomBar.configureStandardAppBar(
+            leadingItems: [settingsItem, calendarItem, chartItem, chatButtonItem],
+            trailingItems: [],
+            showFloatingButton: true
+        )
+        
+        // Configure floating action button
+        let fab = lgBottomBar.floatingButton
+        let addTaskImage = UIImage(named: "add_task") ?? UIImage(systemName: "plus")
+        fab.setImage(addTaskImage, for: .normal)
+        fab.backgroundColor = todoColors.secondaryAccentColor
+        fab.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
+        fab.tintColor = .white
+        
+        // Set tint color to match theme
+        lgBottomBar.tintColor = UIColor.white
+        
+        print("🌊 Liquid Glass bottom app bar configured with iOS 26 transparent material")
+    }
+    
 
     /// Presents the ChatHostViewController modally.
     @objc func chatButtonTapped() {
@@ -998,6 +1202,47 @@ extension HomeViewController {
             print(" HomeViewController: Charts refreshed successfully")
         }
     }
+    
+    /// Animates + refreshes the navigation pie chart using current `dateForTheView`.
+    func refreshNavigationPieChart() {
+        setNavigationPieChartData()
+        navigationPieChartView?.animate(xAxisDuration: 0.3, easingOption: .easeOutBack)
+    }
+    
+    /// Compatibility shim for existing calendar extension call
+    @objc func reloadTinyPicChartWithAnimation() {
+        refreshNavigationPieChart()
+    }
+    
+    /// Returns a dictionary of counts of completed tasks grouped by priority for a given date
+    private func priorityBreakdown(for date: Date) -> [Int32: Int] {
+        // Use raw values to avoid enum compilation issues
+        var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0] // highest, high, medium, low
+        // Get tasks from Core Data directly
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let allTasks = (try? context?.fetch(request)) ?? []
+        let currentCalendar = Calendar.current
+        
+        for task in allTasks {
+            guard task.isComplete else { continue }
+            // Prefer recorded completion date; fall back to due date (covers legacy data)
+            let referenceDate: Date?
+            if let completed = task.dateCompleted as Date? {
+                referenceDate = completed
+            } else if let due = task.dueDate as Date? {
+                referenceDate = due
+            } else {
+                referenceDate = nil
+            }
+            guard let ref = referenceDate,
+                  currentCalendar.isDate(ref, inSameDayAs: date) else { continue }
+            let priorityValue = task.taskPriority
+            counts[priorityValue, default: 0] += 1
+        }
+        return counts
+    }
+    
 }
 
 // MARK: - Daily Score Updates
@@ -1025,10 +1270,10 @@ extension HomeViewController {
             let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
             let request: NSFetchRequest<NTask> = NTask.fetchRequest()
             let allTasks = (try? context?.fetch(request)) ?? []
-            let calendar = Calendar.current
+            let currentCalendar = Calendar.current
             let completedToday = allTasks.filter { task in
                 guard task.isComplete, let doneDate = task.dateCompleted as Date? else { return false }
-                return calendar.isDate(doneDate, inSameDayAs: targetDate)
+                return currentCalendar.isDate(doneDate, inSameDayAs: targetDate)
             }
             let total = completedToday.reduce(0) { sum, task in
                 sum + TaskScoringService.shared.calculateScore(for: task)

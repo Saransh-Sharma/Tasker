@@ -8,7 +8,6 @@
 
 import UIKit
 import FluentUI
-import MaterialComponents.MaterialBottomAppBar
 import TinyConstraints
 import SemiModalViewController
 import FSCalendar
@@ -88,14 +87,12 @@ extension HomeViewController: BadgeViewDelegate {
             safeAreaBottomInset = 0
         }
         
-        // Account for bottom app bar height (standard 64pt)
-        let bottomBarHeight: CGFloat = 64 + safeAreaBottomInset
-        
-        // Position foredrop container - leave space for the bottom bar
-        foredropContainer.frame = CGRect(x: 0, 
-                                      y: screenHeight - foredropHeight - bottomBarHeight + 24, 
-                                      width: screenWidth, 
-                                      height: foredropHeight)
+        // Allow content to extend under the Liquid Glass bottom bar (no reserved space)
+        // Keep a small top offset for styling, but do not subtract the bar height.
+        foredropContainer.frame = CGRect(x: 0,
+                                         y: screenHeight - foredropHeight + 24,
+                                         width: screenWidth,
+                                         height: foredropHeight)
         foredropContainer.backgroundColor = todoColors.backgroundColor        
         foredropContainer.layer.cornerRadius = 24
         foredropContainer.clipsToBounds = true
@@ -149,64 +146,6 @@ extension HomeViewController: BadgeViewDelegate {
         print("FluentUI table view setup in foredrop completed")
     }
     
-    func setupBottomAppBar() {
-        // Instantiate bottom app bar and rely on Auto Layout instead of manual frames
-        bottomAppBar = MDCBottomAppBarView()
-        bottomAppBar.translatesAutoresizingMaskIntoConstraints = false
-        bottomAppBar.barTintColor = todoColors.primaryColor
-        bottomAppBar.shadowColor = UIColor.black.withAlphaComponent(0.4)
-        // Use Auto Layout, no need for autoresizing masks
-        
-        // Configure floating action button
-        let fab = bottomAppBar.floatingButton
-        // Use a system plus icon if custom icon is missing
-        let addTaskImage = UIImage(named: "add_task") ?? UIImage(systemName: "plus")
-        fab.setImage(addTaskImage, for: .normal)
-        fab.backgroundColor = todoColors.secondaryAccentColor
-        fab.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
-        bottomAppBar.floatingButtonPosition = .trailing
-        
-        // Add navigation items for leading side (left)
-        
-        // Settings button (leftmost) - increased size by 20%
-        let settingsImage = UIImage(systemName: "gearshape")
-        let settingsImageResized = settingsImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let settingsItem = UIBarButtonItem(image: settingsImageResized, style: .plain, target: self, action: #selector(onMenuButtonTapped))
-        settingsItem.tintColor = UIColor.white
-        
-        let calendarImage = UIImage(systemName: "calendar")
-        let calendarImageResized = calendarImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let calendarItem = UIBarButtonItem(image: calendarImageResized, style: .plain, target: self, action: #selector(toggleCalendar))
-        calendarItem.tintColor = UIColor.white
-        
-        let chartImage = UIImage(systemName: "chart.bar.xaxis.ascending")
-        let chartImageResized = chartImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let chartItem = UIBarButtonItem(image: chartImageResized, style: .plain, target: self, action: #selector(toggleCharts))
-        chartItem.tintColor = UIColor.white
-        
-        // Chat button - increased size by 20%
-        let chatImage = UIImage(systemName: "bubble.left.and.text.bubble.right")
-        let chatImageResized = chatImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let chatItem = UIBarButtonItem(image: chatImageResized, style: .plain, target: self, action: #selector(chatButtonTapped))
-        chatItem.tintColor = UIColor.white
-        
-        bottomAppBar.leadingBarButtonItems = [settingsItem, calendarItem, chartItem, chatItem]
-        
-        
-        
-        // Add the bottom app bar to view and pin it to safe area so it adapts to all screen sizes
-        // Determine appropriate height (taller on iPad to avoid clipped icons)
-        let barHeight: CGFloat = UIDevice.current.userInterfaceIdiom == .pad ? 100 : 80
-        view.addSubview(bottomAppBar)
-        NSLayoutConstraint.activate([
-            bottomAppBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bottomAppBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottomAppBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 0),
-            bottomAppBar.heightAnchor.constraint(equalToConstant: barHeight)
-        ])
-        
-        // No trailing bar button items; FAB occupies the trailing position
-    }
     
     func createButton(title: String, action: Selector) -> FluentUI.Button {
         let button = FluentUI.Button()
@@ -350,9 +289,8 @@ extension HomeViewController: BadgeViewDelegate {
         let topBarHeight = homeTopBar.bounds.height ?? 0
         
         // Position the FluentUI sample table view to fill the available space
-        // Account for both top bar and bottom app bar heights
-        let bottomBarHeight = bottomAppBar.bounds.height
-        let availableHeight = foredropContainer.bounds.height - topBarHeight - bottomBarHeight
+        // With Liquid Glass bar, content may extend underneath; do not reserve space
+        let availableHeight = foredropContainer.bounds.height - topBarHeight
         
         fluentToDoTableViewController?.view.frame = CGRect(
             x: 0,
