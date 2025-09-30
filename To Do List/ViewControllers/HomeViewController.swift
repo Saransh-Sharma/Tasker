@@ -336,6 +336,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     // Bottom app bar - Liquid Glass UI
     var liquidGlassBottomBar: LiquidGlassBottomAppBar?
+    
+    // Foredrop state management
+    var foredropStateManager: ForedropStateManager?
+    
+    // Legacy state flags (deprecated - use foredropStateManager instead)
     var isCalDown: Bool = false
     var isChartsDown: Bool = false
     
@@ -450,6 +455,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         // Setup the SwiftUI chart card
         setupSwiftUIChartCard()
         
+        // Initialize foredrop state manager after all views are set up
+        initializeForedropStateManager()
+        
         // Display today's initial score in navigation bar
         updateDailyScore()
     }
@@ -510,6 +518,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         super.viewDidLayoutSubviews()
         
         // Liquid Glass bottom app bar uses Auto Layout constraints set up in viewDidLoad
+        
+        // Update foredrop state manager layout
+        foredropStateManager?.updateLayout()
     }
     
     /// Sets up Auto Layout constraints for the Liquid Glass bottom app bar
@@ -558,12 +569,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
         }
         
-        // Create search bar accessory (using titleView instead of accessoryView)
-        let searchBar = createSearchBarAccessory()
-        navigationItem.titleView = searchBar
-        
-        
-
+        // Search bar removed - now accessed via bottom app bar button
         
         // Hide legacy scoreCounter label (we now show score in title)
         scoreCounter.isHidden = true
@@ -1153,6 +1159,13 @@ extension HomeViewController {
         chartItem.tintColor = UIColor.white
         chartItem.accessibilityLabel = "Analytics"
         
+        // Search button (NEW - replaces top search bar)
+        let searchImage = UIImage(systemName: "magnifyingglass")
+        let searchImageResized = searchImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
+        let searchItem = UIBarButtonItem(image: searchImageResized, style: .plain, target: self, action: #selector(searchButtonTapped))
+        searchItem.tintColor = UIColor.white
+        searchItem.accessibilityLabel = "Search Tasks"
+        
         // Chat button (rightmost)
         let chatImage = UIImage(systemName: "bubble.left.and.text.bubble.right")
         let chatImageResized = chatImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
@@ -1160,9 +1173,9 @@ extension HomeViewController {
         chatButtonItem.tintColor = UIColor.white
         chatButtonItem.accessibilityLabel = "Chat with LLM"
         
-        // Configure the bottom app bar with all buttons
+        // Configure the bottom app bar with all buttons (added search button)
         lgBottomBar.configureStandardAppBar(
-            leadingItems: [settingsItem, calendarItem, chartItem, chatButtonItem],
+            leadingItems: [settingsItem, calendarItem, chartItem, searchItem, chatButtonItem],
             trailingItems: [],
             showFloatingButton: true
         )
@@ -1182,6 +1195,14 @@ extension HomeViewController {
     }
     
 
+    /// Presents the Liquid Glass Search screen modally.
+    @objc func searchButtonTapped() {
+        let searchVC = LGSearchViewController()
+        searchVC.modalPresentationStyle = .fullScreen
+        searchVC.modalTransitionStyle = .crossDissolve
+        present(searchVC, animated: true)
+    }
+    
     /// Presents the ChatHostViewController modally.
     @objc func chatButtonTapped() {
         let chatHostVC = ChatHostViewController()

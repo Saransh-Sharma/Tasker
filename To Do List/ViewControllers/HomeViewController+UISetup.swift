@@ -233,43 +233,68 @@ extension HomeViewController: BadgeViewDelegate {
     // MARK: - Calendar and Charts Toggles
     
     @objc func toggleCalendar() {
-        if isChartsDown {
-            // Charts are down, need two-step animation: return to original then show calendar
-            returnToOriginalThenRevealCalendar()
-        } else if isCalDown {
-            // Calendar is currently showing (monthly) - hide it and switch to weekly
-            // Reset calendar to week scope BEFORE hiding animation
-            calendar.setScope(.week, animated: true)
-            // Hide calendar (foredrop goes up)
-            UIView.animate(withDuration: 0.2) {
-                self.moveUp_toHideCal(view: self.foredropContainer)
+        // Use new state manager if available, otherwise fall back to legacy behavior
+        if let stateManager = foredropStateManager {
+            stateManager.toggleCalendar()
+            
+            // Update legacy flags for backward compatibility
+            isCalDown = stateManager.isCalendarVisible && !stateManager.isChartsVisible
+            isChartsDown = stateManager.isChartsVisible
+            
+            // Optionally adjust calendar scope based on state
+            if stateManager.isCalendarVisible {
+                calendar.setScope(.week, animated: true)
             }
         } else {
-            // Calendar is currently hidden - show it in monthly view
-            // Show calendar (foredrop goes down)
-            UIView.animate(withDuration: 0.2) {
-                self.moveDown_revealJustCal(view: self.foredropContainer)
+            // Legacy behavior (fallback)
+            if isChartsDown {
+                // Charts are down, need two-step animation: return to original then show calendar
+                returnToOriginalThenRevealCalendar()
+            } else if isCalDown {
+                // Calendar is currently showing (monthly) - hide it and switch to weekly
+                // Reset calendar to week scope BEFORE hiding animation
+                calendar.setScope(.week, animated: true)
+                // Hide calendar (foredrop goes up)
+                UIView.animate(withDuration: 0.2) {
+                    self.moveUp_toHideCal(view: self.foredropContainer)
+                }
+            } else {
+                // Calendar is currently hidden - show it in monthly view
+                // Show calendar (foredrop goes down)
+                UIView.animate(withDuration: 0.2) {
+                    self.moveDown_revealJustCal(view: self.foredropContainer)
+                }
+                // Expand calendar to month scope when showing
+                calendar.setScope(.week, animated: true)
             }
-            // Expand calendar to month scope when showing
-            calendar.setScope(.week, animated: true)
         }
     }
     
     @objc func toggleCharts() {
-        if isCalDown {
-            // Calendar is down, need two-step animation: return to original then show charts
-            returnToOriginalThenRevealCharts()
-        } else if isChartsDown {
-            // Hide charts
-            UIView.animate(withDuration: 0.3) {
-                self.moveUp_hideCharts(view: self.foredropContainer)
-            }
-        } else {
-            // Show charts
-            UIView.animate(withDuration: 0.3) {
-                self.moveDown_revealCharts(view: self.foredropContainer)
-            }
+        // Use new state manager if available, otherwise fall back to legacy behavior
+        if let stateManager = foredropStateManager {
+            stateManager.toggleCharts()
             
+            // Update legacy flags for backward compatibility
+            isCalDown = stateManager.isCalendarVisible && !stateManager.isChartsVisible
+            isChartsDown = stateManager.isChartsVisible
+        } else {
+            // Legacy behavior (fallback)
+            if isCalDown {
+                // Calendar is down, need two-step animation: return to original then show charts
+                returnToOriginalThenRevealCharts()
+            } else if isChartsDown {
+                // Hide charts
+                UIView.animate(withDuration: 0.3) {
+                    self.moveUp_hideCharts(view: self.foredropContainer)
+                }
+            } else {
+                // Show charts
+                UIView.animate(withDuration: 0.3) {
+                    self.moveDown_revealCharts(view: self.foredropContainer)
+                }
+                
+            }
         }
     }
     
