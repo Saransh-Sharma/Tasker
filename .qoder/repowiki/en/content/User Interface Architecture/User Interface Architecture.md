@@ -1,13 +1,29 @@
+<docs>
 # User Interface Architecture
 
 <cite>
 **Referenced Files in This Document**   
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift)
-- [AddTaskViewController.swift](file://To Do List/ViewControllers/AddTaskViewController.swift)
-- [SettingsPageViewController.swift](file://To Do List/ViewControllers/SettingsPageViewController.swift)
-- [DependencyContainer.swift](file://To Do List/Managers/DependencyContainer.swift)
-- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift)
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift) - *Updated with Liquid Glass components in commit 80ba1a21*
+- [HomeViewController+UISetup.swift](file://To%20Do%20List/ViewControllers/HomeViewController+UISetup.swift) - *Updated with foredrop setup in commit 80ba1a21*
+- [AddTaskViewController.swift](file://To%20Do%20List/ViewControllers/AddTaskViewController.swift)
+- [SettingsPageViewController.swift](file://To%20Do%20List/ViewControllers/SettingsPageViewController.swift)
+- [DependencyContainer.swift](file://To%20Do%20List/Managers/DependencyContainer.swift)
+- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift)
+- [LGBaseView.swift](file://To%20Do%20List/View/LiquidGlass/LGBaseView.swift) - *Added in commit 1fb735d7*
+- [LGSearchBar.swift](file://To%20Do%20List/View/LiquidGlass/LGSearchBar.swift) - *Added in commit 1fb735d7*
+- [LGTaskCard.swift](file://To%20Do%20List/View/LiquidGlass/LGTaskCard.swift) - *Added in commit 1fb735d7*
+- [HomeForedropView.swift](file://To%20Do%20List/View/HomeForedropView.swift) - *Updated with Liquid Glass integration in commit 80ba1a21*
+- [Assets.xcassets/3D_icons](file://To%20Do%20List/Assets.xcassets/3D_icons) - *Added in commit 500d083b*
 </cite>
+
+## Update Summary
+**Changes Made**   
+- Updated HomeViewController documentation to reflect new Liquid Glass UI components and state management
+- Added documentation for new 3D icons in the app bar
+- Added new section for Liquid Glass UI components and their implementation
+- Updated dependency injection and data flow section to include new component relationships
+- Removed outdated references to legacy table view implementation
+- Added new architectural diagram for Liquid Glass components
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -16,36 +32,30 @@
 4. [AddTaskViewController: Task Creation](#addtaskviewcontroller-task-creation)
 5. [SettingsPageViewController: Preferences Management](#settingspageviewcontroller-preferences-management)
 6. [UI Components and Assets](#ui-components-and-assets)
-7. [Dependency Injection and Data Flow](#dependency-injection-and-data-flow)
-8. [Accessibility and Responsive Design](#accessibility-and-responsive-design)
-9. [State Preservation and Lifecycle](#state-preservation-and-lifecycle)
-10. [Conclusion](#conclusion)
+7. [Liquid Glass UI System](#liquid-glass-ui-system)
+8. [Dependency Injection and Data Flow](#dependency-injection-and-data-flow)
+9. [Accessibility and Responsive Design](#accessibility-and-responsive-design)
+10. [State Preservation and Lifecycle](#state-preservation-and-lifecycle)
+11. [Conclusion](#conclusion)
 
 ## Introduction
-The Tasker app features a modern, intuitive user interface built around three primary view controllers: HomeViewController, AddTaskViewController, and SettingsPageViewController. These components work together to provide a seamless task management experience with a focus on visual clarity, user engagement, and efficient workflow. The interface leverages Material Design principles through the FluentUI framework and incorporates custom UI elements from the asset catalog. This documentation details the structure, behavior, and integration of these core components, highlighting their roles in the overall application architecture.
+The Tasker app features a modern, intuitive user interface built around three primary view controllers: HomeViewController, AddTaskViewController, and SettingsPageViewController. These components work together to provide a seamless task management experience with a focus on visual clarity, user engagement, and efficient workflow. The interface leverages Material Design principles through the FluentUI framework and incorporates custom UI elements from the asset catalog. Recent updates have introduced a new Liquid Glass UI system with state management for enhanced visual effects and user experience. This documentation details the structure, behavior, and integration of these core components, highlighting their roles in the overall application architecture.
 
 ## Core View Controllers
 The Tasker app's user interface is organized around three main view controllers that handle distinct aspects of the application's functionality. These controllers follow a clear separation of concerns while maintaining consistent design language and behavior patterns across the app.
 
 **Section sources**
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L1-L50)
-- [AddTaskViewController.swift](file://To Do List/ViewControllers/AddTaskViewController.swift#L1-L50)
-- [SettingsPageViewController.swift](file://To Do List/ViewControllers/SettingsPageViewController.swift#L1-L50)
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift#L1-L50) - *Updated in commit 80ba1a21*
+- [AddTaskViewController.swift](file://To%20Do%20List/ViewControllers/AddTaskViewController.swift#L1-L50)
+- [SettingsPageViewController.swift](file://To%20Do%20List/ViewControllers/SettingsPageViewController.swift#L1-L50)
 
 ## HomeViewController: Central Hub
 
 HomeViewController serves as the central hub of the Tasker application, providing users with an overview of their tasks, daily progress, and navigation to other app features. The interface is designed to be both informative and actionable, presenting categorized tasks in a clean, organized manner.
 
-The view controller displays tasks grouped by project or time category, with visual indicators for task priority and completion status. A prominent daily score is shown in the navigation bar, providing immediate feedback on productivity. The interface includes a top bar with a calendar icon that allows users to navigate between dates, and navigation controls for accessing different sections of the app.
+The view controller displays tasks grouped by project or time category, with visual indicators for task priority and completion status. A prominent daily score is shown in the navigation bar, providing immediate feedback on productivity. The interface includes a top bar with date display and navigation controls, categorized task lists with project headers, visual indicators for task priority (high, medium, low), and a floating action button for adding new tasks.
 
-Key visual elements include:
-- A top bar with date display and navigation controls
-- Categorized task lists with project headers
-- Visual indicators for task priority (high, medium, low)
-- A floating action button for adding new tasks
-- A bottom app bar with navigation controls
-
-The controller responds to user interactions by updating the displayed tasks based on the selected view type (today, upcoming, etc.) and handling navigation requests. It also manages the display of search results when the user initiates a search.
+Recent updates have introduced a Liquid Glass bottom app bar with iOS 26-style transparent material design, replacing the previous Material Design components. This new app bar features 3D icons for navigation and integrates with the Liquid Glass UI system for enhanced visual effects. The controller now uses a state machine to manage the foredrop container, enabling smooth transitions between calendar, charts, and task list views.
 
 ```mermaid
 classDiagram
@@ -55,24 +65,33 @@ class HomeViewController {
 +navigationPieChartView : PieChartView
 +currentViewType : ToDoListViewType
 +dateForTheView : Date
--setupFluentUINavigationBar()
--updateViewForHome(viewType : ToDoListViewType)
--refreshNavigationPieChart()
--presentSideDrawer()
--AddTaskAction()
++liquidGlassBottomBar : LiquidGlassBottomAppBar
++foredropStateManager : ForedropStateManager
++setupFluentUINavigationBar()
++setupLiquidGlassBottomBar()
++updateViewForHome(viewType : ToDoListViewType)
++refreshNavigationPieChart()
++presentSideDrawer()
++AddTaskAction()
++toggleCalendar()
++toggleCharts()
 }
 HomeViewController --> FluentUIToDoTableViewController : "displays"
 HomeViewController --> PieChartView : "shows daily score"
 HomeViewController --> SettingsPageViewController : "navigates to"
 HomeViewController --> AddTaskViewController : "presents"
 HomeViewController --> TaskRepository : "retrieves tasks from"
+HomeViewController --> LiquidGlassBottomAppBar : "uses for navigation"
+HomeViewController --> ForedropStateManager : "manages state with"
 ```
 
 **Diagram sources**
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L50-L200)
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift#L50-L200) - *Updated in commit 80ba1a21*
 
 **Section sources**
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L1-L300)
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift#L1-L300) - *Updated in commit 80ba1a21*
+- [HomeViewController+UISetup.swift](file://To%20Do%20List/ViewControllers/HomeViewController+UISetup.swift#L1-L417) - *Updated in commit 80ba1a21*
+- [HomeForedropView.swift](file://To%20Do%20List/View/HomeForedropView.swift#L1-L59) - *Updated in commit 80ba1a21*
 
 ## AddTaskViewController: Task Creation
 
@@ -115,10 +134,10 @@ AddTaskViewController --> TaskRepository : "saves task to"
 ```
 
 **Diagram sources**
-- [AddTaskViewController.swift](file://To Do List/ViewControllers/AddTaskViewController.swift#L50-L200)
+- [AddTaskViewController.swift](file://To%20Do%20List/ViewControllers/AddTaskViewController.swift#L50-L200)
 
 **Section sources**
-- [AddTaskViewController.swift](file://To Do List/ViewControllers/AddTaskViewController.swift#L1-L300)
+- [AddTaskViewController.swift](file://To%20Do%20List/ViewControllers/AddTaskViewController.swift#L1-L300)
 
 ## SettingsPageViewController: Preferences Management
 
@@ -155,10 +174,10 @@ SettingsPageViewController --> UIHostingController : "presents SwiftUI views"
 ```
 
 **Diagram sources**
-- [SettingsPageViewController.swift](file://To Do List/ViewControllers/SettingsPageViewController.swift#L50-L200)
+- [SettingsPageViewController.swift](file://To%20Do%20List/ViewControllers/SettingsPageViewController.swift#L50-L200)
 
 **Section sources**
-- [SettingsPageViewController.swift](file://To Do List/ViewControllers/SettingsPageViewController.swift#L1-L300)
+- [SettingsPageViewController.swift](file://To%20Do%20List/ViewControllers/SettingsPageViewController.swift#L1-L300)
 
 ## UI Components and Assets
 
@@ -171,6 +190,16 @@ The top bar is a custom UI element that appears across multiple screens, providi
 - Separators and background elements for visual hierarchy
 
 The top bar uses assets from the HomeTopBar directory, including the calendar icon and separator lines that create visual distinction between interface sections.
+
+### 3D Icons
+Recent updates have introduced 3D icons for the bottom app bar navigation, enhancing the visual design and providing a more modern appearance. These icons are used for:
+- Settings (gear2.imageset)
+- Calendar (cal.imageset)
+- Charts/Analytics (charts.imageset)
+- Search (search.imageset)
+- Chat/LLM (chat.imageset)
+
+These 3D icons are integrated into the Liquid Glass bottom app bar, providing a cohesive visual experience across the application.
 
 ### Material Design Buttons
 The app incorporates Material Design principles through the use of MDC (Material Design Components) buttons and controls. Key elements include:
@@ -191,9 +220,99 @@ Additional custom UI elements include:
 The interface leverages the FluentUI framework for many of these components, ensuring a modern, responsive design that adheres to iOS human interface guidelines.
 
 **Section sources**
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L200-L400)
-- [AddTaskViewController.swift](file://To Do List/ViewControllers/AddTaskViewController.swift#L200-L400)
-- [SettingsPageViewController.swift](file://To Do List/ViewControllers/SettingsPageViewController.swift#L200-L400)
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift#L200-L400) - *Updated in commit 80ba1a21*
+- [AddTaskViewController.swift](file://To%20Do%20List/ViewControllers/AddTaskViewController.swift#L200-L400)
+- [SettingsPageViewController.swift](file://To%20Do%20List/ViewControllers/SettingsPageViewController.swift#L200-L400)
+- [Assets.xcassets/3D_icons](file://To%20Do%20List/Assets.xcassets/3D_icons) - *Added in commit 500d083b*
+
+## Liquid Glass UI System
+
+The Tasker app has been updated with a new Liquid Glass UI system that provides modern glass morphism effects with backdrop blur, gradients, and smooth animations. This system enhances the visual appeal of the application and provides a more engaging user experience.
+
+### LGBaseView
+The LGBaseView class serves as the foundation for all Liquid Glass components, providing glass morphism effects with backdrop blur and gradients. It includes configurable properties for:
+- `glassBlurStyle`: Blur effect style (default: `.systemUltraThinMaterial`)
+- `glassOpacity`: Overall opacity (default: `0.8`)
+- `cornerRadius`: Corner radius (default: `16`)
+- `borderWidth`: Border width (default: `0.5`)
+- `borderColor`: Border color (default: white @ 20% opacity)
+
+The base view supports spring-based animations for a natural feel when appearing or disappearing.
+
+### LGSearchBar
+The LGSearchBar component provides a glass morphism search bar with animations. Key features include:
+- Auto-showing cancel button on focus
+- Clear button when text is entered
+- Animated border on focus/unfocus
+- Magnifying glass icon
+- White text with semi-transparent placeholder
+
+The search bar implements the LGSearchBarDelegate protocol to handle text changes, editing events, and search button taps.
+
+### LGTaskCard
+The LGTaskCard component displays tasks with glass effects and interactive elements. Features include:
+- Interactive checkbox for completion toggle
+- Priority indicator with color coding
+- Project label display
+- Due date formatting
+- Strike-through for completed tasks
+- Tap animation feedback
+- Automatic Core Data saving
+
+Priority colors are coded as: Red (Highest), Orange (High), Yellow (Medium), Green (Low).
+
+### Liquid Glass Bottom App Bar
+The Liquid Glass bottom app bar replaces the previous Material Design components with a modern iOS 26-style transparent material design. It features:
+- 3D icons for navigation (Settings, Calendar, Charts, Search, Chat)
+- Floating action button for adding new tasks
+- Glass morphism effects with backdrop blur
+- Spring-based animations for interactions
+- Full compatibility with Auto Layout
+
+The bottom app bar is implemented as a custom UIView that wraps a UITabBar with transparent appearance settings, ensuring a clean, modern look without unnecessary background elements.
+
+```mermaid
+classDiagram
+class LGBaseView {
++glassBlurStyle : UIBlurEffect.Style
++glassOpacity : CGFloat
++cornerRadius : CGFloat
++borderWidth : CGFloat
++borderColor : UIColor
++animateGlassAppearance(duration : TimeInterval)
+}
+class LGSearchBar {
++delegate : LGSearchBarDelegate
++searchTextField : UITextField
++text : String
+}
+class LGTaskCard {
++task : NTask
++onTap : ((NTask) -> Void)
+}
+class LiquidGlassBottomAppBar {
++tabBar : UITabBar
++floatingButton : UIButton
++tintColor : UIColor
++configureStandardAppBar(leadingItems : [UIBarButtonItem], trailingItems : [UIBarButtonItem], showFloatingButton : Bool)
+}
+LGSearchBar --> LGBaseView : "inherits from"
+LGTaskCard --> LGBaseView : "inherits from"
+LiquidGlassBottomAppBar --> UIView : "inherits from"
+```
+
+**Diagram sources**
+- [LGBaseView.swift](file://To%20Do%20List/View/LiquidGlass/LGBaseView.swift#L1-L122) - *Added in commit 1fb735d7*
+- [LGSearchBar.swift](file://To%20Do%20List/View/LiquidGlass/LGSearchBar.swift#L1-L211) - *Added in commit 1fb735d7*
+- [LGTaskCard.swift](file://To%20Do%20List/View/LiquidGlass/LGTaskCard.swift#L1-L207) - *Added in commit 1fb735d7*
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift#L1-L1507) - *Updated in commit 80ba1a21*
+
+**Section sources**
+- [LGBaseView.swift](file://To%20Do%20List/View/LiquidGlass/LGBaseView.swift#L1-L122) - *Added in commit 1fb735d7*
+- [LGSearchBar.swift](file://To%20Do%20List/View/LiquidGlass/LGSearchBar.swift#L1-L211) - *Added in commit 1fb735d7*
+- [LGTaskCard.swift](file://To%20Do%20List/View/LiquidGlass/LGTaskCard.swift#L1-L207) - *Added in commit 1fb735d7*
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift#L1-L1507) - *Updated in commit 80ba1a21*
+- [HomeViewController+UISetup.swift](file://To%20Do%20List/ViewControllers/HomeViewController+UISetup.swift#L1-L417) - *Updated in commit 80ba1a21*
 
 ## Dependency Injection and Data Flow
 
@@ -202,164 +321,4 @@ The Tasker app implements a clean dependency injection pattern to manage compone
 ### DependencyContainer
 The DependencyContainer class serves as the central dependency management system, responsible for:
 - Creating and managing shared service instances
-- Injecting dependencies into view controllers
-- Coordinating the application's object graph
-
-The container is configured during app initialization with the Core Data persistent container and creates the appropriate repository implementations. It then injects these dependencies into view controllers as they are instantiated.
-
-```mermaid
-classDiagram
-class DependencyContainer {
-+shared : DependencyContainer
--taskRepository : TaskRepository
--persistentContainer : NSPersistentContainer
-+configure(with : NSPersistentContainer)
-+inject(into : UIViewController)
-}
-class TaskRepositoryDependent {
-<<protocol>>
-+taskRepository : TaskRepository
-}
-DependencyContainer --> TaskRepository : "creates"
-DependencyContainer --> CoreDataTaskRepository : "creates"
-DependencyContainer --> UIViewController : "injects into"
-TaskRepositoryDependent <|-- HomeViewController : "implements"
-TaskRepositoryDependent <|-- AddTaskViewController : "implements"
-```
-
-**Diagram sources**
-- [DependencyContainer.swift](file://To Do List/Managers/DependencyContainer.swift#L1-L50)
-
-### TaskRepository Protocol
-The TaskRepository protocol defines a comprehensive interface for task data operations, enabling dependency injection and testability. It abstracts the underlying data storage mechanism (Core Data) and provides a clean API for view controllers to interact with task data.
-
-Key responsibilities include:
-- Fetching tasks with various filtering and sorting options
-- Adding, updating, and deleting tasks
-- Toggling task completion status
-- Rescheduling tasks to new dates
-- Retrieving tasks for specific projects, dates, or categories
-
-View controllers receive a TaskRepository instance through dependency injection and use it to perform all data operations. This separation ensures that UI components remain independent of the specific data storage implementation.
-
-```mermaid
-classDiagram
-class TaskRepository {
-<<protocol>>
-+fetchTasks(predicate : NSPredicate?, sortDescriptors : [NSSortDescriptor]?, completion : ([TaskData]) -> Void)
-+fetchTask(by : NSManagedObjectID, completion : (Result<NTask, Error>) -> Void)
-+addTask(data : TaskData, completion : (Result<NTask, Error>) -> Void)?
-+toggleComplete(taskID : NSManagedObjectID, completion : (Result<Void, Error>) -> Void)?
-+deleteTask(taskID : NSManagedObjectID, completion : (Result<Void, Error>) -> Void)?
-+reschedule(taskID : NSManagedObjectID, to : Date, completion : (Result<Void, Error>) -> Void)?
-+getMorningTasks(for : Date, completion : ([TaskData]) -> Void)
-+getEveningTasks(for : Date, completion : ([TaskData]) -> Void)
-+getUpcomingTasks(completion : ([TaskData]) -> Void)
-+getTasksForInbox(date : Date, completion : ([TaskData]) -> Void)
-+getTasksForProject(projectName : String, date : Date, completion : ([TaskData]) -> Void)
-+getTasksForProjectOpen(projectName : String, date : Date, completion : ([TaskData]) -> Void)
-+getTasksForAllCustomProjectsOpen(date : Date, completion : ([TaskData]) -> Void)
-+updateTask(taskID : NSManagedObjectID, data : TaskData, completion : (Result<Void, Error>) -> Void)?
-+saveTask(taskID : NSManagedObjectID, name : String, details : String?, type : TaskType, priority : TaskPriority, dueDate : Date, project : String, completion : (Result<Void, Error>) -> Void)?
-}
-TaskRepository <|-- CoreDataTaskRepository : "implements"
-HomeViewController --> TaskRepository : "uses"
-AddTaskViewController --> TaskRepository : "uses"
-```
-
-**Diagram sources**
-- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift#L1-L50)
-
-### Data Flow
-The data flow pattern follows a consistent pattern across the application:
-1. View controllers receive dependencies via DependencyContainer injection
-2. User interactions trigger data operations through the TaskRepository
-3. Data changes are communicated back to the UI through completion handlers
-4. The UI updates to reflect the new data state
-
-For example, when a user adds a new task:
-1. AddTaskViewController receives a TaskRepository instance through dependency injection
-2. The user fills out the task form and taps "Done"
-3. The controller calls addTask() on the repository with the task data
-4. Upon successful completion, the controller notifies its delegate (HomeViewController)
-5. HomeViewController refreshes its task list to include the new task
-
-**Section sources**
-- [DependencyContainer.swift](file://To Do List/Managers/DependencyContainer.swift#L1-L80)
-- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift#L1-L118)
-
-## Accessibility and Responsive Design
-
-The Tasker app incorporates several accessibility features and responsive design patterns to ensure usability across different devices and user needs.
-
-### Accessibility Considerations
-The interface includes the following accessibility features:
-- Proper semantic markup for screen readers
-- Sufficient color contrast between text and background
-- Support for dynamic type (adjustable text sizes)
-- Clear visual focus indicators for interactive elements
-- Descriptive labels for all controls and icons
-
-The app uses system-provided accessibility APIs to ensure compatibility with VoiceOver and other assistive technologies. All interactive elements have appropriate accessibility labels and traits, making the interface navigable for users with visual impairments.
-
-### Responsive Layout Behavior
-The UI is designed to adapt to different screen sizes and orientations:
-- Auto Layout constraints ensure proper positioning across device sizes
-- Stack views organize content in a flexible, responsive manner
-- Scroll views accommodate content that exceeds the visible area
-- Safe area layout guides prevent content from being obscured by device notches or home indicators
-
-The interface uses relative positioning and sizing rather than fixed coordinates, allowing it to scale appropriately on different devices. For example, the AddTaskViewController uses a vertical stack view to arrange form elements, ensuring consistent spacing and alignment regardless of screen size.
-
-The app also responds to trait collection changes, such as when the user switches between light and dark mode or changes the display scale. View controllers observe these changes and update their appearance accordingly.
-
-**Section sources**
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L400-L600)
-- [AddTaskViewController.swift](file://To Do List/ViewControllers/AddTaskViewController.swift#L400-L600)
-- [SettingsPageViewController.swift](file://To Do List/ViewControllers/SettingsPageViewController.swift#L400-L600)
-
-## State Preservation and Lifecycle
-
-The Tasker app manages view controller state and lifecycle events to provide a seamless user experience across app sessions.
-
-### View Controller Lifecycle
-Each view controller follows the standard iOS lifecycle pattern:
-- viewDidLoad: Perform initial setup and configuration
-- viewWillAppear: Update content before appearing
-- viewDidAppear: Perform post-appearance tasks and animations
-- viewWillDisappear: Clean up resources before disappearing
-- viewDidDisappear: Final cleanup tasks
-
-For example, HomeViewController uses viewWillAppear to reload its table view data, ensuring the displayed tasks are current when the user returns to the home screen. It also uses viewDidAppear to refresh the navigation pie chart and perform any necessary animations.
-
-### State Preservation
-The app preserves key state information across app launches:
-- The current view type (today, upcoming, etc.) in HomeViewController
-- The selected project and filter state
-- The user's dark mode preference
-- The current date context for task display
-
-This state is typically stored in UserDefaults or derived from the app's data model, allowing the interface to restore to the user's previous context when the app is relaunched.
-
-### Memory Management
-The app implements proper memory management practices:
-- Deinitializers remove notification observers to prevent retain cycles
-- Weak references are used for delegates to avoid strong reference cycles
-- Resources are released in appropriate lifecycle methods
-- Caching strategies minimize redundant data loading
-
-For example, HomeViewController removes its notification observers in its deinit method, ensuring it won't receive notifications after being deallocated.
-
-**Section sources**
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L600-L800)
-- [AddTaskViewController.swift](file://To Do List/ViewControllers/AddTaskViewController.swift#L600-L800)
-- [SettingsPageViewController.swift](file://To Do List/ViewControllers/SettingsPageViewController.swift#L600-L800)
-
-## Conclusion
-The Tasker app's user interface architecture demonstrates a well-structured approach to iOS application development, combining modern design principles with robust architectural patterns. The three main view controllers—HomeViewController, AddTaskViewController, and SettingsPageViewController—each serve distinct purposes while maintaining a consistent design language and behavior pattern.
-
-The implementation leverages dependency injection through the DependencyContainer to manage component relationships and promote testability. The TaskRepository protocol provides a clean abstraction for data operations, allowing view controllers to interact with task data without knowledge of the underlying storage mechanism.
-
-Custom UI elements from the asset catalog, combined with Material Design components, create a distinctive visual identity that enhances user engagement. The interface incorporates accessibility features and responsive design patterns to ensure usability across different devices and user needs.
-
-Overall, the architecture balances aesthetic appeal with functional efficiency, providing users with an intuitive and productive task management experience. The separation of concerns, consistent design patterns, and thoughtful state management contribute to an application that is both user-friendly and maintainable.
+- Inject

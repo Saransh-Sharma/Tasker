@@ -28,7 +28,21 @@ public class ProjectMapper {
             projectDescription: isInbox ? "Default project for uncategorized tasks" : nil,
             createdDate: Date(), // Will be updated when Projects entity is added
             modifiedDate: Date(), // Will be updated when Projects entity is added
-            isDefault: isInbox
+            isDefault: isInbox,
+            
+            // Enhanced properties - defaults until Core Data is updated
+            color: isInbox ? .gray : .blue,
+            icon: isInbox ? .inbox : .folder,
+            status: .active,
+            priority: isInbox ? .low : .medium,
+            parentProjectId: nil,
+            subprojectIds: [],
+            tags: [],
+            dueDate: nil,
+            estimatedTaskCount: nil,
+            isArchived: false,
+            templateId: nil,
+            settings: ProjectSettings()
         )
     }
     

@@ -241,6 +241,33 @@
 		75E929CD2E8C686300207270 /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929A82E8C686300207270 /* Project.swift */; };
 		75E929CE2E8C686300207270 /* ProjectRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929A12E8C686300207270 /* ProjectRepositoryProtocol.swift */; };
 		75E929CF2E8C686300207270 /* TaskPriority.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929AA2E8C686300207270 /* TaskPriority.swift */; };
+		75E929D52E8C782100207270 /* ProjectEnums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D02E8C782100207270 /* ProjectEnums.swift */; };
+		75E929D62E8C782100207270 /* TaskEnergy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D32E8C782100207270 /* TaskEnergy.swift */; };
+		75E929D72E8C782100207270 /* TaskContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D22E8C782100207270 /* TaskContext.swift */; };
+		75E929D82E8C782100207270 /* TaskCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D12E8C782100207270 /* TaskCategory.swift */; };
+		75E929D92E8C782100207270 /* TaskRepeatPattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D42E8C782100207270 /* TaskRepeatPattern.swift */; };
+		75E929DA2E8C782100207270 /* ProjectEnums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D02E8C782100207270 /* ProjectEnums.swift */; };
+		75E929DB2E8C782100207270 /* TaskEnergy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D32E8C782100207270 /* TaskEnergy.swift */; };
+		75E929DC2E8C782100207270 /* TaskContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D22E8C782100207270 /* TaskContext.swift */; };
+		75E929DD2E8C782100207270 /* TaskCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D12E8C782100207270 /* TaskCategory.swift */; };
+		75E929DE2E8C782100207270 /* TaskRepeatPattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D42E8C782100207270 /* TaskRepeatPattern.swift */; };
+		75E929DF2E8C782100207270 /* ProjectEnums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D02E8C782100207270 /* ProjectEnums.swift */; };
+		75E929E02E8C782100207270 /* TaskEnergy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D32E8C782100207270 /* TaskEnergy.swift */; };
+		75E929E12E8C782100207270 /* TaskContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D22E8C782100207270 /* TaskContext.swift */; };
+		75E929E22E8C782100207270 /* TaskCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D12E8C782100207270 /* TaskCategory.swift */; };
+		75E929E32E8C782100207270 /* TaskRepeatPattern.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929D42E8C782100207270 /* TaskRepeatPattern.swift */; };
+		75E929E92E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E52E8C7B6B00207270 /* DomainEventPublisher.swift */; };
+		75E929EA2E8C7B6B00207270 /* DomainEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E42E8C7B6B00207270 /* DomainEvent.swift */; };
+		75E929EB2E8C7B6B00207270 /* TaskEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E72E8C7B6B00207270 /* TaskEvents.swift */; };
+		75E929EC2E8C7B6B00207270 /* ProjectEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E62E8C7B6B00207270 /* ProjectEvents.swift */; };
+		75E929ED2E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E52E8C7B6B00207270 /* DomainEventPublisher.swift */; };
+		75E929EE2E8C7B6B00207270 /* DomainEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E42E8C7B6B00207270 /* DomainEvent.swift */; };
+		75E929EF2E8C7B6B00207270 /* TaskEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E72E8C7B6B00207270 /* TaskEvents.swift */; };
+		75E929F02E8C7B6B00207270 /* ProjectEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E62E8C7B6B00207270 /* ProjectEvents.swift */; };
+		75E929F12E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E52E8C7B6B00207270 /* DomainEventPublisher.swift */; };
+		75E929F22E8C7B6B00207270 /* DomainEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E42E8C7B6B00207270 /* DomainEvent.swift */; };
+		75E929F32E8C7B6B00207270 /* TaskEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E72E8C7B6B00207270 /* TaskEvents.swift */; };
+		75E929F42E8C7B6B00207270 /* ProjectEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E929E62E8C7B6B00207270 /* ProjectEvents.swift */; };
 		75F0C70B2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
 		75F0C70C2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
 		75F0C70D2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
@@ -444,6 +471,15 @@
 		75E929AA2E8C686300207270 /* TaskPriority.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskPriority.swift; sourceTree = "<group>"; };
 		75E929AB2E8C686300207270 /* TaskPriorityConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskPriorityConfig.swift; sourceTree = "<group>"; };
 		75E929AC2E8C686300207270 /* TaskType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskType.swift; sourceTree = "<group>"; };
+		75E929D02E8C782100207270 /* ProjectEnums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectEnums.swift; sourceTree = "<group>"; };
+		75E929D12E8C782100207270 /* TaskCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskCategory.swift; sourceTree = "<group>"; };
+		75E929D22E8C782100207270 /* TaskContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskContext.swift; sourceTree = "<group>"; };
+		75E929D32E8C782100207270 /* TaskEnergy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEnergy.swift; sourceTree = "<group>"; };
+		75E929D42E8C782100207270 /* TaskRepeatPattern.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskRepeatPattern.swift; sourceTree = "<group>"; };
+		75E929E42E8C7B6B00207270 /* DomainEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainEvent.swift; sourceTree = "<group>"; };
+		75E929E52E8C7B6B00207270 /* DomainEventPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DomainEventPublisher.swift; sourceTree = "<group>"; };
+		75E929E62E8C7B6B00207270 /* ProjectEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectEvents.swift; sourceTree = "<group>"; };
+		75E929E72E8C7B6B00207270 /* TaskEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEvents.swift; sourceTree = "<group>"; };
 		75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColoredPillBackgroundView.swift; sourceTree = "<group>"; };
 		75F0C70E2DE9EFAD008F4460 /* TableViewCell Sample Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TableViewCell Sample Data.swift"; sourceTree = "<group>"; };
 		75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPillCell.swift; sourceTree = "<group>"; };
@@ -871,6 +907,11 @@
 				75E929AA2E8C686300207270 /* TaskPriority.swift */,
 				75E929AB2E8C686300207270 /* TaskPriorityConfig.swift */,
 				75E929AC2E8C686300207270 /* TaskType.swift */,
+				75E929D02E8C782100207270 /* ProjectEnums.swift */,
+				75E929D12E8C782100207270 /* TaskCategory.swift */,
+				75E929D22E8C782100207270 /* TaskContext.swift */,
+				75E929D32E8C782100207270 /* TaskEnergy.swift */,
+				75E929D42E8C782100207270 /* TaskRepeatPattern.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -881,8 +922,20 @@
 				75E929A42E8C686300207270 /* Interfaces */,
 				75E929A72E8C686300207270 /* Mappers */,
 				75E929AD2E8C686300207270 /* Models */,
+				75E929E82E8C7B6B00207270 /* Events */,
 			);
 			path = Domain;
+			sourceTree = "<group>";
+		};
+		75E929E82E8C7B6B00207270 /* Events */ = {
+			isa = PBXGroup;
+			children = (
+				75E929E42E8C7B6B00207270 /* DomainEvent.swift */,
+				75E929E52E8C7B6B00207270 /* DomainEventPublisher.swift */,
+				75E929E62E8C7B6B00207270 /* ProjectEvents.swift */,
+				75E929E72E8C7B6B00207270 /* TaskEvents.swift */,
+			);
+			path = Events;
 			sourceTree = "<group>";
 		};
 		75F89F312DFC44E6009EDD8F /* Models */ = {
@@ -1220,6 +1273,10 @@
 			files = (
 				75A6316A2E8BDADC006EEA59 /* LGBaseView.swift in Sources */,
 				75A6316B2E8BDADC006EEA59 /* LGSearchBar.swift in Sources */,
+				75E929F12E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */,
+				75E929F22E8C7B6B00207270 /* DomainEvent.swift in Sources */,
+				75E929F32E8C7B6B00207270 /* TaskEvents.swift in Sources */,
+				75E929F42E8C7B6B00207270 /* ProjectEvents.swift in Sources */,
 				75A6316C2E8BDADC006EEA59 /* LGTaskCard.swift in Sources */,
 				751075122DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				75F1810B245CA7DF004D9A69 /* NTask+CoreDataClass.swift in Sources */,
@@ -1284,6 +1341,11 @@
 				75F89F472DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */,
 				75E9299D2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */,
 				75F89F482DFC44E6009EDD8F /* RequestLLMIntent.swift in Sources */,
+				75E929DF2E8C782100207270 /* ProjectEnums.swift in Sources */,
+				75E929E02E8C782100207270 /* TaskEnergy.swift in Sources */,
+				75E929E12E8C782100207270 /* TaskContext.swift in Sources */,
+				75E929E22E8C782100207270 /* TaskCategory.swift in Sources */,
+				75E929E32E8C782100207270 /* TaskRepeatPattern.swift in Sources */,
 				75F89F682DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */,
 				75F89F692DFC4E5D009EDD8F /* OnboardingInstallModelView.swift in Sources */,
 				75F89F6A2DFC4E5D009EDD8F /* CreditsView.swift in Sources */,
@@ -1378,6 +1440,10 @@
 				75D5D3282E0331F0007A243A /* ChartDataService.swift in Sources */,
 				75E929C52E8C686300207270 /* ProjectMapper.swift in Sources */,
 				75E929C62E8C686300207270 /* TaskRepositoryProtocol.swift in Sources */,
+				75E929E92E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */,
+				75E929EA2E8C7B6B00207270 /* DomainEvent.swift in Sources */,
+				75E929EB2E8C7B6B00207270 /* TaskEvents.swift in Sources */,
+				75E929EC2E8C7B6B00207270 /* ProjectEvents.swift in Sources */,
 				75E929C72E8C686300207270 /* CacheServiceProtocol.swift in Sources */,
 				75E929C82E8C686300207270 /* TaskPriorityConfig.swift in Sources */,
 				75E929C92E8C686300207270 /* TaskType.swift in Sources */,
@@ -1390,6 +1456,11 @@
 				757F87D72E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift in Sources */,
 				75573CB32DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				751074E02DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */,
+				75E929D52E8C782100207270 /* ProjectEnums.swift in Sources */,
+				75E929D62E8C782100207270 /* TaskEnergy.swift in Sources */,
+				75E929D72E8C782100207270 /* TaskContext.swift in Sources */,
+				75E929D82E8C782100207270 /* TaskCategory.swift in Sources */,
+				75E929D92E8C782100207270 /* TaskRepeatPattern.swift in Sources */,
 				75DFF2DC2DF2302600EB8850 /* TaskListViewController.swift in Sources */,
 				751075052DEE260300AC7F22 /* HomeViewController+TaskDetailFluent.swift in Sources */,
 				751074E92DEE10C000AC7F22 /* FluentUITokenExtensions.swift in Sources */,
@@ -1454,6 +1525,10 @@
 				75D5D3262E0331F0007A243A /* ChartDataService.swift in Sources */,
 				75E929AF2E8C686300207270 /* ProjectMapper.swift in Sources */,
 				75E929B02E8C686300207270 /* TaskRepositoryProtocol.swift in Sources */,
+				75E929ED2E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */,
+				75E929EE2E8C7B6B00207270 /* DomainEvent.swift in Sources */,
+				75E929EF2E8C7B6B00207270 /* TaskEvents.swift in Sources */,
+				75E929F02E8C7B6B00207270 /* ProjectEvents.swift in Sources */,
 				75E929B12E8C686300207270 /* CacheServiceProtocol.swift in Sources */,
 				75E929B22E8C686300207270 /* TaskPriorityConfig.swift in Sources */,
 				75E929B32E8C686300207270 /* TaskType.swift in Sources */,
@@ -1466,6 +1541,11 @@
 				757F87D82E11BB9D00278E0C /* HomeViewController+NavigationBarTitle.swift in Sources */,
 				75573CB52DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				751074E12DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */,
+				75E929DA2E8C782100207270 /* ProjectEnums.swift in Sources */,
+				75E929DB2E8C782100207270 /* TaskEnergy.swift in Sources */,
+				75E929DC2E8C782100207270 /* TaskContext.swift in Sources */,
+				75E929DD2E8C782100207270 /* TaskCategory.swift in Sources */,
+				75E929DE2E8C782100207270 /* TaskRepeatPattern.swift in Sources */,
 				75DFF2DD2DF2302600EB8850 /* TaskListViewController.swift in Sources */,
 				751075042DEE260300AC7F22 /* HomeViewController+TaskDetailFluent.swift in Sources */,
 				751074E82DEE10BF00AC7F22 /* FluentUITokenExtensions.swift in Sources */,

@@ -40,6 +40,18 @@ public class TaskMapper {
         entity.dateCompleted = task.dateCompleted as NSDate?
         entity.isEveningTask = task.isEveningTask
         entity.alertReminderTime = task.alertReminderTime as NSDate?
+        
+        // Enhanced properties - store as JSON in extended fields if available
+        // For now, we'll add these when the Core Data model is updated
+        // entity.estimatedDuration = task.estimatedDuration
+        // entity.actualDuration = task.actualDuration
+        // entity.tags = task.tags.joined(separator: ",")
+        // entity.dependencies = task.dependencies.map { $0.uuidString }.joined(separator: ",")
+        // entity.subtasks = task.subtasks.map { $0.uuidString }.joined(separator: ",")
+        // entity.category = task.category.rawValue
+        // entity.energy = task.energy.rawValue
+        // entity.context = task.context.rawValue
+        // entity.repeatPattern = try? JSONEncoder().encode(task.repeatPattern)
     }
     
     // MARK: - Core Data to Domain
@@ -50,6 +62,9 @@ public class TaskMapper {
     public static func toDomain(from entity: NTask) -> Task {
         // Generate a UUID from the object ID or create a new one
         let id = generateUUID(from: entity.objectID)
+        
+        // Parse enhanced properties from Core Data if available, otherwise use defaults
+        // For now, we provide sensible defaults until Core Data model is updated
         
         return Task(
             id: id,
@@ -63,7 +78,18 @@ public class TaskMapper {
             dateAdded: entity.dateAdded as Date? ?? Date(),
             dateCompleted: entity.dateCompleted as Date?,
             isEveningTask: entity.isEveningTask,
-            alertReminderTime: entity.alertReminderTime as Date?
+            alertReminderTime: entity.alertReminderTime as Date?,
+            
+            // Enhanced properties - defaults until Core Data is updated
+            estimatedDuration: nil, // entity.estimatedDuration
+            actualDuration: nil,    // entity.actualDuration
+            tags: [],               // entity.tags?.split(separator: ",").map(String.init) ?? []
+            dependencies: [],       // parseUUIDs(from: entity.dependencies)
+            subtasks: [],          // parseUUIDs(from: entity.subtasks)
+            category: .general,     // TaskCategory(rawValue: entity.category ?? "") ?? .general
+            energy: .medium,       // TaskEnergy(rawValue: entity.energy ?? "") ?? .medium
+            context: .anywhere,    // TaskContext(rawValue: entity.context ?? "") ?? .anywhere
+            repeatPattern: nil     // parseRepeatPattern(from: entity.repeatPattern)
         )
     }
     
@@ -127,5 +153,31 @@ public class TaskMapper {
             print("Error fetching task by ID: \(error)")
             return nil
         }
+    }
+    
+    // MARK: - Enhanced Property Helpers
+    
+    /// Parse UUIDs from comma-separated string
+    /// - Parameter string: Comma-separated UUID string
+    /// - Returns: Array of UUIDs
+    private static func parseUUIDs(from string: String?) -> [UUID] {
+        guard let string = string, !string.isEmpty else { return [] }
+        return string.split(separator: ",")
+            .compactMap { UUID(uuidString: String($0)) }
+    }
+    
+    /// Parse repeat pattern from JSON data
+    /// - Parameter data: JSON data representing repeat pattern
+    /// - Returns: TaskRepeatPattern if parsing succeeds
+    private static func parseRepeatPattern(from data: Data?) -> TaskRepeatPattern? {
+        guard let data = data else { return nil }
+        return try? JSONDecoder().decode(TaskRepeatPattern.self, from: data)
+    }
+    
+    /// Convert UUIDs to comma-separated string
+    /// - Parameter uuids: Array of UUIDs
+    /// - Returns: Comma-separated string
+    private static func uuidsToString(_ uuids: [UUID]) -> String {
+        return uuids.map { $0.uuidString }.joined(separator: ",")
     }
 }

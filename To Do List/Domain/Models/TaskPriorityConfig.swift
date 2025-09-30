@@ -14,7 +14,7 @@ public struct TaskPriorityConfig {
     // MARK: - Priority Definitions
     
     /// Available priority levels
-    public enum Priority: Int32, CaseIterable, Hashable {
+    public enum Priority: Int32, CaseIterable, Hashable, Codable {
         case none = 1   // No priority
         case low = 2    // Low priority
         case high = 3   // High priority

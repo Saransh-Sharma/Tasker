@@ -8,7 +8,7 @@
 import Foundation
 
 /// Represents the type/category of a task
-public enum TaskType: Int32, CaseIterable {
+public enum TaskType: Int32, CaseIterable, Codable {
     case morning = 1
     case evening = 2
     case upcoming = 3

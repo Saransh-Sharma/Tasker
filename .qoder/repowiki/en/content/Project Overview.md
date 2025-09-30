@@ -2,16 +2,24 @@
 
 <cite>
 **Referenced Files in This Document**   
-- [README.md](file://README.md)
-- [NTask+CoreDataClass.swift](file://To Do List/NTask+CoreDataClass.swift)
-- [NTask+CoreDataProperties.swift](file://To Do List/NTask+CoreDataProperties.swift)
-- [NTask+Extensions.swift](file://To Do List/NTask+Extensions.swift)
-- [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift)
-- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift)
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift)
-- [AddTaskViewController.swift](file://To Do List/ViewControllers/AddTaskViewController.swift)
-- [AppDelegate.swift](file://To Do List/AppDelegate.swift)
+- [README.md](file://README.md) - *Updated in recent commits with architectural changes*
+- [Task.swift](file://To%20Do%20List/Domain/Models/Task.swift) - *Added in commit ab127a34627bba03544c3c3260076a3e6f0cb35c*
+- [CreateTaskUseCase.swift](file://To%20Do%20List/UseCases/Task/CreateTaskUseCase.swift) - *Added in commit ab127a34627bba03544c3c3260076a3e6f0cb35c*
+- [HomeViewModel.swift](file://To%20Do%20List/Presentation/ViewModels/HomeViewModel.swift) - *Added in commit 0b17e78ca3caff048d96d9b9df0274a37628d7aa*
+- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift) - *Updated in recent commits*
+- [CoreDataTaskRepository.swift](file://To%20Do%20List/Repositories/CoreDataTaskRepository.swift) - *Updated in recent commits*
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift) - *Updated in recent commits*
+- [AddTaskViewController.swift](file://To%20Do%20List/ViewControllers/AddTaskViewController.swift) - *Updated in recent commits*
 </cite>
+
+## Update Summary
+**Changes Made**   
+- Updated architectural description to reflect Clean Architecture implementation
+- Added new sections on Domain Models, Use Cases, and ViewModels
+- Removed outdated references to legacy TaskManager and ProjectManager singletons
+- Updated codebase terminology to reflect new architecture
+- Added new user workflows reflecting modern implementation
+- Updated technical stack and architecture section with new patterns
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -46,22 +54,34 @@ Tasker offers a comprehensive suite of features designed to enhance personal org
 
 **Section sources**
 - [README.md](file://README.md#L51-L100)
-- [NTask+CoreDataProperties.swift](file://To Do List/NTask+CoreDataProperties.swift#L1-L20)
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L1-L50)
+- [Task.swift](file://To%20Do%20List/Domain/Models/Task.swift#L1-L140)
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift#L1-L50)
 
 ## Technical Stack and Architecture
 
 Tasker is built using **Swift** and the **UIKit** framework, ensuring a native iOS experience. The data persistence layer is powered by **Core Data**, which is seamlessly integrated with **CloudKit** for automatic iCloud synchronization. For analytics and data visualization, the app uses the **DGCharts** framework to render interactive bar and line charts.
 
-The application follows a **Model-View-Controller (MVC)** architectural pattern, which is being progressively refactored to incorporate the **Repository pattern** for improved testability and separation of concerns. The primary data model is the `NTask` entity, a Core Data-managed object that stores all task attributes. To decouple the UI from the data layer, a `TaskData` struct is used as a presentation model.
+The application has been refactored to follow a **Clean Architecture** pattern, which consists of three main layers:
 
-The data access logic is abstracted through a `TaskRepository` protocol. The concrete implementation, `CoreDataTaskRepository`, handles all interactions with the Core Data stack, including fetching, creating, and updating `NTask` objects. This repository is injected into view controllers, moving away from the legacy singleton `TaskManager` pattern and paving the way for a cleaner, more maintainable codebase.
+1. **Presentation Layer**: Handles UI and user interactions through ViewControllers and ViewModels
+2. **Domain Layer**: Contains business logic, use cases, and pure Swift domain models
+3. **Data Layer**: Manages data persistence and retrieval through repositories and Core Data
+
+The primary data model is the `Task` struct, a pure Swift domain model that represents a task without any framework dependencies. This model is used throughout the application to ensure type safety and separation from persistence concerns.
+
+The business logic is organized into **Use Cases** that encapsulate specific workflows such as task creation, completion, and rescheduling. These use cases are stateless operations that coordinate the flow of data between layers. For example, the `CreateTaskUseCase` handles all business rules related to task creation, including validation, project assignment, and reminder scheduling.
+
+The presentation layer uses **ViewModels** to manage the state of the UI and handle user interactions. The `HomeViewModel` observes changes in the application state and exposes data to the `HomeViewController` through Combine's `@Published` properties. This decoupling allows for reactive UI updates and easier testing.
+
+Data access is abstracted through the **Repository Pattern**. The `TaskRepository` protocol defines the interface for all task data operations, while `CoreDataTaskRepository` provides the concrete implementation that interacts with Core Data. This abstraction enables dependency injection and makes the code more testable.
 
 **Section sources**
 - [README.md](file://README.md#L101-L200)
-- [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift#L1-L30)
-- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift#L1-L20)
-- [NTask+CoreDataClass.swift](file://To Do List/NTask+CoreDataClass.swift#L1-L17)
+- [Task.swift](file://To%20Do%20List/Domain/Models/Task.swift#L1-L140)
+- [CreateTaskUseCase.swift](file://To%20Do%20List/UseCases/Task/CreateTaskUseCase.swift#L1-L225)
+- [HomeViewModel.swift](file://To%20Do%20List/Presentation/ViewModels/HomeViewModel.swift#L1-L379)
+- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift#L1-L118)
+- [CoreDataTaskRepository.swift](file://To%20Do%20List/Repositories/CoreDataTaskRepository.swift#L1-L455)
 
 ## Key Differentiators
 
@@ -69,34 +89,45 @@ Tasker distinguishes itself from standard to-do apps through two primary mechani
 
 The **scoring system** adds a layer of gamification that transforms task completion from a mundane chore into a rewarding activity. By assigning higher point values to higher-priority tasks, the app incentivizes users to tackle the most important work first. The daily score, visible on the home screen, provides a clear, immediate sense of accomplishment, while the historical analytics foster long-term motivation by showing progress over days and weeks.
 
+Additionally, Tasker's **Clean Architecture** implementation sets it apart from typical iOS applications. By separating concerns into distinct layers, the app achieves better testability, maintainability, and scalability. The use of pure Swift domain models, stateless use cases, and reactive ViewModels represents a modern approach to iOS development that prioritizes code quality and developer experience.
+
 ## User Workflows
 
 ### Adding a Task
-A user navigates to the task creation screen (typically via a floating action button). They input a task name, select a priority, choose a project, and specify whether it is a morning or evening task. Upon saving, the task is immediately stored in the local Core Data database by the `CoreDataTaskRepository` and synced to iCloud. The `HomeViewController` then updates to display the new task in the appropriate list.
+A user navigates to the task creation screen (typically via a floating action button). They input a task name, select a priority, choose a project, and specify whether it is a morning or evening task. When the user submits the form, the `AddTaskViewController` collects the input data and passes it to the `CreateTaskUseCase`. This use case validates the input, applies business rules (such as determining task type based on time), and creates a `Task` domain model. The use case then delegates to the `TaskRepository` to persist the task to Core Data. Upon successful creation, the `HomeViewModel` receives a notification and updates the UI to display the new task in the appropriate list.
 
 ### Viewing Daily Score
-When the user opens the app, the `HomeViewController` queries the `TaskRepository` for all tasks completed today. The `TaskScoringService` calculates the total score by summing the points for each completed task based on its priority. This score is prominently displayed, and the accompanying chart is updated to reflect the user's performance, potentially showing a streak of consecutive days with completed tasks.
+When the user opens the app, the `HomeViewController` initializes the `HomeViewModel`, which orchestrates the loading of today's tasks through the `GetTasksUseCase`. The `CalculateAnalyticsUseCase` computes the daily score by summing the points for each completed task based on its priority. The `HomeViewModel` exposes the score through its `@Published` properties, which automatically triggers UI updates in the `HomeViewController`. The score is prominently displayed, and the accompanying chart is updated to reflect the user's performance, potentially showing a streak of consecutive days with completed tasks.
 
 **Section sources**
-- [AddTaskViewController.swift](file://To Do List/ViewControllers/AddTaskViewController.swift#L1-L40)
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L100-L150)
+- [AddTaskViewController.swift](file://To%20Do%20List/ViewControllers/AddTaskViewController.swift#L1-L40)
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift#L100-L150)
+- [CreateTaskUseCase.swift](file://To%20Do%20List/UseCases/Task/CreateTaskUseCase.swift#L1-L225)
+- [HomeViewModel.swift](file://To%20Do%20List/Presentation/ViewModels/HomeViewModel.swift#L1-L379)
 
 ## Codebase Terminology
 
-The Tasker codebase uses specific terminology that reflects its architecture and domain:
-- **`NTask`**: The Core Data entity that represents a single task. This is the fundamental data model object.
-- **`TaskRepository`**: A protocol that defines the interface for all task data operations (fetch, create, update, delete), promoting loose coupling.
+The Tasker codebase uses specific terminology that reflects its Clean Architecture:
+
+- **`Task`**: The pure Swift domain model that represents a single task. This is the fundamental data model object used throughout the application.
+- **`TaskRepository`**: A protocol that defines the interface for all task data operations (fetch, create, update, delete), promoting loose coupling and testability.
 - **`CoreDataTaskRepository`**: The concrete class that implements the `TaskRepository` protocol, handling all interactions with the Core Data persistent store.
+- **`Use Case`**: A stateless class that encapsulates a specific business workflow, such as `CreateTaskUseCase` or `CompleteTaskUseCase`.
+- **`ViewModel`**: A class that manages the state of a view and handles user interactions, such as `HomeViewModel` or `AddTaskViewModel`.
+- **`Domain Model`**: Pure Swift structs that represent business concepts without framework dependencies, ensuring type safety and separation of concerns.
 
 **Section sources**
-- [NTask+CoreDataClass.swift](file://To Do List/NTask+CoreDataClass.swift#L1-L17)
-- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift#L1-L20)
-- [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift#L1-L15)
+- [Task.swift](file://To%20Do%20List/Domain/Models/Task.swift#L1-L140)
+- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift#L1-L20)
+- [CoreDataTaskRepository.swift](file://To%20Do%20List/Repositories/CoreDataTaskRepository.swift#L1-L15)
+- [CreateTaskUseCase.swift](file://To%20Do%20List/UseCases/Task/CreateTaskUseCase.swift#L1-L225)
+- [HomeViewModel.swift](file://To%20Do%20List/Presentation/ViewModels/HomeViewModel.swift#L1-L379)
 
 ## Further Exploration
 
 For a deeper understanding of the Tasker application, explore the following sections of the documentation:
-- **Architecture Overview**: A detailed diagram of the MVC and Repository pattern integration.
-- **Data Model Reference**: A complete Entity-Relationship diagram for the `NTask` and `Projects` entities.
-- **Use-Case Sequence Flows**: Step-by-step diagrams of core user interactions, such as task creation and completion.
-- **Testing Strategy Roadmap**: An outline of the planned unit and integration tests for the new repository layer.
+- **Architecture Overview**: A detailed diagram of the Clean Architecture implementation with Presentation, Domain, and Data layers.
+- **Domain Models Reference**: Complete documentation of the pure Swift domain models including `Task`, `Project`, and related enums.
+- **Use Cases Documentation**: Detailed descriptions of all business workflows and their implementation.
+- **ViewModels Guide**: Explanation of how ViewModels manage UI state and coordinate with use cases.
+- **Testing Strategy**: An outline of the unit and integration tests for the new architecture.
