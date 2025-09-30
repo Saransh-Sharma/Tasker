@@ -205,6 +205,9 @@
 		75E866DC2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */; };
 		75E866DD2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */; };
 		75E866DE2DFF1BB1000470B4 /* ThemeSelectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */; };
+		75E9299D2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E9299B2E8C5C2D00207270 /* UIImage+Resize.swift */; };
+		75E9299E2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E9299B2E8C5C2D00207270 /* UIImage+Resize.swift */; };
+		75E9299F2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E9299B2E8C5C2D00207270 /* UIImage+Resize.swift */; };
 		75F0C70B2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
 		75F0C70C2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
 		75F0C70D2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */; };
@@ -396,6 +399,7 @@
 		75E5ACAA2E048D3A00535D0A /* ChartCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartCard.swift; sourceTree = "<group>"; };
 		75E866D62DFF0381000470B4 /* ThemeSelectionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSelectionViewController.swift; sourceTree = "<group>"; };
 		75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSelectionCell.swift; sourceTree = "<group>"; };
+		75E9299B2E8C5C2D00207270 /* UIImage+Resize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Resize.swift"; sourceTree = "<group>"; };
 		75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColoredPillBackgroundView.swift; sourceTree = "<group>"; };
 		75F0C70E2DE9EFAD008F4460 /* TableViewCell Sample Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TableViewCell Sample Data.swift"; sourceTree = "<group>"; };
 		75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPillCell.swift; sourceTree = "<group>"; };
@@ -575,6 +579,7 @@
 				75DFF2CF2DF22F8B00EB8850 /* Services */,
 				75F89F442DFC44E6009EDD8F /* LLM */,
 				75E5ACAC2E048D3A00535D0A /* Views */,
+				75E9299C2E8C5C2D00207270 /* Extensions */,
 			);
 			path = "To Do List";
 			sourceTree = "<group>";
@@ -783,6 +788,14 @@
 				75E866DA2DFF1BB1000470B4 /* ThemeSelectionCell.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		75E9299C2E8C5C2D00207270 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				75E9299B2E8C5C2D00207270 /* UIImage+Resize.swift */,
+			);
+			path = Extensions;
 			sourceTree = "<group>";
 		};
 		75F89F312DFC44E6009EDD8F /* Models */ = {
@@ -1171,6 +1184,7 @@
 				75F89F452DFC44E6009EDD8F /* ModelsSettingsView.swift in Sources */,
 				75F89F462DFC44E6009EDD8F /* ChatHostViewController.swift in Sources */,
 				75F89F472DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */,
+				75E9299D2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */,
 				75F89F482DFC44E6009EDD8F /* RequestLLMIntent.swift in Sources */,
 				75F89F682DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */,
 				75F89F692DFC4E5D009EDD8F /* OnboardingInstallModelView.swift in Sources */,
@@ -1297,6 +1311,7 @@
 				75DFF2CC2DF22F5200EB8850 /* TaskRepository.swift in Sources */,
 				75F89F772DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */,
 				75DFF2CD2DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
+				75E9299F2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */,
 				75DFF3232DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
 				75DFF3242DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				751075112DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
@@ -1361,6 +1376,7 @@
 				75DFF2C82DF22F5200EB8850 /* TaskRepository.swift in Sources */,
 				75F89F762DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */,
 				75DFF2C92DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
+				75E9299E2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */,
 				75DFF3252DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
 				75DFF3262DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				751075102DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,

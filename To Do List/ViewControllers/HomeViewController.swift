@@ -1137,43 +1137,40 @@ extension HomeViewController {
         lgBottomBar.translatesAutoresizingMaskIntoConstraints = false
         
         // Create all bar button items matching original layout
+        // Icon size: 56x56 (2x larger for better visibility)
+        let iconSize = CGSize(width: 48, height: 48)
         
-        // Settings button (leftmost)
-        let settingsImage = UIImage(systemName: "gearshape")
-        let settingsImageResized = settingsImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let settingsItem = UIBarButtonItem(image: settingsImageResized, style: .plain, target: self, action: #selector(onMenuButtonTapped))
-        settingsItem.tintColor = UIColor.white
+        // Settings button (leftmost) - Using 3D icon
+        let settingsImage = UIImage(named: "gear2")
+        let settingsImageResized = settingsImage?.resized(to: iconSize)
+        let settingsItem = UIBarButtonItem(image: settingsImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(onMenuButtonTapped))
         settingsItem.accessibilityLabel = "Settings"
         
-        // Calendar button
-        let calendarImage = UIImage(systemName: "calendar")
-        let calendarImageResized = calendarImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let calendarItem = UIBarButtonItem(image: calendarImageResized, style: .plain, target: self, action: #selector(toggleCalendar))
-        calendarItem.tintColor = UIColor.white
+        // Calendar button - Using 3D icon
+        let calendarImage = UIImage(named: "cal")
+        let calendarImageResized = calendarImage?.resized(to: iconSize)
+        let calendarItem = UIBarButtonItem(image: calendarImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(toggleCalendar))
         calendarItem.accessibilityLabel = "Calendar"
         
-        // Charts/Analytics button
-        let chartImage = UIImage(systemName: "chart.bar.xaxis.ascending")
-        let chartImageResized = chartImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let chartItem = UIBarButtonItem(image: chartImageResized, style: .plain, target: self, action: #selector(toggleCharts))
-        chartItem.tintColor = UIColor.white
+        // Charts/Analytics button - Using 3D icon
+        let chartImage = UIImage(named: "charts")
+        let chartImageResized = chartImage?.resized(to: iconSize)
+        let chartItem = UIBarButtonItem(image: chartImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(toggleCharts))
         chartItem.accessibilityLabel = "Analytics"
         
-        // Search button (NEW - replaces top search bar)
-        let searchImage = UIImage(systemName: "magnifyingglass")
-        let searchImageResized = searchImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let searchItem = UIBarButtonItem(image: searchImageResized, style: .plain, target: self, action: #selector(searchButtonTapped))
-        searchItem.tintColor = UIColor.white
+        // Search button - Using 3D icon
+        let searchImage = UIImage(named: "search")
+        let searchImageResized = searchImage?.resized(to: iconSize)
+        let searchItem = UIBarButtonItem(image: searchImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(searchButtonTapped))
         searchItem.accessibilityLabel = "Search Tasks"
         
-        // Chat button (rightmost)
-        let chatImage = UIImage(systemName: "bubble.left.and.text.bubble.right")
-        let chatImageResized = chatImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let chatButtonItem = UIBarButtonItem(image: chatImageResized, style: .plain, target: self, action: #selector(chatButtonTapped))
-        chatButtonItem.tintColor = UIColor.white
+        // Chat button (rightmost) - Using 3D icon
+        let chatImage = UIImage(named: "chat")
+        let chatImageResized = chatImage?.resized(to: iconSize)
+        let chatButtonItem = UIBarButtonItem(image: chatImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(chatButtonTapped))
         chatButtonItem.accessibilityLabel = "Chat with LLM"
         
-        // Configure the bottom app bar with all buttons (added search button)
+        // Configure the bottom app bar with all 5 buttons
         lgBottomBar.configureStandardAppBar(
             leadingItems: [settingsItem, calendarItem, chartItem, searchItem, chatButtonItem],
             trailingItems: [],
