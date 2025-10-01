@@ -3,7 +3,10 @@
 ## Table of Contents
 - [Key Features](#key-features)
 - [Project Architecture](#project-architecture)
+- [Domain Layer Documentation](#domain-layer-documentation)
 - [Entity Attribute Reference & ER Diagram](#entity-attribute-reference--er-diagram)
+- [Use Cases Documentation](#use-cases-documentation)
+- [Interfaces & Protocols Documentation](#interfaces--protocols-documentation)
 - [Use-Case Sequence Flows](#use-case-sequence-flows)
 - [Legacy vs. Repository Architecture (2025 Snapshot)](#legacy-vs-repository-architecture-2025-snapshot)
 - [Testing Strategy Roadmap](#testing-strategy-roadmap)
@@ -1348,6 +1351,499 @@ erDiagram
 
 ---
 
+## Use Cases Documentation
+
+### Overview
+
+The Use Cases layer represents the application-specific business logic that orchestrates data flow between the domain entities and the presentation layer. Each use case encapsulates a specific business operation and coordinates multiple domain entities and services to accomplish complex workflows.
+
+**Architecture Principles:**
+- **Single Responsibility**: Each use case handles one specific business operation
+- **Stateless Design**: Use cases don't maintain state between operations
+- **Protocol-Based**: Dependencies injected via protocols for testability
+- **Error Handling**: Comprehensive error handling with typed error enums
+- **Async Operations**: Support for modern Swift concurrency patterns
+
+### Implemented Use Cases Summary
+
+#### Task Management Use Cases (`To Do List/UseCases/Task/`)
+- **CreateTaskUseCase**: Complete task creation workflow with validation and business rules
+- **CompleteTaskUseCase**: Task completion with scoring and analytics integration
+- **UpdateTaskUseCase**: Comprehensive task property updates with validation
+- **DeleteTaskUseCase**: Task deletion with cleanup of related data
+- **RescheduleTaskUseCase**: Intelligent rescheduling with automatic type adjustment
+- **GetTasksUseCase**: Advanced task retrieval with filtering and caching
+- **FilterTasksUseCase**: Multi-criteria task filtering capabilities
+- **SearchTasksUseCase**: Full-text search across tasks with scope filtering
+- **SortTasksUseCase**: Configurable task sorting with multiple criteria
+- **GetTaskStatisticsUseCase**: Task analytics and reporting
+- **BulkUpdateTasksUseCase**: Batch operations for multiple tasks
+
+#### Project Management Use Cases (`To Do List/UseCases/Project/`)
+- **ManageProjectsUseCase**: Complete project lifecycle management
+- **FilterProjectsUseCase**: Project filtering and organization
+- **GetProjectStatisticsUseCase**: Project analytics and health metrics
+
+#### Analytics Use Cases (`To Do List/UseCases/Analytics/`)
+- **CalculateAnalyticsUseCase**: Comprehensive analytics engine
+- **GenerateProductivityReportUseCase**: Detailed productivity reporting
+
+#### Coordination
+- **UseCaseCoordinator**: Complex workflow orchestration and routine management
+
+### Key Use Case Examples
+
+#### CreateTaskUseCase - Task Creation Workflow
+
+**Purpose**: Handles the complete task creation workflow with validation, business rule enforcement, and integration with notification systems.
+
+**Business Rules Enforced:**
+- Task names cannot be empty or exceed 200 characters
+- Automatic type assignment based on due date/time
+- Project validation with fallback to "Inbox"
+- Past due dates automatically moved to today
+- Reminder scheduling for tasks with alert times
+
+```swift
+public final class CreateTaskUseCase {
+    private let taskRepository: TaskRepositoryProtocol
+    private let projectRepository: ProjectRepositoryProtocol
+    private let notificationService: NotificationServiceProtocol?
+    
+    public func execute(
+        request: CreateTaskRequest,
+        completion: @escaping (Result<Task, CreateTaskError>) -> Void
+    ) {
+        // 1. Validate input data
+        // 2. Create domain task with smart defaults
+        // 3. Assign task type if not specified
+        // 4. Validate project exists
+        // 5. Save task to repository
+        // 6. Schedule reminder if needed
+    }
+}
+```
+
+#### CompleteTaskUseCase - Task Completion Workflow
+
+**Purpose**: Handles task completion with scoring calculation, analytics tracking, and state management.
+
+**Features:**
+- Toggle completion status with proper state management
+- Automatic score calculation based on priority
+- Analytics tracking integration
+- Real-time UI updates via notifications
+
+```swift
+public final class CompleteTaskUseCase {
+    private let taskRepository: TaskRepositoryProtocol
+    private let scoringService: TaskScoringServiceProtocol
+    private let analyticsService: AnalyticsServiceProtocol?
+    
+    public func completeTask(
+        _ taskId: UUID,
+        completion: @escaping (Result<TaskCompletionResult, CompleteTaskError>) -> Void
+    ) {
+        // 1. Fetch task
+        // 2. Toggle completion status
+        // 3. Calculate score earned
+        // 4. Save updated task
+        // 5. Track analytics
+        // 6. Return completion result
+    }
+}
+```
+
+#### CalculateAnalyticsUseCase - Analytics Engine
+
+**Purpose**: Provides detailed analytics including productivity metrics, trends, and insights.
+
+**Analytics Provided:**
+- Daily analytics with completion rates and scores
+- Weekly analytics with daily breakdown
+- Monthly analytics with weekly breakdown
+- Productivity score and level calculation
+- Streak tracking (current and longest)
+- Project and priority breakdowns
+
+```swift
+public final class CalculateAnalyticsUseCase {
+    private let taskRepository: TaskRepositoryProtocol
+    private let scoringService: TaskScoringServiceProtocol
+    private let cacheService: CacheServiceProtocol?
+    
+    public func calculateTodayAnalytics(
+        completion: @escaping (Result<DailyAnalytics, AnalyticsError>) -> Void
+    ) {
+        // 1. Check cache for recent data
+        // 2. Fetch today's tasks
+        // 3. Analyze task completion patterns
+        // 4. Calculate scores and metrics
+        // 5. Cache results
+        // 6. Return analytics
+    }
+}
+```
+
+#### UseCaseCoordinator - Workflow Orchestration
+
+**Purpose**: Coordinates multiple use cases to handle complex business workflows and user routines.
+
+**Complex Workflows:**
+- **Morning Routine**: Complete all morning tasks in batch
+- **Daily Dashboard**: Aggregate data from multiple sources
+- **End-of-Day Cleanup**: Reschedule overdue tasks and clear cache
+- **Project Creation**: Create project with initial tasks
+
+```swift
+public final class UseCaseCoordinator {
+    // Coordinates multiple use cases for complex workflows
+    
+    public func completeMorningRoutine(
+        completion: @escaping (Result<MorningRoutineResult, WorkflowError>) -> Void
+    ) {
+        // 1. Get today's tasks
+        // 2. Filter morning tasks
+        // 3. Complete all in parallel
+        // 4. Calculate total score
+        // 5. Return routine result
+    }
+    
+    public func getDailyDashboard(
+        completion: @escaping (Result<DailyDashboard, WorkflowError>) -> Void
+    ) {
+        // Parallel data fetching:
+        // - Today's tasks
+        // - Analytics
+        // - Streak information
+        // - Productivity score
+    }
+}
+```
+
+### Use Case Design Patterns
+
+#### 1. Command Pattern
+Each use case represents a command that encapsulates a request as an object, allowing parameterization of clients with different requests and supporting undo operations.
+
+#### 2. Repository Pattern Integration
+Use cases depend on repository protocols, enabling easy testing with mock implementations and clean separation of business logic from data access.
+
+#### 3. Coordinator Pattern
+The UseCaseCoordinator orchestrates multiple use cases to handle complex workflows, reducing coupling between individual use cases.
+
+#### 4. Result Type Pattern
+All use cases return Result types for explicit error handling and type-safe operation outcomes.
+
+#### 5. Dependency Injection
+Use cases receive dependencies through constructor injection, making them highly testable and following SOLID principles.
+
+---
+
+## Interfaces & Protocols Documentation
+
+### Overview
+
+The Interfaces layer defines the contracts between different architectural layers, ensuring loose coupling and high testability. All protocols follow the Dependency Inversion Principle, where high-level modules depend on abstractions rather than concrete implementations.
+
+**Design Principles:**
+- **Protocol-Oriented**: All dependencies defined as protocols
+- **Single Responsibility**: Each protocol has one clear purpose
+- **Interface Segregation**: Small, focused interfaces rather than large monolithic ones
+- **Async Support**: Modern Swift concurrency patterns
+- **Error Handling**: Comprehensive error types for all operations
+
+### Repository Protocols (`To Do List/Domain/Interfaces/`)
+
+#### TaskRepositoryProtocol - Task Data Operations
+
+**Purpose**: Defines the complete interface for task data operations, abstracting the underlying persistence mechanism.
+
+```swift
+public protocol TaskRepositoryProtocol {
+    // MARK: - Fetch Operations
+    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void)
+    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void)
+    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void)
+    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void)
+    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void)
+    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void)
+    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void)
+    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void)
+    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void)
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void)
+    
+    // MARK: - Create Operations
+    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void)
+    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void)
+    
+    // MARK: - Update Operations
+    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void)
+    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void)
+    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void)
+    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void)
+    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void)
+    
+    // MARK: - Delete Operations
+    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void)
+    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void)
+    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void)
+}
+```
+
+**Key Features:**
+- **Comprehensive CRUD**: Full create, read, update, delete operations
+- **Flexible Querying**: Multiple fetch methods for different use cases
+- **Batch Operations**: Support for bulk operations to improve performance
+- **Type Safety**: UUID-based task identification
+- **Error Handling**: Result types for all operations
+
+#### ProjectRepositoryProtocol - Project Management
+
+**Purpose**: Defines project management operations including CRUD operations and project-task relationships.
+
+```swift
+public protocol ProjectRepositoryProtocol {
+    // MARK: - Fetch Operations
+    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void)
+    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void)
+    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void)
+    func isNameAvailable(_ name: String, completion: @escaping (Bool) -> Void)
+    
+    // MARK: - Create Operations
+    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void)
+    
+    // MARK: - Update Operations
+    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void)
+    
+    // MARK: - Delete Operations
+    func deleteProject(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void)
+    
+    // MARK: - Task Association
+    func getTasksForProject(withId id: UUID, completion: @escaping (Result<[Task], Error>) -> Void)
+    func moveTasksToProject(taskIds: [UUID], projectId: UUID, completion: @escaping (Result<Void, Error>) -> Void)
+    
+    // MARK: - Inbox Management
+    func ensureInboxExists(completion: @escaping (Result<Project, Error>) -> Void)
+}
+```
+
+#### SyncServiceProtocol - Data Synchronization
+
+**Purpose**: Defines the interface for data synchronization across devices using CloudKit.
+
+```swift
+public protocol SyncServiceProtocol {
+    // MARK: - Sync Control
+    func startSync(completion: @escaping (Result<Void, SyncError>) -> Void)
+    func stopSync()
+    func forceSyncNow(completion: @escaping (Result<SyncResult, SyncError>) -> Void)
+    
+    // MARK: - Sync Status
+    var syncStatus: SyncStatus { get }
+    func getSyncStatus(completion: @escaping (SyncStatus) -> Void)
+    
+    // MARK: - Conflict Resolution
+    func resolveConflicts(_ conflicts: [SyncConflict], 
+                         strategy: ConflictResolutionStrategy, 
+                         completion: @escaping (Result<Void, SyncError>) -> Void)
+    
+    // MARK: - Configuration
+    func configureSyncFrequency(_ frequency: SyncFrequency)
+    func enableSelectiveSync(entities: [SyncableEntity])
+}
+```
+
+#### CacheServiceProtocol - Performance Optimization
+
+**Purpose**: Defines caching interface for improved application performance.
+
+```swift
+public protocol CacheServiceProtocol {
+    // MARK: - Generic Caching
+    func get<T: Codable>(key: String) -> T?
+    func set<T: Codable>(key: String, value: T, expiresIn seconds: TimeInterval)
+    func remove(key: String)
+    func clearAll()
+    
+    // MARK: - Task-Specific Caching
+    func cacheTaskList(_ tasks: [Task], for scope: TaskCacheScope, expiresIn seconds: TimeInterval)
+    func getCachedTaskList(for scope: TaskCacheScope) -> [Task]?
+    func invalidateTaskCache(for scope: TaskCacheScope)
+    
+    // MARK: - Analytics Caching
+    func cacheAnalytics(_ analytics: DailyAnalytics, for date: Date)
+    func getCachedAnalytics(for date: Date) -> DailyAnalytics?
+    
+    // MARK: - Cache Statistics
+    func getCacheStatistics() -> CacheStatistics
+    func setCachePolicy(_ policy: CachePolicy)
+}
+```
+
+### Service Protocols
+
+#### TaskScoringServiceProtocol - Gamification Engine
+
+**Purpose**: Defines the scoring and gamification logic interface.
+
+```swift
+public protocol TaskScoringServiceProtocol {
+    // MARK: - Score Calculation
+    func calculateScore(for task: Task) -> Int
+    func getTotalScore(completion: @escaping (Int) -> Void)
+    func getScoreHistory(days: Int, completion: @escaping ([DailyScore]) -> Void)
+    
+    // MARK: - Streak Tracking
+    func getCurrentStreak(completion: @escaping (Int) -> Void)
+    func getLongestStreak(completion: @escaping (Int) -> Void)
+    func updateStreakForDate(_ date: Date, completion: @escaping (StreakInfo) -> Void)
+    
+    // MARK: - Level System
+    func getCurrentLevel(completion: @escaping (ProductivityLevel) -> Void)
+    func getProgressToNextLevel(completion: @escaping (Double) -> Void)
+    func checkForLevelUp(newScore: Int) -> LevelUpResult?
+}
+```
+
+#### NotificationServiceProtocol - Alert Management
+
+**Purpose**: Defines the interface for managing task reminders and notifications.
+
+```swift
+public protocol NotificationServiceProtocol {
+    // MARK: - Permission Management
+    func requestPermission(completion: @escaping (Bool) -> Void)
+    var hasPermission: Bool { get }
+    
+    // MARK: - Task Reminders
+    func scheduleTaskReminder(taskId: UUID, taskName: String, at date: Date)
+    func cancelTaskReminder(taskId: UUID)
+    func updateTaskReminder(taskId: UUID, newDate: Date)
+    
+    // MARK: - Routine Notifications
+    func scheduleDailyReminder(at time: DateComponents, message: String)
+    func scheduleWeeklyReport(dayOfWeek: Int, at time: DateComponents)
+    
+    // MARK: - Badge Management
+    func updateAppBadge(count: Int)
+    func clearAppBadge()
+}
+```
+
+#### AnalyticsServiceProtocol - Usage Analytics
+
+**Purpose**: Defines the interface for tracking user behavior and app usage analytics.
+
+```swift
+public protocol AnalyticsServiceProtocol {
+    // MARK: - Event Tracking
+    func trackTaskCreated(task: Task)
+    func trackTaskCompleted(task: Task, scoreEarned: Int)
+    func trackTaskDeleted(task: Task)
+    func trackProjectCreated(project: Project)
+    
+    // MARK: - User Journey
+    func trackScreenView(_ screenName: String)
+    func trackUserAction(_ action: String, parameters: [String: Any]?)
+    func trackTimingEvent(_ event: String, duration: TimeInterval)
+    
+    // MARK: - Performance Metrics
+    func trackAppLaunchTime(_ duration: TimeInterval)
+    func trackSyncPerformance(duration: TimeInterval, recordCount: Int)
+    func trackCacheHitRate(_ rate: Double)
+    
+    // MARK: - Error Tracking
+    func trackError(_ error: Error, context: String)
+    func trackCrash(_ crashInfo: CrashInfo)
+}
+```
+
+### Protocol Implementation Guidelines
+
+#### 1. Error Handling Standards
+All protocols use Result types for operations that can fail:
+
+```swift
+// Standard Result pattern
+func performOperation(completion: @escaping (Result<ReturnType, ErrorType>) -> Void)
+
+// Error types should be descriptive
+enum RepositoryError: LocalizedError {
+    case networkUnavailable
+    case dataCorrupted
+    case permissionDenied
+    
+    var errorDescription: String? {
+        switch self {
+        case .networkUnavailable: return "Network connection unavailable"
+        case .dataCorrupted: return "Data corruption detected"
+        case .permissionDenied: return "Permission denied for operation"
+        }
+    }
+}
+```
+
+#### 2. Async/Await Support
+Protocols are designed to support modern Swift concurrency:
+
+```swift
+// Current completion handler style
+func fetchTasks(completion: @escaping (Result<[Task], Error>) -> Void)
+
+// Future async/await style
+async func fetchTasks() throws -> [Task]
+```
+
+#### 3. Protocol Composition
+Related protocols can be composed for convenience:
+
+```swift
+// Composed protocol for complete data access
+protocol DataAccessProtocol: TaskRepositoryProtocol, ProjectRepositoryProtocol, SyncServiceProtocol {
+    // Additional composed functionality
+}
+```
+
+#### 4. Default Implementations
+Common functionality provided through protocol extensions:
+
+```swift
+extension TaskRepositoryProtocol {
+    // Default implementation for convenience methods
+    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+        let today = Date()
+        fetchTasks(for: today, completion: completion)
+    }
+}
+```
+
+### Interface Design Benefits
+
+#### 1. Testability
+- Easy mocking of dependencies for unit tests
+- Clear contracts for behavior verification
+- Isolated testing of business logic
+
+#### 2. Flexibility
+- Multiple implementations of the same protocol
+- Easy swapping of implementations (e.g., Core Data to CloudKit)
+- Support for different deployment environments
+
+#### 3. Maintainability
+- Clear separation of concerns
+- Reduced coupling between components
+- Easier refactoring and updates
+
+#### 4. Scalability
+- New features can be added without breaking existing code
+- Protocol composition allows for feature-specific interfaces
+- Support for plugin architectures
+
+These interfaces provide a robust foundation for the Tasker application, ensuring clean architecture principles are maintained while providing the flexibility needed for future enhancements and modifications.
+
+---
+
 ## Use-Case Sequence Flows
 
 ### 1. Task CRUD Flow (`Add / Edit / Complete / Delete`)
@@ -1867,6 +2363,503 @@ Tasker/
 ```
 
 This architecture ensures Tasker delivers a robust, scalable, and delightful task management experience while maintaining code quality and development efficiency.
+
+---
+
+## Domain Layer Documentation
+
+### Overview
+
+The Domain Layer represents the core business logic of the Tasker application, implemented using Clean Architecture principles. This layer is completely independent of external frameworks, UI implementations, and data persistence mechanisms. It defines the essential business rules, entities, and operations that make Tasker a powerful task management system.
+
+**Core Principles:**
+- **Framework Independence**: Pure Swift models with no UIKit, Core Data, or external dependencies
+- **Business Rule Centralization**: All task management logic centralized in domain models
+- **Type Safety**: Leverages Swift's type system for robust business rule enforcement
+- **Validation Logic**: Built-in validation ensures data integrity at the domain level
+- **Immutable Design**: Emphasis on immutable data structures where appropriate
+
+### Domain Models (`To Do List/Domain/Models/`)
+
+#### 🎯 **Task Domain Model** (`Task.swift`)
+
+The core entity representing a task in the Tasker system. This pure Swift struct encapsulates all task-related business logic and validation.
+
+```swift
+public struct Task {
+    // MARK: - Core Properties
+    public let id: UUID
+    public var name: String
+    public var details: String?
+    public var type: TaskType
+    public var priority: TaskPriority
+    public var dueDate: Date?
+    public var project: String?
+    public var isComplete: Bool
+    public var alertReminderTime: Date?
+    public var dateAdded: Date
+    public var dateCompleted: Date?
+    
+    // MARK: - Business Logic Methods
+    
+    /// Calculate score based on task priority
+    public func calculateScore() -> Int {
+        guard isComplete else { return 0 }
+        return priority.scoreValue
+    }
+    
+    /// Determine if task is overdue
+    public var isOverdue: Bool {
+        guard let dueDate = dueDate, !isComplete else { return false }
+        return dueDate < Date()
+    }
+    
+    /// Check if task is scheduled for today
+    public var isScheduledForToday: Bool {
+        guard let dueDate = dueDate else { return false }
+        return Calendar.current.isDate(dueDate, inSameDayAs: Date())
+    }
+    
+    /// Validate task data according to business rules
+    public func validate() throws {
+        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw TaskValidationError.emptyName
+        }
+        if name.count > 200 {
+            throw TaskValidationError.nameTooLong
+        }
+        if let details = details, details.count > 1000 {
+            throw TaskValidationError.detailsTooLong
+        }
+    }
+}
+```
+
+**Business Rules:**
+- Task names are required and cannot be empty
+- Maximum task name length: 200 characters
+- Maximum task details length: 1000 characters
+- Only completed tasks contribute to scoring
+- Overdue detection considers current date and completion status
+- Default project assignment to "Inbox" if none specified
+
+**Validation Errors:**
+```swift
+public enum TaskValidationError: LocalizedError {
+    case emptyName
+    case nameTooLong
+    case detailsTooLong
+    case invalidDueDate
+    case invalidProject
+    
+    public var errorDescription: String? {
+        switch self {
+        case .emptyName: return "Task name cannot be empty"
+        case .nameTooLong: return "Task name cannot exceed 200 characters"
+        case .detailsTooLong: return "Task details cannot exceed 1000 characters"
+        case .invalidDueDate: return "Due date cannot be in the past"
+        case .invalidProject: return "Project name is invalid"
+        }
+    }
+}
+```
+
+#### 📁 **Project Domain Model** (`Project.swift`)
+
+Represents a project container for organizing tasks with enhanced features for hierarchical organization.
+
+```swift
+public struct Project {
+    // MARK: - Core Properties
+    public let id: UUID
+    public var name: String
+    public var projectDescription: String?
+    public var createdDate: Date
+    public var modifiedDate: Date
+    public var isDefault: Bool
+    
+    // MARK: - Enhanced Properties
+    public var color: ProjectColor
+    public var icon: ProjectIcon
+    public var status: ProjectStatus
+    public var priority: ProjectPriority
+    public var parentProjectId: UUID?
+    public var subprojectIds: [UUID]
+    public var tags: [String]
+    public var dueDate: Date?
+    public var estimatedTaskCount: Int?
+    public var isArchived: Bool
+    public var templateId: UUID?
+    public var settings: ProjectSettings
+    
+    // MARK: - Factory Methods
+    
+    /// Create the default "Inbox" project
+    public static func createInbox() -> Project {
+        return Project(
+            name: "Inbox",
+            projectDescription: "Default project for uncategorized tasks",
+            isDefault: true,
+            color: .gray,
+            icon: .inbox
+        )
+    }
+    
+    // MARK: - Business Logic
+    
+    /// Check if project is overdue
+    public var isOverdue: Bool {
+        guard let dueDate = dueDate, !isArchived else { return false }
+        return dueDate < Date() && status != .completed
+    }
+    
+    /// Calculate project health score
+    public func calculateHealthScore(completedTasks: Int, totalTasks: Int) -> ProjectHealth {
+        guard totalTasks > 0 else { return .unknown }
+        
+        let completionRate = Double(completedTasks) / Double(totalTasks)
+        
+        if isOverdue {
+            return completionRate > 0.8 ? .warning : .critical
+        }
+        
+        switch completionRate {
+        case 0.9...1.0: return .excellent
+        case 0.7..<0.9: return .good
+        case 0.4..<0.7: return .warning
+        default: return .critical
+        }
+    }
+}
+```
+
+**Business Rules:**
+- Project names must be unique within the system
+- "Inbox" project is always present and cannot be deleted
+- Projects can have hierarchical relationships (parent/child)
+- Maximum 20 tags per project
+- Maximum 50 subprojects per parent
+- Circular references are prevented
+
+#### 🏷️ **TaskType Enumeration** (`TaskType.swift`)
+
+Defines the categorization system for tasks based on scheduling and context.
+
+```swift
+public enum TaskType: Int32, CaseIterable, Codable {
+    case morning = 1    // Tasks scheduled for morning completion
+    case evening = 2    // Tasks scheduled for evening completion
+    case upcoming = 3   // Future-dated tasks
+    case inbox = 4      // Uncategorized or flexible timing tasks
+    
+    public var displayName: String {
+        switch self {
+        case .morning: return "Morning"
+        case .evening: return "Evening"
+        case .upcoming: return "Upcoming"
+        case .inbox: return "Inbox"
+        }
+    }
+    
+    public var shortCode: String {
+        switch self {
+        case .morning: return "AM"
+        case .evening: return "PM"
+        case .upcoming: return "UP"
+        case .inbox: return "IN"
+        }
+    }
+    
+    public var iconName: String {
+        switch self {
+        case .morning: return "sunrise"
+        case .evening: return "sunset"
+        case .upcoming: return "calendar"
+        case .inbox: return "tray"
+        }
+    }
+}
+```
+
+**Business Logic:**
+- Automatic type assignment based on due date and time
+- Morning tasks: Due before 12:00 PM
+- Evening tasks: Due after 12:00 PM
+- Upcoming tasks: Due more than 7 days in the future
+- Inbox tasks: No specific time requirements
+
+#### ⚖️ **TaskPriority Enumeration** (`TaskPriority.swift`)
+
+Defines the priority system with integrated scoring for gamification.
+
+```swift
+public enum TaskPriority: Int32, CaseIterable, Codable {
+    case highest = 1    // P0: Critical priority, 7 points
+    case high = 2       // P1: High priority, 4 points
+    case medium = 3     // P2: Standard priority, 3 points
+    case low = 4        // P3: Low priority, 2 points
+    
+    public var displayName: String {
+        switch self {
+        case .highest: return "Highest (P0)"
+        case .high: return "High (P1)"
+        case .medium: return "Medium (P2)"
+        case .low: return "Low (P3)"
+        }
+    }
+    
+    public var scoreValue: Int {
+        switch self {
+        case .highest: return 7
+        case .high: return 4
+        case .medium: return 3
+        case .low: return 2
+        }
+    }
+    
+    public var color: UIColor {
+        switch self {
+        case .highest: return .systemRed
+        case .high: return .systemOrange
+        case .medium: return .systemYellow
+        case .low: return .systemGreen
+        }
+    }
+    
+    public var isHighPriority: Bool {
+        return self == .highest || self == .high
+    }
+}
+```
+
+**Scoring Algorithm:**
+- Highest Priority (P0): 7 points - Critical tasks that must be completed
+- High Priority (P1): 4 points - Important tasks with significant impact
+- Medium Priority (P2): 3 points - Standard tasks forming daily workflow
+- Low Priority (P3): 2 points - Nice-to-have tasks with minimal urgency
+
+#### 📝 **CreateTaskRequest Model** (`CreateTaskRequest.swift`)
+
+Data transfer object for task creation with validation and business rule enforcement.
+
+```swift
+public struct CreateTaskRequest {
+    public let name: String
+    public let details: String?
+    public let type: TaskType?
+    public let priority: TaskPriority
+    public let dueDate: Date?
+    public let project: String?
+    public let alertReminderTime: Date?
+    
+    public init(
+        name: String,
+        details: String? = nil,
+        type: TaskType? = nil,
+        priority: TaskPriority = .medium,
+        dueDate: Date? = nil,
+        project: String? = nil,
+        alertReminderTime: Date? = nil
+    ) {
+        self.name = name
+        self.details = details
+        self.type = type
+        self.priority = priority
+        self.dueDate = dueDate
+        self.project = project
+        self.alertReminderTime = alertReminderTime
+    }
+    
+    /// Convert to domain Task entity
+    public func toDomainTask() -> Task {
+        let determinedType = type ?? determineTypeFromDueDate(dueDate)
+        
+        return Task(
+            id: UUID(),
+            name: name,
+            details: details,
+            type: determinedType,
+            priority: priority,
+            dueDate: dueDate,
+            project: project ?? "Inbox",
+            isComplete: false,
+            alertReminderTime: alertReminderTime,
+            dateAdded: Date(),
+            dateCompleted: nil
+        )
+    }
+    
+    private func determineTypeFromDueDate(_ date: Date?) -> TaskType {
+        guard let date = date else { return .inbox }
+        
+        let daysUntil = Calendar.current.dateComponents([.day], from: Date(), to: date).day ?? 0
+        if daysUntil > 7 { return .upcoming }
+        
+        let hour = Calendar.current.component(.hour, from: date)
+        return hour < 12 ? .morning : .evening
+    }
+}
+```
+
+### Domain Enumerations
+
+#### Project-Related Enums
+
+```swift
+// Project color scheme
+public enum ProjectColor: String, CaseIterable {
+    case blue, green, orange, red, purple, pink, gray, yellow
+    
+    public var uiColor: UIColor {
+        switch self {
+        case .blue: return .systemBlue
+        case .green: return .systemGreen
+        case .orange: return .systemOrange
+        case .red: return .systemRed
+        case .purple: return .systemPurple
+        case .pink: return .systemPink
+        case .gray: return .systemGray
+        case .yellow: return .systemYellow
+        }
+    }
+}
+
+// Project icon system
+public enum ProjectIcon: String, CaseIterable {
+    case folder, inbox, briefcase, book, heart, star, flag, target
+    
+    public var systemImageName: String {
+        switch self {
+        case .folder: return "folder"
+        case .inbox: return "tray"
+        case .briefcase: return "briefcase"
+        case .book: return "book"
+        case .heart: return "heart"
+        case .star: return "star"
+        case .flag: return "flag"
+        case .target: return "target"
+        }
+    }
+}
+
+// Project status tracking
+public enum ProjectStatus: String, CaseIterable {
+    case planning, active, onHold, completed, cancelled
+    
+    public var displayName: String {
+        switch self {
+        case .planning: return "Planning"
+        case .active: return "Active"
+        case .onHold: return "On Hold"
+        case .completed: return "Completed"
+        case .cancelled: return "Cancelled"
+        }
+    }
+}
+
+// Project priority system
+public enum ProjectPriority: Int, CaseIterable {
+    case low = 1, medium = 2, high = 3, critical = 4
+    
+    public var displayName: String {
+        switch self {
+        case .low: return "Low"
+        case .medium: return "Medium"
+        case .high: return "High"
+        case .critical: return "Critical"
+        }
+    }
+}
+
+// Project health indicator
+public enum ProjectHealth {
+    case excellent, good, warning, critical, unknown
+    
+    public var color: UIColor {
+        switch self {
+        case .excellent: return .systemGreen
+        case .good: return .systemBlue
+        case .warning: return .systemOrange
+        case .critical: return .systemRed
+        case .unknown: return .systemGray
+        }
+    }
+}
+```
+
+#### Project Settings
+
+```swift
+public struct ProjectSettings: Codable {
+    public var allowSubprojects: Bool
+    public var defaultTaskPriority: TaskPriority
+    public var autoArchiveCompleted: Bool
+    public var notificationSettings: NotificationSettings
+    public var colorScheme: ProjectColor
+    
+    public init(
+        allowSubprojects: Bool = true,
+        defaultTaskPriority: TaskPriority = .medium,
+        autoArchiveCompleted: Bool = false,
+        notificationSettings: NotificationSettings = NotificationSettings(),
+        colorScheme: ProjectColor = .blue
+    ) {
+        self.allowSubprojects = allowSubprojects
+        self.defaultTaskPriority = defaultTaskPriority
+        self.autoArchiveCompleted = autoArchiveCompleted
+        self.notificationSettings = notificationSettings
+        self.colorScheme = colorScheme
+    }
+}
+
+public struct NotificationSettings: Codable {
+    public var enableReminders: Bool
+    public var dailyDigest: Bool
+    public var overdueTasks: Bool
+    
+    public init(
+        enableReminders: Bool = true,
+        dailyDigest: Bool = false,
+        overdueTasks: Bool = true
+    ) {
+        self.enableReminders = enableReminders
+        self.dailyDigest = dailyDigest
+        self.overdueTasks = overdueTasks
+    }
+}
+```
+
+### Domain Business Rules Summary
+
+#### Task Management Rules
+1. **Task Naming**: Names are required, maximum 200 characters
+2. **Task Details**: Optional, maximum 1000 characters
+3. **Default Values**: Medium priority, Inbox project if not specified
+4. **Scoring**: Only completed tasks contribute to user scores
+5. **Type Assignment**: Automatic based on due date/time if not specified
+6. **Overdue Logic**: Tasks with due dates in the past that aren't completed
+
+#### Project Management Rules
+1. **Inbox Project**: Always present, cannot be deleted, serves as default
+2. **Project Hierarchy**: Support for parent/child relationships
+3. **Name Uniqueness**: Project names must be unique across the system
+4. **Limits**: Maximum 20 tags, 50 subprojects per parent
+5. **Circular Prevention**: Projects cannot reference themselves in hierarchy
+6. **Health Calculation**: Based on completion rates and deadline proximity
+
+#### Scoring Rules
+1. **Priority-Based Scoring**: P0=7pts, P1=4pts, P2=3pts, P3=2pts
+2. **Completion Requirement**: Only completed tasks earn points
+3. **Date Independence**: Scoring doesn't depend on when task was completed
+4. **Retroactive Scoring**: Historical data maintains consistent scoring
+
+#### Validation Rules
+1. **Input Sanitization**: Trim whitespace from names and descriptions
+2. **Length Limits**: Enforce maximum lengths for various fields
+3. **Business Logic**: Prevent invalid states and relationships
+4. **Error Reporting**: Meaningful error messages for validation failures
+
+This domain layer provides a solid foundation for the Tasker application, ensuring business rules are consistently enforced and the core logic remains independent of external concerns.
 
 ## Project Structure
 
