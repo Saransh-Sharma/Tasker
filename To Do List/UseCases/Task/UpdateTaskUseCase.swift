@@ -167,27 +167,28 @@ public final class UpdateTaskUseCase {
             }
         }
         
-        if let reminderTime = request.reminderTime {
+        if let reminderTime = request.alertReminderTime {
             task.alertReminderTime = reminderTime
         }
         
         // Handle project change
         if let projectName = request.projectName {
+            var updatedTask = task
             // Verify project exists
             projectRepository.fetchProject(withName: projectName) { result in
                 switch result {
                 case .success(let project):
                     if project != nil {
-                        task.project = projectName
+                        updatedTask.project = projectName
                     } else {
                         // Project doesn't exist, keep current or use Inbox
-                        task.project = task.project ?? "Inbox"
+                        updatedTask.project = updatedTask.project ?? "Inbox"
                     }
-                    completion(.success(task))
+                    completion(.success(updatedTask))
                     
                 case .failure:
                     // On error, keep current project
-                    completion(.success(task))
+                    completion(.success(updatedTask))
                 }
             }
         } else {
@@ -239,7 +240,7 @@ public struct UpdateTaskRequest {
     public let priority: TaskPriority?
     public let dueDate: Date?
     public let projectName: String?
-    public let reminderTime: Date?
+    public let alertReminderTime: Date?
     
     public init(
         name: String? = nil,
@@ -248,7 +249,7 @@ public struct UpdateTaskRequest {
         priority: TaskPriority? = nil,
         dueDate: Date? = nil,
         projectName: String? = nil,
-        reminderTime: Date? = nil
+        alertReminderTime: Date? = nil
     ) {
         self.name = name
         self.details = details
@@ -256,7 +257,7 @@ public struct UpdateTaskRequest {
         self.priority = priority
         self.dueDate = dueDate
         self.projectName = projectName
-        self.reminderTime = reminderTime
+        self.alertReminderTime = alertReminderTime
     }
 }
 

@@ -47,7 +47,7 @@ public final class CreateTaskUseCase {
         }
         
         // Step 2: Check if project exists (if specified)
-        if let projectName = request.projectName {
+        if let projectName = request.project {
             projectRepository.fetchProject(withName: projectName) { [weak self] result in
                 switch result {
                 case .success(let project):
@@ -109,7 +109,7 @@ public final class CreateTaskUseCase {
             isComplete: false,
             dateAdded: Date(),
             isEveningTask: taskType == .evening,
-            alertReminderTime: request.reminderTime
+            alertReminderTime: request.alertReminderTime
         )
         
         // Step 5: Validate the task
@@ -167,36 +167,6 @@ public final class CreateTaskUseCase {
     }
 }
 
-// MARK: - Request Model
-
-public struct CreateTaskRequest {
-    public let name: String
-    public let details: String?
-    public let type: TaskType?
-    public let priority: TaskPriority?
-    public let dueDate: Date?
-    public let projectName: String?
-    public let reminderTime: Date?
-    
-    public init(
-        name: String,
-        details: String? = nil,
-        type: TaskType? = nil,
-        priority: TaskPriority? = nil,
-        dueDate: Date? = nil,
-        projectName: String? = nil,
-        reminderTime: Date? = nil
-    ) {
-        self.name = name
-        self.details = details
-        self.type = type
-        self.priority = priority
-        self.dueDate = dueDate
-        self.projectName = projectName
-        self.reminderTime = reminderTime
-    }
-}
-
 // MARK: - Error Types
 
 public enum CreateTaskError: LocalizedError {
@@ -216,9 +186,4 @@ public enum CreateTaskError: LocalizedError {
     }
 }
 
-// MARK: - Notification Service Protocol
 
-public protocol NotificationServiceProtocol {
-    func scheduleTaskReminder(taskId: UUID, taskName: String, at date: Date)
-    func cancelTaskReminder(taskId: UUID)
-}

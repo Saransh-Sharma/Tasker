@@ -204,7 +204,7 @@ public final class GetTasksUseCase {
     /// Search tasks by name or details
     public func searchTasks(
         query: String,
-        in scope: SearchScope = .all,
+        in scope: GetTasksScope = .all,
         completion: @escaping (Result<[Task], GetTasksError>) -> Void
     ) {
         let fetchCompletion: (Result<[Task], Error>) -> Void = { result in
@@ -399,7 +399,7 @@ public struct UpcomingTasksResult {
 
 // MARK: - Supporting Types
 
-public enum SearchScope {
+public enum GetTasksScope {
     case all
     case today
     case upcoming

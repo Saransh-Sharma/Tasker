@@ -52,6 +52,26 @@ public protocol CacheServiceProtocol {
     /// Get cached projects
     func getCachedProjects() -> [Project]?
     
+    // MARK: - Advanced Caching for Use Cases
+    
+    /// Cache filter results
+    func cacheFilterResult(_ result: FilteredTasksResult, key: String)
+    
+    /// Get cached filter result
+    func getCachedFilterResult(key: String) -> FilteredTasksResult?
+    
+    /// Cache search results
+    func cacheSearchResult(_ result: SearchResult, key: String)
+    
+    /// Get cached search result
+    func getCachedSearchResult(key: String) -> SearchResult?
+    
+    /// Cache statistics
+    func cacheStatistics(_ statistics: TaskStatistics, key: String)
+    
+    /// Get cached statistics
+    func getCachedStatistics(key: String) -> TaskStatistics?
+    
     // MARK: - Cache Statistics
     
     /// Get the current cache size in bytes

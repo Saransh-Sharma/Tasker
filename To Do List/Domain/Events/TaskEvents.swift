@@ -11,11 +11,12 @@ import Foundation
 
 /// Event fired when a task is created
 public struct TaskCreatedEvent: SerializableDomainEvent {
-    public let id: UUID
+    public let eventId: UUID
     public let occurredAt: Date
     public let eventType: String = "TaskCreated"
     public let eventVersion: Int = 1
     public let aggregateId: UUID
+    public let metadata: [String: Any]?
     public let userId: UUID?
     
     // Task-specific data
@@ -34,7 +35,7 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
         dueDate: Date?,
         userId: UUID? = nil
     ) {
-        self.id = UUID()
+        self.eventId = UUID()
         self.occurredAt = Date()
         self.aggregateId = taskId
         self.userId = userId
@@ -43,11 +44,17 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
         self.taskPriority = taskPriority
         self.projectName = projectName
         self.dueDate = dueDate
+        self.metadata = [
+            "taskId": taskId.uuidString,
+            "taskName": taskName,
+            "taskType": taskType.rawValue,
+            "taskPriority": taskPriority.rawValue
+        ]
     }
     
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
-            "id": id.uuidString,
+            "eventId": eventId.uuidString,
             "occurredAt": occurredAt.timeIntervalSince1970,
             "eventType": eventType,
             "eventVersion": eventVersion,
@@ -71,8 +78,8 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
     }
     
     public static func fromDictionary(_ dict: [String: Any]) -> TaskCreatedEvent? {
-        guard let idString = dict["id"] as? String,
-              let id = UUID(uuidString: idString),
+        guard let eventIdString = dict["eventId"] as? String,
+              let eventId = UUID(uuidString: eventIdString),
               let occurredAtInterval = dict["occurredAt"] as? TimeInterval,
               let aggregateIdString = dict["aggregateId"] as? String,
               let aggregateId = UUID(uuidString: aggregateIdString),
@@ -90,7 +97,7 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
         let projectName = dict["projectName"] as? String
         let dueDate = dict["dueDate"] as? TimeInterval != nil ? Date(timeIntervalSince1970: dict["dueDate"] as! TimeInterval) : nil
         
-        var event = TaskCreatedEvent(
+        return TaskCreatedEvent(
             taskId: aggregateId,
             taskName: taskName,
             taskType: taskType,
@@ -99,18 +106,17 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
             dueDate: dueDate,
             userId: userId
         )
-        
-        return event
     }
 }
 
 /// Event fired when a task is completed
 public struct TaskCompletedEvent: SerializableDomainEvent {
-    public let id: UUID
+    public let eventId: UUID
     public let occurredAt: Date
     public let eventType: String = "TaskCompleted"
     public let eventVersion: Int = 1
     public let aggregateId: UUID
+    public let metadata: [String: Any]?
     public let userId: UUID?
     
     // Task completion data
@@ -127,7 +133,7 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
         completionTime: TimeInterval? = nil,
         userId: UUID? = nil
     ) {
-        self.id = UUID()
+        self.eventId = UUID()
         self.occurredAt = Date()
         self.aggregateId = taskId
         self.userId = userId
@@ -135,11 +141,16 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
         self.taskPriority = taskPriority
         self.scoreEarned = scoreEarned
         self.completionTime = completionTime
+        self.metadata = [
+            "taskId": taskId.uuidString,
+            "taskName": taskName,
+            "scoreEarned": scoreEarned
+        ]
     }
     
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
-            "id": id.uuidString,
+            "eventId": eventId.uuidString,
             "occurredAt": occurredAt.timeIntervalSince1970,
             "eventType": eventType,
             "eventVersion": eventVersion,
@@ -160,8 +171,8 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
     }
     
     public static func fromDictionary(_ dict: [String: Any]) -> TaskCompletedEvent? {
-        guard let idString = dict["id"] as? String,
-              let id = UUID(uuidString: idString),
+        guard let eventIdString = dict["eventId"] as? String,
+              let eventId = UUID(uuidString: eventIdString),
               let occurredAtInterval = dict["occurredAt"] as? TimeInterval,
               let aggregateIdString = dict["aggregateId"] as? String,
               let aggregateId = UUID(uuidString: aggregateIdString),
@@ -176,7 +187,7 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
         let userId = dict["userId"] as? String != nil ? UUID(uuidString: dict["userId"] as! String) : nil
         let completionTime = dict["completionTime"] as? TimeInterval
         
-        var event = TaskCompletedEvent(
+        return TaskCompletedEvent(
             taskId: aggregateId,
             taskName: taskName,
             taskPriority: taskPriority,
@@ -184,18 +195,17 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
             completionTime: completionTime,
             userId: userId
         )
-        
-        return event
     }
 }
 
 /// Event fired when a task is updated
 public struct TaskUpdatedEvent: SerializableDomainEvent {
-    public let id: UUID
+    public let eventId: UUID
     public let occurredAt: Date
     public let eventType: String = "TaskUpdated"
     public let eventVersion: Int = 1
     public let aggregateId: UUID
+    public let metadata: [String: Any]?
     public let userId: UUID?
     
     // Update data
@@ -210,18 +220,22 @@ public struct TaskUpdatedEvent: SerializableDomainEvent {
         newValues: [String: Any],
         userId: UUID? = nil
     ) {
-        self.id = UUID()
+        self.eventId = UUID()
         self.occurredAt = Date()
         self.aggregateId = taskId
         self.userId = userId
         self.changedFields = changedFields
         self.oldValues = oldValues
         self.newValues = newValues
+        self.metadata = [
+            "taskId": taskId.uuidString,
+            "changedFieldsCount": changedFields.count
+        ]
     }
     
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
-            "id": id.uuidString,
+            "eventId": eventId.uuidString,
             "occurredAt": occurredAt.timeIntervalSince1970,
             "eventType": eventType,
             "eventVersion": eventVersion,
@@ -239,8 +253,8 @@ public struct TaskUpdatedEvent: SerializableDomainEvent {
     }
     
     public static func fromDictionary(_ dict: [String: Any]) -> TaskUpdatedEvent? {
-        guard let idString = dict["id"] as? String,
-              let id = UUID(uuidString: idString),
+        guard let eventIdString = dict["eventId"] as? String,
+              let eventId = UUID(uuidString: eventIdString),
               let occurredAtInterval = dict["occurredAt"] as? TimeInterval,
               let aggregateIdString = dict["aggregateId"] as? String,
               let aggregateId = UUID(uuidString: aggregateIdString),
@@ -264,11 +278,12 @@ public struct TaskUpdatedEvent: SerializableDomainEvent {
 
 /// Event fired when a task is deleted
 public struct TaskDeletedEvent: SerializableDomainEvent {
-    public let id: UUID
+    public let eventId: UUID
     public let occurredAt: Date
     public let eventType: String = "TaskDeleted"
     public let eventVersion: Int = 1
     public let aggregateId: UUID
+    public let metadata: [String: Any]?
     public let userId: UUID?
     
     // Deletion context
@@ -281,17 +296,21 @@ public struct TaskDeletedEvent: SerializableDomainEvent {
         reason: String? = nil,
         userId: UUID? = nil
     ) {
-        self.id = UUID()
+        self.eventId = UUID()
         self.occurredAt = Date()
         self.aggregateId = taskId
         self.userId = userId
         self.taskName = taskName
         self.reason = reason
+        self.metadata = [
+            "taskId": taskId.uuidString,
+            "taskName": taskName
+        ]
     }
     
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
-            "id": id.uuidString,
+            "eventId": eventId.uuidString,
             "occurredAt": occurredAt.timeIntervalSince1970,
             "eventType": eventType,
             "eventVersion": eventVersion,
@@ -310,8 +329,8 @@ public struct TaskDeletedEvent: SerializableDomainEvent {
     }
     
     public static func fromDictionary(_ dict: [String: Any]) -> TaskDeletedEvent? {
-        guard let idString = dict["id"] as? String,
-              let id = UUID(uuidString: idString),
+        guard let eventIdString = dict["eventId"] as? String,
+              let eventId = UUID(uuidString: eventIdString),
               let occurredAtInterval = dict["occurredAt"] as? TimeInterval,
               let aggregateIdString = dict["aggregateId"] as? String,
               let aggregateId = UUID(uuidString: aggregateIdString),

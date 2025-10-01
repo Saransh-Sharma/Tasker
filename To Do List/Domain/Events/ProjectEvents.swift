@@ -11,11 +11,12 @@ import Foundation
 
 /// Event fired when a project is created
 public struct ProjectCreatedEvent: SerializableDomainEvent {
-    public let id: UUID
+    public let eventId: UUID
     public let occurredAt: Date
     public let eventType: String = "ProjectCreated"
     public let eventVersion: Int = 1
     public let aggregateId: UUID
+    public let metadata: [String: Any]?
     public let userId: UUID?
     
     // Project-specific data
@@ -34,7 +35,7 @@ public struct ProjectCreatedEvent: SerializableDomainEvent {
         parentProjectId: UUID? = nil,
         userId: UUID? = nil
     ) {
-        self.id = UUID()
+        self.eventId = UUID()
         self.occurredAt = Date()
         self.aggregateId = projectId
         self.userId = userId
@@ -43,11 +44,15 @@ public struct ProjectCreatedEvent: SerializableDomainEvent {
         self.color = color
         self.icon = icon
         self.parentProjectId = parentProjectId
+        self.metadata = [
+            "projectId": projectId.uuidString,
+            "projectName": projectName
+        ]
     }
     
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
-            "id": id.uuidString,
+            "eventId": eventId.uuidString,
             "occurredAt": occurredAt.timeIntervalSince1970,
             "eventType": eventType,
             "eventVersion": eventVersion,
@@ -71,8 +76,8 @@ public struct ProjectCreatedEvent: SerializableDomainEvent {
     }
     
     public static func fromDictionary(_ dict: [String: Any]) -> ProjectCreatedEvent? {
-        guard let idString = dict["id"] as? String,
-              let id = UUID(uuidString: idString),
+        guard let eventIdString = dict["eventId"] as? String,
+              let eventId = UUID(uuidString: eventIdString),
               let occurredAtInterval = dict["occurredAt"] as? TimeInterval,
               let aggregateIdString = dict["aggregateId"] as? String,
               let aggregateId = UUID(uuidString: aggregateIdString),
@@ -102,11 +107,12 @@ public struct ProjectCreatedEvent: SerializableDomainEvent {
 
 /// Event fired when a project is updated
 public struct ProjectUpdatedEvent: SerializableDomainEvent {
-    public let id: UUID
+    public let eventId: UUID
     public let occurredAt: Date
     public let eventType: String = "ProjectUpdated"
     public let eventVersion: Int = 1
     public let aggregateId: UUID
+    public let metadata: [String: Any]?
     public let userId: UUID?
     
     // Update data
@@ -121,18 +127,22 @@ public struct ProjectUpdatedEvent: SerializableDomainEvent {
         newValues: [String: Any],
         userId: UUID? = nil
     ) {
-        self.id = UUID()
+        self.eventId = UUID()
         self.occurredAt = Date()
         self.aggregateId = projectId
         self.userId = userId
         self.changedFields = changedFields
         self.oldValues = oldValues
         self.newValues = newValues
+        self.metadata = [
+            "projectId": projectId.uuidString,
+            "changedFieldsCount": changedFields.count
+        ]
     }
     
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
-            "id": id.uuidString,
+            "eventId": eventId.uuidString,
             "occurredAt": occurredAt.timeIntervalSince1970,
             "eventType": eventType,
             "eventVersion": eventVersion,
@@ -150,8 +160,8 @@ public struct ProjectUpdatedEvent: SerializableDomainEvent {
     }
     
     public static func fromDictionary(_ dict: [String: Any]) -> ProjectUpdatedEvent? {
-        guard let idString = dict["id"] as? String,
-              let id = UUID(uuidString: idString),
+        guard let eventIdString = dict["eventId"] as? String,
+              let eventId = UUID(uuidString: eventIdString),
               let occurredAtInterval = dict["occurredAt"] as? TimeInterval,
               let aggregateIdString = dict["aggregateId"] as? String,
               let aggregateId = UUID(uuidString: aggregateIdString),
@@ -175,11 +185,12 @@ public struct ProjectUpdatedEvent: SerializableDomainEvent {
 
 /// Event fired when a project is archived
 public struct ProjectArchivedEvent: SerializableDomainEvent {
-    public let id: UUID
+    public let eventId: UUID
     public let occurredAt: Date
     public let eventType: String = "ProjectArchived"
     public let eventVersion: Int = 1
     public let aggregateId: UUID
+    public let metadata: [String: Any]?
     public let userId: UUID?
     
     // Archive context
@@ -194,18 +205,23 @@ public struct ProjectArchivedEvent: SerializableDomainEvent {
         taskCount: Int = 0,
         userId: UUID? = nil
     ) {
-        self.id = UUID()
+        self.eventId = UUID()
         self.occurredAt = Date()
         self.aggregateId = projectId
         self.userId = userId
         self.projectName = projectName
         self.reason = reason
         self.taskCount = taskCount
+        self.metadata = [
+            "projectId": projectId.uuidString,
+            "projectName": projectName,
+            "taskCount": taskCount
+        ]
     }
     
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
-            "id": id.uuidString,
+            "eventId": eventId.uuidString,
             "occurredAt": occurredAt.timeIntervalSince1970,
             "eventType": eventType,
             "eventVersion": eventVersion,
@@ -225,8 +241,8 @@ public struct ProjectArchivedEvent: SerializableDomainEvent {
     }
     
     public static func fromDictionary(_ dict: [String: Any]) -> ProjectArchivedEvent? {
-        guard let idString = dict["id"] as? String,
-              let id = UUID(uuidString: idString),
+        guard let eventIdString = dict["eventId"] as? String,
+              let eventId = UUID(uuidString: eventIdString),
               let occurredAtInterval = dict["occurredAt"] as? TimeInterval,
               let aggregateIdString = dict["aggregateId"] as? String,
               let aggregateId = UUID(uuidString: aggregateIdString),
@@ -250,46 +266,49 @@ public struct ProjectArchivedEvent: SerializableDomainEvent {
 
 /// Event fired when a project is deleted
 public struct ProjectDeletedEvent: SerializableDomainEvent {
-    public let id: UUID
+    public let eventId: UUID
     public let occurredAt: Date
     public let eventType: String = "ProjectDeleted"
     public let eventVersion: Int = 1
     public let aggregateId: UUID
+    public let metadata: [String: Any]?
     public let userId: UUID?
     
     // Deletion context
     public let projectName: String
     public let reason: String?
-    public let tasksMoved: Bool
-    public let destinationProject: String?
+    public let taskCount: Int
     
     public init(
         projectId: UUID,
         projectName: String,
         reason: String? = nil,
-        tasksMoved: Bool = false,
-        destinationProject: String? = nil,
+        taskCount: Int = 0,
         userId: UUID? = nil
     ) {
-        self.id = UUID()
+        self.eventId = UUID()
         self.occurredAt = Date()
         self.aggregateId = projectId
         self.userId = userId
         self.projectName = projectName
         self.reason = reason
-        self.tasksMoved = tasksMoved
-        self.destinationProject = destinationProject
+        self.taskCount = taskCount
+        self.metadata = [
+            "projectId": projectId.uuidString,
+            "projectName": projectName,
+            "taskCount": taskCount
+        ]
     }
     
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
-            "id": id.uuidString,
+            "eventId": eventId.uuidString,
             "occurredAt": occurredAt.timeIntervalSince1970,
             "eventType": eventType,
             "eventVersion": eventVersion,
             "aggregateId": aggregateId.uuidString,
             "projectName": projectName,
-            "tasksMoved": tasksMoved
+            "taskCount": taskCount
         ]
         
         if let userId = userId {
@@ -298,34 +317,29 @@ public struct ProjectDeletedEvent: SerializableDomainEvent {
         if let reason = reason {
             dict["reason"] = reason
         }
-        if let destinationProject = destinationProject {
-            dict["destinationProject"] = destinationProject
-        }
         
         return dict
     }
     
     public static func fromDictionary(_ dict: [String: Any]) -> ProjectDeletedEvent? {
-        guard let idString = dict["id"] as? String,
-              let id = UUID(uuidString: idString),
+        guard let eventIdString = dict["eventId"] as? String,
+              let eventId = UUID(uuidString: eventIdString),
               let occurredAtInterval = dict["occurredAt"] as? TimeInterval,
               let aggregateIdString = dict["aggregateId"] as? String,
               let aggregateId = UUID(uuidString: aggregateIdString),
               let projectName = dict["projectName"] as? String,
-              let tasksMoved = dict["tasksMoved"] as? Bool else {
+              let taskCount = dict["taskCount"] as? Int else {
             return nil
         }
         
         let userId = dict["userId"] as? String != nil ? UUID(uuidString: dict["userId"] as! String) : nil
         let reason = dict["reason"] as? String
-        let destinationProject = dict["destinationProject"] as? String
         
         return ProjectDeletedEvent(
             projectId: aggregateId,
             projectName: projectName,
             reason: reason,
-            tasksMoved: tasksMoved,
-            destinationProject: destinationProject,
+            taskCount: taskCount,
             userId: userId
         )
     }

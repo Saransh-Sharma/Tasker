@@ -218,23 +218,4 @@ public enum CompleteTaskError: LocalizedError {
     }
 }
 
-// MARK: - Service Protocols
 
-public protocol TaskScoringServiceProtocol {
-    func calculateScore(for task: Task) -> Int
-    func getTotalScore(completion: @escaping (Int) -> Void)
-    func getScoreHistory(days: Int, completion: @escaping ([DailyScore]) -> Void)
-}
-
-public protocol AnalyticsServiceProtocol {
-    func trackTaskCompleted(task: Task, score: Int, completionTime: Date)
-    func trackTaskUncompleted(task: Task, scoreDeducted: Int)
-    func trackTaskCreated(task: Task)
-    func trackTaskDeleted(task: Task)
-}
-
-public struct DailyScore {
-    public let date: Date
-    public let score: Int
-    public let tasksCompleted: Int
-}

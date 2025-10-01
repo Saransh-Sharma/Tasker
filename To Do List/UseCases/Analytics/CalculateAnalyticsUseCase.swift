@@ -13,18 +13,18 @@ public final class CalculateAnalyticsUseCase {
     // MARK: - Dependencies
     
     private let taskRepository: TaskRepositoryProtocol
-    private let scoringService: TaskScoringService
+    private let scoringService: TaskScoringServiceProtocol
     private let cacheService: CacheServiceProtocol?
     
     // MARK: - Initialization
     
     public init(
         taskRepository: TaskRepositoryProtocol,
-        scoringService: TaskScoringService? = nil,
+        scoringService: TaskScoringServiceProtocol? = nil,
         cacheService: CacheServiceProtocol? = nil
     ) {
         self.taskRepository = taskRepository
-        self.scoringService = scoringService ?? TaskScoringService()
+        self.scoringService = scoringService ?? DefaultTaskScoringService()
         self.cacheService = cacheService
     }
     
@@ -544,15 +544,33 @@ public enum AnalyticsError: LocalizedError {
     }
 }
 
-// MARK: - Scoring Service
+// MARK: - Scoring Service Protocol
 
-public class TaskScoringService: TaskScoringServiceProtocol {
+public protocol TaskScoringServiceProtocol {
+    func calculateScore(for task: Task) -> Int
+    func getTotalScore(completion: @escaping (Int) -> Void)
+    func getScoreHistory(days: Int, completion: @escaping ([DailyScore]) -> Void)
+}
+
+public struct DailyScore {
+    public let date: Date
+    public let score: Int
+    
+    public init(date: Date, score: Int) {
+        self.date = date
+        self.score = score
+    }
+}
+
+// MARK: - Default Scoring Service
+
+public class DefaultTaskScoringService: TaskScoringServiceProtocol {
     
     public init() {}
     
     public func calculateScore(for task: Task) -> Int {
         guard task.isComplete else { return 0 }
-        return task.priority.scoreValue
+        return task.priority.scorePoints
     }
     
     public func getTotalScore(completion: @escaping (Int) -> Void) {

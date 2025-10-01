@@ -153,7 +153,7 @@ public final class DeleteTaskUseCase {
             case .success(let tasks):
                 // Filter tasks older than the specified date
                 let tasksToDelete = tasks.filter { task in
-                    guard let taskDate = task.dueDate ?? task.dateAdded else { return false }
+                    let taskDate = task.dueDate ?? task.dateAdded
                     
                     if includeIncomplete {
                         return taskDate < date

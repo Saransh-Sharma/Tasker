@@ -234,7 +234,7 @@ public final class RescheduleTaskUseCase {
         }
         
         // Suggestion 2: Next Monday
-        if let nextMonday = getNextWeekday(.monday) {
+        if let nextMonday = getNextWeekday(TaskWeekday.monday) {
             suggestions.append(RescheduleSuggestion(
                 date: nextMonday,
                 reason: "Start of next week",
@@ -256,7 +256,7 @@ public final class RescheduleTaskUseCase {
         }
     }
     
-    private func getNextWeekday(_ weekday: Weekday) -> Date? {
+    private func getNextWeekday(_ weekday: TaskWeekday) -> Date? {
         let calendar = Calendar.current
         let today = Date()
         let weekdayNumber = weekday.rawValue
@@ -328,7 +328,7 @@ public enum RescheduleTaskError: LocalizedError {
     }
 }
 
-private enum Weekday: Int {
+private enum TaskWeekday: Int {
     case sunday = 1
     case monday = 2
     case tuesday = 3

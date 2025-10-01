@@ -169,7 +169,7 @@ public struct Task {
     
     /// Check if task fits current context
     public func fitsContext(_ currentContext: TaskContext) -> Bool {
-        return context == .anywhere || context == currentContext
+        return context == TaskContext.anywhere || context == currentContext
     }
     
     /// Calculate task complexity score

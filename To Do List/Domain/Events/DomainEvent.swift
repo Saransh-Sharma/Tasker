@@ -2,63 +2,52 @@
 //  DomainEvent.swift
 //  Tasker
 //
-//  Base protocol for all domain events
+//  Protocol for domain events in the event-driven architecture
 //
 
 import Foundation
 
-/// Base protocol for all domain events
+/// Protocol for domain events that represent something important that happened in the domain
 public protocol DomainEvent {
+    
     /// Unique identifier for the event
-    var id: UUID { get }
+    var eventId: UUID { get }
     
     /// Timestamp when the event occurred
     var occurredAt: Date { get }
     
-    /// Type name of the event for identification
+    /// Type of the event
     var eventType: String { get }
     
-    /// Version of the event structure for compatibility
-    var eventVersion: Int { get }
-    
-    /// Aggregate ID that this event relates to
+    /// ID of the aggregate that this event belongs to
     var aggregateId: UUID { get }
     
-    /// User ID who triggered the event (if applicable)
-    var userId: UUID? { get }
+    /// Optional metadata associated with the event
+    var metadata: [String: Any]? { get }
 }
 
-/// Protocol for events that can be converted to/from dictionary for persistence
+/// Protocol for serializable domain events that can be persisted or transmitted
 public protocol SerializableDomainEvent: DomainEvent {
-    /// Convert event to dictionary for storage
+    /// Convert event to dictionary for serialization
     func toDictionary() -> [String: Any]
     
-    /// Create event from dictionary
+    /// Create event from dictionary for deserialization
     static func fromDictionary(_ dict: [String: Any]) -> Self?
 }
 
-/// Base implementation of domain event
+/// Base implementation for domain events
 public struct BaseDomainEvent: DomainEvent {
-    public let id: UUID
+    public let eventId: UUID
     public let occurredAt: Date
     public let eventType: String
-    public let eventVersion: Int
     public let aggregateId: UUID
-    public let userId: UUID?
+    public let metadata: [String: Any]?
     
-    public init(
-        id: UUID = UUID(),
-        occurredAt: Date = Date(),
-        eventType: String,
-        eventVersion: Int = 1,
-        aggregateId: UUID,
-        userId: UUID? = nil
-    ) {
-        self.id = id
-        self.occurredAt = occurredAt
+    public init(eventType: String, aggregateId: UUID, metadata: [String: Any]? = nil) {
+        self.eventId = UUID()
+        self.occurredAt = Date()
         self.eventType = eventType
-        self.eventVersion = eventVersion
         self.aggregateId = aggregateId
-        self.userId = userId
+        self.metadata = metadata
     }
 }

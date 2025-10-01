@@ -31,17 +31,17 @@ public class ProjectMapper {
             isDefault: isInbox,
             
             // Enhanced properties - defaults until Core Data is updated
-            color: isInbox ? .gray : .blue,
-            icon: isInbox ? .inbox : .folder,
-            status: .active,
-            priority: isInbox ? .low : .medium,
-            parentProjectId: nil,
-            subprojectIds: [],
-            tags: [],
-            dueDate: nil,
-            estimatedTaskCount: nil,
+            color: isInbox ? ProjectColor.gray : ProjectColor.blue,
+            icon: isInbox ? ProjectIcon.inbox : ProjectIcon.folder,
+            status: ProjectStatus.active,
+            priority: isInbox ? ProjectPriority.low : ProjectPriority.medium,
+            parentProjectId: nil as UUID?,
+            subprojectIds: [] as [UUID],
+            tags: [] as [String],
+            dueDate: nil as Date?,
+            estimatedTaskCount: nil as Int?,
             isArchived: false,
-            templateId: nil,
+            templateId: nil as UUID?,
             settings: ProjectSettings()
         )
     }

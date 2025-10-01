@@ -40,6 +40,9 @@ public protocol TaskRepositoryProtocol {
     /// Fetch a single task by ID
     func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void)
     
+    /// Fetch tasks in a date range
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void)
+    
     // MARK: - Create Operations
     
     /// Create a new task

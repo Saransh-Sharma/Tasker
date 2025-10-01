@@ -81,15 +81,15 @@ public class TaskMapper {
             alertReminderTime: entity.alertReminderTime as Date?,
             
             // Enhanced properties - defaults until Core Data is updated
-            estimatedDuration: nil, // entity.estimatedDuration
-            actualDuration: nil,    // entity.actualDuration
+            estimatedDuration: nil as TimeInterval?, // entity.estimatedDuration
+            actualDuration: nil as TimeInterval?,    // entity.actualDuration
             tags: [],               // entity.tags?.split(separator: ",").map(String.init) ?? []
             dependencies: [],       // parseUUIDs(from: entity.dependencies)
             subtasks: [],          // parseUUIDs(from: entity.subtasks)
-            category: .general,     // TaskCategory(rawValue: entity.category ?? "") ?? .general
-            energy: .medium,       // TaskEnergy(rawValue: entity.energy ?? "") ?? .medium
-            context: .anywhere,    // TaskContext(rawValue: entity.context ?? "") ?? .anywhere
-            repeatPattern: nil     // parseRepeatPattern(from: entity.repeatPattern)
+            category: TaskCategory.general,     // TaskCategory(rawValue: entity.category ?? "") ?? .general
+            energy: TaskEnergy.medium,       // TaskEnergy(rawValue: entity.energy ?? "") ?? .medium
+            context: TaskContext.anywhere,    // TaskContext(rawValue: entity.context ?? "") ?? .anywhere
+            repeatPattern: nil as TaskRepeatPattern?     // parseRepeatPattern(from: entity.repeatPattern)
         )
     }
     

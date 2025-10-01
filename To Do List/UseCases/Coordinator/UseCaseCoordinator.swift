@@ -13,19 +13,33 @@ public final class UseCaseCoordinator {
     
     // MARK: - Use Cases
     
+    // Task Use Cases
     public let createTask: CreateTaskUseCase
     public let completeTask: CompleteTaskUseCase
     public let rescheduleTask: RescheduleTaskUseCase
     public let getTasks: GetTasksUseCase
+    
+    // New Task Use Cases (Phase 3)
+    public let filterTasks: FilterTasksUseCase
+    public let searchTasks: SearchTasksUseCase
+    public let sortTasks: SortTasksUseCase
+    public let getTaskStatistics: GetTaskStatisticsUseCase
+    public let bulkUpdateTasks: BulkUpdateTasksUseCase
+    
+    // Project Use Cases
     public let manageProjects: ManageProjectsUseCase
+    public let filterProjects: FilterProjectsUseCase
+    public let getProjectStatistics: GetProjectStatisticsUseCase
+    
+    // Analytics Use Cases
     public let calculateAnalytics: CalculateAnalyticsUseCase
+    public let generateProductivityReport: GenerateProductivityReportUseCase
     
     // MARK: - Dependencies
     
     private let taskRepository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
     private let cacheService: CacheServiceProtocol?
-    private let syncCoordinator: OfflineFirstSyncCoordinator?
     
     // MARK: - Initialization
     
@@ -33,13 +47,11 @@ public final class UseCaseCoordinator {
         taskRepository: TaskRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         cacheService: CacheServiceProtocol? = nil,
-        syncCoordinator: OfflineFirstSyncCoordinator? = nil,
         notificationService: NotificationServiceProtocol? = nil
     ) {
         self.taskRepository = taskRepository
         self.projectRepository = projectRepository
         self.cacheService = cacheService
-        self.syncCoordinator = syncCoordinator
         
         // Initialize use cases
         self.createTask = CreateTaskUseCase(
@@ -48,11 +60,11 @@ public final class UseCaseCoordinator {
             notificationService: notificationService
         )
         
-        let scoringService = TaskScoringService()
+        let scoringService: TaskScoringServiceProtocol = DefaultTaskScoringService()
         self.completeTask = CompleteTaskUseCase(
             taskRepository: taskRepository,
             scoringService: scoringService,
-            analyticsService: nil
+            analyticsService: nil as AnalyticsServiceProtocol?
         )
         
         self.rescheduleTask = RescheduleTaskUseCase(
@@ -65,15 +77,55 @@ public final class UseCaseCoordinator {
             cacheService: cacheService
         )
         
+        // New Task Use Cases (Phase 3)
+        self.filterTasks = FilterTasksUseCase(
+            taskRepository: taskRepository,
+            cacheService: cacheService
+        )
+        
+        self.searchTasks = SearchTasksUseCase(
+            taskRepository: taskRepository,
+            cacheService: cacheService
+        )
+        
+        self.sortTasks = SortTasksUseCase(
+            cacheService: cacheService
+        )
+        
+        self.getTaskStatistics = GetTaskStatisticsUseCase(
+            taskRepository: taskRepository,
+            cacheService: cacheService
+        )
+        
+        self.bulkUpdateTasks = BulkUpdateTasksUseCase(
+            taskRepository: taskRepository,
+            eventPublisher: nil // TODO: Add event publisher dependency
+        )
+        
+        // Project Use Cases
         self.manageProjects = ManageProjectsUseCase(
             projectRepository: projectRepository,
             taskRepository: taskRepository
         )
         
+        self.filterProjects = FilterProjectsUseCase(
+            projectRepository: projectRepository
+        )
+        
+        self.getProjectStatistics = GetProjectStatisticsUseCase(
+            projectRepository: projectRepository,
+            taskRepository: taskRepository
+        )
+        
+        // Analytics Use Cases
         self.calculateAnalytics = CalculateAnalyticsUseCase(
             taskRepository: taskRepository,
             scoringService: scoringService,
             cacheService: cacheService
+        )
+        
+        self.generateProductivityReport = GenerateProductivityReportUseCase(
+            taskRepository: taskRepository
         )
     }
     
@@ -193,8 +245,8 @@ public final class UseCaseCoordinator {
                         type: taskRequest.type,
                         priority: taskRequest.priority,
                         dueDate: taskRequest.dueDate,
-                        projectName: project.name,
-                        reminderTime: taskRequest.reminderTime
+                        project: project.name,
+                        alertReminderTime: taskRequest.alertReminderTime
                     )
                     
                     self?.createTask.execute(request: updatedRequest) { taskResult in
@@ -303,7 +355,7 @@ public final class UseCaseCoordinator {
                 // Determine which tasks to reschedule
                 tasksToReschedule = incompleteTasks.filter { task in
                     // Reschedule high priority tasks to tomorrow
-                    task.priority == .highest || task.priority == .high
+                    task.priority == .max || task.priority == .high
                 }
             }
             group.leave()
@@ -328,9 +380,6 @@ public final class UseCaseCoordinator {
             rescheduleGroup.notify(queue: .main) {
                 // Clear cache for fresh start tomorrow
                 self?.cacheService?.clearAll()
-                
-                // Trigger sync if available
-                self?.syncCoordinator?.syncNow { _ in }
                 
                 let result = CleanupResult(
                     incompleteTasks: incompleteTasks.count,
