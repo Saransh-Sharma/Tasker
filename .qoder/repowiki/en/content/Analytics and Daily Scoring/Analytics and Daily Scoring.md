@@ -7,6 +7,8 @@
 - [PieChartView.swift](file://Pods/DGCharts/Source/Charts/Charts/PieChartView.swift)
 - [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift) - *Added in recent commit*
 - [TaskPriorityConfig.swift](file://To%20Do%20List/Domain/Models/TaskPriorityConfig.swift) - *Added in recent commit*
+- [GenerateProductivityReportUseCase.swift](file://To%20Do%20List/UseCases/Analytics/GenerateProductivityReportUseCase.swift) - *Added in recent commit*
+- [GetTaskStatisticsUseCase.swift](file://To%20Do%20List/UseCases/Task/GetTaskStatisticsUseCase.swift) - *Added in recent commit*
 </cite>
 
 ## Update Summary
@@ -17,6 +19,7 @@
 - Updated diagram sources to reflect new architecture
 - Added references to new configuration files
 - Updated example scoring scenarios with correct point values
+- Added documentation for new analytics use cases: GenerateProductivityReportUseCase and GetTaskStatisticsUseCase
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -211,7 +214,16 @@ The CalculateAnalyticsUseCase has been introduced to centralize analytics calcul
 ### Integration Points
 The use case is integrated with the existing scoring system through dependency injection, allowing it to leverage the TaskScoringService for point calculations while providing additional context and historical analysis.
 
+### New Analytics Use Cases
+Two additional analytics use cases have been introduced to expand the system's capabilities:
+
+**GenerateProductivityReportUseCase**: Generates comprehensive productivity reports that include trend analysis, comparison metrics, and personalized recommendations based on user task completion patterns.
+
+**GetTaskStatisticsUseCase**: Provides detailed statistical analysis of task completion behavior, including average completion times, priority distribution, and time-of-day productivity patterns.
+
 **Section sources**
 - [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift#L1-L567)
 - [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L20-L150)
 - [TaskPriorityConfig.swift](file://To%20Do%20List/Domain/Models/TaskPriorityConfig.swift#L1-L137)
+- [GenerateProductivityReportUseCase.swift](file://To%20Do%20List/UseCases/Analytics/GenerateProductivityReportUseCase.swift#L1-L420)
+- [GetTaskStatisticsUseCase.swift](file://To%20Do%20List/UseCases/Task/GetTaskStatisticsUseCase.swift#L1-L380)

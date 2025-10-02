@@ -14,14 +14,46 @@ import MaterialComponents.MaterialTextControls_FilledTextAreas
 import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
+import Combine
 
-class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate, UIScrollViewDelegate, TaskRepositoryDependent {
+// Import Clean Architecture components
+@_exported import Foundation
+// The ViewModels and Protocols should be available via dependency injection
+
+// MARK: - Clean Architecture Protocol Definitions
+// Temporary protocol definitions until module issues are resolved
+
+/// Protocol for AddTaskViewController to receive ViewModel
+protocol AddTaskViewControllerProtocol: AnyObject {
+    var viewModel: AddTaskViewModel? { get set }
+}
+
+/// Placeholder for AddTaskViewModel until proper import is resolved
+class AddTaskViewModel {
+    // Placeholder implementation
+    @Published var isLoading: Bool = false
+    @Published var errorMessage: String?
+    @Published var availableProjects: [Project] = []
+    
+    func createTask(request: CreateTaskRequest, completion: @escaping (Result<Task, Error>) -> Void) {
+        // Placeholder implementation
+        completion(.failure(NSError(domain: "AddTaskViewModel", code: 1, userInfo: [NSLocalizedDescriptionKey: "ViewModel not properly injected"])))
+    }
+}
+
+class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate, UIScrollViewDelegate, TaskRepositoryDependent, AddTaskViewControllerProtocol {
     
     // Delegate for communicating back to the presenter
     weak var delegate: AddTaskViewControllerDelegate?
     
     // MARK: - Repository Dependency
     var taskRepository: TaskRepository!
+    
+    /// AddTaskViewModel dependency (injected) - Clean Architecture
+    var viewModel: AddTaskViewModel?
+    
+    /// Combine cancellables for reactive bindings
+    private var cancellables = Set<AnyCancellable>()
 
     //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()
@@ -125,9 +157,24 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     override func viewDidLoad() {
         super.viewDidLoad()
         print("🚀 AddTaskViewController: viewDidLoad called")
+        
+        // ACTIVATE CLEAN ARCHITECTURE - Primary dependency injection
+        print("🏗️ Activating AddTask Clean Architecture")
+        // Use legacy injection for now until module issues are resolved
+        DependencyContainer.shared.inject(into: self)
+        
         print("🔍 AddTaskViewController: Checking dependency injection state...")
         
-        // Check if taskRepository was injected properly
+        // Check Clean Architecture vs Legacy injection state
+        if viewModel != nil {
+            print("✅ AddTaskViewController: ViewModel properly injected - Using Clean Architecture")
+            print("📊 AddTaskViewController: ViewModel type: \(String(describing: type(of: viewModel)))")
+            setupViewModelBindings()
+        } else {
+            print("⚠️ AddTaskViewController: ViewModel is nil - Using Legacy Mode")
+        }
+        
+        // Check legacy repository injection
         if taskRepository == nil {
             print("❌ AddTaskViewController: taskRepository is nil in viewDidLoad!")
             print("🔧 AddTaskViewController: This indicates dependency injection hasn't happened yet")
@@ -190,6 +237,58 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         addTaskTextBox_Material.smartQuotesType = .yes
         addTaskTextBox_Material.smartInsertDeleteType = .yes
         addTaskTextBox_Material.delegate = self
+    }
+    
+    // MARK: - Clean Architecture Methods
+    
+    /// Setup ViewModel bindings for reactive UI
+    private func setupViewModelBindings() {
+        guard let viewModel = viewModel else { return }
+        
+        // Bind loading state
+        viewModel.$isLoading
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isLoading in
+                // Update UI loading state (e.g., disable done button while loading)
+                self?.fab_doneTask.isEnabled = !isLoading
+            }
+            .store(in: &cancellables)
+        
+        // Bind error messages
+        viewModel.$errorMessage
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0 }
+            .sink { [weak self] error in
+                self?.showError(error)
+            }
+            .store(in: &cancellables)
+        
+        // Bind available projects
+        viewModel.$availableProjects
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] projects in
+                // Update project selection UI if needed
+                self?.updateProjectSelection(projects)
+            }
+            .store(in: &cancellables)
+    }
+    
+    /// Check if using Clean Architecture or legacy
+    var isUsingCleanArchitecture: Bool {
+        return viewModel != nil
+    }
+    
+    /// Show error message to user
+    private func showError(_ message: String) {
+        let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    
+    /// Update project selection UI
+    private func updateProjectSelection(_ projects: [Project]) {
+        // Update pill bar or other project selection UI based on available projects
+        // This can be enhanced based on your specific UI needs
     }
 
     override func viewWillAppear(_ animated: Bool) {

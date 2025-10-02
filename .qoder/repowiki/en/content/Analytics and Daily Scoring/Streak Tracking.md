@@ -2,9 +2,18 @@
 
 <cite>
 **Referenced Files in This Document**   
-- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift)
+- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift) - *Updated in recent commit*
+- [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift) - *Added in recent commit*
 - [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift)
 </cite>
+
+## Update Summary
+**Changes Made**   
+- Updated streak calculation logic to reflect new implementation in CalculateAnalyticsUseCase
+- Added new section for the modern analytics use case approach
+- Updated code-level sequence diagram to show new architecture
+- Enhanced technical limitations section with additional refactoring suggestions
+- Added integration details between new and legacy systems
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -16,7 +25,8 @@
 7. [Example Scenario](#example-scenario)
 8. [Technical Limitations and Refactoring Suggestions](#technical-limitations-and-refactoring-suggestions)
 9. [User Experience Implications](#user-experience-implications)
-10. [Conclusion](#conclusion)
+10. [Modern Analytics Use Case Implementation](#modern-analytics-use-case-implementation)
+11. [Conclusion](#conclusion)
 
 ## Introduction
 The streak tracking system in the Tasker application is designed to measure user consistency by calculating the number of consecutive days with at least one completed task. This gamification feature starts from the current day and evaluates historical task completion data backward in time. The logic is implemented within the `TaskScoringService` class and plays a key role in user engagement and motivation.
@@ -33,7 +43,7 @@ The method accepts a start date, a repository instance for data access, and a co
 - [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L84-L125)
 
 ## Asynchronous Score Aggregation
-To evaluate daily scores across multiple days, the streak calculation uses `DispatchGroup` to synchronize concurrent asynchronous calls to `calculateTotalScore(for:using:completion:)`. Each day’s score is fetched independently, and the group ensures coordination between these operations.
+To evaluate daily scores across multiple days, the streak calculation uses `DispatchGroup` to synchronize concurrent asynchronous calls to `calculateTotalScore(for:using:completion:)`. Each day's score is fetched independently, and the group ensures coordination between these operations.
 
 However, the current implementation calls `group.wait()` after each `enter()` and `leave()` pair, effectively blocking the current thread until the score for that day is computed. This synchronous waiting defeats the purpose of asynchronous design and can lead to performance degradation, especially on the main thread.
 
@@ -116,7 +126,7 @@ The use of `group.wait()` introduces a critical limitation: it blocks the execut
 **Recommended Refactoring:**
 Replace the `DispatchGroup` + `wait()` pattern with modern Swift concurrency using `async/await`. Each `calculateTotalScore` call should be converted to an `async` function, allowing sequential or concurrent execution without thread blocking. This would improve readability, safety, and performance.
 
-Additionally, consider caching recent daily scores to reduce redundant database queries during streak calculation.
+Additionally, consider caching recent daily scores to reduce redundant database queries during streak calculation. Implementing a memoization pattern for recent streak calculations would significantly improve performance, especially when the streak is accessed frequently.
 
 **Section sources**
 - [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L108-L110)
@@ -129,5 +139,49 @@ Displaying the current streak in the UI (e.g., in the home view navigation bar) 
 **Section sources**
 - [HomeViewController+NavigationBarTitle.swift](file://To%20Do%20List/ViewControllers/HomeViewController+NavigationBarTitle.swift#L18-L100)
 
+## Modern Analytics Use Case Implementation
+A new analytics use case has been introduced to provide a more comprehensive approach to streak tracking and productivity metrics. The `CalculateAnalyticsUseCase` class now serves as the primary interface for all analytics calculations, including streak information.
+
+The new implementation provides enhanced streak data through the `StreakInfo` struct, which includes:
+- **currentStreak**: The current consecutive day count
+- **longestStreak**: The longest streak achieved historically
+- **lastCompletionDate**: The date of the most recent task completion
+
+The `calculateStreak` method in `CalculateAnalyticsUseCase` analyzes all completed tasks and computes both current and historical streak information. This approach allows for more sophisticated analytics while maintaining backward compatibility with the existing `TaskScoringService`.
+
+The new implementation processes completed tasks by:
+1. Sorting tasks by completion date in descending order
+2. Calculating day-to-day differences to identify consecutive days
+3. Tracking both current and longest streaks simultaneously
+4. Validating streak continuity by checking for today or yesterday completions
+
+This modern approach eliminates the need for multiple database queries and provides richer data for user motivation and analytics.
+
+```mermaid
+sequenceDiagram
+participant Client
+participant UseCase as CalculateAnalyticsUseCase
+participant Repository as TaskRepository
+participant DB as CoreData
+Client->>UseCase : calculateStreak()
+UseCase->>Repository : fetchCompletedTasks()
+Repository->>DB : Execute fetch request
+DB-->>Repository : Return all completed tasks
+Repository-->>UseCase : Task list with completion dates
+UseCase->>UseCase : Sort tasks by completion date
+UseCase->>UseCase : Calculate day differences
+UseCase->>UseCase : Compute current and longest streaks
+UseCase->>UseCase : Validate streak continuity
+UseCase-->>Client : Result<StreakInfo, AnalyticsError>
+```
+
+**Diagram sources**
+- [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift#L200-L230)
+- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift)
+
+**Section sources**
+- [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift#L200-L230)
+- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift)
+
 ## Conclusion
-The streak calculation logic in `TaskScoringService` provides a robust mechanism for tracking user consistency. While functionally effective, its reliance on synchronous waiting within an asynchronous context presents a significant technical debt. Refactoring toward `async/await` will future-proof the implementation, aligning with modern Swift concurrency patterns. Combined with thoughtful UX design, streak tracking remains a cornerstone of user retention and sustained engagement in the Tasker application.
+The streak calculation logic in `TaskScoringService` provides a robust mechanism for tracking user consistency. While functionally effective, its reliance on synchronous waiting within an asynchronous context presents a significant technical debt. Refactoring toward `async/await` will future-proof the implementation, aligning with modern Swift concurrency patterns. The introduction of `CalculateAnalyticsUseCase` represents a strategic shift toward more comprehensive analytics with richer data models. Combined with thoughtful UX design, streak tracking remains a cornerstone of user retention and sustained engagement in the Tasker application.

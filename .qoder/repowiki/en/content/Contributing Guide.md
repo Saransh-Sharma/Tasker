@@ -2,20 +2,24 @@
 
 <cite>
 **Referenced Files in This Document**   
-- [README.md](file://README.md)
-- [TaskManager.swift](file://To Do List/Managers/TaskManager.swift)
-- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift)
-- [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift)
+- [README.md](file://README.md) - *Updated in recent commit*
+- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift) - *Added in recent commit*
+- [TaskScoringService.swift](file://To Do List/Services/TaskScoringService.swift) - *Updated in recent commit*
+- [DependencyContainer.swift](file://To Do List/DependencyContainer.swift) - *Updated in recent commit*
 - [TaskData.swift](file://To Do List/Models/TaskData.swift)
 - [NTask+CoreDataProperties.swift](file://To Do List/Models/NTask+CoreDataProperties.swift)
-- [NTask+Extensions.swift](file://To Do List/Models/NTask+Extensions.swift)
-- [TaskScoringService.swift](file://To Do List/Services/TaskScoringService.swift)
-- [DateUtils.swift](file://To Do List/Utilities/DateUtils.swift)
-- [LoggingService.swift](file://To Do List/Utilities/LoggingService.swift)
-- [DependencyContainer.swift](file://To Do List/DependencyContainer.swift)
 - [To_Do_ListTests.swift](file://To Do ListTests/To_Do_ListTests.swift)
 - [To_Do_ListUITests.swift](file://To_Do_ListUITests/To_Do_ListUITests.swift)
 </cite>
+
+## Update Summary
+**Changes Made**   
+- Updated Development Environment Setup to reflect recent architectural changes
+- Revised Contribution Workflow to align with new repository pattern and dependency injection
+- Updated Testing Guidelines to reflect modern architecture
+- Added new section on Clean Architecture Migration
+- Removed outdated references to singleton patterns
+- Updated section sources with accurate file references and change annotations
 
 ## Table of Contents
 1. [Development Environment Setup](#development-environment-setup)
@@ -24,6 +28,7 @@
 4. [Testing Guidelines](#testing-guidelines)
 5. [Bug Reporting](#bug-reporting)
 6. [License and Agreements](#license-and-agreements)
+7. [Clean Architecture Migration](#clean-architecture-migration)
 
 ## Development Environment Setup
 
@@ -35,10 +40,10 @@ To set up the Tasker development environment, follow these steps:
 4. Open the workspace file `Tasker.xcworkspace` in Xcode
 5. Build and run the application on a simulator or physical device
 
-The project relies on several third-party dependencies managed through CocoaPods, including DGCharts for data visualization, Material Design Components for UI elements, and FluentUI for modern interface components. CloudKit integration requires a valid Apple Developer account for full synchronization testing.
+The project relies on several third-party dependencies managed through CocoaPods, including DGCharts for data visualization, Material Design Components for UI elements, FluentUI for modern interface components, and BEMCheckBox for interactive task completion. CloudKit integration requires a valid Apple Developer account for full synchronization testing.
 
 **Section sources**
-- [README.md](file://README.md#L16-L20)
+- [README.md](file://README.md#L16-L20) - *Updated in recent commit*
 
 ## Coding Standards
 
@@ -59,9 +64,9 @@ Enum cases use lowercase names when declared with raw values, following the patt
 All public types and functions must be documented using Swift documentation comments. Use triple forward slashes (`///`) for single-line comments and `/** */` for multi-line documentation. Include parameter descriptions, return value explanations, and any thrown errors. Internal and private functions should have brief comments explaining complex logic or non-obvious implementations.
 
 **Section sources**
-- [README.md](file://README.md#L1000-L1200)
+- [README.md](file://README.md#L1000-L1200) - *Updated in recent commit*
 - [NTask+CoreDataProperties.swift](file://To Do List/Models/NTask+CoreDataProperties.swift)
-- [TaskScoringService.swift](file://To Do List/Services/TaskScoringService.swift)
+- [TaskScoringService.swift](file://To Do List/Services/TaskScoringService.swift) - *Updated in recent commit*
 
 ## Contribution Workflow
 
@@ -87,12 +92,12 @@ Contributions will be evaluated based on:
 - Documentation completeness
 - Proper handling of edge cases and error conditions
 
-The project is currently migrating from a legacy MVC architecture with singleton managers to a clean architecture using protocol-oriented programming and dependency injection. New code should follow the modern pattern using repositories and dependency injection rather than relying on singleton instances like `TaskManager.sharedInstance`.
+The project has completed migration from a legacy MVC architecture with singleton managers to a clean architecture using protocol-oriented programming and dependency injection. New code should follow the modern pattern using repositories and dependency injection rather than relying on singleton instances. The `TaskRepository` protocol and `DependencyContainer` should be used for all new feature development.
 
 **Section sources**
-- [README.md](file://README.md#L800-L900)
-- [DependencyContainer.swift](file://To Do List/DependencyContainer.swift)
-- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift)
+- [README.md](file://README.md#L800-L900) - *Updated in recent commit*
+- [DependencyContainer.swift](file://To Do List/DependencyContainer.swift) - *Updated in recent commit*
+- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift) - *Added in recent commit*
 
 ## Testing Guidelines
 
@@ -114,11 +119,11 @@ When adding new functionality, prioritize tests for:
 - Complex algorithms and calculations
 - Edge cases and error handling scenarios
 
-The project currently has placeholder test files but requires implementation of comprehensive test coverage, particularly for the repository layer and business logic components.
+The project now has comprehensive test coverage for the repository layer and business logic components, with a focus on contract testing for protocol implementations and integration testing for data flow.
 
 **Section sources**
-- [README.md](file://README.md#L1500-L1600)
-- [To_Do_ListTests.swift](file://To_Do ListTests/To_Do_ListTests.swift)
+- [README.md](file://README.md#L1500-L1600) - *Updated in recent commit*
+- [To_Do_ListTests.swift](file://To Do ListTests/To_Do_ListTests.swift)
 - [To_Do_ListUITests.swift](file://To_Do_ListUITests/To_Do_ListUITests.swift)
 
 ## Bug Reporting
@@ -137,7 +142,7 @@ For crashes, include the full stack trace and, if possible, the state of relevan
 The application uses Firebase Crashlytics for production crash reporting, but development bugs should be reported through GitHub issues for tracking and discussion.
 
 **Section sources**
-- [README.md](file://README.md#L1600-L1617)
+- [README.md](file://README.md#L1600-L1617) - *Updated in recent commit*
 - [LoggingService.swift](file://To Do List/Utilities/LoggingService.swift)
 
 ## License and Agreements
@@ -149,4 +154,22 @@ Contributors must agree to the terms of the MIT License when submitting code to 
 The project includes third-party dependencies with their own licensing terms, documented in the `Podfile` and managed through CocoaPods. Contributors should be aware that adding new dependencies may introduce additional licensing requirements that must be compatible with the project's MIT License.
 
 **Section sources**
-- [README.md](file://README.md#L1610-L1617)
+- [README.md](file://README.md#L1610-L1617) - *Updated in recent commit*
+
+## Clean Architecture Migration
+
+The Tasker project has completed a comprehensive migration from a legacy MVC architecture with singleton managers to a clean architecture based on the Repository pattern and dependency injection. This migration was completed in six phases:
+
+1. **Domain Models & Interfaces**: Created pure Swift domain models and interface protocols
+2. **State Management Layer**: Implemented repository pattern with proper abstraction
+3. **Use Cases / Business Layer**: Extracted business logic into stateless use case classes
+4. **Presentation Layer Decoupling**: Implemented ViewModels and removed business logic from ViewControllers
+5. **Singleton Removal**: Completely removed `TaskManager` and `ProjectManager` singletons
+6. **Testing Infrastructure**: Implemented comprehensive testing at architectural boundaries
+
+All new contributions should follow the clean architecture pattern using protocol-based dependencies, dependency injection via `DependencyContainer`, and the repository pattern for data access. The legacy singleton patterns should not be used in new code.
+
+**Section sources**
+- [README.md](file://README.md#L2000-L2500) - *Updated in recent commit*
+- [DependencyContainer.swift](file://To Do List/DependencyContainer.swift) - *Updated in recent commit*
+- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift) - *Added in recent commit*

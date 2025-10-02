@@ -1,13 +1,22 @@
 # Efficiency Metrics
 
 <cite>
-**Referenced Files in This Document**  
-- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift)
-- [CoreDataTaskRepository.swift](file://To%20Do%20List/Repositories/CoreDataTaskRepository.swift)
-- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift)
+**Referenced Files in This Document**   
+- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift) - *Updated in recent commit*
+- [CoreDataTaskRepository.swift](file://To%20Do%20List/Repositories/CoreDataTaskRepository.swift) - *Updated in recent commit*
+- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift) - *Added in recent commit*
+- [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift) - *New analytics use case implementation*
 - [NTask+CoreDataProperties.swift](file://To%20Do%20List/NTask+CoreDataProperties.swift)
 - [NTask+Extensions.swift](file://To%20Do%20List/NTask+Extensions.swift)
 </cite>
+
+## Update Summary
+**Changes Made**   
+- Updated documentation to reflect new analytics use case implementation
+- Added new section on CalculateAnalyticsUseCase integration
+- Enhanced source tracking with new file references
+- Updated section sources to reflect actual file analysis
+- Added diagram sources for architectural visualization
 
 ## Table of Contents
 1. [Efficiency Calculation Overview](#efficiency-calculation-overview)
@@ -18,6 +27,7 @@
 6. [Limitations and Accuracy Considerations](#limitations-and-accuracy-considerations)
 7. [Integration with DGCharts for Trend Visualization](#integration-with-dgcharts-for-trend-visualization)
 8. [Complementarity with Point-Based Scoring System](#complementarity-with-point-based-scoring-system)
+9. [CalculateAnalyticsUseCase Integration](#calculateanalyticsusecase-integration)
 
 ## Efficiency Calculation Overview
 
@@ -118,3 +128,45 @@ D --> E[User Insights]
 **Section sources**  
 - [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L1-L70)
 - [NTask+Extensions.swift](file://To%20Do%20List/NTask+Extensions.swift#L1-L40)
+
+## CalculateAnalyticsUseCase Integration
+
+The efficiency calculation has been integrated into the new `CalculateAnalyticsUseCase` class, which provides a modern, use-case-driven approach to analytics computation. This implementation follows the clean architecture pattern, separating concerns and improving testability. The use case orchestrates the efficiency calculation by coordinating between the `TaskRepositoryProtocol` and `TaskScoringServiceProtocol`, ensuring dependency inversion and facilitating dependency injection.
+
+The `CalculateAnalyticsUseCase` computes daily analytics including efficiency rate as part of its `computeDailyAnalytics` method, which processes task data to generate comprehensive productivity insights. This approach centralizes analytics logic and provides a consistent interface for various consumers, including UI components and reporting features.
+
+```mermaid
+classDiagram
+class CalculateAnalyticsUseCase {
++calculateDailyAnalytics(for : Date, completion : (Result<DailyAnalytics, AnalyticsError>) -> Void)
++calculateWeeklyAnalytics(completion : (Result<WeeklyAnalytics, AnalyticsError>) -> Void)
++calculateMonthlyAnalytics(completion : (Result<MonthlyAnalytics, AnalyticsError>) -> Void)
+}
+class TaskRepositoryProtocol {
++fetchTasks(for : Date, completion : ([Task]) -> Void)
++getTasksForInbox(date : Date, completion : ([TaskData]) -> Void)
+}
+class TaskScoringServiceProtocol {
++calculateScore(for : Task) -> Int
+}
+class DailyAnalytics {
++date : Date
++totalTasks : Int
++completedTasks : Int
++completionRate : Double
++totalScore : Int
+}
+CalculateAnalyticsUseCase --> TaskRepositoryProtocol : "depends on"
+CalculateAnalyticsUseCase --> TaskScoringServiceProtocol : "depends on"
+CalculateAnalyticsUseCase --> DailyAnalytics : "produces"
+```
+
+**Diagram sources**  
+- [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift#L1-L100)
+- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift#L1-L118)
+- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L1-L20)
+
+**Section sources**  
+- [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift#L1-L150)
+- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift#L1-L118)
+- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L1-L50)

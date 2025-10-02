@@ -2,21 +2,22 @@
 
 <cite>
 **Referenced Files in This Document**   
-- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift)
+- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift) - *Updated in recent commit*
 - [LLMDataController.swift](file://To%20Do%20List/LLM/Models/LLMDataController.swift)
 - [ChatView.swift](file://To%20Do%20List/LLM/Views/Chat/ChatView.swift)
 - [OnboardingView.swift](file://To%20Do%20List/LLM/Views/Onboarding/OnboardingView.swift)
 - [LLMEvaluator.swift](file://To%20Do%20List/LLM/Models/LLMEvaluator.swift)
 - [privacy.html](file://privacy.html)
+- [USE_CASES_SUMMARY.md](file://USE_CASES_SUMMARY.md) - *Added AI use case documentation*
 </cite>
 
 ## Update Summary
 **Changes Made**   
-- Consolidated AI Integration documentation into a single AI Integration.md file
-- Removed redundant AI Integration directory and its contents
-- Updated file references to reflect new documentation structure
-- Maintained all technical content and diagrams from original documentation
-- Preserved source tracking annotations with updated file paths
+- Added new section on AI-Powered Features and use cases
+- Updated Table of Contents to include new section
+- Enhanced Introduction with details about AI-powered use cases
+- Added reference to USE_CASES_SUMMARY.md for comprehensive use case documentation
+- Updated section sources to reflect new content and recent changes
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -26,11 +27,16 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Integration with Main Application](#integration-with-main-application)
 7. [Usage Guidelines](#usage-guidelines)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
+8. [AI-Powered Features and Use Cases](#ai-powered-features-and-use-cases)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
 
 ## Introduction
-The AI Integration module in Tasker provides a local large language model (LLM) system that enables natural language interaction for task management. Designed with privacy in mind, all processing occurs on-device, ensuring user data remains secure and never leaves the device. The system features Eva, a personal AI assistant that helps users manage tasks, projects, and daily planning through conversational interfaces. This documentation details the implementation of the ChatHostViewController, integration patterns, usage guidelines, and troubleshooting strategies.
+The AI Integration module in Tasker provides a local large language model (LLM) system that enables natural language interaction for task management. Designed with privacy in mind, all processing occurs on-device, ensuring user data remains secure and never leaves the device. The system features Eva, a personal AI assistant that helps users manage tasks, projects, and daily planning through conversational interfaces. This documentation details the implementation of the ChatHostViewController, integration patterns, usage guidelines, and troubleshooting strategies. Recent updates have expanded the AI capabilities with new use cases for task recommendations, priority optimization, and personalized suggestions based on user behavior patterns.
+
+**Section sources**
+- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift#L1-L151) - *Updated in recent commit*
+- [USE_CASES_SUMMARY.md](file://USE_CASES_SUMMARY.md#L45-L94) - *Added AI use case documentation*
 
 ## Project Structure
 The AI integration is organized within a dedicated LLM module inside the main To Do List application. This module contains all components related to the local LLM functionality, including view controllers, models, and UI components.
@@ -60,7 +66,7 @@ RequestLLMIntent --> LLMEvaluator
 ```
 
 **Diagram sources**
-- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift)
+- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift#L1-L151) - *Updated in recent commit*
 - [ChatView.swift](file://To%20Do%20List/LLM/Views/Chat/ChatView.swift)
 - [ConversationView.swift](file://To%20Do%20List/LLM/Views/Chat/ConversationView.swift)
 - [LLMTaskContextBuilder.swift](file://To%20Do%20List/LLM/Models/LLMTaskContextBuilder.swift)
@@ -70,13 +76,13 @@ RequestLLMIntent --> LLMEvaluator
 - [LLMDataController.swift](file://To%20Do%20List/LLM/Models/LLMDataController.swift)
 
 **Section sources**
-- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift)
+- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift#L1-L151) - *Updated in recent commit*
 
 ## Core Components
 The AI integration in Tasker consists of several key components that work together to provide LLM-powered assistance. The architecture follows a clean separation of concerns, with distinct responsibilities for UI presentation, data management, and AI processing.
 
 **Section sources**
-- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift)
+- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift#L1-L151) - *Updated in recent commit*
 - [LLMEvaluator.swift](file://To%20Do%20List/LLM/Models/LLMEvaluator.swift)
 - [LLMDataController.swift](file://To%20Do%20List/LLM/Models/LLMDataController.swift)
 
@@ -106,7 +112,7 @@ class I,G data
 ```
 
 **Diagram sources**
-- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift)
+- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift#L1-L151) - *Updated in recent commit*
 - [ChatView.swift](file://To%20Do%20List/LLM/Views/Chat/ChatView.swift)
 - [ConversationView.swift](file://To%20Do%20List/LLM/Views/Chat/ConversationView.swift)
 - [LLMTaskContextBuilder.swift](file://To%20Do%20List/LLM/Models/LLMTaskContextBuilder.swift)
@@ -128,9 +134,9 @@ class ChatHostViewController {
 -container : ModelContainer
 -hostingController : UIHostingController<AnyView>
 +viewDidLoad()
--setupFluentNavigationBar()
--onBackTapped()
--onHistoryTapped()
++setupFluentNavigationBar()
++onBackTapped()
++onHistoryTapped()
 }
 class ChatContainerView {
 -currentThread : Thread?
@@ -146,10 +152,10 @@ ChatContainerView --> ChatView : "presents when model installed"
 ```
 
 **Diagram sources**
-- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift)
+- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift#L1-L151) - *Updated in recent commit*
 
 **Section sources**
-- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift)
+- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift#L1-L151) - *Updated in recent commit*
 
 ### OnboardingView Analysis
 The OnboardingView provides a welcoming interface for users who haven't yet installed an LLM model. It highlights key features and guides users through the setup process.
@@ -243,7 +249,7 @@ The AI Integration module integrates seamlessly with the main Tasker application
 The integration maintains separation of concerns while enabling rich interaction between the AI features and core task management functionality.
 
 **Section sources**
-- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift)
+- [ChatHostViewController.swift](file://To%20Do%20List/LLM/ChatHostViewController.swift#L1-L151) - *Updated in recent commit*
 - [LLMDataController.swift](file://To%20Do%20List/LLM/Models/LLMDataController.swift)
 
 ## Usage Guidelines
@@ -271,6 +277,28 @@ The AI assistant supports several slash commands for quick actions:
 **Section sources**
 - [ChatView.swift](file://To%20Do%20List/LLM/Views/Chat/ChatView.swift)
 - [OnboardingView.swift](file://To%20Do%20List/LLM/Views/Onboarding/OnboardingView.swift)
+
+## AI-Powered Features and Use Cases
+The AI integration in Tasker has been enhanced with several new use cases that leverage the LLM system for intelligent task management:
+
+### TaskRecommendationUseCase
+Provides context-aware task suggestions based on user behavior patterns, time of day, and project context. The system analyzes historical task completion data to offer personalized recommendations.
+
+### TaskPriorityOptimizerUseCase
+Dynamically adjusts task priorities based on user behavior, deadlines, and workload patterns. The AI system learns from user interactions to suggest optimal priority configurations.
+
+### TaskGameificationUseCase
+Implements a comprehensive gamification system with dynamic points, achievements, streak tracking, and level progression based on AI analysis of user productivity patterns.
+
+### TaskHabitBuilderUseCase
+Develops personalized habit formation strategies by analyzing user behavior and suggesting optimal frequency and timing for recurring tasks.
+
+### TaskGoalTrackingUseCase
+Provides goal-oriented task management with SMART goal framework implementation, milestone tracking, and progress visualization powered by AI insights.
+
+**Section sources**
+- [USE_CASES_SUMMARY.md](file://USE_CASES_SUMMARY.md#L45-L94) - *Added AI use case documentation*
+- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift)
 
 ## Troubleshooting Guide
 

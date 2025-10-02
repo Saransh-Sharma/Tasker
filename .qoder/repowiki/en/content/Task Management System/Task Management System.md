@@ -1,14 +1,27 @@
+<docs>
 # Task Management System
 
 <cite>
 **Referenced Files in This Document**   
-- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift)
-- [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift)
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift)
+- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift) - *Updated in recent commit*
+- [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift) - *Updated in recent commit*
+- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift) - *Updated in recent commit*
+- [FilterTasksUseCase.swift](file://To Do List/UseCases/Task/FilterTasksUseCase.swift) - *Added in recent commit*
+- [SortTasksUseCase.swift](file://To Do List/UseCases/Task/SortTasksUseCase.swift) - *Added in recent commit*
+- [SearchTasksUseCase.swift](file://To Do List/UseCases/Task/SearchTasksUseCase.swift) - *Added in recent commit*
+- [TaskCollaborationUseCase.swift](file://To Do List/UseCases/Task/TaskCollaborationUseCase.swift) - *Added in recent commit*
 - [NTask+CoreDataClass.swift](file://To Do List/NTask+CoreDataClass.swift)
 - [NTask+CoreDataProperties.swift](file://To Do List/NTask+CoreDataProperties.swift)
 - [NTask+Extensions.swift](file://To Do List/NTask+Extensions.swift)
 </cite>
+
+## Update Summary
+- Added comprehensive documentation for new use case implementations: filtering, sorting, searching, and collaboration
+- Updated architecture overview to reflect the use case layer integration
+- Enhanced detailed component analysis with new use case interactions
+- Added new sections for use case implementations and their integration with existing components
+- Updated dependency analysis to include new use case dependencies
+- Added performance considerations for new use case implementations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -16,13 +29,14 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
+6. [Use Case Implementations](#use-case-implementations)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides a comprehensive analysis of the task management system's Repository pattern implementation. It focuses on the separation between the `TaskRepository` protocol and its concrete `CoreDataTaskRepository` implementation using Core Data. The system enables dependency injection, promotes testability, and ensures thread-safe data access across the application. Special attention is given to how tasks are queried by type (morning/evening), how completion updates trigger UI refreshes and score recalculations, and the mechanisms in place for maintaining data consistency across contexts.
+This document provides a comprehensive analysis of the task management system's Repository pattern implementation, now enhanced with new use case implementations. It focuses on the separation between the `TaskRepository` protocol and its concrete `CoreDataTaskRepository` implementation using Core Data. The system enables dependency injection, promotes testability, and ensures thread-safe data access across the application. Special attention is given to how tasks are queried by type (morning/evening), how completion updates trigger UI refreshes and score recalculations, and the mechanisms in place for maintaining data consistency across contexts. The document has been updated to include new use case implementations for filtering, sorting, searching, and collaboration.
 
 ## Project Structure
 
@@ -55,18 +69,32 @@ end
 subgraph "LLM"
 ChatHost[ChatHostViewController.swift]
 end
+subgraph "UseCases"
+FilterTasks[FilterTasksUseCase.swift]
+SortTasks[SortTasksUseCase.swift]
+SearchTasks[SearchTasksUseCase.swift]
+TaskCollaboration[TaskCollaborationUseCase.swift]
+end
 end
 Assets --> HomeVC
 TaskRepository --> CoreDataTaskRepository
 CoreDataTaskRepository --> NTaskClass
 HomeVC --> TaskRepository
 HomeVC --> CoreDataTaskRepository
+HomeVC --> FilterTasks
+HomeVC --> SortTasks
+HomeVC --> SearchTasks
+HomeVC --> TaskCollaboration
 ```
 
 **Diagram sources**
 - [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift)
 - [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift)
 - [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift)
+- [FilterTasksUseCase.swift](file://To Do List/UseCases/Task/FilterTasksUseCase.swift)
+- [SortTasksUseCase.swift](file://To Do List/UseCases/Task/SortTasksUseCase.swift)
+- [SearchTasksUseCase.swift](file://To Do List/UseCases/Task/SearchTasksUseCase.swift)
+- [TaskCollaborationUseCase.swift](file://To Do List/UseCases/Task/TaskCollaborationUseCase.swift)
 
 **Section sources**
 - [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift)
@@ -74,12 +102,16 @@ HomeVC --> CoreDataTaskRepository
 
 ## Core Components
 
-The core components of the task management system revolve around the Repository pattern, which abstracts data access logic behind a protocol. The `TaskRepository` defines a comprehensive contract for all CRUD operations and specialized queries, enabling loose coupling between the UI layer and persistence mechanism. The `CoreDataTaskRepository` provides a concrete implementation using Core Data with proper context management for thread safety. The `HomeViewController` consumes this repository via dependency injection, allowing it to remain agnostic of the underlying data storage details while supporting rich querying capabilities including filtering by `TaskType`, project, and date ranges.
+The core components of the task management system revolve around the Repository pattern, which abstracts data access logic behind a protocol. The `TaskRepository` defines a comprehensive contract for all CRUD operations and specialized queries, enabling loose coupling between the UI layer and persistence mechanism. The `CoreDataTaskRepository` provides a concrete implementation using Core Data with proper context management for thread safety. The `HomeViewController` consumes this repository via dependency injection, allowing it to remain agnostic of the underlying data storage details while supporting rich querying capabilities including filtering by `TaskType`, project, and date ranges. The system has been enhanced with new use case implementations for filtering, sorting, searching, and collaboration, which provide advanced functionality while maintaining separation of concerns.
 
 **Section sources**
 - [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift#L1-L117)
 - [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift#L1-L455)
 - [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L1-L1106)
+- [FilterTasksUseCase.swift](file://To Do List/UseCases/Task/FilterTasksUseCase.swift#L1-L530)
+- [SortTasksUseCase.swift](file://To Do List/UseCases/Task/SortTasksUseCase.swift#L1-L587)
+- [SearchTasksUseCase.swift](file://To Do List/UseCases/Task/SearchTasksUseCase.swift#L1-L601)
+- [TaskCollaborationUseCase.swift](file://To Do List/UseCases/Task/TaskCollaborationUseCase.swift#L1-L799)
 
 ## Architecture Overview
 
@@ -96,6 +128,14 @@ A --> H[FSCalendar]
 C --> |NotificationCenter| A
 G --> |Updates| A
 H --> |Date Selection| A
+A --> I[FilterTasksUseCase]
+A --> J[SortTasksUseCase]
+A --> K[SearchTasksUseCase]
+A --> L[TaskCollaborationUseCase]
+I --> B
+J --> B
+K --> B
+L --> B
 style A fill:#4B9CD3,stroke:#34495E
 style B fill:#27AE60,stroke:#34495E
 style C fill:#27AE60,stroke:#34495E
@@ -104,12 +144,20 @@ style E fill:#E67E22,stroke:#34495E
 style F fill:#1ABC9C,stroke:#34495E
 style G fill:#9B59B6,stroke:#34495E
 style H fill:#3498DB,stroke:#34495E
+style I fill:#8E44AD,stroke:#34495E
+style J fill:#16A085,stroke:#34495E
+style K fill:#2980B9,stroke:#34495E
+style L fill:#C0392B,stroke:#34495E
 ```
 
 **Diagram sources**
 - [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift)
 - [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift)
 - [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift)
+- [FilterTasksUseCase.swift](file://To Do List/UseCases/Task/FilterTasksUseCase.swift)
+- [SortTasksUseCase.swift](file://To Do List/UseCases/Task/SortTasksUseCase.swift)
+- [SearchTasksUseCase.swift](file://To Do List/UseCases/Task/SearchTasksUseCase.swift)
+- [TaskCollaborationUseCase.swift](file://To Do List/UseCases/Task/TaskCollaborationUseCase.swift)
 
 ## Detailed Component Analysis
 
@@ -207,62 +255,62 @@ P --> Q[Update Table View]
 - [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L1-L1106)
 - [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift#L1-L455)
 
-## Dependency Analysis
+## Use Case Implementations
+
+### FilterTasksUseCase Implementation
+
+The `FilterTasksUseCase` provides advanced filtering capabilities for tasks based on multiple criteria including completion status, priorities, categories, contexts, energy levels, date ranges, and tags. It implements a caching mechanism to improve performance for repeated filter operations.
 
 ```mermaid
-graph TD
-A[HomeViewController] -- Depends on --> B(TaskRepository)
-B -- Implemented by --> C[CoreDataTaskRepository]
-C -- Uses --> D[NSPersistentContainer]
-C -- Uses --> E[NTask]
-D -- Manages --> E
-E -- Entity --> F[(SQLite Store)]
-A -- Updates --> G[SwiftUI Chart Card]
-A -- Displays --> H[FSCalendar]
-C -- Notifies --> A[TaskCompletionChanged]
-style A fill:#4B9CD3,stroke:#34495E
-style B fill:#27AE60,stroke:#34495E
-style C fill:#27AE60,stroke:#34495E
-style D fill:#F39C12,stroke:#34495E
-style E fill:#E67E22,stroke:#34495E
-style F fill:#1ABC9C,stroke:#34495E
-style G fill:#9B59B6,stroke:#34495E
-style H fill:#3498DB,stroke:#34495E
+classDiagram
+class FilterTasksUseCase {
+-taskRepository : TaskRepositoryProtocol
+-cacheService : CacheServiceProtocol?
++filterTasks(criteria : FilterCriteria, completion : (Result<FilteredTasksResult, FilterError>) -> Void)
++filterByProject(projectName : String, includeCompleted : Bool, completion : (Result<[Task], FilterError>) -> Void)
++filterByPriority(priorities : [TaskPriority], scope : FilterScope, completion : (Result<[Task], FilterError>) -> Void)
++filterByCategory(categories : [TaskCategory], completion : (Result<[Task], FilterError>) -> Void)
++filterByContext(contexts : [TaskContext], completion : (Result<[Task], FilterError>) -> Void)
++filterByEnergyLevel(energyLevels : [TaskEnergy], completion : (Result<[Task], FilterError>) -> Void)
++filterByDateRange(startDate : Date, endDate : Date, completion : (Result<[Task], FilterError>) -> Void)
++filterByTags(tags : [String], matchMode : TagMatchMode, completion : (Result<[Task], FilterError>) -> Void)
+}
+class FilterCriteria {
++scope : FilterScope
++completionStatus : CompletionStatusFilter
++priorities : [TaskPriority]
++categories : [TaskCategory]
++contexts : [TaskContext]
++energyLevels : [TaskEnergy]
++dateRange : DateRange?
++tags : [String]
++hasEstimate : Bool?
++hasDependencies : Bool?
++tagMatchMode : TagMatchMode
++requireDueDate : Bool
++cacheKey : String
++activeFilters : [String]
+}
+class FilteredTasksResult {
++tasks : [Task]
++criteria : FilterCriteria
++totalCount : Int
++appliedFilters : [String]
+}
+FilterTasksUseCase --> TaskRepositoryProtocol : "depends on"
+FilterTasksUseCase --> CacheServiceProtocol : "optional dependency"
 ```
 
 **Diagram sources**
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift)
-- [TaskRepository.swift](file://To Do List/Repositories/TaskRepository.swift)
-- [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift)
-- [NTask+CoreDataClass.swift](file://To Do List/NTask+CoreDataClass.swift)
-
-## Performance Considerations
-
-The system employs several performance optimization techniques:
-
-- **Context Separation**: Read operations use `viewContext` while writes occur on `backgroundContext`, preventing UI blocking
-- **Batch Processing**: Fetch requests are optimized with appropriate predicates and sort descriptors
-- **Faulting**: Core Data's faulting mechanism minimizes memory usage by loading objects only when needed
-- **Asynchronous Operations**: All Core Data operations are performed asynchronously using `perform` blocks
-- **Predicate Optimization**: Complex queries use compound predicates to efficiently filter data at the storage level
-- **Notification-Based Updates**: Rather than polling, the system uses `NotificationCenter` to propagate changes only when necessary
-
-The repository pattern also enables easy substitution of implementations for testing or alternative storage mechanisms without affecting the UI layer.
-
-## Troubleshooting Guide
-
-Common issues and their solutions:
-
-- **Stale Data Display**: Ensure all UI updates occur after context saves and notifications are properly observed. The system uses `TaskCompletionChanged` notification to trigger refreshes.
-- **Thread Safety Violations**: Always use `perform` or `performAndWait` when accessing Core Data contexts from background threads. The repository encapsulates this logic.
-- **Context Merge Issues**: The `viewContext` has `automaticallyMergesChangesFromParent = true` to receive changes from background saves.
-- **Missing UI Updates**: Verify that observers for `TaskCompletionChanged` are properly added and removed in `viewDidLoad` and `deinit`.
-- **Performance Bottlenecks**: For large datasets, consider implementing pagination or using `fetchLimit` and `fetchOffset` in requests.
+- [FilterTasksUseCase.swift](file://To Do List/UseCases/Task/FilterTasksUseCase.swift#L1-L530)
 
 **Section sources**
-- [CoreDataTaskRepository.swift](file://To Do List/Repositories/CoreDataTaskRepository.swift#L1-L455)
-- [HomeViewController.swift](file://To Do List/ViewControllers/HomeViewController.swift#L1-L1106)
+- [FilterTasksUseCase.swift](file://To Do List/UseCases/Task/FilterTasksUseCase.swift#L1-L530)
 
-## Conclusion
+### SortTasksUseCase Implementation
 
-The task management system demonstrates a robust implementation of the Repository pattern with Core Data. By defining a clear protocol and providing a thread-safe concrete implementation, the system achieves separation of concerns, testability, and maintainability. The integration with `HomeViewController` through dependency injection allows for flexible composition and easy testing. The use of notifications ensures that UI components like charts and score displays stay synchronized with data changes. This architecture provides a solid foundation for future enhancements while maintaining performance and data consistency across the application.
+The `SortTasksUseCase` provides comprehensive sorting capabilities for tasks with multiple criteria and advanced options. It supports primary, secondary, and tertiary sorting fields with configurable sort order.
+
+```mermaid
+classDiagram
+class
