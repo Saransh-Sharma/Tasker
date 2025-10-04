@@ -91,6 +91,7 @@ class CalculateAnalyticsUseCase {
 +calculateDailyAnalytics(for : Date, completion : (Result<DailyAnalytics, AnalyticsError>) -> Void)
 +calculateWeeklyAnalytics(completion : (Result<WeeklyAnalytics, AnalyticsError>) -> Void)
 +calculateMonthlyAnalytics(completion : (Result<MonthlyAnalytics, AnalyticsError>) -> Void)
++calculateAnalytics(for : DateInterval, completion : (Result<PeriodAnalytics, AnalyticsError>) -> Void)
 }
 TaskScoringService --> HomeViewController : "used by"
 CalculateAnalyticsUseCase --> TaskScoringService : "depends on"
@@ -220,4 +221,4 @@ Two additional analytics use cases have been introduced to expand the system's c
 - [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L20-L150)
 - [TaskPriorityConfig.swift](file://To%20Do%20List/Domain/Models/TaskPriorityConfig.swift#L1-L137)
 - [GenerateProductivityReportUseCase.swift](file://To%20Do%20List/UseCases/Analytics/GenerateProductivityReportUseCase.swift#L1-L420)
-- [GetTaskStatisticsUseCase.swift](file://To%20Do%20List/UseCases/Task/GetTaskStatisticsUseCase.swift#L1-L380)
+- [GetTaskStatisticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/GetTaskStatisticsUseCase.swift#L1-L380)

@@ -4,11 +4,9 @@
 **Referenced Files in This Document**   
 - [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift) - *Updated to use CalculateAnalyticsUseCase*
 - [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift) - *Updated to use TaskPriorityConfig*
-- [ChartCard.swift](file://To%20Do%20List/Views/Cards/ChartCard.swift)
-- [HomeBackdropView.swift](file://To%20Do%20List/View/HomeBackdropView.swift)
-- [AddTaskBackdropView.swift](file://To%20Do%20List/View/AddTaskBackdropView.swift)
 - [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift) - *Added in recent commit*
 - [TaskPriorityConfig.swift](file://To%20Do%20List/Domain/Models/TaskPriorityConfig.swift) - *Added in recent commit*
+- [ChartCard.swift](file://To%20Do%20List/Views/Cards/ChartCard.swift)
 </cite>
 
 ## Update Summary

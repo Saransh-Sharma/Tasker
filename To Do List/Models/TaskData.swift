@@ -1,23 +1,6 @@
 import Foundation
 import CoreData
 
-// Simple, self-contained TaskPriority enum to eliminate all type issues
-enum TaskDataPriority: Int32, CaseIterable {
-    case highest = 1
-    case high = 2
-    case medium = 3
-    case low = 4
-    
-    var displayName: String {
-        switch self {
-        case .highest: return "Highest"
-        case .high: return "High"
-        case .medium: return "Medium"
-        case .low: return "Low"
-        }
-    }
-}
-
 /// A plain Swift struct representing a Task
 /// This model is meant to be used by the presentation layer, separating the Core Data implementation details
 struct TaskData {
@@ -74,25 +57,13 @@ struct TaskData {
     
     // MARK: - Computed Properties for Priority Access
     
-    /// Priority as TaskDataPriority enum (computed property using self-contained enum)
-    var priority: TaskDataPriority {
-        switch priorityRawValue {
-        case 1: return .highest
-        case 2: return .high
-        case 3: return .medium
-        case 4: return .low
-        default: return .medium // Default to medium
-        }
+    /// Priority as TaskPriorityConfig.Priority enum (computed property)
+    var priority: TaskPriorityConfig.Priority {
+        return TaskPriorityConfig.Priority(rawValue: priorityRawValue)
     }
     
     /// Priority display text
     var priorityText: String {
-        switch priorityRawValue {
-        case 1: return "Highest"
-        case 2: return "High"
-        case 3: return "Medium"
-        case 4: return "Low"
-        default: return "Medium"
-        }
+        return priority.displayName
     }
 }

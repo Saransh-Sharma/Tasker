@@ -102,39 +102,51 @@ extension HomeViewController {
     
     /// Toggle task completion using ViewModel
     func toggleTaskCompletionClean(_ task: NTask) {
-        // Convert NTask to domain Task when real types are available
-        // For now, use direct ViewModel call if available
-        if let vm = viewModel {
-            // vm.toggleTaskCompletion(domainTask) when real types are available
-            print("🔄 Clean Architecture: Toggle task completion for \(task.name ?? "Unknown")")
-        }
+        guard let vm = viewModel else { return }
+        
+        // Convert NTask to domain Task
+        let domainTask = TaskMapper.toDomain(from: task)
+        vm.toggleTaskCompletion(domainTask)
+        print("🔄 Clean Architecture: Toggle task completion for \(task.name ?? "Unknown")")
     }
     
     /// Delete task using ViewModel
     func deleteTaskClean(_ task: NTask) {
-        // Convert NTask to domain Task when real types are available
-        if let vm = viewModel {
-            // vm.deleteTask(domainTask) when real types are available
-            print("🗏 Clean Architecture: Delete task \(task.name ?? "Unknown")")
-        }
+        guard let vm = viewModel else { return }
+        
+        // vm.deleteTask(domainTask) implementation
+        let domainTask = TaskMapper.toDomain(from: task)
+        vm.deleteTask(domainTask)
+        print("🗑️ Clean Architecture: Delete task \(task.name ?? "Unknown")")
     }
     
     /// Reschedule task using ViewModel
     func rescheduleTaskClean(_ task: NTask, to date: Date) {
-        // Convert NTask to domain Task when real types are available
-        if let vm = viewModel {
-            // vm.rescheduleTask(domainTask, to: date) when real types are available
-            print("📅 Clean Architecture: Reschedule task \(task.name ?? "Unknown") to \(date)")
-        }
+        guard let vm = viewModel else { return }
+        
+        // Convert NTask to domain Task
+        let domainTask = TaskMapper.toDomain(from: task)
+        vm.rescheduleTask(domainTask, to: date)
+        print("📅 Clean Architecture: Reschedule task \(task.name ?? "Unknown") to \(date)")
     }
     
     /// Create task using ViewModel
     func createTaskClean(name: String, details: String?, type: Int32, priority: Int32, dueDate: Date, project: String?) {
-        // Create request with proper types when available
-        if let vm = viewModel {
-            // vm.createTask(request: request) when real types are available
-            print("➕ Clean Architecture: Create task \(name) with priority \(priority)")
-        }
+        guard let vm = viewModel else { return }
+        
+        // Create request with proper domain types following memory specification
+        let request = CreateTaskRequest(
+            name: name,  // Using 'name' property as per memory specification
+            details: details,
+            type: TaskType(rawValue: type),
+            priority: TaskPriority(rawValue: priority),
+            dueDate: dueDate,
+            project: project ?? "Inbox",
+            alertReminderTime: nil
+        )
+        
+        vm.createTask(request: request)
+        print("➕ Clean Architecture: Create task \(name) with priority \(priority)")
     }
     
     // MARK: - Data Loading using ViewModel
@@ -180,34 +192,21 @@ extension HomeViewController {
 
 extension HomeViewController {
     
-    /// Check if using Clean Architecture or legacy
-    var isUsingCleanArchitecture: Bool {
-        return viewModel != nil
-    }
-    
-    /// Wrapper method for task operations that works with both architectures
+    /// Wrapper method for task operations using Clean Architecture only
     func performTaskOperation(_ operation: TaskOperation) {
-        if isUsingCleanArchitecture {
-            // Use ViewModel
-            switch operation {
-            case .toggleComplete(let task):
-                toggleTaskCompletionClean(task)
-            case .delete(let task):
-                deleteTaskClean(task)
-            case .reschedule(let task, let date):
-                rescheduleTaskClean(task, to: date)
-            }
-        } else {
-            // Fallback to migration adapter (which uses use cases internally)
-            switch operation {
-            case .toggleComplete(let task):
-                TaskManagerMigrationAdapter.sharedInstance.toggleTaskComplete(task: task)
-            case .delete(let task):
-                TaskManagerMigrationAdapter.sharedInstance.deleteTask(task)
-            case .reschedule(let task, let date):
-                task.dueDate = date as NSDate
-                TaskManagerMigrationAdapter.sharedInstance.saveContext()
-            }
+        // Always use Clean Architecture - migration adapters removed
+        guard viewModel != nil else {
+            print("⚠️ No ViewModel available - ensure Clean Architecture is properly set up")
+            return
+        }
+        
+        switch operation {
+        case .toggleComplete(let task):
+            toggleTaskCompletionClean(task)
+        case .delete(let task):
+            deleteTaskClean(task)
+        case .reschedule(let task, let date):
+            rescheduleTaskClean(task, to: date)
         }
     }
     

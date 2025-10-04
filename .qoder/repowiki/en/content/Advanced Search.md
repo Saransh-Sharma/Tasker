@@ -4,7 +4,6 @@
 **Referenced Files in This Document**   
 - [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift) - *Updated in recent commit*
 - [UseCaseCoordinator.swift](file://To%20Do%20List/UseCases/Coordinator/UseCaseCoordinator.swift) - *Updated in recent commit*
-- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift) - *Modified in recent commit*
 - [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift) - *Added in recent commit*
 - [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift) - *Added in recent commit*
 </cite>

@@ -17,17 +17,7 @@ extension HomeViewController {
         static var cancellables = "cancellables"
     }
     
-    // MARK: - Clean Architecture Properties
-    
-    /// ViewModel for Clean Architecture
-    var viewModel: HomeViewModel! {
-        get {
-            return objc_getAssociatedObject(self, &AssociatedKeys.viewModel) as? HomeViewModel
-        }
-        set {
-            objc_setAssociatedObject(self, &AssociatedKeys.viewModel, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        }
-    }
+    // MARK: - Combine Properties
     
     /// Combine cancellables for subscriptions
     var cancellables: Set<AnyCancellable> {

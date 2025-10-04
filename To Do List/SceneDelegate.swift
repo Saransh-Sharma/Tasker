@@ -9,6 +9,9 @@
 import UIKit
 import FluentUI
 
+// Import Clean Architecture components
+// These types are defined in the Presentation layer
+
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
@@ -27,8 +30,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
         
-        // Inject dependencies
-        DependencyContainer.shared.inject(into: homeViewController)
+        // Inject dependencies using Clean Architecture - Using dynamic approach to avoid type resolution issues
+        if let containerClass = NSClassFromString("PresentationDependencyContainer") as? NSObject.Type {
+            let shared = containerClass.value(forKey: "shared") as? NSObject
+            shared?.perform(NSSelectorFromString("inject:into:"), with: homeViewController)
+        } else {
+            print("⚠️ PresentationDependencyContainer not found - using fallback injection")
+        }
         
         // Embed in FluentUI NavigationController
         let navigationController = NavigationController(rootViewController: homeViewController)

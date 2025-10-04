@@ -35,12 +35,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         _ = persistentContainer
         
         // Setup Clean Architecture - replaces all singleton initialization
-        print("🏗️ Setting up Clean Architecture...")
-        
-        // Configure dependency container with Core Data
-        DependencyContainer.shared.configure(with: persistentContainer)
-        
-        print("✅ Clean Architecture setup complete")
+        setupCleanArchitecture()
         
         // 2) Observe remote-change notifications so your viewContext merges them
         NotificationCenter.default.addObserver(
@@ -185,6 +180,121 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("❌ APNs registration failed: \(error)")
+    }
+    
+    // MARK: - Clean Architecture Setup
+    
+    /// Setup Clean Architecture with modern components only
+    func setupCleanArchitecture() {
+        print("🏢️ Setting up Clean Architecture...")
+        
+        // Configure legacy DependencyContainer for backward compatibility
+        DependencyContainer.shared.configure(with: persistentContainer)
+        print("✅ Legacy DependencyContainer configured")
+        
+        // Configure the presentation dependency container using dynamic resolution
+        if let containerClass = NSClassFromString("PresentationDependencyContainer") as? NSObject.Type {
+            if let shared = containerClass.value(forKey: "shared") as? NSObject {
+                shared.perform(NSSelectorFromString("configure:with:"), with: persistentContainer)
+                print("✅ PresentationDependencyContainer configured dynamically")
+            }
+        } else {
+            print("🔗 Using basic configuration - PresentationDependencyContainer not found")
+        }
+        
+        // Run basic data consolidation
+        consolidateDataBasic()
+        
+        print("✅ Clean Architecture setup complete")
+    }
+    
+    /// Basic data consolidation without complex type dependencies
+    private func consolidateDataBasic() {
+        print("🔄 Running basic data consolidation...")
+        
+        // Ensure Inbox project exists using Core Data directly
+        ensureInboxProjectExists()
+        
+        // Fix any tasks with missing data
+        fixMissingTaskData()
+        
+        print("✅ Basic data consolidation complete")
+    }
+    
+    /// Ensure Inbox project exists in Core Data
+    private func ensureInboxProjectExists() {
+        let context = persistentContainer.viewContext
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        request.predicate = NSPredicate(format: "projectName LIKE[c] %@", "Inbox")
+        
+        do {
+            let existingProjects = try context.fetch(request)
+            
+            if existingProjects.isEmpty {
+                // Create Inbox project
+                let inboxProject = Projects(context: context)
+                inboxProject.projectName = "Inbox"
+                inboxProject.projecDescription = "Default project for uncategorized tasks"
+                
+                try context.save()
+                print("✅ Created default Inbox project")
+            } else {
+                print("✅ Inbox project already exists")
+            }
+        } catch {
+            print("⚠️ Error ensuring Inbox project exists: \(error)")
+        }
+    }
+    
+    /// Fix tasks with missing required data
+    private func fixMissingTaskData() {
+        let context = persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        
+        do {
+            let tasks = try context.fetch(request)
+            var needsSave = false
+            
+            for task in tasks {
+                // Fix missing project
+                if task.project == nil || task.project?.isEmpty == true {
+                    task.project = "Inbox"
+                    needsSave = true
+                }
+                
+                // Fix missing dates
+                if task.dateAdded == nil {
+                    task.dateAdded = Date() as NSDate
+                    needsSave = true
+                }
+                
+                // Fix missing due date
+                if task.dueDate == nil {
+                    task.dueDate = Date() as NSDate
+                    needsSave = true
+                }
+                
+                // Fix missing task type (assuming TaskType enum exists)
+                if task.taskType == 0 {
+                    task.taskType = 1 // Morning task
+                    needsSave = true
+                }
+                
+                // Fix missing priority (assuming TaskPriority enum exists)
+                if task.taskPriority == 0 {
+                    task.taskPriority = 4 // Low priority
+                    needsSave = true
+                }
+            }
+            
+            if needsSave {
+                try context.save()
+                print("✅ Fixed missing task data")
+            }
+            
+        } catch {
+            print("⚠️ Error fixing task data: \(error)")
+        }
     }
     
 

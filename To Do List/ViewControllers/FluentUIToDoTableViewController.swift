@@ -709,7 +709,9 @@ extension FluentUIToDoTableViewController {
         
         // Delete action (left to right swipe)
         let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] (action, view, completionHandler) in
-            self?.deleteTask(task)
+            // Use delegate pattern to notify parent controller
+            guard let self = self else { return }
+            self.delegate?.fluentToDoTableViewControllerDidDeleteTask(self, task: task)
             completionHandler(true)
         }
         deleteAction.backgroundColor = UIColor.systemRed
@@ -734,7 +736,9 @@ extension FluentUIToDoTableViewController {
         // Done action (right to left swipe)
         if !task.isComplete {
             let doneAction = UIContextualAction(style: .normal, title: "Done") { [weak self] (action, view, completionHandler) in
-                self?.markTaskComplete(task)
+                // Use delegate pattern to notify parent controller
+                guard let self = self else { return }
+                self.delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
                 completionHandler(true)
             }
             doneAction.backgroundColor = UIColor.systemGreen
@@ -743,7 +747,9 @@ extension FluentUIToDoTableViewController {
         } else {
             // Reopen action for completed tasks
             let reopenAction = UIContextualAction(style: .normal, title: "Reopen") { [weak self] (action, view, completionHandler) in
-                self?.markTaskIncomplete(task)
+                // Use delegate pattern to notify parent controller
+                guard let self = self else { return }
+                self.delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
                 completionHandler(true)
             }
             reopenAction.backgroundColor = UIColor.systemOrange

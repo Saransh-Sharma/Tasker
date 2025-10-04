@@ -2,33 +2,33 @@
 //  AddTaskViewModel.swift
 //  Tasker
 //
-//  ViewModel for Add Task screen - manages task creation logic
+//  ViewModel for Add Task screen - manages task creation workflow
 //
 
 import Foundation
 import Combine
 
 /// ViewModel for the Add Task screen
-/// Manages task creation and validation
+/// Manages task creation state and validation
 public final class AddTaskViewModel: ObservableObject {
     
-    // MARK: - Published Properties (Form State)
+    // MARK: - Published Properties (Observable State)
     
-    @Published public var taskName: String = ""
-    @Published public var taskDetails: String = ""
-    @Published public var selectedType: TaskType = .morning
-    @Published public var selectedPriority: TaskPriority = .low
-    @Published public var selectedDate: Date = Date()
-    @Published public var selectedProject: String = "Inbox"
-    @Published public var reminderEnabled: Bool = false
-    @Published public var reminderTime: Date = Date()
-    
-    // UI State
+    @Published public private(set) var projects: [Project] = []
     @Published public private(set) var isLoading: Bool = false
     @Published public private(set) var errorMessage: String?
+    @Published public private(set) var isTaskCreated: Bool = false
     @Published public private(set) var validationErrors: [ValidationError] = []
-    @Published public private(set) var projects: [Project] = []
-    @Published public private(set) var suggestedDates: [RescheduleSuggestion] = []
+    
+    // Form state
+    @Published public var taskName: String = ""
+    @Published public var taskDetails: String = ""
+    @Published public var selectedPriority: TaskPriority = .medium
+    @Published public var selectedType: TaskType = .morning
+    @Published public var selectedProject: String = "Inbox"
+    @Published public var dueDate: Date = Date()
+    @Published public var hasReminder: Bool = false
+    @Published public var reminderTime: Date = Date()
     
     // MARK: - Dependencies
     
@@ -36,29 +36,6 @@ public final class AddTaskViewModel: ObservableObject {
     private let manageProjectsUseCase: ManageProjectsUseCase
     private let rescheduleTaskUseCase: RescheduleTaskUseCase
     private var cancellables = Set<AnyCancellable>()
-    
-    // MARK: - Computed Properties
-    
-    /// Check if the form is valid
-    public var isFormValid: Bool {
-        return !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-               taskName.count <= 200 &&
-               (taskDetails.isEmpty || taskDetails.count <= 1000)
-    }
-    
-    /// Get validation message
-    public var validationMessage: String? {
-        if taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Task name is required"
-        }
-        if taskName.count > 200 {
-            return "Task name must be less than 200 characters"
-        }
-        if taskDetails.count > 1000 {
-            return "Task details must be less than 1000 characters"
-        }
-        return nil
-    }
     
     // MARK: - Initialization
     
@@ -71,18 +48,15 @@ public final class AddTaskViewModel: ObservableObject {
         self.manageProjectsUseCase = manageProjectsUseCase
         self.rescheduleTaskUseCase = rescheduleTaskUseCase
         
-        setupBindings()
+        setupValidation()
         loadProjects()
-        setupDateSuggestions()
     }
     
     // MARK: - Public Methods
     
-    /// Create the task with current form values
-    public func createTask(completion: @escaping (Result<Task, Error>) -> Void) {
-        guard isFormValid else {
-            errorMessage = validationMessage
-            completion(.failure(AddTaskError.validationFailed(validationMessage ?? "Invalid form")))
+    /// Create a new task
+    public func createTask() {
+        guard validateInput() else {
             return
         }
         
@@ -90,13 +64,13 @@ public final class AddTaskViewModel: ObservableObject {
         errorMessage = nil
         
         let request = CreateTaskRequest(
-            name: taskName.trimmingCharacters(in: .whitespacesAndNewlines),
+            name: taskName,
             details: taskDetails.isEmpty ? nil : taskDetails,
             type: selectedType,
             priority: selectedPriority,
-            dueDate: selectedDate,
-            projectName: selectedProject == "Inbox" ? nil : selectedProject,
-            reminderTime: reminderEnabled ? reminderTime : nil
+            dueDate: dueDate,
+            projectName: selectedProject,
+            alertReminderTime: hasReminder ? reminderTime : nil
         )
         
         createTaskUseCase.execute(request: request) { [weak self] result in
@@ -104,69 +78,14 @@ public final class AddTaskViewModel: ObservableObject {
                 self?.isLoading = false
                 
                 switch result {
-                case .success(let task):
+                case .success:
+                    self?.isTaskCreated = true
                     self?.resetForm()
-                    completion(.success(task))
                     
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
-                    completion(.failure(error))
                 }
             }
-        }
-    }
-    
-    /// Reset form to default values
-    public func resetForm() {
-        taskName = ""
-        taskDetails = ""
-        selectedType = .morning
-        selectedPriority = .low
-        selectedDate = Date()
-        selectedProject = "Inbox"
-        reminderEnabled = false
-        reminderTime = Date()
-        errorMessage = nil
-        validationErrors = []
-    }
-    
-    /// Validate the current form
-    public func validateForm() {
-        validationErrors.removeAll()
-        
-        if taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            validationErrors.append(.emptyName)
-        }
-        
-        if taskName.count > 200 {
-            validationErrors.append(.nameTooLong)
-        }
-        
-        if taskDetails.count > 1000 {
-            validationErrors.append(.detailsTooLong)
-        }
-        
-        if selectedDate < Calendar.current.startOfDay(for: Date()) {
-            validationErrors.append(.pastDate)
-        }
-    }
-    
-    /// Update task type based on selected time
-    public func updateTaskTypeFromTime() {
-        let hour = Calendar.current.component(.hour, from: selectedDate)
-        
-        if hour < 12 {
-            selectedType = .morning
-        } else if hour < 18 {
-            selectedType = .evening
-        } else {
-            selectedType = .evening
-        }
-        
-        // If date is more than 7 days away, mark as upcoming
-        let daysUntil = Calendar.current.dateComponents([.day], from: Date(), to: selectedDate).day ?? 0
-        if daysUntil > 7 {
-            selectedType = .upcoming
         }
     }
     
@@ -179,140 +98,147 @@ public final class AddTaskViewModel: ObservableObject {
                     self?.projects = projectsWithStats.map { $0.project }
                     
                 case .failure(let error):
-                    print("Failed to load projects: \(error)")
-                    // Still allow task creation with default Inbox
-                    self?.projects = [Project.createInbox()]
+                    self?.errorMessage = error.localizedDescription
                 }
             }
         }
     }
     
-    /// Create a quick task with minimal input
-    public func createQuickTask(name: String, completion: @escaping (Result<Task, Error>) -> Void) {
-        let request = CreateTaskRequest(
-            name: name,
-            type: determineQuickTaskType(),
-            priority: .low,
-            dueDate: Date(),
-            projectName: "Inbox"
-        )
+    /// Create a new project
+    public func createProject(name: String) {
+        let request = CreateProjectRequest(name: name)
         
-        createTaskUseCase.execute(request: request) { result in
+        manageProjectsUseCase.createProject(request: request) { [weak self] result in
             DispatchQueue.main.async {
-                completion(result.mapError { $0 as Error })
+                switch result {
+                case .success:
+                    self?.selectedProject = name
+                    self?.loadProjects()
+                    
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
             }
         }
+    }
+    
+    /// Reschedule task (for editing existing tasks)
+    public func rescheduleTask(_ taskId: UUID, to newDate: Date) {
+        isLoading = true
+        
+        rescheduleTaskUseCase.execute(taskId: taskId, newDate: newDate) { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+                
+                switch result {
+                case .success:
+                    // Task rescheduled successfully
+                    break
+                    
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+    
+    /// Reset form to initial state
+    public func resetForm() {
+        taskName = ""
+        taskDetails = ""
+        selectedPriority = .medium
+        selectedType = .morning
+        selectedProject = "Inbox"
+        dueDate = Date()
+        hasReminder = false
+        reminderTime = Date()
+        validationErrors = []
+        isTaskCreated = false
+    }
+    
+    /// Validate input and update validation errors
+    @discardableResult
+    public func validateInput() -> Bool {
+        validationErrors = []
+        
+        // Validate task name
+        if taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            validationErrors.append(.emptyTaskName)
+        } else if taskName.count > 200 {
+            validationErrors.append(.taskNameTooLong)
+        }
+        
+        // Validate due date
+        if dueDate < Calendar.current.startOfDay(for: Date()) {
+            validationErrors.append(.pastDueDate)
+        }
+        
+        // Validate reminder time
+        if hasReminder && reminderTime < Date() {
+            validationErrors.append(.pastReminderTime)
+        }
+        
+        return validationErrors.isEmpty
     }
     
     // MARK: - Private Methods
     
-    private func setupBindings() {
-        // Auto-update task type when date changes
-        $selectedDate
-            .sink { [weak self] _ in
-                self?.updateTaskTypeFromTime()
-            }
-            .store(in: &cancellables)
-        
-        // Validate form on text changes
-        $taskName
+    private func setupValidation() {
+        // Validate input whenever relevant fields change
+        Publishers.CombineLatest4($taskName, $dueDate, $hasReminder, $reminderTime)
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] _ in
-                self?.validateForm()
+                self?.validateInput()
             }
             .store(in: &cancellables)
-        
-        $taskDetails
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.validateForm()
-            }
-            .store(in: &cancellables)
-    }
-    
-    private func setupDateSuggestions() {
-        // Generate smart date suggestions
-        suggestedDates = [
-            RescheduleSuggestion(
-                date: Date(),
-                reason: "Today",
-                taskLoad: .medium
-            ),
-            RescheduleSuggestion(
-                date: Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date(),
-                reason: "Tomorrow",
-                taskLoad: .low
-            ),
-            RescheduleSuggestion(
-                date: getNextMonday(),
-                reason: "Next Monday",
-                taskLoad: .low
-            )
-        ]
-    }
-    
-    private func determineQuickTaskType() -> TaskType {
-        let hour = Calendar.current.component(.hour, from: Date())
-        
-        if hour < 12 {
-            return .morning
-        } else if hour < 18 {
-            return .evening
-        } else {
-            return .evening
-        }
-    }
-    
-    private func getNextMonday() -> Date {
-        let calendar = Calendar.current
-        let today = Date()
-        let weekday = calendar.component(.weekday, from: today)
-        
-        // Calculate days until Monday (weekday 2)
-        let daysUntilMonday = (9 - weekday) % 7
-        let nextMonday = calendar.date(byAdding: .day, value: daysUntilMonday == 0 ? 7 : daysUntilMonday, to: today)
-        
-        return nextMonday ?? today
     }
 }
 
 // MARK: - Validation Errors
 
 public enum ValidationError: LocalizedError {
-    case emptyName
-    case nameTooLong
-    case detailsTooLong
-    case pastDate
-    case invalidProject
+    case emptyTaskName
+    case taskNameTooLong
+    case pastDueDate
+    case pastReminderTime
     
     public var errorDescription: String? {
         switch self {
-        case .emptyName:
+        case .emptyTaskName:
             return "Task name cannot be empty"
-        case .nameTooLong:
+        case .taskNameTooLong:
             return "Task name is too long (max 200 characters)"
-        case .detailsTooLong:
-            return "Task details are too long (max 1000 characters)"
-        case .pastDate:
-            return "Cannot create task in the past"
-        case .invalidProject:
-            return "Selected project does not exist"
+        case .pastDueDate:
+            return "Due date cannot be in the past"
+        case .pastReminderTime:
+            return "Reminder time cannot be in the past"
         }
     }
 }
 
-// MARK: - Errors
+// MARK: - View State
 
-public enum AddTaskError: LocalizedError {
-    case validationFailed(String)
-    case creationFailed(String)
+extension AddTaskViewModel {
     
-    public var errorDescription: String? {
-        switch self {
-        case .validationFailed(let message):
-            return "Validation failed: \(message)"
-        case .creationFailed(let message):
-            return "Failed to create task: \(message)"
-        }
+    /// Combined state for the view
+    public var viewState: AddTaskViewState {
+        return AddTaskViewState(
+            isLoading: isLoading,
+            errorMessage: errorMessage,
+            isTaskCreated: isTaskCreated,
+            validationErrors: validationErrors,
+            projects: projects,
+            canSubmit: validationErrors.isEmpty && !taskName.isEmpty
+        )
     }
+}
+
+/// State structure for the add task view
+public struct AddTaskViewState {
+    public let isLoading: Bool
+    public let errorMessage: String?
+    public let isTaskCreated: Bool
+    public let validationErrors: [ValidationError]
+    public let projects: [Project]
+    public let canSubmit: Bool
 }
