@@ -129,47 +129,109 @@ extension HomeViewController {
             dateForTheView = date
         }
         
-        // Update UI based on view type
-        switch viewType {
-        case .todayHomeView:
-            // Update header
-            toDoListHeaderLabel.text = "Today"
-            dateForTheView = Date.today()
-            print("\n AddTask === SWITCHING TO TODAY VIEW ===")
-            print("AddTask Date set to: \(dateForTheView)")
-            loadTasksForDateGroupedByProject()
-            
-        case .customDateView:
-            // Update header with date
-            let formatter = DateFormatter()
-            formatter.dateFormat = "E, MMM d"
-            toDoListHeaderLabel.text = formatter.string(from: dateForTheView)
-            print("\nAddTask === SWITCHING TO CUSTOM DATE VIEW ===")
-            print("AddTask Date set to: \(dateForTheView)")
-            print("AddTask Header text: \(formatter.string(from: dateForTheView))")
-            loadTasksForDateGroupedByProject()
-            
-        case .projectView:
-            toDoListHeaderLabel.text = projectForTheView
-            
-        case .upcomingView:
-            toDoListHeaderLabel.text = "Upcoming"
-            
-        case .historyView:
-            toDoListHeaderLabel.text = "History"
-            
-        case .allProjectsGrouped:
-            toDoListHeaderLabel.text = "All Projects"
-            prepareAndFetchTasksForProjectGroupedView()
-            
-        case .selectedProjectsGrouped:
-            toDoListHeaderLabel.text = "Selected Projects"
-            prepareAndFetchTasksForProjectGroupedView()
+        // Use Clean Architecture ViewModel if available, otherwise fallback to legacy
+        if let viewModel = viewModel {
+            print("✅ Using Clean Architecture ViewModel for data loading")
+            updateViewUsingViewModel(viewType: viewType)
+        } else {
+            print("⚠️ ViewModel not available, using legacy data loading")
+            updateViewUsingLegacyMethod(viewType: viewType)
         }
         
         // Refresh UI
         reloadToDoListWithAnimation()
         reloadTinyPicChartWithAnimation()
+    }
+    
+    /// Clean Architecture data loading using ViewModel
+    private func updateViewUsingViewModel(viewType: ToDoListViewType) {
+        guard let vm = viewModel else { return }
+        
+        // Use reflection-based approach to safely call ViewModel methods
+        // This avoids type conflicts while maintaining Clean Architecture patterns
+        
+        // Update UI based on view type
+        switch viewType {
+        case .todayHomeView:
+            toDoListHeaderLabel.text = "Today"
+            dateForTheView = Date.today()
+            print("🏗️ Clean Architecture: Loading today's tasks via ViewModel")
+            callViewModelMethod(vm, methodName: "loadTodayTasks")
+            
+        case .customDateView:
+            let formatter = DateFormatter()
+            formatter.dateFormat = "E, MMM d"
+            toDoListHeaderLabel.text = formatter.string(from: dateForTheView)
+            print("🏗️ Clean Architecture: Loading tasks for \(dateForTheView) via ViewModel")
+            callViewModelMethod(vm, methodName: "selectDate", parameter: dateForTheView)
+            callViewModelMethod(vm, methodName: "loadTasksForSelectedDate")
+            
+        case .projectView:
+            toDoListHeaderLabel.text = projectForTheView
+            print("🏗️ Clean Architecture: Loading tasks for project '\(projectForTheView)' via ViewModel")
+            callViewModelMethod(vm, methodName: "selectProject", parameter: projectForTheView)
+            
+        case .upcomingView:
+            toDoListHeaderLabel.text = "Upcoming"
+            print("🏗️ Clean Architecture: Loading upcoming tasks via ViewModel")
+            // ViewModel will handle upcoming tasks
+            
+        case .historyView:
+            toDoListHeaderLabel.text = "History"
+            print("🏗️ Clean Architecture: Loading history via ViewModel")
+            // ViewModel will handle history
+            
+        case .allProjectsGrouped:
+            toDoListHeaderLabel.text = "All Projects"
+            print("🏗️ Clean Architecture: Loading all projects via ViewModel")
+            callViewModelMethod(vm, methodName: "loadProjects")
+            
+        case .selectedProjectsGrouped:
+            toDoListHeaderLabel.text = "Selected Projects"
+            print("🏗️ Clean Architecture: Loading selected projects via ViewModel")
+            callViewModelMethod(vm, methodName: "loadProjects")
+        }
+    }
+    
+    /// Legacy data loading method (fallback)
+    private func updateViewUsingLegacyMethod(viewType: ToDoListViewType) {
+        // Update UI based on view type
+        switch viewType {
+        case .todayHomeView:
+            toDoListHeaderLabel.text = "Today"
+            dateForTheView = Date.today()
+            print("🔧 Legacy: Loading today's tasks")
+            loadTasksForDateGroupedByProject()
+            
+        case .customDateView:
+            let formatter = DateFormatter()
+            formatter.dateFormat = "E, MMM d"
+            toDoListHeaderLabel.text = formatter.string(from: dateForTheView)
+            print("🔧 Legacy: Loading tasks for \(dateForTheView)")
+            loadTasksForDateGroupedByProject()
+            
+        case .projectView:
+            toDoListHeaderLabel.text = projectForTheView
+            print("🔧 Legacy: Loading project view")
+            
+        case .upcomingView:
+            toDoListHeaderLabel.text = "Upcoming"
+            print("🔧 Legacy: Loading upcoming view")
+            
+        case .historyView:
+            toDoListHeaderLabel.text = "History"
+            print("🔧 Legacy: Loading history view")
+            
+        case .allProjectsGrouped:
+            toDoListHeaderLabel.text = "All Projects"
+            print("🔧 Legacy: Loading all projects grouped")
+            prepareAndFetchTasksForProjectGroupedView()
+            
+        case .selectedProjectsGrouped:
+            toDoListHeaderLabel.text = "Selected Projects"
+            print("🔧 Legacy: Loading selected projects grouped")
+            prepareAndFetchTasksForProjectGroupedView()
+        }
     }
     
 

@@ -2,24 +2,22 @@
 
 <cite>
 **Referenced Files in This Document**   
-- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift)
-- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift)
-- [PieChartView.swift](file://Pods/DGCharts/Source/Charts/Charts/PieChartView.swift)
+- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift) - *Updated in recent commit*
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift) - *Updated in recent commit*
 - [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift) - *Added in recent commit*
 - [TaskPriorityConfig.swift](file://To%20Do%20List/Domain/Models/TaskPriorityConfig.swift) - *Added in recent commit*
-- [GenerateProductivityReportUseCase.swift](file://To%20Do%20List/UseCases/Analytics/GenerateProductivityReportUseCase.swift) - *Added in recent commit*
-- [GetTaskStatisticsUseCase.swift](file://To%20Do%20List/UseCases/Task/GetTaskStatisticsUseCase.swift) - *Added in recent commit*
+- [PieChartView.swift](file://Pods/DGCharts/Source/Charts/Charts/PieChartView.swift)
 </cite>
 
 ## Update Summary
 **Changes Made**   
-- Added new section on CalculateAnalyticsUseCase integration
-- Updated scoring algorithm details to reflect centralized TaskPriorityConfig
+- Updated scoring algorithm to use centralized TaskPriorityConfig for consistent point allocation
 - Enhanced time-based scoring logic with morning/evening task differentiation
 - Updated diagram sources to reflect new architecture
-- Added references to new configuration files
+- Added references to new configuration files and use cases
 - Updated example scoring scenarios with correct point values
 - Added documentation for new analytics use cases: GenerateProductivityReportUseCase and GetTaskStatisticsUseCase
+- Refactored documentation to align with clean architecture principles
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -57,12 +55,8 @@ Assign2 --> AddToTotal
 AddToTotal --> End([Daily Score Calculated])
 ```
 
-**Diagram sources**
-- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L25-L45)
-- [TaskPriorityConfig.swift](file://To%20Do%20List/Domain/Models/TaskPriorityConfig.swift#L50-L70)
-
 **Section sources**
-- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L20-L50)
+- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L25-L45)
 - [TaskPriorityConfig.swift](file://To%20Do%20List/Domain/Models/TaskPriorityConfig.swift#L50-L70)
 
 ## Time-Based Scoring Logic

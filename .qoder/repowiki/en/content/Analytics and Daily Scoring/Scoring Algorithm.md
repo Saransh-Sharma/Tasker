@@ -1,4 +1,3 @@
-<docs>
 # Scoring Algorithm
 
 <cite>
@@ -7,7 +6,7 @@
 - [TaskPriorityConfig.swift](file://To%20Do%20List/Domain/Models/TaskPriorityConfig.swift) - *Added in recent commit*
 - [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift) - *Added in recent commit*
 - [TaskData.swift](file://To%20Do%20List/Models/TaskData.swift) - *Updated for new priority system*
-- [NTask+CoreDataProperties.swift](file://To%20Do%20Do%20List/NTask+CoreDataProperties.swift) - *Updated for new priority system*
+- [NTask+CoreDataProperties.swift](file://To%20Do%20List/NTask+CoreDataProperties.swift) - *Updated for new priority system*
 - [NTask+Extensions.swift](file://To%20Do%20List/NTask+Extensions.swift) - *Updated for new priority system*
 </cite>
 

@@ -1,4 +1,3 @@
-<docs>
 # Daily Score Calculation
 
 <cite>
@@ -133,4 +132,44 @@ A new `CalculateAnalyticsUseCase` has been introduced to provide a more comprehe
 
 ```mermaid
 classDiagram
-class Calculate
+class CalculateAnalyticsUseCase {
++calculateTodayAnalytics(completion : (Result<DailyAnalytics, AnalyticsError>) -> Void) void
++calculateDailyAnalytics(for : Date, completion : (Result<DailyAnalytics, AnalyticsError>) -> Void) void
++calculateWeeklyAnalytics(completion : (Result<WeeklyAnalytics, AnalyticsError>) -> Void) void
++calculateMonthlyAnalytics(completion : (Result<MonthlyAnalytics, AnalyticsError>) -> Void) void
+}
+class TaskRepositoryProtocol {
+<<protocol>>
++fetchTasks(for : Date, completion : ([Task]) -> Void) void
++fetchAllTasks(completion : (Result<[Task], Error>) -> Void) void
++fetchCompletedTasks(completion : (Result<[Task], Error>) -> Void) void
+}
+class TaskScoringServiceProtocol {
+<<protocol>>
++calculateScore(for : Task) Int
+}
+class DailyAnalytics {
++date : Date
++totalTasks : Int
++completedTasks : Int
++completionRate : Double
++totalScore : Int
++morningTasksCompleted : Int
++eveningTasksCompleted : Int
++priorityBreakdown : [TaskPriority : Int]
+}
+CalculateAnalyticsUseCase --> TaskRepositoryProtocol : "depends on"
+CalculateAnalyticsUseCase --> TaskScoringServiceProtocol : "depends on"
+```
+
+**Diagram sources**
+- [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift#L1-L586)
+- [TaskRepository.swift](file://To%20Do%20List/Repositories/TaskRepository.swift#L1-L118)
+- [TaskScoringService.swift](file://To%20Do%20List/Services/TaskScoringService.swift#L1-L153)
+
+**Section sources**
+- [CalculateAnalyticsUseCase.swift](file://To%20Do%20List/UseCases/Analytics/CalculateAnalyticsUseCase.swift#L1-L586)
+- [TaskPriorityConfig.swift](file://To%20Do%20List/Domain/Models/TaskPriorityConfig.swift#L1-L137)
+
+## Conclusion
+The daily score calculation mechanism in Tasker is a well-architected system that effectively combines Core Data, the repository pattern, and asynchronous programming to deliver a responsive and accurate gamification feature. By using `NSPredicate` to filter tasks within a precise 24-hour window defined by `startOfDay`, the system ensures data integrity. The repository abstraction provides a clean separation of concerns, enhancing testability and maintainability. The asynchronous completion handler guarantees UI responsiveness. While the current implementation handles most cases correctly, attention to calendar-specific intervals would make it more robust against timezone and DST edge cases. The integration with `HomeViewController` provides immediate user feedback, reinforcing productive behavior.

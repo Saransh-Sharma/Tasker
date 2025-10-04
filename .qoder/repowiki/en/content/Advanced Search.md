@@ -2,12 +2,20 @@
 
 <cite>
 **Referenced Files in This Document**   
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift)
-- [UseCaseCoordinator.swift](file://To%20Do%20List/UseCases/Coordinator/UseCaseCoordinator.swift)
-- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift)
-- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift)
-- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift) - *Updated in recent commit*
+- [UseCaseCoordinator.swift](file://To%20Do%20List/UseCases/Coordinator/UseCaseCoordinator.swift) - *Updated in recent commit*
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift) - *Modified in recent commit*
+- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift) - *Added in recent commit*
+- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift) - *Added in recent commit*
 </cite>
+
+## Update Summary
+**Changes Made**   
+- Updated document sources to reflect recent code changes
+- Enhanced architecture overview with new component relationships
+- Added performance optimization recommendations based on code analysis
+- Updated integration patterns with additional context from related components
+- Added new section on optimization opportunities
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -18,7 +26,8 @@
 6. [Integration Patterns](#integration-patterns)
 7. [Practical Examples](#practical-examples)
 8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
+9. [Optimization Opportunities](#optimization-opportunities)
+10. [Conclusion](#conclusion)
 
 ## Introduction
 The Advanced Search feature in the Tasker application provides a comprehensive search capability that enables users to locate tasks using various criteria including text, tags, priorities, projects, and due dates. This documentation details the implementation, API interfaces, integration patterns, and usage examples for the Advanced Search functionality. The system is designed to offer both simple and complex search capabilities while maintaining performance and usability.
@@ -27,10 +36,10 @@ The Advanced Search feature in the Tasker application provides a comprehensive s
 The Advanced Search feature is composed of several key components that work together to provide a seamless search experience. These include the `SearchTasksUseCase` for handling search logic, the `UseCaseCoordinator` for coordinating complex workflows, the `LGSearchViewController` for the user interface, and the `LGSearchViewModel` for managing search state and results. The system leverages Core Data for data persistence and retrieval, ensuring efficient querying of task data.
 
 **Section sources**
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602)
-- [UseCaseCoordinator.swift](file://To%20Do%20List/UseCases/Coordinator/UseCaseCoordinator.swift#L0-L447)
-- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395)
-- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602) - *Updated in recent commit*
+- [UseCaseCoordinator.swift](file://To%20Do%20List/UseCases/Coordinator/UseCaseCoordinator.swift#L0-L447) - *Updated in recent commit*
+- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395) - *Added in recent commit*
+- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141) - *Added in recent commit*
 
 ## Architecture Overview
 The Advanced Search architecture follows a clean separation of concerns with distinct layers for presentation, business logic, and data access. The user interface is managed by the `LGSearchViewController`, which communicates with the `LGSearchViewModel` to handle search state and filtering. The `SearchTasksUseCase` encapsulates the search logic and interacts with the `TaskRepository` to retrieve data from Core Data. The `UseCaseCoordinator` provides a facade for the presentation layer, simplifying access to complex workflows.
@@ -46,10 +55,10 @@ LGSearchViewController --> UseCaseCoordinator
 ```
 
 **Diagram sources**
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602)
-- [UseCaseCoordinator.swift](file://To%20Do%20List/UseCases/Coordinator/UseCaseCoordinator.swift#L0-L447)
-- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395)
-- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602) - *Updated in recent commit*
+- [UseCaseCoordinator.swift](file://To%20Do%20List/UseCases/Coordinator/UseCaseCoordinator.swift#L0-L447) - *Updated in recent commit*
+- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395) - *Added in recent commit*
+- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141) - *Added in recent commit*
 
 ## Detailed Component Analysis
 
@@ -101,10 +110,10 @@ SearchTasksUseCase --> SearchSuggestion
 ```
 
 **Diagram sources**
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602) - *Updated in recent commit*
 
 **Section sources**
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602) - *Updated in recent commit*
 
 ### LGSearchViewController Analysis
 The `LGSearchViewController` provides the user interface for the Advanced Search feature. It includes a search bar for user input, filter buttons for refining search results, and a scrollable content area for displaying search results. The view controller manages the presentation of search results and handles user interactions such as tapping on task cards.
@@ -128,10 +137,10 @@ LGSearchViewController --> LGTaskCard
 ```
 
 **Diagram sources**
-- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395)
+- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395) - *Added in recent commit*
 
 **Section sources**
-- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395)
+- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395) - *Added in recent commit*
 
 ### LGSearchViewModel Analysis
 The `LGSearchViewModel` manages the state and logic for the search functionality. It handles search queries, applies filters, and groups results by project. The view model communicates with the `SearchTasksUseCase` to execute search operations and updates the view controller with search results.
@@ -156,10 +165,10 @@ LGSearchViewModel --> SearchTasksUseCase
 ```
 
 **Diagram sources**
-- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141)
+- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141) - *Added in recent commit*
 
 **Section sources**
-- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141)
+- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141) - *Added in recent commit*
 
 ## API Interfaces
 The Advanced Search feature provides several API interfaces for different types of search operations. These interfaces are designed to be flexible and support various search criteria and filtering options.
@@ -187,7 +196,7 @@ public struct SearchQuery {
 ```
 
 **Section sources**
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602) - *Updated in recent commit*
 
 ### Search Result Interface
 The `SearchResult` struct contains the results of a search operation, including the list of matching tasks, the original search query, the total number of matches, and the timestamp of the search.
@@ -202,7 +211,7 @@ public struct SearchResult {
 ```
 
 **Section sources**
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602) - *Updated in recent commit*
 
 ### Search Suggestion Interface
 The `SearchSuggestion` struct provides suggestions based on partial input, including the suggested text, the type of suggestion (task name, project, or tag), and an optional reference to the associated task.
@@ -222,7 +231,7 @@ public struct SearchSuggestion {
 ```
 
 **Section sources**
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602) - *Updated in recent commit*
 
 ## Integration Patterns
 The Advanced Search feature is integrated into the Tasker application through several patterns that ensure seamless user experience and efficient data handling.
@@ -238,7 +247,7 @@ public final class UseCaseCoordinator {
 ```
 
 **Section sources**
-- [UseCaseCoordinator.swift](file://To%20Do%20List/UseCases/Coordinator/UseCaseCoordinator.swift#L0-L447)
+- [UseCaseCoordinator.swift](file://To%20Do%20List/UseCases/Coordinator/UseCaseCoordinator.swift#L0-L447) - *Updated in recent commit*
 
 ### View Model Communication
 The `LGSearchViewController` communicates with the `LGSearchViewModel` through a delegate pattern, allowing the view model to notify the view controller of changes in search results. This pattern ensures that the user interface is updated in response to search operations and filtering actions.
@@ -250,7 +259,7 @@ class LGSearchViewModel {
 ```
 
 **Section sources**
-- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141)
+- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141) - *Added in recent commit*
 
 ### Data Source Management
 The `LGSearchViewController` manages the display of search results through a content stack view, which dynamically updates its arranged subviews based on the current search results. This pattern allows for flexible and efficient presentation of search results, including grouping by project and displaying empty states.
@@ -266,7 +275,7 @@ private let contentStackView: UIStackView = {
 ```
 
 **Section sources**
-- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395)
+- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395) - *Added in recent commit*
 
 ## Practical Examples
 The Advanced Search feature can be used in various scenarios to help users find tasks quickly and efficiently. The following examples demonstrate common use cases for the search functionality.
@@ -289,7 +298,7 @@ useCaseCoordinator.searchTasks.simpleSearch(text: "meeting") { result in
 ```
 
 **Section sources**
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602) - *Updated in recent commit*
 
 ### Advanced Search with Multiple Criteria
 To perform an advanced search with multiple criteria such as priority, tags, and due date range:
@@ -314,7 +323,7 @@ useCaseCoordinator.searchTasks.advancedSearch(
 ```
 
 **Section sources**
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602) - *Updated in recent commit*
 
 ### Search Suggestions
 To get search suggestions based on partial input:
@@ -336,7 +345,7 @@ useCaseCoordinator.searchTasks.getSearchSuggestions(partialText: "pro") { result
 ```
 
 **Section sources**
-- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602)
+- [SearchTasksUseCase.swift](file://To%20Do%20List/UseCases/Task/SearchTasksUseCase.swift#L0-L602) - *Updated in recent commit*
 
 ## Troubleshooting Guide
 Common issues and their solutions for the Advanced Search feature:
@@ -362,8 +371,70 @@ Common issues and their solutions for the Advanced Search feature:
 - **Solution**: Check conditional logic in `updateResults()`
 
 **Section sources**
-- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395)
-- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141)
+- [LGSearchViewController.swift](file://To%20Do%20List/ViewControllers/LGSearchViewController.swift#L0-L395) - *Added in recent commit*
+- [LGSearchViewModel.swift](file://To%20Do%20List/ViewControllers/LGSearchViewModel.swift#L0-L141) - *Added in recent commit*
+
+## Optimization Opportunities
+The current Advanced Search implementation can be enhanced with several optimization techniques to improve performance and user experience.
+
+### Debounce Implementation
+Adding a debounce mechanism would reduce the frequency of filtering operations during rapid typing:
+
+```mermaid
+flowchart TD
+Start([User Types]) --> DebounceTimer["Start 300ms Timer"]
+DebounceTimer --> TimerRunning{"Timer Active?"}
+TimerRunning --> |Yes| CancelPrevious["Cancel Previous Operation"]
+TimerRunning --> |No| Proceed["Proceed with Search"]
+CancelPrevious --> ResetTimer["Reset Timer"]
+ResetTimer --> WaitInput["Wait for Next Input"]
+Proceed --> ExecuteSearch["Execute Filtering"]
+ExecuteSearch --> UpdateUI["Update UI"]
+UpdateUI --> End([Results Displayed])
+```
+
+**Section sources**
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift#L490-L498) - *Modified in recent commit*
+
+### Incremental Search and Caching
+Implementing incremental search would allow reusing previous results to minimize computation:
+
+```mermaid
+flowchart TD
+A([New Search Text]) --> B{"Longer than previous?"}
+B --> |Yes| C["Check if prefix matches"]
+C --> D{"Prefix matches?"}
+D --> |Yes| E["Filter only previous results"]
+D --> |No| F["Filter all tasks"]
+B --> |No| F
+F --> G["Store results for reuse"]
+E --> H["Store results for reuse"]
+G --> I["Update UI"]
+H --> I
+I --> J([Efficient Update])
+```
+
+**Section sources**
+- [HomeViewController.swift](file://To%20Do%20List/ViewControllers/HomeViewController.swift#L671-L678) - *Modified in recent commit*
+
+### Background Processing
+Moving filtering operations to a background queue would prevent UI blocking:
+
+```mermaid
+sequenceDiagram
+participant UI as "Main Thread"
+participant BG as "Background Queue"
+participant TM as "TaskManager"
+UI->>BG : Submit search task
+BG->>TM : Fetch all tasks
+TM-->>BG : Task array
+BG->>BG : Filter tasks
+BG->>UI : Return filtered results
+UI->>UI : Update table view
+```
+
+**Section sources**
+- [FluentUIToDoTableViewController.swift](file://To%20Do%20List/ViewControllers/FluentUIToDoTableViewController.swift#L200-L240) - *Modified in recent commit*
 
 ## Conclusion
 The Advanced Search feature in the Tasker application provides a powerful and flexible way for users to find tasks using various criteria and filters. The implementation follows clean architecture principles with a clear separation of concerns between presentation, business logic, and data access layers. The system supports both simple and complex search operations, with caching and performance optimizations to ensure a responsive user experience. The integration patterns used in the implementation allow for easy extension and maintenance of the search functionality.
