@@ -82,7 +82,7 @@ class ChatHostViewController: UIViewController {
 
         // Right: History button
         let historyButton = UIBarButtonItem(
-            image: UIImage(systemName: "list.bullet"),
+            image: UIImage(systemName: "text.below.folder"),
             style: .plain,
             target: self,
             action: #selector(onHistoryTapped)

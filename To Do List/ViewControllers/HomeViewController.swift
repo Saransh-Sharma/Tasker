@@ -798,9 +798,20 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         if let navBar = navigationController?.navigationBar {
             navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
         }
-        
+
+        // Add settings menu button on left side
+        let settingsButton = UIBarButtonItem(
+            image: UIImage(systemName: "list.bullet"),
+            style: .plain,
+            target: self,
+            action: #selector(onMenuButtonTapped)
+        )
+        settingsButton.tintColor = .white
+        settingsButton.accessibilityLabel = "Settings"
+        navigationItem.leftBarButtonItem = settingsButton
+
         // Search bar removed - now accessed via bottom app bar button
-        
+
         // Hide legacy scoreCounter label (we now show score in title)
         scoreCounter.isHidden = true
         // Ensure initial title is displayed
@@ -1408,39 +1419,33 @@ extension HomeViewController {
         // Icon size: 56x56 (2x larger for better visibility)
         let iconSize = CGSize(width: 48, height: 48)
         
-        // Settings button (leftmost) - Using 3D icon
-        let settingsImage = UIImage(named: "gear2")
-        let settingsImageResized = settingsImage?.resized(to: iconSize)
-        let settingsItem = UIBarButtonItem(image: settingsImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(onMenuButtonTapped))
-        settingsItem.accessibilityLabel = "Settings"
-        
         // Calendar button - Using 3D icon
         let calendarImage = UIImage(named: "cal")
         let calendarImageResized = calendarImage?.resized(to: iconSize)
         let calendarItem = UIBarButtonItem(image: calendarImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(toggleCalendar))
         calendarItem.accessibilityLabel = "Calendar"
-        
+
         // Charts/Analytics button - Using 3D icon
         let chartImage = UIImage(named: "charts")
         let chartImageResized = chartImage?.resized(to: iconSize)
         let chartItem = UIBarButtonItem(image: chartImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(toggleCharts))
         chartItem.accessibilityLabel = "Analytics"
-        
+
         // Search button - Using 3D icon
         let searchImage = UIImage(named: "search")
         let searchImageResized = searchImage?.resized(to: iconSize)
         let searchItem = UIBarButtonItem(image: searchImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(searchButtonTapped))
         searchItem.accessibilityLabel = "Search Tasks"
-        
+
         // Chat button (rightmost) - Using 3D icon
         let chatImage = UIImage(named: "chat")
         let chatImageResized = chatImage?.resized(to: iconSize)
         let chatButtonItem = UIBarButtonItem(image: chatImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(chatButtonTapped))
         chatButtonItem.accessibilityLabel = "Chat with LLM"
-        
-        // Configure the bottom app bar with all 5 buttons
+
+        // Configure the bottom app bar with 4 buttons (removed settings)
         lgBottomBar.configureStandardAppBar(
-            leadingItems: [settingsItem, calendarItem, chartItem, searchItem, chatButtonItem],
+            leadingItems: [calendarItem, chartItem, searchItem, chatButtonItem],
             trailingItems: [],
             showFloatingButton: true
         )
