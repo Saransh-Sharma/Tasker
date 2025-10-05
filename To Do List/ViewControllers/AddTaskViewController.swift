@@ -405,22 +405,72 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     }
     
     func buildSamplePillBarData() {
-        // Use empty list for now - will be populated via Clean Architecture
-        samplePillBarItems = [] // Reset the list
+        // Reset the list
+        samplePillBarItems = []
         
-        // Add default Inbox project
-        let inboxTitle = "Inbox"
+        // PHASE 3: Add "Add Project" button as the first pill (index 0)
+        samplePillBarItems.append(PillButtonBarItem(title: addProjectString))
         
-        // Remove any existing "Inbox" to avoid duplicates before re-inserting at correct position
-        samplePillBarItems.removeAll(where: { $0.title.lowercased() == inboxTitle.lowercased() })
+        // PHASE 1 FIX: Fetch all projects from Core Data
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
         
-        // Insert "Inbox" at the beginning
-        samplePillBarItems.insert(PillButtonBarItem(title: inboxTitle), at: 0)
+        if let context = context {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            
+            // Sort projects alphabetically
+            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
+            
+            do {
+                let allProjects = try context.fetch(request)
+                
+                // Separate Inbox from other projects
+                var inboxProject: Projects?
+                var customProjects: [Projects] = []
+                
+                for project in allProjects {
+                    if let projectName = project.projectName {
+                        if projectName.lowercased() == "inbox" {
+                            inboxProject = project
+                        } else {
+                            customProjects.append(project)
+                        }
+                    }
+                }
+                
+                // PHASE 3: Add Inbox as second item (index 1) - always present
+                let inboxTitle = inboxProject?.projectName ?? "Inbox"
+                samplePillBarItems.append(PillButtonBarItem(title: inboxTitle))
+                
+                // PHASE 1: Add all custom projects after Inbox
+                for project in customProjects {
+                    if let projectName = project.projectName {
+                        samplePillBarItems.append(PillButtonBarItem(title: projectName))
+                        print("✅ Added custom project to pill bar: \(projectName)")
+                    }
+                }
+                
+                print("✅ Phase 3 Fix: Successfully loaded \(customProjects.count) custom projects")
+                
+            } catch {
+                print("❌ Error fetching projects from Core Data: \(error)")
+                // Fallback: Just add Inbox after "Add Project"
+                samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
+            }
+        } else {
+            print("❌ Could not get Core Data context")
+            // Fallback: Just add Inbox after "Add Project"
+            samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
+        }
+        
+        // PHASE 3: Ensure Inbox is always present at index 1 (safety check)
+        if !samplePillBarItems.contains(where: { $0.title.lowercased() == "inbox" }) {
+            samplePillBarItems.insert(PillButtonBarItem(title: "Inbox"), at: 1)
+        }
         
         // Log the final list for verification
-        print("Final samplePillBarItems for AddTaskScreen setup:")
+        print("📋 Final samplePillBarItems for AddTaskScreen (Phase 3):")
         for (index, value) in samplePillBarItems.enumerated() {
-            print("--- AT INDEX \(index) value is \(value.title)")
+            print("   Index \(index): \(value.title)")
         }
     }
     
@@ -428,11 +478,15 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         let bar = PillButtonBar(pillButtonStyle: .primary)
         bar.items = items
         
-        // Default to "Inbox" (index 0) since we ensure Inbox is first in buildSamplePillBarData
+        // PHASE 3: Find and pre-select Inbox (should be at index 1, after "Add Project")
         if !items.isEmpty {
-            _ = bar.selectItem(atIndex: 0) // Default to Inbox
-            // Update current selected project to the first item (usually "Inbox")
-            self.currenttProjectForAddTaskView = items[0].title
+            // Find the index of Inbox
+            let inboxIndex = items.firstIndex(where: { $0.title.lowercased() == "inbox" }) ?? 1
+            
+            _ = bar.selectItem(atIndex: inboxIndex) // Pre-select Inbox
+            self.currenttProjectForAddTaskView = items[inboxIndex].title
+            
+            print("✅ Phase 3: Pre-selected '\(items[inboxIndex].title)' at index \(inboxIndex)")
         }
         
         bar.barDelegate = self
@@ -461,6 +515,25 @@ extension AddTaskViewController {
         if let samplePillBarView = samplePillBar,
            let samplePillBarComponent = samplePillBarView.subviews.first as? PillButtonBar,
            pillBar === samplePillBarComponent {
+            
+            // PHASE 3: Check if "Add Project" was tapped
+            if item.title == addProjectString {
+                print("🎯 Phase 3: 'Add Project' button tapped")
+                presentAddProjectDialog()
+                
+                // Re-select the previously selected project (don't leave "Add Project" selected)
+                if let previousProjectIndex = samplePillBarItems.firstIndex(where: { $0.title == currenttProjectForAddTaskView }) {
+                    _ = pillBar.selectItem(atIndex: previousProjectIndex)
+                } else {
+                    // Default to Inbox if no previous selection
+                    if let inboxIndex = samplePillBarItems.firstIndex(where: { $0.title.lowercased() == "inbox" }) {
+                        _ = pillBar.selectItem(atIndex: inboxIndex)
+                        self.currenttProjectForAddTaskView = "Inbox"
+                    }
+                }
+                return
+            }
+            
             // Update current project based on pill selection
             print("Sample pill bar item selected: \(item.title) at index \(index)")
             self.currenttProjectForAddTaskView = item.title
@@ -470,6 +543,146 @@ extension AddTaskViewController {
         // Only handle sample pill bar - no project pill bar logic needed
         
         
+    }
+    
+    // PHASE 3: Present dialog to add a new project
+    private func presentAddProjectDialog() {
+        let alertController = UIAlertController(
+            title: "New Project",
+            message: "Enter project name and description",
+            preferredStyle: .alert
+        )
+        
+        // Add text fields
+        alertController.addTextField { textField in
+            textField.placeholder = "Project Name"
+            textField.autocapitalizationType = .words
+        }
+        
+        alertController.addTextField { textField in
+            textField.placeholder = "Description (Optional)"
+            textField.autocapitalizationType = .sentences
+        }
+        
+        // Cancel action
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        
+        // Save action
+        let saveAction = UIAlertAction(title: "Create", style: .default) { [weak self, weak alertController] _ in
+            guard let self = self,
+                  let nameField = alertController?.textFields?[0],
+                  let descriptionField = alertController?.textFields?[1],
+                  let projectName = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !projectName.isEmpty else {
+                self?.showProjectError(message: "Project name cannot be empty")
+                return
+            }
+            
+            // Check if project name is "Inbox" (reserved)
+            if projectName.lowercased() == "inbox" {
+                self.showProjectError(message: "'Inbox' is a reserved project name")
+                return
+            }
+            
+            // Create the project
+            self.createNewProject(name: projectName, description: descriptionField.text)
+        }
+        
+        alertController.addAction(cancelAction)
+        alertController.addAction(saveAction)
+        
+        present(alertController, animated: true)
+    }
+    
+    // PHASE 3: Create a new project in Core Data
+    private func createNewProject(name: String, description: String?) {
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        
+        guard let context = context else {
+            showProjectError(message: "Failed to access database")
+            return
+        }
+        
+        // Check if project already exists
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        request.predicate = NSPredicate(format: "projectName == %@", name)
+        
+        do {
+            let existingProjects = try context.fetch(request)
+            if !existingProjects.isEmpty {
+                showProjectError(message: "Project '\(name)' already exists")
+                return
+            }
+            
+            // Create new project
+            let newProject = Projects(context: context)
+            newProject.projectName = name
+            newProject.projecDescription = description ?? ""
+            
+            // Save
+            try context.save()
+            
+            print("✅ Phase 3: Successfully created project '\(name)'")
+            
+            // Show success and refresh pill bar
+            showProjectSuccess(message: "Project '\(name)' created")
+            
+            // Refresh the pill bar with the new project
+            refreshProjectPillBar(selectProject: name)
+            
+        } catch {
+            print("❌ Phase 3: Failed to create project: \(error)")
+            showProjectError(message: "Failed to create project")
+        }
+    }
+    
+    // PHASE 3: Refresh the pill bar after creating a new project
+    private func refreshProjectPillBar(selectProject projectName: String) {
+        // Rebuild pill bar data
+        buildSamplePillBarData()
+        
+        // Recreate the pill bar
+        let newPillBar = createSamplePillBar(items: samplePillBarItems, centerAligned: false)
+        
+        // Replace the old pill bar
+        samplePillBar?.removeFromSuperview()
+        samplePillBar = newPillBar
+        
+        // Add back to the view hierarchy (find its position in the stack)
+        if let stackView = foredropStackContainer as? UIStackView {
+            // Find where the old pill bar was (should be after description field)
+            var insertIndex = 2 // Default position after text fields
+            for (index, view) in stackView.arrangedSubviews.enumerated() {
+                if view === samplePillBar {
+                    insertIndex = index
+                    break
+                }
+            }
+            
+            stackView.insertArrangedSubview(newPillBar, at: insertIndex)
+        }
+        
+        // Select the newly created project
+        if let pillBarComponent = newPillBar.subviews.first as? PillButtonBar,
+           let projectIndex = samplePillBarItems.firstIndex(where: { $0.title == projectName }) {
+            _ = pillBarComponent.selectItem(atIndex: projectIndex)
+            self.currenttProjectForAddTaskView = projectName
+            print("✅ Phase 3: Selected newly created project '\(projectName)'")
+        }
+    }
+    
+    // PHASE 3: Show error message
+    private func showProjectError(message: String) {
+        let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    
+    // PHASE 3: Show success message
+    private func showProjectSuccess(message: String) {
+        let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }
 
