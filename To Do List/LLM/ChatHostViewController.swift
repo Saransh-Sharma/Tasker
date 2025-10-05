@@ -52,19 +52,32 @@ class ChatHostViewController: UIViewController {
         hostingController.didMove(toParent: self)
         // Configure FluentUI navigation bar
         setupFluentNavigationBar()
+
+        // Observe theme changes to update navigation bar color
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(themeChanged),
+            name: .themeChanged,
+            object: nil
+        )
     }
     // MARK: - FluentUI Navigation Bar Setup
     private func setupFluentNavigationBar() {
         // Configure navigation bar appearance using standard iOS APIs
         title = "Chat"
-        
+
+        // Set FluentUI custom navigation bar color - this is the correct way to set color with FluentUI
+        let todoColors = ToDoColors()
+        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.primaryColor
+        navigationItem.fluentConfiguration.navigationBarStyle = .custom
+
         // Configure navigation bar appearance
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = ToDoColors().primaryColor
+        appearance.backgroundColor = todoColors.primaryColor
         appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
         appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
-        
+
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
@@ -97,6 +110,18 @@ class ChatHostViewController: UIViewController {
 
     @objc private func onHistoryTapped() {
         NotificationCenter.default.post(name: .toggleChatHistory, object: nil)
+    }
+
+    // MARK: - Theme Handling
+
+    @objc private func themeChanged() {
+        let todoColors = ToDoColors()
+        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.primaryColor
+        navigationItem.fluentConfiguration.navigationBarStyle = .custom
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 }
 

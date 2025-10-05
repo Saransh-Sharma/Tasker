@@ -40,7 +40,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         
         // Embed in FluentUI NavigationController
         let navigationController = NavigationController(rootViewController: homeViewController)
-        
+
+        // Set FluentUI custom navigation bar color to match app's primary color immediately on launch
+        let todoColors = ToDoColors()
+        homeViewController.navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.primaryColor
+        homeViewController.navigationItem.fluentConfiguration.navigationBarStyle = .custom
+
         // Set as root view controller
         window?.rootViewController = navigationController
         window?.makeKeyAndVisible()

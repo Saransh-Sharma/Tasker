@@ -780,13 +780,17 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     // MARK: - FluentUI Navigation Bar Setup
     
     private func setupFluentUINavigationBar() {
+        // Set FluentUI custom navigation bar color - this is the correct way to set color with FluentUI
+        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.primaryColor
+        navigationItem.fluentConfiguration.navigationBarStyle = .custom
+
         // Configure navigation bar appearance using standard iOS APIs
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = todoColors.primaryColor
         appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
         appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
-        
+
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
@@ -1314,11 +1318,18 @@ extension HomeViewController {
     fileprivate func applyTheme() {
         // Refresh color source
         todoColors = ToDoColors()
+
+        // Update FluentUI navigation bar color via custom property - this is the correct way with FluentUI
+        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.primaryColor
+        navigationItem.fluentConfiguration.navigationBarStyle = .custom
+
         // Navigation bar (using standard iOS appearance)
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = todoColors.primaryColor
         navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.compactAppearance = appearance
         // Keep title label transparent on theme change
         if let navBar = navigationController?.navigationBar {
             navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
