@@ -99,7 +99,8 @@ public struct Task {
     /// Check if the task is overdue
     public var isOverdue: Bool {
         guard let dueDate = dueDate, !isComplete else { return false }
-        return dueDate < Date()
+        let startOfToday = Calendar.current.startOfDay(for: Date())
+        return dueDate < startOfToday
     }
     
     /// Check if the task is due today

@@ -83,12 +83,13 @@ public final class CreateTaskUseCase {
 
     private func createTaskWithProjectID(request: CreateTaskRequest, projectID: UUID, completion: @escaping (Result<Task, CreateTaskError>) -> Void) {
         // Step 3: Apply business rules
-        var dueDate = request.dueDate ?? Date()
+        let today = Calendar.current.startOfDay(for: Date())
+        var dueDate = request.dueDate ?? today
         var taskType = request.type
 
-        // Business rule: If due date is in the past and not today, set to today
-        if !Calendar.current.isDateInToday(dueDate) && dueDate < Date() {
-            dueDate = Date()
+        // Business rule: If due date is in the past (before today), set to today
+        if dueDate < today {
+            dueDate = today
         }
 
         // Business rule: Determine task type based on time if not specified

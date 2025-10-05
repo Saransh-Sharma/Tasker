@@ -106,16 +106,37 @@ class FluentUIToDoTableViewController: UITableViewController {
     
     private func setupToDoData(for date: Date) {
         print("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
-        
+
         // Get all tasks for the selected date from Core Data
         let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
         let request: NSFetchRequest<NTask> = NTask.fetchRequest()
         let startOfDay = Calendar.current.startOfDay(for: date)
         let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
-        request.predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
+
+        // 🐛 FIX: Include overdue tasks when viewing today
+        let isToday = Calendar.current.isDateInToday(date)
+
+        let predicate: NSPredicate
+        if isToday {
+            // For today: include tasks due today OR overdue incomplete tasks
+            let todayPredicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
+            let overduePredicate = NSPredicate(format: "dueDate < %@ AND isComplete == NO", startOfDay as NSDate)
+            predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [todayPredicate, overduePredicate])
+            print("🔍 [TABLE VIEW] Using combined predicate for TODAY - includes overdue tasks")
+        } else {
+            // For other dates: only tasks due on that specific date
+            predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
+            print("🔍 [TABLE VIEW] Using simple predicate for \(date) - date-specific only")
+        }
+
+        request.predicate = predicate
         let allTasksForDate = (try? context?.fetch(request)) ?? []
-        
+
         print("📅 Found \(allTasksForDate.count) total tasks for \(date)")
+        print("🔍 [TABLE VIEW] Fetched tasks breakdown:")
+        for (index, task) in allTasksForDate.enumerated() {
+            print("  Task \(index + 1): '\(task.name ?? "NO NAME")' | dueDate: \(task.dueDate ?? NSDate()) | isComplete: \(task.isComplete)")
+        }
         
         // Group tasks by project (case-insensitive)
         var tasksByProject: [String: [NTask]] = [:]

@@ -73,27 +73,45 @@ public final class HomeViewModel: ObservableObject {
     
     /// Load tasks for today
     public func loadTodayTasks() {
+        print("🔍 [VIEW MODEL] loadTodayTasks called")
         isLoading = true
         errorMessage = nil
-        
+
         useCaseCoordinator.getTasks.getTodayTasks { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
-                
+
                 switch result {
                 case .success(let todayResult):
+                    print("🔍 [VIEW MODEL] Received today tasks result:")
+                    print("🔍 [VIEW MODEL]   - Morning tasks: \(todayResult.morningTasks.count)")
+                    print("🔍 [VIEW MODEL]   - Evening tasks: \(todayResult.eveningTasks.count)")
+                    print("🔍 [VIEW MODEL]   - Overdue tasks: \(todayResult.overdueTasks.count)")
+                    print("🔍 [VIEW MODEL]   - Completed tasks: \(todayResult.completedTasks.count)")
+
+                    // Log overdue task details
+                    for (index, task) in todayResult.overdueTasks.enumerated() {
+                        print("🔍 [VIEW MODEL] Overdue task \(index + 1): '\(task.name)' | dueDate: \(task.dueDate?.description ?? "NIL")")
+                    }
+
                     self?.todayTasks = todayResult
                     self?.morningTasks = todayResult.morningTasks
                     self?.eveningTasks = todayResult.eveningTasks
                     self?.overdueTasks = todayResult.overdueTasks
                     self?.updateCompletionRate(todayResult)
-                    
+
+                    print("🔍 [VIEW MODEL] Published properties updated")
+                    print("🔍 [VIEW MODEL]   - @Published morningTasks: \(self?.morningTasks.count ?? 0)")
+                    print("🔍 [VIEW MODEL]   - @Published eveningTasks: \(self?.eveningTasks.count ?? 0)")
+                    print("🔍 [VIEW MODEL]   - @Published overdueTasks: \(self?.overdueTasks.count ?? 0)")
+
                 case .failure(let error):
+                    print("❌ [VIEW MODEL] Error loading today tasks: \(error)")
                     self?.errorMessage = error.localizedDescription
                 }
             }
         }
-        
+
         // Load analytics
         loadDailyAnalytics()
     }
