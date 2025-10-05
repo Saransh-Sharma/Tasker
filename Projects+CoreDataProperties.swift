@@ -16,7 +16,8 @@ extension Projects {
         return NSFetchRequest<Projects>(entityName: "Projects")
     }
 
-    @NSManaged public var projecDescription: String?
+    @NSManaged public var projectID: UUID?
     @NSManaged public var projectName: String?
+    @NSManaged public var projecDescription: String?
 
 }

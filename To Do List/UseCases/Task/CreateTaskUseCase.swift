@@ -40,48 +40,59 @@ public final class CreateTaskUseCase {
             completion(.failure(.validationFailed("Invalid request data")))
             return
         }
-        
+
         if !validationResult {
             completion(.failure(.validationFailed("Task validation failed")))
             return
         }
-        
-        // Step 2: Check if project exists (if specified)
-        if let projectName = request.project {
-            projectRepository.fetchProject(withName: projectName) { [weak self] result in
-                switch result {
-                case .success(let project):
-                    if project == nil {
-                        // Project doesn't exist, create it or use Inbox
-                        self?.createTaskWithProject(request: request, projectName: "Inbox", completion: completion)
-                    } else {
-                        self?.createTaskWithProject(request: request, projectName: projectName, completion: completion)
-                    }
-                case .failure:
-                    // If project check fails, default to Inbox
-                    self?.createTaskWithProject(request: request, projectName: "Inbox", completion: completion)
-                }
-            }
+
+        // Step 2: Determine project ID
+        let projectID: UUID
+        if let specifiedProjectID = request.projectID {
+            projectID = specifiedProjectID
         } else {
-            // No project specified, use Inbox
-            createTaskWithProject(request: request, projectName: "Inbox", completion: completion)
+            // No projectID specified, default to Inbox
+            projectID = ProjectConstants.inboxProjectID
+        }
+
+        // Step 3: Verify project exists (optional, but good for data integrity)
+        projectRepository.fetchProject(withId: projectID) { [weak self] result in
+            switch result {
+            case .success(let project):
+                if project == nil && projectID != ProjectConstants.inboxProjectID {
+                    // Project doesn't exist and it's not Inbox, fall back to Inbox
+                    self?.createTaskWithProjectID(request: request, projectID: ProjectConstants.inboxProjectID, completion: completion)
+                } else {
+                    // Project exists or is Inbox, proceed
+                    self?.createTaskWithProjectID(request: request, projectID: projectID, completion: completion)
+                }
+            case .failure:
+                // If project check fails, default to Inbox for safety
+                self?.createTaskWithProjectID(request: request, projectID: ProjectConstants.inboxProjectID, completion: completion)
+            }
         }
     }
     
     // MARK: - Private Methods
     
     private func createTaskWithProject(request: CreateTaskRequest, projectName: String, completion: @escaping (Result<Task, CreateTaskError>) -> Void) {
+        // Deprecated: Use createTaskWithProjectID instead
+        // Default to Inbox for backward compatibility
+        createTaskWithProjectID(request: request, projectID: ProjectConstants.inboxProjectID, completion: completion)
+    }
+
+    private func createTaskWithProjectID(request: CreateTaskRequest, projectID: UUID, completion: @escaping (Result<Task, CreateTaskError>) -> Void) {
         // Step 3: Apply business rules
         var dueDate = request.dueDate ?? Date()
-        var taskType = request.type ?? .morning
-        
+        var taskType = request.type
+
         // Business rule: If due date is in the past and not today, set to today
         if !Calendar.current.isDateInToday(dueDate) && dueDate < Date() {
             dueDate = Date()
         }
-        
+
         // Business rule: Determine task type based on time if not specified
-        if request.type == nil {
+        if request.type == .morning { // Use explicit default
             let hour = Calendar.current.component(.hour, from: dueDate)
             if hour < 12 {
                 taskType = .morning
@@ -91,25 +102,33 @@ public final class CreateTaskUseCase {
                 taskType = .evening
             }
         }
-        
+
         // Business rule: If task is due more than 7 days from now, mark as upcoming
         let daysUntilDue = Calendar.current.dateComponents([.day], from: Date(), to: dueDate).day ?? 0
         if daysUntilDue > 7 {
             taskType = .upcoming
         }
-        
-        // Step 4: Create the task
+
+        // Step 4: Create the task with projectID
         let task = Task(
+            projectID: projectID,
             name: request.name,
             details: request.details,
             type: taskType,
-            priority: request.priority ?? .low,
+            priority: request.priority,
             dueDate: dueDate,
-            project: projectName,
+            project: request.project, // Keep for backward compatibility
             isComplete: false,
             dateAdded: Date(),
             isEveningTask: taskType == .evening,
-            alertReminderTime: request.alertReminderTime
+            alertReminderTime: request.alertReminderTime,
+            estimatedDuration: request.estimatedDuration,
+            tags: request.tags,
+            dependencies: request.dependencies,
+            category: request.category,
+            energy: request.energy,
+            context: request.context,
+            repeatPattern: request.repeatPattern
         )
         
         // Step 5: Validate the task

@@ -13,12 +13,13 @@ public struct Task {
     // MARK: - Properties
     
     public let id: UUID
+    public var projectID: UUID // UUID reference to the associated project
     public var name: String
     public var details: String?
     public var type: TaskType
     public var priority: TaskPriority
     public var dueDate: Date?
-    public var project: String?
+    public var project: String? // Deprecated: kept for backward compatibility, use projectID
     public var isComplete: Bool
     public var dateAdded: Date
     public var dateCompleted: Date?
@@ -41,12 +42,13 @@ public struct Task {
     
     public init(
         id: UUID = UUID(),
+        projectID: UUID = ProjectConstants.inboxProjectID,
         name: String,
         details: String? = nil,
         type: TaskType = .morning,
         priority: TaskPriority = .low,
         dueDate: Date? = nil,
-        project: String? = "Inbox",
+        project: String? = "Inbox", // Deprecated: use projectID
         isComplete: Bool = false,
         dateAdded: Date = Date(),
         dateCompleted: Date? = nil,
@@ -63,6 +65,7 @@ public struct Task {
         repeatPattern: TaskRepeatPattern? = nil
     ) {
         self.id = id
+        self.projectID = projectID
         self.name = name
         self.details = details
         self.type = type

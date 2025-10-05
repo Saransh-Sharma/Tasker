@@ -77,6 +77,24 @@
 		7529F7042DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
 		7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
 		7529F7062DFDF7E3000CBE36 /* loading-animation.json in Resources */ = {isa = PBXBuildFile; fileRef = 7529F7032DFDF7E3000CBE36 /* loading-animation.json */; };
+		752A97432E92A6C100CFC576 /* InboxProjectInitializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97402E92A6C100CFC576 /* InboxProjectInitializer.swift */; };
+		752A97442E92A6C100CFC576 /* DataMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A973E2E92A6C100CFC576 /* DataMigrationService.swift */; };
+		752A97452E92A6C100CFC576 /* InboxProjectInitializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97402E92A6C100CFC576 /* InboxProjectInitializer.swift */; };
+		752A97462E92A6C100CFC576 /* DataMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A973E2E92A6C100CFC576 /* DataMigrationService.swift */; };
+		752A97472E92A6C100CFC576 /* InboxProjectInitializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97402E92A6C100CFC576 /* InboxProjectInitializer.swift */; };
+		752A97482E92A6C100CFC576 /* DataMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A973E2E92A6C100CFC576 /* DataMigrationService.swift */; };
+		752A974B2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97492E92A6ED00CFC576 /* ProjectConstants.swift */; };
+		752A974C2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97492E92A6ED00CFC576 /* ProjectConstants.swift */; };
+		752A974D2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97492E92A6ED00CFC576 /* ProjectConstants.swift */; };
+		752A97502E92A70100CFC576 /* UUIDGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A974E2E92A70100CFC576 /* UUIDGenerator.swift */; };
+		752A97512E92A70100CFC576 /* UUIDGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A974E2E92A70100CFC576 /* UUIDGenerator.swift */; };
+		752A97522E92A70100CFC576 /* UUIDGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A974E2E92A70100CFC576 /* UUIDGenerator.swift */; };
+		752A97542E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97532E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift */; };
+		752A97552E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97532E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift */; };
+		752A97562E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97532E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift */; };
+		752A97582E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97572E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift */; };
+		752A97592E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97572E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift */; };
+		752A975A2E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97572E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift */; };
 		7537B62324A2AF0800B978E5 /* NewProjectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */; };
 		7539AAB92DE988C900619EDD /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7539AAB82DE988C900619EDD /* TaskDetailView.swift */; };
 		7539AABA2DE988C900619EDD /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7539AAB82DE988C900619EDD /* TaskDetailView.swift */; };
@@ -488,6 +506,12 @@
 		7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMDataController.swift; sourceTree = "<group>"; };
 		7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+IfModifier.swift"; sourceTree = "<group>"; };
 		7529F7032DFDF7E3000CBE36 /* loading-animation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "loading-animation.json"; sourceTree = "<group>"; };
+		752A973E2E92A6C100CFC576 /* DataMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataMigrationService.swift; sourceTree = "<group>"; };
+		752A97402E92A6C100CFC576 /* InboxProjectInitializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxProjectInitializer.swift; sourceTree = "<group>"; };
+		752A97492E92A6ED00CFC576 /* ProjectConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectConstants.swift; sourceTree = "<group>"; };
+		752A974E2E92A70100CFC576 /* UUIDGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UUIDGenerator.swift; sourceTree = "<group>"; };
+		752A97532E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnsureInboxProjectUseCase.swift; sourceTree = "<group>"; };
+		752A97572E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssignOrphanedTasksToInboxUseCase.swift; sourceTree = "<group>"; };
 		7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewProjectViewController.swift; sourceTree = "<group>"; };
 		7539AAB82DE988C900619EDD /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailView.swift; sourceTree = "<group>"; };
 		7539AABC2DE9A1F000619EDD /* FluentUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = FluentUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -749,6 +773,47 @@
 			path = Extensions;
 			sourceTree = "<group>";
 		};
+		752A973F2E92A6C100CFC576 /* Migration */ = {
+			isa = PBXGroup;
+			children = (
+				752A973E2E92A6C100CFC576 /* DataMigrationService.swift */,
+			);
+			path = Migration;
+			sourceTree = "<group>";
+		};
+		752A97412E92A6C100CFC576 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				752A97402E92A6C100CFC576 /* InboxProjectInitializer.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		752A97422E92A6C100CFC576 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				752A973F2E92A6C100CFC576 /* Migration */,
+				752A97412E92A6C100CFC576 /* Services */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		752A974A2E92A6ED00CFC576 /* Constants */ = {
+			isa = PBXGroup;
+			children = (
+				752A97492E92A6ED00CFC576 /* ProjectConstants.swift */,
+			);
+			path = Constants;
+			sourceTree = "<group>";
+		};
+		752A974F2E92A70100CFC576 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				752A974E2E92A70100CFC576 /* UUIDGenerator.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
 		753EFC912445A24500A739E3 = {
 			isa = PBXGroup;
 			children = (
@@ -802,6 +867,7 @@
 				75E9299C2E8C5C2D00207270 /* Extensions */,
 				75E929AE2E8C686300207270 /* Domain */,
 				75E92A102E8C82BD00207270 /* UseCases */,
+				752A97422E92A6C100CFC576 /* Data */,
 			);
 			path = "To Do List";
 			sourceTree = "<group>";
@@ -1071,6 +1137,8 @@
 				75E929AD2E8C686300207270 /* Models */,
 				75E929E82E8C7B6B00207270 /* Events */,
 				75018BB62E8D0C7C00EA3D0D /* Protocols */,
+				752A974A2E92A6ED00CFC576 /* Constants */,
+				752A974F2E92A70100CFC576 /* Services */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -1109,6 +1177,7 @@
 				75E929FA2E8C82BD00207270 /* FilterProjectsUseCase.swift */,
 				75E929FB2E8C82BD00207270 /* GetProjectStatisticsUseCase.swift */,
 				75E929FC2E8C82BD00207270 /* ManageProjectsUseCase.swift */,
+				752A97532E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift */,
 			);
 			path = Project;
 			sourceTree = "<group>";
@@ -1136,6 +1205,7 @@
 				75D827422E8C87EA000F04E1 /* TaskPriorityOptimizerUseCase.swift */,
 				75D827462E8C883A000F04E1 /* TaskCollaborationUseCase.swift */,
 				75D827562E8C89D6000F04E1 /* TaskCollaborationSyncService.swift */,
+				752A97572E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift */,
 			);
 			path = Task;
 			sourceTree = "<group>";
@@ -1505,6 +1575,7 @@
 				758D4D7A24A940BD00AB57A8 /* Projects+CoreDataProperties.swift in Sources */,
 				75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */,
 				75D827552E8C89BA000F04E1 /* User.swift in Sources */,
+				752A974B2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */,
 				75D827482E8C883A000F04E1 /* TaskCollaborationUseCase.swift in Sources */,
 				75F0C70C2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */,
 				7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */,
@@ -1529,6 +1600,7 @@
 				7510750D2DEE268D00AC7F22 /* HomeViewController+UISetup.swift in Sources */,
 				75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */,
 				75573CAF2DE88A8000F5A873 /* SettingsView.swift in Sources */,
+				752A97512E92A70100CFC576 /* UUIDGenerator.swift in Sources */,
 				753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */,
 				751075062DEE260300AC7F22 /* HomeViewController+TaskDetailFluent.swift in Sources */,
 				758D4D8624ABA7CE00AB57A8 /* FluentUIFramework.swift in Sources */,
@@ -1558,6 +1630,7 @@
 				75E92A432E8C82BD00207270 /* GetProjectStatisticsUseCase.swift in Sources */,
 				75E92A442E8C82BD00207270 /* BulkUpdateTasksUseCase.swift in Sources */,
 				75E92A452E8C82BD00207270 /* TaskGoalTrackingUseCase.swift in Sources */,
+				752A97562E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift in Sources */,
 				75018BBB2E8D0C7C00EA3D0D /* AnalyticsServiceProtocol.swift in Sources */,
 				75E92A462E8C82BD00207270 /* RescheduleTaskUseCase.swift in Sources */,
 				75E92A472E8C82BD00207270 /* TaskTimeTrackingUseCase.swift in Sources */,
@@ -1569,6 +1642,9 @@
 				75E92A4D2E8C82BD00207270 /* CreateTaskUseCase.swift in Sources */,
 				75E92A4E2E8C82BD00207270 /* CalculateAnalyticsUseCase.swift in Sources */,
 				75E92A4F2E8C82BD00207270 /* CompleteTaskUseCase.swift in Sources */,
+				752A97452E92A6C100CFC576 /* InboxProjectInitializer.swift in Sources */,
+				752A97592E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift in Sources */,
+				752A97462E92A6C100CFC576 /* DataMigrationService.swift in Sources */,
 				75E92A502E8C82BD00207270 /* DeleteTaskUseCase.swift in Sources */,
 				75D827452E8C87EA000F04E1 /* TaskPriorityOptimizerUseCase.swift in Sources */,
 				75E92A512E8C82BD00207270 /* TaskHabitBuilderUseCase.swift in Sources */,
@@ -1669,6 +1745,7 @@
 				75DFF2D92DF22FC300EB8850 /* LoggingService.swift in Sources */,
 				75D827502E8C8995000F04E1 /* UserRepositoryProtocol.swift in Sources */,
 				75D827512E8C8995000F04E1 /* NotificationServiceProtocol.swift in Sources */,
+				752A975A2E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift in Sources */,
 				75DFF2DA2DF22FC300EB8850 /* DateUtils.swift in Sources */,
 				751074F92DEE25A000AC7F22 /* HomeViewController+DateTimePicker.swift in Sources */,
 				7529F6F52DFDE9BC000CBE36 /* LLMDataController.swift in Sources */,
@@ -1684,9 +1761,11 @@
 				75F0C70B2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */,
 				75F0C7112DE9EFAD008F4460 /* TableViewCell Sample Data.swift in Sources */,
 				75F89FB82DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */,
+				752A97542E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift in Sources */,
 				750F9EE02685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75DFF2B32DF22E6B00EB8850 /* DependencyContainer.swift in Sources */,
 				751075182DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift in Sources */,
+				752A97502E92A70100CFC576 /* UUIDGenerator.swift in Sources */,
 				75D5D3282E0331F0007A243A /* ChartDataService.swift in Sources */,
 				75E929C52E8C686300207270 /* ProjectMapper.swift in Sources */,
 				75E929C62E8C686300207270 /* TaskRepositoryProtocol.swift in Sources */,
@@ -1697,6 +1776,7 @@
 				75E929C72E8C686300207270 /* CacheServiceProtocol.swift in Sources */,
 				75E929C82E8C686300207270 /* TaskPriorityConfig.swift in Sources */,
 				75D827542E8C89BA000F04E1 /* User.swift in Sources */,
+				752A974D2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */,
 				75E929C92E8C686300207270 /* TaskType.swift in Sources */,
 				75E929CA2E8C686300207270 /* Task.swift in Sources */,
 				75E929CB2E8C686300207270 /* SyncServiceProtocol.swift in Sources */,
@@ -1741,6 +1821,8 @@
 				75E92A212E8C82BD00207270 /* CompleteTaskUseCase.swift in Sources */,
 				75E92A222E8C82BD00207270 /* DeleteTaskUseCase.swift in Sources */,
 				75E92A232E8C82BD00207270 /* TaskHabitBuilderUseCase.swift in Sources */,
+				752A97432E92A6C100CFC576 /* InboxProjectInitializer.swift in Sources */,
+				752A97442E92A6C100CFC576 /* DataMigrationService.swift in Sources */,
 				75E92A242E8C82BD00207270 /* GetTaskStatisticsUseCase.swift in Sources */,
 				75E92A252E8C82BD00207270 /* FilterTasksUseCase.swift in Sources */,
 				75E92A262E8C82BD00207270 /* ManageProjectsUseCase.swift in Sources */,
@@ -1787,6 +1869,7 @@
 				75DFF2D52DF22FC300EB8850 /* LoggingService.swift in Sources */,
 				75D8274C2E8C8995000F04E1 /* UserRepositoryProtocol.swift in Sources */,
 				75D8274D2E8C8995000F04E1 /* NotificationServiceProtocol.swift in Sources */,
+				752A97582E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift in Sources */,
 				75DFF2D62DF22FC300EB8850 /* DateUtils.swift in Sources */,
 				751074F82DEE25A000AC7F22 /* HomeViewController+DateTimePicker.swift in Sources */,
 				7529F6F42DFDE9BC000CBE36 /* LLMDataController.swift in Sources */,
@@ -1802,9 +1885,11 @@
 				75F0C70D2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */,
 				75F0C7102DE9EFAD008F4460 /* TableViewCell Sample Data.swift in Sources */,
 				75F89FBA2DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */,
+				752A97552E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift in Sources */,
 				750F9EE12685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				75DFF2B12DF22E6B00EB8850 /* DependencyContainer.swift in Sources */,
 				7510751A2DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift in Sources */,
+				752A97522E92A70100CFC576 /* UUIDGenerator.swift in Sources */,
 				75D5D3262E0331F0007A243A /* ChartDataService.swift in Sources */,
 				75E929AF2E8C686300207270 /* ProjectMapper.swift in Sources */,
 				75E929B02E8C686300207270 /* TaskRepositoryProtocol.swift in Sources */,
@@ -1815,6 +1900,7 @@
 				75E929B12E8C686300207270 /* CacheServiceProtocol.swift in Sources */,
 				75E929B22E8C686300207270 /* TaskPriorityConfig.swift in Sources */,
 				75D827532E8C89BA000F04E1 /* User.swift in Sources */,
+				752A974C2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */,
 				75E929B32E8C686300207270 /* TaskType.swift in Sources */,
 				75E929B42E8C686300207270 /* Task.swift in Sources */,
 				75E929B52E8C686300207270 /* SyncServiceProtocol.swift in Sources */,
@@ -1859,6 +1945,8 @@
 				75E92A382E8C82BD00207270 /* CompleteTaskUseCase.swift in Sources */,
 				75E92A392E8C82BD00207270 /* DeleteTaskUseCase.swift in Sources */,
 				75E92A3A2E8C82BD00207270 /* TaskHabitBuilderUseCase.swift in Sources */,
+				752A97472E92A6C100CFC576 /* InboxProjectInitializer.swift in Sources */,
+				752A97482E92A6C100CFC576 /* DataMigrationService.swift in Sources */,
 				75E92A3B2E8C82BD00207270 /* GetTaskStatisticsUseCase.swift in Sources */,
 				75E92A3C2E8C82BD00207270 /* FilterTasksUseCase.swift in Sources */,
 				75E92A3D2E8C82BD00207270 /* ManageProjectsUseCase.swift in Sources */,

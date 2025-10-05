@@ -22,8 +22,11 @@ public protocol TaskRepositoryProtocol {
     /// Fetch tasks for today
     func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void)
     
-    /// Fetch tasks by project
+    /// Fetch tasks by project (deprecated - use fetchTasks with projectID)
     func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void)
+
+    /// Fetch tasks by project UUID
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void)
     
     /// Fetch overdue tasks
     func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void)
@@ -71,13 +74,24 @@ public protocol TaskRepositoryProtocol {
     func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void)
     
     // MARK: - Batch Operations
-    
+
     /// Create multiple tasks
     func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void)
-    
+
     /// Update multiple tasks
     func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void)
-    
+
     /// Delete multiple tasks
     func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void)
+
+    // MARK: - UUID-based Operations
+
+    /// Fetch tasks without a valid projectID (orphaned tasks)
+    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void)
+
+    /// Assign multiple tasks to a specific project
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void)
+
+    /// Fetch all tasks for the Inbox project
+    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void)
 }

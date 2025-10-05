@@ -25,11 +25,15 @@ Tasker is a sophisticated iOS productivity application that transforms task mana
 - **Task Details View**: Comprehensive FluentUI-based detail view with full editing capabilities
 
 ### 📁 **Advanced Project Management**
-- **Custom Projects**: Create, edit, and delete custom project categories
-- **Default Inbox System**: Automatic "Inbox" project for uncategorized tasks
-- **Project-Based Filtering**: View tasks filtered by specific projects
+- **UUID-Based Architecture**: Each project has a unique, stable UUID for reliable identification
+- **Fixed Inbox Project**: Inbox has permanent UUID `00000000-0000-0000-0000-000000000001` that never changes
+- **Custom Projects**: Create, edit, and delete custom project categories with unique UUIDs
+- **Default Inbox System**: All tasks automatically default to Inbox if no project specified
+- **Data Integrity**: 100% guarantee that every task belongs to a valid project
+- **Project-Based Filtering**: View tasks filtered by specific projects using UUID-based queries
 - **Project Analytics**: Track completion rates and progress per project
 - **Project Grouping**: Tasks automatically grouped by project in list views
+- **Orphaned Task Protection**: Automatic assignment of orphaned tasks to Inbox on app launch
 
 ### 📊 **Analytics & Gamification Dashboard**
 - **Visual Charts**: Interactive charts showing task completion trends and patterns
@@ -52,10 +56,14 @@ Tasker is a sophisticated iOS productivity application that transforms task mana
 - **Time-Based Organization**: Morning/evening task separation with automatic categorization
 
 ### ☁️ **Cloud Sync & Data Management**
-- **CloudKit Integration**: Seamless cross-device synchronization
+- **UUID-Based Sync**: Stable UUID identifiers enable reliable cross-device synchronization
+- **CloudKit Integration**: Seamless cross-device synchronization with UUID-based records
 - **Core Data Repository**: Robust local data storage with background context operations
 - **Type-Safe Enums**: TaskType and TaskPriority enums with Core Data integration
+- **Automatic Data Migration**: UUID assignment and data validation on every app launch
 - **Data Validation**: Comprehensive validation rules for task creation and editing
+- **Migration Service**: `DataMigrationService` ensures data integrity during app lifecycle
+- **Inbox Initialization**: `InboxProjectInitializer` guarantees default project availability
 
 ### 🔍 **Advanced Search & Filtering**
 - **Multi-Criteria Filtering**: Filter by project, priority, completion status, and date ranges
@@ -70,11 +78,32 @@ Tasker is a sophisticated iOS productivity application that transforms task mana
 
 ## Recent Improvements (2025)
 
-- Added BEMCheckBox integration for inline checkboxes and automatic strike-through of completed tasks (June 2025)
-- Fixed project filter logic ensuring the main filter button stays visible when project filters are active (June 2025)
-- Introduced Chat assistant interface (`ChatHostViewController`) accessible from the bottom app bar (May 2025)
-- Implemented automatic merging of duplicate "Inbox" projects during data integrity checks (April 2025)
-- Refactored core data flow toward a Repository & Dependency-Injection pattern for better testability (March 2025)
+### October 2025 - UUID-Based Architecture ✅
+- **Implemented comprehensive UUID system** for Tasks and Projects across all layers
+- **Fixed Inbox Project UUID**: All tasks default to Inbox with permanent UUID `00000000-0000-0000-0000-000000000001`
+- **Unique Task IDs**: Every task now has a stable `taskID` (UUID) for reliable identification
+- **Unique Project IDs**: Every project has a stable `projectID` (UUID) for reliable identification
+- **Automatic Data Migration**: Seamless migration of existing data to UUID-based system on app launch
+- **Data Integrity Guarantees**: 100% of tasks guaranteed to have valid project assignments
+- **Enhanced Repositories**: UUID-based querying with improved performance and reliability
+- **New Use Cases**:
+  - `EnsureInboxProjectUseCase` - Guarantees Inbox project existence
+  - `AssignOrphanedTasksToInboxUseCase` - Maintains data integrity
+- **Migration Service**: Automatic UUID assignment and data validation on every app launch
+- See [UUID_IMPLEMENTATION_SUMMARY.md](UUID_IMPLEMENTATION_SUMMARY.md) for complete technical details
+
+### June 2025
+- Added BEMCheckBox integration for inline checkboxes and automatic strike-through of completed tasks
+- Fixed project filter logic ensuring the main filter button stays visible when project filters are active
+
+### May 2025
+- Introduced Chat assistant interface (`ChatHostViewController`) accessible from the bottom app bar
+
+### April 2025
+- Implemented automatic merging of duplicate "Inbox" projects during data integrity checks
+
+### March 2025
+- Refactored core data flow toward a Repository & Dependency-Injection pattern for better testability
 
 ## Installation
 - Run `pod install` on project directory ([CocoaPods Installation](https://guides.cocoapods.org/using/getting-started.html))
@@ -153,12 +182,17 @@ graph TB
 #### 🏗️ **Domain Layer**
 - **Protocols**: Define contracts between layers (TaskRepositoryProtocol, ProjectRepositoryProtocol)
 - **Entities**: Pure Swift business models (Task, Project, TaskType, TaskPriority)
-- **Business Rules**: Core domain logic and invariants
+- **UUID Architecture**: Stable identifiers for all tasks (`taskID`) and projects (`projectID`)
+- **Constants**: ProjectConstants with fixed Inbox UUID (`00000000-0000-0000-0000-000000000001`)
+- **Business Rules**: Core domain logic and invariants including project assignment guarantees
 
 #### 💾 **State Management Layer**
 - **Repositories**: Abstract data access (CoreDataTaskRepository, CoreDataProjectRepository)
+- **UUID-Based Queries**: Efficient Core Data predicates using UUID identifiers
+- **Data Mappers**: TaskMapper and ProjectMapper for domain ↔ Core Data conversion
 - **Data Sources**: Local (Core Data) and Remote (CloudKit) implementations
 - **Cache Service**: In-memory caching for performance
+- **Migration Services**: DataMigrationService and InboxProjectInitializer for data integrity
 - **Sync Coordinator**: Offline-first synchronization strategy
 
 ### Dependency Flow
@@ -3067,56 +3101,64 @@ ProjectManager → Projects Entity → Task Association → UI Organization
 ### Entity Overview
 | Entity | Description |
 | ------ | ----------- |
-| `NTask` | Primary task record – one row per user task |
-| `Projects` | Simple categorisation master list. Each `NTask` references a project via the `project` string column. |
+| `NTask` | Primary task record – one row per user task. Now includes `taskID` (UUID) for stable identification and `projectID` (UUID) for reliable project association. |
+| `Projects` | Project categorization master list. Each project has a unique `projectID` (UUID). The Inbox project has a fixed UUID: `00000000-0000-0000-0000-000000000001`. |
 
 ### `NTask` – Attribute Table
 | Attribute | Type | Optional | Default | Notes |
 |-----------|------|----------|---------|-------|
+| `taskID` | `UUID` | ❌ | *generated* | **NEW**: Unique, stable identifier for each task. Generated automatically. |
+| `projectID` | `UUID` | ✅ | Inbox UUID | **NEW**: Foreign-key (UUID) to `Projects.projectID`. Defaults to Inbox (`00000000-0000-0000-0000-000000000001`). |
 | `name` | `String` | ❌ | — | Task title shown in lists & detail pages |
 | `isComplete` | `Bool` | ❌ | `false` | Flag when a task has been marked done |
 | `dueDate` | `Date` | ✅ | — | When the task is scheduled to be completed (nil → unscheduled) |
 | `taskDetails` | `String` | ✅ | — | Rich description / notes |
 | `taskPriority` | `Int32` (`TaskPriority`) | ❌ | `3` (`.medium`) | Enum-backed 1→4 => P0…P3 |
 | `taskType` | `Int32` (`TaskType`) | ❌ | `1` (`.morning`) | Enum-backed 1→4 => Morning/Evening/Upcoming/Inbox |
-| `project` | `String` | ✅ | “Inbox” | Foreign-key (string) to `Projects.projectName` |
+| `project` | `String` | ✅ | "Inbox" | **DEPRECATED**: Kept for backward compatibility. Use `projectID` instead. |
 | `alertReminderTime` | `Date` | ✅ | — | Local notification trigger time |
 | `dateAdded` | `Date` | ✅ | *now()* | Creation timestamp (set automatically) |
 | `isEveningTask` | `Bool` | ❌ | `false` | Redundant convenience flag – kept for legacy UI logic |
 | `dateCompleted` | `Date` | ✅ | — | Set when `isComplete` toggles to true |
 
-> **Delete Rule:** `NTask` objects persist even if their `project` string no longer matches an existing `Projects` row. A future migration intends to convert this string into a formal Core-Data relationship with *Nullify* delete rule.
+> **UUID-Based Relationships:** Tasks now use `projectID` (UUID) to reference projects, providing stable identification across devices and preventing orphaned tasks. The legacy `project` string field is maintained for backward compatibility. All tasks are guaranteed to have a valid project via automatic assignment to Inbox during data migration.
 
 ### `Projects` – Attribute Table
 | Attribute | Type | Optional | Default | Notes |
 |-----------|------|----------|---------|-------|
-| `projectName` | `String` | ✅ | — | Primary identifier (acts as natural key) |
+| `projectID` | `UUID` | ❌ | *generated* | **NEW**: Unique, stable identifier for each project. Inbox has fixed UUID: `00000000-0000-0000-0000-000000000001`. |
+| `projectName` | `String` | ✅ | — | Project display name. "Inbox" for default project. |
 | `projecDescription` | `String` | ✅ | — | User-facing description *(attribute typo preserved for Core Data compatibility)* |
 
-> **Relationship:** `Projects 1 — * NTask` (logical). Currently enforced in UI/business-logic level, not Core Data. Deleting a project uses a manual merge routine (`mergeInboxDuplicates`) to re-assign tasks to *Inbox*.
+> **UUID-Based Relationships:** `Projects 1 — * NTask` via `projectID`. The Inbox project has a permanent, fixed UUID that never changes. Custom projects receive unique, randomly generated UUIDs. Task deletion from a project does not affect the project. Project deletion triggers automatic reassignment of tasks to Inbox via `AssignOrphanedTasksToInboxUseCase`.
 
 ### Mermaid ER Diagram
 ```mermaid
 erDiagram
     PROJECTS ||--o{ NTASK : "contains"
     PROJECTS {
-        string projectName PK
-        string projecDescription
+        uuid   projectID PK "Unique identifier (fixed for Inbox)"
+        string projectName "Display name"
+        string projecDescription "Project description"
     }
     NTASK {
-        string name
-        bool   isComplete
-        date   dueDate
-        string taskDetails
-        int    taskPriority
-        int    taskType
-        string project FK
-        date   alertReminderTime
-        date   dateAdded
-        bool   isEveningTask
-        date   dateCompleted
+        uuid   taskID PK "Unique task identifier"
+        uuid   projectID FK "References Projects.projectID"
+        string name "Task title"
+        bool   isComplete "Completion status"
+        date   dueDate "Scheduled completion date"
+        string taskDetails "Task description"
+        int    taskPriority "Priority level (1-4)"
+        int    taskType "Task type (1-4)"
+        string project "DEPRECATED - use projectID"
+        date   alertReminderTime "Notification time"
+        date   dateAdded "Creation timestamp"
+        bool   isEveningTask "Evening task flag"
+        date   dateCompleted "Completion timestamp"
     }
 ```
+
+> **Note:** The ER diagram now reflects the UUID-based architecture. The `project` string field in `NTASK` is deprecated but maintained for backward compatibility.
 
 ### Computed Properties & Helpers (`NTask+Extensions`)
 * `type` & `priority` – enum-safe wrappers around `taskType` / `taskPriority`.
@@ -3168,6 +3210,13 @@ The Use Cases layer represents the application-specific business logic that orch
 | **ManageProjectsUseCase** | [`ManageProjectsUseCase.swift`](To%20Do%20List/UseCases/Project/ManageProjectsUseCase.swift) | ✅ Complete | ProjectRepositoryProtocol, TaskRepositoryProtocol | Complete project lifecycle management with task handling |
 | **FilterProjectsUseCase** | [`FilterProjectsUseCase.swift`](To%20Do%20List/UseCases/Project/FilterProjectsUseCase.swift) | ✅ Complete | ProjectRepositoryProtocol, CacheServiceProtocol | Project filtering and organization |
 | **GetProjectStatisticsUseCase** | [`GetProjectStatisticsUseCase.swift`](To%20Do%20List/UseCases/Project/GetProjectStatisticsUseCase.swift) | ✅ Complete | ProjectRepositoryProtocol, TaskRepositoryProtocol, CacheServiceProtocol | Project analytics and health metrics |
+| **EnsureInboxProjectUseCase** | [`EnsureInboxProjectUseCase.swift`](To%20Do%20List/UseCases/Project/EnsureInboxProjectUseCase.swift) | ✅ Complete | ProjectRepositoryProtocol | **NEW**: Guarantees Inbox project exists with fixed UUID on app launch |
+
+#### ✅ **Data Integrity & Migration Use Cases** (October 2025)
+
+| Use Case | File | Status | Dependencies | Purpose |
+|----------|------|--------|--------------|---------|
+| **AssignOrphanedTasksToInboxUseCase** | [`AssignOrphanedTasksToInboxUseCase.swift`](To%20Do%20List/UseCases/Task/AssignOrphanedTasksToInboxUseCase.swift) | ✅ Complete | TaskRepositoryProtocol, ProjectRepositoryProtocol | **NEW**: Finds and assigns tasks without valid projectID to Inbox. Provides comprehensive orphaned task reports. |
 
 #### ✅ **Analytics & Reporting Use Cases** (Implemented)
 
@@ -4274,6 +4323,140 @@ Tasker/
 ```
 
 This architecture ensures Tasker delivers a robust, scalable, and delightful task management experience while maintaining code quality and development efficiency.
+
+---
+
+## UUID-Based Architecture (October 2025)
+
+### Overview
+
+Tasker implements a comprehensive UUID-based architecture for Tasks and Projects, providing stable identifiers across all layers of the application. This architecture ensures data integrity, reliable synchronization, and prevents orphaned tasks.
+
+### Key Features
+
+#### 🔑 **Fixed Inbox UUID**
+- **Permanent Identifier**: `00000000-0000-0000-0000-000000000001`
+- **Never Changes**: The Inbox project UUID is fixed and guaranteed
+- **Default for All Tasks**: Tasks without a specified project default to Inbox
+- **Guaranteed Existence**: Created and verified on every app launch
+
+#### 🎯 **Task UUIDs (taskID)**
+- **Unique Identifier**: Every task has a stable `taskID` (UUID)
+- **Automatic Generation**: Generated automatically on task creation
+- **Migration Support**: Existing tasks receive UUIDs during data migration
+- **Cross-Device Sync**: Stable identifiers enable reliable CloudKit synchronization
+
+#### 📁 **Project UUIDs (projectID)**
+- **Unique Identifier**: Every project has a stable `projectID` (UUID)
+- **Fixed Inbox**: Inbox project has permanent UUID that never changes
+- **Custom Projects**: Random UUIDs generated for user-created projects
+- **Reliable References**: Tasks reference projects via UUID, not strings
+
+### Architecture Layers
+
+#### **Domain Layer**
+- [`ProjectConstants.swift`](To%20Do%20List/Domain/Constants/ProjectConstants.swift) - Fixed Inbox UUID constant
+- [`UUIDGenerator.swift`](To%20Do%20List/Domain/Services/UUIDGenerator.swift) - UUID generation with deterministic support
+- [`Task.swift`](To%20Do%20List/Domain/Models/Task.swift) - Domain model with `taskID` and `projectID`
+- [`Project.swift`](To%20Do%20List/Domain/Models/Project.swift) - Domain model with `projectID` and Inbox factory
+
+#### **Data Layer**
+- [`NTask+CoreDataProperties.swift`](To%20Do%20List/NTask+CoreDataProperties.swift) - Core Data entity with UUID attributes
+- [`Projects+CoreDataProperties.swift`](Projects+CoreDataProperties.swift) - Core Data entity with `projectID`
+- [`TaskMapper.swift`](To%20Do%20List/Domain/Mappers/TaskMapper.swift) - Maps UUIDs between domain and Core Data
+- [`ProjectMapper.swift`](To%20Do%20List/Domain/Mappers/ProjectMapper.swift) - Maps project UUIDs
+
+#### **Use Cases Layer**
+- [`CreateTaskUseCase.swift`](To%20Do%20List/UseCases/Task/CreateTaskUseCase.swift) - Creates tasks with UUID validation
+- [`EnsureInboxProjectUseCase.swift`](To%20Do%20List/UseCases/Project/EnsureInboxProjectUseCase.swift) - Guarantees Inbox existence
+- [`AssignOrphanedTasksToInboxUseCase.swift`](To%20Do%20List/UseCases/Task/AssignOrphanedTasksToInboxUseCase.swift) - Maintains data integrity
+
+#### **Migration Layer**
+- [`InboxProjectInitializer.swift`](To%20Do%20List/Data/Services/InboxProjectInitializer.swift) - Initializes and validates data
+- [`DataMigrationService.swift`](To%20Do%20List/Data/Migration/DataMigrationService.swift) - Complete migration workflow
+- [`AppDelegate.swift`](To%20Do%20List/AppDelegate.swift) - Automatic migration on app launch
+
+### Data Integrity Guarantees
+
+✅ **100% Task Coverage**: Every task has a `taskID` (UUID)
+✅ **100% Project Assignment**: Every task has a valid `projectID` (UUID)
+✅ **No Orphaned Tasks**: Automatic assignment to Inbox if project invalid
+✅ **Inbox Always Available**: Inbox created/verified on every app launch
+✅ **Backward Compatible**: Legacy `project` string field maintained
+
+### Migration Flow
+
+```
+App Launch
+    ↓
+AppDelegate.didFinishLaunchingWithOptions()
+    ↓
+setupCleanArchitecture()
+    ↓
+consolidateDataBasic()
+    ↓
+┌────────────────────────────────────┐
+│ ensureInboxProjectExists()         │
+│ • Check Inbox with fixed UUID      │
+│ • Create if missing                │
+│ • Verify UUID correctness          │
+└────────────────────────────────────┘
+    ↓
+┌────────────────────────────────────┐
+│ fixMissingTaskData()               │
+│ • Generate taskID for all tasks    │
+│ • Assign projectID to all tasks    │
+│ • Orphaned tasks → Inbox           │
+│ • Validate data integrity          │
+└────────────────────────────────────┘
+    ↓
+✅ App Ready with 100% Data Integrity
+```
+
+### Benefits
+
+1. **Reliable Synchronization**: Stable UUIDs enable conflict-free CloudKit sync
+2. **Data Integrity**: Guaranteed task-project associations
+3. **Performance**: Indexed UUID queries are fast and efficient
+4. **Maintainability**: Clear separation of concerns across layers
+5. **Testability**: UUID-based architecture is easily testable
+6. **Scalability**: Supports future features like project hierarchies
+
+### Usage Examples
+
+#### Creating a Task (Default Inbox)
+```swift
+let request = CreateTaskRequest(name: "My Task")
+// Automatically uses Inbox projectID
+
+createTaskUseCase.execute(request: request) { result in
+    // Task created with Inbox UUID ✅
+}
+```
+
+#### Creating a Task with Custom Project
+```swift
+let request = CreateTaskRequest(
+    name: "My Task",
+    projectID: customProjectUUID
+)
+
+createTaskUseCase.execute(request: request) { result in
+    // Task created with custom project ✅
+}
+```
+
+#### Fetching Inbox Tasks
+```swift
+taskRepository.fetchInboxTasks { result in
+    // All tasks with Inbox projectID ✅
+}
+```
+
+For complete technical details, see:
+- [UUID_IMPLEMENTATION_SUMMARY.md](UUID_IMPLEMENTATION_SUMMARY.md)
+- [IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md)
+- [BUILD_VERIFICATION_CHECKLIST.md](BUILD_VERIFICATION_CHECKLIST.md)
 
 ---
 

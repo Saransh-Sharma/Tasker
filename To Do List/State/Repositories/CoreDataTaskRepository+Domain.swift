@@ -384,7 +384,7 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
                     self.backgroundContext.delete(entity)
                 }
             }
-            
+
             do {
                 try self.backgroundContext.save()
                 DispatchQueue.main.async { completion(.success(())) }
@@ -392,6 +392,70 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
+    }
+
+    // MARK: - UUID-based Operations
+
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+        let predicate = NSPredicate(format: "projectID == %@", projectID as CVarArg)
+
+        viewContext.perform {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            request.predicate = predicate
+            request.sortDescriptors = [
+                NSSortDescriptor(key: "dueDate", ascending: true),
+                NSSortDescriptor(key: "taskPriority", ascending: true)
+            ]
+
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let tasks = entities.map { TaskMapper.toDomain(from: $0) }
+                DispatchQueue.main.async { completion(.success(tasks)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) {
+        let predicate = NSPredicate(format: "projectID == nil")
+
+        viewContext.perform {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            request.predicate = predicate
+            request.sortDescriptors = [
+                NSSortDescriptor(key: "dateAdded", ascending: false)
+            ]
+
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let tasks = entities.map { TaskMapper.toDomain(from: $0) }
+                DispatchQueue.main.async { completion(.success(tasks)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        backgroundContext.perform {
+            for taskID in taskIDs {
+                if let entity = TaskMapper.findEntity(byId: taskID, in: self.backgroundContext) {
+                    entity.projectID = projectID
+                }
+            }
+
+            do {
+                try self.backgroundContext.save()
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+        fetchTasks(forProjectID: ProjectConstants.inboxProjectID, completion: completion)
     }
 }
 

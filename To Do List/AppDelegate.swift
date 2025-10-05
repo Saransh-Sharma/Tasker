@@ -221,77 +221,100 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         print("✅ Basic data consolidation complete")
     }
     
-    /// Ensure Inbox project exists in Core Data
+    /// Ensure Inbox project exists in Core Data with UUID
     private func ensureInboxProjectExists() {
         let context = persistentContainer.viewContext
         let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        request.predicate = NSPredicate(format: "projectName LIKE[c] %@", "Inbox")
-        
+        request.predicate = NSPredicate(
+            format: "projectID == %@",
+            ProjectConstants.inboxProjectID as CVarArg
+        )
+
         do {
             let existingProjects = try context.fetch(request)
-            
+
             if existingProjects.isEmpty {
-                // Create Inbox project
+                // Create Inbox project with fixed UUID
                 let inboxProject = Projects(context: context)
-                inboxProject.projectName = "Inbox"
-                inboxProject.projecDescription = "Default project for uncategorized tasks"
-                
+                inboxProject.projectID = ProjectConstants.inboxProjectID
+                inboxProject.projectName = ProjectConstants.inboxProjectName
+                inboxProject.projecDescription = ProjectConstants.inboxProjectDescription
+
                 try context.save()
-                print("✅ Created default Inbox project")
+                print("✅ Created default Inbox project with UUID: \(ProjectConstants.inboxProjectID)")
             } else {
-                print("✅ Inbox project already exists")
+                // Ensure existing Inbox has the correct UUID
+                if let inbox = existingProjects.first, inbox.projectID != ProjectConstants.inboxProjectID {
+                    inbox.projectID = ProjectConstants.inboxProjectID
+                    try context.save()
+                    print("✅ Updated Inbox project with correct UUID")
+                } else {
+                    print("✅ Inbox project already exists with correct UUID")
+                }
             }
         } catch {
             print("⚠️ Error ensuring Inbox project exists: \(error)")
         }
     }
     
-    /// Fix tasks with missing required data
+    /// Fix tasks with missing required data including UUIDs
     private func fixMissingTaskData() {
         let context = persistentContainer.viewContext
         let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        
+
         do {
             let tasks = try context.fetch(request)
             var needsSave = false
-            
+
             for task in tasks {
-                // Fix missing project
+                // Generate taskID if missing
+                if task.taskID == nil {
+                    task.taskID = UUID()
+                    needsSave = true
+                }
+
+                // Assign to Inbox if projectID is missing
+                if task.projectID == nil {
+                    task.projectID = ProjectConstants.inboxProjectID
+                    needsSave = true
+                }
+
+                // Fix missing project name (for backward compatibility)
                 if task.project == nil || task.project?.isEmpty == true {
                     task.project = "Inbox"
                     needsSave = true
                 }
-                
+
                 // Fix missing dates
                 if task.dateAdded == nil {
                     task.dateAdded = Date() as NSDate
                     needsSave = true
                 }
-                
+
                 // Fix missing due date
                 if task.dueDate == nil {
                     task.dueDate = Date() as NSDate
                     needsSave = true
                 }
-                
-                // Fix missing task type (assuming TaskType enum exists)
+
+                // Fix missing task type
                 if task.taskType == 0 {
                     task.taskType = 1 // Morning task
                     needsSave = true
                 }
-                
-                // Fix missing priority (assuming TaskPriority enum exists)
+
+                // Fix missing priority
                 if task.taskPriority == 0 {
                     task.taskPriority = 4 // Low priority
                     needsSave = true
                 }
             }
-            
+
             if needsSave {
                 try context.save()
-                print("✅ Fixed missing task data")
+                print("✅ Fixed missing task data including UUIDs")
             }
-            
+
         } catch {
             print("⚠️ Error fixing task data: \(error)")
         }

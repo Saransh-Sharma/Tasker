@@ -77,16 +77,22 @@ public struct Project {
     }
     
     // MARK: - Factory Methods
-    
-    /// Create the default "Inbox" project
+
+    /// Create the default "Inbox" project with fixed UUID
     public static func createInbox() -> Project {
         return Project(
-            name: "Inbox",
-            projectDescription: "Default project for uncategorized tasks",
+            id: ProjectConstants.inboxProjectID,
+            name: ProjectConstants.inboxProjectName,
+            projectDescription: ProjectConstants.inboxProjectDescription,
             isDefault: true,
             color: .gray,
             icon: .inbox
         )
+    }
+
+    /// Check if this project is the Inbox project
+    public var isInbox: Bool {
+        return id == ProjectConstants.inboxProjectID
     }
     
     // MARK: - Business Logic

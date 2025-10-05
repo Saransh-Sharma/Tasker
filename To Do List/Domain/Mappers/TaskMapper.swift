@@ -29,12 +29,17 @@ public class TaskMapper {
     ///   - entity: The Core Data NTask entity to update
     ///   - task: The domain Task model
     public static func updateEntity(_ entity: NTask, from task: Task) {
+        // UUID properties
+        entity.taskID = task.id
+        entity.projectID = task.projectID
+
+        // Basic properties
         entity.name = task.name
         entity.taskDetails = task.details
         entity.taskType = task.type.rawValue
         entity.taskPriority = task.priority.rawValue
         entity.dueDate = task.dueDate as NSDate?
-        entity.project = task.project
+        entity.project = task.project // Kept for backward compatibility
         entity.isComplete = task.isComplete
         entity.dateAdded = task.dateAdded as NSDate
         entity.dateCompleted = task.dateCompleted as NSDate?
@@ -60,14 +65,18 @@ public class TaskMapper {
     /// - Parameter entity: The Core Data NTask entity
     /// - Returns: The domain Task model
     public static func toDomain(from entity: NTask) -> Task {
-        // Generate a UUID from the object ID or create a new one
-        let id = generateUUID(from: entity.objectID)
-        
+        // Use the taskID if available, otherwise generate from objectID for backward compatibility
+        let id = entity.taskID ?? generateUUID(from: entity.objectID)
+
+        // Use projectID if available, otherwise default to Inbox
+        let projectID = entity.projectID ?? ProjectConstants.inboxProjectID
+
         // Parse enhanced properties from Core Data if available, otherwise use defaults
         // For now, we provide sensible defaults until Core Data model is updated
-        
+
         return Task(
             id: id,
+            projectID: projectID,
             name: entity.name ?? "Untitled Task",
             details: entity.taskDetails,
             type: TaskType(rawValue: entity.taskType),
@@ -79,7 +88,7 @@ public class TaskMapper {
             dateCompleted: entity.dateCompleted as Date?,
             isEveningTask: entity.isEveningTask,
             alertReminderTime: entity.alertReminderTime as Date?,
-            
+
             // Enhanced properties - defaults until Core Data is updated
             estimatedDuration: nil as TimeInterval?, // entity.estimatedDuration
             actualDuration: nil as TimeInterval?,    // entity.actualDuration
@@ -142,13 +151,12 @@ public class TaskMapper {
     /// - Returns: The NTask entity if found, nil otherwise
     public static func findEntity(byId id: UUID, in context: NSManagedObjectContext) -> NTask? {
         let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        
+        request.predicate = NSPredicate(format: "taskID == %@", id as CVarArg)
+        request.fetchLimit = 1
+
         do {
             let tasks = try context.fetch(request)
-            // Find the task that matches the UUID
-            return tasks.first { task in
-                generateUUID(from: task.objectID) == id
-            }
+            return tasks.first
         } catch {
             print("Error fetching task by ID: \(error)")
             return nil

@@ -10,13 +10,14 @@ import Foundation
 /// Request model for creating a new task
 public struct CreateTaskRequest {
     // MARK: - Properties
-    
+
     public var name: String
     public var details: String?
     public var type: TaskType
     public var priority: TaskPriority
     public var dueDate: Date?
-    public var project: String?
+    public var projectID: UUID? // UUID reference to project
+    public var project: String? // Deprecated: kept for backward compatibility
     public var alertReminderTime: Date?
     public var estimatedDuration: TimeInterval?
     public var tags: [String]
@@ -34,6 +35,7 @@ public struct CreateTaskRequest {
         type: TaskType = .morning,
         priority: TaskPriority = .low,
         dueDate: Date? = nil,
+        projectID: UUID? = nil,
         project: String? = "Inbox",
         alertReminderTime: Date? = nil,
         estimatedDuration: TimeInterval? = nil,
@@ -49,6 +51,7 @@ public struct CreateTaskRequest {
         self.type = type
         self.priority = priority
         self.dueDate = dueDate
+        self.projectID = projectID
         self.project = project
         self.alertReminderTime = alertReminderTime
         self.estimatedDuration = estimatedDuration
@@ -116,6 +119,7 @@ public struct CreateTaskRequest {
     /// Convert to a Task domain model
     public func toTask() -> Task {
         return Task(
+            projectID: projectID ?? ProjectConstants.inboxProjectID,
             name: name,
             details: details,
             type: type,

@@ -120,24 +120,42 @@ public class ProjectMapper {
         }
     }
     
-    // MARK: - Future Core Data Entity Support
-    // These methods will be implemented when Projects entity is added to Core Data
-    
-    /*
+    // MARK: - Core Data Entity Support
+
     /// Convert a Core Data Projects entity to domain Project
     /// - Parameter entity: The Core Data Projects entity
     /// - Returns: The domain Project model
     public static func toDomain(from entity: Projects) -> Project {
+        // Use projectID if available, otherwise generate from name
+        let id = entity.projectID ?? generateUUID(from: entity.projectName ?? "Unnamed")
+
+        // Check if this is the Inbox project
+        let isInbox = id == ProjectConstants.inboxProjectID
+
         return Project(
-            id: generateUUID(from: entity.objectID),
+            id: id,
             name: entity.projectName ?? "Unnamed Project",
-            projectDescription: entity.projectDescription,
-            createdDate: entity.createdDate as Date? ?? Date(),
-            modifiedDate: entity.modifiedDate as Date? ?? Date(),
-            isDefault: entity.isDefault
+            projectDescription: entity.projecDescription,
+            createdDate: Date(), // Will be added when Core Data model is updated
+            modifiedDate: Date(), // Will be added when Core Data model is updated
+            isDefault: isInbox,
+
+            // Enhanced properties - defaults until Core Data is updated
+            color: isInbox ? ProjectColor.gray : ProjectColor.blue,
+            icon: isInbox ? ProjectIcon.inbox : ProjectIcon.folder,
+            status: ProjectStatus.active,
+            priority: isInbox ? ProjectPriority.low : ProjectPriority.medium,
+            parentProjectId: nil as UUID?,
+            subprojectIds: [] as [UUID],
+            tags: [] as [String],
+            dueDate: nil as Date?,
+            estimatedTaskCount: nil as Int?,
+            isArchived: false,
+            templateId: nil as UUID?,
+            settings: ProjectSettings()
         )
     }
-    
+
     /// Convert a domain Project to Core Data Projects entity
     /// - Parameters:
     ///   - project: The domain Project model
@@ -148,17 +166,41 @@ public class ProjectMapper {
         updateEntity(entity, from: project)
         return entity
     }
-    
+
     /// Update an existing Projects entity with domain Project data
     /// - Parameters:
     ///   - entity: The Core Data Projects entity to update
     ///   - project: The domain Project model
     public static func updateEntity(_ entity: Projects, from project: Project) {
+        entity.projectID = project.id
         entity.projectName = project.name
-        entity.projectDescription = project.projectDescription
-        entity.createdDate = project.createdDate as NSDate
-        entity.modifiedDate = project.modifiedDate as NSDate
-        entity.isDefault = project.isDefault
+        entity.projecDescription = project.projectDescription
+        // Additional properties will be added when Core Data model is updated
     }
-    */
+
+    /// Find an existing Projects entity by UUID
+    /// - Parameters:
+    ///   - id: The UUID to search for
+    ///   - context: The Core Data managed object context
+    /// - Returns: The Projects entity if found, nil otherwise
+    public static func findEntity(byId id: UUID, in context: NSManagedObjectContext) -> Projects? {
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
+        request.fetchLimit = 1
+
+        do {
+            let projects = try context.fetch(request)
+            return projects.first
+        } catch {
+            print("Error fetching project by ID: \(error)")
+            return nil
+        }
+    }
+
+    /// Convert an array of Core Data Projects entities to domain Projects
+    /// - Parameter entities: Array of Core Data Projects entities
+    /// - Returns: Array of domain Project models
+    public static func toDomainArray(from entities: [Projects]) -> [Project] {
+        return entities.map { toDomain(from: $0) }
+    }
 }
