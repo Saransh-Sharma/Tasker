@@ -517,8 +517,8 @@ class ChartDataService {
     /// Calculate dynamic maximum for radar chart scaling
     func calculateRadarChartMaximum(for entries: [RadarChartDataEntry]) -> Double {
         let maxValue = entries.map { $0.value }.max() ?? 0
-        // Round up to nearest 10 for cleaner scaling
-        let roundedMax = ceil(maxValue / 10) * 10
-        return max(roundedMax, 20) // Minimum scale of 20
+        // Round up to nearest 5 for cleaner scaling that fits actual data
+        let roundedMax = ceil(maxValue / 5) * 5
+        return max(roundedMax, 5) // Minimum scale of 5
     }
 }

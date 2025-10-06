@@ -8,7 +8,7 @@
 
 import SwiftUI
 
-/// Horizontally scrollable view containing multiple chart cards
+/// Vertically scrollable view containing multiple chart cards
 struct ChartCardsScrollView: View {
     let referenceDate: Date?
 
@@ -17,15 +17,14 @@ struct ChartCardsScrollView: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: true) {
-            HStack(spacing: 16) {
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(spacing: 16) {
                 // Line Chart Card
                 ChartCard(
                     title: "Weekly Progress",
                     subtitle: "Task completion scores",
                     referenceDate: referenceDate
                 )
-                .frame(width: UIScreen.main.bounds.width - 64) // Account for container padding (16*2) + card padding (16*2)
 
                 // Radar Chart Card
                 RadarChartCard(
@@ -33,7 +32,6 @@ struct ChartCardsScrollView: View {
                     subtitle: "Weekly scores by project",
                     referenceDate: referenceDate
                 )
-                .frame(width: UIScreen.main.bounds.width - 64) // Account for container padding (16*2) + card padding (16*2)
             }
             .padding(.horizontal, 16)
         }
