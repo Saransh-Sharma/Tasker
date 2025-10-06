@@ -26,11 +26,11 @@ extension HomeViewController {
         updateHomeViewDate(dateToDisplay: dateForTheView)
         setupLineChartView()
         updateLineChartData()
-        lineChartView.isHidden = false // Show chart by default with sample data
-        
-        // Phase 3: Setup SwiftUI Chart Card alongside existing chart
-        setupSwiftUIChartCard()
-        
+        lineChartView.isHidden = true // Hidden - using scroll view now (Phase 7)
+
+        // Phase 7: Setup Horizontal Scrollable Chart Cards
+        setupChartCardsScrollView()
+
         // cal
         setupCalView()
         setupCalAppearence()
@@ -252,15 +252,33 @@ extension HomeViewController {
     }
     
     @objc func toggleCharts() {
+        print("🎯 toggleCharts called")
+        print("   chartScrollContainer exists: \(chartScrollContainer != nil)")
+        print("   chartScrollContainer isHidden: \(chartScrollContainer?.isHidden ?? true)")
+
         let padding: CGFloat = 8
-        // Use SwiftUI chart container instead of lineChartView (Phase 5)
-        let isOpening = swiftUIChartContainer?.isHidden ?? true
-        let chartHeight: CGFloat = swiftUIChartContainer?.frame.height ?? 200
+        // Phase 7: Show horizontally scrollable chart cards
+        let isOpening = chartScrollContainer?.isHidden ?? true
+
+        print("   isOpening: \(isOpening)")
+
+        // Use scroll container height
+        let chartHeight: CGFloat = chartScrollContainer?.frame.height ?? 350
+
+        print("   chartHeight: \(chartHeight)")
+
         let targetY = isOpening ? foredropClosedY + chartHeight + padding : foredropClosedY
+
+        print("   targetY: \(targetY), foredropClosedY: \(foredropClosedY)")
+
         animateForedrop(to: targetY) {
-            self.swiftUIChartContainer?.isHidden.toggle()
-            // Keep old chart hidden (Phase 5: Cleanup)
+            print("   🔄 Animation complete - toggling visibility")
+            self.chartScrollContainer?.isHidden.toggle()
+            print("   chartScrollContainer isHidden after toggle: \(self.chartScrollContainer?.isHidden ?? true)")
+            // Keep old charts hidden (Phase 7: Cleanup)
             self.lineChartView.isHidden = true
+            self.swiftUIChartContainer?.isHidden = true
+            self.radarChartContainer?.isHidden = true
         }
     }
     
@@ -309,9 +327,11 @@ extension HomeViewController {
           self.foredropContainer.center.y = self.originalForedropCenterY
         } completion: { _ in
           self.calendar.isHidden      = true
-          // Phase 5: Only hide SwiftUI chart, keep old chart permanently hidden
+          // Phase 7: Hide all chart containers
           self.lineChartView.isHidden = true
           self.swiftUIChartContainer?.isHidden = true
+          self.radarChartContainer?.isHidden = true
+          self.chartScrollContainer?.isHidden = true
           self.isCalDown    = false
           self.isChartsDown = false
           self.tableView.reloadData()
@@ -368,11 +388,130 @@ extension HomeViewController {
     func updateSwiftUIChartCard() {
         // Update the SwiftUI chart with new data when needed
         guard let hostingController = swiftUIChartHostingController else { return }
-        
+
         let updatedChartCard = TaskProgressCard(referenceDate: dateForTheView)
         hostingController.rootView = updatedChartCard
-        
+
         print("📊 SwiftUI Chart Card updated with new reference date")
+    }
+
+    //----------------------- *************************** -----------------------
+    //MARK:-                    setup Radar Chart Card (Phase 6)
+    //----------------------- *************************** -----------------------
+    func setupRadarChartCard() {
+        // Create Radar Chart card
+        let radarCard = RadarChartCard(referenceDate: dateForTheView)
+        radarChartHostingController = UIHostingController(rootView: AnyView(radarCard))
+
+        guard let hostingController = radarChartHostingController else { return }
+
+        // Create container view for the Radar chart
+        radarChartContainer = UIView()
+        guard let container = radarChartContainer else { return }
+
+        // Add hosting controller as child
+        addChild(hostingController)
+        container.addSubview(hostingController.view)
+        hostingController.didMove(toParent: self)
+
+        // Configure container
+        container.backgroundColor = .clear
+        backdropContainer.addSubview(container)
+
+        // Position Radar chart below the line chart
+        container.translatesAutoresizingMaskIntoConstraints = false
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+
+        // Get the bottom of the line chart for positioning
+        let lineChartBottom = swiftUIChartContainer?.bottomAnchor ?? backdropBackgroundImageView.bottomAnchor
+
+        NSLayoutConstraint.activate([
+            // Container constraints - positioned below line chart with spacing
+            container.leadingAnchor.constraint(equalTo: backdropBackgroundImageView.leadingAnchor, constant: 8),
+            container.trailingAnchor.constraint(equalTo: backdropBackgroundImageView.trailingAnchor, constant: -8),
+            container.topAnchor.constraint(equalTo: lineChartBottom, constant: 16),
+            container.heightAnchor.constraint(equalToConstant: 340), // Card height including padding
+
+            // Hosting controller view constraints
+            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+
+        // Initially hidden (will be shown via button toggle)
+        container.isHidden = true
+
+        print("✅ Phase 6: Radar Chart Card setup complete")
+    }
+
+    func updateRadarChartCard() {
+        // Update the Radar chart with new data when needed
+        guard let hostingController = radarChartHostingController else { return }
+
+        let updatedRadarCard = RadarChartCard(referenceDate: dateForTheView)
+        hostingController.rootView = AnyView(updatedRadarCard)
+
+        print("📊 Radar Chart Card updated with new reference date")
+    }
+
+    //----------------------- *************************** -----------------------
+    //MARK:-                    setup Chart Cards ScrollView (Phase 7)
+    //----------------------- *************************** -----------------------
+    func setupChartCardsScrollView() {
+        // Create horizontally scrollable chart cards
+        let chartScrollView = ChartCardsScrollView(referenceDate: dateForTheView)
+        chartScrollHostingController = UIHostingController(rootView: AnyView(chartScrollView))
+
+        guard let hostingController = chartScrollHostingController else { return }
+
+        // Create container view for the scroll view
+        chartScrollContainer = UIView()
+        guard let container = chartScrollContainer else { return }
+
+        // Add hosting controller as child
+        addChild(hostingController)
+        container.addSubview(hostingController.view)
+        hostingController.didMove(toParent: self)
+
+        // Configure container
+        container.backgroundColor = .clear
+        backdropContainer.addSubview(container)
+
+        // Position scroll view in the chart area
+        container.translatesAutoresizingMaskIntoConstraints = false
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            // Container constraints - same position as original charts
+            container.leadingAnchor.constraint(equalTo: backdropBackgroundImageView.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: backdropBackgroundImageView.trailingAnchor),
+            container.topAnchor.constraint(equalTo: backdropBackgroundImageView.topAnchor, constant: 2*headerEndY),
+            container.heightAnchor.constraint(equalToConstant: 350), // Height for scrollable cards
+
+            // Hosting controller view constraints
+            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+
+        // Initially hidden (will be shown via button toggle)
+        container.isHidden = true
+
+        print("✅ Phase 7: Horizontally Scrollable Chart Cards setup complete")
+        print("   Container frame: \(container.frame)")
+        print("   Container is hidden: \(container.isHidden)")
+    }
+
+    func updateChartCardsScrollView() {
+        // Update the scrollable chart cards with new data when needed
+        guard let hostingController = chartScrollHostingController else { return }
+
+        let updatedScrollView = ChartCardsScrollView(referenceDate: dateForTheView)
+        hostingController.rootView = AnyView(updatedScrollView)
+
+        print("📊 Chart Cards ScrollView updated with new reference date")
     }
 
 }

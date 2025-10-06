@@ -234,7 +234,178 @@ class ChartDataService {
         dataSet.highlightLineWidth = 2
         dataSet.drawHorizontalHighlightIndicatorEnabled = false
         dataSet.drawVerticalHighlightIndicatorEnabled = true
-        
+
         return dataSet
+    }
+
+    // MARK: - Radar Chart Data Generation
+
+    /// Generate radar chart data for top custom projects
+    /// Shows weekly scores across up to 5 custom projects
+    func generateRadarChartData(
+        for referenceDate: Date? = nil,
+        selectedProjectIDs: [UUID]? = nil
+    ) -> (entries: [RadarChartDataEntry], labels: [String]) {
+        let currentReferenceDate = referenceDate ?? Date.today()
+
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.firstWeekday = 1 // Start on Sunday
+
+        let week = calendar.daysWithSameWeekOfYear(as: currentReferenceDate)
+        let startOfWeek = week.first ?? currentReferenceDate.startOfDay
+        let endOfWeek = week.last?.endOfDay ?? currentReferenceDate.endOfDay
+
+        print("📊 Generating radar chart data for week of \(currentReferenceDate)")
+
+        // Get projects to display
+        var projectsToDisplay: [Projects] = []
+
+        if let selectedIDs = selectedProjectIDs, !selectedIDs.isEmpty {
+            // Use user-selected projects
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(
+                format: "projectID IN %@",
+                selectedIDs.map { $0.uuidString }
+            )
+            projectsToDisplay = (try? context.fetch(request)) ?? []
+        } else {
+            // Auto-select top 5 projects by weekly score
+            projectsToDisplay = getTopProjectsByWeeklyScore(limit: 5, startOfWeek: startOfWeek, endOfWeek: endOfWeek)
+        }
+
+        // Filter out Inbox project
+        let inboxID = ProjectConstants.inboxProjectID
+        projectsToDisplay = projectsToDisplay.filter {
+            $0.projectID != inboxID
+        }
+
+        print("   📁 Displaying \(projectsToDisplay.count) projects on radar chart")
+
+        // Generate radar chart entries
+        var entries: [RadarChartDataEntry] = []
+        var labels: [String] = []
+
+        for (index, project) in projectsToDisplay.enumerated() {
+            guard let projectID = project.projectID,
+                  let projectName = project.projectName else {
+                continue
+            }
+
+            // Calculate weekly score for this project
+            let weeklyScore = calculateWeeklyScoreForProject(
+                projectID: projectID,
+                startOfWeek: startOfWeek,
+                endOfWeek: endOfWeek
+            )
+
+            print("   • \(projectName): \(weeklyScore) points")
+
+            // Create radar chart entry
+            let entry = RadarChartDataEntry(value: Double(weeklyScore))
+            entries.append(entry)
+            labels.append(projectName)
+        }
+
+        print("   📈 Radar chart: \(entries.count) data points")
+
+        return (entries, labels)
+    }
+
+    /// Calculate weekly score for a specific project
+    private func calculateWeeklyScoreForProject(
+        projectID: UUID,
+        startOfWeek: Date,
+        endOfWeek: Date
+    ) -> Int {
+        // Fetch all tasks completed in this week for this project
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        request.predicate = NSPredicate(
+            format: "projectID == %@ AND isComplete == YES AND dateCompleted >= %@ AND dateCompleted <= %@",
+            projectID.uuidString,
+            startOfWeek as NSDate,
+            endOfWeek as NSDate
+        )
+
+        guard let tasks = try? context.fetch(request) else {
+            return 0
+        }
+
+        // Sum scores of all completed tasks
+        var totalScore = 0
+        for task in tasks {
+            totalScore += TaskScoringService.shared.calculateScore(for: task)
+        }
+
+        return totalScore
+    }
+
+    /// Get top N projects by weekly score
+    private func getTopProjectsByWeeklyScore(
+        limit: Int,
+        startOfWeek: Date,
+        endOfWeek: Date
+    ) -> [Projects] {
+        // Fetch all custom projects
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        request.predicate = NSPredicate(
+            format: "projectID != %@",
+            ProjectConstants.inboxProjectID as CVarArg
+        )
+
+        guard let allProjects = try? context.fetch(request) else {
+            return []
+        }
+
+        // Calculate score for each project
+        var projectScores: [(Projects, Int)] = []
+
+        for project in allProjects {
+            guard let projectID = project.projectID else {
+                continue
+            }
+
+            let score = calculateWeeklyScoreForProject(
+                projectID: projectID,
+                startOfWeek: startOfWeek,
+                endOfWeek: endOfWeek
+            )
+
+            projectScores.append((project, score))
+        }
+
+        // Sort by score descending and take top N
+        return projectScores
+            .sorted { $0.1 > $1.1 }
+            .prefix(limit)
+            .map { $0.0 }
+    }
+
+    /// Create configured radar chart dataset
+    func createRadarChartDataSet(with entries: [RadarChartDataEntry], colors: ToDoColors) -> RadarChartDataSet {
+        let dataSet = RadarChartDataSet(entries: entries, label: "Project Scores")
+
+        // Visual configuration matching app theme
+        dataSet.setColor(colors.primaryColor)
+        dataSet.fillColor = colors.secondaryAccentColor
+        dataSet.drawFilledEnabled = true
+        dataSet.fillAlpha = 0.3
+        dataSet.lineWidth = 2.5
+        dataSet.drawHighlightCircleEnabled = true
+        dataSet.setDrawHighlightIndicators(false)
+
+        // Value labels
+        dataSet.valueFont = .systemFont(ofSize: 12, weight: .semibold)
+        dataSet.valueTextColor = colors.primaryTextColor
+        dataSet.drawValuesEnabled = true
+
+        return dataSet
+    }
+
+    /// Calculate dynamic maximum for radar chart scaling
+    func calculateRadarChartMaximum(for entries: [RadarChartDataEntry]) -> Double {
+        let maxValue = entries.map { $0.value }.max() ?? 0
+        // Round up to nearest 10 for cleaner scaling
+        let roundedMax = ceil(maxValue / 10) * 10
+        return max(roundedMax, 20) // Minimum scale of 20
     }
 }

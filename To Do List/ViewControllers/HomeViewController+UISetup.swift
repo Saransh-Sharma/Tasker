@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SwiftUI
 import FluentUI
 import TinyConstraints
 import SemiModalViewController
@@ -37,11 +38,13 @@ extension HomeViewController: BadgeViewDelegate {
     func setupBackdrop() {
         backdropContainer.frame = view.bounds
         backdropContainer.backgroundColor = todoColors.primaryColor
-        
+
         // Add calendar and charts to backdrop
         setupCalendarInBackdrop()
-        setupChartsInBackdrop()
-        
+
+        // Phase 7: Setup Horizontal Scrollable Chart Cards (NEW)
+        setupChartCardsScrollView()
+
         view.addSubview(backdropContainer)
     }
     
@@ -57,12 +60,69 @@ extension HomeViewController: BadgeViewDelegate {
             calendar.appearance.titleDefaultColor = todoColors.primaryTextColor
             calendar.appearance.todayColor = todoColors.secondaryAccentColor//todoColors.primaryColor
             calendar.appearance.selectionColor = todoColors.secondaryAccentColor
-            
+
             // Ensure calendar starts in week mode
             calendar.scope = .week
         }
-        
+
         backdropContainer.addSubview(calendar)
+    }
+
+    func setupChartCardsScrollView() {
+        print("🔵 Phase 7: Starting setupChartCardsScrollView...")
+
+        // Create horizontally scrollable chart cards
+        let chartScrollView = ChartCardsScrollView(referenceDate: dateForTheView)
+        chartScrollHostingController = UIHostingController(rootView: AnyView(chartScrollView))
+
+        guard let hostingController = chartScrollHostingController else {
+            print("⚠️ Failed to create chartScrollHostingController")
+            return
+        }
+
+        // Create container view for the scroll view
+        chartScrollContainer = UIView()
+        guard let container = chartScrollContainer else {
+            print("⚠️ Failed to create chartScrollContainer")
+            return
+        }
+
+        // Add hosting controller as child
+        addChild(hostingController)
+        container.addSubview(hostingController.view)
+        hostingController.didMove(toParent: self)
+
+        // Configure container
+        container.backgroundColor = .clear
+        backdropContainer.addSubview(container)
+
+        // Position scroll view in the chart area
+        container.translatesAutoresizingMaskIntoConstraints = false
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            // Container constraints - match old chart position (120pt from top, with 16pt horizontal padding)
+            container.leadingAnchor.constraint(equalTo: backdropContainer.leadingAnchor, constant: 16),
+            container.trailingAnchor.constraint(equalTo: backdropContainer.trailingAnchor, constant: -16),
+            container.topAnchor.constraint(equalTo: backdropContainer.topAnchor, constant: 120),
+            container.heightAnchor.constraint(equalToConstant: 250), // Match old chart height
+
+            // Hosting controller view constraints
+            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+
+        // Force layout pass to calculate proper frame immediately
+        backdropContainer.layoutIfNeeded()
+
+        // Initially hidden (will be shown via button toggle)
+        container.isHidden = true
+
+        print("✅ Phase 7: Horizontally Scrollable Chart Cards setup complete")
+        print("   Container frame AFTER layout: \(container.frame)")
+        print("   Container is hidden: \(container.isHidden)")
     }
     
     

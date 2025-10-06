@@ -452,6 +452,14 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var swiftUIChartHostingController: UIHostingController<AnyView>?
     var swiftUIChartContainer: UIView?
 
+    // Radar Chart Card (Phase 6: Project breakdown chart)
+    var radarChartHostingController: UIHostingController<AnyView>?
+    var radarChartContainer: UIView?
+
+    // Horizontally Scrollable Chart Cards (Phase 7: Unified chart view)
+    var chartScrollHostingController: UIHostingController<AnyView>?
+    var chartScrollContainer: UIView?
+
     // Legacy properties removed - sampleTableView and sampleData
     // var sampleTableView = UITableView(frame: .zero, style: .grouped)
     // var sampleData: [(String, [NTask])] = []
@@ -674,10 +682,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         // Initial view update
         updateViewForHome(viewType: .todayHomeView)
-        
-        // Setup the SwiftUI chart card
-        setupSwiftUIChartCard()
-        
+
+        // Phase 7: Old single chart removed - now using chartScrollContainer with horizontal scrolling
+        // setupSwiftUIChartCard()
+
         // Initialize foredrop state manager after all views are set up
         initializeForedropStateManager()
         
@@ -1717,6 +1725,9 @@ extension HomeViewController {
         // 8. Add child view controller
         addChild(hostingController)
         hostingController.didMove(toParent: self)
+
+        // Phase 7: Hide this old single chart - we now use chartScrollContainer with horizontal scrolling
+        container.isHidden = true
     }
     
     /// Updates the SwiftUI chart card with the latest data.

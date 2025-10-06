@@ -17,15 +17,16 @@ extension HomeViewController {
     /// Initializes the foredrop state manager with all required views
     /// Call this after all views have been set up in viewDidLoad
     func initializeForedropStateManager() {
-        guard let chartsContainer = swiftUIChartContainer else {
-            print("⚠️ ForedropStateManager: Charts container not ready, will retry after layout")
+        // Phase 7: Use chartScrollContainer (horizontally scrollable) instead of old swiftUIChartContainer
+        guard let chartsContainer = chartScrollContainer else {
+            print("⚠️ ForedropStateManager: chartScrollContainer not ready, will retry after layout")
             // Retry after a short delay to ensure views are laid out
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 self?.initializeForedropStateManager()
             }
             return
         }
-        
+
         foredropStateManager = ForedropStateManager(
             foredropContainer: foredropContainer,
             calendar: calendar,
@@ -33,8 +34,8 @@ extension HomeViewController {
             parentView: view,
             navigationController: navigationController
         )
-        
-        print("✅ ForedropStateManager initialized successfully")
+
+        print("✅ ForedropStateManager initialized with chartScrollContainer (Phase 7)")
     }
     
     // MARK: - Orientation Change Handling

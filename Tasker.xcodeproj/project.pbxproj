@@ -95,6 +95,18 @@
 		752A97582E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97572E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift */; };
 		752A97592E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97572E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift */; };
 		752A975A2E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97572E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift */; };
+		752A975C2E93083400CFC576 /* ProjectSelectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A975B2E93083400CFC576 /* ProjectSelectionService.swift */; };
+		752A975D2E93083400CFC576 /* ProjectSelectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A975B2E93083400CFC576 /* ProjectSelectionService.swift */; };
+		752A975E2E93083400CFC576 /* ProjectSelectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A975B2E93083400CFC576 /* ProjectSelectionService.swift */; };
+		752A97602E93087300CFC576 /* RadarChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A975F2E93087300CFC576 /* RadarChartCard.swift */; };
+		752A97612E93087300CFC576 /* RadarChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A975F2E93087300CFC576 /* RadarChartCard.swift */; };
+		752A97622E93087300CFC576 /* RadarChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A975F2E93087300CFC576 /* RadarChartCard.swift */; };
+		752A97642E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97632E93088100CFC576 /* ProjectSelectionSheet.swift */; };
+		752A97652E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97632E93088100CFC576 /* ProjectSelectionSheet.swift */; };
+		752A97662E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97632E93088100CFC576 /* ProjectSelectionSheet.swift */; };
+		752A97682E9316C600CFC576 /* ChartCardsScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97672E9316C600CFC576 /* ChartCardsScrollView.swift */; };
+		752A97692E9316C600CFC576 /* ChartCardsScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97672E9316C600CFC576 /* ChartCardsScrollView.swift */; };
+		752A976A2E9316C600CFC576 /* ChartCardsScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97672E9316C600CFC576 /* ChartCardsScrollView.swift */; };
 		7537B62324A2AF0800B978E5 /* NewProjectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */; };
 		7539AAB92DE988C900619EDD /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7539AAB82DE988C900619EDD /* TaskDetailView.swift */; };
 		7539AABA2DE988C900619EDD /* TaskDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7539AAB82DE988C900619EDD /* TaskDetailView.swift */; };
@@ -512,6 +524,10 @@
 		752A974E2E92A70100CFC576 /* UUIDGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UUIDGenerator.swift; sourceTree = "<group>"; };
 		752A97532E92A73F00CFC576 /* EnsureInboxProjectUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnsureInboxProjectUseCase.swift; sourceTree = "<group>"; };
 		752A97572E92A75400CFC576 /* AssignOrphanedTasksToInboxUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssignOrphanedTasksToInboxUseCase.swift; sourceTree = "<group>"; };
+		752A975B2E93083400CFC576 /* ProjectSelectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSelectionService.swift; sourceTree = "<group>"; };
+		752A975F2E93087300CFC576 /* RadarChartCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadarChartCard.swift; sourceTree = "<group>"; };
+		752A97632E93088100CFC576 /* ProjectSelectionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectSelectionSheet.swift; sourceTree = "<group>"; };
+		752A97672E9316C600CFC576 /* ChartCardsScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartCardsScrollView.swift; sourceTree = "<group>"; };
 		7537B62224A2AF0800B978E5 /* NewProjectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewProjectViewController.swift; sourceTree = "<group>"; };
 		7539AAB82DE988C900619EDD /* TaskDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailView.swift; sourceTree = "<group>"; };
 		7539AABC2DE9A1F000619EDD /* FluentUI.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = FluentUI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1050,6 +1066,7 @@
 			children = (
 				75DFF2CE2DF22F8B00EB8850 /* TaskScoringService.swift */,
 				75D5D3252E0331F0007A243A /* ChartDataService.swift */,
+				752A975B2E93083400CFC576 /* ProjectSelectionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1058,6 +1075,8 @@
 			isa = PBXGroup;
 			children = (
 				75E5ACAA2E048D3A00535D0A /* ChartCard.swift */,
+				752A975F2E93087300CFC576 /* RadarChartCard.swift */,
+				752A97672E9316C600CFC576 /* ChartCardsScrollView.swift */,
 			);
 			path = Cards;
 			sourceTree = "<group>";
@@ -1066,6 +1085,7 @@
 			isa = PBXGroup;
 			children = (
 				75E5ACAB2E048D3A00535D0A /* Cards */,
+				752A97632E93088100CFC576 /* ProjectSelectionSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1556,6 +1576,7 @@
 			files = (
 				75A6316A2E8BDADC006EEA59 /* LGBaseView.swift in Sources */,
 				75A6316B2E8BDADC006EEA59 /* LGSearchBar.swift in Sources */,
+				752A97642E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */,
 				75E929F12E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */,
 				75E929F22E8C7B6B00207270 /* DomainEvent.swift in Sources */,
 				75E929F32E8C7B6B00207270 /* TaskEvents.swift in Sources */,
@@ -1653,12 +1674,14 @@
 				75E92A542E8C82BD00207270 /* ManageProjectsUseCase.swift in Sources */,
 				75E92A552E8C82BD00207270 /* ArchiveCompletedTasksUseCase.swift in Sources */,
 				75DFF3222DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
+				752A97682E9316C600CFC576 /* ChartCardsScrollView.swift in Sources */,
 				75F89F452DFC44E6009EDD8F /* ModelsSettingsView.swift in Sources */,
 				75F89F462DFC44E6009EDD8F /* ChatHostViewController.swift in Sources */,
 				75F89F472DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */,
 				75E9299D2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */,
 				75F89F482DFC44E6009EDD8F /* RequestLLMIntent.swift in Sources */,
 				75E929DF2E8C782100207270 /* ProjectEnums.swift in Sources */,
+				752A97622E93087300CFC576 /* RadarChartCard.swift in Sources */,
 				75E929E02E8C782100207270 /* TaskEnergy.swift in Sources */,
 				75E929E12E8C782100207270 /* TaskContext.swift in Sources */,
 				75E929E22E8C782100207270 /* TaskCategory.swift in Sources */,
@@ -1700,6 +1723,7 @@
 				75D5D3272E0331F0007A243A /* ChartDataService.swift in Sources */,
 				751075152DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
 				7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */,
+				752A975D2E93083400CFC576 /* ProjectSelectionService.swift in Sources */,
 				751075092DEE262000AC7F22 /* HomeViewController+TaskSelection.swift in Sources */,
 				75573CB42DE8954500F5A873 /* ProjectManagementView.swift in Sources */,
 				7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */,
@@ -1770,6 +1794,7 @@
 				75E929C52E8C686300207270 /* ProjectMapper.swift in Sources */,
 				75E929C62E8C686300207270 /* TaskRepositoryProtocol.swift in Sources */,
 				75E929E92E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */,
+				752A975C2E93083400CFC576 /* ProjectSelectionService.swift in Sources */,
 				75E929EA2E8C7B6B00207270 /* DomainEvent.swift in Sources */,
 				75E929EB2E8C7B6B00207270 /* TaskEvents.swift in Sources */,
 				75E929EC2E8C7B6B00207270 /* ProjectEvents.swift in Sources */,
@@ -1801,6 +1826,7 @@
 				750894CB2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */,
 				75E866D72DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */,
 				751074E42DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
+				752A97612E93087300CFC576 /* RadarChartCard.swift in Sources */,
 				75E92A112E8C82BD00207270 /* UpdateTaskUseCase.swift in Sources */,
 				75E92A122E8C82BD00207270 /* UseCaseCoordinator.swift in Sources */,
 				75E92A132E8C82BD00207270 /* TaskGameificationUseCase.swift in Sources */,
@@ -1843,6 +1869,7 @@
 				75D5D3242E0330EF007A243A /* TaskCard.swift in Sources */,
 				751075142DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
 				75A6316E2E8BDADC006EEA59 /* LGBaseView.swift in Sources */,
+				752A976A2E9316C600CFC576 /* ChartCardsScrollView.swift in Sources */,
 				75A6316F2E8BDADC006EEA59 /* LGSearchBar.swift in Sources */,
 				75A631702E8BDADC006EEA59 /* LGTaskCard.swift in Sources */,
 				75F3CB7B2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
@@ -1854,6 +1881,7 @@
 				75DFF2CD2DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
 				75E9299F2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */,
 				75DFF3232DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
+				752A97662E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */,
 				75DFF3242DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				751075112DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				7513BA332687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
@@ -1894,6 +1922,7 @@
 				75E929AF2E8C686300207270 /* ProjectMapper.swift in Sources */,
 				75E929B02E8C686300207270 /* TaskRepositoryProtocol.swift in Sources */,
 				75E929ED2E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */,
+				752A975E2E93083400CFC576 /* ProjectSelectionService.swift in Sources */,
 				75E929EE2E8C7B6B00207270 /* DomainEvent.swift in Sources */,
 				75E929EF2E8C7B6B00207270 /* TaskEvents.swift in Sources */,
 				75E929F02E8C7B6B00207270 /* ProjectEvents.swift in Sources */,
@@ -1925,6 +1954,7 @@
 				750894CA2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */,
 				75E866D82DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */,
 				751074E32DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
+				752A97602E93087300CFC576 /* RadarChartCard.swift in Sources */,
 				75E92A282E8C82BD00207270 /* UpdateTaskUseCase.swift in Sources */,
 				75E92A292E8C82BD00207270 /* UseCaseCoordinator.swift in Sources */,
 				75E92A2A2E8C82BD00207270 /* TaskGameificationUseCase.swift in Sources */,
@@ -1967,6 +1997,7 @@
 				75D5D3202E0330EE007A243A /* TaskCard.swift in Sources */,
 				751075162DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift in Sources */,
 				75A631712E8BDADC006EEA59 /* LGBaseView.swift in Sources */,
+				752A97692E9316C600CFC576 /* ChartCardsScrollView.swift in Sources */,
 				75A631722E8BDADC006EEA59 /* LGSearchBar.swift in Sources */,
 				75A631732E8BDADC006EEA59 /* LGTaskCard.swift in Sources */,
 				75F3CB7A2DFA17BE007FF928 /* HomeViewController+FluentUIDelegate.swift in Sources */,
@@ -1978,6 +2009,7 @@
 				75DFF2C92DF22F5200EB8850 /* CoreDataTaskRepository.swift in Sources */,
 				75E9299E2E8C5C2D00207270 /* UIImage+Resize.swift in Sources */,
 				75DFF3252DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
+				752A97652E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */,
 				75DFF3262DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */,
 				751075102DEE26B100AC7F22 /* HomeViewController+Utilities.swift in Sources */,
 				7513BA342687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,

@@ -170,21 +170,24 @@ class ForedropStateManager {
             completion?()
             return
         }
-        
+
         // If already in target state, do nothing
         if currentState == newState {
             print("ℹ️ ForedropStateManager: Already in \(newState) state")
             completion?()
             return
         }
-        
+
         let oldState = currentState
         currentState = newState
-        
+
         let targetY = position(for: newState)
-        
+
         print("🔄 ForedropStateManager: Transitioning \(oldState) → \(newState) (Y: \(targetY))")
-        
+
+        // Update visibility of charts container based on state
+        updateChartsVisibility(for: newState)
+
         if animated {
             UIView.animate(
                 withDuration: animationDuration,
@@ -208,6 +211,22 @@ class ForedropStateManager {
             foredropContainer.frame = frame
             print("✅ ForedropStateManager: Instant transition → \(newState)")
             completion?()
+        }
+    }
+
+    /// Updates the visibility of the charts container based on the current state
+    private func updateChartsVisibility(for state: ForedropState) {
+        guard let chartsContainer = chartsContainer else { return }
+
+        switch state {
+        case .charts:
+            // Show charts when in charts state
+            chartsContainer.isHidden = false
+            print("   📊 Charts container: VISIBLE")
+        case .default, .calendar:
+            // Hide charts in default and calendar states
+            chartsContainer.isHidden = true
+            print("   📊 Charts container: HIDDEN")
         }
     }
     
