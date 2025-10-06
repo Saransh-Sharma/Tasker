@@ -23,9 +23,9 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         print("🎯 FluentUIDelegate: Task completion changed - refreshing ALL charts")
         refreshChartsAfterTaskCompletion()
         
-        // Also update SwiftUI chart with slight delay for smooth animation
+        // Phase 7: Also update horizontal chart cards with slight delay for smooth animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.updateSwiftUIChartCard()
+            self?.updateChartCardsScrollView()
         }
         
         // Log with detailed task and daily score information
@@ -51,11 +51,9 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         impactFeedback.prepare()
         impactFeedback.impactOccurred()
         
-        // Update chart data with slight delay for smooth experience
+        // Phase 7: Update chart data with slight delay for smooth experience
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            self?.updateSwiftUIChartCard()
-            // CRITICAL FIX: Update SwiftUI chart as well
-            self?.updateSwiftUIChartCard()
+            self?.updateChartCardsScrollView()
         }
         
         // Log detailed task update information
@@ -86,10 +84,8 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         impactFeedback.prepare()
         impactFeedback.impactOccurred()
         
-        // Update chart immediately for deletion to show instant feedback
-        updateSwiftUIChartCard()
-        // CRITICAL FIX: Update SwiftUI chart as well
-        updateSwiftUIChartCard()
+        // Phase 7: Update chart immediately for deletion to show instant feedback
+        updateChartCardsScrollView()
         
         // Log deletion with detailed task information
         let taskScore = task.getTaskScore(task: task)

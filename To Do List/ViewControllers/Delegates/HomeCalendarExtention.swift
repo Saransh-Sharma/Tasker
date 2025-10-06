@@ -209,10 +209,10 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         
         reloadTinyPicChartWithAnimation()
         reloadToDoListWithAnimation()
-        
-        // Update line chart data for the new week
-        updateSwiftUIChartCard()
-        
+
+        // Phase 7: Update horizontal chart cards for the new week
+        updateChartCardsScrollView()
+
         // Refresh sample table view with selected date
         refreshSampleTableView(for: date)
         
@@ -225,10 +225,10 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     func calendarCurrentPageDidChange(_ calendar: FSCalendar) {
         print("\n=== CALENDAR PAGE CHANGED ===")
         print("Calendar current page: \(calendar.currentPage)")
-        
-        // Update line chart data for the new week
-        updateSwiftUIChartCard()
-        
+
+        // Phase 7: Update horizontal chart cards for the new week
+        updateChartCardsScrollView()
+
         print("=== CALENDAR PAGE CHANGE COMPLETE ===")
     }
     

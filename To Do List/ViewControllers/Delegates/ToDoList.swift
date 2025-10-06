@@ -131,10 +131,10 @@ extension HomeViewController: BEMCheckBoxDelegate {
         print("🔄 Refreshing navigation pie chart")
         self.refreshNavigationPieChart()
         
-        // Update navigation title and backdrop line chart
-        print("📊 Updating daily score and SwiftUI chart")
+        // Phase 7: Update navigation title and backdrop horizontal chart cards
+        print("📊 Updating daily score and chart cards")
         self.updateDailyScore()
-        self.updateSwiftUIChartCard()
+        self.updateChartCardsScrollView()
         
         print("✅ Tiny pie chart refresh sequence completed")
     }

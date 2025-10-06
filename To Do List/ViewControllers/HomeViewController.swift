@@ -1530,10 +1530,10 @@ extension HomeViewController {
         // Refresh navigation pie chart
         print("🔄 Refreshing navigation pie chart...")
         self.refreshNavigationPieChart()
-        
-        // Update SwiftUI chart card and daily score
-        print("📊 Updating SwiftUI chart and daily score...")
-        self.updateSwiftUIChartCard()
+
+        // Phase 7: Update horizontally scrollable chart cards (line + radar) and daily score
+        print("📊 Updating Chart Cards ScrollView (Line + Radar) and daily score...")
+        self.updateChartCardsScrollView()
         self.updateDailyScore()
         
         print("✅ HomeViewController: ALL charts refreshed successfully (including tiny pie chart)")
@@ -1729,7 +1729,47 @@ extension HomeViewController {
         // Phase 7: Hide this old single chart - we now use chartScrollContainer with horizontal scrolling
         container.isHidden = true
     }
-    
+
+    /// Updates the horizontally scrollable chart cards (line + radar) with the latest data.
+    func updateChartCardsScrollView() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self,
+                  let container = self.chartScrollContainer else {
+                print("⚠️ updateChartCardsScrollView: chartScrollContainer is nil")
+                return
+            }
+
+            // Remove old hosting controller
+            if let oldHost = self.chartScrollHostingController {
+                oldHost.willMove(toParent: nil)
+                oldHost.view.removeFromSuperview()
+                oldHost.removeFromParent()
+            }
+
+            // Create a fresh chart scroll view and hosting controller with updated data
+            let chartScrollView = ChartCardsScrollView(referenceDate: self.dateForTheView)
+            let newHost = UIHostingController(rootView: AnyView(chartScrollView))
+            self.chartScrollHostingController = newHost
+
+            newHost.view.backgroundColor = .clear
+            newHost.view.translatesAutoresizingMaskIntoConstraints = false
+
+            container.addSubview(newHost.view)
+
+            NSLayoutConstraint.activate([
+                newHost.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                newHost.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                newHost.view.topAnchor.constraint(equalTo: container.topAnchor),
+                newHost.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+            ])
+
+            self.addChild(newHost)
+            newHost.didMove(toParent: self)
+
+            print("📊 Chart Cards ScrollView (Line + Radar) completely rebuilt with latest data")
+        }
+    }
+
     /// Updates the SwiftUI chart card with the latest data.
     func updateSwiftUIChartCard() {
         DispatchQueue.main.async { [weak self] in

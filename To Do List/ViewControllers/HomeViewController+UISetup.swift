@@ -269,8 +269,9 @@ extension HomeViewController: BadgeViewDelegate {
     func appMovedToForeground() {
         print("App moved to ForeGround!")
         // toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView) - REMOVED
-        
-        updateSwiftUIChartCard()
+
+        // Phase 7: Update horizontal chart cards
+        updateChartCardsScrollView()
         updateHomeDateLabel(date: dateForTheView)
         
         if dateForTheView == Date.today() {
