@@ -255,63 +255,118 @@ class ChartDataService {
         let startOfWeek = week.first ?? currentReferenceDate.startOfDay
         let endOfWeek = week.last?.endOfDay ?? currentReferenceDate.endOfDay
 
-        print("📊 Generating radar chart data for week of \(currentReferenceDate)")
+        print("🎯 [RADAR] ========================================")
+        print("🎯 [RADAR] Generating radar chart data for week of \(currentReferenceDate)")
+        print("🎯 [RADAR] Week range: \(startOfWeek) to \(endOfWeek)")
 
-        // Get projects to display
-        var projectsToDisplay: [Projects] = []
+        // Get projects to display with their scores
+        var projectsWithScores: [(Projects, Int)] = []
 
         if let selectedIDs = selectedProjectIDs, !selectedIDs.isEmpty {
             // Use user-selected projects
+            print("🎯 [RADAR] Using \(selectedIDs.count) user-selected projects: \(selectedIDs)")
             let request: NSFetchRequest<Projects> = Projects.fetchRequest()
             request.predicate = NSPredicate(
                 format: "projectID IN %@",
-                selectedIDs.map { $0.uuidString }
+                selectedIDs as [CVarArg]
             )
-            projectsToDisplay = (try? context.fetch(request)) ?? []
+            let selectedProjects = (try? context.fetch(request)) ?? []
+            print("🎯 [RADAR] Fetched \(selectedProjects.count) projects from selected IDs")
+
+            // Calculate scores for selected projects
+            for project in selectedProjects {
+                guard let projectName = project.projectName else { continue }
+                let score = calculateWeeklyScoreForProjectByName(
+                    projectName: projectName,
+                    startOfWeek: startOfWeek,
+                    endOfWeek: endOfWeek
+                )
+                projectsWithScores.append((project, score))
+            }
         } else {
             // Auto-select top 5 projects by weekly score
-            projectsToDisplay = getTopProjectsByWeeklyScore(limit: 5, startOfWeek: startOfWeek, endOfWeek: endOfWeek)
+            print("🎯 [RADAR] Auto-selecting top 5 projects by weekly score...")
+            projectsWithScores = getTopProjectsByWeeklyScore(limit: 5, startOfWeek: startOfWeek, endOfWeek: endOfWeek)
+            print("🎯 [RADAR] Auto-selected \(projectsWithScores.count) projects")
         }
 
-        // Filter out Inbox project
-        let inboxID = ProjectConstants.inboxProjectID
-        projectsToDisplay = projectsToDisplay.filter {
-            $0.projectID != inboxID
+        // Filter out Inbox project by name
+        let beforeFilterCount = projectsWithScores.count
+        projectsWithScores = projectsWithScores.filter {
+            $0.0.projectName != "Inbox"
         }
+        print("🎯 [RADAR] Filtered out Inbox. Before: \(beforeFilterCount), After: \(projectsWithScores.count)")
 
-        print("   📁 Displaying \(projectsToDisplay.count) projects on radar chart")
+        print("🎯 [RADAR] Final: Displaying \(projectsWithScores.count) custom projects on radar chart")
 
         // Generate radar chart entries
         var entries: [RadarChartDataEntry] = []
         var labels: [String] = []
 
-        for (index, project) in projectsToDisplay.enumerated() {
-            guard let projectID = project.projectID,
-                  let projectName = project.projectName else {
+        print("🎯 [RADAR] Generating chart entries for \(projectsWithScores.count) projects...")
+
+        for (index, (project, score)) in projectsWithScores.enumerated() {
+            guard let projectName = project.projectName else {
+                print("   ⚠️ [RADAR] Skipping project #\(index) with nil name")
                 continue
             }
 
-            // Calculate weekly score for this project
-            let weeklyScore = calculateWeeklyScoreForProject(
-                projectID: projectID,
-                startOfWeek: startOfWeek,
-                endOfWeek: endOfWeek
-            )
+            print("   📈 [RADAR] Project #\(index+1): '\(projectName)' - \(score) points")
 
-            print("   • \(projectName): \(weeklyScore) points")
-
-            // Create radar chart entry
-            let entry = RadarChartDataEntry(value: Double(weeklyScore))
+            // Create radar chart entry using pre-calculated score
+            let entry = RadarChartDataEntry(value: Double(score))
             entries.append(entry)
             labels.append(projectName)
         }
 
-        print("   📈 Radar chart: \(entries.count) data points")
+        print("🎯 [RADAR] ========================================")
+        print("🎯 [RADAR] FINAL RESULT: \(entries.count) data points created")
+        print("🎯 [RADAR] Projects: \(labels.joined(separator: ", "))")
+        print("🎯 [RADAR] Scores: \(entries.map { Int($0.value) })")
+        print("🎯 [RADAR] ========================================")
 
         return (entries, labels)
     }
 
-    /// Calculate weekly score for a specific project
+    /// Calculate weekly score for a specific project by name (fallback for nil projectIDs)
+    private func calculateWeeklyScoreForProjectByName(
+        projectName: String,
+        startOfWeek: Date,
+        endOfWeek: Date
+    ) -> Int {
+        // Fetch all tasks completed in this week for this project
+        // NOTE: Using project string field since projectID is often nil
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        request.predicate = NSPredicate(
+            format: "project == %@ AND isComplete == YES AND dateCompleted >= %@ AND dateCompleted <= %@",
+            projectName,
+            startOfWeek as NSDate,
+            endOfWeek as NSDate
+        )
+
+        print("      🔍 [RADAR] Fetching tasks for project '\(projectName)' (by name)")
+        print("         Predicate: project == '\(projectName)' AND isComplete == YES AND dateCompleted between \(startOfWeek) and \(endOfWeek)")
+
+        guard let tasks = try? context.fetch(request) else {
+            print("      ⚠️ [RADAR] Failed to fetch tasks")
+            return 0
+        }
+
+        print("      📝 [RADAR] Found \(tasks.count) completed tasks")
+
+        // Sum scores of all completed tasks
+        var totalScore = 0
+        for task in tasks {
+            let taskScore = TaskScoringService.shared.calculateScore(for: task)
+            totalScore += taskScore
+            print("         - '\(task.name ?? "Unknown")': \(taskScore) points (Priority: \(task.taskPriority))")
+        }
+
+        print("      💯 [RADAR] Total score: \(totalScore)")
+        return totalScore
+    }
+
+    /// Calculate weekly score for a specific project (legacy UUID-based method)
     private func calculateWeeklyScoreForProject(
         projectID: UUID,
         startOfWeek: Date,
@@ -321,21 +376,30 @@ class ChartDataService {
         let request: NSFetchRequest<NTask> = NTask.fetchRequest()
         request.predicate = NSPredicate(
             format: "projectID == %@ AND isComplete == YES AND dateCompleted >= %@ AND dateCompleted <= %@",
-            projectID.uuidString,
+            projectID as CVarArg,
             startOfWeek as NSDate,
             endOfWeek as NSDate
         )
 
+        print("      🔍 [RADAR] Fetching tasks for project \(projectID)")
+        print("         Predicate: projectID == \(projectID) AND isComplete == YES AND dateCompleted between \(startOfWeek) and \(endOfWeek)")
+
         guard let tasks = try? context.fetch(request) else {
+            print("      ⚠️ [RADAR] Failed to fetch tasks")
             return 0
         }
+
+        print("      📝 [RADAR] Found \(tasks.count) completed tasks")
 
         // Sum scores of all completed tasks
         var totalScore = 0
         for task in tasks {
-            totalScore += TaskScoringService.shared.calculateScore(for: task)
+            let taskScore = TaskScoringService.shared.calculateScore(for: task)
+            totalScore += taskScore
+            print("         - '\(task.name ?? "Unknown")': \(taskScore) points (Priority: \(task.taskPriority))")
         }
 
+        print("      💯 [RADAR] Total score: \(totalScore)")
         return totalScore
     }
 
@@ -344,28 +408,70 @@ class ChartDataService {
         limit: Int,
         startOfWeek: Date,
         endOfWeek: Date
-    ) -> [Projects] {
+    ) -> [(Projects, Int)] {
+        print("   🔎 [RADAR] Fetching all custom projects (excluding Inbox)...")
+        print("   🔎 [RADAR] Inbox UUID to exclude: \(ProjectConstants.inboxProjectID)")
+
+        // First, let's fetch ALL projects to see what we have
+        let allRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+        print("   🔍 [RADAR] DEBUG: About to fetch ALL projects...")
+
+        do {
+            let allProjectsDebug = try context.fetch(allRequest)
+            print("   📊 [RADAR] DEBUG: Total projects in database: \(allProjectsDebug.count)")
+            print("   🔍 [RADAR] DEBUG: Starting project enumeration...")
+
+            for (index, project) in allProjectsDebug.enumerated() {
+                let hasID = project.projectID != nil
+                let projectID = project.projectID?.uuidString ?? "nil"
+                let projectName = project.projectName ?? "nil"
+                let isInbox = project.projectID == ProjectConstants.inboxProjectID
+                print("      #\(index+1): '\(projectName)' | hasID: \(hasID) | ID: \(projectID) | isInbox: \(isInbox)")
+
+                // Also check if the project has value for projectID attribute
+                if let id = project.projectID {
+                    print("         UUID value exists: \(id), comparing to inbox: \(ProjectConstants.inboxProjectID), equal: \(id == ProjectConstants.inboxProjectID)")
+                } else {
+                    print("         ⚠️ projectID is NIL!")
+                }
+            }
+
+            print("   ✅ [RADAR] DEBUG: Project enumeration complete")
+        } catch {
+            print("   ❌ [RADAR] DEBUG: Failed to fetch all projects: \(error)")
+        }
+
         // Fetch all custom projects
+        // NOTE: Many projects have nil projectID, so we filter by name instead
         let request: NSFetchRequest<Projects> = Projects.fetchRequest()
         request.predicate = NSPredicate(
-            format: "projectID != %@",
-            ProjectConstants.inboxProjectID as CVarArg
+            format: "projectName != %@ AND projectName != nil",
+            "Inbox"
         )
 
+        print("   🔍 [RADAR] Executing predicate: projectName != 'Inbox' AND projectName != nil")
+
         guard let allProjects = try? context.fetch(request) else {
+            print("   ⚠️ [RADAR] Failed to fetch custom projects - fetch() returned nil")
             return []
         }
+
+        print("   📂 [RADAR] Found \(allProjects.count) custom projects (after excluding Inbox by name)")
 
         // Calculate score for each project
         var projectScores: [(Projects, Int)] = []
 
         for project in allProjects {
-            guard let projectID = project.projectID else {
+            guard let projectName = project.projectName else {
+                print("   ⚠️ [RADAR] Skipping project with nil name")
                 continue
             }
 
-            let score = calculateWeeklyScoreForProject(
-                projectID: projectID,
+            print("   📊 [RADAR] Calculating score for '\(projectName)'...")
+
+            // Use project name instead of UUID since many projects have nil projectID
+            let score = calculateWeeklyScoreForProjectByName(
+                projectName: projectName,
                 startOfWeek: startOfWeek,
                 endOfWeek: endOfWeek
             )
@@ -373,11 +479,18 @@ class ChartDataService {
             projectScores.append((project, score))
         }
 
+        print("   🎯 [RADAR] Calculated scores for \(projectScores.count) projects")
+
         // Sort by score descending and take top N
-        return projectScores
-            .sorted { $0.1 > $1.1 }
-            .prefix(limit)
-            .map { $0.0 }
+        let sortedProjects = projectScores.sorted { $0.1 > $1.1 }
+        let topProjects = Array(sortedProjects.prefix(limit))
+
+        print("   🏆 [RADAR] Top \(limit) projects by score:")
+        for (project, score) in topProjects {
+            print("      - \(project.projectName ?? "Unknown"): \(score) points")
+        }
+
+        return topProjects
     }
 
     /// Create configured radar chart dataset

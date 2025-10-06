@@ -198,39 +198,44 @@ struct RadarChartCard: View {
     // MARK: - Data Loading
 
     private func loadChartData() {
+        print("🎨 [RADAR CARD] loadChartData() called")
         isLoading = true
 
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
+            print("⚠️ [RADAR CARD] Failed to get AppDelegate")
             isLoading = false
             return
         }
 
-        context.perform {
-            let chartService = ChartDataService(context: context)
+        let context = appDelegate.persistentContainer.viewContext
+        print("🎨 [RADAR CARD] Got viewContext: \(context)")
 
-            // Generate radar chart data
-            let result = chartService.generateRadarChartData(
-                for: referenceDate,
-                selectedProjectIDs: selectedProjectIDs
-            )
+        // Execute on main context directly (SwiftUI is already on main thread)
+        let chartService = ChartDataService(context: context)
+        print("🎨 [RADAR CARD] Created ChartDataService")
 
-            DispatchQueue.main.async {
-                self.chartData = result.entries
-                self.chartLabels = result.labels
+        // Generate radar chart data
+        let result = chartService.generateRadarChartData(
+            for: referenceDate,
+            selectedProjectIDs: selectedProjectIDs
+        )
 
-                // Determine empty states
-                self.hasCustomProjects = !result.labels.isEmpty || self.checkHasCustomProjects(context: context)
-                self.hasCompletedTasks = !result.entries.isEmpty && result.entries.contains(where: { $0.value > 0 })
+        print("🎨 [RADAR CARD] Generated data: \(result.entries.count) entries, \(result.labels.count) labels")
 
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    self.isLoading = false
-                }
+        self.chartData = result.entries
+        self.chartLabels = result.labels
 
-                #if DEBUG
-                print("📊 Radar Chart loaded \(result.entries.count) projects")
-                #endif
-            }
+        // Determine empty states
+        self.hasCustomProjects = !result.labels.isEmpty || self.checkHasCustomProjects(context: context)
+        self.hasCompletedTasks = !result.entries.isEmpty && result.entries.contains(where: { $0.value > 0 })
+
+        print("🎨 [RADAR CARD] hasCustomProjects: \(self.hasCustomProjects), hasCompletedTasks: \(self.hasCompletedTasks)")
+
+        withAnimation(.easeInOut(duration: 0.3)) {
+            self.isLoading = false
         }
+
+        print("📊 Radar Chart loaded \(result.entries.count) projects")
     }
 
     private func checkHasCustomProjects(context: NSManagedObjectContext) -> Bool {
