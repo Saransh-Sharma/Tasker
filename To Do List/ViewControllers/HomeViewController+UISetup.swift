@@ -14,6 +14,54 @@ import SemiModalViewController
 import FSCalendar
 import UserNotifications
 
+// MARK: - Transparent Hosting Controller for Chart Cards
+
+class TransparentHostingController<Content: View>: UIHostingController<Content> {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        print("🎯 TransparentHostingController.viewDidLoad() - applying transparency")
+        applyTransparency()
+    }
+
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        print("🎯 TransparentHostingController.viewWillLayoutSubviews() - applying transparency")
+        applyTransparency()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        print("🎯 TransparentHostingController.viewDidAppear() - applying transparency")
+        applyTransparency()
+
+        // Additional delayed pass for async-created subviews
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            print("🎯 TransparentHostingController delayed pass (0.1s)")
+            self?.applyTransparency()
+        }
+    }
+
+    private func applyTransparency() {
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        clearAllSubviews(view)
+    }
+
+    private func clearAllSubviews(_ view: UIView) {
+        view.backgroundColor = .clear
+
+        if let scrollView = view as? UIScrollView {
+            scrollView.backgroundColor = .clear
+            scrollView.isOpaque = false
+            print("🎯 Cleared UIScrollView: \(scrollView)")
+        }
+
+        for subview in view.subviews {
+            clearAllSubviews(subview)
+        }
+    }
+}
+
 extension HomeViewController: BadgeViewDelegate {
     
     // MARK: - BadgeViewDelegate Methods
@@ -71,9 +119,11 @@ extension HomeViewController: BadgeViewDelegate {
     func setupChartCardsScrollView() {
         print("🔵 Phase 7: Starting setupChartCardsScrollView...")
 
-        // Create horizontally scrollable chart cards
+        // Create vertically scrollable chart cards
         let chartScrollView = ChartCardsScrollView(referenceDate: dateForTheView)
-        chartScrollHostingController = UIHostingController(rootView: AnyView(chartScrollView))
+
+        // Use TransparentHostingController for automatic transparency management
+        chartScrollHostingController = TransparentHostingController(rootView: AnyView(chartScrollView))
 
         guard let hostingController = chartScrollHostingController else {
             print("⚠️ Failed to create chartScrollHostingController")
@@ -92,9 +142,14 @@ extension HomeViewController: BadgeViewDelegate {
         container.addSubview(hostingController.view)
         hostingController.didMove(toParent: self)
 
-        // Configure container
+        // Configure container with transparency
         container.backgroundColor = .clear
+        container.isOpaque = false
         backdropContainer.addSubview(container)
+
+        // Configure hosting controller view with transparency
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.isOpaque = false
 
         // Position scroll view in the chart area
         container.translatesAutoresizingMaskIntoConstraints = false
@@ -117,12 +172,62 @@ extension HomeViewController: BadgeViewDelegate {
         // Force layout pass to calculate proper frame immediately
         backdropContainer.layoutIfNeeded()
 
+        // Apply immediate transparency
+        applyChartScrollTransparency()
+
+        // Apply delayed transparency passes for async-created subviews
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            print("🎯 setupChartCardsScrollView: Delayed transparency pass (0.1s)")
+            self?.applyChartScrollTransparency()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            print("🎯 setupChartCardsScrollView: Delayed transparency pass (0.5s)")
+            self?.applyChartScrollTransparency()
+        }
+
         // Initially hidden (will be shown via button toggle)
         container.isHidden = true
 
-        print("✅ Phase 7: Horizontally Scrollable Chart Cards setup complete")
+        print("✅ Phase 7: Vertically Scrollable Chart Cards setup complete")
         print("   Container frame AFTER layout: \(container.frame)")
         print("   Container is hidden: \(container.isHidden)")
+    }
+
+    // MARK: - Chart Scroll Transparency Helpers
+
+    func applyChartScrollTransparency() {
+        guard let container = chartScrollContainer,
+              let hostingController = chartScrollHostingController else {
+            return
+        }
+
+        print("🎯 applyChartScrollTransparency() - clearing backgrounds")
+
+        // Clear container
+        container.backgroundColor = .clear
+        container.isOpaque = false
+
+        // Clear hosting controller view
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.isOpaque = false
+
+        // Recursively clear all subviews (including UIScrollView)
+        clearAllSubviewsRecursively(hostingController.view)
+    }
+
+    private func clearAllSubviewsRecursively(_ view: UIView) {
+        view.backgroundColor = .clear
+
+        if let scrollView = view as? UIScrollView {
+            scrollView.backgroundColor = .clear
+            scrollView.isOpaque = false
+            print("🎯 Cleared UIScrollView in hierarchy: \(scrollView)")
+        }
+
+        for subview in view.subviews {
+            clearAllSubviewsRecursively(subview)
+        }
     }
     
     

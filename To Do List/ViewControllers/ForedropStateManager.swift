@@ -55,7 +55,10 @@ class ForedropStateManager {
     
     /// Initial spring velocity
     private let springVelocity: CGFloat = 0.5
-    
+
+    /// Callback invoked when charts become visible (for transparency application)
+    var onChartsVisibilityChanged: (() -> Void)?
+
     // MARK: - Initialization
     
     init(foredropContainer: UIView,
@@ -223,6 +226,21 @@ class ForedropStateManager {
             // Show charts when in charts state
             chartsContainer.isHidden = false
             print("   📊 Charts container: VISIBLE")
+
+            // Apply transparency immediately when charts become visible
+            onChartsVisibilityChanged?()
+
+            // Additional delayed transparency passes for async-created subviews
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                print("🎯 ForedropStateManager: Delayed transparency (0.15s)")
+                self?.onChartsVisibilityChanged?()
+            }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                print("🎯 ForedropStateManager: Delayed transparency (0.3s)")
+                self?.onChartsVisibilityChanged?()
+            }
+
         case .default, .calendar:
             // Hide charts in default and calendar states
             chartsContainer.isHidden = true

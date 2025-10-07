@@ -35,7 +35,14 @@ extension HomeViewController {
             navigationController: navigationController
         )
 
+        // Set callback to apply transparency when charts become visible
+        foredropStateManager?.onChartsVisibilityChanged = { [weak self] in
+            print("🎯 ForedropStateManager callback: Applying chart transparency")
+            self?.applyChartScrollTransparency()
+        }
+
         print("✅ ForedropStateManager initialized with chartScrollContainer (Phase 7)")
+        print("✅ Transparency callback configured")
     }
     
     // MARK: - Orientation Change Handling

@@ -27,6 +27,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Configure UIAppearance to make ShyHeaderController's dummy table view transparent
         UITableView.appearance().backgroundColor = UIColor.clear
         UITableView.appearance().isOpaque = false
+
+        // Configure UIScrollView appearance for transparent backgrounds in SwiftUI ScrollViews
+        UIScrollView.appearance().backgroundColor = UIColor.clear
+        UIScrollView.appearance().isOpaque = false
         
         // Register for CloudKit silent pushes
         application.registerForRemoteNotifications()

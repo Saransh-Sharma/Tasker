@@ -11,7 +11,54 @@ import TinyConstraints
 import FSCalendar
 import MaterialComponents.MaterialRipple
 import UIKit
+import SwiftUI
 
+// MARK: - Transparent Hosting Controller
+
+/// Custom UIHostingController that guarantees transparent background throughout its lifecycle
+/// Fixes first-launch white background issue by recursively clearing all subviews
+class TransparentHostingController<Content: View>: UIHostingController<Content> {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        applyTransparency()
+    }
+
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        applyTransparency()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // CRITICAL: Apply transparency after SwiftUI has fully constructed view hierarchy
+        // This fixes the first-launch white background issue
+        applyTransparency()
+    }
+
+    private func applyTransparency() {
+        view.backgroundColor = .clear
+        view.isOpaque = false
+
+        // Recursively clear all subviews, including SwiftUI's internal UIScrollView
+        clearAllSubviews(view)
+    }
+
+    private func clearAllSubviews(_ view: UIView) {
+        // Clear this view's background
+        view.backgroundColor = .clear
+
+        // Special handling for UIScrollView (SwiftUI creates these internally for ScrollView)
+        if let scrollView = view as? UIScrollView {
+            scrollView.backgroundColor = .clear
+            scrollView.isOpaque = false
+        }
+
+        // Recursively clear all children
+        for subview in view.subviews {
+            clearAllSubviews(subview)
+        }
+    }
+}
 
 extension HomeViewController {
     
@@ -273,7 +320,23 @@ extension HomeViewController {
 
         animateForedrop(to: targetY) {
             print("   🔄 Animation complete - toggling visibility")
+
+            // PHASE 3: Apply transparency when view becomes visible (CRITICAL for first launch)
+            if isOpening {
+                // Container is about to become visible for the first time
+                self.applyChartScrollTransparency()
+            }
+
             self.chartScrollContainer?.isHidden.toggle()
+
+            // Apply again immediately after visibility toggle
+            if self.chartScrollContainer?.isHidden == false {
+                // Give SwiftUI a moment to finalize rendering
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    self.applyChartScrollTransparency()
+                }
+            }
+
             print("   chartScrollContainer isHidden after toggle: \(self.chartScrollContainer?.isHidden ?? true)")
             // Keep old charts hidden (Phase 7: Cleanup)
             self.lineChartView.isHidden = true
@@ -456,16 +519,17 @@ extension HomeViewController {
     }
 
     //----------------------- *************************** -----------------------
-    //MARK:-                    setup Chart Cards ScrollView (Phase 7)
+    //MARK:-                    setup Chart Cards ScrollView (Rebuilt with Transparent Background)
     //----------------------- *************************** -----------------------
     func setupChartCardsScrollView() {
-        // Create horizontally scrollable chart cards
+        // Create vertically scrollable chart cards with guaranteed transparent background
         let chartScrollView = ChartCardsScrollView(referenceDate: dateForTheView)
-        chartScrollHostingController = UIHostingController(rootView: AnyView(chartScrollView))
 
-        guard let hostingController = chartScrollHostingController else { return }
+        // Use custom TransparentHostingController for guaranteed transparency
+        let hostingController = TransparentHostingController(rootView: chartScrollView)
+        chartScrollHostingController = hostingController
 
-        // Create container view for the scroll view
+        // Create completely transparent container view
         chartScrollContainer = UIView()
         guard let container = chartScrollContainer else { return }
 
@@ -474,8 +538,33 @@ extension HomeViewController {
         container.addSubview(hostingController.view)
         hostingController.didMove(toParent: self)
 
-        // Configure container
+        // CRITICAL: Configure all transparency settings
         container.backgroundColor = .clear
+        container.isOpaque = false
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.isOpaque = false
+
+        // iOS 16.4+: Prevent safe area regions from creating white backgrounds
+        if #available(iOS 16.4, *) {
+            hostingController.safeAreaRegions = []
+        }
+
+        // Force immediate layout to apply transparency
+        hostingController.view.setNeedsLayout()
+        hostingController.view.layoutIfNeeded()
+
+        // PHASE 1: Immediate transparency application
+        applyChartScrollTransparency()
+
+        // PHASE 2: Delayed transparency (catch SwiftUI's async UIScrollView creation)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.applyChartScrollTransparency()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.applyChartScrollTransparency()
+        }
+
         backdropContainer.addSubview(container)
 
         // Position scroll view in the chart area
@@ -499,7 +588,8 @@ extension HomeViewController {
         // Initially hidden (will be shown via button toggle)
         container.isHidden = true
 
-        print("✅ Phase 7: Horizontally Scrollable Chart Cards setup complete")
+        print("✅ Vertically Scrollable Chart Cards setup complete with transparent background")
+        print("   Using TransparentHostingController for guaranteed clarity")
         print("   Container frame: \(container.frame)")
         print("   Container is hidden: \(container.isHidden)")
     }
@@ -512,6 +602,48 @@ extension HomeViewController {
         hostingController.rootView = AnyView(updatedScrollView)
 
         print("📊 Chart Cards ScrollView updated with new reference date")
+    }
+
+    //----------------------- *************************** -----------------------
+    //MARK:-                    Transparency Helper Methods
+    //----------------------- *************************** -----------------------
+
+    /// Applies transparency to chart scroll view and all its subviews recursively
+    /// Call this at multiple points to ensure SwiftUI's internal views are cleared
+    private func applyChartScrollTransparency() {
+        guard let hostingController = chartScrollHostingController else { return }
+        guard let container = chartScrollContainer else { return }
+
+        // Clear container
+        container.backgroundColor = .clear
+        container.isOpaque = false
+
+        // Clear hosting controller view
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.isOpaque = false
+
+        // Recursively clear ALL subviews (including SwiftUI's hidden UIScrollView)
+        clearAllSubviewsRecursively(hostingController.view)
+
+        print("🎨 Applied transparency to chart scroll view hierarchy")
+    }
+
+    /// Recursively clears background of all views in the hierarchy
+    private func clearAllSubviewsRecursively(_ view: UIView) {
+        // Clear this view
+        view.backgroundColor = .clear
+
+        // Special handling for UIScrollView (SwiftUI's internal scroll view)
+        if let scrollView = view as? UIScrollView {
+            scrollView.backgroundColor = .clear
+            scrollView.isOpaque = false
+            print("   ✓ Cleared UIScrollView background")
+        }
+
+        // Recursively clear all children
+        for subview in view.subviews {
+            clearAllSubviewsRecursively(subview)
+        }
     }
 
 }

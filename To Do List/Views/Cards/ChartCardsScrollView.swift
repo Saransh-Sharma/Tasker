@@ -8,7 +8,7 @@
 
 import SwiftUI
 
-/// Vertically scrollable view containing multiple chart cards
+/// Vertically scrollable view containing multiple chart cards with guaranteed transparent background
 struct ChartCardsScrollView: View {
     let referenceDate: Date?
 
@@ -18,13 +18,14 @@ struct ChartCardsScrollView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
-            VStack(spacing: 16) {
+            LazyVStack(spacing: 16) {
                 // Line Chart Card
                 ChartCard(
                     title: "Weekly Progress",
                     subtitle: "Task completion scores",
                     referenceDate: referenceDate
                 )
+                .background(Color.clear)
 
                 // Radar Chart Card
                 RadarChartCard(
@@ -32,9 +33,15 @@ struct ChartCardsScrollView: View {
                     subtitle: "Weekly scores by project",
                     referenceDate: referenceDate
                 )
+                .background(Color.clear)
             }
+            .background(Color.clear)
             .padding(.horizontal, 16)
+            .background(Color.clear)
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
+        .compositingGroup()
     }
 }
 
