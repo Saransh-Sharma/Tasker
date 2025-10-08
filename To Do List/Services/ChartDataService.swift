@@ -502,12 +502,12 @@ class ChartDataService {
         dataSet.fillColor = colors.secondaryAccentColor
         dataSet.drawFilledEnabled = true
         dataSet.fillAlpha = 0.3
-        dataSet.lineWidth = 2.5
+        dataSet.lineWidth = 4.0
         dataSet.drawHighlightCircleEnabled = true
         dataSet.setDrawHighlightIndicators(false)
 
         // Value labels
-        dataSet.valueFont = .systemFont(ofSize: 12, weight: .semibold)
+        dataSet.valueFont = .systemFont(ofSize: 16, weight: .semibold)
         dataSet.valueTextColor = colors.primaryTextColor
         dataSet.drawValuesEnabled = true
 

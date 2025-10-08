@@ -33,10 +33,10 @@ struct RadarChartCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 4) {
             // Header with project selection button
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.headline)
                         .fontWeight(.semibold)
@@ -60,9 +60,9 @@ struct RadarChartCard: View {
                         showProjectSelection = true
                     }) {
                         Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 18))
+                            .font(.system(size: 16))
                             .foregroundColor(.blue)
-                            .padding(8)
+                            .padding(6)
                             .background(Color.blue.opacity(0.1))
                             .cornerRadius(8)
                     }
@@ -78,7 +78,7 @@ struct RadarChartCard: View {
                     // Loading state
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.gray.opacity(0.1))
-                        .frame(height: 280)
+                        .frame(height: 350)
                         .overlay(
                             ProgressView()
                                 .scaleEffect(1.2)
@@ -111,7 +111,7 @@ struct RadarChartCard: View {
                         labels: chartLabels,
                         referenceDate: referenceDate
                     )
-                    .frame(height: 280)
+                    .frame(height: 350)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color(.systemBackground))
@@ -120,7 +120,7 @@ struct RadarChartCard: View {
                 }
             }
         }
-        .padding(16)
+        .padding(8)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.secondarySystemBackground))
@@ -187,7 +187,7 @@ struct RadarChartCard: View {
                 .padding(.top, 8)
             }
         }
-        .frame(height: 280)
+        .frame(height: 350)
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 12)
@@ -274,12 +274,12 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         // Chart configuration
         chartView.backgroundColor = UIColor.clear
         chartView.chartDescription.enabled = false
-        chartView.legend.enabled = true
-        chartView.legend.horizontalAlignment = .center
-        chartView.legend.verticalAlignment = .bottom
-        chartView.legend.orientation = .horizontal
-        chartView.legend.font = .systemFont(ofSize: 10)
-        chartView.legend.textColor = colors.primaryTextColor
+        chartView.legend.enabled = false
+        chartView.rotationAngle = 180
+
+        // Extremely aggressive negative offsets to eliminate white space above/below polygon
+        chartView.setExtraOffsets(left: -30, top: -60, right: -30, bottom: -60)
+        chartView.minOffset = 0
 
         // Web configuration
         chartView.webLineWidth = 1.0
@@ -294,15 +294,19 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
 
         // Y-axis (radial axis)
         let yAxis = chartView.yAxis
-        yAxis.labelFont = .systemFont(ofSize: 10, weight: .regular)
+        yAxis.labelFont = .systemFont(ofSize: 12, weight: .regular)
         yAxis.labelCount = 5
         yAxis.axisMinimum = 0
-        yAxis.drawLabelsEnabled = true
+        yAxis.drawLabelsEnabled = false
         yAxis.labelTextColor = colors.primaryTextColor
+        yAxis.spaceTop = 0
+        yAxis.spaceBottom = 0
 
         // X-axis (angular axis - project names)
         let xAxis = chartView.xAxis
-        xAxis.labelFont = .systemFont(ofSize: 11, weight: .medium)
+        xAxis.labelFont = .systemFont(ofSize: 14, weight: .medium)
+        xAxis.xOffset = 0
+        xAxis.yOffset = 0
         xAxis.labelTextColor = colors.primaryTextColor
         xAxis.valueFormatter = RadarXAxisFormatter(labels: labels)
 

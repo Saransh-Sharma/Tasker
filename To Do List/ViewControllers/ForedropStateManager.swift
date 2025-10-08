@@ -225,26 +225,24 @@ class ForedropStateManager {
         case .charts:
             // Show charts when in charts state
             chartsContainer.isHidden = false
-            print("   📊 Charts container: VISIBLE")
+            print("📊 [State] Charts revealed")
 
             // Apply transparency immediately when charts become visible
             onChartsVisibilityChanged?()
 
             // Additional delayed transparency passes for async-created subviews
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-                print("🎯 ForedropStateManager: Delayed transparency (0.15s)")
                 self?.onChartsVisibilityChanged?()
             }
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                print("🎯 ForedropStateManager: Delayed transparency (0.3s)")
                 self?.onChartsVisibilityChanged?()
             }
 
         case .default, .calendar:
             // Hide charts in default and calendar states
             chartsContainer.isHidden = true
-            print("   📊 Charts container: HIDDEN")
+            print("📊 [State] Charts hidden")
         }
     }
     

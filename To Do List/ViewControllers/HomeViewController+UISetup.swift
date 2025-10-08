@@ -19,24 +19,20 @@ import UserNotifications
 class TransparentHostingController<Content: View>: UIHostingController<Content> {
     override func viewDidLoad() {
         super.viewDidLoad()
-        print("🎯 TransparentHostingController.viewDidLoad() - applying transparency")
         applyTransparency()
     }
 
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
-        print("🎯 TransparentHostingController.viewWillLayoutSubviews() - applying transparency")
         applyTransparency()
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        print("🎯 TransparentHostingController.viewDidAppear() - applying transparency")
         applyTransparency()
 
         // Additional delayed pass for async-created subviews
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            print("🎯 TransparentHostingController delayed pass (0.1s)")
             self?.applyTransparency()
         }
     }
@@ -53,7 +49,6 @@ class TransparentHostingController<Content: View>: UIHostingController<Content> 
         if let scrollView = view as? UIScrollView {
             scrollView.backgroundColor = .clear
             scrollView.isOpaque = false
-            print("🎯 Cleared UIScrollView: \(scrollView)")
         }
 
         for subview in view.subviews {
@@ -117,7 +112,7 @@ extension HomeViewController: BadgeViewDelegate {
     }
 
     func setupChartCardsScrollView() {
-        print("🔵 Phase 7: Starting setupChartCardsScrollView...")
+        print("📊 [Charts] Initializing vertical scroll view")
 
         // Create vertically scrollable chart cards
         let chartScrollView = ChartCardsScrollView(referenceDate: dateForTheView)
@@ -126,14 +121,14 @@ extension HomeViewController: BadgeViewDelegate {
         chartScrollHostingController = TransparentHostingController(rootView: AnyView(chartScrollView))
 
         guard let hostingController = chartScrollHostingController else {
-            print("⚠️ Failed to create chartScrollHostingController")
+            print("❌ [Charts] ERROR: Failed to create hosting controller")
             return
         }
 
         // Create container view for the scroll view
         chartScrollContainer = UIView()
         guard let container = chartScrollContainer else {
-            print("⚠️ Failed to create chartScrollContainer")
+            print("❌ [Charts] ERROR: Failed to create container view")
             return
         }
 
@@ -156,11 +151,11 @@ extension HomeViewController: BadgeViewDelegate {
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
 
         NSLayoutConstraint.activate([
-            // Container constraints - match old chart position (120pt from top, with 16pt horizontal padding)
-            container.leadingAnchor.constraint(equalTo: backdropContainer.leadingAnchor, constant: 16),
-            container.trailingAnchor.constraint(equalTo: backdropContainer.trailingAnchor, constant: -16),
+            // Container constraints - full width edge-to-edge on iPhone portrait
+            container.leadingAnchor.constraint(equalTo: backdropContainer.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: backdropContainer.trailingAnchor),
             container.topAnchor.constraint(equalTo: backdropContainer.topAnchor, constant: 120),
-            container.heightAnchor.constraint(equalToConstant: 250), // Match old chart height
+            container.heightAnchor.constraint(equalToConstant: 350),
 
             // Hosting controller view constraints
             hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -177,21 +172,17 @@ extension HomeViewController: BadgeViewDelegate {
 
         // Apply delayed transparency passes for async-created subviews
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            print("🎯 setupChartCardsScrollView: Delayed transparency pass (0.1s)")
             self?.applyChartScrollTransparency()
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            print("🎯 setupChartCardsScrollView: Delayed transparency pass (0.5s)")
             self?.applyChartScrollTransparency()
         }
 
         // Initially hidden (will be shown via button toggle)
         container.isHidden = true
 
-        print("✅ Phase 7: Vertically Scrollable Chart Cards setup complete")
-        print("   Container frame AFTER layout: \(container.frame)")
-        print("   Container is hidden: \(container.isHidden)")
+        print("✅ [Charts] Vertical scroll view ready (hidden until toggle)")
     }
 
     // MARK: - Chart Scroll Transparency Helpers
@@ -201,8 +192,6 @@ extension HomeViewController: BadgeViewDelegate {
               let hostingController = chartScrollHostingController else {
             return
         }
-
-        print("🎯 applyChartScrollTransparency() - clearing backgrounds")
 
         // Clear container
         container.backgroundColor = .clear
@@ -222,7 +211,6 @@ extension HomeViewController: BadgeViewDelegate {
         if let scrollView = view as? UIScrollView {
             scrollView.backgroundColor = .clear
             scrollView.isOpaque = false
-            print("🎯 Cleared UIScrollView in hierarchy: \(scrollView)")
         }
 
         for subview in view.subviews {

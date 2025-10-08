@@ -15,11 +15,12 @@
 
 import UIKit
 import DGCharts
+import SwiftUI
 
 extension HomeViewController {
     /// Legacy call-site wrapper. Simply forwards to the new SwiftUI chart update.
     @objc func updateLineChartData() {
-        // Phase 7: The horizontally scrollable chart cards handle their own data calculation. Just refresh them.
+        // Phase 7: The scrollable chart cards handle their own data calculation. Just refresh them.
         updateChartCardsScrollView()
     }
 

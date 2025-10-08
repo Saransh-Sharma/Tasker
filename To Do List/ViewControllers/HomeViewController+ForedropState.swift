@@ -17,9 +17,8 @@ extension HomeViewController {
     /// Initializes the foredrop state manager with all required views
     /// Call this after all views have been set up in viewDidLoad
     func initializeForedropStateManager() {
-        // Phase 7: Use chartScrollContainer (horizontally scrollable) instead of old swiftUIChartContainer
         guard let chartsContainer = chartScrollContainer else {
-            print("⚠️ ForedropStateManager: chartScrollContainer not ready, will retry after layout")
+            print("⚠️ [State] Charts container not ready, retrying...")
             // Retry after a short delay to ensure views are laid out
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 self?.initializeForedropStateManager()
@@ -37,12 +36,10 @@ extension HomeViewController {
 
         // Set callback to apply transparency when charts become visible
         foredropStateManager?.onChartsVisibilityChanged = { [weak self] in
-            print("🎯 ForedropStateManager callback: Applying chart transparency")
             self?.applyChartScrollTransparency()
         }
 
-        print("✅ ForedropStateManager initialized with chartScrollContainer (Phase 7)")
-        print("✅ Transparency callback configured")
+        print("✅ [State] Manager initialized with chart scroll support")
     }
     
     // MARK: - Orientation Change Handling
