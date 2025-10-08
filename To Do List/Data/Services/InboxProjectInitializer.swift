@@ -153,6 +153,105 @@ public final class InboxProjectInitializer {
         }
     }
 
+    /// Migrate task→project references from strings to UUIDs
+    /// Links tasks that have project string but projectID == nil to their actual project UUID
+    public func migrateTaskProjectReferences(completion: @escaping (Result<MigrationReferenceReport, Error>) -> Void) {
+        backgroundContext.perform { [weak self] in
+            guard let self = self else { return }
+
+            do {
+                var tasksMigrated = 0
+                var tasksWithMissingProject = 0
+                var projectsCreated = 0
+
+                // Fetch all tasks that have a project string but no projectID
+                let taskFetchRequest = NTask.fetchRequest()
+                taskFetchRequest.predicate = NSPredicate(format: "projectID == nil AND project != nil")
+
+                let tasksNeedingMigration = try self.backgroundContext.fetch(taskFetchRequest)
+
+                print("🔄 Found \(tasksNeedingMigration.count) tasks needing project UUID migration")
+
+                // Build a cache of project names → project UUIDs for efficiency
+                let allProjectsRequest = Projects.fetchRequest()
+                let allProjects = try self.backgroundContext.fetch(allProjectsRequest)
+
+                var projectCache: [String: UUID] = [:]
+                for project in allProjects {
+                    if let name = project.projectName?.lowercased(), let id = project.projectID {
+                        projectCache[name] = id
+                    }
+                }
+
+                // Process each task
+                for task in tasksNeedingMigration {
+                    guard let projectName = task.project else { continue }
+
+                    let normalizedName = projectName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+                    // Check if this is the Inbox project (case-insensitive)
+                    if normalizedName == ProjectConstants.inboxProjectName.lowercased() {
+                        task.projectID = ProjectConstants.inboxProjectID
+                        task.project = ProjectConstants.inboxProjectName
+                        tasksMigrated += 1
+                        continue
+                    }
+
+                    // Look up project UUID from cache
+                    if let projectID = projectCache[normalizedName] {
+                        task.projectID = projectID
+                        tasksMigrated += 1
+                        print("  ✅ Linked task '\(task.name ?? "Unknown")' to project UUID")
+                    } else {
+                        // Project doesn't exist in Projects entity - need to create it
+                        print("  ⚠️ Creating missing project: '\(projectName)'")
+
+                        let newProject = Projects(context: self.backgroundContext)
+                        let newProjectID = UUID()
+                        newProject.projectID = newProjectID
+                        newProject.projectName = projectName
+                        newProject.projecDescription = "Migrated from legacy data"
+
+                        // Update cache and task
+                        projectCache[normalizedName] = newProjectID
+                        task.projectID = newProjectID
+
+                        projectsCreated += 1
+                        tasksMigrated += 1
+                    }
+                }
+
+                // Now handle tasks with no project at all (projectID == nil AND project == nil)
+                let orphanedTasksRequest = NTask.fetchRequest()
+                orphanedTasksRequest.predicate = NSPredicate(format: "projectID == nil AND project == nil")
+                let orphanedTasks = try self.backgroundContext.fetch(orphanedTasksRequest)
+
+                for task in orphanedTasks {
+                    task.projectID = ProjectConstants.inboxProjectID
+                    task.project = ProjectConstants.inboxProjectName
+                    tasksWithMissingProject += 1
+                }
+
+                // Save all changes
+                if tasksMigrated > 0 || tasksWithMissingProject > 0 || projectsCreated > 0 {
+                    try self.backgroundContext.save()
+                    print("✅ Migration saved: \(tasksMigrated) tasks migrated, \(projectsCreated) projects created")
+                }
+
+                let report = MigrationReferenceReport(
+                    tasksMigrated: tasksMigrated,
+                    tasksAssignedToInbox: tasksWithMissingProject,
+                    projectsCreated: projectsCreated
+                )
+
+                completion(.success(report))
+            } catch {
+                print("❌ Migration failed: \(error)")
+                completion(.failure(error))
+            }
+        }
+    }
+
     /// Clean up duplicate projects from the database
     /// Removes duplicate Inbox projects (keeps only one with correct UUID)
     /// Removes duplicate custom projects by name (keeps the first one found)
@@ -246,7 +345,7 @@ public final class InboxProjectInitializer {
         }
     }
 
-    /// Perform complete initialization: ensure Inbox exists, generate UUIDs, assign orphaned tasks, and cleanup duplicates
+    /// Perform complete initialization: ensure Inbox exists, generate UUIDs, migrate references, assign orphaned tasks, and cleanup duplicates
     public func performCompleteInitialization(completion: @escaping (Result<InitializationReport, Error>) -> Void) {
         // First, cleanup duplicates
         cleanupDuplicateProjects { [weak self] cleanupResult in
@@ -268,18 +367,27 @@ public final class InboxProjectInitializer {
                                 self.ensureAllProjectsHaveUUIDs { projectUUIDResult in
                                     switch projectUUIDResult {
                                     case .success(let projectsUpdated):
-                                        // Projects have UUIDs, now assign orphaned tasks
-                                        self.assignOrphanedTasksToInbox { orphanedResult in
-                                            switch orphanedResult {
-                                            case .success(let orphanedCount):
-                                                let report = InitializationReport(
-                                                    inboxCreated: true,
-                                                    tasksAssignedUUIDs: tasksUpdated,
-                                                    projectsAssignedUUIDs: projectsUpdated,
-                                                    tasksAssignedToInbox: orphanedCount,
-                                                    cleanupReport: cleanupReport
-                                                )
-                                                completion(.success(report))
+                                        // Projects have UUIDs, now migrate task→project references
+                                        self.migrateTaskProjectReferences { migrationResult in
+                                            switch migrationResult {
+                                            case .success(let migrationReport):
+                                                // References migrated, now assign any remaining orphaned tasks
+                                                self.assignOrphanedTasksToInbox { orphanedResult in
+                                                    switch orphanedResult {
+                                                    case .success(let orphanedCount):
+                                                        let report = InitializationReport(
+                                                            inboxCreated: true,
+                                                            tasksAssignedUUIDs: tasksUpdated,
+                                                            projectsAssignedUUIDs: projectsUpdated,
+                                                            tasksAssignedToInbox: orphanedCount,
+                                                            cleanupReport: cleanupReport,
+                                                            migrationReport: migrationReport
+                                                        )
+                                                        completion(.success(report))
+                                                    case .failure(let error):
+                                                        completion(.failure(error))
+                                                    }
+                                                }
                                             case .failure(let error):
                                                 completion(.failure(error))
                                             }
@@ -308,17 +416,25 @@ public final class InboxProjectInitializer {
                                 self.ensureAllProjectsHaveUUIDs { projectUUIDResult in
                                     switch projectUUIDResult {
                                     case .success(let projectsUpdated):
-                                        self.assignOrphanedTasksToInbox { orphanedResult in
-                                            switch orphanedResult {
-                                            case .success(let orphanedCount):
-                                                let report = InitializationReport(
-                                                    inboxCreated: true,
-                                                    tasksAssignedUUIDs: tasksUpdated,
-                                                    projectsAssignedUUIDs: projectsUpdated,
-                                                    tasksAssignedToInbox: orphanedCount,
-                                                    cleanupReport: nil
-                                                )
-                                                completion(.success(report))
+                                        self.migrateTaskProjectReferences { migrationResult in
+                                            switch migrationResult {
+                                            case .success(let migrationReport):
+                                                self.assignOrphanedTasksToInbox { orphanedResult in
+                                                    switch orphanedResult {
+                                                    case .success(let orphanedCount):
+                                                        let report = InitializationReport(
+                                                            inboxCreated: true,
+                                                            tasksAssignedUUIDs: tasksUpdated,
+                                                            projectsAssignedUUIDs: projectsUpdated,
+                                                            tasksAssignedToInbox: orphanedCount,
+                                                            cleanupReport: nil,
+                                                            migrationReport: migrationReport
+                                                        )
+                                                        completion(.success(report))
+                                                    case .failure(let error):
+                                                        completion(.failure(error))
+                                                    }
+                                                }
                                             case .failure(let error):
                                                 completion(.failure(error))
                                             }
@@ -348,6 +464,7 @@ public struct InitializationReport {
     public let projectsAssignedUUIDs: Int
     public let tasksAssignedToInbox: Int
     public let cleanupReport: CleanupReport?
+    public let migrationReport: MigrationReferenceReport?
 
     public var description: String {
         var report = """
@@ -360,6 +477,10 @@ public struct InitializationReport {
 
         if let cleanupReport = cleanupReport {
             report += "\n\(cleanupReport.description)"
+        }
+
+        if let migrationReport = migrationReport {
+            report += "\n\(migrationReport.description)"
         }
 
         return report
@@ -378,5 +499,26 @@ public struct CleanupReport {
         - Inbox duplicates removed: \(inboxDuplicatesRemoved)
         - Custom project duplicates removed: \(customDuplicatesRemoved)
         """
+    }
+}
+
+// MARK: - Migration Reference Report
+
+public struct MigrationReferenceReport {
+    public let tasksMigrated: Int
+    public let tasksAssignedToInbox: Int
+    public let projectsCreated: Int
+
+    public var description: String {
+        return """
+        Task→Project Migration Report:
+        - Tasks linked to project UUIDs: \(tasksMigrated)
+        - Orphaned tasks assigned to Inbox: \(tasksAssignedToInbox)
+        - Missing projects created: \(projectsCreated)
+        """
+    }
+
+    public var wasSuccessful: Bool {
+        return true // Any completion is successful
     }
 }

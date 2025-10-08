@@ -15,38 +15,72 @@ public final class DataMigrationService {
 
     private let persistentContainer: NSPersistentContainer
     private let inboxInitializer: InboxProjectInitializer
+    private let migrationManager: MigrationManager
 
     // MARK: - Initialization
 
-    public init(persistentContainer: NSPersistentContainer) {
+    public init(persistentContainer: NSPersistentContainer, migrationManager: MigrationManager = MigrationManager()) {
         self.persistentContainer = persistentContainer
         self.inboxInitializer = InboxProjectInitializer(
             viewContext: persistentContainer.viewContext,
             backgroundContext: persistentContainer.newBackgroundContext()
         )
+        self.migrationManager = migrationManager
     }
 
     // MARK: - Public Methods
 
-    /// Perform complete data migration to UUID-based system
+    /// Perform complete data migration to UUID-based system with version tracking
     public func migrateToUUIDs(completion: @escaping (Result<MigrationReport, Error>) -> Void) {
+        // Check if migration is needed
+        guard migrationManager.needsMigration() else {
+            print("✅ No migration needed. Current version: \(migrationManager.currentVersion().description)")
+            let report = MigrationReport(
+                tasksProcessed: 0,
+                projectsProcessed: 0,
+                tasksAssignedToInbox: 0,
+                tasksMigrated: 0,
+                projectsCreated: 0,
+                inboxCreated: false,
+                errors: [],
+                duration: 0,
+                versionBefore: migrationManager.currentVersion(),
+                versionAfter: migrationManager.currentVersion()
+            )
+            completion(.success(report))
+            return
+        }
+
+        let versionBefore = migrationManager.currentVersion()
+        let plan = migrationManager.generateMigrationPlan()
+
         print("🔄 Starting UUID migration...")
+        print(plan.description)
 
         let startTime = Date()
 
         // Use the inbox initializer to perform complete initialization
-        inboxInitializer.performCompleteInitialization { result in
+        inboxInitializer.performCompleteInitialization { [weak self] result in
+            guard let self = self else { return }
+
             switch result {
             case .success(let initReport):
                 let duration = Date().timeIntervalSince(startTime)
+
+                // Update migration version to reflect completion
+                self.migrationManager.setCurrentVersion(.referenceMigrated)
 
                 let report = MigrationReport(
                     tasksProcessed: initReport.tasksAssignedUUIDs,
                     projectsProcessed: initReport.projectsAssignedUUIDs,
                     tasksAssignedToInbox: initReport.tasksAssignedToInbox,
+                    tasksMigrated: initReport.migrationReport?.tasksMigrated ?? 0,
+                    projectsCreated: initReport.migrationReport?.projectsCreated ?? 0,
                     inboxCreated: initReport.inboxCreated,
                     errors: [],
-                    duration: duration
+                    duration: duration,
+                    versionBefore: versionBefore,
+                    versionAfter: self.migrationManager.currentVersion()
                 )
 
                 print("✅ Migration completed successfully in \(String(format: "%.2f", duration))s")
@@ -56,6 +90,21 @@ public final class DataMigrationService {
 
             case .failure(let error):
                 print("❌ Migration failed: \(error)")
+                let duration = Date().timeIntervalSince(startTime)
+
+                let report = MigrationReport(
+                    tasksProcessed: 0,
+                    projectsProcessed: 0,
+                    tasksAssignedToInbox: 0,
+                    tasksMigrated: 0,
+                    projectsCreated: 0,
+                    inboxCreated: false,
+                    errors: [error.localizedDescription],
+                    duration: duration,
+                    versionBefore: versionBefore,
+                    versionAfter: self.migrationManager.currentVersion()
+                )
+
                 completion(.failure(error))
             }
         }
@@ -178,9 +227,13 @@ public struct MigrationReport {
     public let tasksProcessed: Int
     public let projectsProcessed: Int
     public let tasksAssignedToInbox: Int
+    public let tasksMigrated: Int
+    public let projectsCreated: Int
     public let inboxCreated: Bool
     public let errors: [String]
     public let duration: TimeInterval
+    public let versionBefore: MigrationVersion
+    public let versionAfter: MigrationVersion
 
     public var description: String {
         return """
@@ -188,10 +241,13 @@ public struct MigrationReport {
         ═══════════════════════════════════════════
         📊 Migration Report
         ═══════════════════════════════════════════
-        Tasks processed: \(tasksProcessed)
-        Projects processed: \(projectsProcessed)
+        Version: \(versionBefore.description) → \(versionAfter.description)
+        Tasks assigned UUIDs: \(tasksProcessed)
+        Projects assigned UUIDs: \(projectsProcessed)
+        Tasks linked to project UUIDs: \(tasksMigrated)
+        Projects created from legacy data: \(projectsCreated)
         Tasks assigned to Inbox: \(tasksAssignedToInbox)
-        Inbox created: \(inboxCreated ? "✅ Yes" : "⚠️ Already existed")
+        Inbox: \(inboxCreated ? "✅ Created" : "⚠️ Already existed")
         Errors: \(errors.isEmpty ? "✅ None" : "❌ \(errors.count)")
         Duration: \(String(format: "%.2f", duration))s
         ═══════════════════════════════════════════

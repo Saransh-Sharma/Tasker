@@ -14,6 +14,12 @@
 		750894CA2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750894C92E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift */; };
 		750894CB2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750894C92E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift */; };
 		750894CC2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750894C92E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift */; };
+		75098D3B2E96794800AA1331 /* MigrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75098D3A2E96794800AA1331 /* MigrationManager.swift */; };
+		75098D3C2E96794800AA1331 /* MigrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75098D3A2E96794800AA1331 /* MigrationManager.swift */; };
+		75098D3D2E96794800AA1331 /* MigrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75098D3A2E96794800AA1331 /* MigrationManager.swift */; };
+		75098D402E96796E00AA1331 /* ProjectTaskValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75098D3E2E96796E00AA1331 /* ProjectTaskValidator.swift */; };
+		75098D412E96796E00AA1331 /* ProjectTaskValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75098D3E2E96796E00AA1331 /* ProjectTaskValidator.swift */; };
+		75098D422E96796E00AA1331 /* ProjectTaskValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75098D3E2E96796E00AA1331 /* ProjectTaskValidator.swift */; };
 		750F9ED82685C01E00C008C4 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 750F9ED62685C01E00C008C4 /* GoogleService-Info.plist */; };
 		750F9ED92685C01E00C008C4 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 750F9ED62685C01E00C008C4 /* GoogleService-Info.plist */; };
 		750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 750F9EDB2685CC9F00C008C4 /* CloudKit.framework */; };
@@ -495,6 +501,8 @@
 		413A4155CB587D2023FA695A /* Pods-TaskerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TaskerTests.debug.xcconfig"; path = "Target Support Files/Pods-TaskerTests/Pods-TaskerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		75018BB42E8D0C7C00EA3D0D /* AnalyticsServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsServiceProtocol.swift; sourceTree = "<group>"; };
 		750894C92E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsRepositoryProtocol.swift; sourceTree = "<group>"; };
+		75098D3A2E96794800AA1331 /* MigrationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MigrationManager.swift; sourceTree = "<group>"; };
+		75098D3E2E96796E00AA1331 /* ProjectTaskValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectTaskValidator.swift; sourceTree = "<group>"; };
 		750F9ED62685C01E00C008C4 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		750F9EDA2685CC9500C008C4 /* This Day.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "This Day.entitlements"; sourceTree = "<group>"; };
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
@@ -772,6 +780,14 @@
 			path = Protocols;
 			sourceTree = "<group>";
 		};
+		75098D3F2E96796E00AA1331 /* Validators */ = {
+			isa = PBXGroup;
+			children = (
+				75098D3E2E96796E00AA1331 /* ProjectTaskValidator.swift */,
+			);
+			path = Validators;
+			sourceTree = "<group>";
+		};
 		751074EB2DEE24EA00AC7F22 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -793,6 +809,7 @@
 			isa = PBXGroup;
 			children = (
 				752A973E2E92A6C100CFC576 /* DataMigrationService.swift */,
+				75098D3A2E96794800AA1331 /* MigrationManager.swift */,
 			);
 			path = Migration;
 			sourceTree = "<group>";
@@ -1159,6 +1176,7 @@
 				75018BB62E8D0C7C00EA3D0D /* Protocols */,
 				752A974A2E92A6ED00CFC576 /* Constants */,
 				752A974F2E92A70100CFC576 /* Services */,
+				75098D3F2E96796E00AA1331 /* Validators */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -1660,6 +1678,7 @@
 				75E92A4A2E8C82BD00207270 /* SortTasksUseCase.swift in Sources */,
 				75E92A4B2E8C82BD00207270 /* SearchTasksUseCase.swift in Sources */,
 				75E92A4C2E8C82BD00207270 /* GetTasksUseCase.swift in Sources */,
+				75098D3B2E96794800AA1331 /* MigrationManager.swift in Sources */,
 				75E92A4D2E8C82BD00207270 /* CreateTaskUseCase.swift in Sources */,
 				75E92A4E2E8C82BD00207270 /* CalculateAnalyticsUseCase.swift in Sources */,
 				75E92A4F2E8C82BD00207270 /* CompleteTaskUseCase.swift in Sources */,
@@ -1696,6 +1715,7 @@
 				75F89F6C2DFC4E5D009EDD8F /* ChatView.swift in Sources */,
 				75F89F6E2DFC4E5D009EDD8F /* AppearanceSettingsView.swift in Sources */,
 				75F89F6F2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift in Sources */,
+				75098D412E96796E00AA1331 /* ProjectTaskValidator.swift in Sources */,
 				75F89F702DFC4E5D009EDD8F /* OnboardingView.swift in Sources */,
 				750894CC2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */,
 				75F89F712DFC4E5D009EDD8F /* ChatsListView.swift in Sources */,
@@ -1827,6 +1847,7 @@
 				75E866D72DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */,
 				751074E42DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				752A97612E93087300CFC576 /* RadarChartCard.swift in Sources */,
+				75098D422E96796E00AA1331 /* ProjectTaskValidator.swift in Sources */,
 				75E92A112E8C82BD00207270 /* UpdateTaskUseCase.swift in Sources */,
 				75E92A122E8C82BD00207270 /* UseCaseCoordinator.swift in Sources */,
 				75E92A132E8C82BD00207270 /* TaskGameificationUseCase.swift in Sources */,
@@ -1850,6 +1871,7 @@
 				752A97432E92A6C100CFC576 /* InboxProjectInitializer.swift in Sources */,
 				752A97442E92A6C100CFC576 /* DataMigrationService.swift in Sources */,
 				75E92A242E8C82BD00207270 /* GetTaskStatisticsUseCase.swift in Sources */,
+				75098D3C2E96794800AA1331 /* MigrationManager.swift in Sources */,
 				75E92A252E8C82BD00207270 /* FilterTasksUseCase.swift in Sources */,
 				75E92A262E8C82BD00207270 /* ManageProjectsUseCase.swift in Sources */,
 				75E92A272E8C82BD00207270 /* ArchiveCompletedTasksUseCase.swift in Sources */,
@@ -1955,6 +1977,7 @@
 				75E866D82DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */,
 				751074E32DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */,
 				752A97602E93087300CFC576 /* RadarChartCard.swift in Sources */,
+				75098D402E96796E00AA1331 /* ProjectTaskValidator.swift in Sources */,
 				75E92A282E8C82BD00207270 /* UpdateTaskUseCase.swift in Sources */,
 				75E92A292E8C82BD00207270 /* UseCaseCoordinator.swift in Sources */,
 				75E92A2A2E8C82BD00207270 /* TaskGameificationUseCase.swift in Sources */,
@@ -1978,6 +2001,7 @@
 				752A97472E92A6C100CFC576 /* InboxProjectInitializer.swift in Sources */,
 				752A97482E92A6C100CFC576 /* DataMigrationService.swift in Sources */,
 				75E92A3B2E8C82BD00207270 /* GetTaskStatisticsUseCase.swift in Sources */,
+				75098D3D2E96794800AA1331 /* MigrationManager.swift in Sources */,
 				75E92A3C2E8C82BD00207270 /* FilterTasksUseCase.swift in Sources */,
 				75E92A3D2E8C82BD00207270 /* ManageProjectsUseCase.swift in Sources */,
 				75E92A3E2E8C82BD00207270 /* ArchiveCompletedTasksUseCase.swift in Sources */,

@@ -34,10 +34,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         // Register for CloudKit silent pushes
         application.registerForRemoteNotifications()
-        
+
         // 1) Force the container to load now (so CloudKit subscriptions are registered)
         _ = persistentContainer
-        
+
+        // 2) Run UUID migration if needed (CRITICAL: Must run before Clean Architecture setup)
+        performStartupMigration()
+
         // Setup Clean Architecture - replaces all singleton initialization
         setupCleanArchitecture()
         
@@ -185,9 +188,53 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("❌ APNs registration failed: \(error)")
     }
-    
+
+    // MARK: - UUID Migration
+
+    /// Perform startup migration to ensure all entities have UUIDs
+    /// This is critical for transitioning from legacy string-based to UUID-based project references
+    private func performStartupMigration() {
+        print("🔄 Checking for UUID migration needs...")
+
+        let migrationManager = MigrationManager()
+        let migrationService = DataMigrationService(persistentContainer: persistentContainer, migrationManager: migrationManager)
+
+        // Check if migration is needed
+        guard migrationManager.needsMigration() else {
+            print("✅ No migration needed. Current version: \(migrationManager.currentVersion().description)")
+            return
+        }
+
+        // Show migration plan
+        let plan = migrationManager.generateMigrationPlan()
+        print(plan.description)
+
+        // Perform migration synchronously on app launch (blocks until complete)
+        // This is acceptable because it only runs once per version upgrade
+        let semaphore = DispatchSemaphore(value: 0)
+
+        migrationService.migrateToUUIDs { result in
+            switch result {
+            case .success(let report):
+                print(report.description)
+                print("✅ UUID migration completed successfully")
+
+            case .failure(let error):
+                print("❌ UUID migration failed: \(error)")
+                // Continue app launch even if migration fails - app will use fallback logic
+            }
+            semaphore.signal()
+        }
+
+        // Wait for migration to complete (with timeout)
+        let timeout = DispatchTime.now() + .seconds(30)
+        if semaphore.wait(timeout: timeout) == .timedOut {
+            print("⚠️ Migration timed out after 30 seconds")
+        }
+    }
+
     // MARK: - Clean Architecture Setup
-    
+
     /// Setup Clean Architecture with modern components only
     func setupCleanArchitecture() {
         print("🏢️ Setting up Clean Architecture...")

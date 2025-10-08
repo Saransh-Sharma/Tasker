@@ -199,23 +199,52 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                 }
                 
                 self?.backgroundContext.perform {
+                    // CRITICAL FIX: Use UUID-based queries to find ALL tasks for this project
+                    // Query by BOTH projectID AND legacy project string for complete coverage
+                    let uuidPredicate = NSPredicate(format: "projectID == %@", id as CVarArg)
+                    let stringPredicate = NSPredicate(format: "project ==[c] %@", project.name)
+                    let combinedPredicate = NSCompoundPredicate(
+                        orPredicateWithSubpredicates: [uuidPredicate, stringPredicate]
+                    )
+
                     let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-                    request.predicate = NSPredicate(format: "project ==[c] %@", project.name)
-                    
+                    request.predicate = combinedPredicate
+
                     do {
                         let tasks = try self?.backgroundContext.fetch(request) ?? []
-                        
+
+                        print("🗑️ Deleting project '\(project.name)' with \(tasks.count) tasks (deleteTasks: \(deleteTasks))")
+
                         if deleteTasks {
                             // Delete all tasks in the project
                             tasks.forEach { self?.backgroundContext.delete($0) }
+                            print("  ❌ Deleted \(tasks.count) tasks")
                         } else {
-                            // Move tasks to Inbox
-                            tasks.forEach { $0.project = self?.defaultProjectName }
+                            // CRITICAL FIX: Move tasks to Inbox using BOTH UUID and string (for sync)
+                            let inboxID = ProjectConstants.inboxProjectID
+                            let inboxName = ProjectConstants.inboxProjectName
+
+                            tasks.forEach { task in
+                                task.projectID = inboxID
+                                task.project = inboxName  // Keep string in sync for legacy support
+                            }
+                            print("  ✅ Reassigned \(tasks.count) tasks to Inbox")
                         }
-                        
+
+                        // Now delete the Projects entity itself (if it exists)
+                        let projectFetchRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+                        projectFetchRequest.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
+
+                        if let projectEntity = try self?.backgroundContext.fetch(projectFetchRequest).first {
+                            self?.backgroundContext.delete(projectEntity)
+                            print("  🗑️ Deleted Projects entity: '\(projectEntity.projectName ?? "Unknown")'")
+                        }
+
                         try self?.backgroundContext.save()
+                        print("✅ Project deletion completed successfully")
                         DispatchQueue.main.async { completion(.success(())) }
                     } catch {
+                        print("❌ Project deletion failed: \(error)")
                         DispatchQueue.main.async { completion(.failure(error)) }
                     }
                 }
