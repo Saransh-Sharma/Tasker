@@ -151,11 +151,40 @@ struct ProjectManagementView: View {
     }
     
     // MARK: - Core Data Helper Methods
-    
+
     private func loadProjects() {
         let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
         let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        projects = (try? context?.fetch(request)) ?? []
+        let fetchedProjects = (try? context?.fetch(request)) ?? []
+
+        // Deduplicate projects by name (case-insensitive)
+        var uniqueProjects: [Projects] = []
+        var seenNames: Set<String> = []
+
+        for project in fetchedProjects {
+            let name = project.projectName?.lowercased() ?? ""
+            if !seenNames.contains(name) {
+                uniqueProjects.append(project)
+                seenNames.insert(name)
+            }
+        }
+
+        // Sort: Inbox first, then alphabetically
+        projects = uniqueProjects.sorted { (p1, p2) -> Bool in
+            let name1 = p1.projectName?.lowercased() ?? ""
+            let name2 = p2.projectName?.lowercased() ?? ""
+
+            // Inbox should always be first
+            if name1 == "inbox" {
+                return true
+            }
+            if name2 == "inbox" {
+                return false
+            }
+
+            // Otherwise, sort alphabetically
+            return name1 < name2
+        }
     }
     
     private func createProject(name: String, description: String) -> Bool {

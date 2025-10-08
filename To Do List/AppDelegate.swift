@@ -215,14 +215,102 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     /// Basic data consolidation without complex type dependencies
     private func consolidateDataBasic() {
         print("🔄 Running basic data consolidation...")
-        
+
+        // Run cleanup first to remove duplicates
+        cleanupDuplicateProjects()
+
         // Ensure Inbox project exists using Core Data directly
         ensureInboxProjectExists()
-        
+
         // Fix any tasks with missing data
         fixMissingTaskData()
-        
+
         print("✅ Basic data consolidation complete")
+    }
+
+    /// Clean up duplicate projects from the database
+    private func cleanupDuplicateProjects() {
+        let context = persistentContainer.viewContext
+
+        do {
+            var inboxDuplicatesRemoved = 0
+            var customDuplicatesRemoved = 0
+
+            // 1. Clean up duplicate Inbox projects
+            let inboxFetchRequest = Projects.fetchRequest()
+            inboxFetchRequest.predicate = NSPredicate(
+                format: "projectName ==[c] %@",
+                ProjectConstants.inboxProjectName
+            )
+
+            let inboxProjects = try context.fetch(inboxFetchRequest)
+
+            if inboxProjects.count > 1 {
+                // Keep only the one with the correct UUID, or the first one if none match
+                var projectToKeep: Projects?
+
+                // First, try to find one with the correct UUID
+                projectToKeep = inboxProjects.first { $0.projectID == ProjectConstants.inboxProjectID }
+
+                // If no project has the correct UUID, keep the first one and update its UUID
+                if projectToKeep == nil {
+                    projectToKeep = inboxProjects.first
+                    projectToKeep?.projectID = ProjectConstants.inboxProjectID
+                    projectToKeep?.projectName = ProjectConstants.inboxProjectName
+                    projectToKeep?.projecDescription = ProjectConstants.inboxProjectDescription
+                }
+
+                // Delete all other Inbox projects
+                for project in inboxProjects {
+                    if project.objectID != projectToKeep?.objectID {
+                        context.delete(project)
+                        inboxDuplicatesRemoved += 1
+                    }
+                }
+            }
+
+            // 2. Clean up duplicate custom projects
+            let allProjectsFetchRequest = Projects.fetchRequest()
+            let allProjects = try context.fetch(allProjectsFetchRequest)
+
+            // Group projects by name (case-insensitive)
+            var projectsByName: [String: [Projects]] = [:]
+            for project in allProjects {
+                let name = project.projectName?.lowercased() ?? ""
+                if !name.isEmpty && name != ProjectConstants.inboxProjectName.lowercased() {
+                    if projectsByName[name] == nil {
+                        projectsByName[name] = []
+                    }
+                    projectsByName[name]?.append(project)
+                }
+            }
+
+            // For each group with duplicates, keep only the first one
+            for (_, projects) in projectsByName {
+                if projects.count > 1 {
+                    // Keep the first project (or the one with UUID if available)
+                    let projectToKeep = projects.first { $0.projectID != nil } ?? projects.first
+
+                    // Delete all others
+                    for project in projects {
+                        if project.objectID != projectToKeep?.objectID {
+                            context.delete(project)
+                            customDuplicatesRemoved += 1
+                        }
+                    }
+                }
+            }
+
+            // Save changes if any duplicates were removed
+            if inboxDuplicatesRemoved > 0 || customDuplicatesRemoved > 0 {
+                try context.save()
+                print("🧹 Cleanup completed - Inbox duplicates removed: \(inboxDuplicatesRemoved), Custom duplicates removed: \(customDuplicatesRemoved)")
+            } else {
+                print("✅ No duplicate projects found")
+            }
+        } catch {
+            print("⚠️ Error cleaning up duplicate projects: \(error)")
+        }
     }
     
     /// Ensure Inbox project exists in Core Data with UUID
