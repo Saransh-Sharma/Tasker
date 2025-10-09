@@ -14,10 +14,37 @@
         <attribute name="taskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="taskPriority" optional="YES" attributeType="Integer 32" defaultValueString="3" usesScalarValueType="YES"/>
         <attribute name="taskType" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
+        <fetchIndex name="byProjectID">
+            <fetchIndexElement property="projectID" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byTaskID">
+            <fetchIndexElement property="taskID" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
     <entity name="Projects" representedClassName="Projects" syncable="YES">
+        <attribute name="color" optional="YES" attributeType="String"/>
+        <attribute name="createdDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dueDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="estimatedTaskCount" optional="YES" attributeType="Integer 32" usesScalarValueType="YES"/>
+        <attribute name="icon" optional="YES" attributeType="String"/>
+        <attribute name="isArchived" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="isDefault" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="modifiedDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="parentProjectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="priority" optional="YES" attributeType="Integer 32" defaultValueString="2" usesScalarValueType="YES"/>
         <attribute name="projecDescription" optional="YES" attributeType="String"/>
+        <attribute name="projectDescription" optional="YES" attributeType="String"/>
         <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="projectName" optional="YES" attributeType="String"/>
+        <attribute name="status" optional="YES" attributeType="String"/>
+        <attribute name="subprojectIDs" optional="YES" attributeType="Transformable"/>
+        <attribute name="tags" optional="YES" attributeType="Transformable"/>
+        <attribute name="templateID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <fetchIndex name="byProjectID">
+            <fetchIndexElement property="projectID" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byProjectName">
+            <fetchIndexElement property="projectName" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
 </model>

@@ -454,6 +454,78 @@ public final class InboxProjectInitializer {
             }
         }
     }
+
+    /// Ensure ALL project strings referenced by tasks have corresponding Projects entities
+    /// This is critical for maintaining data integrity between legacy string-based projects and UUID-based Projects entities
+    public func ensureAllProjectsHaveEntities(completion: @escaping (Result<ProjectEntityReport, Error>) -> Void) {
+        backgroundContext.perform { [weak self] in
+            guard let self = self else { return }
+
+            do {
+                var entitiesCreated = 0
+                var existingEntities = 0
+
+                // 1. Get all unique project strings from tasks
+                let taskFetchRequest = NTask.fetchRequest()
+                let allTasks = try self.backgroundContext.fetch(taskFetchRequest)
+
+                let projectNames = allTasks.compactMap { $0.project }
+                let uniqueProjectNames = Array(Set(projectNames))
+
+                print("📊 Found \(uniqueProjectNames.count) unique project names in tasks")
+
+                // 2. For each unique project name, ensure a Projects entity exists
+                for projectName in uniqueProjectNames {
+                    let normalizedName = projectName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    // Check if Projects entity exists for this name
+                    let projectFetchRequest = Projects.fetchRequest()
+                    projectFetchRequest.predicate = NSPredicate(format: "projectName ==[c] %@", normalizedName)
+                    projectFetchRequest.fetchLimit = 1
+
+                    let existingProjects = try self.backgroundContext.fetch(projectFetchRequest)
+
+                    if existingProjects.isEmpty {
+                        // Create new Projects entity
+                        let newProject = Projects(context: self.backgroundContext)
+
+                        // Special handling for Inbox
+                        if normalizedName.lowercased() == "inbox" {
+                            newProject.projectID = ProjectConstants.inboxProjectID
+                            newProject.projectName = ProjectConstants.inboxProjectName
+                            newProject.projecDescription = ProjectConstants.inboxProjectDescription
+                        } else {
+                            newProject.projectID = UUID()
+                            newProject.projectName = normalizedName
+                            newProject.projecDescription = "Created from legacy task data"
+                        }
+
+                        entitiesCreated += 1
+                        print("  ✅ Created Projects entity for: '\(normalizedName)'")
+                    } else {
+                        existingEntities += 1
+                    }
+                }
+
+                // 3. Save all changes
+                if entitiesCreated > 0 {
+                    try self.backgroundContext.save()
+                    print("💾 Saved \(entitiesCreated) new Projects entities")
+                }
+
+                let report = ProjectEntityReport(
+                    entitiesCreated: entitiesCreated,
+                    existingEntities: existingEntities,
+                    totalProjectNames: uniqueProjectNames.count
+                )
+
+                completion(.success(report))
+            } catch {
+                print("❌ Failed to ensure project entities: \(error)")
+                completion(.failure(error))
+            }
+        }
+    }
 }
 
 // MARK: - Initialization Report
@@ -520,5 +592,26 @@ public struct MigrationReferenceReport {
 
     public var wasSuccessful: Bool {
         return true // Any completion is successful
+    }
+}
+
+// MARK: - Project Entity Report
+
+public struct ProjectEntityReport {
+    public let entitiesCreated: Int
+    public let existingEntities: Int
+    public let totalProjectNames: Int
+
+    public var description: String {
+        return """
+        Project Entity Synchronization Report:
+        - Projects entities created: \(entitiesCreated)
+        - Existing entities found: \(existingEntities)
+        - Total unique project names: \(totalProjectNames)
+        """
+    }
+
+    public var wasSuccessful: Bool {
+        return entitiesCreated + existingEntities == totalProjectNames
     }
 }

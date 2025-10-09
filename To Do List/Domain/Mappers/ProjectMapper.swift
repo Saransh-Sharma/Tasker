@@ -8,150 +8,43 @@
 import Foundation
 import CoreData
 
-/// Mapper class for converting between domain Project and Core Data representation
-/// Note: Since Projects entity doesn't exist yet in Core Data, this mapper works with
-/// string-based project names for now. This will be updated when Projects entity is added.
+/// Mapper class for converting between domain Project and Core Data Projects entity
 public class ProjectMapper {
-    
-    // MARK: - String to Domain
-    
-    /// Convert a project name string to a domain Project
-    /// - Parameter projectName: The project name string
-    /// - Returns: The domain Project model
-    public static func toDomain(from projectName: String) -> Project {
-        // Check if this is the default Inbox project
-        let isInbox = projectName.lowercased() == "inbox"
-        
-        return Project(
-            id: generateUUID(from: projectName),
-            name: projectName,
-            projectDescription: isInbox ? "Default project for uncategorized tasks" : nil,
-            createdDate: Date(), // Will be updated when Projects entity is added
-            modifiedDate: Date(), // Will be updated when Projects entity is added
-            isDefault: isInbox,
-            
-            // Enhanced properties - defaults until Core Data is updated
-            color: isInbox ? ProjectColor.gray : ProjectColor.blue,
-            icon: isInbox ? ProjectIcon.inbox : ProjectIcon.folder,
-            status: ProjectStatus.active,
-            priority: isInbox ? ProjectPriority.low : ProjectPriority.medium,
-            parentProjectId: nil as UUID?,
-            subprojectIds: [] as [UUID],
-            tags: [] as [String],
-            dueDate: nil as Date?,
-            estimatedTaskCount: nil as Int?,
-            isArchived: false,
-            templateId: nil as UUID?,
-            settings: ProjectSettings()
-        )
-    }
-    
-    /// Convert an array of project names to domain Projects
-    /// - Parameter projectNames: Array of project name strings
-    /// - Returns: Array of domain Project models
-    public static func toDomainArray(from projectNames: [String]) -> [Project] {
-        return projectNames.map { toDomain(from: $0) }
-    }
-    
-    // MARK: - Domain to String
-    
-    /// Convert a domain Project to a project name string
-    /// - Parameter project: The domain Project model
-    /// - Returns: The project name string
-    public static func toString(from project: Project) -> String {
-        return project.name
-    }
-    
-    // MARK: - Helper Methods
-    
-    /// Generate a deterministic UUID from a project name
-    /// This ensures the same project name always generates the same UUID
-    private static func generateUUID(from projectName: String) -> UUID {
-        // Create a hash from the project name
-        let hash = projectName.lowercased().hash
-        
-        // Create UUID bytes from the hash
-        var bytes: [UInt8] = []
-        var hashValue = hash
-        for _ in 0..<16 {
-            bytes.append(UInt8(hashValue & 0xFF))
-            hashValue = hashValue >> 8
-        }
-        
-        // Ensure we have exactly 16 bytes
-        while bytes.count < 16 {
-            bytes.append(0)
-        }
-        
-        // Create UUID from bytes
-        let uuid = UUID(uuid: (
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5], bytes[6], bytes[7],
-            bytes[8], bytes[9], bytes[10], bytes[11],
-            bytes[12], bytes[13], bytes[14], bytes[15]
-        ))
-        
-        return uuid
-    }
-    
-    /// Get all unique project names from tasks
-    /// - Parameter context: The Core Data managed object context
-    /// - Returns: Array of unique project names
-    public static func getAllProjectNames(from context: NSManagedObjectContext) -> [String] {
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        
-        do {
-            let tasks = try context.fetch(request)
-            let projectNames = tasks.compactMap { $0.project }
-            let uniqueNames = Array(Set(projectNames))
-            
-            // Ensure Inbox is always included
-            if !uniqueNames.contains("Inbox") {
-                return ["Inbox"] + uniqueNames.sorted()
-            }
-            
-            // Put Inbox first, then sort the rest
-            let nonInboxProjects = uniqueNames.filter { $0 != "Inbox" }.sorted()
-            return ["Inbox"] + nonInboxProjects
-            
-        } catch {
-            print("Error fetching project names: \(error)")
-            return ["Inbox"]
-        }
-    }
-    
+
     // MARK: - Core Data Entity Support
 
     /// Convert a Core Data Projects entity to domain Project
     /// - Parameter entity: The Core Data Projects entity
     /// - Returns: The domain Project model
     public static func toDomain(from entity: Projects) -> Project {
-        // Use projectID if available, otherwise generate from name
-        let id = entity.projectID ?? generateUUID(from: entity.projectName ?? "Unnamed")
+        // projectID MUST exist - migration should have ensured this
+        guard let id = entity.projectID else {
+            fatalError("⚠️ Projects entity missing projectID! Entity: \(entity.projectName ?? "unknown"). Run migration to fix.")
+        }
 
         // Check if this is the Inbox project
-        let isInbox = id == ProjectConstants.inboxProjectID
+        let isInbox = entity.isDefault ?? (id == ProjectConstants.inboxProjectID)
 
         return Project(
             id: id,
             name: entity.projectName ?? "Unnamed Project",
-            projectDescription: entity.projecDescription,
-            createdDate: Date(), // Will be added when Core Data model is updated
-            modifiedDate: Date(), // Will be added when Core Data model is updated
+            projectDescription: entity.projectDescription ?? entity.projecDescription,
+            createdDate: entity.createdDate ?? Date(),
+            modifiedDate: entity.modifiedDate ?? Date(),
             isDefault: isInbox,
 
-            // Enhanced properties - defaults until Core Data is updated
-            color: isInbox ? ProjectColor.gray : ProjectColor.blue,
-            icon: isInbox ? ProjectIcon.inbox : ProjectIcon.folder,
-            status: ProjectStatus.active,
-            priority: isInbox ? ProjectPriority.low : ProjectPriority.medium,
-            parentProjectId: nil as UUID?,
-            subprojectIds: [] as [UUID],
-            tags: [] as [String],
-            dueDate: nil as Date?,
-            estimatedTaskCount: nil as Int?,
-            isArchived: false,
-            templateId: nil as UUID?,
+            // Enhanced properties from schema
+            color: ProjectColor(rawValue: entity.color ?? "") ?? (isInbox ? .gray : .blue),
+            icon: ProjectIcon(rawValue: entity.icon ?? "") ?? (isInbox ? .inbox : .folder),
+            status: ProjectStatus(rawValue: entity.status ?? "") ?? .active,
+            priority: ProjectPriority(rawValue: Int(entity.priority)) ?? (isInbox ? .low : .medium),
+            parentProjectId: entity.parentProjectID,
+            subprojectIds: (entity.subprojectIDs as? [UUID]) ?? [],
+            tags: (entity.tags as? [String]) ?? [],
+            dueDate: entity.dueDate,
+            estimatedTaskCount: entity.estimatedTaskCount > 0 ? Int(entity.estimatedTaskCount) : nil,
+            isArchived: entity.isArchived,
+            templateId: entity.templateID,
             settings: ProjectSettings()
         )
     }
@@ -174,8 +67,24 @@ public class ProjectMapper {
     public static func updateEntity(_ entity: Projects, from project: Project) {
         entity.projectID = project.id
         entity.projectName = project.name
-        entity.projecDescription = project.projectDescription
-        // Additional properties will be added when Core Data model is updated
+        entity.projectDescription = project.projectDescription
+        entity.projecDescription = project.projectDescription // Legacy field, keep in sync
+        entity.createdDate = project.createdDate
+        entity.modifiedDate = Date() // Always update modified date
+        entity.isDefault = project.isDefault
+
+        // Enhanced properties
+        entity.color = project.color.rawValue
+        entity.icon = project.icon.rawValue
+        entity.status = project.status.rawValue
+        entity.priority = Int32(project.priority.rawValue)
+        entity.parentProjectID = project.parentProjectId
+        entity.subprojectIDs = project.subprojectIds as NSObject
+        entity.tags = project.tags as NSObject
+        entity.dueDate = project.dueDate
+        entity.estimatedTaskCount = Int32(project.estimatedTaskCount ?? 0)
+        entity.isArchived = project.isArchived
+        entity.templateID = project.templateId
     }
 
     /// Find an existing Projects entity by UUID

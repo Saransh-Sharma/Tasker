@@ -33,30 +33,47 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         viewContext.perform {
-            let projectNames = ProjectMapper.getAllProjectNames(from: self.viewContext)
-            let projects = ProjectMapper.toDomainArray(from: projectNames)
-            DispatchQueue.main.async { completion(.success(projects)) }
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
+
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let projects = ProjectMapper.toDomainArray(from: entities)
+                DispatchQueue.main.async { completion(.success(projects)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
         }
     }
     
     func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
         viewContext.perform {
-            let projectNames = ProjectMapper.getAllProjectNames(from: self.viewContext)
-            let projects = ProjectMapper.toDomainArray(from: projectNames)
-            let project = projects.first { $0.id == id }
-            DispatchQueue.main.async { completion(.success(project)) }
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
+            request.fetchLimit = 1
+
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let project = entities.first.map { ProjectMapper.toDomain(from: $0) }
+                DispatchQueue.main.async { completion(.success(project)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
         }
     }
     
     func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
         viewContext.perform {
-            let projectNames = ProjectMapper.getAllProjectNames(from: self.viewContext)
-            
-            if projectNames.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
-                let project = ProjectMapper.toDomain(from: name)
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectName ==[c] %@", name)
+            request.fetchLimit = 1
+
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let project = entities.first.map { ProjectMapper.toDomain(from: $0) }
                 DispatchQueue.main.async { completion(.success(project)) }
-            } else {
-                DispatchQueue.main.async { completion(.success(nil)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
     }
@@ -68,27 +85,49 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         viewContext.perform {
-            let projectNames = ProjectMapper.getAllProjectNames(from: self.viewContext)
-            let customNames = projectNames.filter { $0 != self.defaultProjectName }
-            let projects = ProjectMapper.toDomainArray(from: customNames)
-            DispatchQueue.main.async { completion(.success(projects)) }
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID != %@", ProjectConstants.inboxProjectID as CVarArg)
+            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
+
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let projects = ProjectMapper.toDomainArray(from: entities)
+                DispatchQueue.main.async { completion(.success(projects)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
         }
     }
     
     // MARK: - Create Operations
     
     func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
-        // Since we don't have a Projects entity yet, we just validate the name is unique
-        isProjectNameAvailable(project.name, excludingId: nil) { result in
+        // First validate the name is unique
+        isProjectNameAvailable(project.name, excludingId: nil) { [weak self] result in
+            guard let self = self else { return }
+
             switch result {
             case .success(let isAvailable):
-                if isAvailable {
-                    // Project name is available, return the project
-                    completion(.success(project))
-                } else {
+                if !isAvailable {
                     let error = ProjectValidationError.duplicateName
                     completion(.failure(error))
+                    return
                 }
+
+                // Persist to database
+                self.backgroundContext.perform {
+                    let entity = ProjectMapper.toEntity(from: project, in: self.backgroundContext)
+
+                    do {
+                        try self.backgroundContext.save()
+                        print("✅ Created project '\(project.name)' with UUID: \(project.id)")
+                        DispatchQueue.main.async { completion(.success(project)) }
+                    } catch {
+                        print("❌ Failed to create project: \(error)")
+                        DispatchQueue.main.async { completion(.failure(error)) }
+                    }
+                }
+
             case .failure(let error):
                 completion(.failure(error))
             }
@@ -96,37 +135,34 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     }
     
     func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
-        // Check if any task has "Inbox" as project
+        // Check if Inbox Projects entity exists
         viewContext.perform {
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-            request.predicate = NSPredicate(format: "project ==[c] %@", self.defaultProjectName)
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID == %@", ProjectConstants.inboxProjectID as CVarArg)
             request.fetchLimit = 1
-            
+
             do {
-                let count = try self.viewContext.count(for: request)
-                if count == 0 {
-                    // Create a dummy task with Inbox project to ensure it exists
+                let existingProjects = try self.viewContext.fetch(request)
+
+                if let existingProject = existingProjects.first {
+                    // Inbox already exists
+                    let inboxProject = ProjectMapper.toDomain(from: existingProject)
+                    DispatchQueue.main.async { completion(.success(inboxProject)) }
+                } else {
+                    // Create Inbox Projects entity
                     self.backgroundContext.perform {
-                        let dummyTask = NTask(context: self.backgroundContext)
-                        dummyTask.name = "Welcome to Tasker"
-                        dummyTask.project = self.defaultProjectName
-                        dummyTask.taskType = TaskType.inbox.rawValue
-                        dummyTask.taskPriority = TaskPriority.low.rawValue
-                        dummyTask.dueDate = Date() as NSDate
-                        dummyTask.dateAdded = Date() as NSDate
-                        dummyTask.isComplete = false
-                        
+                        let inboxProject = Project.createInbox()
+                        let entity = ProjectMapper.toEntity(from: inboxProject, in: self.backgroundContext)
+
                         do {
                             try self.backgroundContext.save()
-                            let inboxProject = Project.createInbox()
+                            print("✅ Created Inbox project with UUID: \(ProjectConstants.inboxProjectID)")
                             DispatchQueue.main.async { completion(.success(inboxProject)) }
                         } catch {
+                            print("❌ Failed to create Inbox project: \(error)")
                             DispatchQueue.main.async { completion(.failure(error)) }
                         }
                     }
-                } else {
-                    let inboxProject = Project.createInbox()
-                    DispatchQueue.main.async { completion(.success(inboxProject)) }
                 }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
@@ -137,9 +173,27 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     // MARK: - Update Operations
     
     func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
-        // Since we don't have a Projects entity yet, we need to update all tasks with the old name
-        // This is a placeholder implementation
-        completion(.success(project))
+        backgroundContext.perform {
+            // Find the existing entity
+            if let entity = ProjectMapper.findEntity(byId: project.id, in: self.backgroundContext) {
+                // Update the entity with new data
+                ProjectMapper.updateEntity(entity, from: project)
+
+                do {
+                    try self.backgroundContext.save()
+                    print("✅ Updated project '\(project.name)' with UUID: \(project.id)")
+                    DispatchQueue.main.async { completion(.success(project)) }
+                } catch {
+                    print("❌ Failed to update project: \(error)")
+                    DispatchQueue.main.async { completion(.failure(error)) }
+                }
+            } else {
+                let error = NSError(domain: "ProjectRepository", code: 404,
+                                  userInfo: [NSLocalizedDescriptionKey: "Project not found"])
+                print("❌ Project not found: \(project.id)")
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
     }
     
     func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
@@ -258,28 +312,15 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     // MARK: - Task Association
     
     func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
-        fetchProject(withId: projectId) { [weak self] result in
-            switch result {
-            case .success(let project):
-                guard let project = project else {
-                    completion(.success(0))
-                    return
-                }
-                
-                self?.viewContext.perform {
-                    let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-                    request.predicate = NSPredicate(format: "project ==[c] %@", project.name)
-                    
-                    do {
-                        let count = try self?.viewContext.count(for: request) ?? 0
-                        DispatchQueue.main.async { completion(.success(count)) }
-                    } catch {
-                        DispatchQueue.main.async { completion(.failure(error)) }
-                    }
-                }
-                
-            case .failure(let error):
-                completion(.failure(error))
+        viewContext.perform {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID == %@", projectId as CVarArg)
+
+            do {
+                let count = try self.viewContext.count(for: request)
+                DispatchQueue.main.async { completion(.success(count)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
     }
@@ -367,27 +408,28 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
         viewContext.perform {
-            let projectNames = ProjectMapper.getAllProjectNames(from: self.viewContext)
-            
-            // Check if name exists (case-insensitive)
-            let nameExists = projectNames.contains { existingName in
-                existingName.caseInsensitiveCompare(name) == .orderedSame
-            }
-            
-            if let excludingId = excludingId {
-                // If we're excluding an ID, check if it's the same project
-                let projects = ProjectMapper.toDomainArray(from: projectNames)
-                if let existingProject = projects.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
-                    // Name exists, check if it's the same project we're excluding
-                    let isAvailable = existingProject.id == excludingId
-                    DispatchQueue.main.async { completion(.success(isAvailable)) }
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectName ==[c] %@", name)
+            request.fetchLimit = 1
+
+            do {
+                let existingProjects = try self.viewContext.fetch(request)
+
+                if let existingProject = existingProjects.first {
+                    // Name exists, check if we're excluding this ID
+                    if let excludingId = excludingId, existingProject.projectID == excludingId {
+                        // It's the same project, name is available
+                        DispatchQueue.main.async { completion(.success(true)) }
+                    } else {
+                        // Different project has this name
+                        DispatchQueue.main.async { completion(.success(false)) }
+                    }
                 } else {
                     // Name doesn't exist, it's available
                     DispatchQueue.main.async { completion(.success(true)) }
                 }
-            } else {
-                // Not excluding any ID, just check if name exists
-                DispatchQueue.main.async { completion(.success(!nameExists)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
     }
