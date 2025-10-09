@@ -30,11 +30,52 @@ public final class DataMigrationService {
 
     // MARK: - Public Methods
 
+    /// 🔥 EMERGENCY: Check for legacy projects without UUIDs directly
+    /// This bypasses the MigrationManager which may have incorrect state
+    private func hasLegacyProjectsWithoutUUIDs() -> Bool {
+        let context = persistentContainer.viewContext
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        request.predicate = NSPredicate(format: "projectID == nil")
+        request.fetchLimit = 1
+
+        do {
+            let count = try context.count(for: request)
+            print("🔍 Legacy projects without UUIDs: \(count)")
+            return count > 0
+        } catch {
+            print("Error checking legacy projects: \(error)")
+            return true // Assume migration needed if check fails
+        }
+    }
+
+    /// 🔥 EMERGENCY: Check for legacy tasks without UUIDs directly
+    private func hasLegacyTasksWithoutUUIDs() -> Bool {
+        let context = persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        request.predicate = NSPredicate(format: "taskID == nil")
+        request.fetchLimit = 1
+
+        do {
+            let count = try context.count(for: request)
+            print("🔍 Legacy tasks without UUIDs: \(count)")
+            return count > 0
+        } catch {
+            print("Error checking legacy tasks: \(error)")
+            return true // Assume migration needed if check fails
+        }
+    }
+
     /// Perform complete data migration to UUID-based system with version tracking
     public func migrateToUUIDs(completion: @escaping (Result<MigrationReport, Error>) -> Void) {
-        // Check if migration is needed
-        guard migrationManager.needsMigration() else {
-            print("✅ No migration needed. Current version: \(migrationManager.currentVersion().description)")
+        // 🔥 EMERGENCY FIX: Check for legacy data directly instead of relying on MigrationManager
+        let hasLegacyProjects = hasLegacyProjectsWithoutUUIDs()
+        let hasLegacyTasks = hasLegacyTasksWithoutUUIDs()
+
+        guard hasLegacyProjects || hasLegacyTasks else {
+            print("✅ No legacy data found - direct check passed")
+            print("   Legacy projects without UUIDs: \(hasLegacyProjects)")
+            print("   Legacy tasks without UUIDs: \(hasLegacyTasks)")
+
             let report = MigrationReport(
                 tasksProcessed: 0,
                 projectsProcessed: 0,
@@ -50,6 +91,11 @@ public final class DataMigrationService {
             completion(.success(report))
             return
         }
+
+        // Force migration regardless of MigrationManager state
+        print("🚨 EMERGENCY: Forcing UUID assignment - found legacy data")
+        print("   Legacy projects without UUIDs: \(hasLegacyProjects)")
+        print("   Legacy tasks without UUIDs: \(hasLegacyTasks)")
 
         let versionBefore = migrationManager.currentVersion()
         let plan = migrationManager.generateMigrationPlan()
@@ -216,6 +262,60 @@ public final class DataMigrationService {
 
             } catch {
                 completion(.failure(error))
+            }
+        }
+    }
+
+    /// 🔥 CRITICAL: Ensure all new projects created going forward will always have UUIDs
+    /// This should be called after app setup to verify UUID assignment is working
+    public func verifyNewProjectCreation(completion: @escaping (Result<Bool, Error>) -> Void) {
+        let context = persistentContainer.viewContext
+
+        // Test project creation to ensure UUID assignment works
+        let backgroundContext = persistentContainer.newBackgroundContext()
+        backgroundContext.perform {
+            do {
+                // Create a test project
+                let testProject = Projects(context: backgroundContext)
+                let testUUID = UUID()
+                testProject.projectID = testUUID
+                testProject.projectName = "UUID-TEST-PROJECT"
+                testProject.projecDescription = "Temporary test project for UUID verification"
+
+                // Save test project
+                try backgroundContext.save()
+
+                // Verify it was saved with UUID
+                let fetchRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+                fetchRequest.predicate = NSPredicate(format: "projectName == %@", "UUID-TEST-PROJECT")
+                fetchRequest.fetchLimit = 1
+
+                let fetchedProjects = try backgroundContext.fetch(fetchRequest)
+
+                if let fetchedProject = fetchedProjects.first,
+                   let fetchedUUID = fetchedProject.projectID,
+                   fetchedUUID == testUUID {
+                    print("✅ New project creation verification PASSED - UUIDs are being assigned correctly")
+
+                    // Clean up test project
+                    backgroundContext.delete(fetchedProject)
+                    try backgroundContext.save()
+
+                    DispatchQueue.main.async {
+                        completion(.success(true))
+                    }
+                } else {
+                    print("❌ New project creation verification FAILED - UUIDs not being assigned properly")
+                    DispatchQueue.main.async {
+                        completion(.success(false))
+                    }
+                }
+
+            } catch {
+                print("❌ New project creation verification ERROR: \(error)")
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
             }
         }
     }

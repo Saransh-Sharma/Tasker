@@ -202,9 +202,15 @@ struct ProjectManagementView: View {
         }
         
         let newProject = Projects(context: context)
+        let generatedUUID = UUID()
+        newProject.projectID = generatedUUID  // ✅ FIX: Add UUID assignment
         newProject.projectName = name
         newProject.projecDescription = description
-        
+        newProject.createdDate = Date()
+        newProject.modifiedDate = Date()
+
+        print("🆕 Creating project '\(name)' with UUID: \(generatedUUID.uuidString)")
+
         do {
             try context.save()
             loadProjects() // Refresh the list

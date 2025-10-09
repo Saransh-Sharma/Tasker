@@ -455,6 +455,104 @@ public final class InboxProjectInitializer {
         }
     }
 
+    /// 🔥 EMERGENCY: Force UUID assignment for ALL projects that don't have them
+    /// This is a critical fix for when migration state is corrupted but projects still lack UUIDs
+    public func forceAssignUUIDsToAllProjects(completion: @escaping (Result<Int, Error>) -> Void) {
+        backgroundContext.perform { [weak self] in
+            guard let self = self else { return }
+
+            do {
+                // 🔥 EMERGENCY: Get ALL projects without UUIDs
+                let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+                request.predicate = NSPredicate(format: "projectID == nil")
+
+                let projectsWithoutUUIDs = try self.backgroundContext.fetch(request)
+                print("🚨 EMERGENCY: Found \(projectsWithoutUUIDs.count) projects without UUIDs")
+
+                var updatedCount = 0
+
+                for project in projectsWithoutUUIDs {
+                    let generatedUUID = UUID()
+                    project.projectID = generatedUUID
+                    print("  ✅ Assigned UUID \(generatedUUID) to project: \(project.projectName ?? "Unknown")")
+                    updatedCount += 1
+                }
+
+                if updatedCount > 0 {
+                    try self.backgroundContext.save()
+                    print("💾 Saved \(updatedCount) projects with new UUIDs")
+                } else {
+                    print("✅ All projects already have UUIDs")
+                }
+
+                completion(.success(updatedCount))
+            } catch {
+                print("❌ Emergency UUID assignment failed: \(error)")
+                completion(.failure(error))
+            }
+        }
+    }
+
+    /// 🔥 EMERGENCY: Force update task project references to use UUIDs
+    /// This fixes all tasks with nil projectID that have a project string
+    public func forceUpdateTaskProjectReferences(completion: @escaping (Result<Int, Error>) -> Void) {
+        backgroundContext.perform { [weak self] in
+            guard let self = self else { return }
+
+            do {
+                // 🔥 EMERGENCY: Fix all tasks with nil projectID that have a project string
+                let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+                request.predicate = NSPredicate(format: "projectID == nil AND project != nil")
+
+                let tasksNeedingUpdate = try self.backgroundContext.fetch(request)
+                print("🚨 EMERGENCY: Found \(tasksNeedingUpdate.count) tasks needing UUID references")
+
+                // Get all projects with UUIDs for lookup
+                let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+                projectRequest.predicate = NSPredicate(format: "projectID != nil")
+                let projectsWithUUIDs = try self.backgroundContext.fetch(projectRequest)
+
+                // Create name -> UUID lookup
+                var projectLookup: [String: UUID] = [:]
+                for project in projectsWithUUIDs {
+                    if let name = project.projectName?.lowercased(), let uuid = project.projectID {
+                        projectLookup[name] = uuid
+                    }
+                }
+
+                var updatedTasks = 0
+
+                for task in tasksNeedingUpdate {
+                    guard let projectName = task.project?.lowercased() else { continue }
+
+                    if let projectUUID = projectLookup[projectName] {
+                        task.projectID = projectUUID
+                        updatedTasks += 1
+                        print("  ✅ Updated task '\(task.name ?? "Unknown")' to reference UUID")
+                    } else {
+                        // Assign to Inbox if project not found
+                        task.projectID = ProjectConstants.inboxProjectID
+                        task.project = ProjectConstants.inboxProjectName
+                        updatedTasks += 1
+                        print("  📥 Assigned task '\(task.name ?? "Unknown")' to Inbox")
+                    }
+                }
+
+                if updatedTasks > 0 {
+                    try self.backgroundContext.save()
+                    print("💾 Saved \(updatedTasks) updated task references")
+                } else {
+                    print("✅ All task references already updated")
+                }
+
+                completion(.success(updatedTasks))
+            } catch {
+                print("❌ Emergency task reference update failed: \(error)")
+                completion(.failure(error))
+            }
+        }
+    }
+
     /// Ensure ALL project strings referenced by tasks have corresponding Projects entities
     /// This is critical for maintaining data integrity between legacy string-based projects and UUID-based Projects entities
     public func ensureAllProjectsHaveEntities(completion: @escaping (Result<ProjectEntityReport, Error>) -> Void) {

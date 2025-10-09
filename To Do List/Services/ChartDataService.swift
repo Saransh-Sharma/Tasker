@@ -263,25 +263,116 @@ class ChartDataService {
         var projectsWithScores: [(Projects, Int)] = []
 
         if let selectedIDs = selectedProjectIDs, !selectedIDs.isEmpty {
-            // Use user-selected projects
-            print("🎯 [RADAR] Using \(selectedIDs.count) user-selected projects: \(selectedIDs)")
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(
-                format: "projectID IN %@",
-                selectedIDs as [CVarArg]
-            )
-            let selectedProjects = (try? context.fetch(request)) ?? []
-            print("🎯 [RADAR] Fetched \(selectedProjects.count) projects from selected IDs")
+            // Use user-selected/pinned projects
+            print("🎯 [RADAR] Using \(selectedIDs.count) pinned projects: \(selectedIDs)")
 
-            // Calculate scores for selected projects
-            for project in selectedProjects {
-                guard let projectName = project.projectName else { continue }
-                let score = calculateWeeklyScoreForProjectByName(
-                    projectName: projectName,
-                    startOfWeek: startOfWeek,
-                    endOfWeek: endOfWeek
-                )
-                projectsWithScores.append((project, score))
+            // Fetch projects by UUID (handles migrated projects)
+            // Use compound OR predicates for UUID array matching (proven pattern from CoreDataProjectRepository)
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+
+            if selectedIDs.count == 1 {
+                // Single UUID - use simple equality (fastest)
+                request.predicate = NSPredicate(format: "projectID == %@", selectedIDs[0] as CVarArg)
+                print("🎯 [RADAR] Using single UUID predicate for: \(selectedIDs[0])")
+            } else {
+                // Multiple UUIDs - use compound OR predicates
+                let predicates = selectedIDs.map { uuid in
+                    NSPredicate(format: "projectID == %@", uuid as CVarArg)
+                }
+                request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
+                print("🎯 [RADAR] Using compound OR predicate for \(selectedIDs.count) UUIDs")
+                print("🎯 [RADAR] UUIDs: \(selectedIDs.map { $0.uuidString }.joined(separator: ", "))")
+            }
+
+            var selectedProjects = (try? context.fetch(request)) ?? []
+            print("🎯 [RADAR] Predicate format: \(request.predicate?.predicateFormat ?? "none")")
+            print("🎯 [RADAR] Fetched \(selectedProjects.count) projects from \(selectedIDs.count) UUIDs")
+
+            // 🔥 NEW: Handle case where all pinned UUIDs are stale
+            if selectedProjects.isEmpty {
+                print("🚨 [RADAR] All pinned UUIDs are stale! Falling back to auto-selection...")
+                projectsWithScores = getTopProjectsByWeeklyScore(limit: 5, startOfWeek: startOfWeek, endOfWeek: endOfWeek)
+                print("🎯 [RADAR] Auto-selected \(projectsWithScores.count) projects as fallback")
+            } else {
+                // Detailed fetch results with database inspection
+                print("🔍 [COMPOUND PRED] ==================")
+
+                // CRITICAL: Inspect what's ACTUALLY in the database
+                print("🔍 [DB INSPECTION] Checking ALL projects in database:")
+                let allProjectsRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+                let allProjectsInDB = (try? context.fetch(allProjectsRequest)) ?? []
+                print("🔍 [DB INSPECTION] Total projects in database: \(allProjectsInDB.count)")
+
+                for (index, proj) in allProjectsInDB.enumerated() {
+                    let uuid = proj.projectID?.uuidString ?? "NIL"
+                    let name = proj.projectName ?? "NIL"
+                    let isInbox = proj.projectID == ProjectConstants.inboxProjectID
+                    print("   DB Project #\(index + 1): '\(name)' | UUID: \(uuid) | isInbox: \(isInbox)")
+                }
+
+                print("🔍 [COMPOUND PRED] Fetch results:")
+                print("   Expected: \(selectedIDs.count) projects")
+                print("   Fetched: \(selectedProjects.count) projects")
+
+                if selectedProjects.count < selectedIDs.count {
+                    print("   ⚠️ MISMATCH! Missing \(selectedIDs.count - selectedProjects.count) projects")
+                    print("   Requested UUIDs:")
+                    for uuid in selectedIDs {
+                        print("      - \(uuid.uuidString)")
+                    }
+                    print("   Fetched UUIDs:")
+                    for project in selectedProjects {
+                        print("      - \(project.projectID?.uuidString ?? "NIL")")
+                    }
+
+                    let fetchedUUIDs = Set(selectedProjects.compactMap { $0.projectID })
+                    let requestedUUIDs = Set(selectedIDs)
+                    let missing = requestedUUIDs.subtracting(fetchedUUIDs)
+                    print("   ❌ Missing UUIDs (pinned but not found in DB):")
+                    for uuid in missing {
+                        print("      \(uuid.uuidString)")
+                        // Check if this UUID exists in DB at all
+                        let exists = allProjectsInDB.contains { $0.projectID == uuid }
+                        print("         Exists in DB: \(exists)")
+                    }
+
+                    print("")
+                    print("   💡 DIAGNOSIS: Pinned UUIDs are STALE (don't match current projects)")
+                    print("   💡 SOLUTION: ProjectSelectionService will auto-clean stale pins on next load")
+
+                    // 🔥 NEW: Provide better fallback handling
+                    if selectedProjects.isEmpty {
+                        print("   🔄 FALLBACK: No valid projects found, will auto-select top projects")
+                    } else {
+                        print("   🔄 PARTIAL: Using \(selectedProjects.count) valid projects, ignoring \(missing.count) stale UUIDs")
+                    }
+                } else if selectedProjects.count == selectedIDs.count {
+                    print("   ✅ All requested projects found!")
+                } else if selectedProjects.count == 0 && selectedIDs.count == 0 {
+                    print("   ⚠️ No projects requested (empty selectedIDs)")
+                }
+
+                for project in selectedProjects {
+                    print("   ✅ Fetched: '\(project.projectName ?? "nil")' | UUID: \(project.projectID?.uuidString ?? "nil")")
+                }
+                print("🔍 [COMPOUND PRED] ==================")
+
+                // Fallback: If UUID lookup didn't find all projects, some might be legacy (no projectID)
+                // This shouldn't normally happen after migration, but provides safety
+                if selectedProjects.count < selectedIDs.count {
+                    print("⚠️ [RADAR] UUID lookup incomplete - some projects may be legacy data")
+                }
+
+                // Calculate scores for selected projects
+                for project in selectedProjects {
+                    guard let projectName = project.projectName else { continue }
+                    let score = calculateWeeklyScoreForProjectByName(
+                        projectName: projectName,
+                        startOfWeek: startOfWeek,
+                        endOfWeek: endOfWeek
+                    )
+                    projectsWithScores.append((project, score))
+                }
             }
         } else {
             // Auto-select top 5 projects by weekly score
@@ -334,6 +425,10 @@ class ChartDataService {
         startOfWeek: Date,
         endOfWeek: Date
     ) -> Int {
+        print("   📊 [WEEKLY SCORE] ==================")
+        print("   📊 [WEEKLY SCORE] Calculating for '\(projectName)'")
+        print("      Week range: \(startOfWeek) to \(endOfWeek)")
+
         // Fetch all tasks completed in this week for this project
         // NOTE: Using project string field since projectID is often nil
         let request: NSFetchRequest<NTask> = NTask.fetchRequest()
@@ -344,25 +439,36 @@ class ChartDataService {
             endOfWeek as NSDate
         )
 
-        print("      🔍 [RADAR] Fetching tasks for project '\(projectName)' (by name)")
-        print("         Predicate: project == '\(projectName)' AND isComplete == YES AND dateCompleted between \(startOfWeek) and \(endOfWeek)")
+        print("      🔍 Predicate: project == '\(projectName)' AND isComplete == YES")
 
         guard let tasks = try? context.fetch(request) else {
-            print("      ⚠️ [RADAR] Failed to fetch tasks")
+            print("      ⚠️ Failed to fetch tasks (query error)")
+            print("   📊 [WEEKLY SCORE] ==================")
             return 0
         }
 
-        print("      📝 [RADAR] Found \(tasks.count) completed tasks")
+        print("      📝 Tasks found: \(tasks.count)")
+
+        if tasks.isEmpty {
+            print("      ⚠️ No completed tasks found for this project in this week!")
+        } else {
+            print("      Task list:")
+            for task in tasks {
+                let completedStr = task.dateCompleted != nil ? "\(task.dateCompleted! as Date)" : "nil"
+                print("         • '\(task.name ?? "Unknown")' completed: \(completedStr)")
+            }
+        }
 
         // Sum scores of all completed tasks
         var totalScore = 0
         for task in tasks {
             let taskScore = TaskScoringService.shared.calculateScore(for: task)
             totalScore += taskScore
-            print("         - '\(task.name ?? "Unknown")': \(taskScore) points (Priority: \(task.taskPriority))")
+            print("         → Score: \(taskScore) points (Priority: \(task.taskPriority))")
         }
 
-        print("      💯 [RADAR] Total score: \(totalScore)")
+        print("      💯 Total score: \(totalScore)")
+        print("   📊 [WEEKLY SCORE] ==================")
         return totalScore
     }
 

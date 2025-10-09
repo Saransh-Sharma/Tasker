@@ -614,11 +614,17 @@ extension AddTaskViewController {
                 return
             }
             
-            // Create new project
+            // Create new project with UUID
             let newProject = Projects(context: context)
+            let generatedUUID = UUID()
+            newProject.projectID = generatedUUID  // ✅ FIX: Add UUID assignment
             newProject.projectName = name
             newProject.projecDescription = description ?? ""
-            
+            newProject.createdDate = Date()
+            newProject.modifiedDate = Date()
+
+            print("🆕 Creating project '\(name)' with UUID: \(generatedUUID.uuidString)")
+
             // Save
             try context.save()
             

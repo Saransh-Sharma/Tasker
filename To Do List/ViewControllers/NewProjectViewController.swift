@@ -152,13 +152,28 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
                     print("ℹ️ Project '\(currentProjectInTexField)' already exists with UUID: \(existingProject.projectID?.uuidString ?? "nil")")
                 } else {
                     // CRITICAL FIX: Create new project with UUID
+                    print("🆕 [NEW PROJECT] ==================")
+                    print("🆕 [NEW PROJECT] Creating new project...")
+                    print("   Name: '\(currentProjectInTexField)'")
+                    print("   Description: '\(currentDescriptionInTexField.isEmpty ? "none" : currentDescriptionInTexField)'")
+
                     let newProject = Projects(context: context)
-                    newProject.projectID = UUID()  // ✅ ALWAYS assign UUID to new projects!
+                    let generatedUUID = UUID()
+                    newProject.projectID = generatedUUID  // ✅ ALWAYS assign UUID to new projects!
                     newProject.projectName = currentProjectInTexField
                     newProject.projecDescription = currentDescriptionInTexField.isEmpty ? nil : currentDescriptionInTexField
+                    newProject.createdDate = Date()
+                    newProject.modifiedDate = Date()
+
+                    print("   Generated UUID: \(generatedUUID.uuidString)")
 
                     try context.save()
-                    print("✅ Created new project '\(currentProjectInTexField)' with UUID: \(newProject.projectID?.uuidString ?? "nil")")
+                    print("✅ [NEW PROJECT] Successfully created project!")
+                    print("   Project Name: '\(newProject.projectName ?? "nil")'")
+                    print("   Project UUID: \(newProject.projectID?.uuidString ?? "nil")")
+                    print("   Created Date: \(newProject.createdDate?.description ?? "nil")")
+                    print("🆕 [NEW PROJECT] ==================")
+
                     HUD.shared.showSuccess(from: self, with: "New Project\n\(currentProjectInTexField)")
                 }
             } catch {

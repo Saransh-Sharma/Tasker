@@ -477,17 +477,47 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
                 }
             } else {
                 // Create new project
-                // Create new project
-                let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-                let newProject = Projects(context: context!)
-                newProject.projectName = projectName
-                newProject.projecDescription = projectDescription
-                let success = self.saveContext()
-                if success {
+                guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+                    self.showError(message: "Failed to access database")
+                    return
+                }
+
+                // CRITICAL FIX: Check for existing project (case-insensitive) before creating
+                let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+                request.predicate = NSPredicate(format: "projectName ==[c] %@", projectName)
+                request.fetchLimit = 1
+
+                do {
+                    let existingProjects = try context.fetch(request)
+
+                    if let existingProject = existingProjects.first {
+                        // Project already exists - ensure it has UUID and use it
+                        if existingProject.projectID == nil {
+                            existingProject.projectID = UUID()
+                            print("✅ Assigned UUID to existing project: \(projectName)")
+                            try context.save()
+                        }
+                        self.showError(message: "Project '\(projectName)' already exists")
+                        return
+                    }
+
+                    // Create new project with UUID
+                    let newProject = Projects(context: context)
+                    let generatedUUID = UUID()
+                    newProject.projectID = generatedUUID  // ✅ FIX: Add UUID assignment
+                    newProject.projectName = projectName
+                    newProject.projecDescription = projectDescription
+                    newProject.createdDate = Date()
+                    newProject.modifiedDate = Date()
+
+                    print("🆕 Creating project '\(projectName)' with UUID: \(generatedUUID.uuidString)")
+
+                    try context.save()
                     self.showSuccess(message: "Project created")
                     self.loadProjects()
-                } else {
-                    self.showError(message: "Failed to create project. Name may already be in use or cannot be 'Inbox'.")
+                } catch {
+                    print("❌ Failed to create project: \(error)")
+                    self.showError(message: "Failed to create project: \(error.localizedDescription)")
                 }
             }
         }

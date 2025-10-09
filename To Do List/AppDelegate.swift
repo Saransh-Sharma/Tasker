@@ -199,37 +199,150 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let migrationManager = MigrationManager()
         let migrationService = DataMigrationService(persistentContainer: persistentContainer, migrationManager: migrationManager)
 
-        // Check if migration is needed
-        guard migrationManager.needsMigration() else {
-            print("✅ No migration needed. Current version: \(migrationManager.currentVersion().description)")
-            return
-        }
+        // 🔥 EMERGENCY: Add direct legacy data check and force migration if needed
+        let inboxInitializer = InboxProjectInitializer(
+            viewContext: persistentContainer.viewContext,
+            backgroundContext: persistentContainer.newBackgroundContext()
+        )
 
-        // Show migration plan
-        let plan = migrationManager.generateMigrationPlan()
-        print(plan.description)
-
-        // Perform migration synchronously on app launch (blocks until complete)
-        // This is acceptable because it only runs once per version upgrade
+        // Force emergency migration
         let semaphore = DispatchSemaphore(value: 0)
 
-        migrationService.migrateToUUIDs { result in
+        // Step 1: Force UUID assignment to all projects
+        print("🚨 EMERGENCY: Starting emergency UUID migration...")
+        inboxInitializer.forceAssignUUIDsToAllProjects { result in
             switch result {
-            case .success(let report):
-                print(report.description)
-                print("✅ UUID migration completed successfully")
+            case .success(let count):
+                print("🚨 Emergency: Assigned UUIDs to \(count) projects")
+
+                // Step 2: Fix task references
+                inboxInitializer.forceUpdateTaskProjectReferences { taskResult in
+                    switch taskResult {
+                    case .success(let taskCount):
+                        print("🚨 Emergency: Updated \(taskCount) task references")
+
+                        // Step 3: Reset migration state to trigger proper migration
+                        migrationManager.forceResetMigration()
+
+                        // Step 4: Run normal migration to complete the process
+                        migrationService.migrateToUUIDs { migrationResult in
+                            switch migrationResult {
+                            case .success(let report):
+                                print("✅ Emergency migration completed: \(report.description)")
+
+                                // Step 5: Verify results
+                                self.verifyMigrationResults()
+
+                                // Step 6: Verify new project creation works correctly
+                                migrationService.verifyNewProjectCreation { verificationResult in
+                                    switch verificationResult {
+                                    case .success(let worksCorrectly):
+                                        if worksCorrectly {
+                                            print("✅ New project creation verification PASSED")
+                                        } else {
+                                            print("❌ New project creation verification FAILED - new projects may not get UUIDs!")
+                                        }
+                                    case .failure(let error):
+                                        print("❌ New project creation verification ERROR: \(error)")
+                                    }
+                                }
+
+                            case .failure(let error):
+                                print("❌ Emergency migration failed: \(error)")
+                                // Continue app launch even if migration fails
+                            }
+                            semaphore.signal()
+                        }
+
+                    case .failure(let error):
+                        print("❌ Emergency task update failed: \(error)")
+                        semaphore.signal()
+                    }
+                }
 
             case .failure(let error):
-                print("❌ UUID migration failed: \(error)")
-                // Continue app launch even if migration fails - app will use fallback logic
+                print("❌ Emergency UUID assignment failed: \(error)")
+                semaphore.signal()
             }
-            semaphore.signal()
         }
 
-        // Wait for migration to complete (with timeout)
-        let timeout = DispatchTime.now() + .seconds(30)
+        // Wait for migration to complete (with extended timeout for emergency fix)
+        let timeout = DispatchTime.now() + .seconds(60)
         if semaphore.wait(timeout: timeout) == .timedOut {
-            print("⚠️ Migration timed out after 30 seconds")
+            print("⚠️ Emergency migration timed out")
+        }
+    }
+
+    /// 🔥 EMERGENCY: Verify migration results to ensure all data has proper UUIDs
+    private func verifyMigrationResults() {
+        print("📊 Verifying migration results...")
+
+        let context = persistentContainer.viewContext
+
+        // Check Projects
+        let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+        do {
+            let allProjects = try context.fetch(projectRequest)
+            print("📊 Post-migration project verification:")
+            print("   Total projects: \(allProjects.count)")
+
+            var projectsWithUUID = 0
+            var projectsWithoutUUID = 0
+
+            for project in allProjects {
+                if project.projectID != nil {
+                    projectsWithUUID += 1
+                    if let projectName = project.projectName {
+                        print("   ✅ Project '\(projectName)' has UUID: \(project.projectID!.uuidString)")
+                    }
+                } else {
+                    projectsWithoutUUID += 1
+                    print("   ❌ Project without UUID: \(project.projectName ?? "Unknown")")
+                }
+            }
+
+            print("   ✅ Projects with UUID: \(projectsWithUUID)")
+            print("   ❌ Projects without UUID: \(projectsWithoutUUID)")
+
+            // Check Tasks
+            let taskRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
+            let allTasks = try context.fetch(taskRequest)
+            print("📊 Post-migration task verification:")
+            print("   Total tasks: \(allTasks.count)")
+
+            var tasksWithUUID = 0
+            var tasksWithoutUUID = 0
+            var tasksWithProjectUUID = 0
+            var tasksWithoutProjectUUID = 0
+
+            for task in allTasks {
+                if task.taskID != nil {
+                    tasksWithUUID += 1
+                } else {
+                    tasksWithoutUUID += 1
+                }
+
+                if task.projectID != nil {
+                    tasksWithProjectUUID += 1
+                } else {
+                    tasksWithoutProjectUUID += 1
+                }
+            }
+
+            print("   ✅ Tasks with taskID: \(tasksWithUUID)")
+            print("   ❌ Tasks without taskID: \(tasksWithoutUUID)")
+            print("   ✅ Tasks with projectID: \(tasksWithProjectUUID)")
+            print("   ❌ Tasks without projectID: \(tasksWithoutProjectUUID)")
+
+            // Overall status
+            if projectsWithoutUUID == 0 && tasksWithoutUUID == 0 && tasksWithoutProjectUUID == 0 {
+                print("🎉 MIGRATION SUCCESS: All entities have proper UUIDs!")
+            } else {
+                print("⚠️ MIGRATION INCOMPLETE: Some entities still missing UUIDs")
+            }
+
+        } catch {
+            print("❌ Verification failed: \(error)")
         }
     }
 

@@ -105,6 +105,15 @@ public final class MigrationManager {
         print("⚠️ Migration state reset to legacy")
     }
 
+    /// 🔥 EMERGENCY: Force reset migration state to handle corrupted migration state
+    /// This should be called when migration claims completion but data still shows legacy format
+    public func forceResetMigration() {
+        userDefaults.removeObject(forKey: Self.migrationVersionKey)
+        userDefaults.removeObject(forKey: Self.lastMigrationDateKey)
+        userDefaults.removeObject(forKey: Self.migrationHistoryKey)
+        print("🚨 EMERGENCY: Migration state reset - will force re-run")
+    }
+
     /// Generate a migration plan based on current version
     public func generateMigrationPlan() -> MigrationPlan {
         let current = currentVersion()
