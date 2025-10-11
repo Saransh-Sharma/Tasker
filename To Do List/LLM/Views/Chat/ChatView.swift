@@ -7,6 +7,7 @@ import MarkdownUI
 import SwiftUI
 import Combine
 import SwiftData
+import CoreData
 import os
 
 struct ChatView: View {
@@ -407,7 +408,11 @@ struct ChatView: View {
         case "/project":
             if components.count == 2 {
                 let query = components[1].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                let match = ProjectManager.sharedInstance.getAllProjects().first { ($0.projectName ?? "").lowercased().contains(query) }
+                // Get projects from Core Data directly
+                let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+                let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+                let allProjects = (try? context?.fetch(request)) ?? []
+                let match = allProjects.first { ($0.projectName ?? "").lowercased().contains(query) }
                 return .summary(.all, match)
             }
             return .summary(.all, nil)

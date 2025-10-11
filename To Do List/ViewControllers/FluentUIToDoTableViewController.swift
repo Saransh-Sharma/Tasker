@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 import FluentUI
 import SemiModalViewController
 import MaterialComponents.MaterialTextControls_FilledTextFields
@@ -24,6 +25,21 @@ protocol FluentUIToDoTableViewControllerDelegate: AnyObject {
 class FluentUIToDoTableViewController: UITableViewController {
     
     // MARK: - Properties
+    
+    /// Save context helper
+    private func saveContext() {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return
+        }
+        
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                print("Error saving context: \(error)")
+            }
+        }
+    }
     
     weak var delegate: FluentUIToDoTableViewControllerDelegate?
     private var toDoData: [(String, [NTask])] = []
@@ -90,11 +106,37 @@ class FluentUIToDoTableViewController: UITableViewController {
     
     private func setupToDoData(for date: Date) {
         print("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
-        
-        // Get all tasks for the selected date
-        let allTasksForDate = TaskManager.sharedInstance.getAllTasksForDate(date: date)
-        
+
+        // Get all tasks for the selected date from Core Data
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+
+        // 🐛 FIX: Include overdue tasks when viewing today
+        let isToday = Calendar.current.isDateInToday(date)
+
+        let predicate: NSPredicate
+        if isToday {
+            // For today: include tasks due today OR overdue incomplete tasks
+            let todayPredicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
+            let overduePredicate = NSPredicate(format: "dueDate < %@ AND isComplete == NO", startOfDay as NSDate)
+            predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [todayPredicate, overduePredicate])
+            print("🔍 [TABLE VIEW] Using combined predicate for TODAY - includes overdue tasks")
+        } else {
+            // For other dates: only tasks due on that specific date
+            predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
+            print("🔍 [TABLE VIEW] Using simple predicate for \(date) - date-specific only")
+        }
+
+        request.predicate = predicate
+        let allTasksForDate = (try? context?.fetch(request)) ?? []
+
         print("📅 Found \(allTasksForDate.count) total tasks for \(date)")
+        print("🔍 [TABLE VIEW] Fetched tasks breakdown:")
+        for (index, task) in allTasksForDate.enumerated() {
+            print("  Task \(index + 1): '\(task.name ?? "NO NAME")' | dueDate: \(task.dueDate ?? NSDate()) | isComplete: \(task.isComplete)")
+        }
         
         // Group tasks by project (case-insensitive)
         var tasksByProject: [String: [NTask]] = [:]
@@ -232,8 +274,10 @@ class FluentUIToDoTableViewController: UITableViewController {
             // Since search results don't contain the actual NTask objects, we need to find them
             var tasksForSection: [NTask] = []
             
-            // Get all tasks and match them by name and details
-            let allTasks = TaskManager.sharedInstance.getAllTasks
+            // Get all tasks from Core Data
+            let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            let allTasks = (try? context?.fetch(request)) ?? []
             
             for taskItem in section.items {
                 if let matchingTask = allTasks.first(where: { task in
@@ -375,9 +419,10 @@ class FluentUIToDoTableViewController: UITableViewController {
         
         let task = toDoData[section].1[row]
         
-        // Toggle task completion status using central TaskManager helper so that
-        // dateCompleted is always maintained correctly and notifications are posted
-        TaskManager.sharedInstance.toggleTaskComplete(task: task)
+        // Toggle task completion status
+        task.isComplete.toggle()
+        task.dateCompleted = task.isComplete ? Date() as NSDate : nil
+        saveContext()
         
         // Update checkbox appearance based on the new completion state
         updateCheckBoxAppearance(sender, isComplete: task.isComplete)
@@ -685,7 +730,9 @@ extension FluentUIToDoTableViewController {
         
         // Delete action (left to right swipe)
         let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] (action, view, completionHandler) in
-            self?.deleteTask(task)
+            // Use delegate pattern to notify parent controller
+            guard let self = self else { return }
+            self.delegate?.fluentToDoTableViewControllerDidDeleteTask(self, task: task)
             completionHandler(true)
         }
         deleteAction.backgroundColor = UIColor.systemRed
@@ -710,7 +757,9 @@ extension FluentUIToDoTableViewController {
         // Done action (right to left swipe)
         if !task.isComplete {
             let doneAction = UIContextualAction(style: .normal, title: "Done") { [weak self] (action, view, completionHandler) in
-                self?.markTaskComplete(task)
+                // Use delegate pattern to notify parent controller
+                guard let self = self else { return }
+                self.delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
                 completionHandler(true)
             }
             doneAction.backgroundColor = UIColor.systemGreen
@@ -719,7 +768,9 @@ extension FluentUIToDoTableViewController {
         } else {
             // Reopen action for completed tasks
             let reopenAction = UIContextualAction(style: .normal, title: "Reopen") { [weak self] (action, view, completionHandler) in
-                self?.markTaskIncomplete(task)
+                // Use delegate pattern to notify parent controller
+                guard let self = self else { return }
+                self.delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
                 completionHandler(true)
             }
             reopenAction.backgroundColor = UIColor.systemOrange
@@ -983,8 +1034,10 @@ extension FluentUIToDoTableViewController {
         
         let task = toDoData[sectionIndex].1[rowIndex]
         
-        // Use TaskManager helper so that dateCompleted is set/cleared correctly
-        TaskManager.sharedInstance.toggleTaskComplete(task: task)
+        // Toggle task completion
+        task.isComplete.toggle()
+        task.dateCompleted = task.isComplete ? Date() as NSDate : nil
+        saveContext()
         
         // Notify delegate of task completion change
         delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
@@ -1098,8 +1151,10 @@ extension FluentUIToDoTableViewController {
     private func buildProjectPillBarData() -> [PillButtonBarItem] {
         var pillBarItems: [PillButtonBarItem] = []
         
-        // Use actual project data from ProjectManager
-        let allDisplayProjects = ProjectManager.sharedInstance.displayedProjects
+        // Use direct Core Data access instead of ProjectManager
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        let allDisplayProjects = (try? context?.fetch(request)) ?? []
         
         // Add all existing projects
         for project in allDisplayProjects {
@@ -1109,7 +1164,7 @@ extension FluentUIToDoTableViewController {
         }
         
         // Ensure "Inbox" is present and positioned first if it exists
-        let inboxTitle = ProjectManager.sharedInstance.defaultProject // "Inbox"
+        let inboxTitle = "Inbox" // Default project name
         
         // Remove any existing "Inbox" to avoid duplicates before re-inserting at correct position
         pillBarItems.removeAll(where: { $0.title.lowercased() == inboxTitle.lowercased() })
@@ -1136,6 +1191,12 @@ extension FluentUIToDoTableViewController {
         // Notify that charts should be refreshed
         NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
         print("📡 FluentUI: Posted TaskCompletionChanged notification")
+        
+        // DIRECT CALL: Refresh charts immediately (more reliable than notification)
+        if let homeVC = delegate as? HomeViewController {
+            print("🔄 FluentUI: Calling HomeViewController chart refresh directly")
+            homeVC.refreshChartsAfterTaskCompletion()
+        }
     }
     
     private func markTaskIncomplete(_ task: NTask) {
@@ -1148,6 +1209,12 @@ extension FluentUIToDoTableViewController {
         // Notify that charts should be refreshed
         NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
         print("📡 FluentUI: Posted TaskCompletionChanged notification")
+        
+        // DIRECT CALL: Refresh charts immediately (more reliable than notification)
+        if let homeVC = delegate as? HomeViewController {
+            print("🔄 FluentUI: Calling HomeViewController chart refresh directly")
+            homeVC.refreshChartsAfterTaskCompletion()
+        }
     }
     
     private func deleteTask(_ task: NTask) {

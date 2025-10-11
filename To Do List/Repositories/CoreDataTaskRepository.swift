@@ -71,8 +71,8 @@ final class CoreDataTaskRepository: TaskRepository {
             let managed = NTask(context: self.backgroundContext)
             managed.name = data.name
             managed.taskDetails = data.details
-            managed.taskType = data.type.rawValue
-            managed.taskPriority = data.priority.rawValue
+            managed.taskType = data.type
+            managed.taskPriority = data.priorityRawValue
             managed.dueDate = data.dueDate as NSDate
             managed.project = data.project
             managed.isComplete = data.isComplete
@@ -162,7 +162,7 @@ final class CoreDataTaskRepository: TaskRepository {
         
         let predicate = NSPredicate(
             format: "taskType == %d AND dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
-            TaskType.morning.rawValue,
+            1, // TaskType.morning.rawValue
             startOfDay as NSDate,
             endOfDay as NSDate
         )
@@ -180,7 +180,7 @@ final class CoreDataTaskRepository: TaskRepository {
         
         let predicate = NSPredicate(
             format: "taskType == %d AND dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
-            TaskType.evening.rawValue,
+            2, // TaskType.evening.rawValue
             startOfDay as NSDate,
             endOfDay as NSDate
         )
@@ -193,7 +193,7 @@ final class CoreDataTaskRepository: TaskRepository {
     }
     
     func getUpcomingTasks(completion: @escaping ([TaskData]) -> Void) {
-        let predicate = NSPredicate(format: "taskType == %d", TaskType.upcoming.rawValue)
+        let predicate = NSPredicate(format: "taskType == %d", 3) // TaskType.upcoming.rawValue
         
         fetchTasks(
             predicate: predicate,
@@ -203,36 +203,39 @@ final class CoreDataTaskRepository: TaskRepository {
     }
     
     // MARK: - Project-Based Methods
-    
+
     func getTasksForInbox(date: Date, completion: @escaping ([TaskData]) -> Void) {
         let startOfDay = date.startOfDay
         let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
-        
+
+        // Use UUID-based queries (with string fallback for legacy data during transition)
+        let inboxID = ProjectConstants.inboxProjectID
+
         // Tasks due today and not complete
         let dueTodayPredicate = NSPredicate(
-            format: "project ==[c] %@ AND dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
-            defaultProject,
+            format: "projectID == %@ AND dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
+            inboxID as CVarArg,
             startOfDay as NSDate,
             endOfDay as NSDate
         )
-        
+
         // Tasks completed today
         let completedTodayPredicate = NSPredicate(
-            format: "project ==[c] %@ AND dateCompleted >= %@ AND dateCompleted < %@ AND isComplete == YES",
-            defaultProject,
+            format: "projectID == %@ AND dateCompleted >= %@ AND dateCompleted < %@ AND isComplete == YES",
+            inboxID as CVarArg,
             startOfDay as NSDate,
             endOfDay as NSDate
         )
-        
+
         // For today's date, also include overdue tasks
         var finalPredicate: NSPredicate
         if Calendar.current.isDateInToday(date) {
             let overduePredicate = NSPredicate(
-                format: "project ==[c] %@ AND dueDate < %@ AND isComplete == NO",
-                defaultProject,
+                format: "projectID == %@ AND dueDate < %@ AND isComplete == NO",
+                inboxID as CVarArg,
                 startOfDay as NSDate
             )
-            
+
             // Combine all predicates with OR
             let combinedPredicate = NSCompoundPredicate(
                 orPredicateWithSubpredicates: [dueTodayPredicate, completedTodayPredicate, overduePredicate]
@@ -244,7 +247,7 @@ final class CoreDataTaskRepository: TaskRepository {
                 orPredicateWithSubpredicates: [dueTodayPredicate, completedTodayPredicate]
             )
         }
-        
+
         fetchTasks(
             predicate: finalPredicate,
             sortDescriptors: [NSSortDescriptor(key: "dueDate", ascending: true)],
@@ -252,74 +255,110 @@ final class CoreDataTaskRepository: TaskRepository {
         )
     }
     
+    /// Get tasks for a project by UUID (preferred method)
+    func getTasksForProject(projectID: UUID, date: Date, completion: @escaping ([TaskData]) -> Void) {
+        let startOfDay = date.startOfDay
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+
+        // Tasks due today and not complete
+        let dueTodayPredicate = NSPredicate(
+            format: "projectID == %@ AND dueDate >= %@ AND dueDate < %@",
+            projectID as CVarArg,
+            startOfDay as NSDate,
+            endOfDay as NSDate
+        )
+
+        // Tasks completed today
+        let completedTodayPredicate = NSPredicate(
+            format: "projectID == %@ AND dateCompleted >= %@ AND dateCompleted < %@ AND isComplete == YES",
+            projectID as CVarArg,
+            startOfDay as NSDate,
+            endOfDay as NSDate
+        )
+
+        // For today's date, also include overdue tasks
+        var finalPredicate: NSPredicate
+        if Calendar.current.isDateInToday(date) {
+            let overduePredicate = NSPredicate(
+                format: "projectID == %@ AND dueDate < %@ AND isComplete == NO",
+                projectID as CVarArg,
+                startOfDay as NSDate
+            )
+
+            // Combine all predicates with OR
+            let combinedPredicate = NSCompoundPredicate(
+                orPredicateWithSubpredicates: [dueTodayPredicate, completedTodayPredicate, overduePredicate]
+            )
+            finalPredicate = combinedPredicate
+        } else {
+            // For other dates, just combine due and completed
+            finalPredicate = NSCompoundPredicate(
+                orPredicateWithSubpredicates: [dueTodayPredicate, completedTodayPredicate]
+            )
+        }
+
+        fetchTasks(
+            predicate: finalPredicate,
+            sortDescriptors: [NSSortDescriptor(key: "dueDate", ascending: true)],
+            completion: completion
+        )
+    }
+
+    /// Get tasks for a project by name (legacy method - deprecated, use UUID version)
+    @available(*, deprecated, message: "Use getTasksForProject(projectID:date:completion:) instead")
     func getTasksForProject(projectName: String, date: Date, completion: @escaping ([TaskData]) -> Void) {
-        let startOfDay = date.startOfDay
-        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
-        
-        // Tasks due today and not complete
-        let dueTodayPredicate = NSPredicate(
-            format: "project ==[c] %@ AND dueDate >= %@ AND dueDate < %@",
-            projectName,
-            startOfDay as NSDate,
-            endOfDay as NSDate
-        )
-        
-        // Tasks completed today
-        let completedTodayPredicate = NSPredicate(
-            format: "project ==[c] %@ AND dateCompleted >= %@ AND dateCompleted < %@ AND isComplete == YES",
-            projectName,
-            startOfDay as NSDate,
-            endOfDay as NSDate
-        )
-        
-        // For today's date, also include overdue tasks
-        var finalPredicate: NSPredicate
-        if Calendar.current.isDateInToday(date) {
-            let overduePredicate = NSPredicate(
-                format: "project ==[c] %@ AND dueDate < %@ AND isComplete == NO",
-                projectName,
-                startOfDay as NSDate
-            )
-            
-            // Combine all predicates with OR
-            let combinedPredicate = NSCompoundPredicate(
-                orPredicateWithSubpredicates: [dueTodayPredicate, completedTodayPredicate, overduePredicate]
-            )
-            finalPredicate = combinedPredicate
-        } else {
-            // For other dates, just combine due and completed
-            finalPredicate = NSCompoundPredicate(
-                orPredicateWithSubpredicates: [dueTodayPredicate, completedTodayPredicate]
-            )
+        // For legacy support, we need to look up the project UUID from the name
+        // This is a temporary fallback during the transition period
+        let context = viewContext
+        context.perform {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectName ==[c] %@", projectName)
+            request.fetchLimit = 1
+
+            do {
+                if let project = try context.fetch(request).first,
+                   let projectID = project.projectID {
+                    // Found project with UUID, use UUID-based query
+                    DispatchQueue.main.async {
+                        self.getTasksForProject(projectID: projectID, date: date, completion: completion)
+                    }
+                } else {
+                    // Fallback: Project not found or no UUID, return empty
+                    print("⚠️ Project '\(projectName)' not found or missing UUID")
+                    DispatchQueue.main.async {
+                        completion([])
+                    }
+                }
+            } catch {
+                print("❌ Error looking up project by name: \(error)")
+                DispatchQueue.main.async {
+                    completion([])
+                }
+            }
         }
-        
-        fetchTasks(
-            predicate: finalPredicate,
-            sortDescriptors: [NSSortDescriptor(key: "dueDate", ascending: true)],
-            completion: completion
-        )
     }
     
-    func getTasksForProjectOpen(projectName: String, date: Date, completion: @escaping ([TaskData]) -> Void) {
+    /// Get open (incomplete) tasks for a project by UUID
+    func getTasksForProjectOpen(projectID: UUID, date: Date, completion: @escaping ([TaskData]) -> Void) {
         let startOfDay = date.startOfDay
         let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
-        
+
         let dueTodayPredicate = NSPredicate(
-            format: "project ==[c] %@ AND dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
-            projectName,
+            format: "projectID == %@ AND dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
+            projectID as CVarArg,
             startOfDay as NSDate,
             endOfDay as NSDate
         )
-        
+
         // For today's date, also include overdue tasks
         var finalPredicate: NSPredicate
         if Calendar.current.isDateInToday(date) {
             let overduePredicate = NSPredicate(
-                format: "project ==[c] %@ AND dueDate < %@ AND isComplete == NO",
-                projectName,
+                format: "projectID == %@ AND dueDate < %@ AND isComplete == NO",
+                projectID as CVarArg,
                 startOfDay as NSDate
             )
-            
+
             // Combine with OR
             finalPredicate = NSCompoundPredicate(
                 orPredicateWithSubpredicates: [dueTodayPredicate, overduePredicate]
@@ -327,53 +366,84 @@ final class CoreDataTaskRepository: TaskRepository {
         } else {
             finalPredicate = dueTodayPredicate
         }
-        
+
         fetchTasks(
             predicate: finalPredicate,
             sortDescriptors: [NSSortDescriptor(key: "dueDate", ascending: true)],
             completion: completion
         )
     }
+
+    /// Get open tasks for a project by name (legacy - deprecated)
+    @available(*, deprecated, message: "Use getTasksForProjectOpen(projectID:date:completion:) instead")
+    func getTasksForProjectOpen(projectName: String, date: Date, completion: @escaping ([TaskData]) -> Void) {
+        let context = viewContext
+        context.perform {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectName ==[c] %@", projectName)
+            request.fetchLimit = 1
+
+            do {
+                if let project = try context.fetch(request).first,
+                   let projectID = project.projectID {
+                    DispatchQueue.main.async {
+                        self.getTasksForProjectOpen(projectID: projectID, date: date, completion: completion)
+                    }
+                } else {
+                    print("⚠️ Project '\(projectName)' not found or missing UUID")
+                    DispatchQueue.main.async {
+                        completion([])
+                    }
+                }
+            } catch {
+                print("❌ Error looking up project by name: \(error)")
+                DispatchQueue.main.async {
+                    completion([])
+                }
+            }
+        }
+    }
     
     func getTasksForAllCustomProjectsOpen(date: Date, completion: @escaping ([TaskData]) -> Void) {
         let startOfDay = date.startOfDay
         let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
-        
-        // Tasks from custom projects (not the default project)
+
+        // Tasks from custom projects (not the Inbox project)
+        let inboxID = ProjectConstants.inboxProjectID
         let notDefaultProjectPredicate = NSPredicate(
-            format: "project !=[c] %@",
-            defaultProject
+            format: "projectID != %@",
+            inboxID as CVarArg
         )
-        
+
         // Due today and not complete
         let dueTodayPredicate = NSPredicate(
             format: "dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
             startOfDay as NSDate,
             endOfDay as NSDate
         )
-        
+
         // Combine with AND
         var combinedPredicate = NSCompoundPredicate(
             andPredicateWithSubpredicates: [notDefaultProjectPredicate, dueTodayPredicate]
         )
-        
+
         // For today's date, also include overdue tasks
         if Calendar.current.isDateInToday(date) {
             let overduePredicate = NSPredicate(
                 format: "dueDate < %@ AND isComplete == NO",
                 startOfDay as NSDate
             )
-            
+
             let overdueCustomPredicate = NSCompoundPredicate(
                 andPredicateWithSubpredicates: [notDefaultProjectPredicate, overduePredicate]
             )
-            
+
             // Combine with OR
             combinedPredicate = NSCompoundPredicate(
                 orPredicateWithSubpredicates: [combinedPredicate, overdueCustomPredicate]
             )
         }
-        
+
         fetchTasks(
             predicate: combinedPredicate,
             sortDescriptors: [NSSortDescriptor(key: "dueDate", ascending: true)],
@@ -393,8 +463,8 @@ final class CoreDataTaskRepository: TaskRepository {
                 // Update all task properties with new data
                 task.name = data.name
                 task.taskDetails = data.details
-                task.taskType = data.type.rawValue
-                task.taskPriority = data.priority.rawValue
+                task.taskType = data.type
+                task.taskPriority = data.priorityRawValue
                 task.dueDate = data.dueDate as NSDate
                 task.project = data.project
                 task.isComplete = data.isComplete
@@ -418,7 +488,7 @@ final class CoreDataTaskRepository: TaskRepository {
     func saveTask(taskID: NSManagedObjectID, 
                  name: String,
                  details: String?,
-                 type: TaskType,
+                 type: Int32, // TaskType raw value
                  priority: TaskPriority,
                  dueDate: Date,
                  project: String,
@@ -435,8 +505,8 @@ final class CoreDataTaskRepository: TaskRepository {
                 // Update task properties from task details page
                 task.name = name
                 task.taskDetails = details
-                task.taskType = type.rawValue
-                task.taskPriority = priority.rawValue
+                task.taskType = type
+                task.taskPriority = Int32(priority.rawValue)
                 task.dueDate = dueDate as NSDate
                 task.project = project
                 

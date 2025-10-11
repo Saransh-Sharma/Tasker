@@ -19,18 +19,22 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         impactFeedback.prepare()
         impactFeedback.impactOccurred()
         
-        // Delay chart update slightly to allow UI to settle
+        // CRITICAL: Refresh ALL charts including tiny pie chart
+        print("🎯 FluentUIDelegate: Task completion changed - refreshing ALL charts")
+        refreshChartsAfterTaskCompletion()
+        
+        // Phase 7: Also update horizontal chart cards with slight delay for smooth animation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.updateSwiftUIChartCard()
-            // CRITICAL FIX: Update SwiftUI chart as well
-            self?.updateSwiftUIChartCard()
+            self?.updateChartCardsScrollView()
         }
         
         // Log with detailed task and daily score information
         let status = task.isComplete ? "completed" : "uncompleted"
         let taskScore = task.getTaskScore(task: task)
         // Use ChartDataService for accurate score calculation
-        let dailyTotal = ChartDataService.shared.calculateScoreForDate(date: Date())
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let chartService = ChartDataService(context: context!)
+        let dailyTotal = chartService.calculateScoreForDate(date: Date())
         print("📋 Task \(status): '\(task.name)'")
         print("   • Task Score: \(taskScore)")
         print("   • Daily Total Score: \(dailyTotal)")
@@ -47,16 +51,16 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         impactFeedback.prepare()
         impactFeedback.impactOccurred()
         
-        // Update chart data with slight delay for smooth experience
+        // Phase 7: Update chart data with slight delay for smooth experience
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            self?.updateSwiftUIChartCard()
-            // CRITICAL FIX: Update SwiftUI chart as well
-            self?.updateSwiftUIChartCard()
+            self?.updateChartCardsScrollView()
         }
         
         // Log detailed task update information
         let taskScore = task.getTaskScore(task: task)
-        let dailyTotal = ChartDataService.shared.calculateScoreForDate(date: Date())
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let chartService = ChartDataService(context: context!)
+        let dailyTotal = chartService.calculateScoreForDate(date: Date())
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium
         dateFormatter.timeStyle = .short
@@ -80,15 +84,15 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         impactFeedback.prepare()
         impactFeedback.impactOccurred()
         
-        // Update chart immediately for deletion to show instant feedback
-        updateSwiftUIChartCard()
-        // CRITICAL FIX: Update SwiftUI chart as well
-        updateSwiftUIChartCard()
+        // Phase 7: Update chart immediately for deletion to show instant feedback
+        updateChartCardsScrollView()
         
         // Log deletion with detailed task information
         let taskScore = task.getTaskScore(task: task)
         // Use ChartDataService for accurate score calculation
-        let dailyTotal = ChartDataService.shared.calculateScoreForDate(date: Date())
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let chartService = ChartDataService(context: context!)
+        let dailyTotal = chartService.calculateScoreForDate(date: Date())
         print("🗑️ Task deleted: '\(task.name)'")
         print("   • Task Score: \(taskScore)")
         print("   • Was Completed: \(task.isComplete)")

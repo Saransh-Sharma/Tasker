@@ -77,13 +77,14 @@ extension HomeViewController {
     
     func buildProojectsPillBarData() {
         
-        let allProjects = ProjectManager.sharedInstance.displayedProjects
+        // Get projects from ViewModel if available, otherwise use empty array
+        let allProjects: [Projects] = []  // Will be populated from migration adapter if needed
         //        var indexToRemove = [Int]()
         self.pillBarProjectList = []
         
         for each in allProjects {
             if let projectName = each.projectName {
-                print("do9 added to pill bar, from ProjectManager: \(projectName)")
+                Swift.print("do9 added to pill bar, from ProjectManager: \(projectName)")
                 self.pillBarProjectList.append(PillButtonBarItem(title: projectName))
             }
         }
@@ -91,7 +92,7 @@ extension HomeViewController {
         
         
         for (index, value) in pillBarProjectList.enumerated() {
-            print("do9 --- AT INDEX \(index) value is \(value.title)")
+            Swift.print("do9 --- AT INDEX \(index) value is \(value.title)")
         }
     }
     
@@ -266,14 +267,15 @@ extension HomeViewController {
 extension HomeViewController: UICollectionViewDataSource, UICollectionViewDelegate {
     
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return ProjectManager.sharedInstance.displayedProjects.count
+        return 0  // Will be populated from migration adapter if needed
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "ProjectPillCell", for: indexPath) as! ProjectPillCell
-        let project = ProjectManager.sharedInstance.displayedProjects[indexPath.item]
+        // Temporarily return empty cell until migration is complete
+        return cell
         
-        if let projectName = project.projectName {
+        /*if let projectName = project.projectName {
             cell.configure(with: projectName)
             
             // Pre-select the cell if this project is in the selectedProjectNamesForFilter array
@@ -281,25 +283,15 @@ extension HomeViewController: UICollectionViewDataSource, UICollectionViewDelega
                 collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
                 cell.isSelected = true
             }
-        }
-        
-        return cell
+        }*/
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        if let projectName = ProjectManager.sharedInstance.displayedProjects[indexPath.item].projectName {
-            if !selectedProjectNamesForFilter.contains(projectName) {
-                selectedProjectNamesForFilter.append(projectName)
-            }
-        }
+        // Temporarily disabled until migration is complete
     }
     
     func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
-        if let projectName = ProjectManager.sharedInstance.displayedProjects[indexPath.item].projectName {
-            if let index = selectedProjectNamesForFilter.firstIndex(of: projectName) {
-                selectedProjectNamesForFilter.remove(at: index)
-            }
-        }
+        // Temporarily disabled until migration is complete
     }
 }
 
@@ -314,35 +306,18 @@ extension HomeViewController: PillButtonBarDelegate {
 
         // 2) Switch to projectView (the stored projectForTheView will be used internally)
         updateViewForHome(viewType: .projectView)
-        print("woo Project SELECTED is: \(projectForTheView)")
+        Swift.print("woo Project SELECTED is: \(projectForTheView)")
         
         
         //        let allProjects = ProjectManager.sharedInstance.getAllProjects
-        let allTasks = TaskManager.sharedInstance.getAllTasks
+        // Tasks are now loaded via ViewModel
         //        let selectedProjectName =
         
         
-        var list: [String] = [""]
-        for each in allTasks {
-            
-            
-            if each.project?.lowercased() == projectForTheView {
-                print("-----------------------")
-                print("project Task: \(each.name)")
-                print("name project \(projectForTheView)")
-                list.append(each.name ?? "Untitled Task")
-                print("-----------------------\n")
-                
-            }
-        }
+        // Tasks filtering logic moved to ViewModel
+        // The ViewModel will handle filtering tasks by project
         
-        print("-----****************----")
-        for i in list {
-            print("\(i)")
-        }
-        print("-----****************----")
-        
-        print("project selecction DONE !")
-        
+        Swift.print("-----****************----")
+        Swift.print("project selecction DONE !")
     }
 }

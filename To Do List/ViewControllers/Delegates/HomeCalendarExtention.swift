@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import CoreData
 import FSCalendar
 
 
@@ -18,9 +19,13 @@ import FSCalendar
 extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
     
     func calendar(_ calendarView: FSCalendar, subtitleFor date: Date) -> String? {
-        let morningTasks = TaskManager.sharedInstance.getMorningTasksForDate(date: date)
-        let eveningTasks = TaskManager.sharedInstance.getEveningTaskByDate(date: date)
-        let allTasks = morningTasks+eveningTasks
+        // Get tasks from Core Data directly
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+        request.predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
+        let allTasks = (try? context?.fetch(request)) ?? []
         
         if(allTasks.count == 0) {
             return "-"
@@ -204,10 +209,10 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         
         reloadTinyPicChartWithAnimation()
         reloadToDoListWithAnimation()
-        
-        // Update line chart data for the new week
-        updateSwiftUIChartCard()
-        
+
+        // Phase 7: Update horizontal chart cards for the new week
+        updateChartCardsScrollView()
+
         // Refresh sample table view with selected date
         refreshSampleTableView(for: date)
         
@@ -220,10 +225,10 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     func calendarCurrentPageDidChange(_ calendar: FSCalendar) {
         print("\n=== CALENDAR PAGE CHANGED ===")
         print("Calendar current page: \(calendar.currentPage)")
-        
-        // Update line chart data for the new week
-        updateSwiftUIChartCard()
-        
+
+        // Phase 7: Update horizontal chart cards for the new week
+        updateChartCardsScrollView()
+
         print("=== CALENDAR PAGE CHANGE COMPLETE ===")
     }
     

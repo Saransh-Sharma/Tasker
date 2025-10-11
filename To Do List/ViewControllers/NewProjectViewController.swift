@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 import FluentUI
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
@@ -119,41 +120,83 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         if currentProjectInTexField != "" {
             button.isEnabled = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
-            
-            let allProjects = ProjectManager.sharedInstance.displayedProjects
-            var allProjectList = [String]()
-            
-            for e in allProjects {
-                if let projectName = e.projectName {
-                    allProjectList.append(projectName)
-                }
+
+            // CRITICAL FIX: Proper duplicate detection and UUID assignment
+            let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+            guard let context = context else {
+                print("❌ Failed to get Core Data context")
+                return
             }
-            
+
+            // Trim and normalize project name
             currentProjectInTexField = currentProjectInTexField.trimmingLeadingAndTrailingSpaces()
-            if !allProjectList.contains(currentProjectInTexField) {
-                _ = ProjectManager.sharedInstance.addNewProject(with: currentProjectInTexField, and: currentProjectInTexField)
-                HUD.shared.showSuccess(from: self, with: "New Project\n\(currentProjectInTexField)")
-            } else {
-                HUD.shared.showFailure(from: self, with: "\(currentProjectInTexField) already exists !")
+
+            // Check for existing project (case-insensitive)
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectName ==[c] %@", currentProjectInTexField)
+            request.fetchLimit = 1
+
+            do {
+                let existingProjects = try context.fetch(request)
+
+                if let existingProject = existingProjects.first {
+                    // CRITICAL FIX: Project with this name already exists
+                    // Don't create duplicate - ensure it has UUID and use it
+                    if existingProject.projectID == nil {
+                        existingProject.projectID = UUID()
+                        print("✅ Assigned UUID to existing project: \(currentProjectInTexField)")
+                        try context.save()
+                    }
+
+                    HUD.shared.showSuccess(from: self, with: "Using existing project\n\(currentProjectInTexField)")
+                    print("ℹ️ Project '\(currentProjectInTexField)' already exists with UUID: \(existingProject.projectID?.uuidString ?? "nil")")
+                } else {
+                    // CRITICAL FIX: Create new project with UUID
+                    print("🆕 [NEW PROJECT] ==================")
+                    print("🆕 [NEW PROJECT] Creating new project...")
+                    print("   Name: '\(currentProjectInTexField)'")
+                    print("   Description: '\(currentDescriptionInTexField.isEmpty ? "none" : currentDescriptionInTexField)'")
+
+                    let newProject = Projects(context: context)
+                    let generatedUUID = UUID()
+                    newProject.projectID = generatedUUID  // ✅ ALWAYS assign UUID to new projects!
+                    newProject.projectName = currentProjectInTexField
+                    newProject.projecDescription = currentDescriptionInTexField.isEmpty ? nil : currentDescriptionInTexField
+                    newProject.createdDate = Date()
+                    newProject.modifiedDate = Date()
+
+                    print("   Generated UUID: \(generatedUUID.uuidString)")
+
+                    try context.save()
+                    print("✅ [NEW PROJECT] Successfully created project!")
+                    print("   Project Name: '\(newProject.projectName ?? "nil")'")
+                    print("   Project UUID: \(newProject.projectID?.uuidString ?? "nil")")
+                    print("   Created Date: \(newProject.createdDate?.description ?? "nil")")
+                    print("🆕 [NEW PROJECT] ==================")
+
+                    HUD.shared.showSuccess(from: self, with: "New Project\n\(currentProjectInTexField)")
+                }
+            } catch {
+                print("❌ Failed to check/save project: \(error)")
+                HUD.shared.showFailure(from: self, with: "Failed to create project")
+                return
             }
-            
+
         } else {
-            
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
             HUD.shared.showFailure(from: self, with: "No New Project")
-            
+            return
         }
-        
+
+        // Navigate to add task screen
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            
             let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
             let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as! AddTaskViewController
             // Inject repository dependency using dependency container
             DependencyContainer.shared.inject(into: newViewController)
             newViewController.modalPresentationStyle = .fullScreen
             self.present(newViewController, animated: true, completion: { () in
-                print("SUCCESS !!!")
-                //                HUD.shared.showSuccess(from: self, with: "Success")
+                print("SUCCESS - Navigated to Add Task")
             })
         }
     }

@@ -12,19 +12,20 @@ import CoreData
 extension NTask {
     // MARK: - Type-safe Task Type Properties
     
-    /// The type of this task as a TaskType enum
-    var type: TaskType {
+    /// The type of this task as Int32 raw value
+    /// 1=morning, 2=evening, 3=upcoming, 4=inbox
+    var type: Int32 {
         get {
-            return TaskType(rawValue: self.taskType) ?? .morning
+            return self.taskType
         }
         set {
-            self.taskType = newValue.rawValue
+            self.taskType = newValue
         }
     }
     
     /// Returns true if this is a morning task
     var isMorningTask: Bool {
-        return type == .morning
+        return type == 1 // .morning
     }
     
     /// Updates both isEveningTask and taskType to maintain consistency
@@ -34,42 +35,48 @@ extension NTask {
         self.isEveningTask = isEvening
         // Update the task type for consistency
         if isEvening {
-            self.taskType = TaskType.evening.rawValue
-        } else if self.taskType == TaskType.evening.rawValue {
+            self.taskType = 2 // TaskType.evening.rawValue
+        } else if self.taskType == 2 { // TaskType.evening.rawValue
             // Only change to morning if it was evening before
-            self.taskType = TaskType.morning.rawValue
+            self.taskType = 1 // TaskType.morning.rawValue
         }
     }
     
     /// Returns true if this is an upcoming task
     var isUpcomingTask: Bool {
-        return type == .upcoming
+        return type == 3 // .upcoming
     }
     
     // MARK: - Type-safe Task Priority Properties
     
     /// The priority of this task as a TaskPriority enum
-    var priority: TaskPriority {
+    // Use raw Int32 values to avoid enum visibility issues
+    var priorityRawValue: Int32 {
         get {
-            return TaskPriority(rawValue: self.taskPriority) ?? .medium
+            return self.taskPriority
         }
         set {
-            self.taskPriority = newValue.rawValue
+            self.taskPriority = newValue
         }
     }
     
-    /// Returns true if this task has high priority
+    /// Returns true if this task has highest priority (P0)
+    var isHighestPriority: Bool {
+        return self.taskPriority == 1
+    }
+    
+    /// Returns true if this task has high priority (P1)
     var isHighPriority: Bool {
-        return priority == .high
+        return self.taskPriority == 2
     }
     
-    /// Returns true if this task has medium priority
+    /// Returns true if this task has medium priority (P2)
     var isMediumPriority: Bool {
-        return priority == .medium
+        return self.taskPriority == 3
     }
     
-    /// Returns true if this task has low priority
+    /// Returns true if this task has low priority (P3)
     var isLowPriority: Bool {
-        return priority == .low
+        return self.taskPriority == 4
     }
 }

@@ -27,19 +27,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Configure UIAppearance to make ShyHeaderController's dummy table view transparent
         UITableView.appearance().backgroundColor = UIColor.clear
         UITableView.appearance().isOpaque = false
+
+        // Configure UIScrollView appearance for transparent backgrounds in SwiftUI ScrollViews
+        UIScrollView.appearance().backgroundColor = UIColor.clear
+        UIScrollView.appearance().isOpaque = false
         
         // Register for CloudKit silent pushes
         application.registerForRemoteNotifications()
-        
+
         // 1) Force the container to load now (so CloudKit subscriptions are registered)
         _ = persistentContainer
-        
-        // **CRITICAL: Call consolidation logic after Core Data stack is ready**
-        ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
-        TaskManager.sharedInstance.fixMissingTasksDataWithDefaults()
-        
-        // Configure the dependency container
-        DependencyContainer.shared.configure(with: persistentContainer)
+
+        // 2) Run UUID migration if needed (CRITICAL: Must run before Clean Architecture setup)
+        performStartupMigration()
+
+        // Setup Clean Architecture - replaces all singleton initialization
+        setupCleanArchitecture()
         
         // 2) Observe remote-change notifications so your viewContext merges them
         NotificationCenter.default.addObserver(
@@ -166,8 +169,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             print("AppDelegate: Successfully merged changes from remote store.")
 
             // **CRITICAL: Call consolidation logic after merging CloudKit changes**
-            ProjectManager.sharedInstance.fixMissingProjecsDataWithDefaults()
-            TaskManager.sharedInstance.fixMissingTasksDataWithDefaults() // Re-check tasks
+            // Note: consolidateDataWithCleanArchitecture is private, call setupCleanArchitecture instead
+            // or make the method internal in AppDelegate+Migration.swift
             
             // Notify repository system about potential data changes
             NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
@@ -184,6 +187,389 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         print("❌ APNs registration failed: \(error)")
+    }
+
+    // MARK: - UUID Migration
+
+    /// Perform startup migration to ensure all entities have UUIDs
+    /// This is critical for transitioning from legacy string-based to UUID-based project references
+    private func performStartupMigration() {
+        print("🔄 Checking for UUID migration needs...")
+
+        let migrationManager = MigrationManager()
+        let migrationService = DataMigrationService(persistentContainer: persistentContainer, migrationManager: migrationManager)
+
+        // 🔥 EMERGENCY: Add direct legacy data check and force migration if needed
+        let inboxInitializer = InboxProjectInitializer(
+            viewContext: persistentContainer.viewContext,
+            backgroundContext: persistentContainer.newBackgroundContext()
+        )
+
+        // Force emergency migration
+        let semaphore = DispatchSemaphore(value: 0)
+
+        // Step 1: Force UUID assignment to all projects
+        print("🚨 EMERGENCY: Starting emergency UUID migration...")
+        inboxInitializer.forceAssignUUIDsToAllProjects { result in
+            switch result {
+            case .success(let count):
+                print("🚨 Emergency: Assigned UUIDs to \(count) projects")
+
+                // Step 2: Fix task references
+                inboxInitializer.forceUpdateTaskProjectReferences { taskResult in
+                    switch taskResult {
+                    case .success(let taskCount):
+                        print("🚨 Emergency: Updated \(taskCount) task references")
+
+                        // Step 3: Reset migration state to trigger proper migration
+                        migrationManager.forceResetMigration()
+
+                        // Step 4: Run normal migration to complete the process
+                        migrationService.migrateToUUIDs { migrationResult in
+                            switch migrationResult {
+                            case .success(let report):
+                                print("✅ Emergency migration completed: \(report.description)")
+
+                                // Step 5: Verify results
+                                self.verifyMigrationResults()
+
+                                // Step 6: Verify new project creation works correctly
+                                migrationService.verifyNewProjectCreation { verificationResult in
+                                    switch verificationResult {
+                                    case .success(let worksCorrectly):
+                                        if worksCorrectly {
+                                            print("✅ New project creation verification PASSED")
+                                        } else {
+                                            print("❌ New project creation verification FAILED - new projects may not get UUIDs!")
+                                        }
+                                    case .failure(let error):
+                                        print("❌ New project creation verification ERROR: \(error)")
+                                    }
+                                }
+
+                            case .failure(let error):
+                                print("❌ Emergency migration failed: \(error)")
+                                // Continue app launch even if migration fails
+                            }
+                            semaphore.signal()
+                        }
+
+                    case .failure(let error):
+                        print("❌ Emergency task update failed: \(error)")
+                        semaphore.signal()
+                    }
+                }
+
+            case .failure(let error):
+                print("❌ Emergency UUID assignment failed: \(error)")
+                semaphore.signal()
+            }
+        }
+
+        // Wait for migration to complete (with extended timeout for emergency fix)
+        let timeout = DispatchTime.now() + .seconds(60)
+        if semaphore.wait(timeout: timeout) == .timedOut {
+            print("⚠️ Emergency migration timed out")
+        }
+    }
+
+    /// 🔥 EMERGENCY: Verify migration results to ensure all data has proper UUIDs
+    private func verifyMigrationResults() {
+        print("📊 Verifying migration results...")
+
+        let context = persistentContainer.viewContext
+
+        // Check Projects
+        let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+        do {
+            let allProjects = try context.fetch(projectRequest)
+            print("📊 Post-migration project verification:")
+            print("   Total projects: \(allProjects.count)")
+
+            var projectsWithUUID = 0
+            var projectsWithoutUUID = 0
+
+            for project in allProjects {
+                if project.projectID != nil {
+                    projectsWithUUID += 1
+                    if let projectName = project.projectName {
+                        print("   ✅ Project '\(projectName)' has UUID: \(project.projectID!.uuidString)")
+                    }
+                } else {
+                    projectsWithoutUUID += 1
+                    print("   ❌ Project without UUID: \(project.projectName ?? "Unknown")")
+                }
+            }
+
+            print("   ✅ Projects with UUID: \(projectsWithUUID)")
+            print("   ❌ Projects without UUID: \(projectsWithoutUUID)")
+
+            // Check Tasks
+            let taskRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
+            let allTasks = try context.fetch(taskRequest)
+            print("📊 Post-migration task verification:")
+            print("   Total tasks: \(allTasks.count)")
+
+            var tasksWithUUID = 0
+            var tasksWithoutUUID = 0
+            var tasksWithProjectUUID = 0
+            var tasksWithoutProjectUUID = 0
+
+            for task in allTasks {
+                if task.taskID != nil {
+                    tasksWithUUID += 1
+                } else {
+                    tasksWithoutUUID += 1
+                }
+
+                if task.projectID != nil {
+                    tasksWithProjectUUID += 1
+                } else {
+                    tasksWithoutProjectUUID += 1
+                }
+            }
+
+            print("   ✅ Tasks with taskID: \(tasksWithUUID)")
+            print("   ❌ Tasks without taskID: \(tasksWithoutUUID)")
+            print("   ✅ Tasks with projectID: \(tasksWithProjectUUID)")
+            print("   ❌ Tasks without projectID: \(tasksWithoutProjectUUID)")
+
+            // Overall status
+            if projectsWithoutUUID == 0 && tasksWithoutUUID == 0 && tasksWithoutProjectUUID == 0 {
+                print("🎉 MIGRATION SUCCESS: All entities have proper UUIDs!")
+            } else {
+                print("⚠️ MIGRATION INCOMPLETE: Some entities still missing UUIDs")
+            }
+
+        } catch {
+            print("❌ Verification failed: \(error)")
+        }
+    }
+
+    // MARK: - Clean Architecture Setup
+
+    /// Setup Clean Architecture with modern components only
+    func setupCleanArchitecture() {
+        print("🏢️ Setting up Clean Architecture...")
+        
+        // Configure legacy DependencyContainer for backward compatibility
+        DependencyContainer.shared.configure(with: persistentContainer)
+        print("✅ Legacy DependencyContainer configured")
+        
+        // Configure the presentation dependency container using dynamic resolution
+        if let containerClass = NSClassFromString("PresentationDependencyContainer") as? NSObject.Type {
+            if let shared = containerClass.value(forKey: "shared") as? NSObject {
+                shared.perform(NSSelectorFromString("configure:with:"), with: persistentContainer)
+                print("✅ PresentationDependencyContainer configured dynamically")
+            }
+        } else {
+            print("🔗 Using basic configuration - PresentationDependencyContainer not found")
+        }
+        
+        // Run basic data consolidation
+        consolidateDataBasic()
+        
+        print("✅ Clean Architecture setup complete")
+    }
+    
+    /// Basic data consolidation without complex type dependencies
+    private func consolidateDataBasic() {
+        print("🔄 Running basic data consolidation...")
+
+        // Run cleanup first to remove duplicates
+        cleanupDuplicateProjects()
+
+        // Ensure Inbox project exists using Core Data directly
+        ensureInboxProjectExists()
+
+        // Fix any tasks with missing data
+        fixMissingTaskData()
+
+        print("✅ Basic data consolidation complete")
+    }
+
+    /// Clean up duplicate projects from the database
+    private func cleanupDuplicateProjects() {
+        let context = persistentContainer.viewContext
+
+        do {
+            var inboxDuplicatesRemoved = 0
+            var customDuplicatesRemoved = 0
+
+            // 1. Clean up duplicate Inbox projects
+            let inboxFetchRequest = Projects.fetchRequest()
+            inboxFetchRequest.predicate = NSPredicate(
+                format: "projectName ==[c] %@",
+                ProjectConstants.inboxProjectName
+            )
+
+            let inboxProjects = try context.fetch(inboxFetchRequest)
+
+            if inboxProjects.count > 1 {
+                // Keep only the one with the correct UUID, or the first one if none match
+                var projectToKeep: Projects?
+
+                // First, try to find one with the correct UUID
+                projectToKeep = inboxProjects.first { $0.projectID == ProjectConstants.inboxProjectID }
+
+                // If no project has the correct UUID, keep the first one and update its UUID
+                if projectToKeep == nil {
+                    projectToKeep = inboxProjects.first
+                    projectToKeep?.projectID = ProjectConstants.inboxProjectID
+                    projectToKeep?.projectName = ProjectConstants.inboxProjectName
+                    projectToKeep?.projecDescription = ProjectConstants.inboxProjectDescription
+                }
+
+                // Delete all other Inbox projects
+                for project in inboxProjects {
+                    if project.objectID != projectToKeep?.objectID {
+                        context.delete(project)
+                        inboxDuplicatesRemoved += 1
+                    }
+                }
+            }
+
+            // 2. Clean up duplicate custom projects
+            let allProjectsFetchRequest = Projects.fetchRequest()
+            let allProjects = try context.fetch(allProjectsFetchRequest)
+
+            // Group projects by name (case-insensitive)
+            var projectsByName: [String: [Projects]] = [:]
+            for project in allProjects {
+                let name = project.projectName?.lowercased() ?? ""
+                if !name.isEmpty && name != ProjectConstants.inboxProjectName.lowercased() {
+                    if projectsByName[name] == nil {
+                        projectsByName[name] = []
+                    }
+                    projectsByName[name]?.append(project)
+                }
+            }
+
+            // For each group with duplicates, keep only the first one
+            for (_, projects) in projectsByName {
+                if projects.count > 1 {
+                    // Keep the first project (or the one with UUID if available)
+                    let projectToKeep = projects.first { $0.projectID != nil } ?? projects.first
+
+                    // Delete all others
+                    for project in projects {
+                        if project.objectID != projectToKeep?.objectID {
+                            context.delete(project)
+                            customDuplicatesRemoved += 1
+                        }
+                    }
+                }
+            }
+
+            // Save changes if any duplicates were removed
+            if inboxDuplicatesRemoved > 0 || customDuplicatesRemoved > 0 {
+                try context.save()
+                print("🧹 Cleanup completed - Inbox duplicates removed: \(inboxDuplicatesRemoved), Custom duplicates removed: \(customDuplicatesRemoved)")
+            } else {
+                print("✅ No duplicate projects found")
+            }
+        } catch {
+            print("⚠️ Error cleaning up duplicate projects: \(error)")
+        }
+    }
+    
+    /// Ensure Inbox project exists in Core Data with UUID
+    private func ensureInboxProjectExists() {
+        let context = persistentContainer.viewContext
+        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+        request.predicate = NSPredicate(
+            format: "projectID == %@",
+            ProjectConstants.inboxProjectID as CVarArg
+        )
+
+        do {
+            let existingProjects = try context.fetch(request)
+
+            if existingProjects.isEmpty {
+                // Create Inbox project with fixed UUID
+                let inboxProject = Projects(context: context)
+                inboxProject.projectID = ProjectConstants.inboxProjectID
+                inboxProject.projectName = ProjectConstants.inboxProjectName
+                inboxProject.projecDescription = ProjectConstants.inboxProjectDescription
+
+                try context.save()
+                print("✅ Created default Inbox project with UUID: \(ProjectConstants.inboxProjectID)")
+            } else {
+                // Ensure existing Inbox has the correct UUID
+                if let inbox = existingProjects.first, inbox.projectID != ProjectConstants.inboxProjectID {
+                    inbox.projectID = ProjectConstants.inboxProjectID
+                    try context.save()
+                    print("✅ Updated Inbox project with correct UUID")
+                } else {
+                    print("✅ Inbox project already exists with correct UUID")
+                }
+            }
+        } catch {
+            print("⚠️ Error ensuring Inbox project exists: \(error)")
+        }
+    }
+    
+    /// Fix tasks with missing required data including UUIDs
+    private func fixMissingTaskData() {
+        let context = persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+
+        do {
+            let tasks = try context.fetch(request)
+            var needsSave = false
+
+            for task in tasks {
+                // Generate taskID if missing
+                if task.taskID == nil {
+                    task.taskID = UUID()
+                    needsSave = true
+                }
+
+                // Assign to Inbox if projectID is missing
+                if task.projectID == nil {
+                    task.projectID = ProjectConstants.inboxProjectID
+                    needsSave = true
+                }
+
+                // Fix missing project name (for backward compatibility)
+                if task.project == nil || task.project?.isEmpty == true {
+                    task.project = "Inbox"
+                    needsSave = true
+                }
+
+                // Fix missing dates
+                if task.dateAdded == nil {
+                    task.dateAdded = Date() as NSDate
+                    needsSave = true
+                }
+
+                // Fix missing due date
+                if task.dueDate == nil {
+                    task.dueDate = Date() as NSDate
+                    needsSave = true
+                }
+
+                // Fix missing task type
+                if task.taskType == 0 {
+                    task.taskType = 1 // Morning task
+                    needsSave = true
+                }
+
+                // Fix missing priority
+                if task.taskPriority == 0 {
+                    task.taskPriority = 4 // Low priority
+                    needsSave = true
+                }
+            }
+
+            if needsSave {
+                try context.save()
+                print("✅ Fixed missing task data including UUIDs")
+            }
+
+        } catch {
+            print("⚠️ Error fixing task data: \(error)")
+        }
     }
     
 

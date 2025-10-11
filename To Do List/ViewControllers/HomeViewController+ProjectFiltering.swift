@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 
 extension HomeViewController {
     
@@ -26,8 +27,11 @@ extension HomeViewController {
     func calculateTodaysScore() -> Int {
         let targetDate = dateForTheView
         let calendar = Calendar.current
-        // Fetch from TaskManager which uses main/view context – so it already includes the latest toggle.
-        let completedToday = TaskManager.sharedInstance.getAllTasks.filter { task in
+        // Use direct Core Data access instead of TaskManager
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let allTasks = (try? context?.fetch(request)) ?? []
+        let completedToday = allTasks.filter { task in
             guard task.isComplete, let doneDate = task.dateCompleted as Date? else { return false }
             return calendar.isDate(doneDate, inSameDayAs: targetDate)
         }
@@ -67,13 +71,16 @@ extension HomeViewController {
 
         let projectsToFilter: [Projects]
         
+        // Use direct Core Data access instead of migration adapters
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+        let allProjects = (try? context?.fetch(projectRequest)) ?? []
+        
         switch currentViewType {
             case .allProjectsGrouped:
-                // Get all projects
-                projectsToFilter = ProjectManager.sharedInstance.getAllProjects()
+                projectsToFilter = allProjects
             case .selectedProjectsGrouped:
-                // Get only the selected projects
-                projectsToFilter = ProjectManager.sharedInstance.getAllProjects().filter { project in
+                projectsToFilter = allProjects.filter { project in
                     guard let projectName = project.projectName else { return false }
                     return selectedProjectNamesForFilter.contains(projectName)
                 }
@@ -122,47 +129,109 @@ extension HomeViewController {
             dateForTheView = date
         }
         
-        // Update UI based on view type
-        switch viewType {
-        case .todayHomeView:
-            // Update header
-            toDoListHeaderLabel.text = "Today"
-            dateForTheView = Date.today()
-            print("\n AddTask === SWITCHING TO TODAY VIEW ===")
-            print("AddTask Date set to: \(dateForTheView)")
-            loadTasksForDateGroupedByProject()
-            
-        case .customDateView:
-            // Update header with date
-            let formatter = DateFormatter()
-            formatter.dateFormat = "E, MMM d"
-            toDoListHeaderLabel.text = formatter.string(from: dateForTheView)
-            print("\nAddTask === SWITCHING TO CUSTOM DATE VIEW ===")
-            print("AddTask Date set to: \(dateForTheView)")
-            print("AddTask Header text: \(formatter.string(from: dateForTheView))")
-            loadTasksForDateGroupedByProject()
-            
-        case .projectView:
-            toDoListHeaderLabel.text = projectForTheView
-            
-        case .upcomingView:
-            toDoListHeaderLabel.text = "Upcoming"
-            
-        case .historyView:
-            toDoListHeaderLabel.text = "History"
-            
-        case .allProjectsGrouped:
-            toDoListHeaderLabel.text = "All Projects"
-            prepareAndFetchTasksForProjectGroupedView()
-            
-        case .selectedProjectsGrouped:
-            toDoListHeaderLabel.text = "Selected Projects"
-            prepareAndFetchTasksForProjectGroupedView()
+        // Use Clean Architecture ViewModel if available, otherwise fallback to legacy
+        if let viewModel = viewModel {
+            print("✅ Using Clean Architecture ViewModel for data loading")
+            updateViewUsingViewModel(viewType: viewType)
+        } else {
+            print("⚠️ ViewModel not available, using legacy data loading")
+            updateViewUsingLegacyMethod(viewType: viewType)
         }
         
         // Refresh UI
         reloadToDoListWithAnimation()
         reloadTinyPicChartWithAnimation()
+    }
+    
+    /// Clean Architecture data loading using ViewModel
+    private func updateViewUsingViewModel(viewType: ToDoListViewType) {
+        guard let vm = viewModel else { return }
+        
+        // Use reflection-based approach to safely call ViewModel methods
+        // This avoids type conflicts while maintaining Clean Architecture patterns
+        
+        // Update UI based on view type
+        switch viewType {
+        case .todayHomeView:
+            toDoListHeaderLabel.text = "Today"
+            dateForTheView = Date.today()
+            print("🏗️ Clean Architecture: Loading today's tasks via ViewModel")
+            callViewModelMethod(vm, methodName: "loadTodayTasks")
+            
+        case .customDateView:
+            let formatter = DateFormatter()
+            formatter.dateFormat = "E, MMM d"
+            toDoListHeaderLabel.text = formatter.string(from: dateForTheView)
+            print("🏗️ Clean Architecture: Loading tasks for \(dateForTheView) via ViewModel")
+            callViewModelMethod(vm, methodName: "selectDate", parameter: dateForTheView)
+            callViewModelMethod(vm, methodName: "loadTasksForSelectedDate")
+            
+        case .projectView:
+            toDoListHeaderLabel.text = projectForTheView
+            print("🏗️ Clean Architecture: Loading tasks for project '\(projectForTheView)' via ViewModel")
+            callViewModelMethod(vm, methodName: "selectProject", parameter: projectForTheView)
+            
+        case .upcomingView:
+            toDoListHeaderLabel.text = "Upcoming"
+            print("🏗️ Clean Architecture: Loading upcoming tasks via ViewModel")
+            // ViewModel will handle upcoming tasks
+            
+        case .historyView:
+            toDoListHeaderLabel.text = "History"
+            print("🏗️ Clean Architecture: Loading history via ViewModel")
+            // ViewModel will handle history
+            
+        case .allProjectsGrouped:
+            toDoListHeaderLabel.text = "All Projects"
+            print("🏗️ Clean Architecture: Loading all projects via ViewModel")
+            callViewModelMethod(vm, methodName: "loadProjects")
+            
+        case .selectedProjectsGrouped:
+            toDoListHeaderLabel.text = "Selected Projects"
+            print("🏗️ Clean Architecture: Loading selected projects via ViewModel")
+            callViewModelMethod(vm, methodName: "loadProjects")
+        }
+    }
+    
+    /// Legacy data loading method (fallback)
+    private func updateViewUsingLegacyMethod(viewType: ToDoListViewType) {
+        // Update UI based on view type
+        switch viewType {
+        case .todayHomeView:
+            toDoListHeaderLabel.text = "Today"
+            dateForTheView = Date.today()
+            print("🔧 Legacy: Loading today's tasks")
+            loadTasksForDateGroupedByProject()
+            
+        case .customDateView:
+            let formatter = DateFormatter()
+            formatter.dateFormat = "E, MMM d"
+            toDoListHeaderLabel.text = formatter.string(from: dateForTheView)
+            print("🔧 Legacy: Loading tasks for \(dateForTheView)")
+            loadTasksForDateGroupedByProject()
+            
+        case .projectView:
+            toDoListHeaderLabel.text = projectForTheView
+            print("🔧 Legacy: Loading project view")
+            
+        case .upcomingView:
+            toDoListHeaderLabel.text = "Upcoming"
+            print("🔧 Legacy: Loading upcoming view")
+            
+        case .historyView:
+            toDoListHeaderLabel.text = "History"
+            print("🔧 Legacy: Loading history view")
+            
+        case .allProjectsGrouped:
+            toDoListHeaderLabel.text = "All Projects"
+            print("🔧 Legacy: Loading all projects grouped")
+            prepareAndFetchTasksForProjectGroupedView()
+            
+        case .selectedProjectsGrouped:
+            toDoListHeaderLabel.text = "Selected Projects"
+            print("🔧 Legacy: Loading selected projects grouped")
+            prepareAndFetchTasksForProjectGroupedView()
+        }
     }
     
 
@@ -173,8 +242,20 @@ extension HomeViewController {
         
         print("\n=== LOADING TASKS FOR DATE: \(dateForTheView) ===")
         
-        // Get all tasks for the selected date
-        let allTasksForDate = TaskManager.sharedInstance.getAllTasksForDate(date: dateForTheView)
+        // Get all tasks for the selected date using direct Core Data access
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: dateForTheView)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        request.predicate = NSPredicate(
+            format: "dueDate >= %@ AND dueDate < %@",
+            startOfDay as NSDate, endOfDay as NSDate
+        )
+        
+        let allTasksForDate = (try? context?.fetch(request)) ?? []
         
         print("📅 Found \(allTasksForDate.count) total tasks for \(dateForTheView)")
         
@@ -182,7 +263,9 @@ extension HomeViewController {
         print("\n📋 TASK DETAILS:")
         for (index, task) in allTasksForDate.enumerated() {
             let status = task.isComplete ? "✅" : "⏳"
-            let priority = ["🔴 P0", "🟠 P1", "🟡 P2", "🟢 P3"][Int(task.taskPriority - 1)] ?? "⚪ Unknown"
+            let priorityArray = ["🔴 P0", "🟠 P1", "🟡 P2", "🟢 P3"]
+            let priorityIndex = Int(task.taskPriority - 1)
+            let priority = (priorityIndex >= 0 && priorityIndex < priorityArray.count) ? priorityArray[priorityIndex] : "⚪ Unknown"
             print("  \(index + 1). \(status) '\(task.name)' [\(priority)] - Project: '\(task.project ?? "Unknown")' - Added: \(task.dateAdded ?? Date() as NSDate)")
         }
         
@@ -190,7 +273,7 @@ extension HomeViewController {
         var tasksByProject: [String: [NTask]] = [:]
         
         for task in allTasksForDate {
-            let projectName = task.project?.lowercased() ?? ProjectManager.sharedInstance.defaultProject
+            let projectName = task.project?.lowercased() ?? "inbox"
             if tasksByProject[projectName] == nil {
                 tasksByProject[projectName] = []
             }
@@ -198,7 +281,7 @@ extension HomeViewController {
         }
         
         print("\n📊 TASK COUNT BY PROJECT:")
-        let inboxProjectName = ProjectManager.sharedInstance.defaultProject
+        let inboxProjectName = "inbox"
         
         // Show Inbox count first
         if let inboxTasks = tasksByProject[inboxProjectName] {

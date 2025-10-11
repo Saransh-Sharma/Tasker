@@ -2,6 +2,7 @@ import Foundation
 import CoreData
 
 /// Service responsible for handling task scoring and gamification logic
+/// UPDATED: Now uses centralized TaskPriorityConfig for all scoring
 final class TaskScoringService {
     
     // MARK: - Singleton Instance (for backward compatibility)
@@ -10,35 +11,27 @@ final class TaskScoringService {
     /// Note: Using dependency injection is preferred over singleton when possible
     static let shared = TaskScoringService()
     
-    // MARK: - Scoring Methods
+    // MARK: - Scoring Methods (Updated to use TaskPriorityConfig)
     
     /// Calculate the score value of an individual task based on its priority
     /// - Parameter taskPriority: The priority level of the task (TaskPriority enum)
-    /// - Returns: Integer score value
+    /// - Returns: Integer score value from centralized config
     func calculateScore(for taskPriority: TaskPriority) -> Int {
-        switch taskPriority {
-        case .high:   return 7  // Highest priority
-        case .medium: return 4  // Medium priority
-        case .low:    return 2
-        case .veryLow: return 1  // Low priority
-        @unknown default:
-            return 1  // Fallback
-        }
+        return taskPriority.scorePoints
     }
     
     /// Calculate the score value of an individual task
     /// - Parameter taskData: The task data to calculate score for
-    /// - Returns: Integer score value
+    /// - Returns: Integer score value from centralized config
     func calculateScore(for taskData: TaskData) -> Int {
-        return calculateScore(for: taskData.priority)
+        return TaskPriorityConfig.scoreForRawValue(taskData.priorityRawValue)
     }
     
     /// Calculate the score value of an individual managed task
     /// - Parameter task: The managed task to calculate score for
-    /// - Returns: Integer score value
+    /// - Returns: Integer score value from centralized config
     func calculateScore(for task: NTask) -> Int {
-        let priority = TaskPriority(rawValue: task.taskPriority) ?? .low
-        return calculateScore(for: priority)
+        return TaskPriorityConfig.scoreForRawValue(task.taskPriority)
     }
     
     /// Calculate the total score for a given date
@@ -70,7 +63,7 @@ final class TaskScoringService {
             var totalScore = 0
             for task in tasks {
                 // Calculate score for each task
-                totalScore += self.calculateScore(for: task.priority)
+                totalScore += self.calculateScore(for: task)
             }
             
             completion(totalScore)

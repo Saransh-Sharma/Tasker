@@ -49,8 +49,7 @@ extension HomeViewController {
     
     func setupTableViewFrame() {
         // table view
-        print("bottom bar heigght is \(bottomAppBar.bounds.height)")
-        tableView.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height:  UIScreen.main.bounds.height - bottomAppBar.bounds.height)
+        tableView.frame = foredropContainer.bounds
         
         foredropContainer.addSubview(tableView)
     }

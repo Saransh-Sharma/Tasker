@@ -20,10 +20,14 @@ class TaskListViewController: UIViewController, TaskRepositoryDependent {
     var viewContext: NSManagedObjectContext!
     
     /// Task type filter (optional)
-    private var taskType: TaskType?
+    private var taskType: Int32? // TaskType raw value
     
     /// Project name filter (optional)
     private var projectName: String?
+    
+    private func applyTaskTypeFilter(_ type: Int32) -> NSPredicate { // TaskType raw value
+        return NSPredicate(format: "taskType == %d", type)
+    }
     
     /// Selected date filter (defaults to today)
     private var selectedDate: Date = Date()
@@ -39,7 +43,7 @@ class TaskListViewController: UIViewController, TaskRepositoryDependent {
     ///   - projectName: Optional project name filter
     ///   - date: Date to show tasks for, defaults to today
     ///   - showCompleted: Whether to show completed tasks, defaults to true
-    init(taskType: TaskType? = nil, projectName: String? = nil, date: Date = Date(), showCompleted: Bool = true) {
+    init(taskType: Int32? = nil, projectName: String? = nil, date: Date = Date(), showCompleted: Bool = true) {
         self.taskType = taskType
         self.projectName = projectName
         self.selectedDate = date
@@ -108,7 +112,7 @@ class TaskListViewController: UIViewController, TaskRepositoryDependent {
         
         // Filter by task type if specified
         if let taskType = taskType {
-            predicates.append(NSPredicate(format: "taskType == %d", taskType.rawValue))
+            predicates.append(applyTaskTypeFilter(taskType))
         }
         
         // Filter by project name if specified
@@ -237,8 +241,8 @@ class TaskListViewController: UIViewController, TaskRepositoryDependent {
     
     /// Changes the task type filter
     /// - Parameter taskType: New task type to filter by, or nil for all types
-    func setTaskType(_ taskType: TaskType?) {
-        self.taskType = taskType
+    func setTaskType(_ type: Int32) { // TaskType raw value
+        self.taskType = type
         setupFetchedResultsController()
         try? fetchedResultsController?.performFetch()
         tableView.reloadData()
@@ -466,11 +470,11 @@ class TaskCell: UITableViewCell {
         
         // Set priority color based on the Int32 raw value
         switch task.taskPriority {
-        case TaskPriority.high.rawValue:
+        case 2: // TaskPriority.high.rawValue
             priorityIndicator.backgroundColor = .systemRed
-        case TaskPriority.medium.rawValue:
+        case 3: // TaskPriority.high.rawValue
             priorityIndicator.backgroundColor = .systemOrange
-        case TaskPriority.low.rawValue:
+        case 4: // TaskPriority.low.rawValue
             priorityIndicator.backgroundColor = .systemBlue
         default:
             priorityIndicator.backgroundColor = .systemGray

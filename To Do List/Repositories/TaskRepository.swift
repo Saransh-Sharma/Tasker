@@ -109,7 +109,7 @@ protocol TaskRepository {
     func saveTask(taskID: NSManagedObjectID, 
                  name: String,
                  details: String?,
-                 type: TaskType,
+                 type: Int32, // TaskType raw value
                  priority: TaskPriority,
                  dueDate: Date,
                  project: String,

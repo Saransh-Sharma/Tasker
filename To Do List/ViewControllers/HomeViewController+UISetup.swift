@@ -7,12 +7,55 @@
 //
 
 import UIKit
+import SwiftUI
 import FluentUI
-import MaterialComponents.MaterialBottomAppBar
 import TinyConstraints
 import SemiModalViewController
 import FSCalendar
 import UserNotifications
+
+// MARK: - Transparent Hosting Controller for Chart Cards
+
+class TransparentHostingController<Content: View>: UIHostingController<Content> {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        applyTransparency()
+    }
+
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        applyTransparency()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        applyTransparency()
+
+        // Additional delayed pass for async-created subviews
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.applyTransparency()
+        }
+    }
+
+    private func applyTransparency() {
+        view.backgroundColor = .clear
+        view.isOpaque = false
+        clearAllSubviews(view)
+    }
+
+    private func clearAllSubviews(_ view: UIView) {
+        view.backgroundColor = .clear
+
+        if let scrollView = view as? UIScrollView {
+            scrollView.backgroundColor = .clear
+            scrollView.isOpaque = false
+        }
+
+        for subview in view.subviews {
+            clearAllSubviews(subview)
+        }
+    }
+}
 
 extension HomeViewController: BadgeViewDelegate {
     
@@ -38,11 +81,13 @@ extension HomeViewController: BadgeViewDelegate {
     func setupBackdrop() {
         backdropContainer.frame = view.bounds
         backdropContainer.backgroundColor = todoColors.primaryColor
-        
+
         // Add calendar and charts to backdrop
         setupCalendarInBackdrop()
-        setupChartsInBackdrop()
-        
+
+        // Phase 7: Setup Horizontal Scrollable Chart Cards (NEW)
+        setupChartCardsScrollView()
+
         view.addSubview(backdropContainer)
     }
     
@@ -58,12 +103,119 @@ extension HomeViewController: BadgeViewDelegate {
             calendar.appearance.titleDefaultColor = todoColors.primaryTextColor
             calendar.appearance.todayColor = todoColors.secondaryAccentColor//todoColors.primaryColor
             calendar.appearance.selectionColor = todoColors.secondaryAccentColor
-            
+
             // Ensure calendar starts in week mode
             calendar.scope = .week
         }
-        
+
         backdropContainer.addSubview(calendar)
+    }
+
+    func setupChartCardsScrollView() {
+        print("📊 [Charts] Initializing vertical scroll view")
+
+        // Create vertically scrollable chart cards
+        let chartScrollView = ChartCardsScrollView(referenceDate: dateForTheView)
+
+        // Use TransparentHostingController for automatic transparency management
+        chartScrollHostingController = TransparentHostingController(rootView: AnyView(chartScrollView))
+
+        guard let hostingController = chartScrollHostingController else {
+            print("❌ [Charts] ERROR: Failed to create hosting controller")
+            return
+        }
+
+        // Create container view for the scroll view
+        chartScrollContainer = UIView()
+        guard let container = chartScrollContainer else {
+            print("❌ [Charts] ERROR: Failed to create container view")
+            return
+        }
+
+        // Add hosting controller as child
+        addChild(hostingController)
+        container.addSubview(hostingController.view)
+        hostingController.didMove(toParent: self)
+
+        // Configure container with transparency
+        container.backgroundColor = .clear
+        container.isOpaque = false
+        backdropContainer.addSubview(container)
+
+        // Configure hosting controller view with transparency
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.isOpaque = false
+
+        // Position scroll view in the chart area
+        container.translatesAutoresizingMaskIntoConstraints = false
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            // Container constraints - full width edge-to-edge on iPhone portrait
+            container.leadingAnchor.constraint(equalTo: backdropContainer.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: backdropContainer.trailingAnchor),
+            container.topAnchor.constraint(equalTo: backdropContainer.topAnchor, constant: 120),
+            container.heightAnchor.constraint(equalToConstant: 350),
+
+            // Hosting controller view constraints
+            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+
+        // Force layout pass to calculate proper frame immediately
+        backdropContainer.layoutIfNeeded()
+
+        // Apply immediate transparency
+        applyChartScrollTransparency()
+
+        // Apply delayed transparency passes for async-created subviews
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.applyChartScrollTransparency()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.applyChartScrollTransparency()
+        }
+
+        // Initially hidden (will be shown via button toggle)
+        container.isHidden = true
+
+        print("✅ [Charts] Vertical scroll view ready (hidden until toggle)")
+    }
+
+    // MARK: - Chart Scroll Transparency Helpers
+
+    func applyChartScrollTransparency() {
+        guard let container = chartScrollContainer,
+              let hostingController = chartScrollHostingController else {
+            return
+        }
+
+        // Clear container
+        container.backgroundColor = .clear
+        container.isOpaque = false
+
+        // Clear hosting controller view
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.isOpaque = false
+
+        // Recursively clear all subviews (including UIScrollView)
+        clearAllSubviewsRecursively(hostingController.view)
+    }
+
+    private func clearAllSubviewsRecursively(_ view: UIView) {
+        view.backgroundColor = .clear
+
+        if let scrollView = view as? UIScrollView {
+            scrollView.backgroundColor = .clear
+            scrollView.isOpaque = false
+        }
+
+        for subview in view.subviews {
+            clearAllSubviewsRecursively(subview)
+        }
     }
     
     
@@ -88,14 +240,12 @@ extension HomeViewController: BadgeViewDelegate {
             safeAreaBottomInset = 0
         }
         
-        // Account for bottom app bar height (standard 64pt)
-        let bottomBarHeight: CGFloat = 64 + safeAreaBottomInset
-        
-        // Position foredrop container - leave space for the bottom bar
-        foredropContainer.frame = CGRect(x: 0, 
-                                      y: screenHeight - foredropHeight - bottomBarHeight + 24, 
-                                      width: screenWidth, 
-                                      height: foredropHeight)
+        // Allow content to extend under the Liquid Glass bottom bar (no reserved space)
+        // Keep a small top offset for styling, but do not subtract the bar height.
+        foredropContainer.frame = CGRect(x: 0,
+                                         y: screenHeight - foredropHeight + 24,
+                                         width: screenWidth,
+                                         height: foredropHeight)
         foredropContainer.backgroundColor = todoColors.backgroundColor        
         foredropContainer.layer.cornerRadius = 24
         foredropContainer.clipsToBounds = true
@@ -149,64 +299,6 @@ extension HomeViewController: BadgeViewDelegate {
         print("FluentUI table view setup in foredrop completed")
     }
     
-    func setupBottomAppBar() {
-        // Instantiate bottom app bar and rely on Auto Layout instead of manual frames
-        bottomAppBar = MDCBottomAppBarView()
-        bottomAppBar.translatesAutoresizingMaskIntoConstraints = false
-        bottomAppBar.barTintColor = todoColors.primaryColor
-        bottomAppBar.shadowColor = UIColor.black.withAlphaComponent(0.4)
-        // Use Auto Layout, no need for autoresizing masks
-        
-        // Configure floating action button
-        let fab = bottomAppBar.floatingButton
-        // Use a system plus icon if custom icon is missing
-        let addTaskImage = UIImage(named: "add_task") ?? UIImage(systemName: "plus")
-        fab.setImage(addTaskImage, for: .normal)
-        fab.backgroundColor = todoColors.secondaryAccentColor
-        fab.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
-        bottomAppBar.floatingButtonPosition = .trailing
-        
-        // Add navigation items for leading side (left)
-        
-        // Settings button (leftmost) - increased size by 20%
-        let settingsImage = UIImage(systemName: "gearshape")
-        let settingsImageResized = settingsImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let settingsItem = UIBarButtonItem(image: settingsImageResized, style: .plain, target: self, action: #selector(onMenuButtonTapped))
-        settingsItem.tintColor = UIColor.white
-        
-        let calendarImage = UIImage(systemName: "calendar")
-        let calendarImageResized = calendarImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let calendarItem = UIBarButtonItem(image: calendarImageResized, style: .plain, target: self, action: #selector(toggleCalendar))
-        calendarItem.tintColor = UIColor.white
-        
-        let chartImage = UIImage(systemName: "chart.bar.xaxis.ascending")
-        let chartImageResized = chartImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let chartItem = UIBarButtonItem(image: chartImageResized, style: .plain, target: self, action: #selector(toggleCharts))
-        chartItem.tintColor = UIColor.white
-        
-        // Chat button - increased size by 20%
-        let chatImage = UIImage(systemName: "bubble.left.and.text.bubble.right")
-        let chatImageResized = chatImage?.withConfiguration(UIImage.SymbolConfiguration(pointSize: 24 * 0.8, weight: .regular))
-        let chatItem = UIBarButtonItem(image: chatImageResized, style: .plain, target: self, action: #selector(chatButtonTapped))
-        chatItem.tintColor = UIColor.white
-        
-        bottomAppBar.leadingBarButtonItems = [settingsItem, calendarItem, chartItem, chatItem]
-        
-        
-        
-        // Add the bottom app bar to view and pin it to safe area so it adapts to all screen sizes
-        // Determine appropriate height (taller on iPad to avoid clipped icons)
-        let barHeight: CGFloat = UIDevice.current.userInterfaceIdiom == .pad ? 100 : 80
-        view.addSubview(bottomAppBar)
-        NSLayoutConstraint.activate([
-            bottomAppBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bottomAppBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottomAppBar.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: 0),
-            bottomAppBar.heightAnchor.constraint(equalToConstant: barHeight)
-        ])
-        
-        // No trailing bar button items; FAB occupies the trailing position
-    }
     
     func createButton(title: String, action: Selector) -> FluentUI.Button {
         let button = FluentUI.Button()
@@ -270,8 +362,9 @@ extension HomeViewController: BadgeViewDelegate {
     func appMovedToForeground() {
         print("App moved to ForeGround!")
         // toDoAnimations.animateTinyPieChartAtHome(pieChartView: tinyPieChartView) - REMOVED
-        
-        updateSwiftUIChartCard()
+
+        // Phase 7: Update horizontal chart cards
+        updateChartCardsScrollView()
         updateHomeDateLabel(date: dateForTheView)
         
         if dateForTheView == Date.today() {
@@ -294,43 +387,68 @@ extension HomeViewController: BadgeViewDelegate {
     // MARK: - Calendar and Charts Toggles
     
     @objc func toggleCalendar() {
-        if isChartsDown {
-            // Charts are down, need two-step animation: return to original then show calendar
-            returnToOriginalThenRevealCalendar()
-        } else if isCalDown {
-            // Calendar is currently showing (monthly) - hide it and switch to weekly
-            // Reset calendar to week scope BEFORE hiding animation
-            calendar.setScope(.week, animated: true)
-            // Hide calendar (foredrop goes up)
-            UIView.animate(withDuration: 0.2) {
-                self.moveUp_toHideCal(view: self.foredropContainer)
+        // Use new state manager if available, otherwise fall back to legacy behavior
+        if let stateManager = foredropStateManager {
+            stateManager.toggleCalendar()
+            
+            // Update legacy flags for backward compatibility
+            isCalDown = stateManager.isCalendarVisible && !stateManager.isChartsVisible
+            isChartsDown = stateManager.isChartsVisible
+            
+            // Optionally adjust calendar scope based on state
+            if stateManager.isCalendarVisible {
+                calendar.setScope(.week, animated: true)
             }
         } else {
-            // Calendar is currently hidden - show it in monthly view
-            // Show calendar (foredrop goes down)
-            UIView.animate(withDuration: 0.2) {
-                self.moveDown_revealJustCal(view: self.foredropContainer)
+            // Legacy behavior (fallback)
+            if isChartsDown {
+                // Charts are down, need two-step animation: return to original then show calendar
+                returnToOriginalThenRevealCalendar()
+            } else if isCalDown {
+                // Calendar is currently showing (monthly) - hide it and switch to weekly
+                // Reset calendar to week scope BEFORE hiding animation
+                calendar.setScope(.week, animated: true)
+                // Hide calendar (foredrop goes up)
+                UIView.animate(withDuration: 0.2) {
+                    self.moveUp_toHideCal(view: self.foredropContainer)
+                }
+            } else {
+                // Calendar is currently hidden - show it in monthly view
+                // Show calendar (foredrop goes down)
+                UIView.animate(withDuration: 0.2) {
+                    self.moveDown_revealJustCal(view: self.foredropContainer)
+                }
+                // Expand calendar to month scope when showing
+                calendar.setScope(.week, animated: true)
             }
-            // Expand calendar to month scope when showing
-            calendar.setScope(.week, animated: true)
         }
     }
     
     @objc func toggleCharts() {
-        if isCalDown {
-            // Calendar is down, need two-step animation: return to original then show charts
-            returnToOriginalThenRevealCharts()
-        } else if isChartsDown {
-            // Hide charts
-            UIView.animate(withDuration: 0.3) {
-                self.moveUp_hideCharts(view: self.foredropContainer)
-            }
-        } else {
-            // Show charts
-            UIView.animate(withDuration: 0.3) {
-                self.moveDown_revealCharts(view: self.foredropContainer)
-            }
+        // Use new state manager if available, otherwise fall back to legacy behavior
+        if let stateManager = foredropStateManager {
+            stateManager.toggleCharts()
             
+            // Update legacy flags for backward compatibility
+            isCalDown = stateManager.isCalendarVisible && !stateManager.isChartsVisible
+            isChartsDown = stateManager.isChartsVisible
+        } else {
+            // Legacy behavior (fallback)
+            if isCalDown {
+                // Calendar is down, need two-step animation: return to original then show charts
+                returnToOriginalThenRevealCharts()
+            } else if isChartsDown {
+                // Hide charts
+                UIView.animate(withDuration: 0.3) {
+                    self.moveUp_hideCharts(view: self.foredropContainer)
+                }
+            } else {
+                // Show charts
+                UIView.animate(withDuration: 0.3) {
+                    self.moveDown_revealCharts(view: self.foredropContainer)
+                }
+                
+            }
         }
     }
     
@@ -350,9 +468,8 @@ extension HomeViewController: BadgeViewDelegate {
         let topBarHeight = homeTopBar.bounds.height ?? 0
         
         // Position the FluentUI sample table view to fill the available space
-        // Account for both top bar and bottom app bar heights
-        let bottomBarHeight = bottomAppBar.bounds.height
-        let availableHeight = foredropContainer.bounds.height - topBarHeight - bottomBarHeight
+        // With Liquid Glass bar, content may extend underneath; do not reserve space
+        let availableHeight = foredropContainer.bounds.height - topBarHeight
         
         fluentToDoTableViewController?.view.frame = CGRect(
             x: 0,

@@ -71,6 +71,68 @@ extension AddTaskViewController {
         print("📁 AddTask: Project: '\(currenttProjectForAddTaskView)'")
         print("🤝 AddTask: Delegate is set: \(delegate != nil)")
         
+        // CHECK CLEAN ARCHITECTURE FIRST
+        if let viewModel = viewModel {
+            print("✅ AddTask: Using Clean Architecture with ViewModel")
+            createTaskUsingViewModel(viewModel)
+        } else {
+            print("⚠️ AddTask: ViewModel not available, using legacy repository method")
+            createTaskUsingRepository()
+        }
+    }
+    
+    // MARK: - Clean Architecture Task Creation
+    
+    /// Create task using Clean Architecture ViewModel
+    private func createTaskUsingViewModel(_ viewModel: AddTaskViewModel) {
+        print("🏗️ AddTask: Creating task via ViewModel (Clean Architecture)")
+        
+        let request = CreateTaskRequest(
+            name: currentTaskInMaterialTextBox,
+            details: currentTaskDescription.isEmpty ? nil : currentTaskDescription,
+            type: isThisEveningTask ? .evening : .morning,
+            priority: currentTaskPriority,
+            dueDate: dateForAddTaskView,
+            project: currenttProjectForAddTaskView.isEmpty ? "Inbox" : currenttProjectForAddTaskView
+        )
+        
+        print("📦 AddTask: CreateTaskRequest created with Clean Architecture")
+        
+        viewModel.createTask(request: request) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let domainTask):
+                    print("✅ AddTask: Task created successfully via ViewModel!")
+                    print("🆔 AddTask: Domain Task ID: \(domainTask.id)")
+                    print("📝 AddTask: Domain Task name: \(domainTask.name)")
+                    
+                    // Convert domain Task back to NTask for delegate compatibility
+                    // For now, we'll create a simple NTask representation
+                    // In a full Clean Architecture, the delegate would use domain objects
+                    let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+                    if let context = context {
+                        let nTask = TaskMapper.toEntity(from: domainTask, in: context)
+                        
+                        self?.dismiss(animated: true) {
+                            self?.delegate?.didAddTask(nTask)
+                            print("✅ AddTask: Clean Architecture task creation completed successfully!")
+                        }
+                    } else {
+                        print("❌ AddTask: Could not get context for NTask conversion")
+                        self?.showCleanArchitectureError("Task created but could not notify UI")
+                    }
+                    
+                case .failure(let error):
+                    print("❌ AddTask: Clean Architecture task creation failed: \(error)")
+                    self?.showCleanArchitectureError(error.localizedDescription)
+                }
+            }
+        }
+    }
+    
+    /// Legacy task creation using repository (fallback)
+    private func createTaskUsingRepository() {
+        print("🔧 AddTask: Using legacy repository method")
         // CRITICAL: Check taskRepository state before using it
         print("🔍 AddTask: Checking taskRepository state...")
         if taskRepository == nil {
@@ -85,12 +147,7 @@ extension AddTaskViewController {
                 taskRepository = fallbackRepository
             } else {
                 print("💥 AddTask: FATAL - No repository available anywhere!")
-                // Show error to user instead of crashing
-                DispatchQueue.main.async {
-                    let alert = UIAlertController(title: "Error", message: "Unable to save task. Please try again.", preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: "OK", style: .default))
-                    self.present(alert, animated: true)
-                }
+                showLegacyError("Unable to save task. Please try again.")
                 return
             }
         } else {
@@ -98,73 +155,58 @@ extension AddTaskViewController {
             print("📊 AddTask: Repository type: \(String(describing: type(of: taskRepository)))")
         }
         
-        // Determine task type based on evening switch
-        let taskType: TaskType = isThisEveningTask ? .evening : .morning
+        // Continue with legacy task creation...
+        let taskType: Int32 = isThisEveningTask ? 2 : 1
         print("🌅 AddTask: Task type: \(taskType)")
         
-        // Create TaskData object
         let taskData = TaskData(
             name: currentTaskInMaterialTextBox,
             details: currentTaskDescription.isEmpty ? nil : currentTaskDescription,
             type: taskType,
-            priority: currentTaskPriority,
+            priorityRawValue: Int32(currentTaskPriority.rawValue),
             dueDate: dateForAddTaskView,
             project: currenttProjectForAddTaskView
         )
         print("📦 AddTask: TaskData created successfully")
         
-        // Add task using repository pattern
-        print("💾 AddTask: Calling taskRepository.addTask...")
         taskRepository.addTask(data: taskData) { [weak self] (result: Result<NTask, Error>) in
-            print("📬 AddTask: Received response from taskRepository.addTask")
             DispatchQueue.main.async {
-                print("🔄 AddTask: Processing result on main queue")
                 switch result {
                 case .success(let createdTask):
-                    print("✅ AddTask: Task created successfully!")
-                    print("🆔 AddTask: Task ID: \(createdTask.objectID)")
-                    print("📝 AddTask: Task name: \(createdTask.name ?? "Unknown")")
-                    print("📅 AddTask: Task due date: \(createdTask.dueDate ?? Date() as NSDate)")
-                    
-                    // Dismiss view and notify delegate after dismissal
-                    print("🚪 AddTask: Dismissing view and will notify delegate after dismissal")
+                    print("✅ AddTask: Legacy task created successfully!")
                     self?.dismiss(animated: true) {
-                        print("🔔 AddTask: View dismissed, now notifying delegate...")
-                        if let delegate = self?.delegate {
-                            print("👥 AddTask: Delegate found, calling didAddTask()")
-                            print("📊 AddTask: Delegate type: \(String(describing: type(of: delegate)))")
-                            delegate.didAddTask(createdTask)
-                            print("✅ AddTask: Delegate notified successfully!")
-                        } else {
-                            print("❌ AddTask: ERROR - Delegate is nil after dismissal!")
-                            print("🔍 AddTask: This might indicate the parent view controller was deallocated")
-                        }
+                        self?.delegate?.didAddTask(createdTask)
                     }
                     
                 case .failure(let error):
-                    print("❌ AddTask: Failed to create task!")
-                    print("💥 AddTask: Error: \(error)")
-                    print("🔍 AddTask: Error type: \(String(describing: type(of: error)))")
-                    if let nsError = error as NSError? {
-                        print("📊 AddTask: Error domain: \(nsError.domain)")
-                        print("🔢 AddTask: Error code: \(nsError.code)")
-                        print("📝 AddTask: Error description: \(nsError.localizedDescription)")
-                        if let userInfo = nsError.userInfo as? [String: Any], !userInfo.isEmpty {
-                            print("ℹ️ AddTask: Error userInfo: \(userInfo)")
-                        }
-                    }
-                    
-                    // Show error alert to user
-                    let alert = UIAlertController(
-                        title: "Error Creating Task",
-                        message: "Failed to create task: \(error.localizedDescription)",
-                        preferredStyle: .alert
-                    )
-                    alert.addAction(UIAlertAction(title: "OK", style: .default))
-                    self?.present(alert, animated: true)
-                    print("🚨 AddTask: Error alert presented to user")
+                    print("❌ AddTask: Legacy task creation failed: \(error)")
+                    self?.showLegacyError("Failed to create task: \(error.localizedDescription)")
                 }
             }
         }
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Show error for Clean Architecture failures
+    private func showCleanArchitectureError(_ message: String) {
+        let alert = UIAlertController(
+            title: "Clean Architecture Error",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+    
+    /// Show error for legacy failures
+    private func showLegacyError(_ message: String) {
+        let alert = UIAlertController(
+            title: "Error Creating Task",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }

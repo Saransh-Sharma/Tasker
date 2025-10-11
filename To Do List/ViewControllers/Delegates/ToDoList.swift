@@ -8,6 +8,7 @@
 
 import Foundation
 import UIKit
+import CoreData
 import FluentUI
 import Timepiece
 import BEMCheckBox
@@ -51,7 +52,7 @@ extension HomeViewController: BEMCheckBoxDelegate {
         switch self.currentViewType {
         case .todayHomeView:
             inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-            projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+            projectsTasks = fetchTasksForAllCustomProjctsTodayOpen(date: dateForTheView)
             switch indexPath.section {
             case 1:
                 // Toggle completion state (complete ↔ reopen)
@@ -77,7 +78,7 @@ extension HomeViewController: BEMCheckBoxDelegate {
             
         case .customDateView:
             inboxTasks = self.fetchInboxTasks(date: dateForTheView)
-            projectsTasks = TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: dateForTheView)
+            projectsTasks = fetchTasksForAllCustomProjctsTodayOpen(date: dateForTheView)
             switch indexPath.section {
             case 1:
                 // Toggle completion state (complete ↔ reopen)
@@ -106,16 +107,36 @@ extension HomeViewController: BEMCheckBoxDelegate {
             break
         }
         
+        print("🔄 Task completion toggled - starting chart refresh sequence")
+        
+        // Calculate and update score
         let score = self.calculateTodaysScore()
         self.scoreCounter.text = "\(score)"
-        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView)
-        // Refresh navigation pie chart to reflect task completion changes
-        self.refreshNavigationPieChart()
+        print("📊 Score calculated: \(score)")
+        
+        // Update tiny pie chart data (slices based on priority breakdown)
+        print("🥧 About to call updateTinyPieChartData()")
+        self.updateTinyPieChartData()
+        print("🥧 updateTinyPieChartData() called")
+        
+        // Update tiny pie chart center text with new score
+        print("📝 Updating tiny pie chart center text")
+        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(pieChartView: self.tinyPieChartView, scoreOverride: score)
+        
+        // Animate tiny pie chart
+        print("🎬 Animating tiny pie chart")
         self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-        // Update navigation title (Today · date • score)
-        // Update navigation title and score, then refresh chart to guarantee latest data
+        
+        // Refresh navigation pie chart to reflect task completion changes
+        print("🔄 Refreshing navigation pie chart")
+        self.refreshNavigationPieChart()
+        
+        // Phase 7: Update navigation title and backdrop horizontal chart cards
+        print("📊 Updating daily score and chart cards")
         self.updateDailyScore()
-        self.updateSwiftUIChartCard()
+        self.updateChartCardsScrollView()
+        
+        print("✅ Tiny pie chart refresh sequence completed")
     }
     
     @objc private func selectionBarButtonTapped(sender: UIBarButtonItem) {
@@ -140,28 +161,96 @@ extension HomeViewController: BEMCheckBoxDelegate {
 // MARK: – Task Fetch & Management Helpers
 extension HomeViewController {
     func fetchInboxTasks(date: Date) -> [NTask] {
-        return TaskManager.sharedInstance.getTasksForInboxForDate_All(date: date)
+        // Use direct Core Data access (Clean Architecture)
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        request.predicate = NSPredicate(
+            format: "project == %@ AND dueDate >= %@ AND dueDate < %@",
+            "Inbox", startOfDay as NSDate, endOfDay as NSDate
+        )
+        
+        return (try? context?.fetch(request)) ?? []
     }
     
     func markTaskCompleteOnSwipe(task: NTask) {
-        TaskManager.sharedInstance.toggleTaskComplete(task: task)
+        // Use direct Core Data access (Clean Architecture)
+        task.isComplete.toggle()
+        if task.isComplete {
+            task.dateCompleted = Date() as NSDate
+        } else {
+            task.dateCompleted = nil
+        }
+        saveContext()
     }
     
     func rescheduleTaskOnSwipe(task: NTask, scheduleTo: Date) {
-        // Only change dueDate; saving handled by caller if needed
-        TaskManager.sharedInstance.reschedule(task: task, to: scheduleTo)
+        // Use direct Core Data access (Clean Architecture)
+        task.dueDate = scheduleTo as NSDate
+        saveContext()
     }
     
     func fetchTasksForAllCustomProjctsTodayOpen(date: Date) -> [NTask] {
-        return TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_Open(date: date)
+        // Use direct Core Data access (Clean Architecture)
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        request.predicate = NSPredicate(
+            format: "project != %@ AND dueDate >= %@ AND dueDate < %@ AND isComplete == NO",
+            "Inbox", startOfDay as NSDate, endOfDay as NSDate
+        )
+        
+        return (try? context?.fetch(request)) ?? []
     }
     
     func fetchTasksForAllCustomProjctsTodayAll(date: Date) -> [NTask] {
-        return TaskManager.sharedInstance.getTasksForAllCustomProjectsByNameForDate_All(date: date)
+        // Use direct Core Data access (Clean Architecture)
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        request.predicate = NSPredicate(
+            format: "project != %@ AND dueDate >= %@ AND dueDate < %@",
+            "Inbox", startOfDay as NSDate, endOfDay as NSDate
+        )
+        
+        return (try? context?.fetch(request)) ?? []
     }
     
     func fetchTasksForCustomProject(project: String) -> [NTask] {
-        return TaskManager.sharedInstance.getTasksForProjectByName(projectName: project)
+        // Use direct Core Data access (Clean Architecture)
+        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        
+        request.predicate = NSPredicate(format: "project == %@", project)
+        
+        return (try? context?.fetch(request)) ?? []
+    }
+    
+    /// Save context without using TaskManager singleton
+    private func saveContext() {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return
+        }
+        
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                print("❌ Failed to save context: \(error)")
+            }
+        }
     }
 }
 

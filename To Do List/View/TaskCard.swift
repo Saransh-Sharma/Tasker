@@ -79,7 +79,7 @@ struct TaskCard: View {
                         .foregroundColor(dueDateColor)
                     }
                     
-                    if task.priority.rawValue > 0 {
+                    if task.taskPriority > 0 {
                         Label {
                             Text(priorityText)
                                 .font(.caption2)
@@ -160,28 +160,22 @@ struct TaskCard: View {
     }
     
     private var priorityText: String {
-        switch task.priority {
-        case .low:
-            return "Low"
-        case .medium:
-            return "Medium"
-        case .high:
-            return "High"
-        case .veryLow:
-            return "Very Low"
+        switch task.taskPriority {
+        case 1: return "Highest"
+        case 2: return "High"
+        case 3: return "Medium"
+        case 4: return "Low"
+        default: return "Medium"
         }
     }
     
     private var priorityColor: Color {
-        switch task.priority {
-        case .low:
-            return .blue
-        case .medium:
-            return .orange
-        case .high:
-            return .red
-        case .veryLow:
-            return .green
+        switch task.taskPriority {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return .yellow
+        case 4: return .blue
+        default: return .yellow
         }
     }
     
@@ -196,7 +190,7 @@ struct TaskCard: View {
             label += ", due \(DateUtils.formatDate(dueDate as Date))"
         }
         
-        if task.priority.rawValue > 0 {
+        if task.taskPriority > 0 {
             label += ", \(priorityText) priority"
         }
         
@@ -253,7 +247,7 @@ struct CompactTaskCard: View {
             
             Spacer()
             
-            if task.priority.rawValue > 0 {
+            if task.taskPriority > 0 {
                 Circle()
                     .fill(priorityColor)
                     .frame(width: 8, height: 8)
@@ -267,11 +261,12 @@ struct CompactTaskCard: View {
     }
     
     private var priorityColor: Color {
-        switch task.priority {
-        case .low: return .blue
-        case .medium: return .orange
-        case .high: return .red
-        case .veryLow: return .green
+        switch task.taskPriority {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return .yellow
+        case 4: return .blue
+        default: return .yellow
         }
     }
 }
@@ -296,7 +291,7 @@ struct FeaturedTaskCard: View {
                 
                 Spacer()
                 
-                if task.priority.rawValue > 0 {
+                if task.taskPriority > 0 {
                     Text(priorityText)
                         .font(.caption)
                         .padding(.horizontal, 8)
@@ -339,20 +334,22 @@ struct FeaturedTaskCard: View {
     }
     
     private var priorityText: String {
-        switch task.priority {
-        case .low: return "Low Priority"
-        case .medium: return "Medium Priority"
-        case .high: return "High Priority"
-        case .veryLow: return "Very Low Priority"
+        switch task.taskPriority {
+        case 1: return "Highest Priority"
+        case 2: return "High Priority"
+        case 3: return "Medium Priority"
+        case 4: return "Low Priority"
+        default: return "Medium Priority"
         }
     }
     
     private var priorityColor: Color {
-        switch task.priority {
-        case .low: return .blue
-        case .medium: return .orange
-        case .high: return .red
-        case .veryLow: return .green
+        switch task.taskPriority {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return .yellow
+        case 4: return .blue
+        default: return .yellow
         }
     }
     
@@ -407,7 +404,7 @@ struct TaskCard_Previews: PreviewProvider {
         task.name = "Sample Task"
         task.taskDetails = "This is a sample task for preview"
         task.dueDate = Date().addingTimeInterval(86400) as NSDate // Tomorrow
-        task.taskPriority = Int32(TaskPriority.medium.rawValue)
+        task.taskPriority = Int32(TaskPriority.low.rawValue)
         task.isComplete = false
         return task
     }

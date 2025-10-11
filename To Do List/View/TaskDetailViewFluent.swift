@@ -10,7 +10,7 @@ protocol TaskDetailViewFluentDelegate: AnyObject {
     func dismissFluentDetailView()
 }
 
-class TaskDetailViewFluent: UIView {
+class TaskDetailViewFluent: UIView, UITextViewDelegate {
 
     weak var delegate: TaskDetailViewFluentDelegate?
     private var currentTask: NTask?
@@ -22,36 +22,32 @@ class TaskDetailViewFluent: UIView {
 
     // --- UI Elements ---
     // Title
-    private let titleHeaderLabel = FluentUI.Label()
-    private let titleTextField = FluentUI.FluentTextField()
+    private let titleHeaderLabel = UILabel()
+    private let titleTextField = UITextField()
 
     // Description
-    private let descriptionHeaderLabel = FluentUI.Label()
-    private let descriptionTextField = FluentUI.FluentTextField()
+    private let descriptionHeaderLabel = UILabel()
+    private let descriptionTextField = UITextView()
 
     // Due Date
-    private let dueDateHeaderLabel = FluentUI.Label()
-    private let dueDateButton = FluentUI.Button(style: .outlineAccent) // Using a standard style
+    private let dueDateHeaderLabel = UILabel()
+    private let dueDateButton = UIButton(type: .system)
 
     // Priority
-    private let priorityHeaderLabel = FluentUI.Label()
-    private let prioritySegmentedControl = FluentUI.SegmentedControl(items: [
-        SegmentItem(title: "Low"),
-        SegmentItem(title: "Medium"),
-        SegmentItem(title: "High")
-    ])
+    private let priorityHeaderLabel = UILabel()
+    private let prioritySegmentedControl = UISegmentedControl(items: ["Low", "Medium", "High"])
     // Priority mapping: Using TaskPriority enum values (low=1, medium=2, high=3)
     // SegmentedControl indices: Low (0), Medium (1), High (2)
-    private let segmentedControlIndexToPriority: [Int: Int32] = [0: TaskPriority.low.rawValue, 1: TaskPriority.medium.rawValue, 2: TaskPriority.high.rawValue] // Maps Segment Index to TaskPriority enum values
-    private let priorityToSegmentedControlIndex: [Int32: Int] = [TaskPriority.low.rawValue: 0, TaskPriority.medium.rawValue: 1, TaskPriority.high.rawValue: 2] // Maps TaskPriority enum values to Segment Index
+    private let segmentedControlIndexToPriority: [Int: Int32] = [0: 4, 1: 3, 2: 2] // Maps Segment Index to TaskPriority raw values (low=4, medium=3, high=2)
+    private let priorityToSegmentedControlIndex: [Int32: Int] = [4: 0, 3: 1, 2: 2] // Maps TaskPriority raw values to Segment Index
 
 
     // Project
-    private let projectHeaderLabel = FluentUI.Label()
-    private let projectButton = FluentUI.Button(style: .outlineNeutral) // Using a standard style
+    private let projectHeaderLabel = UILabel()
+    private let projectButton = UIButton(type: .system)
     
     // Save Button
-    private let saveButton = FluentUI.Button(style: .accent)
+    private let saveButton = UIButton(type: .system)
     
     // Track if changes have been made
     private var hasUnsavedChanges = false
@@ -147,11 +143,7 @@ class TaskDetailViewFluent: UIView {
         stackView.addArrangedSubview(titleHeaderLabel)
         
         titleTextField.placeholder = "Enter task title"
-        titleTextField.onEditingChanged = { fluentTextField in
-            guard let _ = self.currentTask else { return }
-            self.hasUnsavedChanges = true
-            self.updateSaveButtonState()
-        }
+        titleTextField.addTarget(self, action: #selector(titleTextFieldChanged(_:)), for: .editingChanged)
         stackView.addArrangedSubview(titleTextField)
         // Custom spacing applied in layoutSubviews or dynamically after elements are themed
     }
@@ -160,15 +152,13 @@ class TaskDetailViewFluent: UIView {
         descriptionHeaderLabel.text = "DESCRIPTION"
         stackView.addArrangedSubview(descriptionHeaderLabel)
 
-        descriptionTextField.placeholder = "Enter task description"
-        // Set multiline properties using our extension
-        descriptionTextField.isMultiline = true
-        descriptionTextField.maxNumberOfLines = 5
-        descriptionTextField.onEditingChanged = { fluentTextField in
-            guard let _ = self.currentTask else { return }
-            self.hasUnsavedChanges = true
-            self.updateSaveButtonState()
-        }
+        descriptionTextField.text = "Enter task description"
+        descriptionTextField.font = UIFont.systemFont(ofSize: 16)
+        descriptionTextField.layer.borderColor = UIColor.systemGray4.cgColor
+        descriptionTextField.layer.borderWidth = 1
+        descriptionTextField.layer.cornerRadius = 8
+        descriptionTextField.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        descriptionTextField.delegate = self
         stackView.addArrangedSubview(descriptionTextField)
     }
 
@@ -186,11 +176,7 @@ class TaskDetailViewFluent: UIView {
         priorityHeaderLabel.text = "PRIORITY"
         stackView.addArrangedSubview(priorityHeaderLabel)
         
-        prioritySegmentedControl.onSelectAction = { [weak self] (item, selectedIndex) in
-            guard let self = self, let _ = self.currentTask else { return }
-            self.hasUnsavedChanges = true
-            self.updateSaveButtonState()
-        }
+        prioritySegmentedControl.addTarget(self, action: #selector(priorityChanged(_:)), for: .valueChanged)
         stackView.addArrangedSubview(prioritySegmentedControl)
     }
 
@@ -281,8 +267,8 @@ class TaskDetailViewFluent: UIView {
         self.currentDueDate = task.dueDate as Date?
         self.currentProject = task.project
 
-        titleTextField.inputText = task.name
-        descriptionTextField.inputText = task.taskDetails ?? ""
+        titleTextField.text = task.name
+        descriptionTextField.text = task.taskDetails ?? ""
         
         updateDueDateButtonTitle(date: task.dueDate as Date?)
         updateProjectButtonTitle(project: task.project) // Pass the String name
@@ -350,63 +336,60 @@ class TaskDetailViewFluent: UIView {
     @objc private func didTapSaveButton() {
         guard let task = currentTask, hasUnsavedChanges else { return }
         
-        // Use repository pattern if available, otherwise fall back to direct Core Data modification
-        if let repository = taskRepository {
-            // Create TaskData from current UI state
-            let updatedTaskData = TaskData(
-                id: task.objectID,
-                name: titleTextField.inputText ?? "",
-                details: descriptionTextField.inputText,
-                type: TaskType(rawValue: task.taskType) ?? .upcoming,
-                priority: {
-                    let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
-                    if let priorityRawValue = segmentedControlIndexToPriority[selectedIndex] {
-                        return TaskPriority(rawValue: priorityRawValue) ?? .medium
-                    }
-                    return .medium
-                }(),
-                dueDate: currentDueDate ?? Date(),
-                project: currentProject ?? "Inbox",
-                isComplete: task.isComplete,
-                dateAdded: task.dateAdded as Date? ?? Date(),
-                dateCompleted: task.dateCompleted as Date?
-            )
-            
-            // Use repository to update the task
-            repository.updateTask(taskID: task.objectID, data: updatedTaskData) { [weak self] result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success:
-                        // Reset the unsaved changes flag
-                        self?.hasUnsavedChanges = false
-                        self?.updateSaveButtonState()
-                        
-                        // Call the delegate to handle post-save actions
-                        self?.delegate?.taskDetailViewFluentDidSave(self!, savedTask: task)
-                    case .failure(let error):
-                        print("Failed to save task: \(error.localizedDescription)")
-                        // Could show an alert to the user here
-                    }
-                }
-            }
-        } else {
-            // Fallback to direct Core Data modification (legacy approach)
-            task.name = titleTextField.inputText ?? ""
-            task.taskDetails = descriptionTextField.inputText
-            
-            // Update priority from segmented control
-            let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
-            if let priority = segmentedControlIndexToPriority[selectedIndex] {
-                task.taskPriority = priority
-            }
-            
-            // Call the delegate to save the task
-            delegate?.taskDetailViewFluentDidSave(self, savedTask: task)
-            
-            // Reset the unsaved changes flag
-            hasUnsavedChanges = false
-            updateSaveButtonState()
+        // Update task directly using Core Data
+        task.name = titleTextField.text ?? ""
+        task.taskDetails = descriptionTextField.text
+        
+        // Update priority
+        let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
+        if let priorityRawValue = segmentedControlIndexToPriority[selectedIndex] {
+            task.taskPriority = priorityRawValue
         }
+        
+        // Update due date and project
+        task.dueDate = (currentDueDate ?? Date()) as NSDate
+        task.project = currentProject ?? "Inbox"
+        
+        // Reset the unsaved changes flag
+        hasUnsavedChanges = false
+        updateSaveButtonState()
+        
+        // Call the delegate to handle post-save actions
+        delegate?.taskDetailViewFluentDidSave(self, savedTask: task)
+    }
+    
+    private func saveContext() {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return
+        }
+        
+        if context.hasChanges {
+            do {
+                try context.save()
+            } catch {
+                print("Error saving context: \(error)")
+            }
+        }
+    }
+    
+    // MARK: - Action Methods
+    @objc private func titleTextFieldChanged(_ sender: UITextField) {
+        guard currentTask != nil else { return }
+        hasUnsavedChanges = true
+        updateSaveButtonState()
+    }
+    
+    @objc private func priorityChanged(_ sender: UISegmentedControl) {
+        guard currentTask != nil else { return }
+        hasUnsavedChanges = true
+        updateSaveButtonState()
+    }
+    
+    // MARK: - UITextViewDelegate
+    func textViewDidChange(_ textView: UITextView) {
+        guard currentTask != nil else { return }
+        hasUnsavedChanges = true
+        updateSaveButtonState()
     }
 }
 
@@ -415,7 +398,7 @@ class TaskDetailViewFluent: UIView {
     var name: String = ""
     var taskDetails: String?
     var dueDate: NSDate? // In CoreData, this is likely NSDate
-    var taskPriority: Int32 = TaskPriority.medium.rawValue // Default to Medium using enum
+    var taskPriority: Int32 = TaskPriority.low.rawValue // Default to Low using enum
     var project: Projects? // Relationship to Projects entity
  }
 
