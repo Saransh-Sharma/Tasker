@@ -16,15 +16,18 @@ protocol LGSearchBarDelegate: AnyObject {
 }
 
 class LGSearchBar: LGBaseView {
-    
+
     // MARK: - Properties
-    
+
     weak var delegate: LGSearchBarDelegate?
+
+    // Theme support
+    private let todoColors = ToDoColors()
     
     private let searchIconImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.image = UIImage(systemName: "magnifyingglass")
-        imageView.tintColor = .white.withAlphaComponent(0.6)
+        imageView.tintColor = .label.withAlphaComponent(0.6) // Will be updated in applyTheme
         imageView.contentMode = .scaleAspectFit
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
@@ -33,11 +36,11 @@ class LGSearchBar: LGBaseView {
     let searchTextField: UITextField = {
         let textField = UITextField()
         textField.font = .systemFont(ofSize: 17, weight: .regular)
-        textField.textColor = .white
-        textField.tintColor = .white
+        textField.textColor = .label // Will be updated in applyTheme
+        textField.tintColor = .label // Will be updated in applyTheme
         textField.attributedPlaceholder = NSAttributedString(
             string: "Search tasks...",
-            attributes: [.foregroundColor: UIColor.white.withAlphaComponent(0.5)]
+            attributes: [.foregroundColor: UIColor.label.withAlphaComponent(0.5)] // Will be updated in applyTheme
         )
         textField.returnKeyType = .search
         textField.autocorrectionType = .no
@@ -48,16 +51,16 @@ class LGSearchBar: LGBaseView {
     private let clearButton: UIButton = {
         let button = UIButton(type: .system)
         button.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
-        button.tintColor = .white.withAlphaComponent(0.6)
+        button.tintColor = .label.withAlphaComponent(0.6) // Will be updated in applyTheme
         button.translatesAutoresizingMaskIntoConstraints = false
         button.isHidden = true
         return button
     }()
-    
+
     private let cancelButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Cancel", for: .normal)
-        button.setTitleColor(.white, for: .normal)
+        button.setTitleColor(.label, for: .normal) // Will be updated in applyTheme
         button.titleLabel?.font = .systemFont(ofSize: 17, weight: .medium)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.alpha = 0
@@ -170,11 +173,32 @@ class LGSearchBar: LGBaseView {
     
     private func hideCancelButton() {
         cancelButtonWidthConstraint?.constant = 0
-        
+
         UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
             self.cancelButton.alpha = 0
             self.layoutIfNeeded()
         }
+    }
+
+    // MARK: - Theme Application
+
+    func applyTheme() {
+        // Update search icon color
+        searchIconImageView.tintColor = todoColors.primaryTextColor.withAlphaComponent(0.6)
+
+        // Update text field colors
+        searchTextField.textColor = todoColors.primaryTextColor
+        searchTextField.tintColor = todoColors.primaryTextColor
+
+        // Update placeholder with theme color
+        searchTextField.attributedPlaceholder = NSAttributedString(
+            string: "Search tasks...",
+            attributes: [.foregroundColor: todoColors.primaryTextColor.withAlphaComponent(0.5)]
+        )
+
+        // Update button colors
+        clearButton.tintColor = todoColors.primaryTextColor.withAlphaComponent(0.6)
+        cancelButton.setTitleColor(todoColors.primaryTextColor, for: .normal)
     }
 }
 
@@ -184,21 +208,21 @@ extension LGSearchBar: UITextFieldDelegate {
     func textFieldDidBeginEditing(_ textField: UITextField) {
         showCancelButton()
         delegate?.searchBarDidBeginEditing(self)
-        
-        // Animate focus
+
+        // Animate focus with theme colors
         UIView.animate(withDuration: 0.2) {
-            self.borderColor = .white.withAlphaComponent(0.4)
+            self.borderColor = self.todoColors.primaryTextColor.withAlphaComponent(0.4)
             self.borderWidth = 1.0
         }
     }
-    
+
     func textFieldDidEndEditing(_ textField: UITextField) {
         hideCancelButton()
         delegate?.searchBarDidEndEditing(self)
-        
-        // Animate unfocus
+
+        // Animate unfocus with theme colors
         UIView.animate(withDuration: 0.2) {
-            self.borderColor = .white.withAlphaComponent(0.2)
+            self.borderColor = self.todoColors.primaryTextColor.withAlphaComponent(0.2)
             self.borderWidth = 0.5
         }
     }

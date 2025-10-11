@@ -9,14 +9,17 @@ import UIKit
 import CoreData
 
 class LGTaskCard: LGBaseView {
-    
+
     // MARK: - Properties
-    
+
     var task: NTask? {
         didSet { updateUI() }
     }
-    
+
     var onTap: ((NTask) -> Void)?
+
+    // Theme support
+    private let todoColors = ToDoColors()
     
     private let checkboxButton: UIButton = {
         let button = UIButton(type: .system)
@@ -28,32 +31,32 @@ class LGTaskCard: LGBaseView {
     private let titleLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 17, weight: .semibold)
-        label.textColor = .white
+        label.textColor = .label // Will be updated in updateUI with theme colors
         label.numberOfLines = 2
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
-    
+
     private let detailsLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 14, weight: .regular)
-        label.textColor = .white.withAlphaComponent(0.7)
+        label.textColor = .label.withAlphaComponent(0.7) // Will be updated in updateUI with theme colors
         label.numberOfLines = 1
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
-    
+
     private let priorityIndicator: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.layer.cornerRadius = 3
         return view
     }()
-    
+
     private let projectLabel: UILabel = {
         let label = UILabel()
         label.font = .systemFont(ofSize: 12, weight: .medium)
-        label.textColor = .white.withAlphaComponent(0.8)
+        label.textColor = .label.withAlphaComponent(0.8) // Will be updated in updateUI with theme colors
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -121,16 +124,18 @@ class LGTaskCard: LGBaseView {
     
     private func updateUI() {
         guard let task = task else { return }
-        
+
         // Title
         titleLabel.text = task.name ?? "Untitled Task"
-        
+        titleLabel.textColor = todoColors.primaryTextColor
+
         // Checkbox
-        let checkboxImage = task.isComplete ? 
-            UIImage(systemName: "checkmark.circle.fill") : 
+        let checkboxImage = task.isComplete ?
+            UIImage(systemName: "checkmark.circle.fill") :
             UIImage(systemName: "circle")
         checkboxButton.setImage(checkboxImage, for: .normal)
-        
+        checkboxButton.tintColor = todoColors.primaryTextColor
+
         // Details (due date)
         if let dueDate = task.dueDate as Date? {
             let formatter = DateFormatter()
@@ -139,20 +144,16 @@ class LGTaskCard: LGBaseView {
         } else {
             detailsLabel.text = "No due date"
         }
-        
-        // Priority indicator
-        let priorityColor: UIColor
-        switch task.taskPriority {
-        case 1: priorityColor = .systemRed // Highest
-        case 2: priorityColor = .systemOrange // High
-        case 3: priorityColor = .systemYellow // Medium
-        default: priorityColor = .systemGreen // Low
-        }
+        detailsLabel.textColor = todoColors.primaryTextColor.withAlphaComponent(0.7)
+
+        // Priority indicator - using TaskPriorityConfig for consistency
+        let priorityColor = TaskPriorityConfig.chartColorForPriority(task.taskPriority)
         priorityIndicator.backgroundColor = priorityColor
-        
+
         // Project
         projectLabel.text = task.project ?? "Inbox"
-        
+        projectLabel.textColor = todoColors.primaryTextColor.withAlphaComponent(0.8)
+
         // Strike through if completed
         if task.isComplete {
             titleLabel.attributedText = NSAttributedString(
@@ -165,6 +166,10 @@ class LGTaskCard: LGBaseView {
             titleLabel.text = task.name ?? "Untitled Task"
             titleLabel.alpha = 1.0
         }
+
+        // Update card background to match theme
+        self.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.08)
+        self.borderColor = todoColors.primaryColor.withAlphaComponent(0.2)
     }
     
     // MARK: - Actions
