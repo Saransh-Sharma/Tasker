@@ -68,7 +68,7 @@ final class LoggingService {
         #if DEBUG
         self.minimumLogLevel = .debug
         #else
-        self.minimumLogLevel = .info
+        self.minimumLogLevel = .warning // Reduce log level in release to minimize warnings
         #endif
         
         setupLogFile()

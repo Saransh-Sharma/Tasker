@@ -36,7 +36,7 @@ class ChartDataService {
         // Log weekly chart generation
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "MMM dd, yyyy"
-        print("📊 Generating chart data for week of \(dateFormatter.string(from: currentReferenceDate))")
+        logInfo("📊 Generating chart data for week of \(dateFormatter.string(from: currentReferenceDate))")
         
         let dayFormatter = DateFormatter()
         dayFormatter.dateFormat = "EEE, MMM dd"
@@ -49,17 +49,17 @@ class ChartDataService {
             if day > today {
                 // For future dates, show 0 but with special styling indication
                 score = 0
-                print("   🔮 Future date \(dayFormatter.string(from: day)): Setting score to 0")
+                logDebug("   🔮 Future date \(dayFormatter.string(from: day)): Setting score to 0")
             } else {
                 // For past and current dates, calculate actual score
-                print("   📅 Processing \(dayFormatter.string(from: day))...")
+                logDebug("   📅 Processing \(dayFormatter.string(from: day))...")
                 score = calculateScoreForDate(date: day)
             }
             
             // Log each day's score
             let dayName = dayFormatter.string(from: day)
             let status = day > today ? "(Future)" : day.onSameDay(as: today) ? "(Today)" : "(Past)"
-            print("   • \(dayName): \(score) points \(status)")
+            logDebug("   • \(dayName): \(score) points \(status)")
             
             // Ensure score is valid and not NaN or infinite
             let validScore = max(0, score) // Ensure non-negative

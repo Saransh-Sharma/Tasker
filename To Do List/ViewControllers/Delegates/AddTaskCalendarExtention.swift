@@ -69,8 +69,9 @@ extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCal
         
         calendar.dataSource = self
         calendar.delegate = self
-        
+
         self.calendar = calendar
+        self.calendar.accessibilityIdentifier = "addTask.dueDatePicker"
         self.calendar.scope = FSCalendarScope.week        
     }
     

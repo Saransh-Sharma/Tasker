@@ -539,7 +539,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
 
     // IBOutlets
-    @IBOutlet weak var addTaskButton: MDCFloatingButton!
+    @IBOutlet weak var addTaskButton: MDCFloatingButton! {
+        didSet {
+            addTaskButton?.accessibilityIdentifier = "home.addTaskButton"
+        }
+    }
     @IBOutlet weak var darkModeToggle: UISwitch!
     
     // MARK: - Clean Architecture Integration
@@ -660,6 +664,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         view.addSubview(backdropContainer)
         
         view.addSubview(foredropContainer)
+        foredropContainer.accessibilityIdentifier = "home.view"
         self.setupHomeFordrop()
         
         // Setup and add bottom app bar - it should be the topmost view
@@ -820,6 +825,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         )
         settingsButton.tintColor = .white
         settingsButton.accessibilityLabel = "Settings"
+        settingsButton.accessibilityIdentifier = "home.settingsButton"
         navigationItem.leftBarButtonItem = settingsButton
 
         // Search bar removed - now accessed via bottom app bar button
@@ -1094,7 +1100,7 @@ private func setNavigationPieChartData() {
         // Present add task interface with Clean Architecture
         let addTaskVC = AddTaskViewController()
         addTaskVC.delegate = self
-        
+
         // Use Clean Architecture dependency injection - Using dynamic approach to avoid type resolution issues
         // This will fall back to legacy injection if Clean Architecture isn't available
         if let containerClass = NSClassFromString("PresentationDependencyContainer") as? NSObject.Type {
@@ -1103,9 +1109,11 @@ private func setNavigationPieChartData() {
         } else {
             print("⚠️ PresentationDependencyContainer not found - using fallback injection")
         }
-        
-        addTaskVC.modalPresentationStyle = .fullScreen
-        present(addTaskVC, animated: true, completion: nil)
+
+        // Wrap in navigation controller to support navigation bar buttons
+        let navController = UINavigationController(rootViewController: addTaskVC)
+        navController.modalPresentationStyle = .fullScreen
+        present(navController, animated: true, completion: nil)
     }
     
 
@@ -1443,24 +1451,28 @@ extension HomeViewController {
         let calendarImageResized = calendarImage?.resized(to: iconSize)
         let calendarItem = UIBarButtonItem(image: calendarImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(toggleCalendar))
         calendarItem.accessibilityLabel = "Calendar"
+        calendarItem.accessibilityIdentifier = "home.calendarButton"
 
         // Charts/Analytics button - Using 3D icon
         let chartImage = UIImage(named: "charts")
         let chartImageResized = chartImage?.resized(to: iconSize)
         let chartItem = UIBarButtonItem(image: chartImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(toggleCharts))
         chartItem.accessibilityLabel = "Analytics"
+        chartItem.accessibilityIdentifier = "home.chartsButton"
 
         // Search button - Using 3D icon
         let searchImage = UIImage(named: "search")
         let searchImageResized = searchImage?.resized(to: iconSize)
         let searchItem = UIBarButtonItem(image: searchImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(searchButtonTapped))
         searchItem.accessibilityLabel = "Search Tasks"
+        searchItem.accessibilityIdentifier = "home.searchButton"
 
         // Chat button (rightmost) - Using 3D icon
         let chatImage = UIImage(named: "chat")
         let chatImageResized = chatImage?.resized(to: iconSize)
         let chatButtonItem = UIBarButtonItem(image: chatImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(chatButtonTapped))
         chatButtonItem.accessibilityLabel = "Chat with LLM"
+        chatButtonItem.accessibilityIdentifier = "home.chatButton"
 
         // Configure the bottom app bar with 4 buttons (removed settings)
         lgBottomBar.configureStandardAppBar(
@@ -1476,7 +1488,8 @@ extension HomeViewController {
         fab.backgroundColor = todoColors.secondaryAccentColor
         fab.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
         fab.tintColor = .white
-        
+        fab.accessibilityIdentifier = "home.addTaskButton"
+
         // Set tint color to match theme
         lgBottomBar.tintColor = UIColor.white
         

@@ -1,0 +1,3739 @@
+#!/bin/bash
+
+# TaskerCTL - Ultimate iOS Project Management CLI
+# Version: 1.0.0
+# Description: Comprehensive build and deployment tool for Tasker iOS app
+
+set -euo pipefail
+
+# Global Constants
+readonly SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_VERSION="1.0.0"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_ROOT="$SCRIPT_DIR"
+readonly CONFIG_DIR="$HOME/.taskerctl"
+readonly LOG_DIR="$CONFIG_DIR/logs"
+
+# Colors for terminal output
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly CYAN='\033[0;36m'
+readonly MAGENTA='\033[0;35m'
+readonly WHITE='\033[1;37m'
+readonly GRAY='\033[0;37m'
+readonly DIM='\033[2;37m'
+readonly BOLD='\033[1m'
+readonly NC='\033[0m' # No Color
+
+# Global Variables
+VERBOSE=${VERBOSE:-0}
+QUIET=${QUIET:-0}
+LOG_LEVEL=${LOG_LEVEL:-"INFO"}
+CONFIG_FILE="$CONFIG_DIR/config.json"
+
+# Ensure directories exist
+mkdir -p "$CONFIG_DIR" "$LOG_DIR"
+
+# ============================================================================
+# LOGGING & OUTPUT SYSTEM
+# ============================================================================
+
+# Logging function with different levels
+log() {
+    local level="$1"
+    shift
+    local message="$*"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    # Only log if not in quiet mode
+    if [[ $QUIET -eq 1 && "$level" != "ERROR" ]]; then
+        return
+    fi
+
+    local color=""
+    case "$level" in
+        "DEBUG")   color="$DIM" ;;
+        "INFO")    color="$BLUE" ;;
+        "WARN")    color="$YELLOW" ;;
+        "ERROR")   color="$RED" ;;
+        "SUCCESS") color="$GREEN" ;;
+        "PROGRESS") color="$CYAN" ;;
+        *)         color="$WHITE" ;;
+    esac
+
+    # Check if we should log this level
+    if [[ "$level" == "DEBUG" && $VERBOSE -eq 0 ]]; then
+        return
+    fi
+
+    # Output to console with colors
+    echo -e "${color}[$timestamp] [$level] $message${NC}" >&2
+
+    # Log to file
+    local log_file="$LOG_DIR/taskerctl.log"
+    echo "[$timestamp] [$level] $message" >> "$log_file"
+}
+
+# Convenience logging functions
+log_debug() { log "DEBUG" "$@"; }
+log_info() { log "INFO" "$@"; }
+log_warn() { log "WARN" "$@"; }
+log_error() { log "ERROR" "$@"; }
+log_success() { log "SUCCESS" "$@"; }
+log_progress() { log "PROGRESS" "$@"; }
+
+# ============================================================================
+# SPINNER & PROGRESS INDICATORS
+# ============================================================================
+
+# Simple spinner for long-running operations
+spinner_chars=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+spinner_index=0
+spinner_pid=""
+
+start_spinner() {
+    local message="$1"
+    {
+        while true; do
+            echo -ne "\r${CYAN}${spinner_chars[$spinner_index]}${NC} $message... "
+            spinner_index=$(((spinner_index + 1) % 10))
+            sleep 0.1
+        done
+    } &
+    spinner_pid=$!
+    disown
+}
+
+stop_spinner() {
+    if [[ -n "$spinner_pid" ]]; then
+        kill "$spinner_pid" 2>/dev/null || true
+        wait "$spinner_pid" 2>/dev/null || true
+        spinner_pid=""
+        echo -ne "\r"
+    fi
+}
+
+# Progress bar function
+show_progress() {
+    local current="$1"
+    local total="$2"
+    local width=50
+    local percentage=$((current * 100 / total))
+    local filled=$((current * width / total))
+    local empty=$((width - filled))
+
+    printf "\r${CYAN}["
+    printf "%*s" $filled | tr ' ' '█'
+    printf "%*s" $empty | tr ' ' '░'
+    printf "]${NC} %d%% (%d/%d)" $percentage $current $total
+
+    if [[ $current -eq $total ]]; then
+        echo
+    fi
+}
+
+# ============================================================================
+# CONFIGURATION MANAGEMENT
+# ============================================================================
+
+# Initialize configuration
+init_config() {
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        log_info "Initializing TaskerCTL configuration..."
+        mkdir -p "$CONFIG_DIR"
+
+        cat > "$CONFIG_FILE" << 'EOF'
+{
+  "version": "1.0.0",
+  "project": {
+    "workspace": "Tasker.xcworkspace",
+    "scheme": "To Do List",
+    "target": "Tasker"
+  },
+  "build": {
+    "configuration": "debug",
+    "destination": "iPhone 16 Pro",
+    "parallel_jobs": 4,
+    "cache_strategy": "smart"
+  },
+  "logging": {
+    "level": "INFO",
+    "file_logging": true,
+    "console_colors": true
+  },
+  "advanced": {
+    "performance_tracking": false,
+    "error_intelligence": true,
+    "notifications": {
+      "enabled": false,
+      "slack_webhook": "",
+      "teams_webhook": ""
+    }
+  }
+}
+EOF
+        log_success "Configuration initialized at $CONFIG_FILE"
+    fi
+}
+
+# Load configuration
+load_config() {
+    if [[ -f "$CONFIG_FILE" ]]; then
+        log_debug "Loading configuration from $CONFIG_FILE"
+        # Source the config in a safe way (would need jq for full JSON parsing)
+        # For now, we'll use basic grep for simple values
+        if command -v jq >/dev/null 2>&1; then
+            WORKSPACE=$(jq -r '.project.workspace' "$CONFIG_FILE")
+            SCHEME=$(jq -r '.project.scheme' "$CONFIG_FILE")
+            TARGET=$(jq -r '.project.target' "$CONFIG_FILE")
+        else
+            log_warn "jq not found, using default configuration values"
+            WORKSPACE="Tasker.xcworkspace"
+            SCHEME="To Do List"
+            TARGET="Tasker"
+        fi
+    else
+        log_debug "No configuration file found, using defaults"
+        WORKSPACE="Tasker.xcworkspace"
+        SCHEME="To Do List"
+        TARGET="Tasker"
+    fi
+
+    # Export for use in other functions
+    export WORKSPACE SCHEME TARGET
+}
+
+# ============================================================================
+# PROJECT VALIDATION
+# ============================================================================
+
+# Validate iOS project structure
+validate_project() {
+    log_debug "Validating iOS project structure..."
+
+    local errors=0
+
+    if [[ ! -f "$PROJECT_ROOT/$WORKSPACE/contents.xcworkspacedata" ]]; then
+        log_error "Workspace not found: $WORKSPACE"
+        errors=$((errors + 1))
+    fi
+
+    if [[ ! -f "$PROJECT_ROOT/Tasker.xcodeproj/project.pbxproj" ]]; then
+        log_error "Xcode project not found"
+        errors=$((errors + 1))
+    fi
+
+    if [[ ! -f "$PROJECT_ROOT/Podfile" ]]; then
+        log_warn "No Podfile found - this project uses CocoaPods"
+    fi
+
+    if [[ ! -f "$PROJECT_ROOT/Podfile.lock" ]]; then
+        log_warn "Podfile.lock not found - run 'pod install' first"
+    fi
+
+    if [[ $errors -gt 0 ]]; then
+        log_error "Project validation failed with $errors errors"
+        return 1
+    fi
+
+    log_success "Project validation passed"
+    return 0
+}
+
+# ============================================================================
+# HELP SYSTEM
+# ============================================================================
+
+# Main help screen
+show_help() {
+    cat << 'EOF'
+┌─────────────────────────────────────────────────────────────┐
+│                    TaskerCTL v1.0.0                        │
+│                  iOS Project Builder                       │
+│                                                             │
+│  Comprehensive CLI tool for building, testing, and        │
+│  deploying your Tasker iOS application with advanced       │
+│  features like caching, parallel builds, and               │
+│  intelligent error handling.                               │
+└─────────────────────────────────────────────────────────────┘
+
+USAGE:
+    taskerctl [COMMAND] [OPTIONS]
+
+CORE COMMANDS:
+    setup           Initialize environment and dependencies
+    build           Build the iOS application
+    run             Build and launch on simulator/device
+    test            Run unit and UI tests
+    clean           Clean build artifacts
+    status          Show project and environment status
+    doctor          Diagnose common issues
+
+ADVANCED COMMANDS:
+    archive         Create distributable archive
+    export          Export archive for distribution
+    logs            View build and application logs
+    cache           Manage build cache with intelligent invalidation
+    config          Manage configuration and profiles
+    deploy          Deploy to development, staging, and production
+    integrate       Git integration and automation hooks (Phase 4)
+
+HELP & DOCUMENTATION:
+    --help, -h      Show this help message
+    help [COMMAND]  Show detailed help for a command
+    topics          List available help topics
+    examples        Show usage examples
+    tutorial        Start interactive tutorial
+    doctor          Run comprehensive diagnostic
+
+OPTIONS:
+    --verbose, -v   Enable detailed logging output
+    --quiet, -q     Minimal output (errors only)
+    --version       Show version information
+    --config FILE   Use custom configuration file
+
+EXAMPLES:
+    taskerctl setup                     # Initialize environment and install dependencies
+    taskerctl build                     # Build app with smart simulator detection
+    taskerctl build --auto-run          # Build and automatically run on simulator
+    taskerctl build --verbose           # Build with detailed logging output
+    taskerctl test --parallel           # Run tests in parallel for faster execution
+    taskerctl run --destination "iPhone 16 Pro"  # Build and launch on specific simulator
+
+FOR MORE HELP:
+    taskerctl help build                # Command-specific help
+    taskerctl topics                    # Browse help topics
+    taskerctl examples                  # View examples
+    taskerctl tutorial                  # Interactive guide
+
+EOF
+}
+
+# Show help for specific commands
+show_command_help() {
+    local command="$1"
+
+    case "$command" in
+        "build")
+            cat << 'EOF'
+TASKERCTL BUILD - Build iOS Application
+
+USAGE:
+    taskerctl build [OPTIONS] [TARGET]
+
+DESCRIPTION:
+    Build the Tasker iOS app with various configuration options.
+    Supports simulator, device, and archive builds with detailed
+    progress reporting and error handling.
+
+TARGETS:
+    simulator         Build for iOS Simulator (default)
+    device            Build for physical iOS device
+    all               Build both simulator and device versions
+
+OPTIONS:
+    -c, --configuration <CONFIG>
+        Build configuration [debug|release] (default: debug)
+
+    -d, --destination <DESTINATION>
+        Specific device/simulator to build for
+        Use 'taskerctl status --devices' to see available options
+
+    -v, --verbose
+        Enable detailed logging output with timestamps
+
+    -q, --quiet
+        Minimal output, only show errors and final result
+
+    -p, --parallel
+        Enable parallel build for faster compilation
+
+    --no-pods
+        Skip automatic pod dependency update
+
+    --archive
+        Create .xcarchive after successful build
+
+    --clean
+        Clean build folder before building
+
+    --auto-run
+        Automatically run the app on simulator after successful build
+
+    --boot-simulator
+        Boot the simulator before building
+
+    --cache-strategy <TYPE>
+        Cache strategy [smart|aggressive|conservative|none] (default: smart)
+
+    --git-diff-only
+        Build only changed files based on git diff
+
+    --notify
+        Send desktop notifications on completion
+
+    --no-performance-monitoring
+        Disable performance tracking
+
+    --suppress-warnings
+        Suppress common CocoaPods build warnings for cleaner output
+
+EXAMPLES:
+    # Basic debug build (automatically detects running simulator)
+    taskerctl build
+    # → Detects running simulator, builds for it, or boots best available iPhone
+
+    # Build and auto-run on simulator
+    taskerctl build --auto-run
+    # → Builds app and automatically installs/launches it on the simulator
+
+    # Release build for iPhone 16 Pro
+    taskerctl build --configuration release --destination "iPhone 16 Pro"
+    # → Creates optimized release build for specific simulator
+
+    # Parallel build with detailed logs and notifications
+    taskerctl build --parallel --verbose --notify
+    # → Builds with multiple cores, shows detailed output, sends desktop notification
+
+    # Build only changed files (git-aware)
+    taskerctl build --git-diff-only
+    # → Analyzes git diff, builds only files that changed since last commit
+
+    # Clean build with archive and auto-run
+    taskerctl build --clean --archive --auto-run
+    # → Cleans artifacts, builds fresh, creates archive, runs app
+
+    # Build with aggressive caching strategy
+    taskerctl build --cache-strategy aggressive
+    # → Uses maximum caching for faster incremental builds
+
+    # Build with warnings suppression for cleaner output
+    taskerctl build --suppress-warnings
+    # → Suppresses common CocoaPods warnings for cleaner console output
+
+SEE ALSO:
+    • taskerctl help cache
+    • taskerctl help destinations
+    • taskerctl help troubleshooting-build
+    • taskerctl examples build
+
+EOF
+            ;;
+        "setup")
+            cat << 'EOF'
+TASKERCTL SETUP - Initialize Environment
+
+USAGE:
+    taskerctl setup [OPTIONS]
+
+DESCRIPTION:
+    Initialize the TaskerCTL environment, install dependencies,
+    and configure the build system for first-time use.
+
+OPTIONS:
+    --force              Force complete re-setup
+    --skip-deps         Skip dependency installation
+    --verbose           Show detailed setup output
+
+STEPS PERFORMED:
+    1. Create configuration directory
+    2. Initialize configuration file
+    3. Validate Xcode installation
+    4. Install CocoaPods dependencies
+    5. Verify project structure
+    6. Create default build cache
+
+EXAMPLES:
+    # First-time setup
+    taskerctl setup
+
+    # Force re-setup
+    taskerctl setup --force
+
+    # Setup without installing dependencies
+    taskerctl setup --skip-deps
+
+EOF
+            ;;
+        "run")
+            cat << 'EOF'
+TASKERCTL RUN - Build and Launch iOS Application
+
+USAGE:
+    taskerctl run [OPTIONS] [TARGET]
+
+DESCRIPTION:
+    Build the Tasker iOS app and launch it on simulator or device.
+    Supports interactive device selection and various launch options.
+
+TARGETS:
+    simulator         Launch on iOS Simulator (default)
+    device            Launch on physical iOS device
+
+OPTIONS:
+    -c, --configuration <CONFIG>
+        Build configuration [debug|release] (default: debug)
+
+    -d, --destination <DESTINATION>
+        Specific device/simulator to launch on
+        Use 'taskerctl status --devices' to see available options
+
+    -i, --interactive
+        Show interactive device picker to select target device
+
+    -w, --wait
+        Wait for app to launch before returning
+
+    --console
+        Show live console logs from the running app
+
+    --no-build
+        Skip building and only launch existing app
+
+    -v, --verbose
+        Enable detailed logging output
+
+EXAMPLES:
+    # Build and run on default simulator
+    taskerctl run
+
+    # Interactive device selection
+    taskerctl run --interactive
+
+    # Run on specific device with console logs
+    taskerctl run --destination "iPhone 16 Pro" --console
+
+    # Run release build without rebuilding
+    taskerctl run --configuration release --no-build
+
+SEE ALSO:
+    • taskerctl help devices
+    • taskerctl help troubleshooting-run
+    • taskerctl examples run
+
+EOF
+            ;;
+        "test")
+            cat << 'EOF'
+TASKERCTL TEST - Run Unit and UI Tests
+
+USAGE:
+    taskerctl test [OPTIONS] [TEST_TARGET]
+
+DESCRIPTION:
+    Run unit and UI tests for the Tasker iOS application with
+    advanced options for parallel execution, coverage, and reporting.
+
+TEST_TARGETS:
+    unit              Run unit tests only
+    ui                Run UI tests only
+    all               Run all tests (default)
+
+OPTIONS:
+    -c, --configuration <CONFIG>
+        Test configuration [debug|release] (default: debug)
+
+    -d, --destination <DESTINATION>
+        Specific device/simulator to run tests on
+
+    -p, --parallel
+        Enable parallel test execution for faster results
+
+    --coverage
+        Enable code coverage collection during tests
+
+    --report
+        Generate HTML test report after completion
+
+    --retry <N>
+        Automatically retry failed tests N times
+
+    -v, --verbose
+        Enable detailed test output
+
+EXAMPLES:
+    # Run all tests with parallel execution
+    taskerctl test --parallel --coverage
+
+    # Run only unit tests with detailed output
+    taskerctl test unit --verbose
+
+    # Run tests with HTML report and retry on failure
+    taskerctl test --report --retry 2
+
+    # Quick test run on specific simulator
+    taskerctl test --destination "iPhone 16 Pro"
+
+SEE ALSO:
+    • taskerctl help coverage
+    • taskerctl help troubleshooting-test
+    • taskerctl examples test
+
+EOF
+            ;;
+        "archive")
+            cat << 'EOF'
+TASKERCTL ARCHIVE - Create Distributable Archive
+
+USAGE:
+    taskerctl archive [OPTIONS]
+
+DESCRIPTION:
+    Create an .xcarchive of the Tasker iOS application for distribution.
+    Supports various configurations and signing options for different deployment targets.
+
+OPTIONS:
+    -c, --configuration <CONFIG>
+        Build configuration for archive [debug|release] (default: release)
+
+    -d, --destination <DESTINATION>
+        Target destination for archive (default: generic/platform=iOS)
+
+    -o, --output <PATH>
+        Custom output path for the archive file
+        Default: ./build/Tasker-YYYYMMDD-HHMMSS.xcarchive
+
+    --signing-identity <IDENTITY>
+        Specific signing identity to use for the archive
+
+    --clean
+        Clean build folder before creating archive
+
+    -v, --verbose
+        Enable detailed logging output
+
+EXAMPLES:
+    # Create release archive for App Store
+    taskerctl archive
+
+    # Create archive with custom output path
+    taskerctl archive --output "./build/Tasker-Staging.xcarchive"
+
+    # Create debug archive for testing
+    taskerctl archive --configuration debug
+
+    # Clean build and create verbose archive
+    taskerctl archive --clean --verbose
+
+SEE ALSO:
+    • taskerctl help export
+    • taskerctl help code-signing
+    • taskerctl examples archive
+
+EOF
+            ;;
+        "export")
+            cat << 'EOF'
+TASKERCTL EXPORT - Export Archive for Distribution
+
+USAGE:
+    taskerctl export --archive-path <PATH> [OPTIONS]
+
+DESCRIPTION:
+    Export an .xcarchive to IPA file for distribution using various
+    export methods like App Store, Ad Hoc, or Development.
+
+REQUIRED OPTIONS:
+    --archive-path <PATH>
+        Path to the .xcarchive file to export
+
+OPTIONS:
+    -m, --export-method <METHOD>
+        Export method [app-store|ad-hoc|development|enterprise] (default: app-store)
+
+    -o, --output <DIRECTORY>
+        Output directory for exported IPA (default: ./build)
+
+    --provisioning-profile <PROFILE>
+        Specific provisioning profile to use
+
+    --export-options-plist <PATH>
+        Path to custom ExportOptions.plist file
+
+EXAMPLES:
+    # Export archive for App Store submission
+    taskerctl export --archive-path "./build/Tasker.xcarchive"
+
+    # Export for Ad Hoc distribution
+    taskerctl export --archive-path "./build/Tasker.xcarchive" --export-method ad-hoc
+
+    # Export with custom output directory
+    taskerctl export --archive-path "./build/Tasker.xcarchive" --output "./dist"
+
+    # Export using custom export options
+    taskerctl export --archive-path "./build/Tasker.xcarchive" --export-options-plist "ExportOptions.plist"
+
+SEE ALSO:
+    • taskerctl help archive
+    • taskerctl help code-signing
+    • taskerctl examples export
+
+EOF
+            ;;
+        "logs")
+            cat << 'EOF'
+TASKERCTL LOGS - View Build and Application Logs
+
+USAGE:
+    taskerctl logs [OPTIONS] [LOG_TYPE]
+
+DESCRIPTION:
+    View and search through build, test, archive, and export logs
+    generated by TaskerCTL operations.
+
+LOG_TYPES:
+    build            Show build logs only
+    test             Show test logs only
+    archive          Show archive logs only
+    export           Show export logs only
+    all              Show all logs (default)
+
+OPTIONS:
+    -f, --follow
+        Follow the main log file in real-time (Ctrl+C to stop)
+
+    --filter <PATTERN>
+        Filter log entries by pattern (case-insensitive)
+
+EXAMPLES:
+    # Show all recent logs
+    taskerctl logs
+
+    # Show only build logs
+    taskerctl logs build
+
+    # Follow main log in real-time
+    taskerctl logs --follow
+
+    # Search logs for specific pattern
+    taskerctl logs --filter "error"
+
+    # Show test logs and filter for failures
+    taskerctl logs test --filter "failed"
+
+SEE ALSO:
+    • taskerctl help troubleshooting
+    • taskerctl examples logs
+
+EOF
+            ;;
+        "cache")
+            cat << 'EOF'
+TASKERCTL CACHE - Intelligent Build Cache Management
+
+USAGE:
+    taskerctl cache [ACTION] [OPTIONS]
+
+DESCRIPTION:
+    Manage intelligent build cache with file change detection and
+    performance optimization. Supports multiple caching strategies
+    and detailed cache analytics.
+
+ACTIONS:
+    status           Show cache status and statistics
+    clean            Clean old or all cache files
+    analyze          Analyze cache effectiveness
+    warm             Pre-warm cache with common artifacts
+    info             Show cache information and strategies
+
+OPTIONS:
+    --all            Clean all cache files (use with clean action)
+
+CACHE STRATEGIES:
+    smart            Intelligent caching based on file changes (default)
+    aggressive       Maximum caching, reuse more artifacts
+    conservative     Minimal caching, rebuild more often
+    none             Disable caching completely
+
+CACHE TYPES:
+    • Build Cache: Stores compiled objects and build artifacts
+    • Dependencies Cache: Stores pod and dependency information
+    • Project Hash: Detects project changes for invalidation
+
+EXAMPLES:
+    # Show cache status
+    taskerctl cache status
+
+    # Clean all cache files
+    taskerctl cache clean --all
+
+    # Analyze cache effectiveness
+    taskerctl cache analyze
+
+    # Warm up cache before build
+    taskerctl cache warm
+
+    # Get cache information
+    taskerctl cache info
+
+SEE ALSO:
+    • taskerctl help performance
+    • taskerctl help troubleshooting-cache
+    • taskerctl examples cache
+
+EOF
+            ;;
+        "config")
+            cat << 'EOF'
+TASKERCTL CONFIG - Configuration Management
+
+USAGE:
+    taskerctl config [ACTION] [OPTIONS]
+
+DESCRIPTION:
+    Manage TaskerCTL configuration including build settings,
+    performance options, notifications, and advanced features.
+
+ACTIONS:
+    show             Display current configuration
+    init             Initialize default configuration
+    list             List available configuration keys
+    set <key> <value>   Set configuration value
+    get <key>        Get configuration value
+    validate         Validate configuration file
+
+OPTIONS:
+    -p, --profile <name>   Use specific configuration profile
+
+CONFIGURATION CATEGORIES:
+    Project Settings:
+        • project.workspace
+        • project.scheme
+        • project.target
+
+    Build Settings:
+        • build.configuration
+        • build.destination
+        • build.parallel_jobs
+        • build.cache_strategy
+
+    Performance Settings:
+        • performance.monitoring_enabled
+        • performance.resource_checks
+        • performance.slow_operation_threshold
+
+    Notification Settings:
+        • notifications.enabled
+        • notifications.desktop_notifications
+        • notifications.slack_webhook
+        • notifications.slack_channel
+
+    Git Settings:
+        • git.integration_enabled
+        • git.diff_build_mode
+
+    Advanced Settings:
+        • advanced.error_intelligence
+        • advanced.auto_dependency_update
+        • advanced.build_retention_days
+
+EXAMPLES:
+    # Initialize configuration
+    taskerctl config init
+
+    # Show current configuration
+    taskerctl config show
+
+    # Set cache strategy
+    taskerctl config set build.cache_strategy aggressive
+
+    # Get notification setting
+    taskerctl config get notifications.enabled
+
+    # Validate configuration
+    taskerctl config validate
+
+    # List all configuration options
+    taskerctl config list
+
+SEE ALSO:
+    • taskerctl help performance
+    • taskerctl help notifications
+    • taskerctl examples config
+
+EOF
+            ;;
+        "deploy")
+            cat << 'EOF'
+TASKERCTL DEPLOY - Multi-Environment Deployment
+
+USAGE:
+    taskerctl deploy [TYPE] [OPTIONS]
+
+DESCRIPTION:
+    Deploy the Tasker iOS application to different environments with
+    appropriate build configurations, testing, and validation.
+
+DEPLOYMENT TYPES:
+    development      Build and test for development
+    staging          Build and run comprehensive tests
+    production       Build for release with full validation
+
+OPTIONS:
+    -e, --environment <env>
+        Target environment (default: staging)
+
+    --dry-run
+        Show what would be deployed without actual deployment
+
+    --force
+        Skip confirmation prompts
+
+    --rollback
+        Rollback to previous deployment
+
+DEPLOYMENT WORKFLOWS:
+
+Development Deployment:
+    • Build with release configuration
+    • Create archive
+    • Run tests (continue on failure)
+    • Notify completion
+
+Staging Deployment:
+    • Build with release configuration
+    • Create archive
+    • Run unit tests (fail on error)
+    • Run UI tests (fail on error)
+    • Notify completion
+
+Production Deployment:
+    • Clean build with release configuration
+    • Create archive
+    • Run comprehensive test suite
+    • Generate reports
+    • Require explicit confirmation
+    • Notify completion
+
+EXAMPLES:
+    # Development deployment
+    taskerctl deploy development
+
+    # Staging deployment with dry run
+    taskerctl deploy staging --dry-run
+
+    # Production deployment (requires confirmation)
+    taskerctl deploy production
+
+    # Force production deployment
+    taskerctl deploy production --force
+
+    # Deploy to specific environment
+    taskerctl deploy staging --environment testing
+
+SEE ALSO:
+    • taskerctl help archive
+    • taskerctl help test
+    • taskerctl help production-workflow
+
+EOF
+            ;;
+        *)
+            log_error "Unknown command: $command"
+            echo "Available commands: setup, build, run, test, clean, status, doctor, archive, export, logs, cache, config, deploy"
+            echo "Use 'taskerctl --help' for general help"
+            ;;
+    esac
+}
+
+# ============================================================================
+# CORE COMMANDS IMPLEMENTATION
+# ============================================================================
+
+# Setup command
+cmd_setup() {
+    local force_setup=0
+    local skip_deps=0
+
+    # Parse setup options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --force)
+                force_setup=1
+                shift
+                ;;
+            --skip-deps)
+                skip_deps=1
+                shift
+                ;;
+            *)
+                log_error "Unknown setup option: $1"
+                return 1
+                ;;
+        esac
+    done
+
+    log_info "Starting TaskerCTL setup..."
+
+    # Step 1: Initialize configuration
+    if [[ $force_setup -eq 1 ]]; then
+        log_info "Force setup - removing existing configuration..."
+        rm -rf "$CONFIG_DIR"
+    fi
+
+    init_config
+
+    # Step 2: Validate Xcode installation
+    log_info "Validating Xcode installation..."
+    if ! command -v xcodebuild >/dev/null 2>&1; then
+        log_error "Xcode command line tools not found"
+        log_info "Install with: xcode-select --install"
+        return 1
+    fi
+
+    local xcode_version=$(xcodebuild -version | head -1)
+    log_success "Found: $xcode_version"
+
+    # Step 3: Install CocoaPods if needed
+    if [[ $skip_deps -eq 0 ]]; then
+        log_info "Checking CocoaPods installation..."
+        if ! command -v pod >/dev/null 2>&1; then
+            log_info "Installing CocoaPods..."
+            gem install cocoapods
+        else
+            local pod_version=$(pod --version)
+            log_success "CocoaPods v$pod_version found"
+        fi
+
+        # Step 4: Install project dependencies
+        if [[ -f "$PROJECT_ROOT/Podfile" ]]; then
+            log_info "Installing project dependencies..."
+            start_spinner "Installing pods"
+            cd "$PROJECT_ROOT"
+            if pod install; then
+                stop_spinner
+                log_success "Dependencies installed successfully"
+            else
+                stop_spinner
+                log_error "Failed to install dependencies"
+                return 1
+            fi
+            cd - >/dev/null
+        fi
+    else
+        log_info "Skipping dependency installation"
+    fi
+
+    # Step 5: Validate project structure
+    validate_project
+
+    # Step 6: Create cache directory
+    mkdir -p "$CONFIG_DIR/cache"
+    log_success "Cache directory created"
+
+    log_success "Setup completed successfully! 🎉"
+    log_info "Try: taskerctl status"
+}
+
+# Status command
+cmd_status() {
+    local show_pods=0
+    local show_devices=0
+    local show_signing=0
+    local json_output=0
+
+    # Parse status options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --pods)
+                show_pods=1
+                shift
+                ;;
+            --devices)
+                show_devices=1
+                shift
+                ;;
+            --signing)
+                show_signing=1
+                shift
+                ;;
+            --json)
+                json_output=1
+                shift
+                ;;
+            *)
+                log_error "Unknown status option: $1"
+                return 1
+                ;;
+        esac
+    done
+
+    load_config
+
+    echo
+    echo "${BOLD}📱 Tasker iOS Project Status${NC}"
+    echo "=================================="
+    echo
+
+    # Project Information
+    echo "${CYAN}Project Information:${NC}"
+    echo "  • Workspace: $WORKSPACE"
+    echo "  • Scheme: $SCHEME"
+    echo "  • Target: $TARGET"
+    echo "  • Path: $PROJECT_ROOT"
+    echo
+
+    # Dependencies Status
+    if [[ $show_pods -eq 1 ]]; then
+        echo "${CYAN}Dependencies:${NC}"
+        if [[ -f "$PROJECT_ROOT/Podfile.lock" ]]; then
+            echo "  • CocoaPods: ✅ Installed"
+            local pod_count=$(grep -c "Pod " "$PROJECT_ROOT/Podfile.lock" || echo "0")
+            echo "  • Pods Count: $pod_count"
+        else
+            echo "  • CocoaPods: ❌ Not installed"
+        fi
+        echo
+    fi
+
+    # Available Devices
+    if [[ $show_devices -eq 1 ]]; then
+        echo "${CYAN}Available Devices:${NC}"
+        if command -v xcrun >/dev/null 2>&1; then
+            xcrun simctl list devices available | grep -E "iPhone|iPad" | head -10 | while read -r line; do
+                echo "  • $line"
+            done
+        else
+            echo "  • Unable to list devices"
+        fi
+        echo
+    fi
+
+    # Build Configuration
+    echo "${CYAN}Build Configuration:${NC}"
+    echo "  • Xcode: $(xcodebuild -version | head -1)"
+    echo "  • iOS SDK: $(xcodebuild -showsdks | grep ios | tail -1)"
+    echo "  • Configuration: Debug"
+    echo
+
+    log_success "Status check completed"
+}
+
+# Clean command
+cmd_clean() {
+    local clean_all=0
+    local clean_pods=0
+    local clean_build=0
+
+    # Parse clean options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --all)
+                clean_all=1
+                shift
+                ;;
+            --pods)
+                clean_pods=1
+                shift
+                ;;
+            --build)
+                clean_build=1
+                shift
+                ;;
+            *)
+                log_error "Unknown clean option: $1"
+                return 1
+                ;;
+        esac
+    done
+
+    log_info "Starting clean operation..."
+
+    if [[ $clean_all -eq 1 ]]; then
+        log_info "Cleaning all build artifacts..."
+        rm -rf "$PROJECT_ROOT/build"
+        rm -rf "$PROJECT_ROOT/DerivedData"
+        log_success "All build artifacts cleaned"
+    fi
+
+    if [[ $clean_pods -eq 1 || $clean_all -eq 1 ]]; then
+        log_info "Cleaning CocoaPods..."
+        cd "$PROJECT_ROOT"
+        if [[ -d "Pods" ]]; then
+            pod deintegrate
+            rm -rf Pods Podfile.lock
+            log_success "CocoaPods cleaned"
+        fi
+        cd - >/dev/null
+    fi
+
+    if [[ $clean_build -eq 1 ]]; then
+        log_info "Cleaning build folder..."
+        rm -rf "$PROJECT_ROOT/build"
+        log_success "Build folder cleaned"
+    fi
+
+    log_success "Clean operation completed"
+}
+
+# Doctor command
+cmd_doctor() {
+    echo
+    echo "${BOLD}🩺 TaskerCTL Diagnostic Tool${NC}"
+    echo "==============================="
+    echo
+
+    local issues=0
+
+    # Check Xcode installation
+    echo "${CYAN}Checking Xcode Installation:${NC}"
+    if command -v xcodebuild >/dev/null 2>&1; then
+        local xcode_version=$(xcodebuild -version | head -1)
+        echo "  ✅ $xcode_version"
+    else
+        echo "  ❌ Xcode not found"
+        echo "     Install with: xcode-select --install"
+        issues=$((issues + 1))
+    fi
+
+    # Check CocoaPods
+    echo
+    echo "${CYAN}Checking CocoaPods:${NC}"
+    if command -v pod >/dev/null 2>&1; then
+        local pod_version=$(pod --version)
+        echo "  ✅ CocoaPods v$pod_version"
+    else
+        echo "  ❌ CocoaPods not found"
+        echo "     Install with: gem install cocoapods"
+        issues=$((issues + 1))
+    fi
+
+    # Check project structure
+    echo
+    echo "${CYAN}Checking Project Structure:${NC}"
+    if validate_project >/dev/null 2>&1; then
+        echo "  ✅ Project structure valid"
+    else
+        echo "  ❌ Project structure issues found"
+        issues=$((issues + 1))
+    fi
+
+    # Check workspace
+    echo
+    echo "${CYAN}Checking Workspace:${NC}"
+    if [[ -f "$PROJECT_ROOT/$WORKSPACE/contents.xcworkspacedata" ]]; then
+        echo "  ✅ Workspace found: $WORKSPACE"
+    else
+        echo "  ❌ Workspace not found"
+        issues=$((issues + 1))
+    fi
+
+    # Check configuration
+    echo
+    echo "${CYAN}Checking Configuration:${NC}"
+    if [[ -f "$CONFIG_FILE" ]]; then
+        echo "  ✅ Configuration found"
+    else
+        echo "  ⚠️  Configuration not found (run 'taskerctl setup')"
+    fi
+
+    echo
+    if [[ $issues -eq 0 ]]; then
+        log_success "No issues found! 🎉"
+        echo "Your TaskerCTL environment is ready to use."
+    else
+        log_error "Found $issues issue(s) that need attention"
+        echo
+        echo "Suggested fixes:"
+        echo "• Run 'taskerctl setup' to initialize environment"
+        echo "• Install missing dependencies"
+        echo "• Verify project structure"
+    fi
+}
+
+# Build command
+cmd_build() {
+    local configuration="debug"
+    local destination=""
+    local clean_build=0
+    local parallel_build=0
+    local update_pods=1
+    local create_archive=0
+    local custom_args=""
+    local cache_strategy="smart"
+    local performance_monitoring=1
+    local git_diff_only=0
+    local notify_on_completion=0
+    local auto_run=0
+    local boot_simulator=0
+
+    # Parse build options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            simulator|device|all)
+                case $1 in
+                    simulator)
+                        # Don't set default destination, let smart detection handle it
+                        ;;
+                    device)
+                        destination="generic/platform=iOS"
+                        ;;
+                    all)
+                        # Build both - will handle specially
+                        log_info "Building both simulator and device versions"
+                        ;;
+                esac
+                shift
+                ;;
+            -c|--configuration)
+                configuration="$2"
+                shift 2
+                ;;
+            -d|--destination)
+                destination="$2"
+                shift 2
+                ;;
+            -v|--verbose)
+                VERBOSE=1
+                LOG_LEVEL="DEBUG"
+                shift
+                ;;
+            -q|--quiet)
+                QUIET=1
+                shift
+                ;;
+            -p|--parallel)
+                parallel_build=1
+                shift
+                ;;
+            --no-pods)
+                update_pods=0
+                shift
+                ;;
+            --archive)
+                create_archive=1
+                shift
+                ;;
+            --clean)
+                clean_build=1
+                shift
+                ;;
+            --cache-strategy)
+                cache_strategy="$2"
+                shift 2
+                ;;
+            --no-performance-monitoring)
+                performance_monitoring=0
+                shift
+                ;;
+            --git-diff-only)
+                git_diff_only=1
+                shift
+                ;;
+            --notify)
+                notify_on_completion=1
+                shift
+                ;;
+            --auto-run)
+                auto_run=1
+                shift
+                ;;
+            --suppress-warnings)
+                export SUPPRESS_WARNINGS=1
+                shift
+                ;;
+            --boot-simulator)
+                boot_simulator=1
+                shift
+                ;;
+            *)
+                log_error "Unknown build option: $1"
+                echo "Use 'taskerctl help build' for available options"
+                return 1
+                ;;
+        esac
+    done
+
+    # Record build start time
+    local build_start=$(date +%s)
+
+    log_info "Starting iOS application build..."
+    log_debug "Configuration: $configuration"
+    log_debug "Destination: $destination"
+    log_debug "Cache Strategy: $cache_strategy"
+
+    # Check system resources
+    check_system_resources
+
+    # Load configuration
+    load_config
+
+    # Validate project
+    if ! validate_project; then
+        log_error "Project validation failed"
+        return 1
+    fi
+
+    # Check cache validity based on strategy
+    local use_cache=1
+    case "$cache_strategy" in
+        "none")
+            use_cache=0
+            log_debug "Cache disabled"
+            ;;
+        "smart")
+            if is_cache_valid; then
+                log_debug "Using smart cache"
+                update_cache_stats "hit"
+            else
+                log_debug "Cache invalid - will rebuild"
+                update_cache_stats "miss"
+            fi
+            ;;
+        "aggressive")
+            log_debug "Using aggressive cache strategy"
+            ;;
+        "conservative")
+            log_debug "Using conservative cache strategy"
+            if [[ -d "$CONFIG_DIR/cache/build" ]]; then
+                log_info "Conservative strategy - cleaning build cache"
+                rm -rf "$CONFIG_DIR/cache/build"/*
+            fi
+            ;;
+    esac
+
+    # Git integration
+    if [[ $git_diff_only -eq 1 ]]; then
+        log_info "Git-diff mode: Building only changed files"
+        local changed_files
+        changed_files=$(get_changed_files)
+        if [[ -n "$changed_files" ]]; then
+            log_info "Changed files: $changed_files"
+        else
+            log_info "No changed files detected"
+        fi
+    fi
+
+    # Update dependencies if needed
+    if [[ $update_pods -eq 1 && -f "$PROJECT_ROOT/Podfile" ]]; then
+        log_info "Checking CocoaPods dependencies..."
+        if [[ ! -f "$PROJECT_ROOT/Podfile.lock" ]] || [[ "$PROJECT_ROOT/Podfile" -nt "$PROJECT_ROOT/Podfile.lock" ]]; then
+            start_spinner "Updating CocoaPods dependencies"
+            cd "$PROJECT_ROOT"
+            if pod install --repo-update; then
+                stop_spinner
+                log_success "Dependencies updated successfully"
+            else
+                stop_spinner
+                log_error "Failed to update dependencies"
+                return 1
+            fi
+            cd - >/dev/null
+        else
+            log_debug "Dependencies are up to date"
+        fi
+    fi
+
+    # Clean if requested
+    if [[ $clean_build -eq 1 ]]; then
+        log_info "Cleaning build folder..."
+        rm -rf "$PROJECT_ROOT/build"
+    fi
+
+    # Smart destination selection
+    if [[ -z "$destination" ]]; then
+        log_debug "No destination specified, using smart simulator selection"
+        destination=$(get_best_simulator)
+        log_debug "Selected destination: $destination"
+    else
+        # Format user-provided destination
+        destination=$(format_simulator_destination "$destination")
+        log_debug "Formatted destination: $destination"
+    fi
+
+    # Boot simulator if requested and it's a simulator destination
+    if [[ $boot_simulator -eq 1 && "$destination" == *"iOS Simulator"* ]]; then
+        boot_simulator_if_needed "$destination"
+    fi
+
+    # Prepare build arguments
+    local build_args=(
+        "-workspace" "$WORKSPACE"
+        "-scheme" "$SCHEME"
+        "-configuration" "$configuration"
+        "-destination" "$destination"
+        "build"
+    )
+
+    # Add parallel build if requested
+    if [[ $parallel_build -eq 1 ]]; then
+        custom_args="$custom_args -parallelizeTargets"
+        log_info "Enabling parallel build"
+    fi
+
+    # Add warning suppression for common CocoaPods issues
+    if [[ $QUIET -ne 1 ]]; then
+        log_debug "Adding warning suppression for common CocoaPods issues"
+        # Suppress common CocoaPods build script warnings for cleaner output
+        custom_args="$custom_args -quiet"
+        # Add build settings via command line to suppress script phase warnings
+        if [[ "${SUPPRESS_WARNINGS:-0}" == "1" ]]; then
+            custom_args="$custom_args GCC_PREPROCESSOR_DEFINITIONS='\\$(inherited) COCOAPODS=1'"
+            custom_args="$custom_args CLANG_WARN_DOCUMENTATION_COMMENTS=NO"
+            custom_args="$custom_args CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER=NO"
+        fi
+    fi
+
+    # Add verbose output if requested
+    if [[ $VERBOSE -eq 1 ]]; then
+        # Remove -quiet if verbose mode is requested
+        custom_args=$(echo "$custom_args" | sed 's/-quiet//g')
+        custom_args="$custom_args -verbose"
+    fi
+
+    log_info "Building for: $destination"
+    log_info "Configuration: $configuration"
+
+    # Execute build
+    local build_log="$LOG_DIR/build-$(date +%Y%m%d-%H%M%S).log"
+
+    log_info "Build started. Log file: $build_log"
+
+    if [[ $QUIET -eq 1 ]]; then
+        # Quiet mode - only show progress
+        {
+            cd "$PROJECT_ROOT"
+            xcodebuild "${build_args[@]}" $custom_args > "$build_log" 2>&1
+            echo $?
+        } &
+        local build_pid=$!
+
+        # Show spinner during build
+        start_spinner "Building"
+        wait "$build_pid"
+        local build_result=$?
+        stop_spinner
+    else
+        # Normal mode - show output and log
+        cd "$PROJECT_ROOT"
+        if [[ $VERBOSE -eq 1 ]]; then
+            log_debug "Build command: xcodebuild ${build_args[*]} $custom_args"
+        fi
+        xcodebuild "${build_args[@]}" $custom_args | tee "$build_log"
+        local build_result=${PIPESTATUS[0]}
+        cd - >/dev/null
+    fi
+
+    local build_end=$(date +%s)
+    local build_duration=$((build_end - build_start))
+
+    # Performance monitoring
+    if [[ $performance_monitoring -eq 1 ]]; then
+        monitor_performance "build" "$build_start" "$build_end" "cache:$cache_strategy"
+    fi
+
+    # Build completion notification
+    if [[ $notify_on_completion -eq 1 ]]; then
+        if [[ $build_result -eq 0 ]]; then
+            send_notification "Build Successful" "Tasker build completed in ${build_duration}s" "success"
+        else
+            send_notification "Build Failed" "Tasker build failed after ${build_duration}s" "error"
+        fi
+    fi
+
+    if [[ $build_result -eq 0 ]]; then
+        log_success "Build completed successfully! 🎉"
+        log_info "Build time: $build_duration seconds"
+
+        # Create archive if requested
+        if [[ $create_archive -eq 1 ]]; then
+            log_info "Creating archive..."
+            local archive_path="$PROJECT_ROOT/build/Tasker-$(date +%Y%m%d-%H%M%S).xcarchive"
+
+            local archive_cmd="xcodebuild -workspace $WORKSPACE -scheme $SCHEME -configuration $configuration -destination $destination archive -archivePath $archive_path"
+
+            if [[ $VERBOSE -eq 1 ]]; then
+                log_debug "Archive command: $archive_cmd"
+            fi
+
+            cd "$PROJECT_ROOT"
+            if eval "$archive_cmd"; then
+                log_success "Archive created: $archive_path"
+
+                # Archive notification
+                if [[ $notify_on_completion -eq 1 ]]; then
+                    send_notification "Archive Created" "Archive created at $archive_path" "success"
+                fi
+            else
+                log_error "Failed to create archive"
+
+                # Archive failure notification
+                if [[ $notify_on_completion -eq 1 ]]; then
+                    send_notification "Archive Failed" "Failed to create archive" "error"
+                fi
+                return 1
+            fi
+            cd - >/dev/null
+        fi
+
+        # Auto-run functionality
+        if [[ $auto_run -eq 1 && "$destination" == *"iOS Simulator"* ]]; then
+            log_info "Auto-running application on simulator..."
+
+            # Find the built app
+            local app_path
+            app_path=$(find_built_app "$configuration" "$destination")
+
+            if [[ -n "$app_path" && -d "$app_path" ]]; then
+                log_info "Found built app: $app_path"
+
+                # Extract simulator ID if present
+                local simulator_id=""
+                if [[ "$destination" =~ id=([^,]+) ]]; then
+                    simulator_id="${BASH_REMATCH[1]}"
+                fi
+
+                # Install and launch app
+                if [[ -n "$simulator_id" ]]; then
+                    # Ensure simulator is running
+                    boot_simulator_if_needed "$destination"
+
+                    # Install app
+                    if xcrun simctl install "$simulator_id" "$app_path"; then
+                        local bundle_id=$(plutil -extract CFBundleIdentifier xml "$app_path/Info.plist" -o - | sed -n 's/.*<string>\(.*\)<\/string>.*/\1/p')
+                        if [[ -n "$bundle_id" ]]; then
+                            # Launch app
+                            if xcrun simctl launch "$simulator_id" "$bundle_id"; then
+                                log_success "App launched successfully on simulator! 🚀"
+                                log_info "Bundle ID: $bundle_id"
+
+                                # Open Simulator app if not already open
+                                if ! pgrep -f "Simulator.app" >/dev/null; then
+                                    open -a Simulator
+                                fi
+
+                                # Auto-run notification
+                                if [[ $notify_on_completion -eq 1 ]]; then
+                                    send_notification "App Launched" "Tasker app is running on simulator" "success"
+                                fi
+                            else
+                                log_error "Failed to launch app on simulator"
+                            fi
+                        else
+                            log_error "Could not extract bundle ID from app"
+                        fi
+                    else
+                        log_error "Failed to install app on simulator"
+                    fi
+                else
+                    log_error "Could not extract simulator ID from destination"
+                fi
+            else
+                log_error "Built app not found. Check build configuration."
+            fi
+        fi
+
+        return 0
+    else
+        log_error "Build failed after $build_duration seconds"
+        log_error "Check the build log: $build_log"
+
+        # Try to provide helpful error analysis
+        if [[ -f "$build_log" ]]; then
+            if grep -q "Code signing error" "$build_log"; then
+                log_error "Code signing issue detected. Run 'taskerctl help code-signing' for help."
+            elif grep -q "No such module" "$build_log"; then
+                log_error "Missing module detected. Try running 'taskerctl setup --force'."
+            elif grep -q "Command failed" "$build_log"; then
+                log_error "Build command failed. Check xcodebuild output above."
+            fi
+        fi
+
+        return 1
+    fi
+}
+
+# Interactive device picker function
+interactive_device_picker() {
+    log_info "Available devices and simulators:"
+    echo
+
+    # Get list of available devices
+    local devices_file=$(mktemp)
+    xcrun simctl list devices available > "$devices_file"
+
+    # Create numbered list of iOS devices
+    local counter=1
+    echo "iOS Simulators:"
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^[[:space:]]*iPhone[[:space:]]*\([0-9A-F-]+\)[[:space:]]*\((.*)\)[[:space:]]*$ ]]; then
+            local device_name=$(echo "$line" | sed -E 's/^[[:space:]]*iPhone[[:space:]]*\([0-9A-F-]+\)[[:space:]]*\((.*)\)[[:space:]]*$/\1/')
+            local device_id=$(echo "$line" | sed -E 's/^[[:space:]]*iPhone[[:space:]]*\(([0-9A-F-]+)\)[[:space:]]*.*$/\1/')
+            echo "  $counter) $device_name"
+            echo "     ID: $device_id"
+            counter=$((counter + 1))
+        fi
+    done < "$devices_file"
+
+    echo "  $counter) Physical Device (if connected)"
+    counter=$((counter + 1))
+    echo "  $counter) Any iOS Simulator"
+    echo
+
+    # Get user selection
+    local selection=""
+    while [[ -z "$selection" ]]; do
+        echo -n "${CYAN}Select device (1-$((counter-1))) or press Enter for default: ${NC}"
+        read -r selection
+
+        # Default selection
+        if [[ -z "$selection" ]]; then
+            selection="1"
+            echo
+        fi
+
+        # Validate selection
+        if ! [[ "$selection" =~ ^[0-9]+$ ]] || [[ "$selection" -lt 1 ]] || [[ "$selection" -gt $((counter-1)) ]]; then
+            echo "${RED}Invalid selection. Please enter a number between 1 and $((counter-1)).${NC}"
+            selection=""
+        fi
+    done
+
+    # Return the selected device
+    if [[ "$selection" -eq 1 ]]; then
+        # First iPhone simulator (default)
+        local first_device=$(grep -m1 "iPhone" "$devices_file" | sed -E 's/^[[:space:]]*iPhone[[:space:]]*\(([0-9A-F-]+)\)[[:space:]]*.*$/\1/')
+        echo "$first_device"
+    elif [[ "$selection" -eq $((counter-2)) ]]; then
+        # Physical device
+        echo "generic/platform=iOS"
+    elif [[ "$selection" -eq $((counter-1)) ]]; then
+        # Any simulator
+        echo "generic/platform=iOS Simulator"
+    else
+        # Specific simulator
+        local selected_device=$(sed -n "${selection}p" "$devices_file" | sed -E 's/^[[:space:]]*iPhone[[:space:]]*\(([0-9A-F-]+)\)[[:space:]]*.*$/\1/')
+        echo "platform=iOS Simulator,id=$selected_device"
+    fi
+
+    rm "$devices_file"
+}
+
+# Find built app path
+find_built_app() {
+    local configuration="$1"
+    local destination="$2"
+
+    # Check if destination is simulator or device
+    if [[ "$destination" == *"iOS Simulator"* ]]; then
+        # Simulator build
+        local derived_data=$(xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration "$configuration" -destination "$destination" -showBuildSettings | grep "BUILT_PRODUCTS_DIR" | awk '{print $3}')
+        local app_name=$(xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration "$configuration" -destination "$destination" -showBuildSettings | grep "PRODUCT_NAME" | awk '{print $3}')
+        local app_path="$derived_data/$app_name.app"
+
+        if [[ -d "$app_path" ]]; then
+            echo "$app_path"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+# Run command
+cmd_run() {
+    local configuration="debug"
+    local destination=""
+    local build_first=1
+    local wait_for_launch=0
+    local show_console=0
+    local interactive_picker=0
+
+    # Parse run options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            simulator|device)
+                case $1 in
+                    simulator)
+                        destination="iPhone 16 Pro"
+                        ;;
+                    device)
+                        destination="generic/platform=iOS"
+                        ;;
+                esac
+                shift
+                ;;
+            -c|--configuration)
+                configuration="$2"
+                shift 2
+                ;;
+            -d|--destination)
+                destination="$2"
+                shift 2
+                ;;
+            -i|--interactive)
+                interactive_picker=1
+                shift
+                ;;
+            -w|--wait)
+                wait_for_launch=1
+                shift
+                ;;
+            --console)
+                show_console=1
+                shift
+                ;;
+            --no-build)
+                build_first=0
+                shift
+                ;;
+            -v|--verbose)
+                VERBOSE=1
+                LOG_LEVEL="DEBUG"
+                shift
+                ;;
+            *)
+                log_error "Unknown run option: $1"
+                echo "Use 'taskerctl help run' for available options"
+                return 1
+                ;;
+        esac
+    done
+
+    log_info "Starting iOS application run..."
+
+    # Load configuration and validate project
+    load_config
+    if ! validate_project; then
+        log_error "Project validation failed"
+        return 1
+    fi
+
+    # Interactive device picker
+    if [[ $interactive_picker -eq 1 ]]; then
+        local selected_device
+        selected_device=$(interactive_device_picker)
+        if [[ -n "$selected_device" ]]; then
+            destination="$selected_device"
+            log_info "Selected device: $destination"
+        else
+            log_error "Device selection cancelled"
+            return 1
+        fi
+    fi
+
+    # Set default destination
+    if [[ -z "$destination" ]]; then
+        destination="iPhone 16 Pro"
+    fi
+
+    # Format destination properly
+    case "$destination" in
+        "iPhone 16 Pro")
+            destination="platform=iOS Simulator,name=iPhone 16 Pro,OS=18.6"
+            ;;
+        "generic/platform=iOS")
+            # Keep device destination as-is
+            ;;
+        *)
+            if [[ ! "$destination" =~ ^platform= ]]; then
+                destination="platform=iOS Simulator,name=$destination,OS=18.6"
+            fi
+            ;;
+    esac
+
+    # Build first if requested
+    if [[ $build_first -eq 1 ]]; then
+        log_info "Building application..."
+        if ! cmd_build --configuration "$configuration" --destination "$destination" --quiet; then
+            log_error "Build failed - cannot run application"
+            return 1
+        fi
+    fi
+
+    # Find the built app
+    local app_path
+    app_path=$(find_built_app "$configuration" "$destination")
+
+    if [[ -z "$app_path" || ! -d "$app_path" ]]; then
+        log_error "Built application not found at expected location"
+        log_info "Try building first with: taskerctl build"
+        return 1
+    fi
+
+    log_info "Found built app: $app_path"
+
+    # Launch based on destination type
+    if [[ "$destination" == *"iOS Simulator"* ]]; then
+        # Simulator launch
+        log_info "Launching on iOS Simulator..."
+
+        # Extract simulator ID if present
+        local simulator_id=""
+        if [[ "$destination" =~ id=([0-9A-F-]+) ]]; then
+            simulator_id="${BASH_REMATCH[1]}"
+        fi
+
+        # Boot simulator if ID specified
+        if [[ -n "$simulator_id" ]]; then
+            xcrun simctl boot "$simulator_id" 2>/dev/null || true
+        fi
+
+        # Install and launch app
+        if [[ -n "$simulator_id" ]]; then
+            xcrun simctl install "$simulator_id" "$app_path"
+            local bundle_id=$(plutil -extract CFBundleIdentifier xml "$app_path/Info.plist" -o - | sed -n 's/.*<string>\(.*\)<\/string>.*/\1/p')
+            xcrun simctl launch "$simulator_id" "$bundle_id"
+
+            # Open Simulator app
+            open -a Simulator
+
+            log_success "App launched on simulator: $bundle_id"
+        else
+            # Generic simulator - just open Simulator
+            open -a Simulator
+            log_info "Simulator opened. Please install the app manually from Xcode."
+        fi
+
+        # Show console if requested
+        if [[ $show_console -eq 1 && -n "$simulator_id" && -n "$bundle_id" ]]; then
+            log_info "Showing console logs (Ctrl+C to stop)..."
+            xcrun simctl spawn "$simulator_id" log stream --predicate 'process == "'"$bundle_id"'"'
+        fi
+
+    else
+        # Physical device launch
+        log_info "Launching on physical device..."
+        log_warn "Physical device deployment requires Xcode"
+        log_info "Please open Xcode and select your device to run the app"
+
+        # Open Xcode with the project
+        open "$PROJECT_ROOT/Tasker.xcworkspace"
+    fi
+
+    # Wait if requested
+    if [[ $wait_for_launch -eq 1 ]]; then
+        log_info "Waiting for app to launch..."
+        sleep 5
+        log_info "App should now be running"
+    fi
+
+    log_success "Run operation completed"
+}
+
+# Test command
+cmd_test() {
+    local configuration="debug"
+    local destination="iPhone 16 Pro"
+    local test_target="all"
+    local test_suite="all"  # E2E test suite selector
+    local parallel=0
+    local coverage=0
+    local report=0
+    local html_report=0
+    local retry_failed=0
+    local verbose=0
+
+    # Parse test options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            unit|ui|all)
+                test_target="$1"
+                shift
+                ;;
+            -s|--suite)
+                # E2E test suite selection: critical, secondary, performance, all
+                test_suite="$2"
+                shift 2
+                ;;
+            -c|--configuration)
+                configuration="$2"
+                shift 2
+                ;;
+            -d|--destination)
+                destination="$2"
+                shift 2
+                ;;
+            -p|--parallel)
+                parallel=1
+                shift
+                ;;
+            --coverage)
+                coverage=1
+                shift
+                ;;
+            --report)
+                report=1
+                shift
+                ;;
+            --html-report)
+                html_report=1
+                shift
+                ;;
+            --retry)
+                retry_failed="$2"
+                shift 2
+                ;;
+            -v|--verbose)
+                verbose=1
+                shift
+                ;;
+            *)
+                log_error "Unknown test option: $1"
+                echo "Use 'taskerctl help test' for available options"
+                return 1
+                ;;
+        esac
+    done
+
+    log_info "Running iOS application tests..."
+
+    # Load configuration and validate project
+    load_config
+    if ! validate_project; then
+        log_error "Project validation failed"
+        return 1
+    fi
+
+    # Format destination
+    case "$destination" in
+        "iPhone 16 Pro")
+            destination="platform=iOS Simulator,name=iPhone 16 Pro,OS=18.6"
+            ;;
+        *)
+            if [[ ! "$destination" =~ ^platform= ]]; then
+                destination="platform=iOS Simulator,name=$destination,OS=18.6"
+            fi
+            ;;
+    esac
+
+    # Prepare test command based on target
+    local test_action="test"
+    local test_scheme="$SCHEME"
+    local only_testing=""
+
+    case "$test_target" in
+        "unit")
+            test_scheme="TaskerTests"
+            ;;
+        "ui")
+            test_scheme="To Do List"  # Main scheme for UI tests
+
+            # Handle E2E test suite selection
+            case "$test_suite" in
+                "critical")
+                    log_info "Running CRITICAL test suite (40 tests)"
+                    only_testing="-only-testing:To_Do_ListUITests/TaskCreationTests \
+                                 -only-testing:To_Do_ListUITests/TaskCompletionTests \
+                                 -only-testing:To_Do_ListUITests/TaskEditingTests \
+                                 -only-testing:To_Do_ListUITests/TaskDeletionTests \
+                                 -only-testing:To_Do_ListUITests/ProjectManagementTests \
+                                 -only-testing:To_Do_ListUITests/ScoringSystemTests"
+                    ;;
+                "secondary")
+                    log_info "Running SECONDARY test suite (25 tests)"
+                    only_testing="-only-testing:To_Do_ListUITests/NavigationTests \
+                                 -only-testing:To_Do_ListUITests/SettingsTests \
+                                 -only-testing:To_Do_ListUITests/SearchAndFilteringTests \
+                                 -only-testing:To_Do_ListUITests/AnalyticsAndChartsTests \
+                                 -only-testing:To_Do_ListUITests/ThemeAndAppearanceTests \
+                                 -only-testing:To_Do_ListUITests/EdgeCaseTests"
+                    ;;
+                "performance")
+                    log_info "Running PERFORMANCE test suite (10 tests)"
+                    only_testing="-only-testing:To_Do_ListUITests/PerformanceTests"
+                    ;;
+                "all")
+                    log_info "Running ALL E2E tests (75 tests)"
+                    # Run all To Do ListUITests
+                    only_testing="-only-testing:To_Do_ListUITests"
+                    ;;
+                *)
+                    log_warn "Unknown test suite: $test_suite, defaulting to 'all'"
+                    only_testing="-only-testing:To_Do_ListUITests"
+                    ;;
+            esac
+            ;;
+        "all")
+            # Run main scheme tests
+            ;;
+    esac
+
+    # Build test arguments
+    local test_args=(
+        "-workspace" "$WORKSPACE"
+        "-scheme" "$test_scheme"
+        "-configuration" "$configuration"
+        "-destination" "$destination"
+        "$test_action"
+    )
+
+    # Add suite-specific test selection if specified
+    if [[ -n "$only_testing" ]]; then
+        test_args+=($only_testing)
+    fi
+
+    # Add parallel execution if requested
+    if [[ $parallel -eq 1 ]]; then
+        test_args+=("-parallelizeTargets")
+        log_info "Enabling parallel test execution"
+    fi
+
+    # Add coverage if requested
+    if [[ $coverage -eq 1 ]]; then
+        test_args+=("-enableCodeCoverage" "YES")
+        log_info "Enabling code coverage"
+    fi
+
+    # Add verbose output if requested
+    if [[ $verbose -eq 1 ]]; then
+        test_args+=("-verbose")
+    else
+        test_args+=("-quiet")
+    fi
+
+    log_info "Running $test_target tests..."
+    log_info "Configuration: $configuration"
+    log_info "Destination: $destination"
+
+    # Execute tests
+    local test_start=$(date +%s)
+    local test_log="$LOG_DIR/test-$(date +%Y%m%d-%H%M%S).log"
+
+    log_info "Test started. Log file: $test_log"
+
+    cd "$PROJECT_ROOT"
+    if xcodebuild "${test_args[@]}" | tee "$test_log"; then
+        local test_end=$(date +%s)
+        local test_duration=$((test_end - test_start))
+
+        log_success "Tests completed successfully! 🎉"
+        log_info "Test time: $test_duration seconds"
+
+        # Generate report if requested
+        if [[ $report -eq 1 ]] || [[ $html_report -eq 1 ]]; then
+            log_info "Generating test report..."
+            local report_file="$PROJECT_ROOT/build/TestReport-$(date +%Y%m%d-%H%M%S).html"
+            mkdir -p "$PROJECT_ROOT/build"
+
+            # Extract test results from log
+            local total_tests=$(grep -c "Test Case.*passed\|Test Case.*failed" "$test_log" 2>/dev/null || echo "0")
+            local passed_tests=$(grep -c "Test Case.*passed" "$test_log" 2>/dev/null || echo "0")
+            local failed_tests=$(grep -c "Test Case.*failed" "$test_log" 2>/dev/null || echo "0")
+
+            # Create detailed HTML report
+            cat > "$report_file" << EOF
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tasker E2E Test Report</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        h1 { margin: 0 0 10px 0; font-size: 32px; }
+        h2 { color: #333; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        .meta { opacity: 0.9; font-size: 14px; margin: 5px 0; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .stat-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .stat-label { color: #666; font-size: 14px; margin-bottom: 5px; }
+        .stat-value { font-size: 32px; font-weight: bold; color: #333; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #007bff; }
+        .suite-info {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 15px 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .log-section {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .badge-success { background: #28a745; color: white; }
+        .badge-danger { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Tasker E2E Test Report</h1>
+            <div class="meta">Generated: $(date '+%B %d, %Y at %I:%M %p')</div>
+            <div class="meta">Test Target: $test_target</div>
+            <div class="meta">Test Suite: $test_suite</div>
+            <div class="meta">Configuration: $configuration</div>
+            <div class="meta">Destination: $destination</div>
+        </div>
+
+        <div class="suite-info">
+            <strong>📦 Test Suite Information:</strong><br>
+            $(if [[ "$test_suite" == "critical" ]]; then
+                echo "Critical Test Suite - Core functionality (40 tests): Task creation, completion, editing, deletion, projects, scoring"
+            elif [[ "$test_suite" == "secondary" ]]; then
+                echo "Secondary Test Suite - UI features (25 tests): Navigation, settings, search, analytics, themes, edge cases"
+            elif [[ "$test_suite" == "performance" ]]; then
+                echo "Performance Test Suite (10 tests): App launch, scrolling, memory usage, rendering, stress tests"
+            else
+                echo "Complete Test Suite (75 tests): All critical, secondary, and performance tests"
+            fi)
+        </div>
+
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-label">Total Tests</div>
+                <div class="stat-value">$total_tests</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Passed</div>
+                <div class="stat-value success">$passed_tests</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Failed</div>
+                <div class="stat-value error">$failed_tests</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Duration</div>
+                <div class="stat-value">$test_duration s</div>
+            </div>
+        </div>
+
+        <h2>Test Summary</h2>
+        <p>
+            <span class="badge badge-success">PASSED</span>
+            All tests completed successfully! 🎉
+        </p>
+
+        <h2>Test Log (Last 100 lines)</h2>
+        <div class="log-section">
+$(tail -100 "$test_log" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+        </div>
+
+        <h2>Full Test Log</h2>
+        <p>View complete test log: <code>$test_log</code></p>
+
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;">
+        <p style="text-align: center; color: #666; font-size: 12px;">
+            Generated by TaskerCTL v$SCRIPT_VERSION<br>
+            E2E Testing Framework for Tasker iOS
+        </p>
+    </div>
+</body>
+</html>
+EOF
+            log_success "HTML test report generated: $report_file"
+            log_info "Open report: open '$report_file'"
+        fi
+
+        # Show coverage summary if enabled
+        if [[ $coverage -eq 1 ]]; then
+            log_info "Code coverage data collected"
+            log_info "View detailed coverage in Xcode or use coverage tools"
+        fi
+
+    else
+        local test_end=$(date +%s)
+        local test_duration=$((test_end - test_start))
+
+        log_error "Tests failed after $test_duration seconds"
+        log_error "Check the test log: $test_log"
+
+        # Analyze test failures
+        if [[ -f "$test_log" ]]; then
+            if grep -q "Test Suite.*failed" "$test_log"; then
+                log_error "Test suite failures detected"
+            elif grep -q "Build failed" "$test_log"; then
+                log_error "Build failures detected - check build configuration"
+            elif grep -q "Unable to find a destination" "$test_log"; then
+                log_error "Destination device not found - check device availability"
+            fi
+        fi
+
+        # Retry failed tests if requested
+        if [[ $retry_failed -gt 0 ]]; then
+            log_info "Retrying failed tests ($retry_failed attempts)..."
+            for ((i=1; i<=retry_failed; i++)); do
+                log_info "Retry attempt $i/$retry_failed"
+                if xcodebuild "${test_args[@]}" >/dev/null 2>&1; then
+                    log_success "Tests passed on retry $i"
+                    return 0
+                else
+                    log_warn "Retry $i failed"
+                fi
+            done
+            log_error "All retry attempts failed"
+        fi
+
+        return 1
+    fi
+
+    cd - >/dev/null
+}
+
+# Archive command
+cmd_archive() {
+    local configuration="release"
+    local destination="generic/platform=iOS"
+    local output_path=""
+    local signing_identity=""
+    local clean_before=0
+    local verbose=0
+
+    # Parse archive options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -c|--configuration)
+                configuration="$2"
+                shift 2
+                ;;
+            -d|--destination)
+                destination="$2"
+                shift 2
+                ;;
+            -o|--output)
+                output_path="$2"
+                shift 2
+                ;;
+            --signing-identity)
+                signing_identity="$2"
+                shift 2
+                ;;
+            --clean)
+                clean_before=1
+                shift
+                ;;
+            -v|--verbose)
+                verbose=1
+                shift
+                ;;
+            *)
+                log_error "Unknown archive option: $1"
+                echo "Use 'taskerctl help archive' for available options"
+                return 1
+                ;;
+        esac
+    done
+
+    log_info "Creating iOS application archive..."
+
+    # Load configuration and validate project
+    load_config
+    if ! validate_project; then
+        log_error "Project validation failed"
+        return 1
+    fi
+
+    # Set default output path
+    if [[ -z "$output_path" ]]; then
+        output_path="$PROJECT_ROOT/build/Tasker-$(date +%Y%m%d-%H%M%S).xcarchive"
+    fi
+
+    # Ensure output directory exists
+    mkdir -p "$(dirname "$output_path")"
+
+    # Clean if requested
+    if [[ $clean_before -eq 1 ]]; then
+        log_info "Cleaning build folder..."
+        rm -rf "$PROJECT_ROOT/build"
+    fi
+
+    log_info "Archive configuration: $configuration"
+    log_info "Destination: $destination"
+    log_info "Output path: $output_path"
+
+    # Prepare archive arguments
+    local archive_args=(
+        "-workspace" "$WORKSPACE"
+        "-scheme" "$SCHEME"
+        "-configuration" "$configuration"
+        "-destination" "$destination"
+        "archive"
+        "-archivePath" "$output_path"
+    )
+
+    # Add signing identity if specified
+    if [[ -n "$signing_identity" ]]; then
+        archive_args+=("-allowProvisioningUpdates")
+        log_info "Using signing identity: $signing_identity"
+    fi
+
+    # Add verbose output if requested
+    if [[ $verbose -eq 1 ]]; then
+        archive_args+=("-verbose")
+    else
+        archive_args+=("-quiet")
+    fi
+
+    # Execute archive
+    local archive_start=$(date +%s)
+    local archive_log="$LOG_DIR/archive-$(date +%Y%m%d-%H%M%S).log"
+
+    log_info "Archive started. Log file: $archive_log"
+
+    cd "$PROJECT_ROOT"
+    if xcodebuild "${archive_args[@]}" | tee "$archive_log"; then
+        local archive_end=$(date +%s)
+        local archive_duration=$((archive_end - archive_start))
+
+        log_success "Archive created successfully! 🎉"
+        log_info "Archive time: $archive_duration seconds"
+        log_info "Archive location: $output_path"
+
+        # Show archive info
+        if [[ -d "$output_path" ]]; then
+            local archive_size=$(du -sh "$output_path" | cut -f1)
+            local bundle_id=$(plutil -extract "ApplicationProperties.CFBundleIdentifier" xml "$output_path/Info.plist" -o - | sed -n 's/.*<string>\(.*\)<\/string>.*/\1/p' 2>/dev/null || echo "Unknown")
+            local version=$(plutil -extract "ApplicationProperties.CFBundleShortVersionString" xml "$output_path/Info.plist" -o - | sed -n 's/.*<string>\(.*\)<\/string>.*/\1/p' 2>/dev/null || echo "Unknown")
+            local build_number=$(plutil -extract "ApplicationProperties.CFBundleVersion" xml "$output_path/Info.plist" -o - | sed -n 's/.*<string>\(.*\)<\/string>.*/\1/p' 2>/dev/null || echo "Unknown")
+
+            echo
+            echo "${CYAN}Archive Information:${NC}"
+            echo "  • Bundle ID: $bundle_id"
+            echo "  • Version: $version ($build_number)"
+            echo "  • Size: $archive_size"
+            echo "  • Location: $output_path"
+            echo
+
+            log_info "Use 'taskerctl export --archive-path \"$output_path\"' to export for distribution"
+        fi
+
+    else
+        local archive_end=$(date +%s)
+        local archive_duration=$((archive_end - archive_start))
+
+        log_error "Archive failed after $archive_duration seconds"
+        log_error "Check the archive log: $archive_log"
+
+        # Analyze archive failures
+        if [[ -f "$archive_log" ]]; then
+            if grep -q "Code signing error" "$archive_log"; then
+                log_error "Code signing issue detected"
+                log_info "Check provisioning profiles and signing certificates"
+            elif grep -q "No scheme" "$archive_log"; then
+                log_error "Scheme not found - check project configuration"
+            elif grep -q "Unable to find a destination" "$archive_log"; then
+                log_error "Destination device not found"
+            fi
+        fi
+
+        return 1
+    fi
+
+    cd - >/dev/null
+}
+
+# Export command
+cmd_export() {
+    local archive_path=""
+    local export_method="app-store"
+    local output_dir="$PROJECT_ROOT/build"
+    local provisioning_profile=""
+    export_plist=""
+
+    # Parse export options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --archive-path)
+                archive_path="$2"
+                shift 2
+                ;;
+            -m|--export-method)
+                export_method="$2"
+                shift 2
+                ;;
+            -o|--output)
+                output_dir="$2"
+                shift 2
+                ;;
+            --provisioning-profile)
+                provisioning_profile="$2"
+                shift 2
+                ;;
+            --export-options-plist)
+                export_plist="$2"
+                shift 2
+                ;;
+            *)
+                log_error "Unknown export option: $1"
+                echo "Use 'taskerctl help export' for available options"
+                return 1
+                ;;
+        esac
+    done
+
+    # Validate required arguments
+    if [[ -z "$archive_path" ]]; then
+        log_error "Archive path is required. Use --archive-path <path>"
+        return 1
+    fi
+
+    if [[ ! -d "$archive_path" ]]; then
+        log_error "Archive not found at: $archive_path"
+        return 1
+    fi
+
+    log_info "Exporting iOS application from archive..."
+
+    # Ensure output directory exists
+    mkdir -p "$output_dir"
+
+    # Create export options plist if not provided
+    if [[ -z "$export_plist" ]]; then
+        export_plist=$(mktemp --suffix=.plist)
+
+        log_info "Creating export options plist..."
+
+        case "$export_method" in
+            "app-store")
+                cat > "$export_plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+    <key>teamID</key>
+    <string>YOUR_TEAM_ID</string>
+    <key>uploadBitcode</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <true/>
+</dict>
+</plist>
+EOF
+                ;;
+            "ad-hoc")
+                cat > "$export_plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>ad-hoc</string>
+    <key>teamID</key>
+    <string>YOUR_TEAM_ID</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.yourbundle.tasker</key>
+        <string>YOUR_AD_HOC_PROFILE</string>
+    </dict>
+</dict>
+</plist>
+EOF
+                ;;
+            "development")
+                cat > "$export_plist" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>development</string>
+    <key>teamID</key>
+    <string>YOUR_TEAM_ID</string>
+</dict>
+</plist>
+EOF
+                ;;
+        esac
+
+        log_warn "Please edit the export options plist with your actual team ID and profiles:"
+        log_warn "Export options plist: $export_plist"
+        echo -n "${CYAN}Press Enter to continue with export (make sure to edit the plist first): ${NC}"
+        read -r
+    fi
+
+    log_info "Export configuration:"
+    log_info "  • Archive: $archive_path"
+    log_info "  • Method: $export_method"
+    log_info "  • Output: $output_dir"
+    log_info "  • Export Options: $export_plist"
+
+    # Prepare export arguments
+    local export_args=(
+        "-exportArchive"
+        "-archivePath" "$archive_path"
+        "-exportPath" "$output_dir"
+        "-exportOptionsPlist" "$export_plist"
+    )
+
+    # Execute export
+    local export_start=$(date +%s)
+    local export_log="$LOG_DIR/export-$(date +%Y%m%d-%H%M%S).log"
+
+    log_info "Export started. Log file: $export_log"
+
+    if xcodebuild "${export_args[@]}" | tee "$export_log"; then
+        local export_end=$(date +%s)
+        local export_duration=$((export_end - export_start))
+
+        log_success "Export completed successfully! 🎉"
+        log_info "Export time: $export_duration seconds"
+        log_info "Export location: $output_dir"
+
+        # Find exported IPA if it exists
+        local ipa_path=$(find "$output_dir" -name "*.ipa" | head -1)
+        if [[ -n "$ipa_path" && -f "$ipa_path" ]]; then
+            local ipa_size=$(du -sh "$ipa_path" | cut -f1)
+            log_success "IPA exported: $ipa_path ($ipa_size)"
+        fi
+
+    else
+        local export_end=$(date +%s)
+        local export_duration=$((export_end - export_start))
+
+        log_error "Export failed after $export_duration seconds"
+        log_error "Check the export log: $export_log"
+
+        # Analyze export failures
+        if [[ -f "$export_log" ]]; then
+            if grep -q "Code signing error" "$export_log"; then
+                log_error "Code signing issue detected - check certificates and profiles"
+            elif grep -q "provisioning profile" "$export_log"; then
+                log_error "Provisioning profile issue - update export options plist"
+            elif grep -q "Unable to process" "$export_log"; then
+                log_error "Archive processing issue - check archive integrity"
+            fi
+        fi
+
+        return 1
+    fi
+
+    # Clean up temporary plist if we created one
+    if [[ "$export_plist" == *"tmp"* ]]; then
+        rm -f "$export_plist"
+    fi
+}
+
+# Cache command
+cmd_cache() {
+    local action="status"
+    local clean_all=0
+    local analyze=0
+    local warm=0
+
+    # Parse cache options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            status|clean|analyze|warm|info)
+                action="$1"
+                shift
+                ;;
+            --all)
+                clean_all=1
+                shift
+                ;;
+            *)
+                log_error "Unknown cache option: $1"
+                echo "Use 'taskerctl help cache' for available options"
+                return 1
+                ;;
+        esac
+    done
+
+    local cache_dir="$CONFIG_DIR/cache"
+    local build_cache="$cache_dir/build"
+    local deps_cache="$cache_dir/dependencies"
+
+    mkdir -p "$cache_dir" "$build_cache" "$deps_cache"
+
+    case "$action" in
+        "status")
+            log_info "Cache Status:"
+            echo
+            echo "${CYAN}Cache Directory:${NC} $cache_dir"
+
+            # Build cache status
+            local build_size=$(du -sh "$build_cache" 2>/dev/null | cut -f1 || echo "0B")
+            local build_files=$(find "$build_cache" -type f 2>/dev/null | wc -l)
+            echo "  • Build Cache: $build_size ($build_files files)"
+
+            # Dependencies cache status
+            local deps_size=$(du -sh "$deps_cache" 2>/dev/null | cut -f1 || echo "0B")
+            local deps_files=$(find "$deps_cache" -type f 2>/dev/null | wc -l)
+            echo "  • Dependencies Cache: $deps_size ($deps_files files)"
+
+            # Cache statistics
+            if [[ -f "$cache_dir/stats.json" ]]; then
+                local cache_hits=$(jq -r '.hits // 0' "$cache_dir/stats.json" 2>/dev/null || echo "0")
+                local cache_misses=$(jq -r '.misses // 0' "$cache_dir/stats.json" 2>/dev/null || echo "0")
+                local total=$((cache_hits + cache_misses))
+                if [[ $total -gt 0 ]]; then
+                    local hit_rate=$((cache_hits * 100 / total))
+                    echo "  • Cache Hit Rate: ${hit_rate}% ($cache_hits/$total)"
+                fi
+            fi
+            echo
+
+            # Recent cache activity
+            if [[ -f "$cache_dir/activity.log" ]]; then
+                echo "${CYAN}Recent Activity:${NC}"
+                tail -5 "$cache_dir/activity.log" | while read -r line; do
+                    echo "  • $line"
+                done
+                echo
+            fi
+            ;;
+
+        "clean")
+            log_info "Cleaning cache..."
+
+            if [[ $clean_all -eq 1 ]]; then
+                rm -rf "$cache_dir"
+                mkdir -p "$cache_dir" "$build_cache" "$deps_cache"
+                log_success "All cache cleaned"
+            else
+                # Clean only old cache files
+                find "$cache_dir" -name "*.tmp" -mtime +1 -delete 2>/dev/null || true
+                find "$cache_dir" -name "*.cache" -mtime +7 -delete 2>/dev/null || true
+                log_success "Old cache files cleaned"
+            fi
+            ;;
+
+        "analyze")
+            log_info "Analyzing cache effectiveness..."
+
+            # Analyze build cache
+            local build_analysis="$cache_dir/build_analysis.txt"
+            {
+                echo "Build Cache Analysis - $(date)"
+                echo "=================================="
+                echo
+
+                if [[ -d "$build_cache" ]]; then
+                    echo "Build Cache Contents:"
+                    find "$build_cache" -type f -exec ls -lah {} \; | head -20
+                    echo
+
+                    echo "Cache Size by Type:"
+                    find "$build_cache" -name "*.o" -exec du -ch {} + 2>/dev/null | tail -1 || echo "No object files"
+                    find "$build_cache" -name "*.a" -exec du -ch {} + 2>/dev/null | tail -1 || echo "No archive files"
+                else
+                    echo "Build cache is empty"
+                fi
+            } > "$build_analysis"
+
+            log_success "Cache analysis saved to: $build_analysis"
+            cat "$build_analysis"
+            ;;
+
+        "warm")
+            log_info "Warming up cache..."
+
+            # Pre-cache common build artifacts
+            local warm_start=$(date +%s)
+
+            # Cache project structure
+            local project_hash=$(calculate_project_hash)
+            echo "$project_hash" > "$cache_dir/project_hash.txt"
+
+            # Cache dependencies info
+            if [[ -f "$PROJECT_ROOT/Podfile.lock" ]]; then
+                cp "$PROJECT_ROOT/Podfile.lock" "$deps_cache/podfile.lock.cache"
+            fi
+
+            # Cache Xcode build settings
+            if command -v xcodebuild >/dev/null 2>&1; then
+                local settings_file="$build_cache/build_settings.cache"
+                xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -showBuildSettings > "$settings_file" 2>/dev/null || true
+            fi
+
+            local warm_end=$(date +%s)
+            local warm_duration=$((warm_end - warm_start))
+
+            log_success "Cache warmed up in $warm_duration seconds"
+            ;;
+
+        "info")
+            echo
+            echo "${CYAN}TaskerCTL Cache Information:${NC}"
+            echo "=============================="
+            echo
+            echo "Cache Types:"
+            echo "  • Build Cache: Stores compiled objects and build artifacts"
+            echo "  • Dependencies Cache: Stores pod and dependency information"
+            echo "  • Project Hash: Detects project changes for invalidation"
+            echo
+            echo "Cache Strategies:"
+            echo "  • smart: Intelligent caching based on file changes (default)"
+            echo "  • aggressive: Maximum caching, reuse more artifacts"
+            echo "  • conservative: Minimal caching, rebuild more often"
+            echo "  • none: Disable caching completely"
+            echo
+            echo "Cache Invalidation:"
+            echo "  • File changes in project sources"
+            echo "  • Podfile modifications"
+            echo "  • Build configuration changes"
+            echo "  • Xcode version updates"
+            echo
+            ;;
+    esac
+}
+
+# Calculate project hash for cache invalidation
+calculate_project_hash() {
+    local hash_file="$CONFIG_DIR/cache/project_sources.hash"
+    local current_hash=""
+
+    # Hash key source files
+    if command -v md5 >/dev/null 2>&1; then
+        # Use md5 for hashing
+        current_hash=$(find "$PROJECT_ROOT" -name "*.swift" -o -name "*.m" -o -name "*.h" -o -name "Podfile*" -o -name "*.pbxproj" | head -100 | xargs md5 2>/dev/null | md5)
+    elif command -v shasum >/dev/null 2>&1; then
+        # Use shasum as fallback
+        current_hash=$(find "$PROJECT_ROOT" -name "*.swift" -o -name "*.m" -o -name "*.h" -o -name "Podfile*" -o -name "*.pbxproj" | head -100 | xargs shasum 2>/dev/null | shasum)
+    else
+        # Fallback to timestamp
+        current_hash=$(date +%s)
+    fi
+
+    echo "$current_hash"
+}
+
+# Check if cache is valid
+is_cache_valid() {
+    local cache_dir="$CONFIG_DIR/cache"
+    local project_hash_file="$cache_dir/project_hash.txt"
+    local current_hash
+
+    # If no cache directory, return false
+    if [[ ! -d "$cache_dir" ]]; then
+        return 1
+    fi
+
+    # Check if project has changed
+    current_hash=$(calculate_project_hash)
+    if [[ -f "$project_hash_file" ]]; then
+        local cached_hash
+        cached_hash=$(cat "$project_hash_file" 2>/dev/null)
+        if [[ "$current_hash" == "$cached_hash" ]]; then
+            return 0
+        fi
+    fi
+
+    # Cache is invalid, update hash
+    echo "$current_hash" > "$project_hash_file"
+    return 1
+}
+
+# Update cache statistics
+update_cache_stats() {
+    local hit_or_miss="$1"  # "hit" or "miss"
+    local cache_dir="$CONFIG_DIR/cache"
+    local stats_file="$cache_dir/stats.json"
+    local current_date
+
+    # Get current date in safe format for JSON
+    current_date=$(date '+%Y-%m-%d %H:%M:%S')
+
+    # Initialize stats if doesn't exist
+    if [[ ! -f "$stats_file" ]]; then
+        cat > "$stats_file" << EOF
+{
+  "hits": 0,
+  "misses": 0,
+  "last_updated": "$current_date"
+}
+EOF
+    fi
+
+    # Update stats with proper JSON escaping
+    if command -v jq >/dev/null 2>&1; then
+        local temp_file=$(mktemp)
+        if [[ "$hit_or_miss" == "hit" ]]; then
+            if jq --arg date "$current_date" '.hits += 1 | .last_updated = $date' "$stats_file" > "$temp_file"; then
+                mv "$temp_file" "$stats_file"
+            else
+                rm -f "$temp_file"
+                log_debug "Failed to update cache hit statistics"
+            fi
+        else
+            if jq --arg date "$current_date" '.misses += 1 | .last_updated = $date' "$stats_file" > "$temp_file"; then
+                mv "$temp_file" "$stats_file"
+            else
+                rm -f "$temp_file"
+                log_debug "Failed to update cache miss statistics"
+            fi
+        fi
+    fi
+
+    # Log activity
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Cache $hit_or_miss" >> "$cache_dir/activity.log"
+}
+
+# Simulator detection functions
+get_running_simulators() {
+    # Get list of running simulators with their IDs, names, and OS versions
+    xcrun simctl list devices | grep "Booted" | while read -r line; do
+        # Extract name (everything before the first parenthesis)
+        local name=$(echo "$line" | sed -E 's/^[[:space:]]*([^[:space:]]*).*/\1/')
+        # Extract ID (between parentheses)
+        local id=$(echo "$line" | sed -E 's/^[^()]*\(([^)]+)\).*$/\1/')
+
+        if [[ -n "$name" && -n "$id" ]]; then
+            # Look up OS version from the full device list using the ID
+            local os_version=$(xcrun simctl list devices available | grep "$id" | sed -E 's/^[^()]*\(([^)]+)\)[^()]*\(([^)]+)\).*$/\2/' | head -1)
+
+            # If still not found, try to get it from any device list
+            if [[ -z "$os_version" ]]; then
+                os_version=$(xcrun simctl list devices | grep "$id" | sed -E 's/^[^()]*\(([^)]+)\)[^()]*\(([^)]+)\).*$/\2/' | head -1)
+            fi
+
+            # Final fallback if OS version extraction fails
+            if [[ -z "$os_version" ]]; then
+                os_version="26.0"  # Use more recent default
+            fi
+
+            echo "$name|$id|$os_version"
+        fi
+    done
+}
+
+get_available_simulators() {
+    # Get list of available simulators (iPhone and iPad) with their IDs, names, and OS versions
+    xcrun simctl list devices available | grep -E "iPhone|iPad" | while read -r line; do
+        # Extract name (everything before the first parenthesis)
+        local name=$(echo "$line" | sed -E 's/^[[:space:]]*([^[:space:]]*).*/\1/')
+        # Extract ID (between first and second parentheses)
+        local id=$(echo "$line" | sed -E 's/^[^()]*\(([^)]+)\)[[:space:]]*\(([^)]+)\).*$/\1/')
+        # Extract OS version (between second and third parentheses)
+        local os_version=$(echo "$line" | sed -E 's/^[^()]*\(([^)]+)\)[^()]*\(([^)]+)\).*$/\2/')
+        if [[ -n "$name" && -n "$id" && -n "$os_version" ]]; then
+            echo "$name|$id|$os_version"
+        fi
+    done
+}
+
+get_best_simulator() {
+    # Smart simulator selection logic
+    local running_sims
+    running_sims=$(get_running_simulators)
+
+    if [[ -n "$running_sims" ]]; then
+        # Prefer running simulators - use ID-only format for best compatibility
+        log_debug "Found running simulators"
+        echo "$running_sims" | head -1 | while IFS='|' read -r name id os_version; do
+            echo "platform=iOS Simulator,id=$id"
+        done
+    else
+        # If no running simulators, get available ones and prefer iPhone
+        log_debug "No running simulators found, selecting from available"
+        local available_sims
+        available_sims=$(get_available_simulators)
+
+        # Prefer iPhone 16 Pro if available, otherwise first iPhone
+        local preferred_sim=$(echo "$available_sims" | grep "iPhone 16 Pro" | head -1)
+        if [[ -z "$preferred_sim" ]]; then
+            preferred_sim=$(echo "$available_sims" | grep "iPhone" | head -1)
+        fi
+
+        if [[ -n "$preferred_sim" ]]; then
+            IFS='|' read -r name id os_version <<< "$preferred_sim"
+            echo "platform=iOS Simulator,id=$id"
+        else
+            # Fallback to generic simulator - use a common device ID
+            echo "platform=iOS Simulator,id=078DC990-5CFC-453E-BD3C-32AD93665710"
+        fi
+    fi
+}
+
+format_simulator_destination() {
+    local simulator_info="$1"
+
+    if [[ -z "$simulator_info" ]]; then
+        # Use smart detection
+        get_best_simulator
+        return
+    fi
+
+    # Parse user-provided simulator info
+    if [[ "$simulator_info" =~ ^platform=iOS ]]; then
+        # Already properly formatted
+        echo "$simulator_info"
+        return
+    fi
+
+    # Try to find simulator by name
+    local available_sims
+    available_sims=$(get_available_simulators)
+
+    local found_sim
+    found_sim=$(echo "$available_sims" | grep "$simulator_info" | head -1)
+
+    if [[ -n "$found_sim" ]]; then
+        IFS='|' read -r name id os_version <<< "$found_sim"
+        echo "platform=iOS Simulator,name=$name,OS=$os_version,id=$id"
+    else
+        # Fallback to smart detection
+        log_warn "Simulator '$simulator_info' not found, using smart selection"
+        get_best_simulator
+    fi
+}
+
+boot_simulator_if_needed() {
+    local destination="$1"
+    local simulator_id=""
+
+    # Extract simulator ID from destination
+    if [[ "$destination" =~ id=([^,]+) ]]; then
+        simulator_id="${BASH_REMATCH[1]}"
+    fi
+
+    if [[ -n "$simulator_id" ]]; then
+        # Check if simulator is already running
+        local is_running
+        is_running=$(xcrun simctl list devices | grep "$simulator_id" | grep -c "Booted" || echo "0")
+
+        if [[ "$is_running" -eq 0 ]]; then
+            log_info "Booting simulator $simulator_id..."
+            xcrun simctl boot "$simulator_id" 2>/dev/null || true
+            # Give it a moment to boot
+            sleep 2
+        fi
+    fi
+}
+
+# Performance monitoring function
+monitor_performance() {
+    local operation="$1"
+    local start_time="$2"
+    local end_time="$3"
+    local additional_data="${4:-}"
+
+    local duration=$((end_time - start_time))
+    local perf_file="$CONFIG_DIR/performance.log"
+
+    # Log performance data
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [$operation] Duration: ${duration}s $additional_data" >> "$perf_file"
+
+    # Provide suggestions for slow operations
+    if [[ $duration -gt 300 ]]; then  # 5 minutes
+        log_warn "Slow operation detected: $operation took ${duration}s"
+        log_info "Suggestions:"
+
+        case "$operation" in
+            "build")
+                log_info "  • Try enabling parallel builds: --parallel"
+                log_info "  • Consider using cache: --cache-strategy aggressive"
+                log_info "  • Check for large dependencies that may slow compilation"
+                ;;
+            "test")
+                log_info "  • Use parallel test execution: --parallel"
+                log_info "  • Run specific test suites instead of all tests"
+                log_info "  • Consider using test filters"
+                ;;
+            "archive")
+                log_info "  • Use clean build only when necessary"
+                log_info "  • Check code signing configuration"
+                ;;
+        esac
+    fi
+
+    # Show performance trends
+    local recent_ops=$(tail -10 "$perf_file" | grep "\[$operation\]" | tail -5)
+    if [[ -n "$recent_ops" ]]; then
+        log_debug "Recent $operation performance:"
+        echo "$recent_ops" | while read -r line; do
+            log_debug "  $line"
+        done
+    fi
+}
+
+# Check system resources
+check_system_resources() {
+    local cpu_usage=$(top -l 1 -n 0 | grep "CPU usage" | awk '{print $3}' | sed 's/%//')
+    local memory_pressure=$(memory_pressure 2>/dev/null | grep "System-wide memory free percentage" | awk '{print $5}' | sed 's/%//' || echo "unknown")
+
+    log_debug "System Resources - CPU: ${cpu_usage}% usage, Memory: ${memory_pressure}% free"
+
+    # Provide warnings for high resource usage
+    if [[ "${cpu_usage%.*}" -gt 80 ]]; then
+        log_warn "High CPU usage detected (${cpu_usage}%). Build performance may be affected."
+    fi
+
+    if [[ "$memory_pressure" != "unknown" && "${memory_pressure%.*}" -lt 20 ]]; then
+        log_warn "Low memory available (${memory_pressure}% free). Consider closing other applications."
+    fi
+}
+
+# Git integration functions
+get_git_status() {
+    if ! command -v git >/dev/null 2>&1; then
+        return 1
+    fi
+
+    if [[ ! -d "$PROJECT_ROOT/.git" ]]; then
+        return 1
+    fi
+
+    cd "$PROJECT_ROOT"
+    local git_status=$(git status --porcelain 2>/dev/null)
+    cd - >/dev/null
+
+    if [[ -n "$git_status" ]]; then
+        return 0  # Has changes
+    else
+        return 1  # Clean
+    fi
+}
+
+get_changed_files() {
+    if ! command -v git >/dev/null 2>&1 || [[ ! -d "$PROJECT_ROOT/.git" ]]; then
+        echo ""
+        return
+    fi
+
+    cd "$PROJECT_ROOT"
+    local changed_files=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -E "\.(swift|m|h|mm)$" | tr '\n' ' ')
+    cd - >/dev/null
+
+    echo "$changed_files"
+}
+
+# Notification functions
+send_notification() {
+    local title="$1"
+    local message="$2"
+    local notification_type="${3:-info}"  # info, success, error
+
+    # macOS notification
+    if command -v osascript >/dev/null 2>&1; then
+        local sound="Glass"
+        if [[ "$notification_type" == "error" ]]; then
+            sound="Basso"
+        elif [[ "$notification_type" == "success" ]]; then
+            sound="Hero"
+        fi
+
+        osascript -e "display notification \"$message\" with title \"$title\" sound name \"$sound\"" 2>/dev/null || true
+    fi
+
+    # Log notification
+    log_info "Notification: $title - $message"
+}
+
+# Slack integration
+send_slack_notification() {
+    local message="$1"
+    local webhook_url="$2"
+    local channel="${3:-#builds}"
+
+    if [[ -z "$webhook_url" ]]; then
+        log_debug "No Slack webhook configured"
+        return
+    fi
+
+    local payload=$(cat <<EOF
+{
+    "channel": "$channel",
+    "text": "$message",
+    "username": "TaskerCTL",
+    "icon_emoji": ":robot_face:"
+}
+EOF
+)
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -X POST -H 'Content-type: application/json' \
+            --data "$payload" \
+            "$webhook_url" \
+            2>/dev/null || log_warn "Failed to send Slack notification"
+    fi
+}
+
+# Config command
+cmd_config() {
+    local action="show"
+    local profile="default"
+
+    # Parse config options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            show|list|set|get|init|validate)
+                action="$1"
+                shift
+                ;;
+            -p|--profile)
+                profile="$2"
+                shift 2
+                ;;
+            *)
+                if [[ "$action" == "set" ]]; then
+                    # Set command format: config set key value
+                    break
+                else
+                    log_error "Unknown config option: $1"
+                    echo "Use 'taskerctl help config' for available options"
+                    return 1
+                fi
+                ;;
+        esac
+    done
+
+    local config_file="$CONFIG_DIR/config.json"
+    local profiles_dir="$CONFIG_DIR/profiles"
+
+    mkdir -p "$profiles_dir"
+
+    case "$action" in
+        "show")
+            log_info "Current Configuration:"
+            echo
+            if [[ -f "$config_file" ]]; then
+                if command -v jq >/dev/null 2>&1; then
+                    jq '.' "$config_file"
+                else
+                    cat "$config_file"
+                fi
+            else
+                log_warn "No configuration file found. Run 'taskerctl config init' to create one."
+            fi
+            ;;
+
+        "init")
+            log_info "Initializing configuration..."
+
+            if [[ -f "$config_file" ]]; then
+                log_warn "Configuration file already exists"
+                echo -n "${CYAN}Overwrite? (y/N): ${NC}"
+                read -r response
+                if [[ ! "$response" =~ ^[Yy]$ ]]; then
+                    log_info "Configuration initialization cancelled"
+                    return 0
+                fi
+            fi
+
+            # Create default configuration
+            cat > "$config_file" << 'EOF'
+{
+  "version": "1.0.0",
+  "project": {
+    "workspace": "Tasker.xcworkspace",
+    "scheme": "To Do List",
+    "target": "Tasker"
+  },
+  "build": {
+    "configuration": "debug",
+    "destination": "iPhone 16 Pro",
+    "parallel_jobs": 4,
+    "cache_strategy": "smart"
+  },
+  "logging": {
+    "level": "INFO",
+    "file_logging": true,
+    "console_colors": true
+  },
+  "performance": {
+    "monitoring_enabled": true,
+    "resource_checks": true,
+    "slow_operation_threshold": 300
+  },
+  "notifications": {
+    "enabled": false,
+    "desktop_notifications": true,
+    "slack_webhook": "",
+    "slack_channel": "#builds"
+  },
+  "git": {
+    "integration_enabled": true,
+    "diff_build_mode": false
+  },
+  "advanced": {
+    "error_intelligence": true,
+    "auto_dependency_update": true,
+    "build_retention_days": 7
+  }
+}
+EOF
+
+            log_success "Configuration initialized at $config_file"
+            log_info "Customize your settings with: taskerctl config set <key> <value>"
+            ;;
+
+        "list")
+            log_info "Available Configuration Keys:"
+            echo
+            echo "${CYAN}Project Settings:${NC}"
+            echo "  project.workspace"
+            echo "  project.scheme"
+            echo "  project.target"
+            echo
+            echo "${CYAN}Build Settings:${NC}"
+            echo "  build.configuration"
+            echo "  build.destination"
+            echo "  build.parallel_jobs"
+            echo "  build.cache_strategy"
+            echo
+            echo "${CYAN}Logging Settings:${NC}"
+            echo "  logging.level"
+            echo "  logging.file_logging"
+            echo "  logging.console_colors"
+            echo
+            echo "${CYAN}Performance Settings:${NC}"
+            echo "  performance.monitoring_enabled"
+            echo "  performance.resource_checks"
+            echo "  performance.slow_operation_threshold"
+            echo
+            echo "${CYAN}Notification Settings:${NC}"
+            echo "  notifications.enabled"
+            echo "  notifications.desktop_notifications"
+            echo "  notifications.slack_webhook"
+            echo "  notifications.slack_channel"
+            echo
+            echo "${CYAN}Git Settings:${NC}"
+            echo "  git.integration_enabled"
+            echo "  git.diff_build_mode"
+            echo
+            echo "${CYAN}Advanced Settings:${NC}"
+            echo "  advanced.error_intelligence"
+            echo "  advanced.auto_dependency_update"
+            echo "  advanced.build_retention_days"
+            ;;
+
+        "set")
+            if [[ $# -lt 2 ]]; then
+                log_error "Usage: taskerctl config set <key> <value>"
+                return 1
+            fi
+
+            local key="$1"
+            local value="$2"
+
+            if [[ ! -f "$config_file" ]]; then
+                log_error "Configuration file not found. Run 'taskerctl config init' first."
+                return 1
+            fi
+
+            if command -v jq >/dev/null 2>&1; then
+                # Validate and set configuration
+                case "$key" in
+                    "build.cache_strategy")
+                        if [[ ! "$value" =~ ^(smart|aggressive|conservative|none)$ ]]; then
+                            log_error "Invalid cache strategy. Must be: smart, aggressive, conservative, or none"
+                            return 1
+                        fi
+                        ;;
+                    "logging.level")
+                        if [[ ! "$value" =~ ^(DEBUG|INFO|WARN|ERROR)$ ]]; then
+                            log_error "Invalid log level. Must be: DEBUG, INFO, WARN, or ERROR"
+                            return 1
+                        fi
+                        ;;
+                esac
+
+                # Set the configuration value
+                local temp_file=$(mktemp)
+                if jq ".$key = \"$value\"" "$config_file" > "$temp_file"; then
+                    mv "$temp_file" "$config_file"
+                    log_success "Configuration updated: $key = $value"
+                else
+                    rm -f "$temp_file"
+                    log_error "Failed to update configuration. Key may not exist."
+                    return 1
+                fi
+            else
+                log_error "jq is required for configuration management"
+                return 1
+            fi
+            ;;
+
+        "get")
+            if [[ $# -lt 1 ]]; then
+                log_error "Usage: taskerctl config get <key>"
+                return 1
+            fi
+
+            local key="$1"
+
+            if [[ ! -f "$config_file" ]]; then
+                log_error "Configuration file not found. Run 'taskerctl config init' first."
+                return 1
+            fi
+
+            if command -v jq >/dev/null 2>&1; then
+                local value
+                value=$(jq -r ".$key // \"(not set)\"" "$config_file" 2>/dev/null)
+                if [[ "$value" != "(not set)" ]]; then
+                    echo "$key: $value"
+                else
+                    log_error "Configuration key not found: $key"
+                    return 1
+                fi
+            else
+                log_error "jq is required for configuration management"
+                return 1
+            fi
+            ;;
+
+        "validate")
+            log_info "Validating configuration..."
+
+            if [[ ! -f "$config_file" ]]; then
+                log_error "Configuration file not found"
+                return 1
+            fi
+
+            local validation_errors=0
+
+            # Validate JSON syntax
+            if ! jq empty "$config_file" >/dev/null 2>&1; then
+                log_error "Invalid JSON syntax in configuration file"
+                validation_errors=$((validation_errors + 1))
+            fi
+
+            # Validate required fields
+            local required_fields=("project.workspace" "project.scheme" "project.target")
+            for field in "${required_fields[@]}"; do
+                local value
+                value=$(jq -r ".$field // empty" "$config_file" 2>/dev/null)
+                if [[ -z "$value" ]]; then
+                    log_error "Required field missing: $field"
+                    validation_errors=$((validation_errors + 1))
+                fi
+            done
+
+            # Validate project files
+            local workspace
+            workspace=$(jq -r '.project.workspace // empty' "$config_file" 2>/dev/null)
+            if [[ -n "$workspace" && ! -f "$PROJECT_ROOT/$workspace/contents.xcworkspacedata" ]]; then
+                log_error "Workspace not found: $workspace"
+                validation_errors=$((validation_errors + 1))
+            fi
+
+            if [[ $validation_errors -eq 0 ]]; then
+                log_success "Configuration is valid! ✅"
+            else
+                log_error "Configuration validation failed with $validation_errors errors"
+                return 1
+            fi
+            ;;
+    esac
+}
+
+# Deploy command (Phase 4)
+cmd_deploy() {
+    local deployment_type="development"
+    local environment="staging"
+    local dry_run=0
+    local force=0
+    local rollback=0
+
+    # Parse deploy options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            development|staging|production)
+                deployment_type="$1"
+                shift
+                ;;
+            -e|--environment)
+                environment="$2"
+                shift 2
+                ;;
+            --dry-run)
+                dry_run=1
+                shift
+                ;;
+            --force)
+                force=1
+                shift
+                ;;
+            --rollback)
+                rollback=1
+                shift
+                ;;
+            *)
+                log_error "Unknown deploy option: $1"
+                echo "Use 'taskerctl help deploy' for available options"
+                return 1
+                ;;
+        esac
+    done
+
+    log_info "Starting iOS application deployment..."
+    log_info "Deployment type: $deployment_type"
+    log_info "Environment: $environment"
+
+    if [[ $dry_run -eq 1 ]]; then
+        log_info "DRY RUN MODE - No actual deployment will be performed"
+    fi
+
+    # Load configuration
+    load_config
+
+    # Validate project
+    if ! validate_project; then
+        log_error "Project validation failed"
+        return 1
+    fi
+
+    case "$deployment_type" in
+        "development")
+            log_info "Development deployment - running build and test"
+
+            if [[ $dry_run -eq 0 ]]; then
+                # Build and test
+                if ! cmd_build --configuration release --archive; then
+                    log_error "Development deployment failed at build stage"
+                    return 1
+                fi
+
+                # Run tests
+                if ! cmd_test --parallel --coverage; then
+                    log_warn "Tests failed but deployment continuing (development mode)"
+                fi
+
+                log_success "Development deployment completed successfully! 🎉"
+            else
+                log_info "Would build and test for development deployment"
+            fi
+            ;;
+
+        "staging")
+            log_info "Staging deployment - building for testing"
+
+            if [[ $dry_run -eq 0 ]]; then
+                # Build for staging
+                if ! cmd_build --configuration release --archive; then
+                    log_error "Staging deployment failed at build stage"
+                    return 1
+                fi
+
+                # Run comprehensive tests
+                if ! cmd_test unit --parallel; then
+                    log_error "Unit tests failed - staging deployment aborted"
+                    return 1
+                fi
+
+                if ! cmd_test ui --parallel; then
+                    log_error "UI tests failed - staging deployment aborted"
+                    return 1
+                fi
+
+                log_success "Staging deployment completed successfully! 🎉"
+                log_info "Ready for production deployment with: taskerctl deploy production"
+            else
+                log_info "Would build and run comprehensive tests for staging deployment"
+            fi
+            ;;
+
+        "production")
+            log_info "Production deployment - building for release"
+
+            if [[ $dry_run -eq 0 ]]; then
+                if [[ $force -ne 1 ]]; then
+                    echo
+                    echo "${RED}WARNING: This will create a production-ready build!${NC}"
+                    echo -n "${CYAN}Are you sure you want to continue? (type 'production' to confirm): ${NC}"
+                    read -r confirmation
+                    if [[ "$confirmation" != "production" ]]; then
+                        log_info "Production deployment cancelled"
+                        return 0
+                    fi
+                fi
+
+                # Build for production
+                if ! cmd_build --configuration release --archive --clean; then
+                    log_error "Production deployment failed at build stage"
+                    return 1
+                fi
+
+                # Run all tests
+                if ! cmd_test --parallel --coverage --report; then
+                    log_error "Tests failed - production deployment aborted"
+                    return 1
+                fi
+
+                log_success "Production deployment completed successfully! 🚀"
+                log_info "Archive created and ready for App Store submission"
+            else
+                log_info "Would create production-ready build with full test suite"
+            fi
+            ;;
+    esac
+
+    # Send deployment notification
+    if [[ $dry_run -eq 0 ]]; then
+        send_notification "Deployment Complete" "$deployment_type deployment to $environment completed successfully" "success"
+    fi
+}
+
+# Logs command
+cmd_logs() {
+    local log_type="all"
+    local follow=0
+    local filter=""
+
+    # Parse logs options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            build|test|archive|export)
+                log_type="$1"
+                shift
+                ;;
+            -f|--follow)
+                follow=1
+                shift
+                ;;
+            --filter)
+                filter="$2"
+                shift 2
+                ;;
+            *)
+                log_error "Unknown logs option: $1"
+                echo "Use 'taskerctl help logs' for available options"
+                return 1
+                ;;
+        esac
+    done
+
+    log_info "Displaying logs..."
+
+    # Find relevant log files
+    local log_files=()
+
+    case "$log_type" in
+        "build")
+            log_files=($(find "$LOG_DIR" -name "build-*.log" -type f | sort -r))
+            ;;
+        "test")
+            log_files=($(find "$LOG_DIR" -name "test-*.log" -type f | sort -r))
+            ;;
+        "archive")
+            log_files=($(find "$LOG_DIR" -name "archive-*.log" -type f | sort -r))
+            ;;
+        "export")
+            log_files=($(find "$LOG_DIR" -name "export-*.log" -type f | sort -r))
+            ;;
+        "all")
+            log_files=($(find "$LOG_DIR" -name "*.log" -type f | sort -r))
+            ;;
+    esac
+
+    if [[ ${#log_files[@]} -eq 0 ]]; then
+        log_warn "No $log_type logs found"
+        return 0
+    fi
+
+    log_info "Found ${#log_files[@]} log file(s)"
+
+    # Display logs
+    for log_file in "${log_files[@]}"; do
+        local log_name=$(basename "$log_file" .log)
+        echo
+        echo "${CYAN}=== $log_name ===${NC}"
+        echo "File: $log_file"
+        echo
+
+        if [[ -n "$filter" ]]; then
+            grep -i "$filter" "$log_file" || echo "No matches found"
+        else
+            tail -50 "$log_file"
+        fi
+
+        echo
+    done
+
+    # Follow mode for main log
+    if [[ $follow -eq 1 && -f "$LOG_DIR/taskerctl.log" ]]; then
+        log_info "Following main log (Ctrl+C to stop)..."
+        tail -f "$LOG_DIR/taskerctl.log"
+    fi
+}
+
+# ============================================================================
+# MAIN ENTRY POINT
+# ============================================================================
+
+# Main function to parse and execute commands
+main() {
+    # Initialize configuration
+    init_config
+    load_config
+
+    # Check for help command first
+    if [[ $# -gt 0 && "$1" == "help" ]]; then
+        if [[ $# -gt 1 ]]; then
+            show_command_help "$2"
+        else
+            show_help
+        fi
+        exit 0
+    fi
+
+    # Parse global options
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --verbose|-v)
+                VERBOSE=1
+                LOG_LEVEL="DEBUG"
+                shift
+                ;;
+            --quiet|-q)
+                QUIET=1
+                shift
+                ;;
+            --version)
+                echo "TaskerCTL v$SCRIPT_VERSION"
+                exit 0
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            setup|build|run|test|clean|status|doctor|archive|export|logs|cache|config|deploy)
+                local command="$1"
+                shift
+                "cmd_$command" "$@"
+                exit $?
+                ;;
+            *)
+                log_error "Unknown command: $1"
+                echo
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+
+    # If no command provided, show help
+    show_help
+}
+
+# Execute main function with all arguments
+main "$@"

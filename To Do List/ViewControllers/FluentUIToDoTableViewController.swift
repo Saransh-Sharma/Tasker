@@ -640,7 +640,10 @@ extension FluentUIToDoTableViewController {
         
         // Add unread dot for overdue tasks
 //        cell.isUnreadDotVisible = isTaskOverdue(task) && !task.isComplete
-        
+
+        // Set accessibility identifier for testing
+        cell.accessibilityIdentifier = "home.taskCell.\(indexPath.section).\(indexPath.row)"
+
         
         return cell
     }

@@ -46,8 +46,8 @@ class SettingsUITests: XCTestCase {
             // If these are the only items, and it's the primary toolbar, it might be index 2.
             // However, `firstMatch` for toolbars might be the top one if any.
             // Let's try to find the bottom toolbar specifically.
-            if app.bottomToolbars.firstMatch.exists { // `bottomToolbars` is specific to bottom bars
-                 let buttonsInBottomBar = app.bottomToolbars.firstMatch.buttons
+            if app.toolbars.firstMatch.exists { // `toolbars` finds all toolbars including bottom bars
+                 let buttonsInBottomBar = app.toolbars.firstMatch.buttons
                  if buttonsInBottomBar.count > 2 { // Check if there are at least 3 buttons
                     settingsButtonToTap = buttonsInBottomBar.element(boundBy: 2) // Settings is the 3rd
                  } else if buttonsInBottomBar.count > 0 {

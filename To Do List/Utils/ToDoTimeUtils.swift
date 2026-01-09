@@ -25,13 +25,23 @@ class ToDoTimeUtils {
     //MARK:-                    get name of the weekday
     //----------------------- *************************** -----------------------
     func getWeekday(date: Date) -> String {
-        
+
         let dateFormatter_Weekday = DateFormatter()
         dateFormatter_Weekday.dateFormat = "EEE"
         let nameOfWeekday = dateFormatter_Weekday.string(from: date)
         return nameOfWeekday
     }
-    
+
+    //----------------------- *************************** -----------------------
+    //MARK:-                    get formatted date string
+    //----------------------- *************************** -----------------------
+    func getFormattedDate(_ date: Date) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium  // e.g., "Jan 5, 2025"
+        dateFormatter.timeStyle = .none
+        return dateFormatter.string(from: date)
+    }
+
 }
 
 // MARK: - Calendar Extension

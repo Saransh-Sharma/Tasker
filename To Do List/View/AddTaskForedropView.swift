@@ -112,24 +112,27 @@ extension AddTaskViewController {
     func setupPrioritySC() {
         print("SETUP PRIORITY SC")
         //MARK:- -this is in foredrop (tablsegcontrol: to allow users to pick which list stays in today and which goes)
-        
+
         // 1) Initialize with your array of titles directly
         let segmented = UISegmentedControl(items: p)
-        
+
         // 2) Default to the penultimate segment (or whatever index makes sense)
         segmented.selectedSegmentIndex = max(0, p.count - 2)
-        
+
         // 3) Show/hide based on eveningSwitch
         segmented.isHidden = eveningSwitch.isOn
-        
+
         // 4) Configure to prevent text wrapping by using shorter text if needed
         // FluentUI SegmentedControl doesn't support setTitleTextAttributes
         // Instead, we'll ensure the container has enough width and use shorter labels if needed
-        
+
         // 5) Wire up selection using standard UISegmentedControl API
         segmented.addTarget(self, action: #selector(changeTaskPriority(_:)), for: .valueChanged)
-        
-        // 6) Keep a reference
+
+        // 6) Set accessibility identifier
+        segmented.accessibilityIdentifier = "addTask.prioritySegmentedControl"
+
+        // 7) Keep a reference
         self.tabsSegmentedControl = segmented
         // Don't add to stack container here - it's added in viewDidLoad
     }
@@ -155,40 +158,9 @@ extension AddTaskViewController {
         }
     }
     
-    func setupDoneButton() {
-    // MARK:---FAB - DONE Task
-    
-    let _ = 50 // doneButtonHeightWidth - unused
-    
-    self.fab_doneTask.mode = .expanded
-    self.fab_doneTask.setTitle("Done", for: .normal)
-    self.fab_doneTask.setTitle("Adding...", for: .highlighted)
-    self.fab_doneTask.titleLabel?.text = "Done"
-    
-    self.fab_doneTask.setTitleColor(.white, for: .normal)
-    
-    let doneTaskIconNormalImage = UIImage(systemName: "checkmark.circle.fill")?.withTintColor(.white, renderingMode: .alwaysOriginal)
-    self.fab_doneTask.setImage(doneTaskIconNormalImage, for: .normal)
-    
-    if(self.eveningSwitch.isOn){
-        let eveningIcon = UIImage(systemName: "moon.stars.fill")?.withTintColor(.white, renderingMode: .alwaysOriginal)
-        self.fab_doneTask.setImage(eveningIcon, for: .highlighted)
-    }else{
-        let dayIcon = UIImage(systemName: "sun.max.fill")?.withTintColor(.white, renderingMode: .alwaysOriginal)
-        self.fab_doneTask.setImage(dayIcon, for: .highlighted)
-    }
-    
-    self.fab_doneTask.backgroundColor = self.todoColors.secondaryAccentColor
-    self.fab_doneTask.sizeToFit()
-    //        self.foredropContainer.addSubview(self.fab_doneTask)
-    //        self.fab_doneTask.contentHorizontalAlignment = .trailing
-    self.fab_doneTask.titleLabel?.textAlignment = .center
-    
-    self.fab_doneTask.isHidden = self.addTaskTextBox_Material.text?.isEmpty ?? true // Aligned with other UI elements
-    
-    // Don't add to stack container here - it's added in viewDidLoad
-    self.fab_doneTask.addTarget(self, action: #selector(self.doneAddTaskAction), for: .touchUpInside)
-}
+    // OLD: setupDoneButton() method removed
+    // Now using navigation bar Done button instead of FAB
+    // See AddTaskViewController.swift setupNavigationBar() for new implementation
 
 
     func getTaskType() -> Int32 {

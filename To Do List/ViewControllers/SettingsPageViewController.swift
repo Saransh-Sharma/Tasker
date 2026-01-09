@@ -48,10 +48,15 @@ class SettingsPageViewController: UIViewController {
     // MARK: - Lifecycle Methods
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
+        // Set accessibility identifier for the main view
+        view.accessibilityIdentifier = "settings.view"
+
         // Set up navigation items
         self.title = "Settings"
-        self.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(doneTapped))
+        let doneButton = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(doneTapped))
+        doneButton.accessibilityIdentifier = "settings.doneButton"
+        self.navigationItem.rightBarButtonItem = doneButton
         
         // Initialize dark mode state
         isDarkMode = UIScreen.main.traitCollection.userInterfaceStyle == .dark
@@ -331,10 +336,15 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
     // MARK: - Lifecycle Methods
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
+        // Set accessibility identifier for the main view
+        view.accessibilityIdentifier = "projectManagement.view"
+
         // Setup navigation
         self.title = "Projects"
-        self.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addProjectTapped))
+        let addButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addProjectTapped))
+        addButton.accessibilityIdentifier = "projectManagement.addButton"
+        self.navigationItem.rightBarButtonItem = addButton
         
         // Setup table view
         setupTableView()

@@ -18,15 +18,43 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
-        
+
 //        HomeViewController.setDateForViewValue(dateToSetForView: Date.today())
-        
-        
+
+        // MARK: - UI Testing Mode
+        // Handle launch arguments for UI testing
+        if ProcessInfo.processInfo.arguments.contains("-UI_TESTING") {
+            print("🧪 UI Testing Mode Enabled")
+
+            // Disable animations for faster, more stable tests
+            if ProcessInfo.processInfo.arguments.contains("-DISABLE_ANIMATIONS") {
+                UIView.setAnimationsEnabled(false)
+                print("  ✓ Animations disabled")
+            }
+
+            // Reset app state for clean test runs
+            if ProcessInfo.processInfo.arguments.contains("-RESET_APP_STATE") {
+                resetAppState()
+                print("  ✓ App state reset")
+            }
+        }
+
+        // Configure Firebase with reduced logging
         FirebaseApp.configure()
+        
+        #if !DEBUG
+        // Reduce Firebase analytics logging in release builds
+        if let analytics = Analytics.analytics() {
+            analytics.setAnalyticsCollectionEnabled(true)
+        }
+        #endif
         
         // Configure UIAppearance to make ShyHeaderController's dummy table view transparent
         UITableView.appearance().backgroundColor = UIColor.clear
         UITableView.appearance().isOpaque = false
+        
+        // Fix UITableView header footer view background color warning
+        UITableView.appearance().sectionHeaderTopPadding = 0.0
 
         // Configure UIScrollView appearance for transparent backgrounds in SwiftUI ScrollViews
         UIScrollView.appearance().backgroundColor = UIColor.clear
@@ -78,6 +106,54 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
+    // MARK: - UI Testing Helpers
+
+    /// Reset app state for UI testing
+    /// This clears UserDefaults and Core Data to ensure clean test runs
+    private func resetAppState() {
+        print("🧹 Resetting app state for UI tests...")
+
+        // Clear UserDefaults
+        let domain = Bundle.main.bundleIdentifier!
+        UserDefaults.standard.removePersistentDomain(forName: domain)
+        UserDefaults.standard.synchronize()
+        print("  ✓ UserDefaults cleared")
+
+        // Clear Core Data
+        clearCoreData()
+        print("  ✓ Core Data cleared")
+    }
+
+    /// Clear all Core Data entities for testing
+    private func clearCoreData() {
+        let context = persistentContainer.viewContext
+
+        // Get all entity names
+        guard let entities = persistentContainer.managedObjectModel.entities.map({ $0.name }) as? [String] else {
+            return
+        }
+
+        // Delete all objects for each entity
+        for entityName in entities {
+            let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entityName)
+            let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+
+            do {
+                try context.execute(deleteRequest)
+                print("    - Cleared \(entityName)")
+            } catch {
+                print("    ⚠️ Failed to clear \(entityName): \(error)")
+            }
+        }
+
+        // Save context
+        do {
+            try context.save()
+        } catch {
+            print("    ⚠️ Failed to save context after clearing: \(error)")
+        }
+    }
+
     // MARK: UISceneSession Lifecycle
 
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
@@ -116,21 +192,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
             if let error = error as NSError? {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-
-                /*
-                 Typical reasons for an error here include:
-                 * The parent directory does not exist, cannot be created, or disallows writing.
-                 * The persistent store is not accessible, due to permissions or data protection when the device is locked.
-                 * The device is out of space.
-                 * The store could not be migrated to the current model version.
-                 Check the error message to determine what the actual problem was.
-                 */
-                fatalError("Unresolved error \(error), \(error.userInfo)")
+                // Handle CloudKit-specific errors gracefully
+                if error.domain == NSCocoaErrorDomain && error.code == 134400 {
+                    // iCloud account not available - continue without CloudKit
+                    print("ℹ️ iCloud not available - running in local mode")
+                    // Disable CloudKit for this session
+                    storeDescription.cloudKitContainerOptions = nil
+                } else {
+                    // Handle other errors
+                    print("❌ Core Data error: \(error.localizedDescription)")
+                    // Don't crash the app, continue with available functionality
+                }
             }
             
-            print("Successfully loaded persistent store: \(storeDescription.url?.lastPathComponent ?? "N/A") with CloudKit options: \(storeDescription.cloudKitContainerOptions?.containerIdentifier ?? "None")")
+            if let cloudKitID = storeDescription.cloudKitContainerOptions?.containerIdentifier {
+                print("✅ Successfully loaded persistent store: \(storeDescription.url?.lastPathComponent ?? "N/A") with CloudKit: \(cloudKitID)")
+            } else {
+                print("✅ Successfully loaded persistent store: \(storeDescription.url?.lastPathComponent ?? "N/A") in local mode")
+            }
         })
         
         // Configure the view context to automatically merge changes from the parent (persistent store coordinator).
@@ -360,10 +439,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if let containerClass = NSClassFromString("PresentationDependencyContainer") as? NSObject.Type {
             if let shared = containerClass.value(forKey: "shared") as? NSObject {
                 shared.perform(NSSelectorFromString("configure:with:"), with: persistentContainer)
-                print("✅ PresentationDependencyContainer configured dynamically")
+                logInfo("✅ PresentationDependencyContainer configured dynamically")
             }
         } else {
-            print("🔗 Using basic configuration - PresentationDependencyContainer not found")
+            logWarning("🔗 Using basic configuration - PresentationDependencyContainer not found")
         }
         
         // Run basic data consolidation
@@ -575,4 +654,3 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 
 }
-

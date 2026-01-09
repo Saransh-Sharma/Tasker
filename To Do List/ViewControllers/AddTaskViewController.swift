@@ -97,7 +97,6 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     let dateAtHomeLabel = UILabel()
     let scoreCounter = UILabel()
     let scoreAtHomeLabel = UILabel()
-    // let cancelButton = UIView() // This seemed unused, removed for now. Add back if needed.
     let eveningSwitch = UISwitch()
     // var prioritySC =  UISegmentedControl() // This is initialized in AddTaskForedropView extension
 
@@ -106,8 +105,6 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     let eveningLabel = UILabel()
 
     var addTaskTextBox_Material = MDCFilledTextField()
-    let nCancelButton = UIButton()
-    let fab_doneTask = MDCFloatingButton(shape: .default)
     let p = ["None", "Low", "High", "Max"] // Used by AddTaskForedropView extension - shortened "Highest" to "Max" to prevent text wrapping
 
     var tabsSegmentedControl = UISegmentedControl() // Initialized in AddTaskForedropView extension
@@ -115,10 +112,6 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     var todoColors = ToDoColors()
     var todoFont = ToDoFont()
     var todoTimeUtils = ToDoTimeUtils()
-
-    let homeDate_Day = UILabel()
-    let homeDate_WeekDay = UILabel()
-    let homeDate_Month = UILabel()
 
     let existingProjectCellID = "existingProject"
     let newProjectCellID = "newProject"
@@ -203,33 +196,34 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         setupDescriptionTextField()
         setupSamplePillBar() // New sample pill bar
         setupPrioritySC()
-        setupDoneButton()
-        
+        // OLD: setupDoneButton() - removed, now using navigation bar Done button
+
         // Add components to foredrop stack container in order
         // Ensure all components are visible and properly configured
         self.addTaskTextBox_Material.isHidden = false
         self.addTaskTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
         self.foredropStackContainer.addArrangedSubview(self.addTaskTextBox_Material)
-        
+
         self.descriptionTextBox_Material.isHidden = false
         self.descriptionTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
         self.foredropStackContainer.addArrangedSubview(self.descriptionTextBox_Material)
-        
+
         // Add the new sample pill bar after description text field
         if let samplePillBar = self.samplePillBar {
             samplePillBar.isHidden = false
             samplePillBar.translatesAutoresizingMaskIntoConstraints = false
             self.foredropStackContainer.addArrangedSubview(samplePillBar)
         }
-        
+
         self.tabsSegmentedControl.isHidden = false
         self.tabsSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
         self.foredropStackContainer.addArrangedSubview(self.tabsSegmentedControl)
-        
-        // Done button visibility is controlled by text field content
-        self.fab_doneTask.translatesAutoresizingMaskIntoConstraints = false
-        self.foredropStackContainer.addArrangedSubview(self.fab_doneTask)
 
+        // OLD: Done button FAB removed - now using navigation bar button
+        // self.fab_doneTask.translatesAutoresizingMaskIntoConstraints = false
+        // self.foredropStackContainer.addArrangedSubview(self.fab_doneTask)
+
+        addTaskTextBox_Material.accessibilityIdentifier = "addTask.titleField"
         addTaskTextBox_Material.becomeFirstResponder()
         addTaskTextBox_Material.keyboardType = .default
         addTaskTextBox_Material.autocorrectionType = .yes
@@ -237,6 +231,9 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         addTaskTextBox_Material.smartQuotesType = .yes
         addTaskTextBox_Material.smartInsertDeleteType = .yes
         addTaskTextBox_Material.delegate = self
+
+        // Setup foredrop view accessibility
+        foredropContainer.accessibilityIdentifier = "addTask.view"
     }
     
     // MARK: - Clean Architecture Methods
@@ -249,8 +246,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         viewModel.$isLoading
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isLoading in
-                // Update UI loading state (e.g., disable done button while loading)
-                self?.fab_doneTask.isEnabled = !isLoading
+                // Update UI loading state - disable navigation bar Done button while loading
+                self?.navigationItem.rightBarButtonItem?.isEnabled = !isLoading
             }
             .store(in: &cancellables)
         
@@ -346,11 +343,10 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
             }
             
             let isEmpty = currentTaskInMaterialTextBox.isEmpty
-            // fab_doneTask and tabsSegmentedControl are properties of AddTaskViewController (self)
-            // and are assumed to be correctly initialized/managed by the extension methods.
-            self.fab_doneTask.isHidden = isEmpty
+            // Enable/disable navigation bar Done button based on text field content
+            navigationItem.rightBarButtonItem?.isEnabled = !isEmpty
+            // Show/hide priority segmented control based on text field content
             self.tabsSegmentedControl.isHidden = isEmpty
-            self.fab_doneTask.isEnabled = !isEmpty
         }
         return true
     }
@@ -358,19 +354,89 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     // MARK: - Setup Methods
     
     func setupNavigationBar() {
-        // Setup navigation bar similar to home screen
-        nCancelButton.setTitle("Cancel", for: .normal)
-        nCancelButton.setTitleColor(.white, for: .normal)
-        nCancelButton.titleLabel?.font = todoFont.setFont(fontSize: 16, fontweight: .medium, fontDesign: .default)
-        nCancelButton.frame = CGRect(x: UIScreen.main.bounds.maxX - 80, y: 50, width: 70, height: 35)
-        view.addSubview(nCancelButton)
-        nCancelButton.addTarget(self, action: #selector(self.cancelAddTaskAction), for: .touchUpInside)
-        
-        // Setup date display in navigation bar
-        setHomeViewDate()
-        homeTopBar.addSubview(homeDate_Day)
-        homeTopBar.addSubview(homeDate_WeekDay)
-        homeTopBar.addSubview(homeDate_Month)
+        // Setup liquid glass navigation bar with Cancel and Done buttons
+        guard let navController = navigationController else {
+            print("⚠️ AddTaskViewController: No navigation controller found")
+            return
+        }
+
+        // Configure navigation bar appearance
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = todoColors.primaryColor
+        appearance.titleTextAttributes = [
+            .foregroundColor: UIColor.white,
+            .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
+        ]
+
+        navController.navigationBar.standardAppearance = appearance
+        navController.navigationBar.scrollEdgeAppearance = appearance
+        navController.navigationBar.compactAppearance = appearance
+        navController.navigationBar.prefersLargeTitles = false
+
+        // Set title to show date
+        title = todoTimeUtils.getFormattedDate(dateForAddTaskView)
+
+        // Create Cancel button (left)
+        let cancelButton = createLiquidGlassBarButton(
+            title: "Cancel",
+            image: UIImage(systemName: "xmark"),
+            action: #selector(self.cancelAddTaskAction)
+        )
+        if let customView = cancelButton.customView {
+            customView.accessibilityIdentifier = "addTask.cancelButton"
+        }
+        navigationItem.leftBarButtonItem = cancelButton
+
+        // Create Done button (right)
+        let doneButton = createLiquidGlassBarButton(
+            title: "Done",
+            image: UIImage(systemName: "checkmark"),
+            action: #selector(self.doneAddTaskAction)
+        )
+        if let customView = doneButton.customView {
+            customView.accessibilityIdentifier = "addTask.saveButton"
+        }
+        navigationItem.rightBarButtonItem = doneButton
+    }
+
+    /// Creates a UIBarButtonItem with liquid glass styling
+    private func createLiquidGlassBarButton(
+        title: String,
+        image: UIImage?,
+        action: Selector
+    ) -> UIBarButtonItem {
+        // Create container with glass effect
+        let containerView = LGBaseView(frame: CGRect(x: 0, y: 0, width: 90, height: 36))
+        containerView.cornerRadius = 18
+        containerView.glassBlurStyle = .systemUltraThinMaterial
+        containerView.glassOpacity = 0.9
+        containerView.borderColor = .white.withAlphaComponent(0.3)
+
+        // Create button inside container
+        let button = UIButton(type: .system)
+        button.setTitle(title, for: .normal)
+        button.setImage(image, for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        button.tintColor = .white
+        button.addTarget(self, action: action, for: .touchUpInside)
+
+        // Configure button layout (icon + text)
+        button.semanticContentAttribute = .forceLeftToRight
+        button.imageEdgeInsets = UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 4)
+        button.titleEdgeInsets = UIEdgeInsets(top: 0, left: 4, bottom: 0, right: -4)
+
+        // Add button to container
+        containerView.addSubview(button)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
+            button.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -8),
+            button.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 6),
+            button.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -6)
+        ])
+
+        return UIBarButtonItem(customView: containerView)
     }
     
     func setupCalendarWidget() {
@@ -385,11 +451,12 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         self.descriptionTextBox_Material.label.text = "Description (optional)"
         self.descriptionTextBox_Material.leadingAssistiveLabel.text = "Add task details"
         self.descriptionTextBox_Material.placeholder = "Enter task description..."
+        self.descriptionTextBox_Material.accessibilityIdentifier = "addTask.descriptionField"
         self.descriptionTextBox_Material.sizeToFit()
         self.descriptionTextBox_Material.delegate = self
         self.descriptionTextBox_Material.clearButtonMode = .whileEditing
         self.descriptionTextBox_Material.backgroundColor = .clear
-        
+
         // Don't add to stack container here - it's added in viewDidLoad
     }
     

@@ -27,6 +27,12 @@ target 'Tasker' do
   target 'TaskerTests' do
     inherit! :search_paths
   end
+
+  target 'TaskerUITests' do
+    # UI tests need access to frameworks used by the main app
+    # Change from :search_paths to :complete to inherit all dependencies
+    inherit! :complete
+  end
 end          # ← closes the outer 'Tasker' block
 
 # Runs after pods project is generated
