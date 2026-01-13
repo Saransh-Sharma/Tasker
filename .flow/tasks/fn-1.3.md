@@ -40,9 +40,16 @@ Top summary table:
 - [ ] No verbose code examples
 - [ ] Active items only
 ## Done summary
-TBD
-
+- TECHNICAL_DEBT.md reduced from 1,517 to 147 lines (90% reduction)
+- Added summary table at top (Priority, Count, Effort)
+- Added Migration Status table with ~70% overall
+- Added 10 debt items (DEBT-001 through DEBT-010)
+- 4 audit findings added as debt items (Mappers, Task logic, ViewControllers, UIKit)
+- Debt items have: ID, Priority, File, Description, Effort
+- No verbose code examples
+- Active items only (resolved items removed)
+- Noted inline repositories as obsolete
 ## Evidence
-- Commits:
-- Tests:
+- Commits: 16e91463f09a25696d6081ad76a9aa451bc3436c
+- Tests: wc -l TECHNICAL_DEBT.md # 147 lines
 - PRs:
