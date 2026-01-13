@@ -37,9 +37,17 @@ Streamline PRD from 2,754 lines to <1,200 lines and add LLM feature specs.
 - [ ] Product-focused (not technical)
 - [ ] All 5 features listed including LLM
 ## Done summary
-TBD
-
+- PRD reduced from 2,754 to 225 lines (92% reduction)
+- Added executive summary with core value proposition
+- Added 3 user personas (Alex - Professional, Sam - Student, Jordan - Habit Builder)
+- Added 5 feature specs with status tags
+- Added full LLM/AI PRD section (problem, personas, acceptance, technical approach, success metrics)
+- Updated Clean Architecture to ~70% migrated
+- Removed code examples (referenced CLAUDE.md instead)
+- Removed technical architecture details (product-focused)
+- Added roadmap with Completed/In Progress/Planned
+- Added success metrics table with baseline and targets
 ## Evidence
-- Commits:
-- Tests:
+- Commits: ccb78fc976e4d192d5b8880c5e3c26c8bf4f597f
+- Tests: wc -l PRODUCT_REQUIREMENTS_DOCUMENT.md # 225 lines
 - PRs:
