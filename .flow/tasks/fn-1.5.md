@@ -45,9 +45,15 @@ grep -n "70%\|75%\|60%\|730\|189" *.md
 - [ ] Badges present in README
 - [ ] Debt summary table present
 ## Done summary
-TBD
-
+- File size targets: ALL PASSED (README 226, Debt 147, PRD 225, CLAUDE 458)
+- Data consistency: All docs agree on "~70% migrated", 730 files
+- LLM coverage: README (8 mentions), PRD (8 mentions), CLAUDE (2 mentions)
+- Cross-references: All internal links validated
+- Badges present: 6 badges in README (iOS, Swift, Xcode, License, Files, Architecture)
+- Migration table: Present in CLAUDE.md with 5 layers
+- Debt summary table: Present in TECHNICAL_DEBT.md
+- Overall reduction: 10,725 → 1,056 lines (90%)
 ## Evidence
 - Commits:
-- Tests:
+- Tests: wc -l README.md # 226 lines (96% reduction from 6,012), wc -l TECHNICAL_DEBT.md # 147 lines (90% reduction from 1,517), wc -l PRODUCT_REQUIREMENTS_DOCUMENT.md # 225 lines (92% reduction from 2,754), wc -l CLAUDE.md # 458 lines (enhanced from 442), grep -c 'LLM\|AI\|Eva\|MLX' README.md # 8 mentions, grep -c 'LLM\|AI\|Eva\|MLX' PRODUCT_REQUIREMENTS_DOCUMENT.md # 8 mentions, grep '~70%' *.md # Found in all 4 docs (consistent)
 - PRs:
