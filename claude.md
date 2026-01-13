@@ -1,6 +1,6 @@
 # Tasker iOS - Clean Architecture Guide
 
-**iOS 16.0+ | Swift 5+ | 189 files, 28 use cases | Clean Architecture (60% migrated)**
+**iOS 16.0+ | Swift 5+ | 730 files, 28 use cases | Clean Architecture (~70% migrated)**
 
 Gamified task management with priority scoring (P0=7, P1=4, P2=3, P3=2pts), UUID-based CloudKit sync, Inbox project (`00000000-0000-0000-0000-000000000001`), SwiftUI/Combine + legacy UIKit. Build: `./taskerctl build`. Stack: Firebase, MicrosoftFluentUI, DGCharts, FSCalendar.
 
@@ -33,6 +33,21 @@ class GetTasksUseCase {
     private let repository = CoreDataTaskRepository()  // Can't swap, can't test
 }
 ```
+
+---
+
+## Migration Status
+
+| Layer | Files | Compliance | Status |
+|-------|-------|------------|--------|
+| **Domain** | 30 | 80% | Mappers import CoreData (bridge pattern), business logic in Task model |
+| **UseCases** | 28 | 96% | Excellent—protocol injection, no CoreData |
+| **State** | 9 | 85% | DI container has UIKit import |
+| **Presentation** | 4 | 95% | ViewModels clean |
+| **ViewControllers** | 47 | 42% | 23 files with NSFetchRequest (gradual migration) |
+| **Overall** | **118** | **~70%** | Weighted average |
+
+**Note**: Inline repositories in some ViewControllers are obsolete—State/Presentation folders ARE in Xcode target. Create debt items to remove them.
 
 ---
 
@@ -239,6 +254,7 @@ public var labelIDs: [UUID] = []  // Add to Task.swift
 | **DI Container** | `State/DI/` | EnhancedDependencyContainer.swift:13 (manual injection) |
 | **ViewModels** | `Presentation/ViewModels/` | HomeViewModel.swift:13 (@Published, Combine) |
 | **Legacy VCs** | `ViewControllers/` | HomeViewController.swift:32 (⚠️ still uses CoreData directly) |
+| **LLM Features** | `LLM/` | Models/ (data controllers), Views/ (chat), Controllers/ (host) - 23 files, 10 in target |
 | **Migration** | `Data/Migration/` | DataMigrationService.swift (UUID assignment on launch) |
 | **Core Data** | `TaskModel.xcdatamodeld/` | NTask, NProject entities |
 
