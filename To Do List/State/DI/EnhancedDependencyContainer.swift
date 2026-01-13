@@ -10,21 +10,25 @@ import CoreData
 import UIKit
 
 /// Enhanced dependency container supporting Clean Architecture
-final class EnhancedDependencyContainer {
-    
+public final class EnhancedDependencyContainer {
+
     // MARK: - Singleton
-    
-    static let shared = EnhancedDependencyContainer()
-    
+
+    public static let shared = EnhancedDependencyContainer()
+
     // MARK: - Core Dependencies
-    
-    private(set) var persistentContainer: NSPersistentContainer!
-    
+
+    public private(set) var persistentContainer: NSPersistentContainer!
+
     // MARK: - Repositories (State Management Layer)
-    
-    private(set) var taskRepository: TaskRepositoryProtocol!
-    private(set) var projectRepository: ProjectRepositoryProtocol!
-    
+
+    public private(set) var taskRepository: TaskRepositoryProtocol!
+    public private(set) var projectRepository: ProjectRepositoryProtocol!
+
+    // MARK: - Use Cases
+
+    public private(set) var useCaseCoordinator: UseCaseCoordinator!
+
     // MARK: - Data Sources
     
     private(set) var localDataSource: LocalDataSourceProtocol!
@@ -77,7 +81,14 @@ final class EnhancedDependencyContainer {
             remoteDataSource: remoteDataSource,
             cacheService: cacheService
         )
-        
+
+        // Initialize UseCaseCoordinator
+        self.useCaseCoordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            cacheService: cacheService
+        )
+
         print("✅ EnhancedDependencyContainer: Configuration completed")
     }
     
@@ -445,6 +456,27 @@ private class CachedTaskRepository: TaskRepositoryProtocol {
     func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
         cache.remove(forKey: "all_tasks")
         repository.deleteTasks(withIds: ids, completion: completion)
+    }
+
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+        repository.fetchTasks(forProjectID: projectID, completion: completion)
+    }
+
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
+        repository.fetchTasks(from: startDate, to: endDate, completion: completion)
+    }
+
+    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) {
+        repository.fetchTasksWithoutProject(completion: completion)
+    }
+
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        cache.remove(forKey: "all_tasks")
+        repository.assignTasksToProject(taskIDs: taskIDs, projectID: projectID, completion: completion)
+    }
+
+    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+        repository.fetchInboxTasks(completion: completion)
     }
 }
 

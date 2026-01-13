@@ -8,11 +8,11 @@
 
 import Foundation
 import UIKit
-import CoreData
 import FluentUI
 import Timepiece
 import BEMCheckBox
 import TinyConstraints
+import CoreData  // TODO: Migrate away from NSFetchRequest to use repository pattern
 
 // MARK: – BEMCheckBoxDelegate
 extension HomeViewController: BEMCheckBoxDelegate {

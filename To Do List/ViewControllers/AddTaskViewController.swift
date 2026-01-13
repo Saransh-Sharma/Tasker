@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import CoreData
 import FSCalendar
 import FluentUI
 import MaterialComponents.MaterialTextControls_FilledTextAreas
@@ -18,40 +17,18 @@ import Combine
 
 // Import Clean Architecture components
 @_exported import Foundation
-// The ViewModels and Protocols should be available via dependency injection
-
-// MARK: - Clean Architecture Protocol Definitions
-// Temporary protocol definitions until module issues are resolved
-
-/// Protocol for AddTaskViewController to receive ViewModel
-protocol AddTaskViewControllerProtocol: AnyObject {
-    var viewModel: AddTaskViewModel? { get set }
-}
-
-/// Placeholder for AddTaskViewModel until proper import is resolved
-class AddTaskViewModel {
-    // Placeholder implementation
-    @Published var isLoading: Bool = false
-    @Published var errorMessage: String?
-    @Published var availableProjects: [Project] = []
-    
-    func createTask(request: CreateTaskRequest, completion: @escaping (Result<Task, Error>) -> Void) {
-        // Placeholder implementation
-        completion(.failure(NSError(domain: "AddTaskViewModel", code: 1, userInfo: [NSLocalizedDescriptionKey: "ViewModel not properly injected"])))
-    }
-}
 
 class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate, UIScrollViewDelegate, TaskRepositoryDependent, AddTaskViewControllerProtocol {
-    
+
     // Delegate for communicating back to the presenter
     weak var delegate: AddTaskViewControllerDelegate?
-    
+
     // MARK: - Repository Dependency
     var taskRepository: TaskRepository!
-    
+
     /// AddTaskViewModel dependency (injected) - Clean Architecture
-    var viewModel: AddTaskViewModel?
-    
+    var viewModel: AddTaskViewModel!
+
     /// Combine cancellables for reactive bindings
     private var cancellables = Set<AnyCancellable>()
 
@@ -158,14 +135,15 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         
         print("🔍 AddTaskViewController: Checking dependency injection state...")
         
+        // TODO: Re-enable when ViewModel is available
         // Check Clean Architecture vs Legacy injection state
-        if viewModel != nil {
-            print("✅ AddTaskViewController: ViewModel properly injected - Using Clean Architecture")
-            print("📊 AddTaskViewController: ViewModel type: \(String(describing: type(of: viewModel)))")
-            setupViewModelBindings()
-        } else {
+        // if viewModel != nil {
+        //     print("✅ AddTaskViewController: ViewModel properly injected - Using Clean Architecture")
+        //     print("📊 AddTaskViewController: ViewModel type: \(String(describing: type(of: viewModel)))")
+        //     setupViewModelBindings()
+        // } else {
             print("⚠️ AddTaskViewController: ViewModel is nil - Using Legacy Mode")
-        }
+        // }
         
         // Check legacy repository injection
         if taskRepository == nil {
@@ -239,35 +217,40 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     // MARK: - Clean Architecture Methods
     
     /// Setup ViewModel bindings for reactive UI
+    /// TODO: Re-enable when ViewModel is available
     private func setupViewModelBindings() {
-        guard let viewModel = viewModel else { return }
-        
-        // Bind loading state
-        viewModel.$isLoading
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] isLoading in
-                // Update UI loading state - disable navigation bar Done button while loading
-                self?.navigationItem.rightBarButtonItem?.isEnabled = !isLoading
-            }
-            .store(in: &cancellables)
-        
-        // Bind error messages
-        viewModel.$errorMessage
-            .receive(on: DispatchQueue.main)
-            .compactMap { $0 }
-            .sink { [weak self] error in
-                self?.showError(error)
-            }
-            .store(in: &cancellables)
-        
-        // Bind available projects
-        viewModel.$availableProjects
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] projects in
-                // Update project selection UI if needed
-                self?.updateProjectSelection(projects)
-            }
-            .store(in: &cancellables)
+        // guard let viewModel = viewModel else { return }
+        //
+        // // TODO: Bindings commented out until real ViewModel with @Published properties is integrated
+        // /*
+        // // Bind loading state
+        // viewModel.$isLoading
+        //     .receive(on: DispatchQueue.main)
+        //     .sink { [weak self] isLoading in
+        //         // Update UI loading state - disable navigation bar Done button while loading
+        //         self?.navigationItem.rightBarButtonItem?.isEnabled = !isLoading
+        //     }
+        //     .store(in: &cancellables)
+        //
+        // // Bind error messages
+        // viewModel.$errorMessage
+        //     .receive(on: DispatchQueue.main)
+        //     .compactMap { $0 }
+        //     .sink { [weak self] error in
+        //         self?.showError(error)
+        //     }
+        //     .store(in: &cancellables)
+        //
+        // // Bind available projects
+        // viewModel.$availableProjects
+        //     .receive(on: DispatchQueue.main)
+        //     .sink { [weak self] projects in
+        //         // Update project selection UI if needed
+        //         self?.updateProjectSelection(projects)
+        //     }
+        //     .store(in: &cancellables)
+        // */
+        print("⚠️ setupViewModelBindings disabled - TODO: Re-enable when ViewModel is available")
     }
     
     /// Check if using Clean Architecture or legacy
@@ -478,56 +461,35 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // PHASE 3: Add "Add Project" button as the first pill (index 0)
         samplePillBarItems.append(PillButtonBarItem(title: addProjectString))
         
-        // PHASE 1 FIX: Fetch all projects from Core Data
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        
-        if let context = context {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            
-            // Sort projects alphabetically
-            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
-            
-            do {
-                let allProjects = try context.fetch(request)
-                
-                // Separate Inbox from other projects
-                var inboxProject: Projects?
-                var customProjects: [Projects] = []
-                
-                for project in allProjects {
-                    if let projectName = project.projectName {
-                        if projectName.lowercased() == "inbox" {
-                            inboxProject = project
-                        } else {
-                            customProjects.append(project)
-                        }
-                    }
-                }
-                
-                // PHASE 3: Add Inbox as second item (index 1) - always present
-                let inboxTitle = inboxProject?.projectName ?? "Inbox"
-                samplePillBarItems.append(PillButtonBarItem(title: inboxTitle))
-                
-                // PHASE 1: Add all custom projects after Inbox
-                for project in customProjects {
-                    if let projectName = project.projectName {
-                        samplePillBarItems.append(PillButtonBarItem(title: projectName))
-                        print("✅ Added custom project to pill bar: \(projectName)")
-                    }
-                }
-                
-                print("✅ Phase 3 Fix: Successfully loaded \(customProjects.count) custom projects")
-                
-            } catch {
-                print("❌ Error fetching projects from Core Data: \(error)")
-                // Fallback: Just add Inbox after "Add Project"
-                samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
-            }
-        } else {
-            print("❌ Could not get Core Data context")
+        // TODO: Re-enable when ViewModel is available
+        // Use ViewModel to get available projects (Clean Architecture)
+        // if let viewModel = viewModel {
+        //     print("✅ Using AddTaskViewModel to load projects")
+        //
+        //     // Get projects from ViewModel
+        //     let domainProjects = viewModel.availableProjects
+        //
+        //     // Separate Inbox from other projects
+        //     let inboxProject = domainProjects.first { $0.name.lowercased() == "inbox" }
+        //     let customProjects = domainProjects.filter { $0.name.lowercased() != "inbox" }.sorted { $0.name < $1.name }
+        //
+        //     // PHASE 3: Add Inbox as second item (index 1) - always present
+        //     let inboxTitle = inboxProject?.name ?? "Inbox"
+        //     samplePillBarItems.append(PillButtonBarItem(title: inboxTitle))
+        //
+        //     // PHASE 1: Add all custom projects after Inbox
+        //     for project in customProjects {
+        //         samplePillBarItems.append(PillButtonBarItem(title: project.name))
+        //         print("✅ Added custom project to pill bar: \(project.name)")
+        //     }
+        //
+        //     print("✅ Phase 3 Fix: Successfully loaded \(customProjects.count) custom projects from ViewModel")
+        //
+        // } else {
+            print("⚠️ ViewModel not available, using fallback")
             // Fallback: Just add Inbox after "Add Project"
             samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
-        }
+        // }
         
         // PHASE 3: Ensure Inbox is always present at index 1 (safety check)
         if !samplePillBarItems.contains(where: { $0.title.lowercased() == "inbox" }) {
@@ -661,51 +623,58 @@ extension AddTaskViewController {
         present(alertController, animated: true)
     }
     
-    // PHASE 3: Create a new project in Core Data
+    // PHASE 3: Create a new project using Clean Architecture
+    /// TODO: Re-enable when ViewModel is available
     private func createNewProject(name: String, description: String?) {
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        
-        guard let context = context else {
-            showProjectError(message: "Failed to access database")
+        // Use ViewModel to create project (Clean Architecture)
+        // guard let viewModel = viewModel else {
+        //     print("⚠️ ViewModel not available")
+        //     showProjectError(message: "Failed to create project")
+        //     return
+        // }
+        //
+        // // Create request for new project
+        // let request = CreateProjectRequest(name: name, description: description)
+        //
+        // // Use UseCaseCoordinator through ViewModel
+        // // Note: AddTaskViewModel should have a createProject method that calls UseCaseCoordinator.manageProjects
+        // print("🆕 Creating project '\(name)' using Clean Architecture")
+
+        print("⚠️ Creating project using legacy method - TODO: Re-enable Clean Architecture when ViewModel is available")
+
+        // Create request for new project
+        let request = CreateProjectRequest(name: name, description: description)
+
+        // Temporary: Create UseCaseCoordinator locally until proper DI is set up
+        // TODO: Add createProject method to AddTaskViewModel
+        guard let taskRepo = DependencyContainer.shared.taskRepository as? TaskRepositoryProtocol,
+              let container = DependencyContainer.shared.persistentContainer else {
+            print("❌ Failed to get dependencies")
+            showProjectError(message: "Failed to create project")
             return
         }
-        
-        // Check if project already exists
-        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        request.predicate = NSPredicate(format: "projectName == %@", name)
-        
-        do {
-            let existingProjects = try context.fetch(request)
-            if !existingProjects.isEmpty {
-                showProjectError(message: "Project '\(name)' already exists")
-                return
+
+        // Use CoreDataProjectRepository from State layer
+        let projectRepo = CoreDataProjectRepository(container: container)
+        let useCaseCoordinator = UseCaseCoordinator(
+            taskRepository: taskRepo,
+            projectRepository: projectRepo,
+            cacheService: nil
+        )
+
+        useCaseCoordinator.manageProjects.createProject(request: request) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let project):
+                    print("✅ Phase 3: Successfully created project '\(project.name)'")
+                    self?.showProjectSuccess(message: "Project '\(project.name)' created")
+                    self?.refreshProjectPillBar(selectProject: project.name)
+
+                case .failure(let error):
+                    print("❌ Phase 3: Failed to create project: \(error)")
+                    self?.showProjectError(message: "Failed to create project")
+                }
             }
-            
-            // Create new project with UUID
-            let newProject = Projects(context: context)
-            let generatedUUID = UUID()
-            newProject.projectID = generatedUUID  // ✅ FIX: Add UUID assignment
-            newProject.projectName = name
-            newProject.projecDescription = description ?? ""
-            newProject.createdDate = Date()
-            newProject.modifiedDate = Date()
-
-            print("🆕 Creating project '\(name)' with UUID: \(generatedUUID.uuidString)")
-
-            // Save
-            try context.save()
-            
-            print("✅ Phase 3: Successfully created project '\(name)'")
-            
-            // Show success and refresh pill bar
-            showProjectSuccess(message: "Project '\(name)' created")
-            
-            // Refresh the pill bar with the new project
-            refreshProjectPillBar(selectProject: name)
-            
-        } catch {
-            print("❌ Phase 3: Failed to create project: \(error)")
-            showProjectError(message: "Failed to create project")
         }
     }
     

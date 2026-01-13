@@ -3,6 +3,7 @@
 //  Tasker
 //
 //  Validator for ensuring data integrity between Projects and Tasks
+//  Located in State layer as it directly interacts with CoreData
 //
 
 import Foundation
@@ -315,13 +316,13 @@ public struct ValidationReport {
         var report = """
 
         ═══════════════════════════════════════════
-        🔍 Data Validation Report
+        Data Validation Report
         ═══════════════════════════════════════════
         Timestamp: \(formatter.string(from: timestamp))
         Total Issues: \(totalIssues)
         Critical: \(criticalIssues)
         Warnings: \(warningIssues)
-        Status: \(isHealthy ? "✅ Healthy" : "⚠️ Issues Found")
+        Status: \(isHealthy ? "Healthy" : "Issues Found")
         ═══════════════════════════════════════════
         """
 
@@ -367,7 +368,7 @@ public struct RepairReport {
         return """
 
         ═══════════════════════════════════════════
-        🔧 Data Repair Report
+        Data Repair Report
         ═══════════════════════════════════════════
         Tasks assigned projectID: \(tasksAssignedProjectID)
         Projects assigned ID: \(projectsAssignedID)
@@ -408,11 +409,12 @@ public struct DataHealthReport {
 
     public var description: String {
         let healthPercentage = Int(healthScore * 100)
+        let healthEmoji = self.healthEmoji
 
         var report = """
 
         ═══════════════════════════════════════════
-        📊 Data Health Report
+        Data Health Report
         ═══════════════════════════════════════════
         Health Score: \(healthPercentage)% \(healthEmoji)
 
@@ -426,14 +428,14 @@ public struct DataHealthReport {
         - With valid ID: \(projectsWithValidID)
         - Duplicate names: \(duplicateProjectNames)
 
-        Inbox: \(inboxExists ? "✅" : "❌")
+        Inbox: \(inboxExists ? "Yes" : "No")
         ═══════════════════════════════════════════
         """
 
         if !issues.isEmpty {
             report += "\n\nIssues:"
             for issue in issues {
-                report += "\n  • \(issue)"
+                report += "\n  - \(issue)"
             }
         }
 
@@ -442,11 +444,11 @@ public struct DataHealthReport {
 
     private var healthEmoji: String {
         switch healthScore {
-        case 1.0: return "✅"
-        case 0.9..<1.0: return "💚"
-        case 0.7..<0.9: return "💛"
-        case 0.5..<0.7: return "🧡"
-        default: return "❤️"
+        case 1.0: return "Excellent"
+        case 0.9..<1.0: return "Good"
+        case 0.7..<0.9: return "Fair"
+        case 0.5..<0.7: return "Poor"
+        default: return "Critical"
         }
     }
 }

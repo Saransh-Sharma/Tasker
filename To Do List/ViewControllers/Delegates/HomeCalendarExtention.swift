@@ -7,8 +7,8 @@
 //
 
 import Foundation
-import CoreData
 import FSCalendar
+import CoreData  // TODO: Migrate away from NSFetchRequest to use repository pattern
 
 
 //----------------------- *************************** -----------------------

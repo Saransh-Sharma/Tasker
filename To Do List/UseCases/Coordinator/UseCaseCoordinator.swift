@@ -12,13 +12,14 @@ import Foundation
 public final class UseCaseCoordinator {
     
     // MARK: - Use Cases
-    
+
     // Task Use Cases
     public let createTask: CreateTaskUseCase
     public let completeTask: CompleteTaskUseCase
+    public let deleteTask: DeleteTaskUseCase
     public let rescheduleTask: RescheduleTaskUseCase
     public let getTasks: GetTasksUseCase
-    
+
     // New Task Use Cases (Phase 3)
     public let filterTasks: FilterTasksUseCase
     public let searchTasks: SearchTasksUseCase
@@ -36,10 +37,10 @@ public final class UseCaseCoordinator {
     public let generateProductivityReport: GenerateProductivityReportUseCase
     
     // MARK: - Dependencies
-    
-    private let taskRepository: TaskRepositoryProtocol
-    private let projectRepository: ProjectRepositoryProtocol
-    private let cacheService: CacheServiceProtocol?
+
+    public let taskRepository: TaskRepositoryProtocol
+    public let projectRepository: ProjectRepositoryProtocol
+    public let cacheService: CacheServiceProtocol?
     
     // MARK: - Initialization
     
@@ -67,11 +68,17 @@ public final class UseCaseCoordinator {
             analyticsService: nil as AnalyticsServiceProtocol?
         )
         
+        self.deleteTask = DeleteTaskUseCase(
+            taskRepository: taskRepository,
+            notificationService: notificationService,
+            analyticsService: nil
+        )
+
         self.rescheduleTask = RescheduleTaskUseCase(
             taskRepository: taskRepository,
             notificationService: notificationService
         )
-        
+
         self.getTasks = GetTasksUseCase(
             taskRepository: taskRepository,
             cacheService: cacheService

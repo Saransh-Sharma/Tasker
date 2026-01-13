@@ -1,0 +1,15 @@
+{
+  "description": "Tasker Loop skill stop hook for self-referential loops",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_SKILL_ROOT}/hooks/stop-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

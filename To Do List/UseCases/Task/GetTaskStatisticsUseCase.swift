@@ -158,14 +158,14 @@ public final class GetTaskStatisticsUseCase {
 
 // MARK: - Supporting Models
 
-public enum StatisticsScope {
+public enum StatisticsScope: Codable {
     case all
     case today
     case completed
     case project(String)
 }
 
-public struct TaskStatistics {
+public struct TaskStatistics: Codable {
     public let scope: StatisticsScope
     public let totalTasks: Int
     public let completedTasks: Int
@@ -173,7 +173,7 @@ public struct TaskStatistics {
     public let overdueTasks: Int
     public let completionRate: Double
     public let priorityBreakdown: [TaskPriority: Int]
-    
+
     init(
         scope: StatisticsScope = .all,
         totalTasks: Int = 0,
@@ -190,6 +190,48 @@ public struct TaskStatistics {
         self.overdueTasks = overdueTasks
         self.completionRate = completionRate
         self.priorityBreakdown = priorityBreakdown
+    }
+
+    // Custom Codable implementation for dictionary with enum key
+    enum CodingKeys: String, CodingKey {
+        case scope, totalTasks, completedTasks, incompleteTasks, overdueTasks, completionRate, priorityBreakdown
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        scope = try container.decode(StatisticsScope.self, forKey: .scope)
+        totalTasks = try container.decode(Int.self, forKey: .totalTasks)
+        completedTasks = try container.decode(Int.self, forKey: .completedTasks)
+        incompleteTasks = try container.decode(Int.self, forKey: .incompleteTasks)
+        overdueTasks = try container.decode(Int.self, forKey: .overdueTasks)
+        completionRate = try container.decode(Double.self, forKey: .completionRate)
+
+        // Decode dictionary with string keys and convert to TaskPriority
+        let stringKeyedDict = try container.decode([String: Int].self, forKey: .priorityBreakdown)
+        var breakdown: [TaskPriority: Int] = [:]
+        for (key, value) in stringKeyedDict {
+            guard let rawValue = Int32(key) else { continue }
+            let priority = TaskPriority(rawValue: rawValue)
+            breakdown[priority] = value
+        }
+        priorityBreakdown = breakdown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(scope, forKey: .scope)
+        try container.encode(totalTasks, forKey: .totalTasks)
+        try container.encode(completedTasks, forKey: .completedTasks)
+        try container.encode(incompleteTasks, forKey: .incompleteTasks)
+        try container.encode(overdueTasks, forKey: .overdueTasks)
+        try container.encode(completionRate, forKey: .completionRate)
+
+        // Encode dictionary with string keys
+        var stringKeyedDict: [String: Int] = [:]
+        for (key, value) in priorityBreakdown {
+            stringKeyedDict[String(key.rawValue)] = value
+        }
+        try container.encode(stringKeyedDict, forKey: .priorityBreakdown)
     }
 }
 

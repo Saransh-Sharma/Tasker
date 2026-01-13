@@ -73,15 +73,14 @@ public final class ProjectManagementViewModel: ObservableObject {
     }
     
     /// Create a new project
-    public func createProject(name: String, color: String? = nil) {
+    public func createProject(name: String, description: String? = nil) {
         isLoading = true
-        
+
         let request = CreateProjectRequest(
             name: name,
-            color: color,
-            icon: nil
+            description: description
         )
-        
+
         manageProjectsUseCase.createProject(request: request) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
@@ -99,17 +98,15 @@ public final class ProjectManagementViewModel: ObservableObject {
     }
     
     /// Update project
-    public func updateProject(_ project: Project, name: String? = nil, color: String? = nil) {
+    public func updateProject(_ project: Project, name: String? = nil, description: String? = nil) {
         isLoading = true
-        
+
         let request = UpdateProjectRequest(
-            projectId: project.id,
-            name: name ?? project.name,
-            color: color ?? project.color,
-            icon: project.icon
+            name: name,
+            description: description
         )
-        
-        manageProjectsUseCase.updateProject(request: request) { [weak self] result in
+
+        manageProjectsUseCase.updateProject(projectId: project.id, request: request) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
                 
@@ -125,9 +122,9 @@ public final class ProjectManagementViewModel: ObservableObject {
     }
     
     /// Delete project
-    public func deleteProject(_ project: ProjectWithStats, strategy: DeleteProjectStrategy = .moveToInbox) {
+    public func deleteProject(_ project: ProjectWithStats, strategy: DeleteStrategy = .moveToInbox) {
         isLoading = true
-        
+
         manageProjectsUseCase.deleteProject(
             projectId: project.project.id,
             deleteStrategy: strategy
@@ -150,7 +147,8 @@ public final class ProjectManagementViewModel: ObservableObject {
     
     /// Archive project
     public func archiveProject(_ project: Project) {
-        updateProject(project, name: nil, color: nil)
+        // TODO: Implement proper archive functionality when status field is added to repository
+        updateProject(project, name: nil, description: nil)
     }
     
     /// Select project for detailed view
@@ -219,23 +217,28 @@ public final class ProjectManagementViewModel: ObservableObject {
         case .all:
             break
         case .active:
-            filtered = filtered.filter { $0.totalTasks > 0 }
+            filtered = filtered.filter { $0.taskCount > 0 }
         case .inactive:
-            filtered = filtered.filter { $0.totalTasks == 0 }
+            filtered = filtered.filter { $0.taskCount == 0 }
         case .completed:
-            filtered = filtered.filter { $0.completedTasks == $0.totalTasks && $0.totalTasks > 0 }
+            filtered = filtered.filter { $0.completedTaskCount == $0.taskCount && $0.taskCount > 0 }
         }
-        
+
         // Apply sorting
         switch sortOption {
         case .name:
             filtered.sort { $0.project.name < $1.project.name }
         case .taskCount:
-            filtered.sort { $0.totalTasks > $1.totalTasks }
+            filtered.sort { $0.taskCount > $1.taskCount }
         case .completionRate:
-            filtered.sort { $0.completionRate > $1.completionRate }
+            // Calculate completion rate: completedTaskCount / taskCount
+            filtered.sort {
+                let rate0 = $0.taskCount > 0 ? Double($0.completedTaskCount) / Double($0.taskCount) : 0
+                let rate1 = $1.taskCount > 0 ? Double($1.completedTaskCount) / Double($1.taskCount) : 0
+                return rate0 > rate1
+            }
         case .dateCreated:
-            filtered.sort { $0.project.dateCreated > $1.project.dateCreated }
+            filtered.sort { $0.project.createdDate > $1.project.createdDate }
         }
         
         filteredProjects = filtered
@@ -292,7 +295,7 @@ extension ProjectManagementViewModel {
             projectToDelete: projectToDelete,
             hasProjects: !projects.isEmpty,
             totalProjects: projects.count,
-            activeProjects: projects.filter { $0.totalTasks > 0 }.count
+            activeProjects: projects.filter { $0.taskCount > 0 }.count
         )
     }
 }

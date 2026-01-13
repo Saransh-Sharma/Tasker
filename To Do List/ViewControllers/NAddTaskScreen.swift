@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import CoreData
 import CircleMenu
 import MaterialComponents.MaterialTextControls_FilledTextAreas
 import MaterialComponents.MaterialTextControls_FilledTextFields

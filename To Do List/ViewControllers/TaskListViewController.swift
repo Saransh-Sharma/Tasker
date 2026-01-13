@@ -1,7 +1,8 @@
 import UIKit
 import CoreData
 
-/// A generic task list view controller that uses NSFetchedResultsController for efficient UI updates
+/// A generic task list view controller for efficient UI updates (Clean Architecture)
+/// TODO: Migrate away from NSFetchedResultsController to use repository pattern
 /// This class serves as a template for other task list views in the app
 class TaskListViewController: UIViewController, TaskRepositoryDependent {
     

@@ -9,7 +9,7 @@ import Foundation
 
 /// Pure domain model representing a Task
 /// This model is independent of any persistence framework (Core Data, etc.)
-public struct Task {
+public struct Task: Codable {
     // MARK: - Properties
     
     public let id: UUID

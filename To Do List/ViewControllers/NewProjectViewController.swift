@@ -7,9 +7,231 @@
 //
 
 import UIKit
-import CoreData
 import FluentUI
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
+import CoreData
+
+// MARK: - Inline Project Repository
+// Note: This inline implementation exists because State folder files aren't in the Xcode target
+fileprivate class InlineProjectRepository: ProjectRepositoryProtocol {
+    private let viewContext: NSManagedObjectContext
+
+    init(container: NSPersistentContainer) {
+        self.viewContext = container.viewContext
+    }
+
+    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+        viewContext.perform {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let projects = ProjectMapper.toDomainArray(from: entities)
+                DispatchQueue.main.async { completion(.success(projects)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+        viewContext.perform {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
+            request.fetchLimit = 1
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let project = entities.first.map { ProjectMapper.toDomain(from: $0) }
+                DispatchQueue.main.async { completion(.success(project)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+        viewContext.perform {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectName == %@", name)
+            request.fetchLimit = 1
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let project = entities.first.map { ProjectMapper.toDomain(from: $0) }
+                DispatchQueue.main.async { completion(.success(project)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+        fetchProject(withId: ProjectConstants.inboxProjectID) { result in
+            switch result {
+            case .success(let project):
+                if let project = project {
+                    completion(.success(project))
+                } else {
+                    completion(.failure(NSError(domain: "ProjectRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Inbox project not found"])))
+                }
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
+    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+        viewContext.perform {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID != %@", ProjectConstants.inboxProjectID as CVarArg)
+            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let projects = ProjectMapper.toDomainArray(from: entities)
+                DispatchQueue.main.async { completion(.success(projects)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+        viewContext.perform {
+            let entity = ProjectMapper.toEntity(from: project, in: self.viewContext)
+            do {
+                try self.viewContext.save()
+                let savedProject = ProjectMapper.toDomain(from: entity)
+                DispatchQueue.main.async { completion(.success(savedProject)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+        fetchInboxProject { result in
+            switch result {
+            case .success(let project):
+                completion(.success(project))
+            case .failure:
+                let inbox = Project.createInbox()
+                self.createProject(inbox, completion: completion)
+            }
+        }
+    }
+
+    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+        viewContext.perform {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID == %@", project.id as CVarArg)
+            request.fetchLimit = 1
+            do {
+                if let entity = try self.viewContext.fetch(request).first {
+                    ProjectMapper.updateEntity(entity, from: project)
+                    try self.viewContext.save()
+                    let updatedProject = ProjectMapper.toDomain(from: entity)
+                    DispatchQueue.main.async { completion(.success(updatedProject)) }
+                } else {
+                    DispatchQueue.main.async {
+                        completion(.failure(NSError(domain: "ProjectRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Project not found"])))
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+        fetchProject(withId: id) { result in
+            switch result {
+            case .success(let project):
+                guard var project = project else {
+                    completion(.failure(NSError(domain: "ProjectRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Project not found"])))
+                    return
+                }
+                project.name = newName
+                self.updateProject(project, completion: completion)
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        viewContext.perform {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
+            do {
+                let entities = try self.viewContext.fetch(request)
+                entities.forEach { self.viewContext.delete($0) }
+                try self.viewContext.save()
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+        viewContext.perform {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID == %@", projectId as CVarArg)
+            do {
+                let count = try self.viewContext.count(for: request)
+                DispatchQueue.main.async { completion(.success(count)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+        viewContext.perform {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID == %@", projectId as CVarArg)
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let tasks = TaskMapper.toDomainArray(from: entities)
+                DispatchQueue.main.async { completion(.success(tasks)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        viewContext.perform {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID == %@", sourceProjectId as CVarArg)
+            do {
+                let tasks = try self.viewContext.fetch(request)
+                tasks.forEach { $0.projectID = targetProjectId }
+                try self.viewContext.save()
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+        viewContext.perform {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            var predicates = [NSPredicate(format: "projectName == %@", name)]
+            if let excludingId = excludingId {
+                predicates.append(NSPredicate(format: "projectID != %@", excludingId as CVarArg))
+            }
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+            request.fetchLimit = 1
+            do {
+                let count = try self.viewContext.count(for: request)
+                DispatchQueue.main.async { completion(.success(count == 0)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+}
 
 extension String {
     func trimmingLeadingAndTrailingSpaces(using characterSet: CharacterSet = .whitespacesAndNewlines) -> String {
@@ -121,83 +343,70 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
             button.isEnabled = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
 
-            // CRITICAL FIX: Proper duplicate detection and UUID assignment
-            let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-            guard let context = context else {
-                print("❌ Failed to get Core Data context")
+            // Create project using Clean Architecture
+            guard let taskRepo = DependencyContainer.shared.taskRepository as? TaskRepositoryProtocol,
+                  let container = DependencyContainer.shared.persistentContainer else {
+                print("❌ Failed to get dependencies")
+                HUD.shared.showFailure(from: self, with: "Failed to create project")
                 return
             }
+
+            // Create inline project repository adapter since State folder isn't in target
+            let projectRepo = InlineProjectRepository(container: container)
+            let useCaseCoordinator = UseCaseCoordinator(
+                taskRepository: taskRepo,
+                projectRepository: projectRepo,
+                cacheService: nil
+            )
 
             // Trim and normalize project name
             currentProjectInTexField = currentProjectInTexField.trimmingLeadingAndTrailingSpaces()
 
-            // Check for existing project (case-insensitive)
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectName ==[c] %@", currentProjectInTexField)
-            request.fetchLimit = 1
+            // Create project using UseCaseCoordinator
+            let projectRequest = CreateProjectRequest(
+                name: currentProjectInTexField,
+                description: currentDescriptionInTexField.isEmpty ? nil : currentDescriptionInTexField
+            )
 
-            do {
-                let existingProjects = try context.fetch(request)
+            print("🆕 [NEW PROJECT] Creating new project...")
+            print("   Name: '\(currentProjectInTexField)'")
+            print("   Description: '\(currentDescriptionInTexField.isEmpty ? "none" : currentDescriptionInTexField)'")
 
-                if let existingProject = existingProjects.first {
-                    // CRITICAL FIX: Project with this name already exists
-                    // Don't create duplicate - ensure it has UUID and use it
-                    if existingProject.projectID == nil {
-                        existingProject.projectID = UUID()
-                        print("✅ Assigned UUID to existing project: \(currentProjectInTexField)")
-                        try context.save()
+            useCaseCoordinator.manageProjects.createProject(request: projectRequest) { [weak self] result in
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+
+                    switch result {
+                    case .success(let project):
+                        print("✅ [NEW PROJECT] Successfully created project!")
+                        print("   Project Name: '\(project.name)'")
+                        print("   Project UUID: \(project.id.uuidString)'")
+                        print("🆕 [NEW PROJECT] ==================")
+                        HUD.shared.showSuccess(from: self, with: "Project created\n\(project.name)")
+
+                        // Navigate to add task screen
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
+                            let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as! AddTaskViewController
+                            // Inject repository dependency using dependency container
+                            DependencyContainer.shared.inject(into: newViewController)
+                            newViewController.modalPresentationStyle = .fullScreen
+                            self.present(newViewController, animated: true, completion: { () in
+                                print("SUCCESS - Navigated to Add Task")
+                            })
+                        }
+
+                    case .failure(let error):
+                        print("❌ Failed to create project: \(error)")
+                        HUD.shared.showFailure(from: self, with: "Failed to create project")
                     }
-
-                    HUD.shared.showSuccess(from: self, with: "Using existing project\n\(currentProjectInTexField)")
-                    print("ℹ️ Project '\(currentProjectInTexField)' already exists with UUID: \(existingProject.projectID?.uuidString ?? "nil")")
-                } else {
-                    // CRITICAL FIX: Create new project with UUID
-                    print("🆕 [NEW PROJECT] ==================")
-                    print("🆕 [NEW PROJECT] Creating new project...")
-                    print("   Name: '\(currentProjectInTexField)'")
-                    print("   Description: '\(currentDescriptionInTexField.isEmpty ? "none" : currentDescriptionInTexField)'")
-
-                    let newProject = Projects(context: context)
-                    let generatedUUID = UUID()
-                    newProject.projectID = generatedUUID  // ✅ ALWAYS assign UUID to new projects!
-                    newProject.projectName = currentProjectInTexField
-                    newProject.projecDescription = currentDescriptionInTexField.isEmpty ? nil : currentDescriptionInTexField
-                    newProject.createdDate = Date()
-                    newProject.modifiedDate = Date()
-
-                    print("   Generated UUID: \(generatedUUID.uuidString)")
-
-                    try context.save()
-                    print("✅ [NEW PROJECT] Successfully created project!")
-                    print("   Project Name: '\(newProject.projectName ?? "nil")'")
-                    print("   Project UUID: \(newProject.projectID?.uuidString ?? "nil")")
-                    print("   Created Date: \(newProject.createdDate?.description ?? "nil")")
-                    print("🆕 [NEW PROJECT] ==================")
-
-                    HUD.shared.showSuccess(from: self, with: "New Project\n\(currentProjectInTexField)")
                 }
-            } catch {
-                print("❌ Failed to check/save project: \(error)")
-                HUD.shared.showFailure(from: self, with: "Failed to create project")
-                return
             }
 
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
             HUD.shared.showFailure(from: self, with: "No New Project")
             return
-        }
-
-        // Navigate to add task screen
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-            let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as! AddTaskViewController
-            // Inject repository dependency using dependency container
-            DependencyContainer.shared.inject(into: newViewController)
-            newViewController.modalPresentationStyle = .fullScreen
-            self.present(newViewController, animated: true, completion: { () in
-                print("SUCCESS - Navigated to Add Task")
-            })
         }
     }
     
@@ -294,10 +503,10 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         
         
     }
-    
-    
-    
-    class func createVerticalContainer() -> UIStackView {
+
+
+
+    static func createVerticalContainer() -> UIStackView {
         let container = UIStackView(frame: .zero)
         container.axis = .vertical
         container.layoutMargins = UIEdgeInsets(top: margin, left: margin, bottom: margin, right: margin)

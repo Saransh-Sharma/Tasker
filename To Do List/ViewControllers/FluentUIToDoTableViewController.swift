@@ -7,10 +7,10 @@
 //
 
 import UIKit
-import CoreData
 import FluentUI
 import SemiModalViewController
 import MaterialComponents.MaterialTextControls_FilledTextFields
+import CoreData  // TODO: Migrate away from NSFetchRequest to use repository pattern
 
 // MARK: - FluentUIToDoTableViewController Delegate Protocol
 
@@ -23,23 +23,15 @@ protocol FluentUIToDoTableViewControllerDelegate: AnyObject {
 // MARK: - FluentUIToDoTableViewController
 
 class FluentUIToDoTableViewController: UITableViewController {
-    
+
     // MARK: - Properties
-    
-    /// Save context helper
-    private func saveContext() {
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            return
-        }
-        
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                print("Error saving context: \(error)")
-            }
-        }
-    }
+
+    /// Task repository for data access (Clean Architecture)
+    var taskRepository: TaskRepository!
+
+    /// ViewModel for reactive state (optional, for future migration)
+    /// TODO: Re-enable when ViewModel is available
+    // var viewModel: HomeViewModel?
     
     weak var delegate: FluentUIToDoTableViewControllerDelegate?
     private var toDoData: [(String, [NTask])] = []
@@ -107,36 +99,44 @@ class FluentUIToDoTableViewController: UITableViewController {
     private func setupToDoData(for date: Date) {
         print("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
 
-        // Get all tasks for the selected date from Core Data
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        let startOfDay = Calendar.current.startOfDay(for: date)
-        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
+        // TODO: Use repository once it has getTasksForDate method
+        // For now, use direct CoreData access
+        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
 
-        // 🐛 FIX: Include overdue tasks when viewing today
-        let isToday = Calendar.current.isDateInToday(date)
+            // Fetch tasks for the selected date
+            let calendar = Calendar.current
+            let startOfDay = calendar.startOfDay(for: date)
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
 
-        let predicate: NSPredicate
-        if isToday {
-            // For today: include tasks due today OR overdue incomplete tasks
-            let todayPredicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
-            let overduePredicate = NSPredicate(format: "dueDate < %@ AND isComplete == NO", startOfDay as NSDate)
-            predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [todayPredicate, overduePredicate])
-            print("🔍 [TABLE VIEW] Using combined predicate for TODAY - includes overdue tasks")
+            request.predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
+            request.sortDescriptors = [NSSortDescriptor(key: "taskPriority", ascending: true)]
+
+            do {
+                let allTasksForDate = try context.fetch(request)
+                DispatchQueue.main.async { [weak self] in
+                    print("📅 Found \(allTasksForDate.count) total tasks for \(date)")
+                    print("🔍 [TABLE VIEW] Fetched tasks breakdown:")
+                    for (index, task) in allTasksForDate.enumerated() {
+                        print("  Task \(index + 1): '\(task.name ?? "NO NAME")' | dueDate: \(task.dueDate ?? NSDate()) | isComplete: \(task.isComplete)")
+                    }
+
+                    self?.processTasksForDisplay(allTasksForDate, date: date)
+                }
+            } catch {
+                print("❌ Error fetching tasks: \(error)")
+                DispatchQueue.main.async { [weak self] in
+                    self?.processTasksForDisplay([], date: date)
+                }
+            }
         } else {
-            // For other dates: only tasks due on that specific date
-            predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
-            print("🔍 [TABLE VIEW] Using simple predicate for \(date) - date-specific only")
+            print("❌ No context available")
+            processTasksForDisplay([], date: date)
         }
+    }
 
-        request.predicate = predicate
-        let allTasksForDate = (try? context?.fetch(request)) ?? []
-
-        print("📅 Found \(allTasksForDate.count) total tasks for \(date)")
-        print("🔍 [TABLE VIEW] Fetched tasks breakdown:")
-        for (index, task) in allTasksForDate.enumerated() {
-            print("  Task \(index + 1): '\(task.name ?? "NO NAME")' | dueDate: \(task.dueDate ?? NSDate()) | isComplete: \(task.isComplete)")
-        }
+    /// Process fetched tasks and organize them for display
+    private func processTasksForDisplay(_ allTasksForDate: [NTask], date: Date) {
         
         // Group tasks by project (case-insensitive)
         var tasksByProject: [String: [NTask]] = [:]
@@ -273,18 +273,24 @@ class FluentUIToDoTableViewController: UITableViewController {
             // For search results, we need to extract the actual NTask objects
             // Since search results don't contain the actual NTask objects, we need to find them
             var tasksForSection: [NTask] = []
-            
-            // Get all tasks from Core Data
-            let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-            let allTasks = (try? context?.fetch(request)) ?? []
-            
-            for taskItem in section.items {
-                if let matchingTask = allTasks.first(where: { task in
-                    task.name == taskItem.TaskTitle && 
-                    (task.taskDetails ?? "") == taskItem.text2
-                }) {
-                    tasksForSection.append(matchingTask)
+
+            // TODO: Use repository once it has fetchAllTasks method
+            // For now, use direct CoreData access
+            if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
+                let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+
+                do {
+                    let allTasks = try context.fetch(request)
+                    for taskItem in section.items {
+                        if let matchingTask = allTasks.first(where: { task in
+                            task.name == taskItem.TaskTitle &&
+                            (task.taskDetails ?? "") == taskItem.text2
+                        }) {
+                            tasksForSection.append(matchingTask)
+                        }
+                    }
+                } catch {
+                    print("❌ Error fetching all tasks: \(error)")
                 }
             }
             
@@ -1153,28 +1159,34 @@ extension FluentUIToDoTableViewController {
     
     private func buildProjectPillBarData() -> [PillButtonBarItem] {
         var pillBarItems: [PillButtonBarItem] = []
-        
-        // Use direct Core Data access instead of ProjectManager
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        let allDisplayProjects = (try? context?.fetch(request)) ?? []
-        
-        // Add all existing projects
-        for project in allDisplayProjects {
-            if let projectName = project.projectName {
-                pillBarItems.append(PillButtonBarItem(title: projectName))
+
+        // TODO: Use ViewModel/UseCaseCoordinator once Presentation/State folders are in target
+        // For now, fetch projects directly from CoreData
+        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
+
+            do {
+                let projects = try context.fetch(request)
+                for project in projects {
+                    if let projectName = project.projectName {
+                        pillBarItems.append(PillButtonBarItem(title: projectName))
+                    }
+                }
+            } catch {
+                print("❌ Error fetching projects: \(error)")
             }
         }
-        
+
         // Ensure "Inbox" is present and positioned first if it exists
-        let inboxTitle = "Inbox" // Default project name
-        
+        let inboxTitle = "Inbox"
+
         // Remove any existing "Inbox" to avoid duplicates before re-inserting at correct position
         pillBarItems.removeAll(where: { $0.title.lowercased() == inboxTitle.lowercased() })
-        
+
         // Insert "Inbox" at the beginning
         pillBarItems.insert(PillButtonBarItem(title: inboxTitle), at: 0)
-        
+
         return pillBarItems
     }
     

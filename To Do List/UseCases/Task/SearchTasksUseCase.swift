@@ -14,7 +14,7 @@ public final class SearchTasksUseCase {
     
     // MARK: - Supporting Types
     
-    public enum TagMatchMode {
+    public enum TagMatchMode: Codable {
         case any
         case all
     }
@@ -466,14 +466,14 @@ public final class SearchTasksUseCase {
 
 // MARK: - Supporting Models
 
-public struct SearchQuery {
+public struct SearchQuery: Codable {
     public let text: String
     public let scope: TaskSearchScope
     public let fields: [SearchField]
     public let matchMode: SearchMatchMode
     public let caseSensitive: Bool
     public let exactPhrase: Bool
-    
+
     // Advanced filters
     public let priority: TaskPriority?
     public let category: TaskCategory?
@@ -536,7 +536,7 @@ public struct SearchQuery {
     }
 }
 
-public enum TaskSearchScope {
+public enum TaskSearchScope: Codable {
     case all
     case today
     case upcoming
@@ -546,21 +546,21 @@ public enum TaskSearchScope {
     case dateRange(Date, Date)
 }
 
-public enum SearchField {
+public enum SearchField: Codable {
     case name
     case details
     case project
     case tags
 }
 
-public enum SearchMatchMode {
+public enum SearchMatchMode: Codable {
     case exact
     case contains
     case startsWith
     case endsWith
 }
 
-public struct SearchResult {
+public struct SearchResult: Codable {
     public let tasks: [Task]
     public let query: SearchQuery
     public let totalMatches: Int

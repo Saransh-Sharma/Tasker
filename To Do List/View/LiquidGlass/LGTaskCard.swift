@@ -147,8 +147,8 @@ class LGTaskCard: LGBaseView {
         detailsLabel.textColor = todoColors.primaryTextColor.withAlphaComponent(0.7)
 
         // Priority indicator - using TaskPriorityConfig for consistency
-        let priorityColor = TaskPriorityConfig.chartColorForPriority(task.taskPriority)
-        priorityIndicator.backgroundColor = priorityColor
+        let priority = TaskPriorityConfig.Priority(rawValue: task.taskPriority)
+        priorityIndicator.backgroundColor = priority.color
 
         // Project
         projectLabel.text = task.project ?? "Inbox"

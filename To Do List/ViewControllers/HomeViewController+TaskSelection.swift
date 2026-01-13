@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import CoreData
 import FluentUI
 
 extension HomeViewController {
@@ -95,10 +94,21 @@ extension HomeViewController {
         
         // Setup the Fluent detail view
         let detailView = TaskDetailViewFluent(frame: CGRect(x: 0, y: 0, width: view.bounds.width * 0.9, height: view.bounds.height * 0.8))
-        // Use direct Core Data access instead of ProjectManager
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        let availableProjects = (try? context?.fetch(request)) ?? []
+
+        // Use ViewModel to get available projects if available
+        var availableProjects: [Projects] = []
+        // TODO: Fetch projects from repository
+        // Temporarily commented out until proper project repository is accessible
+        // if let viewModel = viewModel {
+        //     // Convert domain Projects to Projects entities for backwards compatibility
+        //     // TODO: Refactor TaskDetailViewFluent to work with domain models
+        //     for domainProject in viewModel.projects {
+        //         if let projectEntity = convertDomainProjectToEntity(domainProject) {
+        //             availableProjects.append(projectEntity)
+        //         }
+        //     }
+        // }
+
         detailView.configure(task: task, availableProjects: availableProjects, delegate: self, taskRepository: taskRepository)
         detailView.alpha = 0
         detailView.translatesAutoresizingMaskIntoConstraints = false

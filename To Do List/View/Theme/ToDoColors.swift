@@ -142,17 +142,43 @@ extension UIColor {
         let b = CGFloat(rgb & 0x0000FF) / 255.0
         self.init(red: r, green: g, blue: b, alpha: alpha)
     }
-    
+
     /// Adjust brightness of color
     func withBrightness(_ brightness: CGFloat) -> UIColor {
         var hue: CGFloat = 0
         var saturation: CGFloat = 0
         var currentBrightness: CGFloat = 0
         var alpha: CGFloat = 0
-        
+
         if self.getHue(&hue, saturation: &saturation, brightness: &currentBrightness, alpha: &alpha) {
             return UIColor(hue: hue, saturation: saturation, brightness: currentBrightness * brightness, alpha: alpha)
         }
         return self
+    }
+}
+
+// MARK: - Domain Model UIColor Extensions (Presentation Layer Bridge)
+// These extensions provide UIColor computed properties for domain types
+// by converting their hex string representations to UIColor.
+// This keeps UIKit out of the domain layer while allowing UI code to use colors directly.
+
+extension TaskPriorityConfig.Priority {
+    /// UIColor for UI representation (bridges domain hex to UIKit)
+    public var color: UIColor {
+        return UIColor(hex: colorHex)
+    }
+}
+
+extension ProjectColor {
+    /// UIColor for UI representation (bridges domain hex to UIKit)
+    public var uiColor: UIColor {
+        return UIColor(hex: hexString)
+    }
+}
+
+extension ProjectHealth {
+    /// UIColor for UI representation (bridges domain hex to UIKit)
+    public var color: UIColor {
+        return UIColor(hex: colorHex)
     }
 }
