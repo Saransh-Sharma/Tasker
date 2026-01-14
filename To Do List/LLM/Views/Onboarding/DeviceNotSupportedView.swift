@@ -16,7 +16,7 @@ struct DeviceNotSupportedView: View {
                 Text("device not supported")
                     .font(.title)
                     .fontWeight(.semibold)
-                Text("sorry, fullmoon can only run on devices that support Metal 3.")
+                Text("sorry, on device assistant can only run on devices that support Metal 3.")
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
