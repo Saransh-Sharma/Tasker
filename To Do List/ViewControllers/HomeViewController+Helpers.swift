@@ -63,13 +63,22 @@ extension HomeViewController {
         print("⚠️ rescheduleTaskDirectly disabled - TODO: Re-enable when ViewModel is available")
         print("⚠️ Falling back to legacy reschedule method")
         // Use legacy taskRepository for now
+
+        // Store the old dueDate to restore on failure
+        let oldDueDate = task.dueDate
+
+        // Set the new dueDate before calling updateTask (required by CoreData)
         task.dueDate = date as NSDate
-        taskRepository.updateTask(task) { result in
+
+        taskRepository.updateTask(task) { [weak self] result in
             switch result {
             case .success:
                 print("✅ Task rescheduled via legacy repository")
+                // Success: keep the mutated in-memory state
             case .failure(let error):
                 print("❌ Failed to reschedule task: \(error)")
+                // Failure: restore the old dueDate to keep in-memory state consistent
+                task.dueDate = oldDueDate
             }
         }
     }

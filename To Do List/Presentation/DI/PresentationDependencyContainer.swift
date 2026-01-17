@@ -104,6 +104,20 @@ public final class PresentationDependencyContainer {
 
     // MARK: - Setup Methods
 
+    /// Verifies the container is configured before accessing dependencies
+    /// Call this at the start of any method that requires configured dependencies
+    private func assertConfigured(file: StaticString = #file, line: UInt = #line) {
+        guard isConfigured else {
+            fatalError(
+                """
+                PresentationDependencyContainer is not configured!
+                Call configure(...) or configureFromStateLayer() before accessing ViewModels.
+                Location: \(file):\(line)
+                """
+            )
+        }
+    }
+
     private func setupUseCases() {
         // Use DefaultTaskScoringService which conforms to TaskScoringServiceProtocol
         let scoringService = DefaultTaskScoringService()
@@ -161,6 +175,7 @@ public final class PresentationDependencyContainer {
 
     /// Get or create HomeViewModel
     public func makeHomeViewModel() -> HomeViewModel {
+        assertConfigured()
         if let existing = _homeViewModel {
             return existing
         }
@@ -172,6 +187,7 @@ public final class PresentationDependencyContainer {
 
     /// Get or create AddTaskViewModel
     public func makeAddTaskViewModel() -> AddTaskViewModel {
+        assertConfigured()
         if let existing = _addTaskViewModel {
             return existing
         }
@@ -187,6 +203,7 @@ public final class PresentationDependencyContainer {
 
     /// Get or create ProjectManagementViewModel
     public func makeProjectManagementViewModel() -> ProjectManagementViewModel {
+        assertConfigured()
         if let existing = _projectManagementViewModel {
             return existing
         }
@@ -201,6 +218,7 @@ public final class PresentationDependencyContainer {
 
     /// Create a fresh AddTaskViewModel (for modal presentations)
     public func makeNewAddTaskViewModel() -> AddTaskViewModel {
+        assertConfigured()
         return AddTaskViewModel(
             createTaskUseCase: createTaskUseCase,
             manageProjectsUseCase: manageProjectsUseCase,
@@ -212,6 +230,7 @@ public final class PresentationDependencyContainer {
 
     /// Inject dependencies into a view controller
     public func inject(into viewController: UIViewController) {
+        assertConfigured()
         let vcType = String(describing: type(of: viewController))
         print("💉 PresentationDependencyContainer: Injecting into \(vcType)")
 
@@ -243,6 +262,7 @@ public final class PresentationDependencyContainer {
 
     /// Get the use case coordinator directly (for gradual migration)
     public var coordinator: UseCaseCoordinator {
+        assertConfigured()
         return useCaseCoordinator
     }
 }

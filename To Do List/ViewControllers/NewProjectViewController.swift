@@ -414,7 +414,11 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
                         // Navigate to add task screen
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-                            let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as! AddTaskViewController
+                            guard let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as? AddTaskViewController else {
+                                print("❌ Failed to cast view controller to AddTaskViewController")
+                                HUD.shared.showFailure(from: self, with: "Failed to open Add Task screen")
+                                return
+                            }
                             // Inject repository dependency using dependency container
                             DependencyContainer.shared.inject(into: newViewController)
                             newViewController.modalPresentationStyle = .fullScreen

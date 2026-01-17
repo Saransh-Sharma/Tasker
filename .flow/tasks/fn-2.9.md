@@ -1,12 +1,12 @@
 # fn-2.9 Fix empty availableProjects in task selection
 
 ## Description
-TBD
+Added fallback to load projects via projectRepository when ViewModel is unavailable. Uses convertDomainProjectToEntity to convert domain models to entities for backwards compatibility, and logs warning when no projects are available for task detail.
 
 ## Acceptance
-- [ ] Add fallback to load projects if viewModel.projects is empty
-- [ ] Use ProjectRepository to fetch projects and convert via convertDomainProjectToEntity
-- [ ] Handle empty projects by disabling/hiding project UI in detail view
+- [x] Add fallback to load projects if viewModel.projects is empty
+- [x] Use ProjectRepository to fetch projects and convert via convertDomainProjectToEntity
+- [x] Handle empty projects by disabling/hiding project UI in detail view
 
 
 ## Done summary

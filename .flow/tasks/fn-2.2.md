@@ -1,12 +1,12 @@
 # fn-2.2 Fix remove_presentation_vm.rb hardcoded filter
 
 ## Description
-TBD
+Changed hardcoded 'ProjectManagementViewModel.swift' to use File.basename(file_path) so the filter now works correctly for any files added to files_to_remove array.
 
 ## Acceptance
-- [ ] Update filter block to compare against file_path variable instead of hardcoded string
-- [ ] Ensure File.basename(file_path) is used if array contains basenames
-- [ ] Test that multiple files_to_remove entries work correctly
+- [x] Update filter block to compare against file_path variable instead of hardcoded string
+- [x] Ensure File.basename(file_path) is used if array contains basenames
+- [x] Test that multiple files_to_remove entries work correctly
 
 
 ## Done summary

@@ -80,32 +80,28 @@ extension HomeViewController {
     func presentTaskDetailView(for task: NTask) {
         print("🟢 TASKDETAILVIEWFLUENT APPROACH: presentTaskDetailView called")
         print("🟢 FLUENT: About to present TaskDetailViewFluent for task: \(task.name ?? "Unknown")")
-        
+
         // Create an overlay to dim the background
         let overlayView = UIView(frame: view.bounds)
         overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.5)
         overlayView.alpha = 0
         view.addSubview(overlayView)
         self.overlayView = overlayView
-        
+
         // Create a tap gesture to dismiss when tapping outside
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissFluentDetailView))
         overlayView.addGestureRecognizer(tapGesture)
-        
+
         // Setup the Fluent detail view
         let detailView = TaskDetailViewFluent(frame: CGRect(x: 0, y: 0, width: view.bounds.width * 0.9, height: view.bounds.height * 0.8))
 
-        // Load available projects for task detail view
+        // Load available projects for task detail view asynchronously
         // Fallback: Use projectRepository to fetch projects since ViewModel is not available
         // TODO: GitHub Issue - Migrate task detail to use domain models instead of Projects entities
-        var availableProjects: [Projects] = []
-
-        // Synchronously fetch projects from repository (temporary workaround)
-        let dispatchGroup = DispatchGroup()
-        dispatchGroup.enter()
         projectRepository.fetchAllProjects { [weak self] result in
-            defer { dispatchGroup.leave() }
             guard let self = self else { return }
+
+            var availableProjects: [Projects] = []
 
             if case .success(let domainProjects) = result {
                 // Convert domain Projects to Projects entities for backwards compatibility
@@ -115,37 +111,39 @@ extension HomeViewController {
                     }
                 }
             }
-        }
-        dispatchGroup.wait()
 
-        // Configure detail view - if no projects available, project UI will be limited
-        let projectsAvailable = !availableProjects.isEmpty
-        if !projectsAvailable {
-            print("⚠️ No projects available for task detail - project selection will be limited")
-        }
+            // Configure detail view - if no projects available, project UI will be limited
+            let projectsAvailable = !availableProjects.isEmpty
+            if !projectsAvailable {
+                print("⚠️ No projects available for task detail - project selection will be limited")
+            }
 
-        detailView.configure(task: task, availableProjects: availableProjects, delegate: self, taskRepository: taskRepository)
-        detailView.alpha = 0
-        detailView.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Add the detail view to the view hierarchy
-        view.addSubview(detailView)
-        
-        // Center the detail view and set its width
-        NSLayoutConstraint.activate([
-            detailView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            detailView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            detailView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.9),
-            detailView.heightAnchor.constraint(lessThanOrEqualTo: view.heightAnchor, multiplier: 0.8)
-        ])
-        
-        // Store reference to the detail view
-        self.presentedFluentDetailView = detailView
-        
-        // Animate in
-        UIView.animate(withDuration: 0.3) {
-            overlayView.alpha = 1
-            detailView.alpha = 1
+            // Perform UI configuration on main queue after availableProjects is populated
+            DispatchQueue.main.async {
+                detailView.configure(task: task, availableProjects: availableProjects, delegate: self, taskRepository: self.taskRepository)
+                detailView.alpha = 0
+                detailView.translatesAutoresizingMaskIntoConstraints = false
+
+                // Add the detail view to the view hierarchy
+                self.view.addSubview(detailView)
+
+                // Center the detail view and set its width
+                NSLayoutConstraint.activate([
+                    detailView.centerXAnchor.constraint(equalTo: self.view.centerXAnchor),
+                    detailView.centerYAnchor.constraint(equalTo: self.view.centerYAnchor),
+                    detailView.widthAnchor.constraint(equalTo: self.view.widthAnchor, multiplier: 0.9),
+                    detailView.heightAnchor.constraint(lessThanOrEqualTo: self.view.heightAnchor, multiplier: 0.8)
+                ])
+
+                // Store reference to the detail view
+                self.presentedFluentDetailView = detailView
+
+                // Animate in
+                UIView.animate(withDuration: 0.3) {
+                    overlayView.alpha = 1
+                    detailView.alpha = 1
+                }
+            }
         }
     }
 }

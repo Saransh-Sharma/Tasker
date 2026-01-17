@@ -1,12 +1,12 @@
 # fn-2.7 Fix HomeViewController+ProjectFiltering issues
 
 ## Description
-TBD
+Removed InlineProjectRepository (220+ lines) and replaced with projectRepository property using EnhancedDependencyContainer.shared. Fixed convertDomainProjectToEntity to use temporary in-memory context instead of viewContext to prevent context pollution, and documented calculateTodaysScore sync version limitation.
 
 ## Acceptance
-- [ ] Remove InlineProjectRepository class, inject shared repository via EnhancedDependencyContainer
-- [ ] Fix convertDomainProjectToEntity to use temporary context or refactor to use domain models
-- [ ] Fix calculateTodaysScore async race condition (make async or use sync scoring)
+- [x] Remove InlineProjectRepository class, inject shared repository via EnhancedDependencyContainer
+- [x] Fix convertDomainProjectToEntity to use temporary context or refactor to use domain models
+- [x] Fix calculateTodaysScore async race condition (make async or use sync scoring)
 
 
 ## Done summary

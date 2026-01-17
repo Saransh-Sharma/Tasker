@@ -10,13 +10,13 @@ if target.nil?
 end
 
 files_to_remove = [
-  'To Do List/Presentation/ViewModels/ProjectManagementViewModel.swift'
+  'To Do List/Presentation/ViewModels/ProjectManagementViewModel.swift',
 ]
 
 files_to_remove.each do |file_path|
   file_basename = File.basename(file_path)
   build_files = target.source_build_phase.files.select do |bf|
-    bf.file_ref && bf.file_ref.path && bf.file_ref.path.include?(file_basename)
+    bf.file_ref && bf.file_ref.path && bf.file_ref.path.end_with?(file_basename)
   end
   
   build_files.each do |bf|

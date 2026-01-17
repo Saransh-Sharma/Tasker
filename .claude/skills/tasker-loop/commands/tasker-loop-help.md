@@ -30,7 +30,7 @@ Start a Tasker loop in the current session.
 - `--completion-promise 'TEXT'` - Completion phrase (must be quoted if multi-word)
 
 **Examples:**
-```
+```bash
 /start-tasker-loop Add label feature using Clean Architecture --completion-promise 'LABELS DONE' --max-iterations 15
 /start-tasker-loop --max-iterations 10 Fix CoreData migration issue
 /start-tasker-loop Refactor HomeViewController to use Clean Architecture
@@ -54,22 +54,22 @@ Cancel the active Tasker loop and show iteration statistics.
 ### Good Use Cases ✅
 
 - **Well-defined tasks with clear success criteria**:
-  ```
+  ```bash
   /start-tasker-loop Add label feature with Clean Architecture --completion-promise 'FEATURE COMPLETE'
   ```
 
 - **Tasks requiring iterative refinement**:
-  ```
+  ```bash
   /start-tasker-loop Fix CoreData migration issue --max-iterations 20
   ```
 
 - **Greenfield features**:
-  ```
+  ```bash
   /start-tasker-loop Implement user authentication with CloudKit --completion-promise 'AUTH DONE'
   ```
 
 - **Tasks with automatic verification**:
-  ```
+  ```bash
   /start-tasker-loop Add unit tests for TaskMapper --completion-promise 'ALL TESTS PASSING'
   ```
 
@@ -86,7 +86,7 @@ Cancel the active Tasker loop and show iteration statistics.
 
 Always follow the 4-layer structure:
 
-```
+```text
 Domain (pure Swift, no framework deps)
     ↓
 UseCases (orchestrate workflows, business rules)
@@ -156,7 +156,7 @@ Do:
 - The promise will become true naturally
 
 Example:
-```
+```bash
 /start-tasker-loop Fix CoreData migration --completion-promise 'MIGRATION WORKING'
 ```
 
@@ -197,7 +197,7 @@ tail -n +10 .claude/tasker-loop.local.md
 
 ## Example Workflow
 
-```bash
+```text
 # 1. Start loop for complex feature
 /start-tasker-loop Add label support with Clean Architecture --completion-promise 'LABELS WORKING' --max-iterations 20
 

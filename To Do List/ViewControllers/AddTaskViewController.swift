@@ -455,13 +455,70 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // Don't add to stack container here - it's added in viewDidLoad
     }
     
+    /// Load projects via fallback using CoreDataProjectRepository
+    /// Called when ViewModel is not available
+    private func loadProjectsFallback() {
+        print("⚠️ ViewModel not available, using fallback to load projects")
+
+        guard let container = DependencyContainer.shared.persistentContainer else {
+            print("❌ Failed to get persistentContainer for project fallback")
+            samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
+            return
+        }
+
+        // Use CoreDataProjectRepository from State layer to fetch all projects
+        let projectRepo = CoreDataProjectRepository(container: container)
+
+        // Fetch all projects asynchronously
+        projectRepo.fetchAllProjects { [weak self] result in
+            guard let self = self else { return }
+
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let domainProjects):
+                    // Reset the list with "Add Project" button as first item
+                    self.samplePillBarItems = []
+                    self.samplePillBarItems.append(PillButtonBarItem(title: self.addProjectString))
+
+                    // Separate Inbox from other projects
+                    let inboxProject = domainProjects.first { $0.name.lowercased() == "inbox" }
+                    let customProjects = domainProjects.filter { $0.name.lowercased() != "inbox" }
+                        .sorted { $0.name < $1.name }
+
+                    // Add Inbox as second item (index 1) - always present
+                    let inboxTitle = inboxProject?.name ?? "Inbox"
+                    self.samplePillBarItems.append(PillButtonBarItem(title: inboxTitle))
+
+                    // Add all custom projects after Inbox
+                    for project in customProjects {
+                        self.samplePillBarItems.append(PillButtonBarItem(title: project.name))
+                        print("✅ Added custom project to pill bar: \(project.name)")
+                    }
+
+                    print("✅ Loaded \(customProjects.count) custom projects via fallback")
+
+                    // Refresh the pill bar with the loaded projects
+                    self.refreshProjectPillBar(selectProject: inboxTitle)
+
+                case .failure(let error):
+                    print("❌ Failed to load projects via fallback: \(error)")
+                    // Ensure at least Inbox is present
+                    self.samplePillBarItems = []
+                    self.samplePillBarItems.append(PillButtonBarItem(title: self.addProjectString))
+                    self.samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
+                    self.refreshProjectPillBar(selectProject: "Inbox")
+                }
+            }
+        }
+    }
+
     func buildSamplePillBarData() {
         // Reset the list
         samplePillBarItems = []
-        
+
         // PHASE 3: Add "Add Project" button as the first pill (index 0)
         samplePillBarItems.append(PillButtonBarItem(title: addProjectString))
-        
+
         // TODO: Re-enable when ViewModel is available
         // Use ViewModel to get available projects (Clean Architecture)
         // if let viewModel = viewModel {
@@ -487,16 +544,16 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         //     print("✅ Phase 3 Fix: Successfully loaded \(customProjects.count) custom projects from ViewModel")
         //
         // } else {
-            print("⚠️ ViewModel not available, using fallback")
-            // Fallback: Just add Inbox after "Add Project"
-            samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
+            // Use fallback to load all projects
+            loadProjectsFallback()
+            return // loadProjectsFallback will handle refreshProjectPillBar
         // }
-        
+
         // PHASE 3: Ensure Inbox is always present at index 1 (safety check)
         if !samplePillBarItems.contains(where: { $0.title.lowercased() == "inbox" }) {
             samplePillBarItems.insert(PillButtonBarItem(title: "Inbox"), at: 1)
         }
-        
+
         // Log the final list for verification
         print("📋 Final samplePillBarItems for AddTaskScreen (Phase 3):")
         for (index, value) in samplePillBarItems.enumerated() {
