@@ -225,6 +225,5 @@ tail -n +10 .claude/tasker-loop.local.md
 
 ## See Also
 
-- [Tasker Architecture Guide](../../CLAUDE.md) - Complete Clean Architecture documentation
-- [taskerctl](../../taskerctl) - Build and diagnostic commands
-- [Core Data Model](../../TaskModel.xcdatamodeld/) - Entity definitions
+- [taskerctl](../../../../taskerctl) - Build and diagnostic commands
+- [Core Data Model](../../../../To%20Do%20List/TaskModel.xcdatamodeld/) - Entity definitions
