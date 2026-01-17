@@ -95,13 +95,40 @@ fileprivate class InlineProjectRepository: ProjectRepositoryProtocol {
     }
 
     func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
-        viewContext.perform {
-            let entity = ProjectMapper.toEntity(from: project, in: self.viewContext)
-            do {
-                try self.viewContext.save()
-                let savedProject = ProjectMapper.toDomain(from: entity)
-                DispatchQueue.main.async { completion(.success(savedProject)) }
-            } catch {
+        // First check if the project name is available (prevent duplicates)
+        isProjectNameAvailable(project.name, excludingId: nil) { [weak self] result in
+            guard let self = self else {
+                completion(.failure(NSError(domain: "ProjectRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Repository deallocated"])))
+                return
+            }
+
+            switch result {
+            case .success(let isAvailable):
+                if !isAvailable {
+                    // Name already exists - return duplicate error
+                    let error = NSError(
+                        domain: "ProjectRepository",
+                        code: 409, // HTTP Conflict
+                        userInfo: [NSLocalizedDescriptionKey: "A project with the name '\(project.name)' already exists"]
+                    )
+                    DispatchQueue.main.async { completion(.failure(error)) }
+                    return
+                }
+
+                // Name is available - proceed with creation
+                self.viewContext.perform {
+                    let entity = ProjectMapper.toEntity(from: project, in: self.viewContext)
+                    do {
+                        try self.viewContext.save()
+                        let savedProject = ProjectMapper.toDomain(from: entity)
+                        DispatchQueue.main.async { completion(.success(savedProject)) }
+                    } catch {
+                        DispatchQueue.main.async { completion(.failure(error)) }
+                    }
+                }
+
+            case .failure(let error):
+                // Failed to check name availability
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
