@@ -63,13 +63,16 @@ public final class AddTaskViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
+        // Resolve projectID from selectedProject name
+        let projectID = projects.first(where: { $0.name == selectedProject })?.id
+
         let request = CreateTaskRequest(
             name: taskName,
             details: taskDetails.isEmpty ? nil : taskDetails,
             type: selectedType,
             priority: selectedPriority,
             dueDate: dueDate,
-            projectID: nil, // TODO: Convert selectedProject name to UUID
+            projectID: projectID,
             project: selectedProject,
             alertReminderTime: hasReminder ? reminderTime : nil
         )

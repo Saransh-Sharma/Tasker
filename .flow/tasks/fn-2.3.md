@@ -10,9 +10,16 @@ TBD
 
 
 ## Done summary
-TBD
+- Added lookup to resolve projectID from selectedProject name
+- Uses projects.first(where: { $0.name == selectedProject })?.id
+- If no match found, projectID remains nil (downstream supports this)
 
+**Why:**
+- Task-to-project association was being lost because projectID was always nil
+
+**Verification:**
+- Code review confirms correct lookup pattern
 ## Evidence
-- Commits:
+- Commits: b9d0e82852b6ce3e81040b38f59be58e47b24020
 - Tests:
 - PRs:
