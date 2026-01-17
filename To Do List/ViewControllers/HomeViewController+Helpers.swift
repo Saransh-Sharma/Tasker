@@ -11,28 +11,32 @@ extension HomeViewController {
 
     // MARK: - Task Fetching Helpers (Clean Architecture)
 
-    /// Get task from TaskListItem using task UUID lookup
+    /// Get task from TaskListItem using task UUID lookup (async with completion handler)
     /// Maps TaskListItem -> Task (domain model) via HomeViewModel
-    func getTaskFromTaskListItem(_ item: TaskListItem) -> NTask? {
+    /// - Parameters:
+    ///   - item: The TaskListItem to look up
+    ///   - completion: Callback with the fetched NTask or nil if not found
+    func getTaskFromTaskListItem(_ item: TaskListItem, completion: @escaping (NTask?) -> Void) {
         // TODO: This is a temporary bridge. Ideally, we should refactor the UI
         // to work directly with domain Task models instead of NTask entities.
         // For now, we'll use the task UUID stored in TaskListItem to look up the entity.
 
         guard let taskID = item.taskID else {
             print("⚠️ TaskListItem missing taskID, cannot look up task")
-            return nil
+            completion(nil)
+            return
         }
 
-        // Use repository to fetch the task entity
-        // This is a synchronous operation that should be migrated to async
-        var foundTask: NTask?
+        // Use repository to fetch the task entity asynchronously
         taskRepository.fetchTask(by: taskID) { result in
-            if case .success(let task) = result {
-                foundTask = task
+            switch result {
+            case .success(let task):
+                completion(task)
+            case .failure(let error):
+                print("⚠️ Failed to fetch task by ID: \(error)")
+                completion(nil)
             }
         }
-
-        return foundTask
     }
 
     /// Delete task using Clean Architecture
