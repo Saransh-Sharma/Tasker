@@ -27,7 +27,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     var taskRepository: TaskRepository!
 
     /// AddTaskViewModel dependency (injected) - Clean Architecture
-    var viewModel: AddTaskViewModel!
+    /// Note: Optional to avoid crashes when ViewModel path is disabled
+    var viewModel: AddTaskViewModel?
 
     /// Combine cancellables for reactive bindings
     private var cancellables = Set<AnyCancellable>()

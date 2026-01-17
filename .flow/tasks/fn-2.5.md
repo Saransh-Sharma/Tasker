@@ -10,9 +10,16 @@ TBD
 
 
 ## Done summary
-TBD
+- Changed viewModel from AddTaskViewModel! to AddTaskViewModel?
+- Added documentation comment explaining the optional type is needed while ViewModel path is disabled
+- All existing usages already handle optionality correctly (nil checks, optional binding)
 
+**Why:**
+- Implicitly unwrapped optional would crash on access when ViewModel is nil
+
+**Verification:**
+- Code review confirms change is safe and all usages handle optionality
 ## Evidence
-- Commits:
+- Commits: 3925e8b39c471306dc8217c4515fb2258b9604cb
 - Tests:
 - PRs:

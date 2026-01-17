@@ -1,14 +1,21 @@
 {
-  "assignee": null,
+  "assignee": "saransh1337@gmail.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-17T12:57:30.255798Z",
   "created_at": "2026-01-17T12:50:25.760387Z",
   "depends_on": [],
   "epic": "fn-2",
+  "evidence": {
+    "commits": [
+      "3925e8b39c471306dc8217c4515fb2258b9604cb"
+    ],
+    "prs": [],
+    "tests": []
+  },
   "id": "fn-2.5",
   "priority": null,
   "spec_path": ".flow/tasks/fn-2.5.md",
-  "status": "todo",
+  "status": "done",
   "title": "Make AddTaskViewController viewModel optional",
-  "updated_at": "2026-01-17T12:50:25.760555Z"
+  "updated_at": "2026-01-17T12:58:22.486662Z"
 }
