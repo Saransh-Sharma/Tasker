@@ -14,8 +14,9 @@ files_to_remove = [
 ]
 
 files_to_remove.each do |file_path|
+  file_basename = File.basename(file_path)
   build_files = target.source_build_phase.files.select do |bf|
-    bf.file_ref && bf.file_ref.path && bf.file_ref.path.include?('ProjectManagementViewModel.swift')
+    bf.file_ref && bf.file_ref.path && bf.file_ref.path.include?(file_basename)
   end
   
   build_files.each do |bf|

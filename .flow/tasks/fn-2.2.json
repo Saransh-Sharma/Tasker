@@ -1,14 +1,21 @@
 {
-  "assignee": null,
+  "assignee": "saransh1337@gmail.com",
   "claim_note": "",
-  "claimed_at": null,
+  "claimed_at": "2026-01-17T12:52:07.780709Z",
   "created_at": "2026-01-17T12:50:21.483596Z",
   "depends_on": [],
   "epic": "fn-2",
+  "evidence": {
+    "commits": [
+      "67183078d88b3a5506bd6d20af9f384b9fed45e8"
+    ],
+    "prs": [],
+    "tests": []
+  },
   "id": "fn-2.2",
   "priority": null,
   "spec_path": ".flow/tasks/fn-2.2.md",
-  "status": "todo",
+  "status": "done",
   "title": "Fix remove_presentation_vm.rb hardcoded filter",
-  "updated_at": "2026-01-17T12:50:21.483777Z"
+  "updated_at": "2026-01-17T12:53:09.188877Z"
 }

@@ -10,9 +10,15 @@ TBD
 
 
 ## Done summary
-TBD
+- Changed hardcoded 'ProjectManagementViewModel.swift' to use File.basename(file_path)
+- Now works correctly for any files added to files_to_remove array
 
+**Why:**
+- Previous filter ignored all entries except the hardcoded filename
+
+**Verification:**
+- Code review confirms filter now uses the loop variable
 ## Evidence
-- Commits:
+- Commits: 67183078d88b3a5506bd6d20af9f384b9fed45e8
 - Tests:
 - PRs:
