@@ -519,46 +519,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // PHASE 3: Add "Add Project" button as the first pill (index 0)
         samplePillBarItems.append(PillButtonBarItem(title: addProjectString))
 
-        // TODO: Re-enable when ViewModel is available
-        // Use ViewModel to get available projects (Clean Architecture)
-        // if let viewModel = viewModel {
-        //     print("✅ Using AddTaskViewModel to load projects")
-        //
-        //     // Get projects from ViewModel
-        //     let domainProjects = viewModel.availableProjects
-        //
-        //     // Separate Inbox from other projects
-        //     let inboxProject = domainProjects.first { $0.name.lowercased() == "inbox" }
-        //     let customProjects = domainProjects.filter { $0.name.lowercased() != "inbox" }.sorted { $0.name < $1.name }
-        //
-        //     // PHASE 3: Add Inbox as second item (index 1) - always present
-        //     let inboxTitle = inboxProject?.name ?? "Inbox"
-        //     samplePillBarItems.append(PillButtonBarItem(title: inboxTitle))
-        //
-        //     // PHASE 1: Add all custom projects after Inbox
-        //     for project in customProjects {
-        //         samplePillBarItems.append(PillButtonBarItem(title: project.name))
-        //         print("✅ Added custom project to pill bar: \(project.name)")
-        //     }
-        //
-        //     print("✅ Phase 3 Fix: Successfully loaded \(customProjects.count) custom projects from ViewModel")
-        //
-        // } else {
-            // Use fallback to load all projects
-            loadProjectsFallback()
-            return // loadProjectsFallback will handle refreshProjectPillBar
-        // }
-
-        // PHASE 3: Ensure Inbox is always present at index 1 (safety check)
-        if !samplePillBarItems.contains(where: { $0.title.lowercased() == "inbox" }) {
-            samplePillBarItems.insert(PillButtonBarItem(title: "Inbox"), at: 1)
-        }
-
-        // Log the final list for verification
-        print("📋 Final samplePillBarItems for AddTaskScreen (Phase 3):")
-        for (index, value) in samplePillBarItems.enumerated() {
-            print("   Index \(index): \(value.title)")
-        }
+        // Use fallback to load all projects (since ViewModel is not available)
+        loadProjectsFallback()
     }
     
     func createSamplePillBar(items: [PillButtonBarItem], centerAligned: Bool = false) -> UIView {
