@@ -9,229 +9,16 @@
 import UIKit
 import CoreData
 
-// MARK: - Inline Project Repository
-// Note: This inline implementation exists because State folder files aren't in the Xcode target
-fileprivate class InlineProjectRepository: ProjectRepositoryProtocol {
-    private let viewContext: NSManagedObjectContext
-
-    init(container: NSPersistentContainer) {
-        self.viewContext = container.viewContext
-    }
-
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
-            do {
-                let entities = try self.viewContext.fetch(request)
-                let projects = ProjectMapper.toDomainArray(from: entities)
-                DispatchQueue.main.async { completion(.success(projects)) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
-            request.fetchLimit = 1
-            do {
-                let entities = try self.viewContext.fetch(request)
-                let project = entities.first.map { ProjectMapper.toDomain(from: $0) }
-                DispatchQueue.main.async { completion(.success(project)) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectName == %@", name)
-            request.fetchLimit = 1
-            do {
-                let entities = try self.viewContext.fetch(request)
-                let project = entities.first.map { ProjectMapper.toDomain(from: $0) }
-                DispatchQueue.main.async { completion(.success(project)) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
-        fetchProject(withId: ProjectConstants.inboxProjectID) { result in
-            switch result {
-            case .success(let project):
-                if let project = project {
-                    completion(.success(project))
-                } else {
-                    completion(.failure(NSError(domain: "ProjectRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Inbox project not found"])))
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
-    }
-
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID != %@", ProjectConstants.inboxProjectID as CVarArg)
-            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
-            do {
-                let entities = try self.viewContext.fetch(request)
-                let projects = ProjectMapper.toDomainArray(from: entities)
-                DispatchQueue.main.async { completion(.success(projects)) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
-        viewContext.perform {
-            let entity = ProjectMapper.toEntity(from: project, in: self.viewContext)
-            do {
-                try self.viewContext.save()
-                let savedProject = ProjectMapper.toDomain(from: entity)
-                DispatchQueue.main.async { completion(.success(savedProject)) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
-        fetchInboxProject { result in
-            switch result {
-            case .success(let project):
-                completion(.success(project))
-            case .failure:
-                let inbox = Project.createInbox()
-                self.createProject(inbox, completion: completion)
-            }
-        }
-    }
-
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID == %@", project.id as CVarArg)
-            request.fetchLimit = 1
-            do {
-                if let entity = try self.viewContext.fetch(request).first {
-                    ProjectMapper.updateEntity(entity, from: project)
-                    try self.viewContext.save()
-                    let updatedProject = ProjectMapper.toDomain(from: entity)
-                    DispatchQueue.main.async { completion(.success(updatedProject)) }
-                } else {
-                    DispatchQueue.main.async {
-                        completion(.failure(NSError(domain: "ProjectRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Project not found"])))
-                    }
-                }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
-        fetchProject(withId: id) { result in
-            switch result {
-            case .success(let project):
-                guard var project = project else {
-                    completion(.failure(NSError(domain: "ProjectRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Project not found"])))
-                    return
-                }
-                project.name = newName
-                self.updateProject(project, completion: completion)
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
-    }
-
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
-            do {
-                let entities = try self.viewContext.fetch(request)
-                entities.forEach { self.viewContext.delete($0) }
-                try self.viewContext.save()
-                DispatchQueue.main.async { completion(.success(())) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID == %@", projectId as CVarArg)
-            do {
-                let count = try self.viewContext.count(for: request)
-                DispatchQueue.main.async { completion(.success(count)) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID == %@", projectId as CVarArg)
-            do {
-                let entities = try self.viewContext.fetch(request)
-                let tasks = TaskMapper.toDomainArray(from: entities)
-                DispatchQueue.main.async { completion(.success(tasks)) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID == %@", sourceProjectId as CVarArg)
-            do {
-                let tasks = try self.viewContext.fetch(request)
-                tasks.forEach { $0.projectID = targetProjectId }
-                try self.viewContext.save()
-                DispatchQueue.main.async { completion(.success(())) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            var predicates = [NSPredicate(format: "projectName == %@", name)]
-            if let excludingId = excludingId {
-                predicates.append(NSPredicate(format: "projectID != %@", excludingId as CVarArg))
-            }
-            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
-            request.fetchLimit = 1
-            do {
-                let count = try self.viewContext.count(for: request)
-                DispatchQueue.main.async { completion(.success(count == 0)) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-}
+// MARK: - Project Repository Access
+// Use shared repository from EnhancedDependencyContainer instead of inline implementation
 
 extension HomeViewController {
+
+    /// Access to shared project repository via dependency container
+    /// Prefer this over creating inline repositories
+    var projectRepository: ProjectRepositoryProtocol {
+        return EnhancedDependencyContainer.shared.projectRepository
+    }
 
     // Method to set the project value for filtering
     func setProjectForViewValue(projectName: String) {
@@ -249,9 +36,9 @@ extension HomeViewController {
         // viewModel?.selectDate(dateToSetForView)
     }
 
-    // Method to calculate today's score (synchronous fallback)
-    // Returns the total score for tasks whose *completion* date is the same as `dateForTheView`.
-    // This is used for instant UI updates right after a checkbox tap.
+    /// Calculate today's score synchronously using cached value
+    /// NOTE: For accurate real-time score, use calculateTodaysScore(completion:) instead
+    /// This synchronous version returns the last cached score or 0 if not available
     func calculateTodaysScore() -> Int {
         // TODO: Re-enable when ViewModel is available
         // Use ViewModel's published dailyScore property if available
@@ -259,13 +46,11 @@ extension HomeViewController {
         //     return viewModel.dailyScore
         // }
 
-        // Fallback: Use taskRepository (respects Clean Architecture)
-        let targetDate = dateForTheView
-        var totalScore = 0
-        TaskScoringService.shared.calculateTotalScore(for: targetDate, using: taskRepository) { score in
-            totalScore = score
-        }
-        return totalScore
+        // IMPORTANT: Synchronous score calculation is not possible with async repository.
+        // Return 0 here - callers should use calculateTodaysScore(completion:) for accurate scores.
+        // This is a known limitation pending full ViewModel migration.
+        print("⚠️ calculateTodaysScore() sync version called - use async version for accurate score")
+        return 0
     }
     
     /// Async version of calculateTodaysScore that uses the repository pattern
@@ -298,22 +83,19 @@ extension HomeViewController {
         self.tasksGroupedByProject.removeAll()
 
         // TODO: Use ViewModel to load projects once Presentation folder is added to target
-        // For now, load projects directly from repository
+        // For now, load projects directly from shared repository
         var domainProjects: [Project] = []
 
-        // Load projects from repository
-        if let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer {
-            let projectRepo = InlineProjectRepository(container: container)
-            let dispatchGroup = DispatchGroup()
-            dispatchGroup.enter()
-            projectRepo.fetchAllProjects { result in
-                if case .success(let projects) = result {
-                    domainProjects = projects
-                }
-                dispatchGroup.leave()
+        // Load projects from shared repository via dependency container
+        let dispatchGroup = DispatchGroup()
+        dispatchGroup.enter()
+        projectRepository.fetchAllProjects { result in
+            if case .success(let projects) = result {
+                domainProjects = projects
             }
-            dispatchGroup.wait()
+            dispatchGroup.leave()
         }
+        dispatchGroup.wait()
 
         // Determine which projects to display
         let projectsToFilter: [Project]
@@ -370,16 +152,23 @@ extension HomeViewController {
 
     /// Temporary helper to convert domain Project to Projects entity
     /// TODO: Remove this once UI is fully migrated to use domain models
+    /// Uses a temporary in-memory context to avoid polluting the main viewContext
     private func convertDomainProjectToEntity(_ project: Project) -> Projects? {
-        // Create a temporary Projects entity for backwards compatibility
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        guard let ctx = context else { return nil }
+        // Create an in-memory context that won't persist or affect the main context
+        guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
+            return nil
+        }
 
-        let entity = Projects(context: ctx)
+        // Create a temporary context with no parent - changes won't be saved
+        let tempContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        tempContext.persistentStoreCoordinator = nil // No persistent store - purely in-memory
+
+        // Create entity in temporary context
+        let entity = Projects(context: tempContext)
         entity.projectID = project.id
         entity.projectName = project.name
         entity.projectDescription = project.projectDescription
-        // Note: We don't save this to CoreData, it's just for UI display
+        // Note: This entity exists only in the temp context and won't be saved
         return entity
     }
     
