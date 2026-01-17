@@ -95,19 +95,34 @@ extension HomeViewController {
         // Setup the Fluent detail view
         let detailView = TaskDetailViewFluent(frame: CGRect(x: 0, y: 0, width: view.bounds.width * 0.9, height: view.bounds.height * 0.8))
 
-        // Use ViewModel to get available projects if available
+        // Load available projects for task detail view
+        // Fallback: Use projectRepository to fetch projects since ViewModel is not available
+        // TODO: GitHub Issue - Migrate task detail to use domain models instead of Projects entities
         var availableProjects: [Projects] = []
-        // TODO: Fetch projects from repository
-        // Temporarily commented out until proper project repository is accessible
-        // if let viewModel = viewModel {
-        //     // Convert domain Projects to Projects entities for backwards compatibility
-        //     // TODO: Refactor TaskDetailViewFluent to work with domain models
-        //     for domainProject in viewModel.projects {
-        //         if let projectEntity = convertDomainProjectToEntity(domainProject) {
-        //             availableProjects.append(projectEntity)
-        //         }
-        //     }
-        // }
+
+        // Synchronously fetch projects from repository (temporary workaround)
+        let dispatchGroup = DispatchGroup()
+        dispatchGroup.enter()
+        projectRepository.fetchAllProjects { [weak self] result in
+            defer { dispatchGroup.leave() }
+            guard let self = self else { return }
+
+            if case .success(let domainProjects) = result {
+                // Convert domain Projects to Projects entities for backwards compatibility
+                for domainProject in domainProjects {
+                    if let projectEntity = self.convertDomainProjectToEntity(domainProject) {
+                        availableProjects.append(projectEntity)
+                    }
+                }
+            }
+        }
+        dispatchGroup.wait()
+
+        // Configure detail view - if no projects available, project UI will be limited
+        let projectsAvailable = !availableProjects.isEmpty
+        if !projectsAvailable {
+            print("⚠️ No projects available for task detail - project selection will be limited")
+        }
 
         detailView.configure(task: task, availableProjects: availableProjects, delegate: self, taskRepository: taskRepository)
         detailView.alpha = 0

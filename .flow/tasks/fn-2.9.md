@@ -10,9 +10,17 @@ TBD
 
 
 ## Done summary
-TBD
+- Added fallback to load projects via projectRepository when ViewModel is unavailable
+- Uses convertDomainProjectToEntity to convert domain models to entities for backwards compatibility
+- Logs warning when no projects are available for task detail
 
+**Why:**
+- availableProjects was always empty because ViewModel code was commented out
+- Task detail view needs projects for project selection UI
+
+**Verification:**
+- Code review confirms projects are fetched and converted correctly
 ## Evidence
-- Commits:
+- Commits: eb8887c2bba6baa2318bc23b0b36c6fdd811b6fa
 - Tests:
 - PRs:
