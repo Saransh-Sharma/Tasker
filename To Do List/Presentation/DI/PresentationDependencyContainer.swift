@@ -255,8 +255,9 @@ public protocol HomeViewControllerProtocol: AnyObject {
 }
 
 /// Protocol for AddTaskViewController to receive ViewModel
+/// Note: viewModel is optional because the ViewModel path may be disabled
 public protocol AddTaskViewControllerProtocol: AnyObject {
-    var viewModel: AddTaskViewModel! { get set }
+    var viewModel: AddTaskViewModel? { get set }
 }
 
 /// Protocol for ProjectManagementViewController to receive ViewModel
