@@ -526,18 +526,27 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     func createSamplePillBar(items: [PillButtonBarItem], centerAligned: Bool = false) -> UIView {
         let bar = PillButtonBar(pillButtonStyle: .primary)
         bar.items = items
-        
+
         // PHASE 3: Find and pre-select Inbox (should be at index 1, after "Add Project")
         if !items.isEmpty {
-            // Find the index of Inbox
-            let inboxIndex = items.firstIndex(where: { $0.title.lowercased() == "inbox" }) ?? 1
-            
-            _ = bar.selectItem(atIndex: inboxIndex) // Pre-select Inbox
-            self.currenttProjectForAddTaskView = items[inboxIndex].title
-            
-            print("✅ Phase 3: Pre-selected '\(items[inboxIndex].title)' at index \(inboxIndex)")
+            // Find the index of Inbox - must validate index exists before accessing
+            if let inboxIndex = items.firstIndex(where: { $0.title.lowercased() == "inbox" }) {
+                _ = bar.selectItem(atIndex: inboxIndex) // Pre-select Inbox
+                self.currenttProjectForAddTaskView = items[inboxIndex].title
+                print("✅ Phase 3: Pre-selected '\(items[inboxIndex].title)' at index \(inboxIndex)")
+            } else if items.count > 1 {
+                // Fallback to second item if Inbox not found and array has more than 1 element
+                _ = bar.selectItem(atIndex: 1)
+                self.currenttProjectForAddTaskView = items[1].title
+                print("✅ Phase 3: Pre-selected '\(items[1].title)' at index 1")
+            } else {
+                // Only "Add Project" item exists - select first item
+                _ = bar.selectItem(atIndex: 0)
+                self.currenttProjectForAddTaskView = items[0].title
+                print("✅ Phase 3: Pre-selected '\(items[0].title)' at index 0")
+            }
         }
-        
+
         bar.barDelegate = self
         bar.centerAligned = centerAligned
         
