@@ -153,7 +153,8 @@ extension HomeViewController {
     /// Temporary helper to convert domain Project to Projects entity
     /// TODO: Remove this once UI is fully migrated to use domain models
     /// Uses a temporary in-memory context to avoid polluting the main viewContext
-    private func convertDomainProjectToEntity(_ project: Project) -> Projects? {
+    /// Internal access to allow use from other HomeViewController extensions
+    func convertDomainProjectToEntity(_ project: Project) -> Projects? {
         // Create an in-memory context that won't persist or affect the main context
         guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
             return nil
