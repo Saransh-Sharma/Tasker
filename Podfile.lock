@@ -89,13 +89,13 @@ PODS:
     - nanopb (~> 3.30910.0)
     - PromisesSwift (~> 2.1)
   - FirebaseSharedSwift (11.15.0)
-  - FluentIcons (1.1.312):
-    - FluentIcons/Assets (= 1.1.312)
-    - FluentIcons/Code (= 1.1.312)
-    - FluentIcons/RemovalScript (= 1.1.312)
-  - FluentIcons/Assets (1.1.312)
-  - FluentIcons/Code (1.1.312)
-  - FluentIcons/RemovalScript (1.1.312)
+  - FluentIcons (1.1.316):
+    - FluentIcons/Assets (= 1.1.316)
+    - FluentIcons/Code (= 1.1.316)
+    - FluentIcons/RemovalScript (= 1.1.316)
+  - FluentIcons/Assets (1.1.316)
+  - FluentIcons/Code (1.1.316)
+  - FluentIcons/RemovalScript (1.1.316)
   - FSCalendar (2.8.4)
   - GoogleAdsOnDeviceConversion (2.1.0):
     - GoogleUtilities/Logger (~> 8.1)
@@ -1062,7 +1062,7 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: 1c6135e8a094cc6368949f5faeeca7ee8948b8aa
   FirebaseSessions: b9a92c1c51bbb81e78fc3142cda6d925d700f8e7
   FirebaseSharedSwift: e17c654ef1f1a616b0b33054e663ad1035c8fd40
-  FluentIcons: 03c7ba4b43ca0dc01e35ba94f0760543c41171b7
+  FluentIcons: dacf2a7d1ba1a2b8cf2ae84085c48f28560b09ea
   FSCalendar: 2d1d0d9398f12d439f55c1fe0f01525b151b8260
   GoogleAdsOnDeviceConversion: 2be6297a4f048459e0ae17fad9bfd2844e10cf64
   GoogleAppMeasurement: 700dce7541804bec33db590a5c496b663fbe2539

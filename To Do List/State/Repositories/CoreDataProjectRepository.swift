@@ -10,7 +10,7 @@ import CoreData
 
 /// Core Data implementation of the ProjectRepositoryProtocol
 /// Note: Currently works with string-based project names as Projects entity doesn't exist yet
-final class CoreDataProjectRepository: ProjectRepositoryProtocol {
+public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Properties
     
@@ -19,8 +19,8 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     private let defaultProjectName = "Inbox"
     
     // MARK: - Initialization
-    
-    init(container: NSPersistentContainer) {
+
+    public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
         
@@ -31,7 +31,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Fetch Operations
     
-    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    public func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<Projects> = Projects.fetchRequest()
             request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
@@ -46,7 +46,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
-    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
+    public func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<Projects> = Projects.fetchRequest()
             request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
@@ -62,7 +62,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
-    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
+    public func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<Projects> = Projects.fetchRequest()
             request.predicate = NSPredicate(format: "projectName ==[c] %@", name)
@@ -78,12 +78,12 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
-    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    public func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
         let inboxProject = Project.createInbox()
         completion(.success(inboxProject))
     }
     
-    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
+    public func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<Projects> = Projects.fetchRequest()
             request.predicate = NSPredicate(format: "projectID != %@", ProjectConstants.inboxProjectID as CVarArg)
@@ -101,7 +101,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Create Operations
     
-    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    public func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
         // First validate the name is unique
         isProjectNameAvailable(project.name, excludingId: nil) { [weak self] result in
             guard let self = self else { return }
@@ -134,7 +134,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
-    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
+    public func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
         // Check if Inbox Projects entity exists
         viewContext.perform {
             let request: NSFetchRequest<Projects> = Projects.fetchRequest()
@@ -172,7 +172,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Update Operations
     
-    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
+    public func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
         backgroundContext.perform {
             // Find the existing entity
             if let entity = ProjectMapper.findEntity(byId: project.id, in: self.backgroundContext) {
@@ -196,7 +196,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
-    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
+    public func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
         fetchProject(withId: id) { [weak self] result in
             switch result {
             case .success(let project):
@@ -234,7 +234,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Delete Operations
     
-    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
         fetchProject(withId: id) { [weak self] result in
             switch result {
             case .success(let project):
@@ -311,7 +311,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Task Association
     
-    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
+    public func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<NTask> = NTask.fetchRequest()
             request.predicate = NSPredicate(format: "projectID == %@", projectId as CVarArg)
@@ -325,7 +325,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
-    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
+    public func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
         fetchProject(withId: projectId) { [weak self] result in
             switch result {
             case .success(let project):
@@ -357,7 +357,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
-    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         fetchProject(withId: sourceProjectId) { [weak self] sourceResult in
             switch sourceResult {
             case .success(let sourceProject):
@@ -406,7 +406,7 @@ final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Validation
     
-    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<Projects> = Projects.fetchRequest()
             request.predicate = NSPredicate(format: "projectName ==[c] %@", name)

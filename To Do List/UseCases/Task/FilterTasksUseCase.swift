@@ -375,7 +375,7 @@ public final class FilterTasksUseCase {
 
 // MARK: - Supporting Models
 
-public struct FilterCriteria {
+public struct FilterCriteria: Codable {
     public let scope: FilterScope
     public let completionStatus: CompletionStatusFilter
     public let priorities: [TaskPriority]
@@ -466,7 +466,7 @@ public struct FilterCriteria {
     }
 }
 
-public enum FilterScope {
+public enum FilterScope: Codable {
     case all
     case today
     case upcoming
@@ -475,7 +475,7 @@ public enum FilterScope {
     case dateRange(Date, Date)
 }
 
-public enum CompletionStatusFilter {
+public enum CompletionStatusFilter: Codable {
     case all
     case complete
     case incomplete
@@ -489,12 +489,12 @@ public enum CompletionStatusFilter {
     }
 }
 
-public enum TagMatchMode {
+public enum TagMatchMode: Codable {
     case any // Task must have at least one of the specified tags
     case all // Task must have all specified tags
 }
 
-public struct DateRange {
+public struct DateRange: Codable {
     public let start: Date
     public let end: Date
     
@@ -504,7 +504,7 @@ public struct DateRange {
     }
 }
 
-public struct FilteredTasksResult {
+public struct FilteredTasksResult: Codable {
     public let tasks: [Task]
     public let criteria: FilterCriteria
     public let totalCount: Int

@@ -548,8 +548,4 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
 
 // MARK: - Helper Extensions
 
-private extension Date {
-    var startOfDay: Date {
-        return Calendar.current.startOfDay(for: self)
-    }
-}
+// Note: startOfDay extension already defined in DateUtils.swift

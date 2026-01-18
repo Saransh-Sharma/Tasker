@@ -1,0 +1,9 @@
+{
+  "name": "tasker-loop",
+  "description": "Continuous self-referential AI loops for iterative Tasker iOS development, implementing the Ralph Wiggum technique. Run Claude in a while-true loop with the same prompt until task completion, optimized for the Tasker codebase (Swift, Clean Architecture, CoreData).",
+  "author": {
+    "name": "Tasker Team",
+    "email": "tasker@example.com"
+  },
+  "version": "1.0.0"
+}

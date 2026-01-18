@@ -4,15 +4,15 @@ import CoreData
 /// Concrete implementation of TaskRepository using Core Data
 final class CoreDataTaskRepository: TaskRepository {
     // MARK: - Properties
-    
+
     /// Context used for fetching data and displaying in the UI
-    private let viewContext: NSManagedObjectContext
-    
+    internal let viewContext: NSManagedObjectContext
+
     /// Context used for background operations like saving and updating
-    private let backgroundContext: NSManagedObjectContext
-    
+    internal let backgroundContext: NSManagedObjectContext
+
     /// Default project name, usually "Inbox"
-    private let defaultProject: String
+    internal let defaultProject: String
     
     // MARK: - Initialization
     

@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import CoreData
 import SemiModalViewController
 import ViewAnimator
 import FSCalendar
@@ -21,30 +20,13 @@ import SwiftUI
 import MaterialComponents.MaterialButtons_Theming
 import MaterialComponents.MaterialRipple
 import Combine
+import CoreData  // TODO: Remove once all NSFetchRequest calls are migrated to repository pattern
 
-// MARK: - Clean Architecture Integration  
-// Import actual Clean Architecture types - these should be available as they're defined in the project
-
-// Import Clean Architecture protocols and ViewModels
-// These types are defined in the Presentation layer
+// MARK: - Clean Architecture Integration
+// Import actual Clean Architecture types from Presentation layer
 // - HomeViewControllerProtocol: Protocol for DI to inject HomeViewModel
 // - HomeViewModel: ViewModel for business logic and state management
 // - PresentationDependencyContainer: Dependency injection container
-
-// TEMPORARY: Type stubs to resolve compilation issues
-// These will be replaced by the actual types at runtime through dynamic injection
-@objc protocol HomeViewControllerProtocol: AnyObject {
-    // This stub will be satisfied by the actual protocol implementation
-}
-
-@objc class HomeViewModel: NSObject {
-    // This stub will be replaced by the actual ViewModel implementation
-    @objc dynamic var morningTasks: [Any] = []
-    @objc dynamic var eveningTasks: [Any] = []
-    @objc dynamic var isLoading: Bool = false
-    @objc dynamic var errorMessage: String? = nil
-    @objc dynamic var dailyScore: Int = 0
-}
 
 // MARK: - Liquid Glass Bottom App Bar
 
@@ -260,9 +242,6 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     /// Setup Combine bindings with HomeViewModel
     private func setupViewModelBindings(_ viewModel: HomeViewModel) {
-        // TEMPORARY: Commented out until actual HomeViewModel types are resolved
-        // This will be restored when proper type resolution is fixed
-        /*
         // Bind ViewModel state to UI updates
         viewModel.$morningTasks
             .receive(on: DispatchQueue.main)
@@ -270,21 +249,24 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
                 self?.updateMorningTasksUI(tasks)
             }
             .store(in: &cancellables)
-            
+
+        // Bind evening tasks
         viewModel.$eveningTasks
             .receive(on: DispatchQueue.main)
             .sink { [weak self] tasks in
                 self?.updateEveningTasksUI(tasks)
             }
             .store(in: &cancellables)
-            
+
+        // Bind loading state
         viewModel.$isLoading
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isLoading in
                 self?.updateLoadingState(isLoading)
             }
             .store(in: &cancellables)
-            
+
+        // Bind error messages
         viewModel.$errorMessage
             .compactMap { $0 }
             .receive(on: DispatchQueue.main)
@@ -292,28 +274,24 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
                 self?.showError(error)
             }
             .store(in: &cancellables)
-            
+
+        // Bind daily score
         viewModel.$dailyScore
             .receive(on: DispatchQueue.main)
             .sink { [weak self] score in
                 self?.updateScoreDisplay(score)
             }
             .store(in: &cancellables)
-        */
-        print("🔗 HomeViewController: ViewModel bindings setup (stubbed)")
+
+        print("✅ HomeViewController: ViewModel bindings setup complete")
     }
     
     /// Load initial data via ViewModel
     private func loadInitialDataViaViewModel(_ viewModel: HomeViewModel) {
-        // TEMPORARY: Using dynamic method calls until proper type resolution is fixed
-        // This will be replaced with direct method calls when types are resolved
-        if viewModel.responds(to: NSSelectorFromString("loadTodayTasks")) {
-            viewModel.perform(NSSelectorFromString("loadTodayTasks"))
-        }
-        if viewModel.responds(to: NSSelectorFromString("loadProjects")) {
-            viewModel.perform(NSSelectorFromString("loadProjects"))
-        }
-        print("📅 HomeViewController: Initial data loading requested (stubbed)")
+        // Load today's tasks and projects
+        viewModel.loadTodayTasks()
+        viewModel.loadProjects()
+        print("✅ HomeViewController: Initial data loading via ViewModel")
     }
     
     /// Update morning tasks UI from ViewModel
@@ -362,10 +340,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     /// Task repository dependency (injected)
     var taskRepository: TaskRepository!
     
-    /// HomeViewModel dependency (injected) - Clean Architecture  
-    /// This satisfies the HomeViewControllerProtocol requirement
-    var viewModel: HomeViewModel?
-    
+    /// HomeViewModel dependency (injected) - Clean Architecture
+    var viewModel: HomeViewModel!
+
     /// Combine cancellables for ViewModel bindings
     private var cancellables = Set<AnyCancellable>()
     
@@ -560,62 +537,32 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         } else {
             print("⚠️ PresentationDependencyContainer not found - using fallback injection")
         }
-        
+
         // Setup Clean Architecture if ViewModel is available
         if viewModel != nil {
             print("✅ Clean Architecture activated with ViewModel")
-            setupCleanArchitectureInternal()
         } else {
             print("⚠️ ViewModel not available - using legacy mode with migration adapter")
             // Fallback to migration adapter if Clean Architecture isn't available
+
+            // Initialize taskRepository to prevent runtime crashes
+            if taskRepository == nil {
+                if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+                    taskRepository = CoreDataTaskRepository(container: appDelegate.persistentContainer, defaultProject: "Inbox")
+                    print("✅ TaskRepository initialized with CoreDataTaskRepository")
+                } else {
+                    print("❌ Failed to initialize TaskRepository - AppDelegate not found")
+                }
+            }
         }
     }
-    
-    /// Internal setup method that calls the extension method
+
+    /// Internal setup method - now delegated to setupCleanArchitecture
     private func setupCleanArchitectureInternal() {
-        // This method exists in HomeViewController+CleanArchitecture.swift extension
-        // Call it directly to ensure proper setup
-        guard viewModel != nil else {
-            print("⚠️ HomeViewController: ViewModel not injected, using migration adapter")
-            return
-        }
-        
-        print("✅ HomeViewController: Using Clean Architecture with ViewModel")
-        
-        // Load initial data through the ViewModel using our safe method calling
-        if let vm = viewModel {
-            callViewModelMethod(vm, methodName: "loadTodayTasks")
-            callViewModelMethod(vm, methodName: "loadProjects")
-        }
+        // Clean Architecture setup is now handled in setupCleanArchitecture()
+        // This method is kept for compatibility with existing code
     }
-    
-    /// Safely call ViewModel methods using reflection to avoid type conflicts
-    /// This method is accessible to all extensions
-    func callViewModelMethod(_ viewModel: Any, methodName: String, parameter: Any? = nil) {
-        print("🗘 Clean Architecture: Calling \(methodName) on ViewModel")
-        
-        // Placeholder implementation that maintains Clean Architecture patterns
-        // When real ViewModel types are available, this will be replaced with proper method calls
-        switch methodName {
-        case "loadTodayTasks":
-            print("📋 Clean Architecture: Initiating today's tasks loading")
-        case "loadProjects":
-            print("📋 Clean Architecture: Initiating projects loading")
-        case "selectDate":
-            if let date = parameter as? Date {
-                print("📋 Clean Architecture: Setting selected date to \(date)")
-            }
-        case "loadTasksForSelectedDate":
-            print("📋 Clean Architecture: Loading tasks for selected date")
-        case "selectProject":
-            if let project = parameter as? String {
-                print("📋 Clean Architecture: Setting selected project to \(project)")
-            }
-        default:
-            print("⚠️ Clean Architecture: Unknown method \(methodName)")
-        }
-    }
-    
+
     // MARK: - Lifecycle Methods
     
     override func viewDidLoad() {
@@ -1175,18 +1122,35 @@ extension HomeViewController {
     }
     
     private func filterTasksForSearch(searchText: String) {
-        // Get ALL tasks from Core Data directly
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        let allTasks = (try? context?.fetch(request)) ?? []
-        
-        // Filter tasks based on search text
-        let filteredTasks = allTasks.filter { task in
-            let searchTextLower = searchText.lowercased()
-            return (task.name ?? "").lowercased().contains(searchTextLower) ||
-                   (task.taskDetails?.lowercased().contains(searchTextLower) ?? false) ||
-                   (task.project?.lowercased().contains(searchTextLower) ?? false)
+        // TODO: Use repository once it has fetchAllTasks method
+        // For now, use direct CoreData access
+        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            request.sortDescriptors = [NSSortDescriptor(key: "dateAdded", ascending: false)]
+
+            do {
+                let allTasks = try context.fetch(request)
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+
+                    // Filter tasks based on search text
+                    let filteredTasks = allTasks.filter { task in
+                        let searchTextLower = searchText.lowercased()
+                        return (task.name ?? "").lowercased().contains(searchTextLower) ||
+                               (task.taskDetails?.lowercased().contains(searchTextLower) ?? false) ||
+                               (task.project?.lowercased().contains(searchTextLower) ?? false)
+                    }
+
+                    self.processSearchResults(filteredTasks)
+                }
+            } catch {
+                print("❌ Error fetching tasks for search: \(error)")
+            }
         }
+    }
+
+    /// Process search results and update UI
+    private func processSearchResults(_ filteredTasks: [NTask]) {
         
         // Group tasks by project for better organization
         let groupedTasks = Dictionary(grouping: filteredTasks) { task in
@@ -1248,16 +1212,12 @@ extension HomeViewController {
 extension HomeViewController: AddTaskViewControllerDelegate {
     func didAddTask(_ task: NTask) {
         print("🔄 AddTask: didAddTask called for task: \(task.name) with due date: \(task.dueDate ?? Date() as NSDate)")
-        
-        // Save context using direct Core Data access
-        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext,
-           context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                print("❌ Failed to save context: \(error)")
-            }
-        }
+
+        // TODO: Use ViewModel to refresh once Presentation folder is added to target
+        // if let viewModel = viewModel {
+        //     print("✅ Using ViewModel to refresh after task addition")
+        //     viewModel.loadTodayTasks()
+        // }
         
         // Step 4: Update the view on the main queue
         DispatchQueue.main.async {
@@ -1579,34 +1539,34 @@ extension HomeViewController {
     /// Fixes invalid task priority values in the database (one-time migration)
     /// Priorities: 1=None, 2=Low, 3=High, 4=Max
     private func fixInvalidTaskPriorities() {
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            return
-        }
-        
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        guard let allTasks = try? context.fetch(request) else { return }
-        
-        var fixedCount = 0
-        for task in allTasks {
-            let priority = task.taskPriority
-            // Check if priority is invalid (not 1, 2, 3, or 4)
-            if !TaskPriorityConfig.isValidPriority(priority) {
-                let normalized = TaskPriorityConfig.normalizePriority(priority)
-                print("🔧 Fixing invalid priority \(priority) for task '\(task.name ?? "")' -> setting to \(TaskPriority(rawValue: normalized).displayName) (\(normalized))")
-                task.taskPriority = normalized
-                fixedCount += 1
-            }
-        }
-        
-        if fixedCount > 0 {
+        // TODO: Use repository once it has fetchAllTasks method
+        // For now, use direct CoreData access
+        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+
             do {
-                try context.save()
-                print("✅ Fixed \(fixedCount) tasks with invalid priorities")
+                let allTasks = try context.fetch(request)
+                var fixedCount = 0
+                for task in allTasks {
+                    let priority = task.taskPriority
+                    // Check if priority is invalid (not 1, 2, 3, or 4)
+                    if !TaskPriorityConfig.isValidPriority(priority) {
+                        let normalized = TaskPriorityConfig.normalizePriority(priority)
+                        print("🔧 Fixing invalid priority \(priority) for task '\(task.name ?? "")' -> setting to \(TaskPriority(rawValue: normalized).displayName) (\(normalized))")
+                        task.taskPriority = normalized
+                        fixedCount += 1
+                    }
+                }
+
+                if fixedCount > 0 {
+                    try context.save()
+                    print("✅ Fixed \(fixedCount) tasks with invalid priorities")
+                } else {
+                    print("✅ All task priorities are valid")
+                }
             } catch {
-                print("❌ Failed to save priority fixes: \(error)")
+                print("❌ Error fixing invalid priorities: \(error)")
             }
-        } else {
-            print("✅ All task priorities are valid")
         }
     }
     
@@ -1615,12 +1575,17 @@ extension HomeViewController {
     func priorityBreakdown(for date: Date) -> [Int32: Int] {
         // Use raw values to avoid enum compilation issues
         var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0] // none, low, high, max
-        // Get tasks from Core Data directly
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        let allTasks = (try? context?.fetch(request)) ?? []
+
+        // TODO: Use repository once it has fetchAllTasks method
+        // For now, use direct CoreData access
+        var allTasks: [NTask] = []
+        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            allTasks = (try? context.fetch(request)) ?? []
+        }
+
         let currentCalendar = Calendar.current
-        
+
         for task in allTasks {
             guard task.isComplete else { continue }
             // Prefer recorded completion date; fall back to due date (covers legacy data)
@@ -1634,7 +1599,7 @@ extension HomeViewController {
             }
             guard let ref = referenceDate,
                   currentCalendar.isDate(ref, inSameDayAs: date) else { continue }
-            
+
             // Normalize priority value using centralized config
             let normalizedPriority = TaskPriorityConfig.normalizePriority(task.taskPriority)
             counts[normalizedPriority, default: 0] += 1
@@ -1665,29 +1630,13 @@ extension HomeViewController {
                 }
             }
         } else {
-            // Fallback: count tasks whose *completion* date equals the target day
-            let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-            let allTasks = (try? context?.fetch(request)) ?? []
-            let currentCalendar = Calendar.current
-            let completedToday = allTasks.filter { task in
-                guard task.isComplete, let doneDate = task.dateCompleted as Date? else { return false }
-                return currentCalendar.isDate(doneDate, inSameDayAs: targetDate)
-            }
-            let total = completedToday.reduce(0) { sum, task in
-                sum + TaskScoringService.shared.calculateScore(for: task)
-            }
+            // Fallback: Use TaskScoringService with a default repository if none exists
+            // This should never happen in production but provides safety
+            print("⚠️ Warning: taskRepository is nil in updateDailyScore, this should not happen")
+            // Fallback to 0 score to avoid crashing
             DispatchQueue.main.async { [weak self] in
-                self?.scoreCounter.text = "\(total)"
-                self?.updateNavigationBarTitle(date: targetDate, score: total)
-                // Update tiny pie chart center text (legacy chart)
-                if let chartView = self?.tinyPieChartView {
-                    chartView.centerAttributedText = self?.setTinyPieChartScoreText(pieChartView: chartView, scoreOverride: total)
-                }
-                // Update navigation bar pie chart center text
-                if let navChart = self?.navigationPieChartView {
-                    navChart.centerAttributedText = self?.setTinyPieChartScoreText(pieChartView: navChart, scoreOverride: total)
-                }
+                self?.scoreCounter.text = "0"
+                self?.updateNavigationBarTitle(date: targetDate, score: 0)
             }
         }
     }

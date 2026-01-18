@@ -7,14 +7,21 @@
 
 import Foundation
 
+// Define Task type alias to avoid conflict with Swift.Task
+public typealias DomainTask = Task
+
 /// In-memory cache implementation with TTL support
-final class InMemoryCacheService: CacheServiceProtocol {
+public final class InMemoryCacheService: CacheServiceProtocol {
     
     // MARK: - Properties
     
     private var cache: [String: CacheEntry] = [:]
     private let queue = DispatchQueue(label: "com.tasker.cache", attributes: .concurrent)
-    private var statistics = CacheStatistics()
+    private var _statistics = CacheStatistics()
+    private var statistics: CacheStatistics {
+        get { queue.sync { _statistics } }
+        set { queue.async(flags: .barrier) { self._statistics = newValue } }
+    }
     
     // MARK: - Cache Entry
     
@@ -31,7 +38,7 @@ final class InMemoryCacheService: CacheServiceProtocol {
     
     // MARK: - Cache Operations
     
-    func set<T: Codable>(_ object: T, forKey key: String, expiration: CacheExpiration?) {
+    public func set<T: Codable>(_ object: T, forKey key: String, expiration: CacheExpiration?) {
         queue.async(flags: .barrier) {
             do {
                 let encoder = JSONEncoder()
@@ -49,46 +56,65 @@ final class InMemoryCacheService: CacheServiceProtocol {
         }
     }
     
-    func get<T: Codable>(_ type: T.Type, forKey key: String) -> T? {
+    public func get<T: Codable>(_ type: T.Type, forKey key: String) -> T? {
         var result: T?
-        
+
         queue.sync {
-            statistics.totalRequests += 1
-            
             guard let entry = cache[key] else {
-                statistics.cacheMisses += 1
+                queue.async(flags: .barrier) {
+                    self._statistics = CacheStatistics(
+                        totalRequests: self._statistics.totalRequests + 1,
+                        cacheHits: self._statistics.cacheHits,
+                        cacheMisses: self._statistics.cacheMisses + 1
+                    )
+                }
                 return
             }
-            
+
             if entry.isExpired {
-                statistics.cacheMisses += 1
-                // Remove expired entry
                 queue.async(flags: .barrier) {
+                    self._statistics = CacheStatistics(
+                        totalRequests: self._statistics.totalRequests + 1,
+                        cacheHits: self._statistics.cacheHits,
+                        cacheMisses: self._statistics.cacheMisses + 1
+                    )
                     self.cache.removeValue(forKey: key)
                 }
                 return
             }
-            
+
             do {
                 let decoder = JSONDecoder()
                 result = try decoder.decode(type, from: entry.data)
-                statistics.cacheHits += 1
+                queue.async(flags: .barrier) {
+                    self._statistics = CacheStatistics(
+                        totalRequests: self._statistics.totalRequests + 1,
+                        cacheHits: self._statistics.cacheHits + 1,
+                        cacheMisses: self._statistics.cacheMisses
+                    )
+                }
             } catch {
                 print("❌ Cache decoding error for key \(key): \(error)")
-                statistics.cacheMisses += 1
+                queue.async(flags: .barrier) {
+                    self._statistics = CacheStatistics(
+                        totalRequests: self._statistics.totalRequests + 1,
+                        cacheHits: self._statistics.cacheHits,
+                        cacheMisses: self._statistics.cacheMisses + 1
+                    )
+                }
             }
         }
-        
+
         return result
     }
     
-    func remove(forKey key: String) {
+    public func remove(forKey key: String) {
         queue.async(flags: .barrier) {
             self.cache.removeValue(forKey: key)
         }
     }
     
-    func exists(forKey key: String) -> Bool {
+    public func exists(forKey key: String) -> Bool {
         var exists = false
         
         queue.sync {
@@ -100,14 +126,14 @@ final class InMemoryCacheService: CacheServiceProtocol {
         return exists
     }
     
-    func clearAll() {
+    public func clearAll() {
         queue.async(flags: .barrier) {
             self.cache.removeAll()
-            self.statistics = CacheStatistics()
+            self._statistics = CacheStatistics()
         }
     }
     
-    func clearExpired() {
+    public func clearExpired() {
         queue.async(flags: .barrier) {
             let expiredKeys = self.cache.compactMap { key, entry in
                 entry.isExpired ? key : nil
@@ -121,39 +147,39 @@ final class InMemoryCacheService: CacheServiceProtocol {
     
     // MARK: - Task-specific Caching
     
-    func cacheTasks(_ tasks: [Task], forDate date: Date) {
+    public func cacheTasks(_ tasks: [DomainTask], forDate date: Date) {
         let key = "tasks_\(date.cacheKey)"
         set(tasks, forKey: key, expiration: .minutes(15))
     }
-    
-    func getCachedTasks(forDate date: Date) -> [Task]? {
+
+    public func getCachedTasks(forDate date: Date) -> [DomainTask]? {
         let key = "tasks_\(date.cacheKey)"
-        return get([Task].self, forKey: key)
+        return get([DomainTask].self, forKey: key)
     }
-    
-    func cacheTasks(_ tasks: [Task], forProject projectName: String) {
+
+    public func cacheTasks(_ tasks: [DomainTask], forProject projectName: String) {
         let key = "tasks_project_\(projectName.lowercased())"
         set(tasks, forKey: key, expiration: .minutes(10))
     }
-    
-    func getCachedTasks(forProject projectName: String) -> [Task]? {
+
+    public func getCachedTasks(forProject projectName: String) -> [DomainTask]? {
         let key = "tasks_project_\(projectName.lowercased())"
-        return get([Task].self, forKey: key)
+        return get([DomainTask].self, forKey: key)
     }
     
     // MARK: - Project-specific Caching
     
-    func cacheProjects(_ projects: [Project]) {
+    public func cacheProjects(_ projects: [Project]) {
         set(projects, forKey: "all_projects", expiration: .minutes(30))
     }
     
-    func getCachedProjects() -> [Project]? {
+    public func getCachedProjects() -> [Project]? {
         return get([Project].self, forKey: "all_projects")
     }
     
     // MARK: - Cache Statistics
     
-    func getCacheSize() -> Int {
+    public func getCacheSize() -> Int {
         var totalSize = 0
         
         queue.sync {
@@ -163,7 +189,7 @@ final class InMemoryCacheService: CacheServiceProtocol {
         return totalSize
     }
     
-    func getCacheItemCount() -> Int {
+    public func getCacheItemCount() -> Int {
         var count = 0
         
         queue.sync {
@@ -173,21 +199,47 @@ final class InMemoryCacheService: CacheServiceProtocol {
         return count
     }
     
-    func getCacheStatistics() -> CacheStatistics {
+    public func getCacheStatistics() -> CacheStatistics {
         var stats: CacheStatistics!
-        
+
         queue.sync {
             stats = CacheStatistics(
-                totalRequests: statistics.totalRequests,
-                cacheHits: statistics.cacheHits,
-                cacheMisses: statistics.cacheMisses,
+                totalRequests: _statistics.totalRequests,
+                cacheHits: _statistics.cacheHits,
+                cacheMisses: _statistics.cacheMisses,
                 averageResponseTime: 0.001, // In-memory is very fast
                 cacheSize: getCacheSize(),
                 itemCount: cache.count
             )
         }
-        
+
         return stats
+    }
+
+    // MARK: - Advanced Caching Methods
+
+    public func cacheFilterResult(_ result: FilteredTasksResult, key: String) {
+        set(result, forKey: "filter_\(key)", expiration: .minutes(5))
+    }
+
+    public func getCachedFilterResult(key: String) -> FilteredTasksResult? {
+        return get(FilteredTasksResult.self, forKey: "filter_\(key)")
+    }
+
+    public func cacheSearchResult(_ result: SearchResult, key: String) {
+        set(result, forKey: "search_\(key)", expiration: .minutes(5))
+    }
+
+    public func getCachedSearchResult(key: String) -> SearchResult? {
+        return get(SearchResult.self, forKey: "search_\(key)")
+    }
+
+    public func cacheStatistics(_ statistics: TaskStatistics, key: String) {
+        set(statistics, forKey: "stats_\(key)", expiration: .minutes(30))
+    }
+
+    public func getCachedStatistics(key: String) -> TaskStatistics? {
+        return get(TaskStatistics.self, forKey: "stats_\(key)")
     }
 }
 

@@ -23,7 +23,7 @@ public final class AddTaskViewModel: ObservableObject {
     // Form state
     @Published public var taskName: String = ""
     @Published public var taskDetails: String = ""
-    @Published public var selectedPriority: TaskPriority = .medium
+    @Published public var selectedPriority: TaskPriority = .low
     @Published public var selectedType: TaskType = .morning
     @Published public var selectedProject: String = "Inbox"
     @Published public var dueDate: Date = Date()
@@ -63,13 +63,17 @@ public final class AddTaskViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         
+        // Resolve projectID from selectedProject name
+        let projectID = projects.first(where: { $0.name == selectedProject })?.id
+
         let request = CreateTaskRequest(
             name: taskName,
             details: taskDetails.isEmpty ? nil : taskDetails,
             type: selectedType,
             priority: selectedPriority,
             dueDate: dueDate,
-            projectName: selectedProject,
+            projectID: projectID,
+            project: selectedProject,
             alertReminderTime: hasReminder ? reminderTime : nil
         )
         
@@ -146,7 +150,7 @@ public final class AddTaskViewModel: ObservableObject {
     public func resetForm() {
         taskName = ""
         taskDetails = ""
-        selectedPriority = .medium
+        selectedPriority = .low
         selectedType = .morning
         selectedProject = "Inbox"
         dueDate = Date()

@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import UIKit
 
 /// Color schemes for projects
 public enum ProjectColor: String, CaseIterable, Codable {
@@ -20,26 +19,12 @@ public enum ProjectColor: String, CaseIterable, Codable {
     case gray = "gray"
     case brown = "brown"
     case teal = "teal"
-    
+
     public var displayName: String {
         return rawValue.capitalized
     }
-    
-    public var uiColor: UIColor {
-        switch self {
-        case .red: return .systemRed
-        case .orange: return .systemOrange
-        case .yellow: return .systemYellow
-        case .green: return .systemGreen
-        case .blue: return .systemBlue
-        case .purple: return .systemPurple
-        case .pink: return .systemPink
-        case .gray: return .systemGray
-        case .brown: return .systemBrown
-        case .teal: return .systemTeal
-        }
-    }
-    
+
+    /// Hex color string for UI representation (platform-agnostic)
     public var hexString: String {
         switch self {
         case .red: return "#FF3B30"
@@ -199,14 +184,15 @@ public enum ProjectHealth: String, CaseIterable, Codable {
         case .unknown: return "⚫"
         }
     }
-    
-    public var color: UIColor {
+
+    /// Hex color string for UI representation (platform-agnostic)
+    public var colorHex: String {
         switch self {
-        case .excellent: return .systemGreen
-        case .good: return .systemYellow
-        case .warning: return .systemOrange
-        case .critical: return .systemRed
-        case .unknown: return .systemGray
+        case .excellent: return "#34C759"  // systemGreen
+        case .good: return "#FFCC00"       // systemYellow
+        case .warning: return "#FF9500"    // systemOrange
+        case .critical: return "#FF3B30"   // systemRed
+        case .unknown: return "#8E8E93"    // systemGray
         }
     }
 }

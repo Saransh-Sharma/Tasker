@@ -1,0 +1,21 @@
+{
+  "assignee": "saransh1337@gmail.com",
+  "claim_note": "",
+  "claimed_at": "2026-01-17T12:51:02.077119Z",
+  "created_at": "2026-01-17T12:50:19.863101Z",
+  "depends_on": [],
+  "epic": "fn-2",
+  "evidence": {
+    "commits": [
+      "2c21187b2810b7bb5e4bc058712f22892bcf11e4"
+    ],
+    "prs": [],
+    "tests": []
+  },
+  "id": "fn-2.1",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-2.1.md",
+  "status": "done",
+  "title": "Fix tasker-loop-help.md See Also links",
+  "updated_at": "2026-01-17T12:51:38.990458Z"
+}

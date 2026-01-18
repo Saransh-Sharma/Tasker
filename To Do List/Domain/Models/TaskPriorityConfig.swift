@@ -6,20 +6,19 @@
 //
 
 import Foundation
-import UIKit
 
 /// Global configuration for task priorities and scoring system
 public struct TaskPriorityConfig {
-    
+
     // MARK: - Priority Definitions
-    
+
     /// Available priority levels
     public enum Priority: Int32, CaseIterable, Hashable, Codable {
         case none = 1   // No priority
         case low = 2    // Low priority
         case high = 3   // High priority
         case max = 4    // Maximum priority
-        
+
         /// Human-readable display name
         public var displayName: String {
             switch self {
@@ -29,7 +28,7 @@ public struct TaskPriorityConfig {
             case .max: return "Max"
             }
         }
-        
+
         /// Short code for UI
         public var code: String {
             switch self {
@@ -39,22 +38,22 @@ public struct TaskPriorityConfig {
             case .max: return "P3"
             }
         }
-        
+
         /// Score points awarded for completing a task with this priority
         public var scorePoints: Int {
             return TaskPriorityConfig.scoreForPriority(self)
         }
-        
-        /// Color for UI representation
-        public var color: UIColor {
+
+        /// Hex color string for UI representation (platform-agnostic)
+        public var colorHex: String {
             switch self {
-            case .none: return .systemGray
-            case .low: return .systemBlue
-            case .high: return .systemOrange
-            case .max: return .systemRed
+            case .none: return "#8E8E93"  // systemGray
+            case .low: return "#007AFF"   // systemBlue
+            case .high: return "#FF9500"  // systemOrange
+            case .max: return "#FF3B30"   // systemRed
             }
         }
-        
+
         /// Weight for pie chart visualization (higher = larger slice)
         public var chartWeight: Double {
             switch self {
@@ -64,7 +63,7 @@ public struct TaskPriorityConfig {
             case .max: return 3.5
             }
         }
-        
+
         /// Initialize from Core Data raw value with default fallback
         public init(rawValue: Int32) {
             switch rawValue {
@@ -118,13 +117,13 @@ public struct TaskPriorityConfig {
     }
     
     // MARK: - Pie Chart Configuration
-    
-    /// Get chart color for priority raw value
-    public static func chartColorForPriority(_ rawValue: Int32) -> UIColor {
+
+    /// Get chart color hex string for priority raw value (platform-agnostic)
+    public static func chartColorHexForPriority(_ rawValue: Int32) -> String {
         let priority = Priority(rawValue: rawValue)
-        return priority.color
+        return priority.colorHex
     }
-    
+
     /// Get chart weight for priority raw value (for weighted visualization)
     public static func chartWeightForPriority(_ rawValue: Int32) -> Double {
         let priority = Priority(rawValue: rawValue)

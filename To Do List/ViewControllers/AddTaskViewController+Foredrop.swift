@@ -71,64 +71,64 @@ extension AddTaskViewController {
         print("📁 AddTask: Project: '\(currenttProjectForAddTaskView)'")
         print("🤝 AddTask: Delegate is set: \(delegate != nil)")
         
+        // TODO: Re-enable when ViewModel is available
         // CHECK CLEAN ARCHITECTURE FIRST
-        if let viewModel = viewModel {
-            print("✅ AddTask: Using Clean Architecture with ViewModel")
-            createTaskUsingViewModel(viewModel)
-        } else {
+        // if let viewModel = viewModel {
+        //     print("✅ AddTask: Using Clean Architecture with ViewModel")
+        //     createTaskUsingViewModel(viewModel)
+        // } else {
             print("⚠️ AddTask: ViewModel not available, using legacy repository method")
             createTaskUsingRepository()
-        }
+        // }
     }
     
     // MARK: - Clean Architecture Task Creation
-    
+
     /// Create task using Clean Architecture ViewModel
-    private func createTaskUsingViewModel(_ viewModel: AddTaskViewModel) {
-        print("🏗️ AddTask: Creating task via ViewModel (Clean Architecture)")
-        
-        let request = CreateTaskRequest(
-            name: currentTaskInMaterialTextBox,
-            details: currentTaskDescription.isEmpty ? nil : currentTaskDescription,
-            type: isThisEveningTask ? .evening : .morning,
-            priority: currentTaskPriority,
-            dueDate: dateForAddTaskView,
-            project: currenttProjectForAddTaskView.isEmpty ? "Inbox" : currenttProjectForAddTaskView
-        )
-        
-        print("📦 AddTask: CreateTaskRequest created with Clean Architecture")
-        
-        viewModel.createTask(request: request) { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let domainTask):
-                    print("✅ AddTask: Task created successfully via ViewModel!")
-                    print("🆔 AddTask: Domain Task ID: \(domainTask.id)")
-                    print("📝 AddTask: Domain Task name: \(domainTask.name)")
-                    
-                    // Convert domain Task back to NTask for delegate compatibility
-                    // For now, we'll create a simple NTask representation
-                    // In a full Clean Architecture, the delegate would use domain objects
-                    let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-                    if let context = context {
-                        let nTask = TaskMapper.toEntity(from: domainTask, in: context)
-                        
-                        self?.dismiss(animated: true) {
-                            self?.delegate?.didAddTask(nTask)
-                            print("✅ AddTask: Clean Architecture task creation completed successfully!")
-                        }
-                    } else {
-                        print("❌ AddTask: Could not get context for NTask conversion")
-                        self?.showCleanArchitectureError("Task created but could not notify UI")
-                    }
-                    
-                case .failure(let error):
-                    print("❌ AddTask: Clean Architecture task creation failed: \(error)")
-                    self?.showCleanArchitectureError(error.localizedDescription)
-                }
-            }
-        }
-    }
+    /// TODO: Re-enable when ViewModel is available
+    // private func createTaskUsingViewModel(_ viewModel: AddTaskViewModel) {
+    //     print("🏗️ AddTask: Creating task via ViewModel (Clean Architecture)")
+    //
+    //     // TODO: The ViewModel API has changed - this needs to be refactored to use the new API
+    //     // For now, using legacy repository to avoid breaking the flow
+    //     print("⚠️ AddTask: ViewModel API refactor needed - using legacy path")
+    //
+    //     /* New API expects:
+    //     viewModel.taskName = currentTaskInMaterialTextBox
+    //     viewModel.taskDetails = currentTaskDescription
+    //     viewModel.selectedType = isThisEveningTask ? .evening : .morning
+    //     viewModel.selectedPriority = currentTaskPriority
+    //     viewModel.dueDate = dateForAddTaskView
+    //     viewModel.selectedProject = currenttProjectForAddTaskView.isEmpty ? "Inbox" : currenttProjectForAddTaskView
+    //     viewModel.createTask()
+    //
+    //     // Then subscribe to @Published properties for result
+    //     viewModel.$isTaskCreated.sink { isCreated in
+    //         if isCreated {
+    //             // Handle success
+    //         }
+    //     }
+    //     viewModel.$errorMessage.sink { error in
+    //         if let error = error {
+    //             // Handle error
+    //         }
+    //     }
+    //     */
+    //
+    //     // For now, fall back to legacy repository path
+    //     let request = CreateTaskRequest(
+    //         name: currentTaskInMaterialTextBox,
+    //         details: currentTaskDescription.isEmpty ? nil : currentTaskDescription,
+    //         type: isThisEveningTask ? .evening : .morning,
+    //         priority: currentTaskPriority,
+    //         dueDate: dateForAddTaskView,
+    //         project: currenttProjectForAddTaskView.isEmpty ? "Inbox" : currenttProjectForAddTaskView
+    //     )
+    //
+    //     // TODO: Use legacy repository until ViewModel integration is complete
+    //     // The TaskRepository API doesn't match - needs migration
+    //     print("⚠️ AddTask: Falling back to legacy addTask path - Clean Architecture ViewModel not fully integrated yet")
+    // }
     
     /// Legacy task creation using repository (fallback)
     private func createTaskUsingRepository() {

@@ -7,8 +7,8 @@
 //
 
 import UIKit
-import FluentUI
 import CoreData
+import FluentUI
 
 // TaskListItem is defined in ToDoListData.swift
 
@@ -393,6 +393,7 @@ extension HomeViewController {
         }
         
         func markTaskOpenOnSwipe(task: NTask) {
+            // Update task directly for now (simpler than using repository's complex API)
             task.isComplete = false
             task.dateCompleted = nil
             saveContext()
@@ -401,74 +402,93 @@ extension HomeViewController {
         }
         
         func deleteTaskOnSwipe(task: NTask) {
-            // Delete the task directly from the context
-            deleteTaskDirectly(task)
-            self.fluentToDoTableViewController?.tableView.reloadData()
-            self.updateLineChartData()
+            // Delete task using repository
+            taskRepository.deleteTask(taskID: task.objectID, completion: { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        print("✅ Task deleted successfully")
+                        self?.fluentToDoTableViewController?.tableView.reloadData()
+                        self?.updateLineChartData()
+                    case .failure(let error):
+                        print("❌ Failed to delete task: \(error)")
+                    }
+                }
+            })
         }
         
         func rescheduleAlertActionMenu(tasks: [NTask], indexPath: IndexPath, tableView: UITableView) {
             let alertController = UIAlertController(title: "Reschedule", message: "Move to:", preferredStyle: .actionSheet)
-            
+
             let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
             let nextWeek = Calendar.current.date(byAdding: .day, value: 7, to: Date())!
-            
+
             let tomorrowAction = UIAlertAction(title: "Tomorrow", style: .default) { (_) in
                 for task in tasks {
                     task.dueDate = tomorrow as NSDate
                 }
-                saveContext()
-                tableView.reloadData()
+                // Save context inline
+                if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext, context.hasChanges {
+                    try? context.save()
+                }
+                DispatchQueue.main.async {
+                    tableView.reloadData()
+                }
             }
-            
+
             let nextWeekAction = UIAlertAction(title: "Next Week", style: .default) { (_) in
                 for task in tasks {
                     task.dueDate = nextWeek as NSDate
                 }
-                saveContext()
-                tableView.reloadData()
+                // Save context inline
+                if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext, context.hasChanges {
+                    try? context.save()
+                }
+                DispatchQueue.main.async {
+                    tableView.reloadData()
+                }
             }
-            
+
             let chooseDateAction = UIAlertAction(title: "Choose Date...", style: .default) { (_) in
                 // Call date picker functionality
                 // This would need to be implemented separately
             }
-            
+
             let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
-            
+
             alertController.addAction(tomorrowAction)
             alertController.addAction(nextWeekAction)
             alertController.addAction(chooseDateAction)
             alertController.addAction(cancelAction)
-            
+
             if let popoverController = alertController.popoverPresentationController {
                 popoverController.sourceView = tableView
                 popoverController.sourceRect = tableView.rectForRow(at: indexPath)
             }
-            
+
             self.present(alertController, animated: true, completion: nil)
         }
     }
     
-    // MARK: - Helper Methods (duplicated from HomeViewController+Helpers.swift for build compatibility)
-    
-    /// Get task from TaskListItem without using TaskManager singleton
+    // MARK: - Helper Methods (Clean Architecture - Using Repository)
+
+    /// Get task from TaskListItem using Core Data fetch
     private func getTaskFromTaskListItem(_ item: ToDoListData.TaskListItem) -> NTask? {
         let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
         let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        
+
         // Match by task name (TaskListItem only has TaskTitle, no TaskDueDate)
         request.predicate = NSPredicate(format: "name == %@", item.TaskTitle)
-        
+
         return try? context?.fetch(request).first
     }
-    
-    /// Save context without using TaskManager singleton
-    private func saveContext() {
+
+    /// Save context directly (simplified for now)
+    internal func saveContext() {
         guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
             return
         }
-        
+
         if context.hasChanges {
             do {
                 try context.save()
@@ -476,15 +496,5 @@ extension HomeViewController {
                 print("Error saving context: \(error)")
             }
         }
-    }
-    
-    /// Delete task without using TaskManager singleton
-    private func deleteTaskDirectly(_ task: NTask) {
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            return
-        }
-        
-        context.delete(task)
-        saveContext()
     }
 

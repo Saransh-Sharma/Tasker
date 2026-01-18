@@ -161,12 +161,7 @@ public final class HomeViewModel: ObservableObject {
     
     /// Delete a task
     public func deleteTask(_ task: Task) {
-        let deleteUseCase = DeleteTaskUseCase(
-            taskRepository: useCaseCoordinator.taskRepository,
-            notificationService: nil
-        )
-        
-        deleteUseCase.execute(taskId: task.id) { [weak self] result in
+        useCaseCoordinator.deleteTask.execute(taskId: task.id) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:
@@ -176,7 +171,7 @@ public final class HomeViewModel: ObservableObject {
                     } else {
                         self?.loadTasksForSelectedDate()
                     }
-                    
+
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                 }

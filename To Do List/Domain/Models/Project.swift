@@ -9,7 +9,7 @@ import Foundation
 
 /// Pure domain model representing a Project
 /// This model is independent of any persistence framework
-public struct Project {
+public struct Project: Codable {
     // MARK: - Properties
     
     public let id: UUID
