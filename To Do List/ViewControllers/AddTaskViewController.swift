@@ -497,8 +497,20 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
                     print("✅ Loaded \(customProjects.count) custom projects via fallback")
 
-                    // Refresh the pill bar with the loaded projects
-                    self.refreshProjectPillBar(selectProject: inboxTitle)
+                    // Determine which project to select:
+                    // - If currenttProjectForAddTaskView is set to a valid project (e.g., after creating a new project), select it
+                    // - Otherwise, default to Inbox
+                    let projectToSelect: String
+                    if !self.currenttProjectForAddTaskView.isEmpty,
+                       self.currenttProjectForAddTaskView != self.addProjectString,
+                       self.samplePillBarItems.contains(where: { $0.title == self.currenttProjectForAddTaskView }) {
+                        projectToSelect = self.currenttProjectForAddTaskView
+                    } else {
+                        projectToSelect = inboxTitle
+                    }
+
+                    // Update the pill bar UI directly (don't call refreshProjectPillBar which would start another async load)
+                    self.updatePillBarUI(selectProject: projectToSelect)
 
                 case .failure(let error):
                     print("❌ Failed to load projects via fallback: \(error)")
@@ -506,7 +518,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
                     self.samplePillBarItems = []
                     self.samplePillBarItems.append(PillButtonBarItem(title: self.addProjectString))
                     self.samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
-                    self.refreshProjectPillBar(selectProject: "Inbox")
+                    self.updatePillBarUI(selectProject: "Inbox")
                 }
             }
         }
@@ -697,7 +709,7 @@ extension AddTaskViewController {
                 case .success(let project):
                     print("✅ Phase 3: Successfully created project '\(project.name)'")
                     self?.showProjectSuccess(message: "Project '\(project.name)' created")
-                    self?.refreshProjectPillBar(selectProject: project.name)
+                    self?.addNewProjectToPillBar(project: project)
 
                 case .failure(let error):
                     print("❌ Phase 3: Failed to create project: \(error)")
@@ -707,39 +719,85 @@ extension AddTaskViewController {
         }
     }
     
-    // PHASE 3: Refresh the pill bar after creating a new project
-    private func refreshProjectPillBar(selectProject projectName: String) {
-        // Rebuild pill bar data
-        buildSamplePillBarData()
-        
-        // Recreate the pill bar
+    // Update the pill bar UI with current items (does NOT reload from database)
+    // Use this after loadProjectsFallback() has already populated samplePillBarItems
+    private func updatePillBarUI(selectProject projectName: String) {
+        // Recreate the pill bar with current items
         let newPillBar = createSamplePillBar(items: samplePillBarItems, centerAligned: false)
-        
+
         // Replace the old pill bar
         samplePillBar?.removeFromSuperview()
         samplePillBar = newPillBar
-        
-        // Add back to the view hierarchy (find its position in the stack)
+
+        // Add to the view hierarchy
         if let stackView = foredropStackContainer as? UIStackView {
-            // Find where the old pill bar was (should be after description field)
+            // Find correct position (after description field, before priority)
             var insertIndex = 2 // Default position after text fields
             for (index, view) in stackView.arrangedSubviews.enumerated() {
-                if view === samplePillBar {
+                if view === tabsSegmentedControl {
                     insertIndex = index
                     break
                 }
             }
-            
+
             stackView.insertArrangedSubview(newPillBar, at: insertIndex)
         }
-        
-        // Select the newly created project
+
+        // Select the specified project
         if let pillBarComponent = newPillBar.subviews.first as? PillButtonBar,
            let projectIndex = samplePillBarItems.firstIndex(where: { $0.title == projectName }) {
             _ = pillBarComponent.selectItem(atIndex: projectIndex)
             self.currenttProjectForAddTaskView = projectName
-            print("✅ Phase 3: Selected newly created project '\(projectName)'")
+            print("✅ Pre-selected project '\(projectName)' at index \(projectIndex)")
         }
+    }
+
+    // PHASE 3: Add newly created project directly to pill bar (avoids Core Data context merge timing issues)
+    private func addNewProjectToPillBar(project: Project) {
+        // Create new pill item for the project
+        let newProjectItem = PillButtonBarItem(title: project.name)
+
+        // Check if project already exists (avoid duplicates)
+        if samplePillBarItems.contains(where: { $0.title == project.name }) {
+            print("⚠️ Project '\(project.name)' already in pill bar, just selecting it")
+            self.currenttProjectForAddTaskView = project.name
+            updatePillBarUI(selectProject: project.name)
+            return
+        }
+
+        // Find correct insertion position
+        // Order: Add Project button (index 0) → Inbox (index 1) → Custom projects alphabetically
+        if let inboxIndex = samplePillBarItems.firstIndex(where: { $0.title.lowercased() == "inbox" }) {
+            // Insert after Inbox, maintaining alphabetical order with other custom projects
+            var insertPosition = inboxIndex + 1
+            for i in insertPosition..<samplePillBarItems.count {
+                let existingName = samplePillBarItems[i].title
+                if existingName.compare(project.name) == .orderedDescending {
+                    insertPosition = i
+                    break
+                }
+            }
+            samplePillBarItems.insert(newProjectItem, at: insertPosition)
+            print("✅ Added project '\(project.name)' to pill bar at index \(insertPosition)")
+        } else {
+            // No Inbox found, append to end
+            samplePillBarItems.append(newProjectItem)
+            print("✅ Added project '\(project.name)' to end of pill bar")
+        }
+
+        // Update current selection and UI
+        self.currenttProjectForAddTaskView = project.name
+        updatePillBarUI(selectProject: project.name)
+    }
+
+    // PHASE 3: Refresh the pill bar after creating a new project (reloads from database)
+    private func refreshProjectPillBar(selectProject projectName: String) {
+        // Store the project name to select FIRST, before triggering async load
+        // This ensures loadProjectsFallback() completion reads the correct value
+        self.currenttProjectForAddTaskView = projectName
+
+        // Rebuild pill bar data from database (triggers async loadProjectsFallback)
+        buildSamplePillBarData()
     }
     
     // PHASE 3: Show error message
