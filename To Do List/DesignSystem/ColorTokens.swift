@@ -75,39 +75,41 @@ public struct TaskerColorTokens: TaskerTokenGroup {
     }
 
     public static func make(accentRamp: TaskerAccentRamp) -> TaskerColorTokens {
-        let bgCanvas = UIColor.taskerDynamic(lightHex: "#F6F7F9", darkHex: "#0E0F12")
-        let bgElevated = UIColor.taskerDynamic(lightHex: "#FBFCFD", darkHex: "#14161B")
+        // Premium "Obsidian & Gold" palette — warm undertones throughout
+        let bgCanvas = UIColor.taskerDynamic(lightHex: "#FAF8F5", darkHex: "#0F0E0C")
+        let bgElevated = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#171513")
 
-        let surfacePrimary = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#181B21")
-        let surfaceSecondary = UIColor.taskerDynamic(lightHex: "#F2F3F6", darkHex: "#20242C")
-        let surfaceTertiary = UIColor.taskerDynamic(lightHex: "#ECEEF2", darkHex: "#262B35")
+        let surfacePrimary = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#1D1B18")
+        let surfaceSecondary = UIColor.taskerDynamic(lightHex: "#F5F2EE", darkHex: "#252320")
+        let surfaceTertiary = UIColor.taskerDynamic(lightHex: "#EDE9E3", darkHex: "#2E2B27")
 
-        let divider = UIColor.taskerDynamic(lightHex: "#E4E7ED", darkHex: "#2A2F3A")
-        let strokeHairline = UIColor.taskerDynamic(lightHex: "#E4E7ED", darkHex: "#2A2F3A")
-        let strokeStrong = UIColor.taskerDynamic(lightHex: "#D7DBE3", darkHex: "#323847")
+        let divider = UIColor.taskerDynamic(lightHex: "#E8E2DA", darkHex: "#363230")
+        let strokeHairline = UIColor.taskerDynamic(lightHex: "#E8E2DA", darkHex: "#363230")
+        let strokeStrong = UIColor.taskerDynamic(lightHex: "#D4CCC2", darkHex: "#443F3A")
 
-        let textPrimary = UIColor.taskerDynamic(lightHex: "#101114", darkHex: "#F2F4F7")
-        let textSecondary = UIColor.taskerDynamic(lightHex: "#4B4F58", darkHex: "#C7CBD3")
-        let textTertiary = UIColor.taskerDynamic(lightHex: "#7B808A", darkHex: "#9AA1AD")
-        let textQuaternary = UIColor.taskerDynamic(lightHex: "#A1A6AF", darkHex: "#737B89")
-        let textInverse = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#0E0F12")
+        let textPrimary = UIColor.taskerDynamic(lightHex: "#1A1714", darkHex: "#F5F0EB")
+        let textSecondary = UIColor.taskerDynamic(lightHex: "#6B6259", darkHex: "#C9C1B8")
+        let textTertiary = UIColor.taskerDynamic(lightHex: "#9C9389", darkHex: "#9A9188")
+        let textQuaternary = UIColor.taskerDynamic(lightHex: "#B8B0A6", darkHex: "#6B6359")
+        let textInverse = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#0F0E0C")
 
-        let statusSuccess = UIColor(taskerHex: "#34C759")
-        let statusWarning = UIColor(taskerHex: "#FF9F0A")
-        let statusDanger = UIColor(taskerHex: "#FF3B30")
+        // Jewel-toned status colors
+        let statusSuccess = UIColor(taskerHex: "#2ECC71")
+        let statusWarning = UIColor(taskerHex: "#F5A623")
+        let statusDanger = UIColor(taskerHex: "#E74C3C")
 
         let overlayScrim = UIColor { traits in
             if traits.userInterfaceStyle == .dark {
-                return UIColor.black.withAlphaComponent(0.45)
+                return UIColor.black.withAlphaComponent(0.50)
             }
-            return UIColor.black.withAlphaComponent(0.25)
+            return UIColor(taskerHex: "#1A1714").withAlphaComponent(0.22)
         }
 
         let overlayGlassTint = UIColor { traits in
             if traits.userInterfaceStyle == .dark {
-                return UIColor(taskerHex: "#14161B").withAlphaComponent(0.70)
+                return UIColor(taskerHex: "#171513").withAlphaComponent(0.72)
             }
-            return UIColor.white.withAlphaComponent(0.72)
+            return UIColor(taskerHex: "#FAF8F5").withAlphaComponent(0.74)
         }
 
         return TaskerColorTokens(
