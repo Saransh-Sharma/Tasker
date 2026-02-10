@@ -409,13 +409,13 @@ class TaskCell: UITableViewCell {
         
         // Title label
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        titleLabel.font = UIFont.tasker.font(for: .bodyEmphasis)
         contentView.addSubview(titleLabel)
         
         // Details label
         detailsLabel.translatesAutoresizingMaskIntoConstraints = false
-        detailsLabel.font = UIFont.systemFont(ofSize: 14, weight: .regular)
-        detailsLabel.textColor = .gray
+        detailsLabel.font = UIFont.tasker.font(for: .callout)
+        detailsLabel.textColor = UIColor.tasker.textSecondary
         contentView.addSubview(detailsLabel)
         
         // Layout

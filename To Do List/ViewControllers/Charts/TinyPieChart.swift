@@ -8,6 +8,7 @@
 
 import Foundation
 import DGCharts
+import UIKit
 
 
 extension HomeViewController {
@@ -21,7 +22,7 @@ extension HomeViewController {
         chartView.noDataText = ""
         chartView.noDataTextColor = .clear
         chartView.holeRadiusPercent = 0.60
-        chartView.holeColor = todoColors.primaryColorDarker
+        chartView.holeColor = todoColors.accentPrimaryPressed
         chartView.transparentCircleRadiusPercent = 0.60
         chartView.setExtraOffsets(left: 7, top: 2, right: 5, bottom: 0)
         
@@ -39,25 +40,38 @@ extension HomeViewController {
         chartView.rotationEnabled = true
         chartView.highlightPerTapEnabled = false
         chartView.legend.form = .none
-        
-        
-        //        chartView.layer.shadowColor = UIColor.black.cgColor
-        chartView.layer.shadowColor = todoColors.primaryColorDarker.cgColor
-        
-        chartView.layer.shadowOpacity = 0.8//0.3
-        chartView.layer.shadowOffset = .zero//CGSize(width: -2.0, height: -2.0) //.zero
-        chartView.layer.shadowRadius = 14//2
-        
+        chartView.layer.borderWidth = 0
+        chartView.layer.borderColor = UIColor.clear.cgColor
         setTinyChartShadow(chartView: chartView)
     }
     
     func setTinyChartShadow(chartView: PieChartView) {
-        //        chartView.layer.shadowColor = UIColor.black.cgColor
-        chartView.layer.shadowColor = todoColors.primaryColorDarker.cgColor
-        
-        chartView.layer.shadowOpacity = 0.4
-        chartView.layer.shadowOffset = .zero
-        chartView.layer.shadowRadius = 4
+        applyTinyChartShadowStyle(to: chartView, deferredIfNeeded: true)
+    }
+
+    private func applyTinyChartShadowStyle(to chartView: PieChartView, deferredIfNeeded: Bool) {
+        let style = TaskerThemeManager.shared.currentTheme.tokens.elevation.e1
+
+        chartView.layer.shadowColor = style.shadowColor.cgColor
+        chartView.layer.shadowOpacity = style.shadowOpacity
+        chartView.layer.shadowOffset = CGSize(width: 0, height: style.shadowOffsetY)
+        chartView.layer.shadowRadius = style.shadowBlur / 2
+        chartView.layer.borderWidth = 0
+        chartView.layer.borderColor = UIColor.clear.cgColor
+        chartView.layer.masksToBounds = false
+
+        let bounds = chartView.bounds
+        guard bounds.width > 0, bounds.height > 0 else {
+            chartView.layer.shadowPath = nil
+            guard deferredIfNeeded else { return }
+            DispatchQueue.main.async { [weak self, weak chartView] in
+                guard let self, let chartView else { return }
+                self.applyTinyChartShadowStyle(to: chartView, deferredIfNeeded: false)
+            }
+            return
+        }
+
+        chartView.layer.shadowPath = UIBezierPath(ovalIn: bounds).cgPath
     }
     
     /// Makes the tiny pie chart spin with animation
@@ -92,7 +106,7 @@ extension HomeViewController {
                 .font : setFont(fontSize: 44, fontweight: .medium, fontDesign: .rounded),
                 .paragraphStyle : paragraphStyle,
                 .strokeColor : UIColor.label,
-                .foregroundColor : todoColors.backgroundColor //todoColors.primaryColorDarker
+                .foregroundColor : todoColors.bgCanvas //todoColors.accentPrimaryPressed
             ],
             
             range: NSRange(location: 0, length: centerText.length))
@@ -102,7 +116,7 @@ extension HomeViewController {
                 .font : setFont(fontSize: 32, fontweight: .medium, fontDesign: .rounded),
                 .paragraphStyle : paragraphStyle,
                 .strokeColor : UIColor.label,
-                .foregroundColor : todoColors.backgroundColor //todoColors.primaryColorDarker
+                .foregroundColor : todoColors.bgCanvas //todoColors.accentPrimaryPressed
             ], range: NSRange(location: 0, length: centerText.length))
         }
         
@@ -158,7 +172,7 @@ extension HomeViewController {
             case "Max":
                 sliceColors.append(TaskPriorityConfig.Priority.max.color)
             default:
-                sliceColors.append(todoColors.secondaryAccentColor)
+                sliceColors.append(todoColors.accentMuted)
             }
         }
         
@@ -177,4 +191,3 @@ extension HomeViewController {
     
     
 }
-

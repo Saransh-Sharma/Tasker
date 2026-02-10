@@ -52,23 +52,21 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
     //----------------------- *************************** -----------------------
     func setupCalAppearence() {
         
-//        self.calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
-        self.calendar.calendarHeaderView.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.5)
-        self.calendar.calendarHeaderView.backgroundColor?.setFill()
-        //UIColor.lightGray.withAlphaComponent(0.1)
-        self.calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker //UIColor.lightGray.withAlphaComponent(0.1)
+//        self.calendar.calendarHeaderView.backgroundColor = todoColors.accentPrimaryPressed //UIColor.lightGray.withAlphaComponent(0.1)
+        self.calendar.calendarHeaderView.backgroundColor = .clear
+        self.calendar.calendarWeekdayView.backgroundColor = .clear
         
         
         
-        self.calendar.appearance.headerTitleColor = .white
+        self.calendar.appearance.headerTitleColor = todoColors.textInverse
         self.calendar.appearance.headerTitleFont = setFont(fontSize: 16, fontweight: .light, fontDesign: .default) as UIFont
-        
-        
+
+
         //weekday title
-        self.calendar.appearance.weekdayTextColor = .white
+        self.calendar.appearance.weekdayTextColor = todoColors.textInverse
         // Customize weekday label colors for weekends
         for (index,label) in self.calendar.calendarWeekdayView.weekdayLabels.enumerated() {
-            label.textColor = (index == 0 || index == 6) ? .systemRed : .white
+            label.textColor = (index == 0 || index == 6) ? .systemRed : todoColors.textInverse
         }
         self.calendar.appearance.weekdayFont = setFont(fontSize: 14, fontweight: .light, fontDesign: .rounded) as UIFont
         
@@ -79,24 +77,24 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         
         //date
         self.calendar.appearance.titleFont = setFont(fontSize: 16, fontweight: .regular, fontDesign: .rounded) as UIFont
-        self.calendar.appearance.titleDefaultColor = .white
+        self.calendar.appearance.titleDefaultColor = todoColors.textInverse
         self.calendar.appearance.caseOptions = .weekdayUsesUpperCase
-        
+
         //selection
-        self.calendar.appearance.selectionColor = todoColors.secondaryAccentColor
-        self.calendar.appearance.subtitleDefaultColor = .white
-        self.calendar.appearance.subtitleSelectionColor = .white
-        self.calendar.appearance.subtitleTodayColor = .white
+        self.calendar.appearance.selectionColor = todoColors.accentMuted
+        self.calendar.appearance.subtitleDefaultColor = todoColors.textInverse
+        self.calendar.appearance.subtitleSelectionColor = todoColors.textInverse
+        self.calendar.appearance.subtitleTodayColor = todoColors.textInverse
         
         self.calendar.firstWeekday = 2
         
         //today
-        self.calendar.appearance.todayColor = todoColors.primaryColorDarker
-        self.calendar.appearance.titleTodayColor = .white
-        self.calendar.appearance.titleSelectionColor = .white
-        self.calendar.appearance.subtitleSelectionColor = todoColors.primaryColorDarker
+        self.calendar.appearance.todayColor = todoColors.accentPrimaryPressed
+        self.calendar.appearance.titleTodayColor = todoColors.textInverse
+        self.calendar.appearance.titleSelectionColor = todoColors.textInverse
+        self.calendar.appearance.subtitleSelectionColor = todoColors.accentPrimaryPressed
         self.calendar.appearance.subtitleFont = setFont(fontSize: 8, fontweight: .regular, fontDesign: .rounded) as UIFont
-        self.calendar.appearance.borderSelectionColor = todoColors.primaryColorDarker
+        self.calendar.appearance.borderSelectionColor = todoColors.accentPrimaryPressed
         
         
         self.calendar.dataSource = self
@@ -109,24 +107,22 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         self.calendar.reloadData()
     }
     
-    // MARK: Text color customization to enforce white text and red weekends
+    // MARK: Text color customization to enforce textInverse on gradient and red weekends
     func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleDefaultColorFor date: Date) -> UIColor? {
-        let weekday = Calendar.current.component(.weekday, from: date)
-        return .white
+        return todoColors.textInverse
     }
-    
-    // Date numbers/subtitles always white
+
+    // Date numbers/subtitles use textInverse (sits on gradient)
     func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, subtitleDefaultColorFor date: Date) -> UIColor? {
-        let weekday = Calendar.current.component(.weekday, from: date)
-        return .white
+        return todoColors.textInverse
     }
-    
+
     func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, titleSelectionColorFor date: Date) -> UIColor? {
-        return .white
+        return todoColors.textInverse
     }
-    
+
     func calendar(_ calendar: FSCalendar, appearance: FSCalendarAppearance, subtitleSelectionColorFor date: Date) -> UIColor? {
-        return .white
+        return todoColors.textInverse
     }
     
     // Additional customization for cell appearance (selected and today)
@@ -139,7 +135,7 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         // Draw outline circle for **today** only when it is *not* the currently selected date
         if isToday && !isSelected {
             cell.shapeLayer.fillColor = UIColor.clear.cgColor
-            cell.shapeLayer.strokeColor = self.todoColors.secondaryAccentColor.cgColor
+            cell.shapeLayer.strokeColor = self.todoColors.accentMuted.cgColor
             cell.shapeLayer.lineWidth = 5
             cell.shapeLayer.path = UIBezierPath(ovalIn: rect).cgPath
             cell.shapeLayer.isHidden = false
@@ -160,7 +156,7 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
             let innerLayer = CAShapeLayer()
             innerLayer.name = innerTag
             innerLayer.path = UIBezierPath(ovalIn: innerRect).cgPath
-            innerLayer.fillColor = (calendar.appearance.selectionColor ?? self.todoColors.secondaryAccentColor).cgColor
+            innerLayer.fillColor = (calendar.appearance.selectionColor ?? self.todoColors.accentMuted).cgColor
             cell.contentView.layer.insertSublayer(innerLayer, above: cell.shapeLayer)
         }
         
@@ -170,7 +166,7 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
             let innerLayer = CAShapeLayer()
             innerLayer.name = innerTag
             innerLayer.path = UIBezierPath(ovalIn: innerRect).cgPath
-            innerLayer.fillColor = (calendar.appearance.selectionColor ?? self.todoColors.secondaryAccentColor).cgColor
+            innerLayer.fillColor = (calendar.appearance.selectionColor ?? self.todoColors.accentMuted).cgColor
             cell.contentView.layer.insertSublayer(innerLayer, above: cell.shapeLayer)
         }
         

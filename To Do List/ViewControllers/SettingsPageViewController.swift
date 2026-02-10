@@ -9,6 +9,7 @@
 import UIKit
 import SwiftUI
 import CoreData
+import Combine
 
 // Data structures for settings table view
 struct SettingsItem {
@@ -33,9 +34,7 @@ class SettingsPageViewController: UIViewController {
     // Track the current mode state
     private var isDarkMode: Bool = false
     
-    // Colors and fonts
-    var todoColors = ToDoColors()
-    var todoFont = ToDoFont()
+    private var themeCancellable: AnyCancellable?
     
     // Manager instances - removed, using Clean Architecture now
     
@@ -66,23 +65,25 @@ class SettingsPageViewController: UIViewController {
         
         // Set up table data
         setupSettingsSections()
+
+        themeCancellable = TaskerThemeManager.shared.publisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applyTheme()
+            }
+
+        applyTheme()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Add observer for theme changes
-        NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeChanged, object: nil)
-        
         // Refresh table data when view appears
         setupSettingsSections()
-        todoColors = ToDoColors()
         settingsTableView.reloadData()
     }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        // Remove observer to avoid memory leaks
-        NotificationCenter.default.removeObserver(self, name: .themeChanged, object: nil)
     }
     
     // MARK: - UI Setup
@@ -118,7 +119,10 @@ class SettingsPageViewController: UIViewController {
                 SettingsItem(title: modeTitle, iconName: modeIcon, action: { [weak self] in
                     self?.toggleDarkMode()
                 }),
-                SettingsItem(title: "Theme", iconName: nil, action: nil)
+                SettingsItem(title: "Theme", iconName: nil, action: nil),
+                SettingsItem(title: "Theme QA Swatches", iconName: "paintpalette.fill", action: { [weak self] in
+                    self?.navigateToThemeDebugSwatches()
+                })
             ]),
             // LLM Settings
             SettingsSection(title: "LLM Settings", items: [
@@ -145,6 +149,11 @@ class SettingsPageViewController: UIViewController {
     // MARK: - Theme Navigation
     private func navigateToThemeSelection() {
         let vc = ThemeSelectionViewController()
+        self.navigationController?.pushViewController(vc, animated: true)
+    }
+
+    private func navigateToThemeDebugSwatches() {
+        let vc = ThemeDebugSwatchesViewController()
         self.navigationController?.pushViewController(vc, animated: true)
     }
 
@@ -264,7 +273,7 @@ extension SettingsPageViewController: UITableViewDataSource {
         // Configure icon if available
         if let iconName = item.iconName {
             cell.imageView?.image = UIImage(systemName: iconName)
-            cell.imageView?.tintColor = todoColors.primaryColor
+            cell.imageView?.tintColor = TaskerThemeManager.shared.currentTheme.tokens.color.accentPrimary
         }
         
         // Configure detail text if available
@@ -311,9 +320,6 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
     
     // UI Elements
     var emptyStateLabel: UILabel?
-    
-    // Colors
-    var todoColors = ToDoColors()
     
     // MARK: - Helper Methods
     private func saveContext() -> Bool {
@@ -378,7 +384,7 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
                 emptyStateLabel!.text = "Tap '+' to add your first project"
                 emptyStateLabel!.textAlignment = .center
                 emptyStateLabel!.textColor = .gray
-                emptyStateLabel!.font = UIFont.systemFont(ofSize: 16)
+                emptyStateLabel!.font = UIFont.tasker.body
                 emptyStateLabel!.translatesAutoresizingMaskIntoConstraints = false
                 view.addSubview(emptyStateLabel!)
                 
@@ -556,9 +562,9 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
 
 // MARK: - Theme Change Handling
 extension SettingsPageViewController {
-    @objc func themeChanged() {
-        todoColors = ToDoColors()
-        view.tintColor = todoColors.primaryColor
+    private func applyTheme() {
+        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
+        view.tintColor = colors.accentPrimary
         settingsTableView.reloadData()
     }
 }

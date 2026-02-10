@@ -50,13 +50,9 @@ class LiquidGlassBottomAppBar: UIView, UITabBarDelegate {
     let floatingButton: UIButton = {
         let b = UIButton(type: .custom)
         b.translatesAutoresizingMaskIntoConstraints = false
-        b.backgroundColor = .systemOrange
-        b.tintColor = .white
+        b.backgroundColor = .clear
+        b.tintColor = .label
         b.layer.cornerRadius = 28
-        b.layer.shadowColor = UIColor.black.cgColor
-        b.layer.shadowOpacity = 0.25
-        b.layer.shadowOffset = CGSize(width: 0, height: 4)
-        b.layer.shadowRadius = 8
         b.clipsToBounds = false
         b.isHidden = true
         return b
@@ -103,6 +99,10 @@ class LiquidGlassBottomAppBar: UIView, UITabBarDelegate {
 
         // Add floating button
         addSubview(floatingButton)
+        let tokens = TaskerThemeManager.shared.currentTheme.tokens
+        floatingButton.backgroundColor = tokens.color.accentPrimary
+        floatingButton.tintColor = tokens.color.accentOnPrimary
+        floatingButton.applyTaskerElevation(.e2)
 
         // Layout constraints
         NSLayoutConstraint.activate([
@@ -194,7 +194,8 @@ class LiquidGlassBottomAppBar: UIView, UITabBarDelegate {
         appearance.shadowColor = .clear
 
         // Optional: tweak item appearance
-        let normalColor = (tintColor ?? .white).withAlphaComponent(0.6)
+        let fallbackTint = TaskerThemeManager.shared.currentTheme.tokens.color.accentOnPrimary
+        let normalColor = (tintColor ?? fallbackTint).withAlphaComponent(0.6)
         appearance.stackedLayoutAppearance.normal.iconColor = normalColor
         appearance.inlineLayoutAppearance.normal.iconColor = normalColor
         appearance.compactInlineLayoutAppearance.normal.iconColor = normalColor
@@ -203,8 +204,6 @@ class LiquidGlassBottomAppBar: UIView, UITabBarDelegate {
         if #available(iOS 15.0, *) {
             tabBar.scrollEdgeAppearance = appearance
         }
-        // Also clear any existing layer shadow
-        tabBar.layer.shadowOpacity = 0
     }
 
     // MARK: - UITabBarDelegate
@@ -358,7 +357,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     // Utilities
     let notificationCenter = NotificationCenter.default
     var headerEndY: CGFloat = 128
-    var todoColors = ToDoColors()
+    var todoColors: TaskerColorTokens = TaskerThemeManager.shared.currentTheme.tokens.color
     var todoTimeUtils = ToDoTimeUtils()
     
     // Task editing state
@@ -583,8 +582,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         fixInvalidTaskPriorities()
         
         print("=== HOME VIEW CONTROLLER SETUP COMPLETE ===")
-        // Observe theme changes for lifetime of this controller
-        notificationCenter.addObserver(self, selector: #selector(themeChanged), name: .themeChanged, object: nil)
+        TaskerThemeManager.shared.publisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applyTheme()
+            }
+            .store(in: &cancellables)
         
         // Setup FluentUI Navigation Bar
         setupFluentUINavigationBar()
@@ -604,8 +607,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         // Note: contentScrollView is FluentUI-specific, removed for native iOS compatibility
         // ShyHeaderController behavior will be handled differently if needed
         
-        highestPrioritySymbol = (UIImage(systemName: "circle.fill", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal))!
-        highPrioritySymbol = (UIImage(systemName: "circle", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.secondaryAccentColor, renderingMode: .alwaysOriginal))!
+        highestPrioritySymbol = (UIImage(systemName: "circle.fill", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.accentMuted, renderingMode: .alwaysOriginal))!
+        highPrioritySymbol = (UIImage(systemName: "circle", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.accentMuted, renderingMode: .alwaysOriginal))!
         
         self.setupBackdrop()
         view.addSubview(backdropContainer)
@@ -622,10 +625,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             setupLiquidGlassBottomBarConstraints(lgBottomBar)
         }
         
-        foredropContainer.backgroundColor = UIColor.systemBackground
+        foredropContainer.backgroundColor = todoColors.surfacePrimary
         // Apply initial themed backgrounds
-        view.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
-        backdropContainer.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
+        view.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.05)
+        backdropContainer.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.05)
         
         // Initial data loading handled by setupCleanArchitectureIfAvailable()
         
@@ -706,9 +709,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        
+
+        // Resize/reapply header gradient layers to match current bounds
+        refreshBackdropGradientForCurrentTheme(deferredIfNeeded: false)
+
         // Liquid Glass bottom app bar uses Auto Layout constraints set up in viewDidLoad
-        
+
         // Update foredrop state manager layout
         foredropStateManager?.updateLayout()
     }
@@ -733,7 +739,6 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
     
     deinit {
-        notificationCenter.removeObserver(self, name: .themeChanged, object: nil)
         notificationCenter.removeObserver(self)
     }
     
@@ -741,15 +746,15 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     private func setupFluentUINavigationBar() {
         // Set FluentUI custom navigation bar color - this is the correct way to set color with FluentUI
-        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.primaryColor
+        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
         navigationItem.fluentConfiguration.navigationBarStyle = .custom
 
         // Configure navigation bar appearance using standard iOS APIs
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = todoColors.primaryColor
-        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+        appearance.backgroundColor = todoColors.accentPrimary
+        appearance.titleTextAttributes = [.foregroundColor: todoColors.accentOnPrimary]
+        appearance.largeTitleTextAttributes = [.foregroundColor: todoColors.accentOnPrimary]
 
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
@@ -770,7 +775,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             target: self,
             action: #selector(onMenuButtonTapped)
         )
-        settingsButton.tintColor = .white
+        settingsButton.tintColor = todoColors.accentOnPrimary
         settingsButton.accessibilityLabel = "Settings"
         settingsButton.accessibilityIdentifier = "home.settingsButton"
         navigationItem.leftBarButtonItem = settingsButton
@@ -806,6 +811,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         containerView.addSubview(navPieChart)
         navPieChart.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         setupPieChartView(pieChartView: navPieChart)
+        navPieChart.layer.borderWidth = 0
+        navPieChart.layer.borderColor = UIColor.clear.cgColor
         navPieChart.holeRadiusPercent = 0.58
         // Ensure the chart is visible above the navigation bar
         navPieChart.layer.zPosition = 952
@@ -854,6 +861,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             navPieChart.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
         ])
         setupPieChartView(pieChartView: navPieChart)
+        navPieChart.layer.borderWidth = 0
+        navPieChart.layer.borderColor = UIColor.clear.cgColor
         navPieChart.holeRadiusPercent = 0.58
         // Minimal appearance: no slice labels, legend, or description
         navPieChart.drawEntryLabelsEnabled = false
@@ -896,11 +905,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         // Make the search field background semi-transparent
         let textField = searchBar.searchTextField
-        textField.backgroundColor = UIColor.white.withAlphaComponent(0.2)
-        textField.textColor = UIColor.white
+        textField.backgroundColor = todoColors.accentOnPrimary.withAlphaComponent(0.20)
+        textField.textColor = todoColors.accentOnPrimary
         textField.attributedPlaceholder = NSAttributedString(
             string: "Search tasks...",
-            attributes: [NSAttributedString.Key.foregroundColor: UIColor.white.withAlphaComponent(0.7)]
+            attributes: [NSAttributedString.Key.foregroundColor: todoColors.accentOnPrimary.withAlphaComponent(0.7)]
         )
         
         return searchBar
@@ -922,12 +931,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         // Configure appearance
         setupPieChartView(pieChartView: navPieChart)
         navPieChart.holeRadiusPercent = 0.58
-        navPieChart.layer.shadowRadius = 4
-        navPieChart.layer.shadowOpacity = 0.4
+        navPieChart.layer.borderWidth = 0
+        navPieChart.layer.borderColor = UIColor.clear.cgColor
+        setTinyChartShadow(chartView: navPieChart)
         navPieChart.layer.zPosition = 1000
         containerView.layer.zPosition = 1000
-        // DEBUG: set background to red to verify visibility
-        navPieChart.backgroundColor = .red.withAlphaComponent(0.4)
+        navPieChart.backgroundColor = .clear
         
         // Populate data
         setNavigationPieChartData()
@@ -1004,7 +1013,7 @@ private func buildNavigationPieChartData(for date: Date) {
         case "Max":
             sliceColors.append(TaskPriorityConfig.Priority.max.color)
         default:
-            sliceColors.append(todoColors.secondaryAccentColor) // fallback
+            sliceColors.append(todoColors.accentMuted) // fallback
         }
     }
 
@@ -1290,19 +1299,36 @@ extension HomeViewController: AddTaskViewControllerDelegate {
 // MARK: - Theme Handling
 
 extension HomeViewController {
+    fileprivate func refreshBackdropGradientForCurrentTheme(deferredIfNeeded: Bool = true) {
+        let bounds = backdropContainer.bounds
+        guard bounds.width > 0, bounds.height > 0 else {
+            guard deferredIfNeeded else { return }
+            DispatchQueue.main.async { [weak self] in
+                self?.refreshBackdropGradientForCurrentTheme(deferredIfNeeded: false)
+            }
+            return
+        }
+
+        TaskerHeaderGradient.apply(
+            to: backdropContainer.layer,
+            bounds: bounds,
+            traits: traitCollection
+        )
+    }
+
     /// Re-applies current theme colors to primary UI elements.
     fileprivate func applyTheme() {
         // Refresh color source
-        todoColors = ToDoColors()
+        todoColors = TaskerThemeManager.shared.currentTheme.tokens.color
 
         // Update FluentUI navigation bar color via custom property - this is the correct way with FluentUI
-        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.primaryColor
+        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
         navigationItem.fluentConfiguration.navigationBarStyle = .custom
 
         // Navigation bar (using standard iOS appearance)
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = todoColors.primaryColor
+        appearance.backgroundColor = todoColors.accentPrimary
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
@@ -1312,9 +1338,9 @@ extension HomeViewController {
         }
         // System/global tint
         // Global tint
-        view.tintColor = todoColors.primaryColor
+        view.tintColor = todoColors.accentPrimary
         // Main view background color should follow theme immediately
-        view.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
+        view.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.05)
         
         
         
@@ -1322,18 +1348,18 @@ extension HomeViewController {
         
         // Bottom app bar - update Liquid Glass version
         if let lgBottomBar = liquidGlassBottomBar {
-            lgBottomBar.tintColor = UIColor.white
+            lgBottomBar.tintColor = todoColors.accentOnPrimary
             // Liquid Glass bottom bar automatically updates its appearance based on theme
         }
         // Backdrop container background (subtle tint for blurred backdrop)
-        backdropContainer.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
+        backdropContainer.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.05)
         // Floating action button (if instantiated via storyboard & bottom bar)
         if let fab = addTaskButton {
             // For MDCFloatingButton use setBackgroundColor to ensure ripple layer also updates
-            fab.setBackgroundColor(todoColors.primaryColor, for: .normal)
-            fab.setBackgroundColor(todoColors.primaryColor.withAlphaComponent(0.8), for: .highlighted)
-            fab.tintColor = .white
-            fab.backgroundColor = todoColors.primaryColor
+            fab.setBackgroundColor(todoColors.accentPrimary, for: .normal)
+            fab.setBackgroundColor(todoColors.accentPrimary.withAlphaComponent(0.8), for: .highlighted)
+            fab.tintColor = todoColors.accentOnPrimary
+            fab.backgroundColor = todoColors.accentPrimary
         }
         // Custom floating button color handled in setupLiquidGlassBottomBar
         // Update any search bar accessory background (keep transparent)
@@ -1342,11 +1368,11 @@ extension HomeViewController {
             accSearchBar.barTintColor = UIColor.clear
             // Update the search field styling
             let textField = accSearchBar.searchTextField
-            textField.backgroundColor = UIColor.white.withAlphaComponent(0.2)
-            textField.textColor = UIColor.white
+            textField.backgroundColor = todoColors.accentOnPrimary.withAlphaComponent(0.20)
+            textField.textColor = todoColors.accentOnPrimary
             textField.attributedPlaceholder = NSAttributedString(
                 string: "Search tasks...",
-                attributes: [NSAttributedString.Key.foregroundColor: UIColor.white.withAlphaComponent(0.7)]
+                attributes: [NSAttributedString.Key.foregroundColor: todoColors.accentOnPrimary.withAlphaComponent(0.7)]
             )
         }
         if let controllerSearchBar = navigationItem.searchController?.searchBar {
@@ -1354,19 +1380,20 @@ extension HomeViewController {
             controllerSearchBar.barTintColor = UIColor.clear
         }
         // Update chart accent colors if present
+        refreshBackdropGradientForCurrentTheme()
         
         // Update calendar appearance & refresh
         if let cal = self.calendar {
             // Header & weekday background colours
-            cal.calendarHeaderView.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.5)
-            cal.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker
+            cal.calendarHeaderView.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.5)
+            cal.calendarWeekdayView.backgroundColor = todoColors.accentPrimaryPressed
         }
         if let cal = self.calendar {
-            cal.appearance.selectionColor = todoColors.primaryColor
-            cal.appearance.todayColor = todoColors.primaryColor
-            cal.appearance.headerTitleColor = todoColors.primaryColor
-            cal.appearance.weekdayTextColor = todoColors.primaryColor
-            cal.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
+            cal.appearance.selectionColor = todoColors.accentPrimary
+            cal.appearance.todayColor = todoColors.accentPrimary
+            cal.appearance.headerTitleColor = todoColors.accentPrimary
+            cal.appearance.weekdayTextColor = todoColors.accentPrimary
+            cal.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.05)
             cal.collectionView.backgroundColor = cal.backgroundColor
             // Reapply full appearance settings (header, weekday, selection etc.)
             DispatchQueue.main.async {
@@ -1377,9 +1404,6 @@ extension HomeViewController {
         fluentToDoTableViewController?.tableView.reloadData()
     }
     
-    @objc func themeChanged() {
-        applyTheme()
-    }
 }
 
 
@@ -1445,13 +1469,13 @@ extension HomeViewController {
         let fab = lgBottomBar.floatingButton
         let addTaskImage = UIImage(named: "add_task") ?? UIImage(systemName: "plus")
         fab.setImage(addTaskImage, for: .normal)
-        fab.backgroundColor = todoColors.secondaryAccentColor
+        fab.backgroundColor = todoColors.accentMuted
         fab.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
-        fab.tintColor = .white
+        fab.tintColor = todoColors.accentOnPrimary
         fab.accessibilityIdentifier = "home.addTaskButton"
 
         // Set tint color to match theme
-        lgBottomBar.tintColor = UIColor.white
+        lgBottomBar.tintColor = todoColors.accentOnPrimary
         
         print("🌊 Liquid Glass bottom app bar configured with iOS 26 transparent material")
     }

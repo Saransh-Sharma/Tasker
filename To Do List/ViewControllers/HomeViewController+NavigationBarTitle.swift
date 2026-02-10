@@ -112,16 +112,22 @@ extension HomeViewController {
         let dateLine = "\(datePrefix)\(dateBody)"
         let scoreLine = xpString
 
+        let headerTitleColor = UIColor.tasker.textInverse
+        let headerSubtitleColor = UIColor.tasker.textInverse.withAlphaComponent(0.70)
+        let headerMetaColor = UIColor.tasker.textInverse.withAlphaComponent(0.55)
+        let scoreColor = score == 0 ? headerMetaColor : headerSubtitleColor
+
         let attributed = NSMutableAttributedString(
             string: dateLine + "\n",
             attributes: [
-                // .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
-                .font: UIFont.systemFont(ofSize: 22, weight: .semibold)
+                .font: UIFont.tasker.font(for: .title1),
+                .foregroundColor: headerTitleColor
             ])
         attributed.append(NSAttributedString(
             string: scoreLine,
             attributes: [
-                .font: UIFont.systemFont(ofSize: 14, weight: .thin)
+                .font: UIFont.tasker.font(for: .caption1),
+                .foregroundColor: scoreColor
             ]))
 
         // Ensure label exists and is configured only once
@@ -133,7 +139,7 @@ extension HomeViewController {
             label.textAlignment = .center
             label.adjustsFontSizeToFitWidth = true
             label.minimumScaleFactor = 0.5
-            label.textColor = .white
+            label.textColor = headerTitleColor
             label.lineBreakMode = .byWordWrapping
         } else {
             let newLabel = UILabel()
@@ -141,7 +147,7 @@ extension HomeViewController {
             newLabel.textAlignment = .center
             newLabel.adjustsFontSizeToFitWidth = true
             newLabel.minimumScaleFactor = 0.5
-            newLabel.textColor = .white
+            newLabel.textColor = headerTitleColor
             newLabel.lineBreakMode = .byWordWrapping
             navigationTitleLabel = newLabel
             label = newLabel

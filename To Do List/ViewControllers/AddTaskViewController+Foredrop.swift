@@ -8,7 +8,7 @@ extension AddTaskViewController {
     // Backdrop identical to HomeVC – extracted for reuse
     func setupBackdrop() {
         backdropContainer.frame = view.bounds
-        backdropContainer.backgroundColor = todoColors.backgroundColor
+        backdropContainer.backgroundColor = todoColors.bgCanvas
     }
 
     // The main foredrop sheet
@@ -28,16 +28,10 @@ extension AddTaskViewController {
                                        y: foredropTopY, 
                                        width: screenWidth, 
                                        height: foredropHeight)
-        foredropContainer.backgroundColor = todoColors.foregroundColor
+        foredropContainer.backgroundColor = todoColors.surfacePrimary
         foredropContainer.layer.cornerRadius = 24
-        foredropContainer.clipsToBounds = true
-        
-        // Add shadow for better visual separation
-        foredropContainer.layer.shadowColor = UIColor.black.cgColor
-        foredropContainer.layer.shadowOffset = CGSize(width: 0, height: -3)
-        foredropContainer.layer.shadowOpacity = 0.1
-        foredropContainer.layer.shadowRadius = 10
-        foredropContainer.layer.masksToBounds = false
+        foredropContainer.clipsToBounds = false
+        foredropContainer.applyTaskerElevation(.e1)
         
         view.addSubview(foredropContainer)
 

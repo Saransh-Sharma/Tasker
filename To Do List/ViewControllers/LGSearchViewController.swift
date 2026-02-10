@@ -23,9 +23,13 @@ class LGFilterButton: LGBaseView {
         didSet { updateAppearance() }
     }
 
+    var selectedStyle: TaskerChipSelectionStyle = .tinted {
+        didSet { updateAppearance() }
+    }
+
     let titleLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.font = .tasker.font(for: .bodyEmphasis)
         label.textColor = .label // Will be updated in applyTheme
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -47,8 +51,8 @@ class LGFilterButton: LGBaseView {
     // MARK: - Setup
 
     private func setupUI() {
-        cornerRadius = 12
-        borderWidth = 0.5
+        cornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.r2
+        borderWidth = 0
 
         addSubview(titleLabel)
 
@@ -77,19 +81,27 @@ class LGFilterButton: LGBaseView {
     // MARK: - Appearance Methods
 
     func updateAppearance() {
-        let todoColors = ToDoColors()
+        let todoColors = TaskerThemeManager.shared.currentTheme.tokens.color
         if isSelected {
-            // Match home screen selected filter style with theme-aware colors
-            backgroundColor = tintColor?.withAlphaComponent(0.2) ?? todoColors.primaryColor.withAlphaComponent(0.2)
-            borderColor = tintColor ?? todoColors.primaryColor
-            borderWidth = 1.0
+            switch selectedStyle {
+            case .tinted:
+                backgroundColor = todoColors.accentMuted
+                titleLabel.textColor = todoColors.accentPrimary
+                borderColor = todoColors.accentRing
+                borderWidth = 1.0
+            case .filled:
+                backgroundColor = tintColor ?? todoColors.chipSelectedBackground
+                titleLabel.textColor = todoColors.accentOnPrimary
+                borderColor = UIColor.clear
+                borderWidth = 0
+            }
             transform = CGAffineTransform(scaleX: 1.05, y: 1.05)
         } else {
-            // Match home screen unselected filter style
-            backgroundColor = todoColors.primaryColor.withAlphaComponent(0.1)
-            borderColor = todoColors.primaryColor.withAlphaComponent(0.3)
-            borderWidth = 0.5
+            backgroundColor = todoColors.chipUnselectedBackground
+            borderColor = UIColor.clear
+            borderWidth = 0
             transform = .identity
+            titleLabel.textColor = todoColors.textSecondary
         }
     }
 
@@ -108,7 +120,9 @@ class LGSearchViewController: UIViewController {
     private var tasks: [NTask] = []
 
     // Theme
-    private let todoColors = ToDoColors()
+    private var todoColors: TaskerColorTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.color
+    }
 
     // Backdrop/Foredrop Architecture (like HomeViewController)
     private let backdropContainer = UIView()
@@ -120,8 +134,8 @@ class LGSearchViewController: UIViewController {
         let button = UIButton(type: .system)
         button.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         button.setTitle("Back", for: .normal)
-        button.tintColor = .white // Will be updated in applyTheme
-        button.titleLabel?.font = .systemFont(ofSize: 17, weight: .medium)
+        button.tintColor = .label
+        button.titleLabel?.font = .tasker.font(for: .bodyEmphasis)
         button.contentHorizontalAlignment = .leading
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
@@ -130,8 +144,8 @@ class LGSearchViewController: UIViewController {
     private let navigationTitleLabel: UILabel = {
         let label = UILabel()
         label.text = "Search Tasks"
-        label.font = .systemFont(ofSize: 20, weight: .semibold)
-        label.textColor = .white // Will be updated in applyTheme
+        label.font = .tasker.font(for: .title2)
+        label.textColor = .label
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -187,7 +201,7 @@ class LGSearchViewController: UIViewController {
     private let emptyStateImageView: UIImageView = {
         let imageView = UIImageView()
         imageView.image = UIImage(systemName: "magnifyingglass")
-        imageView.tintColor = .white.withAlphaComponent(0.3) // Will be updated in applyTheme
+        imageView.tintColor = .secondaryLabel
         imageView.contentMode = .scaleAspectFit
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
@@ -196,7 +210,7 @@ class LGSearchViewController: UIViewController {
     private let emptyStateLabel: UILabel = {
         let label = UILabel()
         label.text = "No tasks found"
-        label.font = .systemFont(ofSize: 20, weight: .semibold)
+        label.font = .tasker.font(for: .title2)
         label.textColor = .label // Will be updated in applyTheme
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -206,7 +220,7 @@ class LGSearchViewController: UIViewController {
     private let emptyStateSubtitleLabel: UILabel = {
         let label = UILabel()
         label.text = "Try different search terms or filters"
-        label.font = .systemFont(ofSize: 16, weight: .regular)
+        label.font = .tasker.font(for: .body)
         label.textColor = .label.withAlphaComponent(0.7) // Will be updated in applyTheme
         label.textAlignment = .center
         label.numberOfLines = 0
@@ -282,17 +296,11 @@ class LGSearchViewController: UIViewController {
         ])
 
         // Style containers
-        backdropContainer.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.1)
-        foredropContainer.backgroundColor = todoColors.backgroundColor
+        backdropContainer.backgroundColor = todoColors.bgElevated
+        foredropContainer.backgroundColor = todoColors.bgCanvas
         foredropContainer.layer.cornerRadius = 24
-        foredropContainer.clipsToBounds = true
-
-        // Add shadow to foredrop (like home screen)
-        foredropContainer.layer.shadowColor = UIColor.black.cgColor
-        foredropContainer.layer.shadowOffset = CGSize(width: 0, height: -3)
-        foredropContainer.layer.shadowOpacity = 0.1
-        foredropContainer.layer.shadowRadius = 10
-        foredropContainer.layer.masksToBounds = false
+        foredropContainer.layer.cornerCurve = .continuous
+        foredropContainer.applyTaskerElevation(.e1)
     }
 
     private func setupNavigationBar() {
@@ -527,48 +535,29 @@ class LGSearchViewController: UIViewController {
     // MARK: - Theme Application
 
     private func applyTheme() {
-        // Apply background color with stronger alpha for modal presentation
-        view.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.8)
-
-        // Update backdrop container color to ensure theme responsiveness
-        backdropContainer.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.1)
-
-        // Style navigation bar view to match home screen navigation bar
-        navigationBarView.backgroundColor = todoColors.primaryColor
-
-        // Update back button styling to match home screen button style
-        backButton.tintColor = .white
-
-        // Update title label styling
-        navigationTitleLabel.textColor = .white
-
-        // Update search bar styling to match home screen search bar with theme-aware colors
-        searchBar.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.2)
-        searchBar.layer.borderColor = todoColors.primaryColor.withAlphaComponent(0.3).cgColor
+        view.backgroundColor = todoColors.bgCanvas
+        backdropContainer.backgroundColor = todoColors.bgElevated
+        navigationBarView.backgroundColor = todoColors.surfacePrimary
+        backButton.tintColor = todoColors.accentPrimary
+        navigationTitleLabel.textColor = todoColors.textPrimary
+        searchBar.backgroundColor = todoColors.surfaceSecondary
+        searchBar.layer.borderColor = todoColors.divider.cgColor
 
         // Apply theme to search bar internal elements
         searchBar.applyTheme()
 
-        // Update filter container background to use Todo Primary color
-        filterScrollView.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.05)
+        filterScrollView.backgroundColor = todoColors.bgElevated
 
         // Update empty state colors to match theme
-        emptyStateLabel.textColor = todoColors.primaryTextColor
-        emptyStateSubtitleLabel.textColor = todoColors.primaryTextColor.withAlphaComponent(0.7)
-        emptyStateImageView.tintColor = todoColors.primaryTextColor.withAlphaComponent(0.5)
+        emptyStateLabel.textColor = todoColors.textPrimary
+        emptyStateSubtitleLabel.textColor = todoColors.textPrimary.withAlphaComponent(0.7)
+        emptyStateImageView.tintColor = todoColors.textPrimary.withAlphaComponent(0.5)
 
         // Apply theme to filter buttons - match home screen styling
         filterStackView.arrangedSubviews.forEach { view in
             if let button = view as? LGFilterButton {
-                // Set tintColor to match home screen theme
-                button.tintColor = todoColors.primaryColor
-                // Apply theme update
+                button.tintColor = todoColors.accentPrimary
                 button.updateAppearance()
-                if !button.isSelected {
-                    button.titleLabel.textColor = todoColors.primaryTextColor
-                } else {
-                    button.titleLabel.textColor = .white
-                }
             }
         }
     }
@@ -776,12 +765,12 @@ class LGSearchViewController: UIViewController {
     private func createProjectHeader(project: String, count: Int) -> UIView {
         let headerContainer = LGBaseView()
         headerContainer.cornerRadius = 12
-        headerContainer.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.1)
+        headerContainer.backgroundColor = todoColors.surfaceSecondary
 
         let headerLabel = UILabel()
         headerLabel.text = "\(project) (\(count))"
-        headerLabel.font = .systemFont(ofSize: 16, weight: .bold)
-        headerLabel.textColor = todoColors.primaryTextColor
+        headerLabel.font = .tasker.font(for: .bodyEmphasis)
+        headerLabel.textColor = todoColors.textPrimary
         headerLabel.translatesAutoresizingMaskIntoConstraints = false
 
         headerContainer.addSubview(headerLabel)
@@ -844,7 +833,7 @@ class LGSearchViewController: UIViewController {
 
         // Create overlay background with theme-aware color
         let overlayView = UIView()
-        overlayView.backgroundColor = todoColors.backgroundColor.withAlphaComponent(0.8)
+        overlayView.backgroundColor = todoColors.bgCanvas.withAlphaComponent(0.8)
         overlayView.frame = view.bounds
         overlayView.alpha = 0
 
@@ -911,4 +900,3 @@ extension LGSearchViewController: LGSearchBarDelegate {
         dismiss(animated: true)
     }
 }
-
