@@ -443,10 +443,22 @@ class FluentUIToDoTableViewController: UITableViewController {
     }
     
     private func updateCheckBoxAppearance(_ checkBox: UIButton, isComplete: Bool) {
-        UIView.animate(withDuration: 0.7) {
-            checkBox.backgroundColor = isComplete ? UIColor.clear : UIColor.clear
-            let checkmarkImage = UIImage(systemName: "checkmark")
-            checkBox.setImage(isComplete ? checkmarkImage : nil, for: .normal)
+        if isComplete {
+            // Bounce + checkmark draw animation + haptic
+            TaskerHaptic.success()
+            checkBox.transform = CGAffineTransform(scaleX: 0.7, y: 0.7)
+            UIView.taskerSpringAnimate(TaskerAnimation.uiBouncy) {
+                checkBox.transform = .identity
+                checkBox.backgroundColor = UIColor.clear
+                let checkmarkImage = UIImage(systemName: "checkmark")
+                checkBox.setImage(checkmarkImage, for: .normal)
+            }
+        } else {
+            TaskerHaptic.selection()
+            UIView.taskerSpringAnimate(TaskerAnimation.uiSnappy) {
+                checkBox.backgroundColor = UIColor.clear
+                checkBox.setImage(nil, for: .normal)
+            }
         }
     }
 }
@@ -651,7 +663,15 @@ extension FluentUIToDoTableViewController {
         // Set accessibility identifier for testing
         cell.accessibilityIdentifier = "home.taskCell.\(indexPath.section).\(indexPath.row)"
 
-        
+        // Staggered fade-in from bottom
+        cell.alpha = 0
+        cell.transform = CGAffineTransform(translationX: 0, y: 10)
+        let delay = Double(indexPath.row) * TaskerAnimation.staggerInterval
+        UIView.taskerSpringAnimate(TaskerAnimation.uiGentle, delay: delay) {
+            cell.alpha = 1
+            cell.transform = .identity
+        }
+
         return cell
     }
 }
