@@ -297,13 +297,13 @@ public extension TaskPriorityConfig.Priority {
     var color: UIColor {
         switch self {
         case .none:
-            return UIColor.taskerDynamic(lightHex: "#7B808A", darkHex: "#9AA1AD")
+            return UIColor.taskerDynamic(lightHex: "#9C9389", darkHex: "#9A9188")
         case .low:
-            return UIColor(taskerHex: "#34C759")
+            return UIColor(taskerHex: "#2ECC71")
         case .high:
-            return UIColor(taskerHex: "#FF9F0A")
+            return UIColor(taskerHex: "#F5A623")
         case .max:
-            return UIColor(taskerHex: "#FF3B30")
+            return UIColor(taskerHex: "#E74C3C")
         }
     }
 }
