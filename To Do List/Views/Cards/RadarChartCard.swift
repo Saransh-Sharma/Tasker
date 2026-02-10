@@ -25,6 +25,8 @@ struct RadarChartCard: View {
     @State private var hasCompletedTasks = true
     @State private var showProjectSelection = false
     @State private var selectedProjectIDs: [UUID]? = nil
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     init(title: String = "Project Breakdown", subtitle: String? = "Weekly scores by project", referenceDate: Date? = nil) {
         self.title = title
@@ -33,100 +35,87 @@ struct RadarChartCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // Header with project selection button
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                        .dynamicTypeSize(.large...(.accessibility5))
-                        .accessibilityAddTraits(.isHeader)
+        TaskerCard {
+            VStack(alignment: .leading, spacing: spacing.titleSubtitleGap) {
+                HStack {
+                    VStack(alignment: .leading, spacing: spacing.s2) {
+                        Text(title)
+                            .font(.tasker(.headline))
+                            .fontWeight(.semibold)
+                            .foregroundColor(.tasker(.textPrimary))
+                            .dynamicTypeSize(.large...(.accessibility5))
+                            .accessibilityAddTraits(.isHeader)
 
-                    if let subtitle = subtitle {
-                        Text(subtitle)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .dynamicTypeSize(.large...(.accessibility3))
-                    }
-                }
-
-                Spacer()
-
-                // Project selection button (show if has custom projects, regardless of chart data)
-                // This allows users to change pinned projects even if current selection has no data
-                if hasCustomProjects {
-                    Button(action: {
-                        showProjectSelection = true
-                    }) {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 16))
-                            .foregroundColor(.blue)
-                            .padding(6)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(8)
-                    }
-                    .accessibilityLabel("Select projects")
-                    .accessibilityHint("Choose which projects to display on the radar chart")
-                }
-            }
-            .accessibilityElement(children: .contain)
-
-            // Chart Container
-            ZStack {
-                if isLoading {
-                    // Loading state
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.gray.opacity(0.1))
-                        .frame(height: 350)
-                        .overlay(
-                            ProgressView()
-                                .scaleEffect(1.2)
-                        )
-                } else if !hasCustomProjects {
-                    // Empty state: No custom projects
-                    emptyStateView(
-                        icon: "folder.badge.plus",
-                        title: "No Custom Projects",
-                        message: "Create custom projects to see your score breakdown",
-                        actionTitle: "Create Project",
-                        action: {
-                            // Navigate to project creation
-                            NotificationCenter.default.post(name: Notification.Name("ShowProjectManagement"), object: nil)
+                        if let subtitle = subtitle {
+                            Text(subtitle)
+                                .font(.tasker(.caption1))
+                                .foregroundColor(.tasker(.textSecondary))
+                                .dynamicTypeSize(.large...(.accessibility3))
                         }
-                    )
-                } else if !hasCompletedTasks {
-                    // Empty state: No completed tasks in custom projects
-                    emptyStateView(
-                        icon: "checkmark.circle",
-                        title: "Complete Tasks",
-                        message: "Complete tasks in custom projects to see insights",
-                        actionTitle: nil,
-                        action: nil
-                    )
-                } else {
-                    // Radar chart view
-                    RadarChartViewRepresentable(
-                        data: chartData,
-                        labels: chartLabels,
-                        referenceDate: referenceDate
-                    )
-                    .frame(height: 350)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemBackground))
-                            .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                    )
+                    }
+
+                    Spacer()
+
+                    if hasCustomProjects {
+                        Button(action: {
+                            showProjectSelection = true
+                        }) {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.tasker(.buttonSmall))
+                                .foregroundColor(.tasker(.accentPrimary))
+                                .padding(spacing.s8)
+                                .background(Color.tasker.accentMuted)
+                                .cornerRadius(corner.r1)
+                        }
+                        .accessibilityLabel("Select projects")
+                        .accessibilityHint("Choose which projects to display on the radar chart")
+                    }
+                }
+                .accessibilityElement(children: .contain)
+
+                ZStack {
+                    if isLoading {
+                        RoundedRectangle(cornerRadius: corner.input)
+                            .fill(Color.tasker.surfaceSecondary)
+                            .frame(height: 350)
+                            .overlay(
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                            )
+                    } else if !hasCustomProjects {
+                        emptyStateView(
+                            icon: "folder.badge.plus",
+                            title: "No Custom Projects",
+                            message: "Create custom projects to see your score breakdown",
+                            actionTitle: "Create Project",
+                            action: {
+                                NotificationCenter.default.post(name: Notification.Name("ShowProjectManagement"), object: nil)
+                            }
+                        )
+                    } else if !hasCompletedTasks {
+                        emptyStateView(
+                            icon: "checkmark.circle",
+                            title: "Complete Tasks",
+                            message: "Complete tasks in custom projects to see insights",
+                            actionTitle: nil,
+                            action: nil
+                        )
+                    } else {
+                        RadarChartViewRepresentable(
+                            data: chartData,
+                            labels: chartLabels,
+                            referenceDate: referenceDate
+                        )
+                        .frame(height: 350)
+                        .background(
+                            RoundedRectangle(cornerRadius: corner.input)
+                                .fill(Color.tasker.surfacePrimary)
+                                .taskerElevation(.e1, cornerRadius: corner.input, includesBorder: false)
+                        )
+                    }
                 }
             }
         }
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-        )
         .sheet(isPresented: $showProjectSelection) {
             ProjectSelectionSheet(
                 selectedProjectIDs: selectedProjectIDs ?? [],
@@ -171,42 +160,42 @@ struct RadarChartCard: View {
         actionTitle: String?,
         action: (() -> Void)?
     ) -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: spacing.cardPadding) {
             Image(systemName: icon)
-                .font(.system(size: 48))
-                .foregroundColor(.secondary.opacity(0.5))
+                .font(.tasker(.title1))
+                .foregroundColor(.tasker(.textTertiary))
 
-            VStack(spacing: 8) {
+            VStack(spacing: spacing.s8) {
                 Text(title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                    .font(.tasker(.headline))
+                    .foregroundColor(.tasker(.textPrimary))
 
                 Text(message)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(.tasker(.callout))
+                    .foregroundColor(.tasker(.textSecondary))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, spacing.s24)
             }
 
             if let actionTitle = actionTitle, let action = action {
                 Button(action: action) {
                     Text(actionTitle)
-                        .font(.subheadline)
+                        .font(.tasker(.buttonSmall))
                         .fontWeight(.semibold)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(Color.blue)
-                        .cornerRadius(12)
+                        .foregroundColor(.tasker(.accentOnPrimary))
+                        .padding(.horizontal, spacing.s24)
+                        .padding(.vertical, spacing.s12)
+                        .background(Color.tasker.accentPrimary)
+                        .cornerRadius(corner.input)
                 }
-                .padding(.top, 8)
+                .padding(.top, spacing.s8)
             }
         }
         .frame(height: 350)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
+            RoundedRectangle(cornerRadius: corner.input)
+                .fill(Color.tasker.surfacePrimary)
         )
     }
 
@@ -349,7 +338,8 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
     }
 
     private func setupChartView(_ chartView: RadarChartView) {
-        let colors = ToDoColors()
+        let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
+        let colors = themeTokens.color
 
         // Chart configuration
         chartView.backgroundColor = UIColor.clear
@@ -364,8 +354,8 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         // Web configuration
         chartView.webLineWidth = 1.0
         chartView.innerWebLineWidth = 0.75
-        chartView.webColor = colors.primaryTextColor.withAlphaComponent(0.2)
-        chartView.innerWebColor = colors.primaryTextColor.withAlphaComponent(0.1)
+        chartView.webColor = colors.divider.withAlphaComponent(0.15)
+        chartView.innerWebColor = colors.strokeHairline.withAlphaComponent(0.12)
         chartView.webAlpha = 1.0
 
         // Interaction
@@ -374,20 +364,20 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
 
         // Y-axis (radial axis)
         let yAxis = chartView.yAxis
-        yAxis.labelFont = .systemFont(ofSize: 12, weight: .regular)
+        yAxis.labelFont = UIFont.tasker.font(for: .caption1)
         yAxis.labelCount = 5
         yAxis.axisMinimum = 0
         yAxis.drawLabelsEnabled = false
-        yAxis.labelTextColor = colors.primaryTextColor
+        yAxis.labelTextColor = colors.textTertiary
         yAxis.spaceTop = 0
         yAxis.spaceBottom = 0
 
         // X-axis (angular axis - project names)
         let xAxis = chartView.xAxis
-        xAxis.labelFont = .systemFont(ofSize: 14, weight: .medium)
+        xAxis.labelFont = UIFont.tasker.font(for: .caption1)
         xAxis.xOffset = 0
         xAxis.yOffset = 0
-        xAxis.labelTextColor = colors.primaryTextColor
+        xAxis.labelTextColor = colors.textSecondary
         xAxis.valueFormatter = RadarXAxisFormatter(labels: labels)
 
         // Accessibility
@@ -403,7 +393,8 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
             return
         }
 
-        let colors = ToDoColors()
+        let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
+        let colors = themeTokens.color
 
         // Use ChartDataService for consistent styling
         let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
@@ -417,7 +408,11 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         chartView.xAxis.valueFormatter = RadarXAxisFormatter(labels: labels)
 
         // Create data set
-        let dataSet = chartService.createRadarChartDataSet(with: data, colors: colors)
+        let dataSet = chartService.createRadarChartDataSet(
+            with: data,
+            colors: colors,
+            typography: themeTokens.typography
+        )
 
         // Create chart data
         let radarData = RadarChartData(dataSet: dataSet)

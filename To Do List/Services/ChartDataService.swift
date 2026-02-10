@@ -199,7 +199,11 @@ class ChartDataService {
         return max(maxScore * 1.2, 10) // Ensure minimum scale of 10
     }
     
-    func createLineChartDataSet(with entries: [ChartDataEntry], colors: ToDoColors) -> LineChartDataSet {
+    func createLineChartDataSet(
+        with entries: [ChartDataEntry],
+        colors: TaskerColorTokens,
+        typography: TaskerTypographyTokens
+    ) -> LineChartDataSet {
         let dataSet = LineChartDataSet(entries: entries, label: "Daily Score")
         
         // Enhanced visual configuration
@@ -207,19 +211,19 @@ class ChartDataService {
         dataSet.drawCirclesEnabled = true
         dataSet.lineWidth = 3.5
         dataSet.circleRadius = 6
-        dataSet.setCircleColor(colors.secondaryAccentColor)
-        dataSet.setColor(colors.primaryColor)
+        dataSet.setCircleColor(colors.accentPrimary)
+        dataSet.setColor(colors.chartPrimary)
         dataSet.drawCircleHoleEnabled = true
         dataSet.circleHoleRadius = 3
-        dataSet.circleHoleColor = UIColor.systemBackground
-        dataSet.valueFont = .systemFont(ofSize: 10, weight: .medium)
-        dataSet.valueTextColor = colors.primaryTextColor
+        dataSet.circleHoleColor = colors.surfacePrimary
+        dataSet.valueFont = typography.font(for: .caption2)
+        dataSet.valueTextColor = colors.textTertiary
         
         // Enhanced gradient fill with better visual appeal
         let gradientColors = [
-            colors.secondaryAccentColor.withAlphaComponent(0.5).cgColor,
-            colors.secondaryAccentColor.withAlphaComponent(0.25).cgColor,
-            colors.secondaryAccentColor.withAlphaComponent(0.0).cgColor
+            colors.chartPrimary.withAlphaComponent(0.35).cgColor,
+            colors.chartPrimary.withAlphaComponent(0.18).cgColor,
+            colors.chartPrimary.withAlphaComponent(0.0).cgColor
         ]
         let gradient = CGGradient(colorsSpace: nil, colors: gradientColors as CFArray, locations: [0.0, 0.5, 1.0])!
         
@@ -230,7 +234,7 @@ class ChartDataService {
         // Enhanced line style for better visibility
         dataSet.lineDashLengths = nil // Solid line for better readability
         dataSet.highlightEnabled = true
-        dataSet.highlightColor = colors.secondaryAccentColor
+        dataSet.highlightColor = colors.accentPrimary
         dataSet.highlightLineWidth = 2
         dataSet.drawHorizontalHighlightIndicatorEnabled = false
         dataSet.drawVerticalHighlightIndicatorEnabled = true
@@ -600,12 +604,16 @@ class ChartDataService {
     }
 
     /// Create configured radar chart dataset
-    func createRadarChartDataSet(with entries: [RadarChartDataEntry], colors: ToDoColors) -> RadarChartDataSet {
+    func createRadarChartDataSet(
+        with entries: [RadarChartDataEntry],
+        colors: TaskerColorTokens,
+        typography: TaskerTypographyTokens
+    ) -> RadarChartDataSet {
         let dataSet = RadarChartDataSet(entries: entries, label: "Project Scores")
 
         // Visual configuration matching app theme
-        dataSet.setColor(colors.primaryColor)
-        dataSet.fillColor = colors.secondaryAccentColor
+        dataSet.setColor(colors.accentPrimary)
+        dataSet.fillColor = colors.accentMuted
         dataSet.drawFilledEnabled = true
         dataSet.fillAlpha = 0.3
         dataSet.lineWidth = 4.0
@@ -613,8 +621,8 @@ class ChartDataService {
         dataSet.setDrawHighlightIndicators(false)
 
         // Value labels
-        dataSet.valueFont = .systemFont(ofSize: 16, weight: .semibold)
-        dataSet.valueTextColor = colors.primaryTextColor
+        dataSet.valueFont = typography.font(for: .caption1)
+        dataSet.valueTextColor = colors.textSecondary
         dataSet.drawValuesEnabled = true
 
         return dataSet
