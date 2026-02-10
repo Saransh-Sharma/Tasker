@@ -61,11 +61,20 @@ public struct XPRingView: View {
                 .stroke(trackColor, lineWidth: thickness)
                 .frame(width: size, height: size)
 
-            // Progress ring
+            // Progress ring with gradient stroke
             Circle()
                 .trim(from: 0, to: progress)
                 .stroke(
-                    accentColor,
+                    AngularGradient(
+                        gradient: Gradient(colors: [
+                            accentColor.opacity(0.6),
+                            accentColor,
+                            accentColor.opacity(0.85)
+                        ]),
+                        center: .center,
+                        startAngle: .degrees(-90),
+                        endAngle: .degrees(270)
+                    ),
                     style: StrokeStyle(
                         lineWidth: thickness,
                         lineCap: .round
@@ -74,6 +83,11 @@ public struct XPRingView: View {
                 .rotationEffect(.degrees(-90))
                 .frame(width: size, height: size)
                 .animation(animate ? springAnimation : .default, value: progress)
+                // Glow effect when near completion
+                .shadow(
+                    color: progress > 0.8 ? accentColor.opacity(0.4) : .clear,
+                    radius: progress > 0.8 ? 6 : 0
+                )
 
             // Center content
             VStack(spacing: 2) {
