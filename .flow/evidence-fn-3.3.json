@@ -1,0 +1,13 @@
+{
+  "task_id": "fn-3.3",
+  "files_updated": [
+    "To Do List/View/CardViewModifier.swift",
+    "To Do List/View/TaskCard.swift",
+    "To Do List/Services/ChartDataService.swift",
+    "To Do List/Views/Cards/ChartCard.swift",
+    "To Do List/Views/Cards/RadarChartCard.swift",
+    "To Do List/View/LiquidGlass/LGBaseView.swift",
+    "To Do List/View/LiquidGlass/LGSearchBar.swift",
+    "To Do List/View/LiquidGlass/LGTaskCard.swift"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "task_id": "fn-3.4",
+  "files_updated": [
+    "To Do List/LLM/Models/Data.swift",
+    "To Do List/LLM/Views/Settings/AppearanceSettingsView.swift",
+    "To Do List/LLM/Views/Chat/ChatsListView.swift",
+    "To Do List/LLM/Views/Settings/LLMSettingsView.swift",
+    "To Do List/LLM/ChatHostViewController.swift"
+  ]
+}

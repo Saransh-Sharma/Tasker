@@ -1,0 +1,30 @@
+{
+  "task_id": "fn-3.6",
+  "verification": {
+    "build_generic_simulator": "passed",
+    "legacy_api_guardrail": "passed",
+    "broad_color_guardrail": "findings_present",
+    "full_test_matrix": "attempted_with_environment_constraints"
+  },
+  "commands": [
+    "xcodebuild -workspace \"Tasker.xcworkspace\" -scheme \"To Do List\" -destination 'generic/platform=iOS Simulator' -configuration Debug CODE_SIGNING_ALLOWED=NO build",
+    "rg -n \"ToDoColors|ToDoFont|themeChanged|AppTintColor|AppFontDesign|AppFontWidth|AppFontSize|HelveticaNeue\" \"To Do List\" \"To Do ListUITests\"",
+    "rg -n \"systemGray|\\.orange|\\.red|\\.blue\" \"To Do List\" -g '!Pods/**'",
+    "xcodebuild -workspace \"Tasker.xcworkspace\" -scheme \"To Do List\" -destination 'platform=iOS Simulator,name=iPhone 17' -configuration Debug CODE_SIGNING_ALLOWED=NO test",
+    "xcodebuild -workspace \"Tasker.xcworkspace\" -scheme \"To Do List\" -destination 'platform=iOS Simulator,name=iPhone 17' -configuration Debug CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/TaskerDSv1Test test"
+  ],
+  "files_updated": [
+    "Tasker.xcodeproj/project.pbxproj",
+    "To Do List/DesignSystem/UIKit+TokenAdapters.swift",
+    "To Do List/View/AddTaskForedropView.swift",
+    "To Do List/View/AddTaskBackdropView.swift",
+    "To Do List/View/SettingsBackdrop.swift",
+    "To Do List/ViewControllers/AddTaskViewController.swift",
+    "To Do List/ViewControllers/Delegates/AddTaskCalendarExtention.swift",
+    "To Do ListTests/DesignSystem/TaskerThemeManagerTests.swift",
+    "To Do ListTests/DesignSystem/ColorTokenGenerationTests.swift",
+    "To Do ListTests/DesignSystem/TypographyTokenTests.swift",
+    "To Do ListTests/DesignSystem/SpacingElevationCornerTests.swift",
+    "To Do ListUITests/Tests/Secondary/ThemeAndAppearanceTests.swift"
+  ]
+}

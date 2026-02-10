@@ -1,0 +1,14 @@
+{
+  "task_id": "fn-3.5",
+  "guardrails": {
+    "no_legacy_api_refs": "passed"
+  },
+  "files_updated": [
+    "To Do List/View/Theme/ToDoColors.swift",
+    "To Do List/View/Theme/ToDoFont.swift",
+    "To Do List/View/FluentUITokenExtensions.swift",
+    "To Do List/View/AddTaskForedropView.swift",
+    "To Do List/Storyboards/Base.lproj/Main.storyboard",
+    "To Do List/DesignSystem/UIKit+TokenAdapters.swift"
+  ]
+}
