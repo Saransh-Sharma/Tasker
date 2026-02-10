@@ -1,0 +1,29 @@
+{
+  "assignee": "saransh1337@gmail.com",
+  "claim_note": "",
+  "claimed_at": "2026-02-09T18:36:36.166470Z",
+  "created_at": "2026-02-09T18:26:52.062556Z",
+  "depends_on": [
+    "fn-3.1"
+  ],
+  "epic": "fn-3",
+  "evidence": {
+    "files_updated": [
+      "To Do List/View/CardViewModifier.swift",
+      "To Do List/View/TaskCard.swift",
+      "To Do List/Services/ChartDataService.swift",
+      "To Do List/Views/Cards/ChartCard.swift",
+      "To Do List/Views/Cards/RadarChartCard.swift",
+      "To Do List/View/LiquidGlass/LGBaseView.swift",
+      "To Do List/View/LiquidGlass/LGSearchBar.swift",
+      "To Do List/View/LiquidGlass/LGTaskCard.swift"
+    ],
+    "task_id": "fn-3.3"
+  },
+  "id": "fn-3.3",
+  "priority": 3,
+  "spec_path": ".flow/tasks/fn-3.3.md",
+  "status": "done",
+  "title": "Cut over SwiftUI + chart + Liquid Glass surfaces",
+  "updated_at": "2026-02-09T18:38:33.008144Z"
+}
