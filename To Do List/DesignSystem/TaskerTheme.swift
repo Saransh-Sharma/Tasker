@@ -60,15 +60,15 @@ public struct TaskerTheme: Equatable {
     public static let userDefaultsKey = "selectedThemeIndex"
 
     public static let accentThemes: [TaskerAccentTheme] = [
-        TaskerAccentTheme(name: "Default", accentBaseHex: "#F08A2B"),
-        TaskerAccentTheme(name: "Red Blossom", accentBaseHex: "#E84444"),
-        TaskerAccentTheme(name: "Cloud", accentBaseHex: "#D1E9F6"),
-        TaskerAccentTheme(name: "Periwinkle", accentBaseHex: "#8EA6E9"),
-        TaskerAccentTheme(name: "Light Green", accentBaseHex: "#AFF8A2"),
-        TaskerAccentTheme(name: "Mustard", accentBaseHex: "#F9D749"),
-        TaskerAccentTheme(name: "Baby Blue", accentBaseHex: "#97CDE8"),
-        TaskerAccentTheme(name: "Coral", accentBaseHex: "#EE7470"),
-        TaskerAccentTheme(name: "Plum", accentBaseHex: "#D4A4DA")
+        TaskerAccentTheme(name: "Royal Gold", accentBaseHex: "#D4A054"),
+        TaskerAccentTheme(name: "Ruby", accentBaseHex: "#C94444"),
+        TaskerAccentTheme(name: "Ice Crystal", accentBaseHex: "#A8C8E0"),
+        TaskerAccentTheme(name: "Sapphire", accentBaseHex: "#6B8DD6"),
+        TaskerAccentTheme(name: "Emerald", accentBaseHex: "#7ACC8A"),
+        TaskerAccentTheme(name: "Topaz", accentBaseHex: "#E8C84A"),
+        TaskerAccentTheme(name: "Aquamarine", accentBaseHex: "#6BB8D4"),
+        TaskerAccentTheme(name: "Rose Quartz", accentBaseHex: "#D4737A"),
+        TaskerAccentTheme(name: "Amethyst", accentBaseHex: "#B888C4")
     ]
 
     static let legacyThemeCount = 28

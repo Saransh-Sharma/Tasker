@@ -51,15 +51,29 @@ public struct TaskerHeaderGradient {
         bottomFade.endPoint = CGPoint(x: 0.5, y: 1)
         layer.insertSublayer(bottomFade, at: 2)
 
+        // Radial highlight at top-center for depth
+        let radialHighlight = CAGradientLayer()
+        radialHighlight.name = "taskerHeaderRadialHighlight"
+        radialHighlight.type = .radial
+        radialHighlight.frame = bounds
+        let isDark = traits.userInterfaceStyle == .dark
+        let highlightAlpha: CGFloat = isDark ? 0.08 : 0.12
+        radialHighlight.colors = [
+            UIColor.white.withAlphaComponent(highlightAlpha).cgColor,
+            UIColor.white.withAlphaComponent(0.0).cgColor
+        ]
+        radialHighlight.startPoint = CGPoint(x: 0.5, y: 0)
+        radialHighlight.endPoint = CGPoint(x: 0.5, y: 1.0)
+        layer.insertSublayer(radialHighlight, at: 3)
+
         let noiseLayer = CALayer()
         noiseLayer.name = "taskerHeaderNoise"
         noiseLayer.frame = bounds
         noiseLayer.contents = noiseImage(size: CGSize(width: 64, height: 64))?.cgImage
         noiseLayer.contentsGravity = .resizeAspectFill
-        let isDark = traits.userInterfaceStyle == .dark
-        noiseLayer.opacity = isDark ? 0.02 : 0.015
+        noiseLayer.opacity = isDark ? 0.025 : 0.02
         noiseLayer.compositingFilter = "softLightBlendMode"
-        layer.insertSublayer(noiseLayer, at: 3)
+        layer.insertSublayer(noiseLayer, at: 4)
     }
 
     /// Backward-compatible convenience overload.
@@ -69,7 +83,7 @@ public struct TaskerHeaderGradient {
 
     /// Remove all header gradient sublayers (useful before re-applying on theme change).
     public static func removeLayers(from layer: CALayer) {
-        let names = ["taskerHeaderGradient", "taskerHeaderScrim", "taskerHeaderBottomFade", "taskerHeaderNoise"]
+        let names = ["taskerHeaderGradient", "taskerHeaderScrim", "taskerHeaderBottomFade", "taskerHeaderRadialHighlight", "taskerHeaderNoise"]
         layer.sublayers?.removeAll(where: { names.contains($0.name ?? "") })
     }
 
