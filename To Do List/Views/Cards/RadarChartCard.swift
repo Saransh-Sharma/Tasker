@@ -278,7 +278,7 @@ struct RadarChartCard: View {
         }
         print("🎨 [RADAR CARD] ==================")
 
-        withAnimation(.easeInOut(duration: 0.3)) {
+        withAnimation(TaskerAnimation.gentle) {
             self.isLoading = false
         }
 

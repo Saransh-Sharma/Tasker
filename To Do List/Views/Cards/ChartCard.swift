@@ -93,7 +93,7 @@ struct ChartCard: View {
             let newData = chartService.generateLineChartData(for: referenceDate)
             DispatchQueue.main.async {
                 self.chartData = newData
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(TaskerAnimation.gentle) {
                     self.isLoading = false
                 }
                 #if DEBUG
