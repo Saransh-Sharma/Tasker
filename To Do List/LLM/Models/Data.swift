@@ -8,10 +8,6 @@ import SwiftData
 
 class AppManager: ObservableObject {
     @AppStorage("systemPrompt") var systemPrompt = "You are Eva, the user's upbeat and clever personal assistant, here to keep tasks and calendars in perfect harmony. Your responses sparkle with tidy markdown—bold headers, sleek italics, sharp lists, and clear tables. Always refer to dates casually—Today, Yesterday, next Thursday. Stay brief and witty, unless the user invites you to dive into details. Use the provided task and project details to keep their day breezy and productive."
-    @AppStorage("appTintColor") var appTintColor: AppTintColor = .monochrome
-    @AppStorage("appFontDesign") var appFontDesign: AppFontDesign = .standard
-    @AppStorage("appFontSize") var appFontSize: AppFontSize = .medium
-    @AppStorage("appFontWidth") var appFontWidth: AppFontWidth = .standard
     @AppStorage("currentModelName") var currentModelName: String?
     @AppStorage("shouldPlayHaptics") var shouldPlayHaptics = true
     @AppStorage("numberOfVisits") var numberOfVisits = 0
@@ -196,93 +192,5 @@ final class Thread: Sendable {
     init() {
         self.id = UUID()
         self.timestamp = Date()
-    }
-}
-
-enum AppTintColor: String, CaseIterable {
-    case monochrome, blue, brown, gray, green, indigo, mint, orange, pink, purple, red, teal, yellow
-    
-    func getColor() -> Color {
-        switch self {
-        case .monochrome:
-            .primary
-        case .blue:
-            .blue
-        case .red:
-            .red
-        case .green:
-            .green
-        case .yellow:
-            .yellow
-        case .brown:
-            .brown
-        case .gray:
-            .gray
-        case .indigo:
-            .indigo
-        case .mint:
-            .mint
-        case .orange:
-            .orange
-        case .pink:
-            .pink
-        case .purple:
-            .purple
-        case .teal:
-            .teal
-        }
-    }
-}
-
-enum AppFontDesign: String, CaseIterable {
-    case standard, monospaced, rounded, serif
-    
-    func getFontDesign() -> Font.Design {
-        switch self {
-        case .standard:
-            .default
-        case .monospaced:
-            .monospaced
-        case .rounded:
-            .rounded
-        case .serif:
-            .serif
-        }
-    }
-}
-
-enum AppFontWidth: String, CaseIterable {
-    case compressed, condensed, expanded, standard
-    
-    func getFontWidth() -> Font.Width {
-        switch self {
-        case .compressed:
-            .compressed
-        case .condensed:
-            .condensed
-        case .expanded:
-            .expanded
-        case .standard:
-            .standard
-        }
-    }
-}
-
-enum AppFontSize: String, CaseIterable {
-    case xsmall, small, medium, large, xlarge
-    
-    func getFontSize() -> DynamicTypeSize {
-        switch self {
-        case .xsmall:
-            .xSmall
-        case .small:
-            .small
-        case .medium:
-            .medium
-        case .large:
-            .large
-        case .xlarge:
-            .xLarge
-        }
     }
 }

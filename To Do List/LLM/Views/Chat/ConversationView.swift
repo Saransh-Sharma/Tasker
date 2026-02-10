@@ -67,7 +67,7 @@ struct MessageView: View {
                 collapsed.toggle()
             } label: {
                 Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-                    .font(.system(size: 12))
+                    .font(.tasker(.caption2))
                     .fontWeight(.medium)
             }
 

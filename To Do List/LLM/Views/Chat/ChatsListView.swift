@@ -37,18 +37,18 @@ struct ChatsListView: View {
                                 }
                             }
                             .foregroundStyle(.primary)
-                            .font(.headline)
+                            .font(.tasker(.headline))
 
                             Text("\(thread.timestamp.formatted())")
                                 .foregroundStyle(.secondary)
-                                .font(.subheadline)
+                                .font(.tasker(.callout))
                         }
                         #if os(macOS)
                             .swipeActions {
                                 Button("Delete") {
                                     deleteThread(thread)
                                 }
-                                .tint(.red)
+                                .tint(.tasker(.statusDanger))
                             }
                             .contextMenu {
                                 Button {
@@ -127,9 +127,8 @@ struct ChatsListView: View {
                 }
         }
         #if !os(visionOS)
-        .tint(appManager.appTintColor.getColor())
+        .tint(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.accentPrimary))
         #endif
-        .environment(\.dynamicTypeSize, appManager.appFontSize.getFontSize())
     }
 
     var filteredThreads: [Thread] {

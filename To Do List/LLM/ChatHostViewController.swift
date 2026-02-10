@@ -10,6 +10,7 @@ import UIKit
 import SwiftUI
 import SwiftData
 import FluentUI
+import Combine
 
 
 
@@ -28,10 +29,12 @@ class ChatHostViewController: UIViewController {
     private let container: ModelContainer = LLMDataController.shared
 
     private var hostingController: UIHostingController<AnyView>!
+    private var themeCancellable: AnyCancellable?
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
+        view.backgroundColor = themeColors.bgCanvas
 
         // Root SwiftUI view that decides what to present.
         let rootView = ChatContainerView()
@@ -42,6 +45,7 @@ class ChatHostViewController: UIViewController {
         hostingController = UIHostingController(rootView: AnyView(rootView))
         addChild(hostingController)
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        hostingController.view.backgroundColor = themeColors.bgCanvas
         view.addSubview(hostingController.view)
         NSLayoutConstraint.activate([
             hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -53,13 +57,11 @@ class ChatHostViewController: UIViewController {
         // Configure FluentUI navigation bar
         setupFluentNavigationBar()
 
-        // Observe theme changes to update navigation bar color
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(themeChanged),
-            name: .themeChanged,
-            object: nil
-        )
+        themeCancellable = TaskerThemeManager.shared.publisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applyTheme()
+            }
     }
     // MARK: - FluentUI Navigation Bar Setup
     private func setupFluentNavigationBar() {
@@ -67,16 +69,17 @@ class ChatHostViewController: UIViewController {
         title = "Chat"
 
         // Set FluentUI custom navigation bar color - this is the correct way to set color with FluentUI
-        let todoColors = ToDoColors()
-        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.primaryColor
+        let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
+        navigationItem.fluentConfiguration.customNavigationBarColor = themeColors.accentPrimary
         navigationItem.fluentConfiguration.navigationBarStyle = .custom
+        let onAccent = themeColors.accentOnPrimary
 
         // Configure navigation bar appearance
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = todoColors.primaryColor
-        appearance.titleTextAttributes = [.foregroundColor: UIColor.white]
-        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
+        appearance.backgroundColor = themeColors.accentPrimary
+        appearance.titleTextAttributes = [.foregroundColor: onAccent]
+        appearance.largeTitleTextAttributes = [.foregroundColor: onAccent]
 
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
@@ -90,6 +93,7 @@ class ChatHostViewController: UIViewController {
             target: self,
             action: #selector(onBackTapped)
         )
+        backButton.tintColor = onAccent
         backButton.accessibilityLabel = "Back"
         navigationItem.leftBarButtonItem = backButton
 
@@ -100,6 +104,7 @@ class ChatHostViewController: UIViewController {
             target: self,
             action: #selector(onHistoryTapped)
         )
+        historyButton.tintColor = onAccent
         historyButton.accessibilityLabel = "History"
         navigationItem.rightBarButtonItem = historyButton
     }
@@ -114,14 +119,28 @@ class ChatHostViewController: UIViewController {
 
     // MARK: - Theme Handling
 
-    @objc private func themeChanged() {
-        let todoColors = ToDoColors()
-        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.primaryColor
+    private func applyTheme() {
+        let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
+        view.backgroundColor = themeColors.bgCanvas
+        navigationItem.fluentConfiguration.customNavigationBarColor = themeColors.accentPrimary
         navigationItem.fluentConfiguration.navigationBarStyle = .custom
+        let onAccent = themeColors.accentOnPrimary
+
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = themeColors.accentPrimary
+        appearance.titleTextAttributes = [.foregroundColor: onAccent]
+        appearance.largeTitleTextAttributes = [.foregroundColor: onAccent]
+
+        navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.compactAppearance = appearance
+        navigationItem.leftBarButtonItem?.tintColor = onAccent
+        navigationItem.rightBarButtonItem?.tintColor = onAccent
     }
 
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        themeCancellable?.cancel()
     }
 }
 

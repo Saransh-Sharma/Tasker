@@ -12,20 +12,20 @@ struct OnboardingView: View {
         NavigationStack {
             VStack {
                 Spacer()
-                
+
                 VStack(spacing: 4) {
                     Image(systemName: "bubble.left.and.text.bubble.right")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 40, height: 40)
                         .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
-                    
+
                     VStack(spacing: 4) {
                         Text("I am Eva !")
-                            .font(.title)
+                            .font(.tasker(.title1))
                             .fontWeight(.semibold)
                         Text("your personal AI assistant")
-                            .font(.title3)
+                            .font(.tasker(.callout))
                             .fontWeight(.semibold).foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
 //                        Text("chat about your tasks, projects, and more with me")
@@ -40,106 +40,106 @@ struct OnboardingView: View {
                     Label {
                         VStack(alignment: .leading) {
                             Text("fast")
-                                .font(.headline)
+                                .font(.tasker(.headline))
                             Text("optimized for apple silicon")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
+                                .font(.tasker(.callout))
+                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                         }
                     } icon: {
                         Image(systemName: "message")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                             .padding(.trailing, 8)
                     }
                     
                     Label {
                         VStack(alignment: .leading) {
                             Text("offline")
-                                .font(.headline)
+                                .font(.tasker(.headline))
                             Text("runs locally on your device")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
+                                .font(.tasker(.callout))
+                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                         }
                     } icon: {
                         Image(systemName: "checkmark.shield")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                             .padding(.trailing, 8)
                     }
-                    
+
                     // Insightful
                     Label {
                         VStack(alignment: .leading) {
                             Text("insightful")
-                                .font(.headline)
+                                .font(.tasker(.headline))
                             Text("smart productivity suggestions")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
+                                .font(.tasker(.callout))
+                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                         }
                     } icon: {
                         Image(systemName: "lightbulb")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                             .padding(.trailing, 8)
                     }
-                    
+
                     // Context-Aware
                     Label {
                         VStack(alignment: .leading) {
                             Text("context-aware")
-                                .font(.headline)
+                                .font(.tasker(.headline))
                             Text("adapts to your current projects")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
+                                .font(.tasker(.callout))
+                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                         }
                     } icon: {
                         Image(systemName: "brain.head.profile")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                             .padding(.trailing, 8)
                     }
-                    
+
                     // Battery-Light
                     Label {
                         VStack(alignment: .leading) {
                             Text("battery-light")
-                                .font(.headline)
+                                .font(.tasker(.headline))
                             Text("tiny power footprint")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
+                                .font(.tasker(.callout))
+                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                         }
                     } icon: {
                         Image(systemName: "battery.100.bolt")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                             .padding(.trailing, 8)
                     }
-                    
+
                     // Smart Recap
                     Label {
                         VStack(alignment: .leading) {
                             Text("smart recap")
-                                .font(.headline)
+                                .font(.tasker(.headline))
                             Text("daily / weekly digests")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
+                                .font(.tasker(.callout))
+                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                         }
                     } icon: {
                         Image(systemName: "list.bullet.rectangle")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 24, height: 24)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
                             .padding(.trailing, 8)
                     }
                 }
@@ -151,12 +151,12 @@ struct OnboardingView: View {
                 NavigationLink(destination: OnboardingInstallModelView(showOnboarding: $showOnboarding)) {
                     Text("get started")
                         #if os(iOS) || os(visionOS)
-                        .font(.headline)
+                        .font(.tasker(.headline))
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
                         #endif
                         #if os(iOS)
-                        .foregroundStyle(.background)
+                        .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.accentOnPrimary))
                         #endif
                 }
                 .buttonStyle(.borderedProminent)
@@ -167,6 +167,7 @@ struct OnboardingView: View {
             .navigationTitle("welcome")
             .toolbar(.hidden)
         }
+        .tint(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.accentPrimary))
         #if os(macOS)
         .frame(width: 420, height: 520)
         #endif
