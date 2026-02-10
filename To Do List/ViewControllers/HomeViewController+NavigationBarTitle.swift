@@ -152,8 +152,17 @@ extension HomeViewController {
             navigationTitleLabel = newLabel
             label = newLabel
         }
-        label.attributedText = attributed
-        label.sizeToFit()
+        // Crossfade transition when content changes
+        let hasContentChange = label.attributedText?.string != attributed.string
+        if hasContentChange && label.superview != nil {
+            UIView.transition(with: label, duration: 0.3, options: .transitionCrossDissolve, animations: {
+                label.attributedText = attributed
+                label.sizeToFit()
+            }, completion: nil)
+        } else {
+            label.attributedText = attributed
+            label.sizeToFit()
+        }
         // Clear legacy title to prevent FluentUI large-leading label
         navigationItem.title = ""
         // Attach to navigation bar directly to avoid being hidden behind FluentUI accessory views
