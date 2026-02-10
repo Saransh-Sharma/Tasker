@@ -1,0 +1,33 @@
+included:
+  - To Do List
+
+excluded:
+  - Pods
+  - build
+  - .flow
+  - Tasker.xcodeproj
+  - Tasker.xcworkspace
+
+custom_rules:
+  token_law_uicolor_constructor:
+    name: "Token Law UIColor"
+    regex: "\\bUIColor\\s*\\("
+    included: "To Do List/(View|Views|ViewControllers|Presentation/Views|LLM/Views)/.*\\.swift"
+    message: "Use token colors (`UIColor.tasker.*` / `Color.tasker`) instead of raw UIColor constructors in UI modules."
+    severity: error
+
+  token_law_font_system:
+    name: "Token Law UIFont"
+    regex: "UIFont\\.systemFont|\\.font\\(\\.system\\("
+    included: "To Do List/(View|Views|ViewControllers|Presentation/Views|LLM/Views)/.*\\.swift"
+    message: "Use typography tokens (`UIFont.tasker` / `Font.tasker`) instead of system fonts in UI modules."
+    severity: error
+
+  token_law_shadow_usage:
+    name: "Token Law Shadow"
+    regex: "layer\\.shadow(Color|Opacity|Offset|Radius|Path)|\\.shadow\\("
+    included: "To Do List/(View|Views|ViewControllers|Presentation/Views|LLM/Views)/.*\\.swift"
+    excluded:
+      - "To Do List/View/LiquidGlass/LGBaseView.swift"
+    message: "Use token elevation APIs (`applyTaskerElevation` / `.taskerElevation`) instead of ad-hoc shadows."
+    severity: error
