@@ -35,11 +35,7 @@ extension AddTaskViewController {
         self.backdropForeImageView.image = self.backdropForeImage?.withRenderingMode(.alwaysTemplate)
         self.backdropForeImageView.tintColor = .systemGray6
         
-        
-        self.backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
-        self.backdropForeImageView.layer.shadowOpacity = 0.8
-        self.backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0) //.zero
-        self.backdropForeImageView.layer.shadowRadius = 10
+        self.backdropForeImageView.applyTaskerElevation(.e1)
         
         self.foredropStackContainer.addSubview(self.backdropForeImageView)
         
@@ -67,14 +63,14 @@ extension AddTaskViewController {
     
     // MARK: MAKE AddTask TextFeild
     func setupAddTaskTextField() {
-        
+
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 50)
         self.addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
         self.addTaskTextBox_Material.label.text = "Task"
         self.addTaskTextBox_Material.leadingAssistiveLabel.text = "Add task"
-        
+
         self.addTaskTextBox_Material.sizeToFit()
-        
+
         self.addTaskTextBox_Material.delegate = self
         self.addTaskTextBox_Material.clearButtonMode = .whileEditing
         let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
@@ -84,19 +80,19 @@ extension AddTaskViewController {
                                     "order cake", "review subscriptions", "get coffee"]
         self.addTaskTextBox_Material.placeholder = placeholderTextArray.randomElement()!
         self.addTaskTextBox_Material.returnKeyType = .go
-        
-        self.addTaskTextBox_Material.backgroundColor = .clear
-        
+
+        // Token-based styling: iOS-native filled field look
+        styleFilledTextField(self.addTaskTextBox_Material)
     }
     
     func setupEveningTaskSwitch() {
 
         
         self.eveningLabel.text = "Evening Task"
-        self.eveningLabel.textColor = .gray // Or use a color from ToDoColors
-        self.eveningLabel.font = self.todoFont.setFont(fontSize: 17, fontweight: .regular, fontDesign: .default) 
+        self.eveningLabel.textColor = UIColor.tasker.textSecondary
+        self.eveningLabel.font = UIFont.tasker.font(for: .body)
         self.eveningSwitch.isOn = false
-        self.eveningSwitch.onTintColor = self.todoColors.primaryColor // Corrected color usage
+        self.eveningSwitch.onTintColor = UIColor.tasker.accentPrimary
         
         self.eveningSwitch.addTarget(self, action: #selector(self.isEveningSwitchOn(sender:)), for: .valueChanged)
         
@@ -108,10 +104,33 @@ extension AddTaskViewController {
         self.foredropStackContainer.addArrangedSubview(switchRow)
     }
     
+    // MARK: - Shared Field Styling
+
+    /// Apply token-based styling to MDCFilledTextField for iOS-native filled look.
+    func styleFilledTextField(_ field: MDCFilledTextField) {
+        // Background
+        field.setFilledBackgroundColor(todoColors.surfaceSecondary, for: .normal)
+        field.setFilledBackgroundColor(todoColors.surfaceSecondary, for: .editing)
+
+        // Border + focus ring
+        field.setUnderlineColor(todoColors.strokeHairline, for: .normal)
+        field.setUnderlineColor(todoColors.accentRing, for: .editing)
+
+        // Corner radius
+        field.containerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.r2
+
+        // Label colors
+        field.setFloatingLabelColor(todoColors.textTertiary, for: .normal)
+        field.setFloatingLabelColor(todoColors.accentPrimary, for: .editing)
+        field.setNormalLabelColor(todoColors.textQuaternary, for: .normal)
+        field.setTextColor(todoColors.textPrimary, for: .normal)
+        field.setTextColor(todoColors.textPrimary, for: .editing)
+        field.tintColor = todoColors.accentPrimary
+    }
+
     // MARK: MAKE Priority SC
     func setupPrioritySC() {
         print("SETUP PRIORITY SC")
-        //MARK:- -this is in foredrop (tablsegcontrol: to allow users to pick which list stays in today and which goes)
 
         // 1) Initialize with your array of titles directly
         let segmented = UISegmentedControl(items: p)
@@ -122,9 +141,17 @@ extension AddTaskViewController {
         // 3) Show/hide based on eveningSwitch
         segmented.isHidden = eveningSwitch.isOn
 
-        // 4) Configure to prevent text wrapping by using shorter text if needed
-        // FluentUI SegmentedControl doesn't support setTitleTextAttributes
-        // Instead, we'll ensure the container has enough width and use shorter labels if needed
+        // 4) Token-based styling
+        segmented.backgroundColor = todoColors.surfaceTertiary
+        segmented.selectedSegmentTintColor = todoColors.surfacePrimary
+        segmented.setTitleTextAttributes([
+            .foregroundColor: todoColors.textSecondary,
+            .font: UIFont.tasker.font(for: .callout)
+        ], for: .normal)
+        segmented.setTitleTextAttributes([
+            .foregroundColor: todoColors.accentPrimary,
+            .font: UIFont.tasker.font(for: .callout)
+        ], for: .selected)
 
         // 5) Wire up selection using standard UISegmentedControl API
         segmented.addTarget(self, action: #selector(changeTaskPriority(_:)), for: .valueChanged)

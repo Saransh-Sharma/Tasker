@@ -121,7 +121,7 @@ extension HomeViewController {
         let applyButton = UIButton(type: .system)
         applyButton.setTitle("Apply Filters", for: .normal)
         applyButton.setTitleColor(.white, for: .normal)
-        applyButton.backgroundColor = todoColors.primaryColor
+        applyButton.backgroundColor = todoColors.accentPrimary
         applyButton.layer.cornerRadius = 8
         applyButton.translatesAutoresizingMaskIntoConstraints = false
         applyButton.addTarget(self, action: #selector(applySelectedProjectsFilter), for: .touchUpInside)

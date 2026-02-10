@@ -19,7 +19,9 @@ class LGTaskCard: LGBaseView {
     var onTap: ((NTask) -> Void)?
 
     // Theme support
-    private let todoColors = ToDoColors()
+    private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
     
     private let checkboxButton: UIButton = {
         let button = UIButton(type: .system)
@@ -30,7 +32,7 @@ class LGTaskCard: LGBaseView {
     
     private let titleLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 17, weight: .semibold)
+        label.font = UIFont.tasker.bodyEmphasis
         label.textColor = .label // Will be updated in updateUI with theme colors
         label.numberOfLines = 2
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -39,7 +41,7 @@ class LGTaskCard: LGBaseView {
 
     private let detailsLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 14, weight: .regular)
+        label.font = UIFont.tasker.callout
         label.textColor = .label.withAlphaComponent(0.7) // Will be updated in updateUI with theme colors
         label.numberOfLines = 1
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -55,7 +57,7 @@ class LGTaskCard: LGBaseView {
 
     private let projectLabel: UILabel = {
         let label = UILabel()
-        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.font = UIFont.tasker.caption1
         label.textColor = .label.withAlphaComponent(0.8) // Will be updated in updateUI with theme colors
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -76,7 +78,8 @@ class LGTaskCard: LGBaseView {
     // MARK: - Setup
     
     private func setupUI() {
-        cornerRadius = 16
+        cornerRadius = corners.card
+        elevationLevel = .e1
         
         addSubview(checkboxButton)
         addSubview(titleLabel)
@@ -91,32 +94,32 @@ class LGTaskCard: LGBaseView {
         
         NSLayoutConstraint.activate([
             // Checkbox
-            checkboxButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            checkboxButton.topAnchor.constraint(equalTo: topAnchor, constant: 16),
-            checkboxButton.widthAnchor.constraint(equalToConstant: 24),
-            checkboxButton.heightAnchor.constraint(equalToConstant: 24),
+            checkboxButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: spacing.cardPadding),
+            checkboxButton.topAnchor.constraint(equalTo: topAnchor, constant: spacing.cardPadding),
+            checkboxButton.widthAnchor.constraint(equalToConstant: spacing.s24),
+            checkboxButton.heightAnchor.constraint(equalToConstant: spacing.s24),
             
             // Priority indicator
-            priorityIndicator.leadingAnchor.constraint(equalTo: checkboxButton.trailingAnchor, constant: 12),
+            priorityIndicator.leadingAnchor.constraint(equalTo: checkboxButton.trailingAnchor, constant: spacing.cardStackVertical),
             priorityIndicator.centerYAnchor.constraint(equalTo: checkboxButton.centerYAnchor),
-            priorityIndicator.widthAnchor.constraint(equalToConstant: 6),
-            priorityIndicator.heightAnchor.constraint(equalToConstant: 24),
+            priorityIndicator.widthAnchor.constraint(equalToConstant: spacing.s4),
+            priorityIndicator.heightAnchor.constraint(equalToConstant: spacing.s24),
             
             // Title
-            titleLabel.leadingAnchor.constraint(equalTo: priorityIndicator.trailingAnchor, constant: 12),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: priorityIndicator.trailingAnchor, constant: spacing.cardStackVertical),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -spacing.cardPadding),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: spacing.cardPadding),
             
             // Details
             detailsLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             detailsLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            detailsLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            detailsLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: spacing.titleSubtitleGap),
             
             // Project
             projectLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             projectLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            projectLabel.topAnchor.constraint(equalTo: detailsLabel.bottomAnchor, constant: 8),
-            projectLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
+            projectLabel.topAnchor.constraint(equalTo: detailsLabel.bottomAnchor, constant: spacing.s8),
+            projectLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -spacing.cardPadding)
         ])
     }
     
@@ -127,14 +130,14 @@ class LGTaskCard: LGBaseView {
 
         // Title
         titleLabel.text = task.name ?? "Untitled Task"
-        titleLabel.textColor = todoColors.primaryTextColor
+        titleLabel.textColor = todoColors.textPrimary
 
         // Checkbox
         let checkboxImage = task.isComplete ?
             UIImage(systemName: "checkmark.circle.fill") :
             UIImage(systemName: "circle")
         checkboxButton.setImage(checkboxImage, for: .normal)
-        checkboxButton.tintColor = todoColors.primaryTextColor
+        checkboxButton.tintColor = todoColors.textPrimary
 
         // Details (due date)
         if let dueDate = task.dueDate as Date? {
@@ -144,7 +147,7 @@ class LGTaskCard: LGBaseView {
         } else {
             detailsLabel.text = "No due date"
         }
-        detailsLabel.textColor = todoColors.primaryTextColor.withAlphaComponent(0.7)
+        detailsLabel.textColor = todoColors.textPrimary.withAlphaComponent(0.7)
 
         // Priority indicator - using TaskPriorityConfig for consistency
         let priority = TaskPriorityConfig.Priority(rawValue: task.taskPriority)
@@ -152,7 +155,7 @@ class LGTaskCard: LGBaseView {
 
         // Project
         projectLabel.text = task.project ?? "Inbox"
-        projectLabel.textColor = todoColors.primaryTextColor.withAlphaComponent(0.8)
+        projectLabel.textColor = todoColors.textPrimary.withAlphaComponent(0.8)
 
         // Strike through if completed
         if task.isComplete {
@@ -168,8 +171,8 @@ class LGTaskCard: LGBaseView {
         }
 
         // Update card background to match theme
-        self.backgroundColor = todoColors.primaryColor.withAlphaComponent(0.08)
-        self.borderColor = todoColors.primaryColor.withAlphaComponent(0.2)
+        self.backgroundColor = todoColors.surfacePrimary.withAlphaComponent(0.82)
+        self.borderColor = todoColors.strokeHairline
     }
     
     // MARK: - Actions

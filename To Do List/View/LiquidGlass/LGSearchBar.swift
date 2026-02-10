@@ -22,7 +22,9 @@ class LGSearchBar: LGBaseView {
     weak var delegate: LGSearchBarDelegate?
 
     // Theme support
-    private let todoColors = ToDoColors()
+    private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
     
     private let searchIconImageView: UIImageView = {
         let imageView = UIImageView()
@@ -35,7 +37,7 @@ class LGSearchBar: LGBaseView {
     
     let searchTextField: UITextField = {
         let textField = UITextField()
-        textField.font = .systemFont(ofSize: 17, weight: .regular)
+        textField.font = UIFont.tasker.callout
         textField.textColor = .label // Will be updated in applyTheme
         textField.tintColor = .label // Will be updated in applyTheme
         textField.attributedPlaceholder = NSAttributedString(
@@ -61,7 +63,7 @@ class LGSearchBar: LGBaseView {
         let button = UIButton(type: .system)
         button.setTitle("Cancel", for: .normal)
         button.setTitleColor(.label, for: .normal) // Will be updated in applyTheme
-        button.titleLabel?.font = .systemFont(ofSize: 17, weight: .medium)
+        button.titleLabel?.font = UIFont.tasker.buttonSmall
         button.translatesAutoresizingMaskIntoConstraints = false
         button.alpha = 0
         return button
@@ -89,7 +91,7 @@ class LGSearchBar: LGBaseView {
     // MARK: - Setup
     
     private func setupUI() {
-        cornerRadius = 12
+        cornerRadius = corners.input
         
         addSubview(searchIconImageView)
         addSubview(searchTextField)
@@ -105,29 +107,29 @@ class LGSearchBar: LGBaseView {
         
         NSLayoutConstraint.activate([
             // Search icon
-            searchIconImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            searchIconImageView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: spacing.s12),
             searchIconImageView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            searchIconImageView.widthAnchor.constraint(equalToConstant: 20),
-            searchIconImageView.heightAnchor.constraint(equalToConstant: 20),
+            searchIconImageView.widthAnchor.constraint(equalToConstant: spacing.s20),
+            searchIconImageView.heightAnchor.constraint(equalToConstant: spacing.s20),
             
             // Text field
-            searchTextField.leadingAnchor.constraint(equalTo: searchIconImageView.trailingAnchor, constant: 8),
+            searchTextField.leadingAnchor.constraint(equalTo: searchIconImageView.trailingAnchor, constant: spacing.s8),
             searchTextField.centerYAnchor.constraint(equalTo: centerYAnchor),
-            searchTextField.trailingAnchor.constraint(equalTo: clearButton.leadingAnchor, constant: -8),
+            searchTextField.trailingAnchor.constraint(equalTo: clearButton.leadingAnchor, constant: -spacing.s8),
             
             // Clear button
-            clearButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            clearButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -spacing.s12),
             clearButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            clearButton.widthAnchor.constraint(equalToConstant: 20),
-            clearButton.heightAnchor.constraint(equalToConstant: 20),
+            clearButton.widthAnchor.constraint(equalToConstant: spacing.s20),
+            clearButton.heightAnchor.constraint(equalToConstant: spacing.s20),
             
             // Cancel button
-            cancelButton.leadingAnchor.constraint(equalTo: trailingAnchor, constant: 8),
+            cancelButton.leadingAnchor.constraint(equalTo: trailingAnchor, constant: spacing.s8),
             cancelButton.centerYAnchor.constraint(equalTo: centerYAnchor),
             cancelButtonWidthConstraint!,
             
             // Height
-            heightAnchor.constraint(equalToConstant: 44)
+            heightAnchor.constraint(equalToConstant: spacing.buttonHeight)
         ])
     }
     
@@ -184,21 +186,21 @@ class LGSearchBar: LGBaseView {
 
     func applyTheme() {
         // Update search icon color
-        searchIconImageView.tintColor = todoColors.primaryTextColor.withAlphaComponent(0.6)
+        searchIconImageView.tintColor = todoColors.textPrimary.withAlphaComponent(0.6)
 
         // Update text field colors
-        searchTextField.textColor = todoColors.primaryTextColor
-        searchTextField.tintColor = todoColors.primaryTextColor
+        searchTextField.textColor = todoColors.textPrimary
+        searchTextField.tintColor = todoColors.textPrimary
 
         // Update placeholder with theme color
         searchTextField.attributedPlaceholder = NSAttributedString(
             string: "Search tasks...",
-            attributes: [.foregroundColor: todoColors.primaryTextColor.withAlphaComponent(0.5)]
+            attributes: [.foregroundColor: todoColors.textPrimary.withAlphaComponent(0.5)]
         )
 
         // Update button colors
-        clearButton.tintColor = todoColors.primaryTextColor.withAlphaComponent(0.6)
-        cancelButton.setTitleColor(todoColors.primaryTextColor, for: .normal)
+        clearButton.tintColor = todoColors.textPrimary.withAlphaComponent(0.6)
+        cancelButton.setTitleColor(todoColors.textPrimary, for: .normal)
     }
 }
 
@@ -211,7 +213,7 @@ extension LGSearchBar: UITextFieldDelegate {
 
         // Animate focus with theme colors
         UIView.animate(withDuration: 0.2) {
-            self.borderColor = self.todoColors.primaryTextColor.withAlphaComponent(0.4)
+            self.borderColor = self.todoColors.accentRing
             self.borderWidth = 1.0
         }
     }
@@ -222,7 +224,7 @@ extension LGSearchBar: UITextFieldDelegate {
 
         // Animate unfocus with theme colors
         UIView.animate(withDuration: 0.2) {
-            self.borderColor = self.todoColors.primaryTextColor.withAlphaComponent(0.2)
+            self.borderColor = self.todoColors.strokeHairline
             self.borderWidth = 0.5
         }
     }

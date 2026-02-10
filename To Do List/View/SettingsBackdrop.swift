@@ -31,13 +31,15 @@ extension SettingsPageViewController {
     func setupBackdropBackground() {
         
         backdropBackgroundImageView.frame =  CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
-        backdropBackgroundImageView.backgroundColor = todoColors.primaryColor
+        backdropBackgroundImageView.backgroundColor = UIColor.tasker.bgCanvas
         homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
         
         
         let settingsTitle = UILabel()
         settingsTitle.frame =  CGRect(x: 0, y: 10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
         settingsTitle.text = "Settings"
+        settingsTitle.textColor = UIColor.tasker.textPrimary
+        settingsTitle.font = UIFont.tasker.font(for: .title1)
         
         homeTopBar.addSubview(settingsTitle)
         

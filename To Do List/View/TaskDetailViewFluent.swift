@@ -55,6 +55,9 @@ class TaskDetailViewFluent: UIView, UITextViewDelegate {
     // Track current UI state
     private var currentDueDate: Date?
     private var currentProject: String?
+    private var themeColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     // --- Initialization ---
     override init(frame: CGRect) {
@@ -97,7 +100,7 @@ class TaskDetailViewFluent: UIView, UITextViewDelegate {
     // --- UI Setup ---
     private func setupView() {
         // Initial background just in case theme is not ready, will be overridden in layoutSubviews
-        self.backgroundColor = UIColor.systemGroupedBackground
+        self.backgroundColor = themeColors.bgCanvas
 
         // ScrollView
         scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -118,11 +121,11 @@ class TaskDetailViewFluent: UIView, UITextViewDelegate {
         
         NSLayoutConstraint.activate([
             // Constants for spacing will be applied in layoutSubviews or dynamically
-            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 20), // Placeholder
-            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -20), // Placeholder
-            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16), // Placeholder
-            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16), // Placeholder
-            stackView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32) // Placeholder
+            stackView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: spacing.s20),
+            stackView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -spacing.s20),
+            stackView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: spacing.screenHorizontal),
+            stackView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -spacing.screenHorizontal),
+            stackView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -2 * spacing.screenHorizontal)
         ])
 
         // Configure and add elements to stackView
@@ -153,11 +156,11 @@ class TaskDetailViewFluent: UIView, UITextViewDelegate {
         stackView.addArrangedSubview(descriptionHeaderLabel)
 
         descriptionTextField.text = "Enter task description"
-        descriptionTextField.font = UIFont.systemFont(ofSize: 16)
-        descriptionTextField.layer.borderColor = UIColor.systemGray4.cgColor
+        descriptionTextField.font = UIFont.tasker.body
+        descriptionTextField.layer.borderColor = themeColors.strokeHairline.cgColor
         descriptionTextField.layer.borderWidth = 1
-        descriptionTextField.layer.cornerRadius = 8
-        descriptionTextField.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        descriptionTextField.layer.cornerRadius = corners.input
+        descriptionTextField.textContainerInset = UIEdgeInsets(top: spacing.s8, left: spacing.s8, bottom: spacing.s8, right: spacing.s8)
         descriptionTextField.delegate = self
         stackView.addArrangedSubview(descriptionTextField)
     }
