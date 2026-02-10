@@ -3,7 +3,7 @@ import CoreData
 import FluentUI
 
 struct ProjectManagementView: View {
-    let todoColors = ToDoColors()
+    private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
     
     @State private var projects: [Projects] = []
     @State private var showingAddProjectAlert = false
@@ -78,7 +78,7 @@ struct ProjectManagementView: View {
             showingAddProjectAlert = true
         }) {
             Image(systemName: "plus")
-                .foregroundColor(Color(todoColors.primaryColor))
+                .foregroundColor(Color(uiColor: todoColors.accentPrimary))
         })
         .alert("New Project", isPresented: $showingAddProjectAlert) {
             TextField("Project Name", text: $newProjectName)

@@ -445,7 +445,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         addTaskTextBox_Material = MDCFilledTextField(frame: estimatedFrame)
         addTaskTextBox_Material.label.text = "add task & tap done"
         addTaskTextBox_Material.leadingAssistiveLabel.text = "Always add actionable items"
-        addTaskTextBox_Material.font = UIFont(name: "HelveticaNeue", size: 18)
+        addTaskTextBox_Material.font = UIFont.tasker.body
         addTaskTextBox_Material.delegate = self
         addTaskTextBox_Material.clearButtonMode = .whileEditing
         let placeholderTextArray = ["meet Laura at 2 for coffee", "design prototype", "bring an ☂️",
@@ -481,7 +481,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         let title = UILabel()
         view.backgroundColor = secondryColor
         title.frame = CGRect(x: titleStartX, y: titleStartY, width: UIScreen.main.bounds.width, height: standardHeight/2)
-        title.font = UIFont(name: "HelveticaNeue-Medium", size: titleFontSize)
+        title.font = UIFont.tasker.bodyEmphasis.withSize(titleFontSize)
         title.backgroundColor = .clear
         title.textColor = primaryColor
         title.adjustsFontSizeToFitWidth = true
@@ -499,7 +499,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         // set highlited image
         let highlightedImage = UIImage(named: items[atIndex].icon)?.withRenderingMode(.alwaysTemplate)
         button.setImage(highlightedImage, for: .highlighted)
-        button.tintColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.3)
+        button.tintColor = UIColor.tasker.textPrimary.withAlphaComponent(0.3)
     }
     
     func circleMenu(_: CircleMenu, buttonWillSelected _: UIButton, atIndex: Int) {
@@ -517,12 +517,12 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     let colors = [UIColor.red, UIColor.gray, UIColor.green, UIColor.purple]
     let items: [(icon: String, color: UIColor)] = [
-        //        ("icon_home", UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)),
+        // home icon color intentionally empty for hidden slot
         ("", .clear),
-        ("icon_search", UIColor(red: 0.22, green: 0.74, blue: 0, alpha: 1)),
-        ("notifications-btn", UIColor(red: 0.96, green: 0.23, blue: 0.21, alpha: 1)),
-        ("settings-btn", UIColor(red: 0.51, green: 0.15, blue: 1, alpha: 1)),
-        //        ("nearby-btn", UIColor(red: 1, green: 0.39, blue: 0, alpha: 1))
+        ("icon_search", .tasker.statusSuccess),
+        ("notifications-btn", .tasker.statusDanger),
+        ("settings-btn", .tasker.accentPrimary),
+        // nearby icon color intentionally empty for hidden slot
         ("", .clear)
     ]
     
@@ -587,4 +587,3 @@ extension UIImage
     
     
     
-

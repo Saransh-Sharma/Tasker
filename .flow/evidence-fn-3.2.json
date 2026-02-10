@@ -1,0 +1,18 @@
+{
+  "task_id": "fn-3.2",
+  "files_updated": [
+    "To Do List/SceneDelegate.swift",
+    "To Do List/ViewControllers/HomeViewController.swift",
+    "To Do List/ViewControllers/SettingsPageViewController.swift",
+    "To Do List/ViewControllers/ThemeSelectionViewController.swift",
+    "To Do List/ViewControllers/Settings/ThemeSelectionCell.swift",
+    "To Do List/ViewControllers/AddTaskViewController.swift",
+    "To Do List/ViewControllers/FluentUIToDoTableViewController.swift",
+    "To Do List/ViewControllers/ProjectManagementViewController.swift",
+    "To Do List/ViewControllers/NewProjectViewController.swift",
+    "To Do List/ViewControllers/NAddTaskScreen.swift",
+    "To Do List/ViewControllers/LGSearchViewController.swift",
+    "To Do List/View/SettingsView.swift",
+    "To Do List/View/ProjectManagementView.swift"
+  ]
+}

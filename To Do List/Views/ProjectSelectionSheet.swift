@@ -21,6 +21,9 @@ struct ProjectSelectionSheet: View {
     @State private var pinnedProjects: Set<UUID> // Track pinned state separately
     @State private var availableProjects: [ProjectInfo] = []
     @State private var isLoading = true
+    private var colors: TaskerSwiftUIColorTokens { Color.tasker }
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     private let maxSelections = 5
 
@@ -123,50 +126,50 @@ struct ProjectSelectionSheet: View {
         VStack(spacing: 8) {
             HStack {
                 Image(systemName: "pin.fill")
-                    .foregroundColor(.blue)
+                    .foregroundColor(colors.accentPrimary)
 
                 Text("Pin up to \(maxSelections) projects for radar chart")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(.tasker(.callout))
+                    .foregroundColor(colors.textSecondary)
 
                 Spacer()
 
                 // Show valid pinned count vs available projects
                 Text("\(validPinnedCount)/\(maxSelections)")
-                    .font(.subheadline)
+                    .font(.tasker(.callout))
                     .fontWeight(.semibold)
-                    .foregroundColor(validPinnedCount >= maxSelections ? .red : .blue)
+                    .foregroundColor(validPinnedCount >= maxSelections ? colors.statusDanger : colors.accentPrimary)
             }
 
             if validPinnedCount >= maxSelections {
                 Text("Maximum pins reached")
-                    .font(.caption)
-                    .foregroundColor(.red)
+                    .font(.tasker(.caption1))
+                    .foregroundColor(colors.statusDanger)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if pinnedProjects.isEmpty {
                 Text("Tap pin icon to select projects for radar chart")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.tasker(.caption1))
+                    .foregroundColor(colors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if hasStalePins {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
-                        .font(.caption)
+                        .foregroundColor(colors.statusWarning)
+                        .font(.tasker(.caption1))
                     Text("Cleaning up invalid project pins...")
-                        .font(.caption)
-                        .foregroundColor(.orange)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(colors.statusWarning)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text("\(validPinnedCount) project\(validPinnedCount == 1 ? "" : "s") pinned")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.tasker(.caption1))
+                    .foregroundColor(colors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding()
-        .background(Color(.secondarySystemBackground))
+        .padding(spacing.s16)
+        .background(colors.surfaceSecondary)
     }
 
     // MARK: - Empty State View
@@ -174,17 +177,17 @@ struct ProjectSelectionSheet: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "folder.badge.questionmark")
-                .font(.system(size: 64))
-                .foregroundColor(.secondary.opacity(0.5))
+                .font(.tasker(.display))
+                .foregroundColor(colors.textTertiary.opacity(0.5))
 
             VStack(spacing: 8) {
                 Text("No Custom Projects")
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                    .font(.tasker(.headline))
+                    .foregroundColor(colors.textPrimary)
 
                 Text("Create custom projects to see them here")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(.tasker(.callout))
+                    .foregroundColor(colors.textSecondary)
                     .multilineTextAlignment(.center)
             }
 
@@ -194,13 +197,13 @@ struct ProjectSelectionSheet: View {
                 NotificationCenter.default.post(name: Notification.Name("ShowProjectManagement"), object: nil)
             }) {
                 Text("Create Project")
-                    .font(.subheadline)
+                    .font(.tasker(.bodyEmphasis))
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundColor(colors.accentOnPrimary)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color.blue)
-                    .cornerRadius(12)
+                    .background(colors.accentPrimary)
+                    .cornerRadius(corners.r2)
             }
             .padding(.top, 8)
         }
@@ -342,44 +345,51 @@ struct ProjectRow: View {
     let project: ProjectInfo
     let isPinned: Bool
     let onTogglePin: () -> Void
+    private var colors: TaskerSwiftUIColorTokens { Color.tasker }
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
         Button(action: onTogglePin) {
-            HStack(spacing: 12) {
+            HStack(spacing: spacing.s12) {
                 // Project info
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: spacing.s4) {
                     HStack(spacing: 8) {
                         Text(project.name)
-                            .font(.body)
+                            .font(.tasker(.body))
                             .fontWeight(isPinned ? .semibold : .medium)
-                            .foregroundColor(.primary)
+                            .foregroundColor(colors.textPrimary)
 
                         // Pin badge for pinned projects
                         if isPinned {
                             Image(systemName: "pin.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(.blue)
+                                .font(.tasker(.caption2))
+                                .foregroundColor(colors.accentPrimary)
                         }
                     }
 
                     Text("\(project.taskCount) tasks")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(colors.textSecondary)
                 }
 
                 Spacer()
 
                 // Pin button
                 Image(systemName: isPinned ? "pin.circle.fill" : "pin.circle")
-                    .font(.system(size: 28))
-                    .foregroundColor(isPinned ? .blue : .gray)
+                    .font(.tasker(.title1))
+                    .foregroundColor(isPinned ? colors.accentPrimary : colors.textQuaternary)
                     .symbolRenderingMode(.hierarchical)
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 4)
+            .padding(.vertical, spacing.s8)
+            .padding(.horizontal, spacing.s4)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isPinned ? Color.blue.opacity(0.08) : Color.clear)
+                RoundedRectangle(cornerRadius: corners.r1)
+                    .fill(isPinned ? colors.accentWash : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: corners.r1)
+                    .stroke(isPinned ? colors.accentRing : Color.clear, lineWidth: isPinned ? 1 : 0)
             )
             .contentShape(Rectangle())
         }

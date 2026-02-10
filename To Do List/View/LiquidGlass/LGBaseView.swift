@@ -38,6 +38,10 @@ class LGBaseView: UIView {
     var borderColor: UIColor = .white.withAlphaComponent(0.2) {
         didSet { updateBorder() }
     }
+
+    var elevationLevel: TaskerElevationLevel = .e1 {
+        didSet { applyTokenElevation() }
+    }
     
     // MARK: - Initialization
     
@@ -63,9 +67,10 @@ class LGBaseView: UIView {
         insertSubview(blurEffectView, at: 0)
         
         // Gradient overlay
+        let glassTint = TaskerThemeManager.shared.currentTheme.tokens.color.overlayGlassTint
         gradientLayer.colors = [
-            UIColor.white.withAlphaComponent(0.15).cgColor,
-            UIColor.white.withAlphaComponent(0.05).cgColor
+            glassTint.withAlphaComponent(0.35).cgColor,
+            glassTint.withAlphaComponent(0.12).cgColor
         ]
         gradientLayer.locations = [0.0, 1.0]
         gradientLayer.startPoint = CGPoint(x: 0, y: 0)
@@ -79,6 +84,7 @@ class LGBaseView: UIView {
         layer.addSublayer(borderLayer)
         
         updateCornerRadius()
+        applyTokenElevation()
     }
     
     override func layoutSubviews() {
@@ -105,6 +111,26 @@ class LGBaseView: UIView {
     private func updateBorder() {
         borderLayer.strokeColor = borderColor.cgColor
         borderLayer.lineWidth = borderWidth
+    }
+
+    private func applyTokenElevation() {
+        let style = TaskerThemeManager.shared.currentTheme.tokens.elevation.style(for: elevationLevel)
+        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
+        layer.shadowColor = style.shadowColor.cgColor
+        layer.shadowOpacity = style.shadowOpacity
+        layer.shadowOffset = CGSize(width: 0, height: style.shadowOffsetY)
+        layer.shadowRadius = style.shadowBlur / 2
+
+        borderWidth = style.borderWidth
+        borderColor = style.borderColor
+        glassBlurStyle = style.blurStyle
+        gradientLayer.colors = [
+            colors.overlayGlassTint.withAlphaComponent(0.35).cgColor,
+            colors.overlayGlassTint.withAlphaComponent(0.12).cgColor
+        ]
+
+        let corner = TaskerThemeManager.shared.currentTheme.tokens.corner
+        cornerRadius = corner.card
     }
     
     // MARK: - Animation Helpers

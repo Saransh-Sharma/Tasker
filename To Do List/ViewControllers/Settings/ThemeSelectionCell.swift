@@ -6,14 +6,15 @@
 //
 
 import UIKit
+import Combine
 
 /// Table view cell hosting a horizontally scrollable picker of theme cards
 class ThemeSelectionCell: UITableViewCell {
     static let reuseID = "ThemeSelectionCell"
     
     private var collectionView: UICollectionView!
-    private let themes = ToDoColors.themes
-    private var currentIndex: Int { ToDoColors.currentIndex }
+    private var cancellables = Set<AnyCancellable>()
+    private var currentIndex: Int { TaskerThemeManager.shared.selectedThemeIndex }
     
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -50,33 +51,34 @@ class ThemeSelectionCell: UITableViewCell {
             collectionView.heightAnchor.constraint(equalToConstant: 96)
         ])
         
-        NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeChanged, object: nil)
+        TaskerThemeManager.shared.publisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.collectionView.reloadData()
+            }
+            .store(in: &cancellables)
     }
     
     deinit {
-        NotificationCenter.default.removeObserver(self, name: .themeChanged, object: nil)
-    }
-    
-    @objc private func themeChanged() {
-        collectionView.reloadData()
+        cancellables.removeAll()
     }
 }
 
 // MARK: - CollectionView DataSource & Delegate
 extension ThemeSelectionCell: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return themes.count
+        return TaskerThemeManager.shared.availableThemeSwatches.count
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: ThemeCardCell.reuseID, for: indexPath) as! ThemeCardCell
-        let theme = themes[indexPath.item]
-        cell.configure(primary: theme.primary, secondary: theme.secondary, selected: indexPath.item == currentIndex)
+        let swatch = TaskerThemeManager.shared.availableThemeSwatches[indexPath.item]
+        cell.configure(primary: swatch.primary, secondary: swatch.secondary, selected: indexPath.item == currentIndex)
         return cell
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        ToDoColors.setTheme(index: indexPath.item)
+        TaskerThemeManager.shared.selectTheme(index: indexPath.item)
     }
     
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {

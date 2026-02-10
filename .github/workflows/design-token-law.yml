@@ -1,0 +1,25 @@
+name: Design Token Law
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - fn-*
+
+jobs:
+  token-law:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run token-law grep guardrails
+        run: bash scripts/token-law-guardrails.sh
+
+      - name: Run SwiftLint token rules
+        uses: norio-nomura/action-swiftlint@3.2.1
+        with:
+          args: --strict --config .swiftlint.yml

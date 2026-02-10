@@ -2,7 +2,7 @@ import SwiftUI
 import FluentUI
 
 struct SettingsView: View {
-    let todoColors = ToDoColors() // Instantiate ToDoColors
+    private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
 
     @Environment(\.presentationMode) var presentationMode // To dismiss the view later
     // State to track the current mode, initialized based on system's current style
@@ -20,13 +20,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form { // Using Form for grouped table view style
-                Section(header: Text("Projects").foregroundColor(Color(todoColors.primaryColor))) {
+                Section(header: Text("Projects").foregroundColor(Color(uiColor: todoColors.accentPrimary))) {
                     NavigationLink(destination: ProjectManagementView()) { // NEW
                         Text("Manage Projects") // Standard text color
                     }
                 }
 
-                Section(header: Text("Appearance").foregroundColor(Color(todoColors.primaryColor))) {
+                Section(header: Text("Appearance").foregroundColor(Color(uiColor: todoColors.accentPrimary))) {
                     Button(action: {
                         isDarkMode.toggle()
                         if #available(iOS 13.0, *) {
@@ -41,7 +41,7 @@ struct SettingsView: View {
                     }) {
                         HStack {
                             Image(systemName: isDarkMode ? "sun.max.fill" : "moon.fill")
-                                .foregroundColor(Color(todoColors.primaryColor))
+                                .foregroundColor(Color(uiColor: todoColors.accentPrimary))
                             Text(isDarkMode ? "Light Mode" : "Dark Mode")
                         }
                     }
@@ -50,13 +50,13 @@ struct SettingsView: View {
                 }
 
                 // New section for LLM / AI Assistant settings
-                Section(header: Text("AI Assistant").foregroundColor(Color(todoColors.primaryColor))) {
+                Section(header: Text("AI Assistant").foregroundColor(Color(uiColor: todoColors.accentPrimary))) {
                     NavigationLink(destination: LLMSettingsView(currentThread: .constant(nil))) {
                         Text("LLM Settings")
                     }
                 }
 
-                Section(header: Text("About").foregroundColor(Color(todoColors.primaryColor))) {
+                Section(header: Text("About").foregroundColor(Color(uiColor: todoColors.accentPrimary))) {
                     HStack {
                         Text("Version") // Standard text color
                         Spacer()
@@ -72,7 +72,7 @@ struct SettingsView: View {
             // Attempting to color NavigationBarTitle directly. This might have limitations.
             // For more robust styling, UINavigationBarAppearance in AppDelegate/SceneDelegate is preferred.
             .navigationBarTitle(Text("Settings")
-                // .foregroundColor(Color(todoColors.primaryColor)) // This often doesn't work as expected for nav titles.
+                // .foregroundColor(Color(todoColors.accentPrimary)) // This often doesn't work as expected for nav titles.
                 // Let's rely on global appearance or default for now.
                 , displayMode: .inline)
             .navigationBarItems(trailing:
@@ -81,7 +81,7 @@ struct SettingsView: View {
                     self.presentationMode.wrappedValue.dismiss() // Add this line
                 }) {
                     Text("Done")
-                        .foregroundColor(Color(todoColors.primaryColor))
+                        .foregroundColor(Color(uiColor: todoColors.accentPrimary))
                 }
             )
             .alert(isPresented: $showingVersionAlert) {

@@ -11,6 +11,7 @@ import UIKit
 class ProjectPillCell: UICollectionViewCell {
     
     private let titleLabel = UILabel()
+    var selectedStyle: TaskerChipSelectionStyle = .tinted
     
     override var isSelected: Bool {
         didSet {
@@ -28,14 +29,16 @@ class ProjectPillCell: UICollectionViewCell {
     }
     
     private func setupView() {
-        contentView.backgroundColor = .systemBackground
-        contentView.layer.cornerRadius = 16
-        contentView.layer.borderWidth = 1
-        contentView.layer.borderColor = UIColor.systemGray4.cgColor
+        contentView.backgroundColor = UIColor.tasker.chipUnselectedBackground
+        contentView.layer.cornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.chip
+        contentView.layer.cornerCurve = .continuous
+        contentView.layer.borderWidth = 0
+        contentView.layer.borderColor = UIColor.clear.cgColor
         
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = UIFont.systemFont(ofSize: 14)
+        titleLabel.font = UIFont.tasker.font(for: .callout)
         titleLabel.textAlignment = .center
+        titleLabel.textColor = UIColor.tasker.textSecondary
         
         contentView.addSubview(titleLabel)
         
@@ -56,14 +59,25 @@ class ProjectPillCell: UICollectionViewCell {
     }
     
     private func updateAppearance() {
+        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
         if isSelected {
-            contentView.backgroundColor = UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1)
-            titleLabel.textColor = .white
-            contentView.layer.borderColor = UIColor(red: 0.19, green: 0.57, blue: 1, alpha: 1).cgColor
+            switch selectedStyle {
+            case .tinted:
+                contentView.backgroundColor = colors.accentMuted
+                titleLabel.textColor = colors.accentPrimary
+                contentView.layer.borderColor = colors.accentRing.cgColor
+                contentView.layer.borderWidth = 1
+            case .filled:
+                contentView.backgroundColor = colors.chipSelectedBackground
+                titleLabel.textColor = colors.accentOnPrimary
+                contentView.layer.borderColor = UIColor.clear.cgColor
+                contentView.layer.borderWidth = 0
+            }
         } else {
-            contentView.backgroundColor = .systemBackground
-            titleLabel.textColor = .label
-            contentView.layer.borderColor = UIColor.systemGray4.cgColor
+            contentView.backgroundColor = colors.chipUnselectedBackground
+            titleLabel.textColor = colors.textSecondary
+            contentView.layer.borderColor = UIColor.clear.cgColor
+            contentView.layer.borderWidth = 0
         }
     }
 }

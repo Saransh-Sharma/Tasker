@@ -80,7 +80,8 @@ extension HomeViewController: BadgeViewDelegate {
     
     func setupBackdrop() {
         backdropContainer.frame = view.bounds
-        backdropContainer.backgroundColor = todoColors.primaryColor
+        // Apply premium gradient instead of flat accent color
+        TaskerHeaderGradient.apply(to: backdropContainer.layer, bounds: view.bounds, traits: traitCollection)
 
         // Add calendar and charts to backdrop
         setupCalendarInBackdrop()
@@ -98,11 +99,11 @@ extension HomeViewController: BadgeViewDelegate {
             calendar.dataSource = self
             calendar.delegate = self
             calendar.backgroundColor = .clear
-            calendar.appearance.headerTitleColor = todoColors.primaryTextColor
-            calendar.appearance.weekdayTextColor = todoColors.primaryTextColor
-            calendar.appearance.titleDefaultColor = todoColors.primaryTextColor
-            calendar.appearance.todayColor = todoColors.secondaryAccentColor//todoColors.primaryColor
-            calendar.appearance.selectionColor = todoColors.secondaryAccentColor
+            calendar.appearance.headerTitleColor = todoColors.textInverse
+            calendar.appearance.weekdayTextColor = todoColors.textInverse
+            calendar.appearance.titleDefaultColor = todoColors.textInverse
+            calendar.appearance.todayColor = todoColors.accentMuted//todoColors.accentPrimary
+            calendar.appearance.selectionColor = todoColors.accentMuted
 
             // Ensure calendar starts in week mode
             calendar.scope = .week
@@ -246,16 +247,10 @@ extension HomeViewController: BadgeViewDelegate {
                                          y: screenHeight - foredropHeight + 24,
                                          width: screenWidth,
                                          height: foredropHeight)
-        foredropContainer.backgroundColor = todoColors.backgroundColor        
+        foredropContainer.backgroundColor = todoColors.bgCanvas        
         foredropContainer.layer.cornerRadius = 24
-        foredropContainer.clipsToBounds = true
-        
-        // Add shadows or other styling to foredrop
-        foredropContainer.layer.shadowColor = UIColor.black.cgColor
-        foredropContainer.layer.shadowOffset = CGSize(width: 0, height: -3)
-        foredropContainer.layer.shadowOpacity = 0.1
-        foredropContainer.layer.shadowRadius = 10
-        foredropContainer.layer.masksToBounds = false
+        foredropContainer.clipsToBounds = false
+        foredropContainer.applyTaskerElevation(.e1)
         
         // Setup top section with "Today" title
         setupTopBarInForedrop()
@@ -272,14 +267,14 @@ extension HomeViewController: BadgeViewDelegate {
     
     func setupTopBarInForedrop() {
         homeTopBar = UIView(frame: CGRect(x: 0, y: 0, width: foredropContainer.bounds.width, height: 25))
-        homeTopBar.backgroundColor = UIColor.clear//todoColors.backgroundColor
+        homeTopBar.backgroundColor = UIColor.clear//todoColors.bgCanvas
         
         // Set up the header label ("Today")
         toDoListHeaderLabel.frame = CGRect(x: 0, y: 10, width: homeTopBar.bounds.width, height: homeTopBar.bounds.height)
         toDoListHeaderLabel.text = "Today"
         toDoListHeaderLabel.textAlignment = .center
         toDoListHeaderLabel.font = UIFont.preferredFont(forTextStyle: .headline)
-        toDoListHeaderLabel.textColor = todoColors.primaryTextColor
+        toDoListHeaderLabel.textColor = todoColors.textPrimary
         
         homeTopBar.addSubview(toDoListHeaderLabel)
         foredropContainer.addSubview(homeTopBar)
@@ -508,14 +503,10 @@ extension HomeViewController: BadgeViewDelegate {
         // Setup the foredrop background image view
         backdropForeImageView.frame = CGRect(x: 0, y: 0, width: foredropContainer.bounds.width, height: foredropContainer.bounds.height)
         backdropForeImageView.image = backdropForeImage?.withRenderingMode(.alwaysTemplate)
-//        backdropForeImageView.tintColor = .systemBackground
         backdropForeImageView.backgroundColor = .clear
         
-        // Add shadow effects
-        backdropForeImageView.layer.shadowColor = UIColor.black.cgColor
-        backdropForeImageView.layer.shadowOpacity = 0.8
-        backdropForeImageView.layer.shadowOffset = CGSize(width: -5.0, height: -5.0)
-        backdropForeImageView.layer.shadowRadius = 10
+        // Add subtle tokenized separation
+        backdropForeImageView.applyTaskerElevation(.e1)
         
         // Add the foredrop background to the container (behind the table view)
         foredropContainer.addSubview(backdropForeImageView)

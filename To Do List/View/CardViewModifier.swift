@@ -16,10 +16,10 @@ struct CardViewModifier: ViewModifier {
     let shadowOpacity: Double
     
     init(
-        cornerRadius: CGFloat = 12,
-        shadowRadius: CGFloat = 8,
-        shadowOffset: CGSize = CGSize(width: 0, height: 2),
-        shadowOpacity: Double = 0.1
+        cornerRadius: CGFloat,
+        shadowRadius: CGFloat,
+        shadowOffset: CGSize,
+        shadowOpacity: Double
     ) {
         self.cornerRadius = cornerRadius
         self.shadowRadius = shadowRadius
@@ -31,15 +31,24 @@ struct CardViewModifier: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(Color(.systemBackground))
-                    .shadow(
-                        color: Color.black.opacity(shadowOpacity),
-                        radius: shadowRadius,
-                        x: shadowOffset.width,
-                        y: shadowOffset.height
+                    .fill(Color.tasker.surfacePrimary)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius)
+                            .stroke(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.strokeHairline), lineWidth: 1)
                     )
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .taskerElevation(elevationLevel, cornerRadius: cornerRadius, includesBorder: false)
+    }
+
+    private var elevationLevel: TaskerElevationLevel {
+        if shadowRadius >= 16 {
+            return .e3
+        }
+        if shadowRadius >= 10 {
+            return .e2
+        }
+        return .e1
     }
 }
 
@@ -50,12 +59,12 @@ struct ThemedCardViewModifier: ViewModifier {
     let shadowOffset: CGSize
     let shadowOpacity: Double
     let useThemeColors: Bool
-    
+
     init(
-        cornerRadius: CGFloat = 12,
-        shadowRadius: CGFloat = 8,
-        shadowOffset: CGSize = CGSize(width: 0, height: 2),
-        shadowOpacity: Double = 0.1,
+        cornerRadius: CGFloat,
+        shadowRadius: CGFloat,
+        shadowOffset: CGSize,
+        shadowOpacity: Double,
         useThemeColors: Bool = true
     ) {
         self.cornerRadius = cornerRadius
@@ -64,47 +73,29 @@ struct ThemedCardViewModifier: ViewModifier {
         self.shadowOpacity = shadowOpacity
         self.useThemeColors = useThemeColors
     }
-    
+
     func body(content: Content) -> some View {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(backgroundGradient)
-                    .shadow(
-                        color: shadowColor,
-                        radius: shadowRadius,
-                        x: shadowOffset.width,
-                        y: shadowOffset.height
+                    .fill(Color.tasker.surfacePrimary)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius)
+                            .stroke(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.strokeHairline), lineWidth: 1)
                     )
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .taskerElevation(elevationLevel, cornerRadius: cornerRadius, includesBorder: false)
     }
-    
-    private var backgroundGradient: LinearGradient {
-        if useThemeColors {
-            return LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(ToDoColors.themes[ToDoColors.currentIndex].primary).opacity(0.05),
-                    Color(.systemBackground)
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else {
-            return LinearGradient(
-                gradient: Gradient(colors: [Color(.systemBackground)]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+
+    private var elevationLevel: TaskerElevationLevel {
+        if shadowRadius >= 16 {
+            return .e3
         }
-    }
-    
-    private var shadowColor: Color {
-        if useThemeColors {
-            return Color(ToDoColors.themes[ToDoColors.currentIndex].primary).opacity(shadowOpacity * 0.5)
-        } else {
-            return Color.black.opacity(shadowOpacity)
+        if shadowRadius >= 10 {
+            return .e2
         }
+        return .e1
     }
 }
 
@@ -112,35 +103,39 @@ struct ThemedCardViewModifier: ViewModifier {
 extension View {
     /// Applies a basic card style with corner radius and shadow
     func cardStyle(
-        cornerRadius: CGFloat = 12,
-        shadowRadius: CGFloat = 8,
-        shadowOffset: CGSize = CGSize(width: 0, height: 2),
-        shadowOpacity: Double = 0.1
+        cornerRadius: CGFloat? = nil,
+        shadowRadius: CGFloat? = nil,
+        shadowOffset: CGSize? = nil,
+        shadowOpacity: Double? = nil
     ) -> some View {
-        self.modifier(
+        let tokens = TaskerThemeManager.shared.currentTheme.tokens
+        let elevation = tokens.elevation.e1
+        return self.modifier(
             CardViewModifier(
-                cornerRadius: cornerRadius,
-                shadowRadius: shadowRadius,
-                shadowOffset: shadowOffset,
-                shadowOpacity: shadowOpacity
+                cornerRadius: cornerRadius ?? tokens.corner.card,
+                shadowRadius: shadowRadius ?? elevation.shadowBlur / 2,
+                shadowOffset: shadowOffset ?? CGSize(width: 0, height: elevation.shadowOffsetY),
+                shadowOpacity: shadowOpacity ?? Double(elevation.shadowOpacity)
             )
         )
     }
     
     /// Applies a themed card style that integrates with the app's theme system
     func themedCardStyle(
-        cornerRadius: CGFloat = 12,
-        shadowRadius: CGFloat = 8,
-        shadowOffset: CGSize = CGSize(width: 0, height: 2),
-        shadowOpacity: Double = 0.1,
+        cornerRadius: CGFloat? = nil,
+        shadowRadius: CGFloat? = nil,
+        shadowOffset: CGSize? = nil,
+        shadowOpacity: Double? = nil,
         useThemeColors: Bool = true
     ) -> some View {
-        self.modifier(
+        let tokens = TaskerThemeManager.shared.currentTheme.tokens
+        let elevation = tokens.elevation.e1
+        return self.modifier(
             ThemedCardViewModifier(
-                cornerRadius: cornerRadius,
-                shadowRadius: shadowRadius,
-                shadowOffset: shadowOffset,
-                shadowOpacity: shadowOpacity,
+                cornerRadius: cornerRadius ?? tokens.corner.card,
+                shadowRadius: shadowRadius ?? elevation.shadowBlur / 2,
+                shadowOffset: shadowOffset ?? CGSize(width: 0, height: elevation.shadowOffsetY),
+                shadowOpacity: shadowOpacity ?? Double(elevation.shadowOpacity),
                 useThemeColors: useThemeColors
             )
         )
@@ -151,61 +146,31 @@ extension View {
 extension View {
     /// Small card style for compact content
     func smallCard() -> some View {
-        self.cardStyle(
-            cornerRadius: 8,
-            shadowRadius: 4,
-            shadowOffset: CGSize(width: 0, height: 1),
-            shadowOpacity: 0.08
-        )
+        self.cardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r1)
     }
     
     /// Medium card style for standard content
     func mediumCard() -> some View {
-        self.cardStyle(
-            cornerRadius: 12,
-            shadowRadius: 8,
-            shadowOffset: CGSize(width: 0, height: 2),
-            shadowOpacity: 0.1
-        )
+        self.cardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r2)
     }
     
     /// Large card style for prominent content
     func largeCard() -> some View {
-        self.cardStyle(
-            cornerRadius: 16,
-            shadowRadius: 12,
-            shadowOffset: CGSize(width: 0, height: 4),
-            shadowOpacity: 0.15
-        )
+        self.cardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r3)
     }
     
     /// Themed small card
     func themedSmallCard() -> some View {
-        self.themedCardStyle(
-            cornerRadius: 8,
-            shadowRadius: 4,
-            shadowOffset: CGSize(width: 0, height: 1),
-            shadowOpacity: 0.08
-        )
+        self.themedCardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r1)
     }
     
     /// Themed medium card
     func themedMediumCard() -> some View {
-        self.themedCardStyle(
-            cornerRadius: 12,
-            shadowRadius: 8,
-            shadowOffset: CGSize(width: 0, height: 2),
-            shadowOpacity: 0.1
-        )
+        self.themedCardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r2)
     }
     
     /// Themed large card
     func themedLargeCard() -> some View {
-        self.themedCardStyle(
-            cornerRadius: 16,
-            shadowRadius: 12,
-            shadowOffset: CGSize(width: 0, height: 4),
-            shadowOpacity: 0.15
-        )
+        self.themedCardStyle(cornerRadius: TaskerThemeManager.shared.currentTheme.tokens.corner.r3)
     }
 }

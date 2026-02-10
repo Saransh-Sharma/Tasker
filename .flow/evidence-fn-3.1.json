@@ -1,0 +1,18 @@
+{
+  "task_id": "fn-3.1",
+  "files_added": [
+    "To Do List/DesignSystem/TaskerTokens.swift",
+    "To Do List/DesignSystem/TaskerTheme.swift",
+    "To Do List/DesignSystem/ColorTokens.swift",
+    "To Do List/DesignSystem/TypographyTokens.swift",
+    "To Do List/DesignSystem/SpacingTokens.swift",
+    "To Do List/DesignSystem/ElevationTokens.swift",
+    "To Do List/DesignSystem/CornerTokens.swift",
+    "To Do List/DesignSystem/UIKit+TokenAdapters.swift",
+    "To Do List/DesignSystem/SwiftUI+TokenAdapters.swift",
+    "To Do List/DesignSystem/FluentUI+TokenAdapters.swift"
+  ],
+  "project_updates": [
+    "Tasker.xcodeproj/project.pbxproj"
+  ]
+}

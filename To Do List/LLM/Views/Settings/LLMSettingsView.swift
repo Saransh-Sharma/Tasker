@@ -34,7 +34,7 @@ struct LLMSettingsView: View {
                     HStack {
                         Spacer()
                         Text("made by Saransh")
-                            .font(.caption2)
+                            .font(.tasker(.caption2))
                             .foregroundStyle(.tertiary)
                         Spacer()
                     }
@@ -63,9 +63,8 @@ struct LLMSettingsView: View {
                 }
         }
         #if !os(visionOS)
-        .tint(appManager.appTintColor.getColor())
+        .tint(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.accentPrimary))
         #endif
-        .environment(\.dynamicTypeSize, appManager.appFontSize.getFontSize())
     }
 }
 

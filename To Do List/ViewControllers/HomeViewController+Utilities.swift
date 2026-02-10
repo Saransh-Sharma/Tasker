@@ -25,10 +25,22 @@ extension HomeViewController {
     // MARK: - Font Utilities
     
     func setFont(fontSize: CGFloat, fontweight: UIFont.Weight = .regular, fontDesign: UIFontDescriptor.SystemDesign = .default) -> UIFont {
-        let _ = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .body) // descriptor - unused
-            .withDesign(fontDesign)!
-        
-        return UIFont.systemFont(ofSize: fontSize, weight: fontweight)
+        let baseFont: UIFont
+        if fontweight >= .semibold {
+            baseFont = UIFont.tasker.button
+        } else if fontweight >= .medium {
+            baseFont = UIFont.tasker.bodyEmphasis
+        } else if fontSize <= UIFont.tasker.caption2.pointSize {
+            baseFont = UIFont.tasker.caption2
+        } else if fontSize <= UIFont.tasker.caption1.pointSize {
+            baseFont = UIFont.tasker.caption1
+        } else if fontSize >= UIFont.tasker.title2.pointSize {
+            baseFont = UIFont.tasker.title2
+        } else {
+            baseFont = UIFont.tasker.body
+        }
+
+        return baseFont.withSize(fontSize)
     }
     
     // MARK: - UI Updates
@@ -143,9 +155,9 @@ extension HomeViewController {
     }
     
     func enableDarkMode() {
-        view.backgroundColor = todoColors.darkModeColor
+        view.backgroundColor = todoColors.bgCanvas
         // Updated to use FluentUI table view
-        fluentToDoTableViewController?.tableView.backgroundColor = todoColors.darkModeColor
+        fluentToDoTableViewController?.tableView.backgroundColor = todoColors.bgCanvas
         
         // Apply dark mode to other UI elements as needed
         for view in self.view.subviews {
@@ -156,14 +168,14 @@ extension HomeViewController {
     }
     
     func disableDarkMode() {
-        view.backgroundColor = todoColors.primaryColor
+        view.backgroundColor = todoColors.accentPrimary
         // Updated to use FluentUI table view
-        fluentToDoTableViewController?.tableView.backgroundColor = todoColors.backgroundColor
+        fluentToDoTableViewController?.tableView.backgroundColor = todoColors.bgCanvas
         
         // Restore light mode to other UI elements as needed
         for view in self.view.subviews {
             if let view = view as? UILabel {
-                view.textColor = todoColors.primaryTextColor
+                view.textColor = todoColors.textPrimary
             }
         }
     }
@@ -173,7 +185,7 @@ extension HomeViewController {
             darkModeToggle.isOn = true
             enableDarkMode()
         } else {
-            view.backgroundColor = todoColors.primaryColor
+            view.backgroundColor = todoColors.accentPrimary
         }
     }
     

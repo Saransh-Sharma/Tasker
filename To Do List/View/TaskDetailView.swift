@@ -6,7 +6,7 @@ class TaskDetailView: UIView {
     private let titleField: UITextField = {
         let tf = UITextField()
         tf.placeholder = "Enter title"
-        tf.font = .systemFont(ofSize: 17, weight: .semibold)
+        tf.font = .tasker.bodyEmphasis
         return tf
     }()
     private let descriptionField: UITextView = {
@@ -42,11 +42,9 @@ class TaskDetailView: UIView {
     private func setupView() {
         // Card styling
         card.translatesAutoresizingMaskIntoConstraints = false
-        card.backgroundColor = .secondarySystemBackground
-        card.layer.cornerRadius = 12
-        card.layer.shadowOpacity = 0.1
-        card.layer.shadowRadius = 4
-        card.layer.shadowOffset = CGSize(width: 0, height: 2)
+        card.backgroundColor = .tasker.surfacePrimary
+        card.layer.cornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.r2
+        card.applyTaskerElevation(.e1)
         addSubview(card)
         NSLayoutConstraint.activate([
             card.topAnchor.constraint(equalTo: topAnchor),

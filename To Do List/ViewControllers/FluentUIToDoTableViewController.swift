@@ -40,10 +40,11 @@ class FluentUIToDoTableViewController: UITableViewController {
     // Modal form elements - stored as instance variables for reliability
     private var currentModalTaskNameTextField: MDCFilledTextField?
     private var currentModalDescriptionTextField: MDCFilledTextField?
-    private var currentModalProjectPillBar: UIView?
+    private var currentModalProjectChipGroup: TaskerProjectChipGroupView?
     private var currentModalPrioritySegmentedControl: SegmentedControl?
     private var currentModalTask: NTask?
     private var currentModalIndexPath: IndexPath?
+    private var themeColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
     
     // MARK: - Initialization
     
@@ -394,13 +395,13 @@ class FluentUIToDoTableViewController: UITableViewController {
         // Configure checkbox appearance
         checkBox.layer.cornerRadius = 16 // Make it circular
         checkBox.layer.borderWidth = 1.5
-        checkBox.layer.borderColor = ToDoColors().primaryColor.cgColor
+        checkBox.layer.borderColor = TaskerThemeManager.shared.currentTheme.tokens.color.taskCheckboxBorder.cgColor
         checkBox.backgroundColor = task.isComplete ? UIColor.clear : UIColor.clear
         
         // Set checkbox image based on completion state
         let checkmarkImage = UIImage(systemName: "checkmark")
         checkBox.setImage(task.isComplete ? checkmarkImage : nil, for: .normal)
-        checkBox.tintColor = UIColor.white
+        checkBox.tintColor = TaskerThemeManager.shared.currentTheme.tokens.color.accentOnPrimary
 
         
         
@@ -733,7 +734,7 @@ extension FluentUIToDoTableViewController {
             self?.showRescheduleOptions(for: task)
             completionHandler(true)
         }
-        rescheduleAction.backgroundColor = UIColor.systemBlue
+        rescheduleAction.backgroundColor = themeColors.accentPrimary
         rescheduleAction.image = UIImage(systemName: "calendar")
         actions.append(rescheduleAction)
         
@@ -744,7 +745,7 @@ extension FluentUIToDoTableViewController {
             self.delegate?.fluentToDoTableViewControllerDidDeleteTask(self, task: task)
             completionHandler(true)
         }
-        deleteAction.backgroundColor = UIColor.systemRed
+        deleteAction.backgroundColor = themeColors.statusDanger
         deleteAction.image = UIImage(systemName: "trash")
         actions.append(deleteAction)
         
@@ -771,7 +772,7 @@ extension FluentUIToDoTableViewController {
                 self.delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
                 completionHandler(true)
             }
-            doneAction.backgroundColor = UIColor.systemGreen
+            doneAction.backgroundColor = themeColors.statusSuccess
             doneAction.image = UIImage(systemName: "checkmark")
             actions.append(doneAction)
         } else {
@@ -782,7 +783,7 @@ extension FluentUIToDoTableViewController {
                 self.delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
                 completionHandler(true)
             }
-            reopenAction.backgroundColor = UIColor.systemOrange
+            reopenAction.backgroundColor = themeColors.statusWarning
             reopenAction.image = UIImage(systemName: "arrow.counterclockwise")
             actions.append(reopenAction)
         }
@@ -826,7 +827,7 @@ extension FluentUIToDoTableViewController {
         
         // Create a container view for the modal content
         let modalView = UIView()
-        modalView.backgroundColor = .systemBackground
+        modalView.backgroundColor = themeColors.bgCanvas
         modalView.translatesAutoresizingMaskIntoConstraints = false
         modalViewController.view.addSubview(modalView)
         print("[DEBUG] Created modalView: \(modalView)")
@@ -864,7 +865,7 @@ extension FluentUIToDoTableViewController {
         
         // Add drag indicator
         let dragIndicator = UIView()
-        dragIndicator.backgroundColor = .systemGray3
+        dragIndicator.backgroundColor = themeColors.divider
         dragIndicator.layer.cornerRadius = 2
         dragIndicator.translatesAutoresizingMaskIntoConstraints = false
         modalView.addSubview(dragIndicator)
@@ -888,9 +889,9 @@ extension FluentUIToDoTableViewController {
         descriptionTextField.backgroundColor = .clear
         descriptionTextField.translatesAutoresizingMaskIntoConstraints = false
         
-        // Project pill bar
-        let projectPillBar = createProjectPillBar(selectedProject: task.project ?? "Inbox")
-        projectPillBar.translatesAutoresizingMaskIntoConstraints = false
+        // Project chip group
+        let projectChipGroup = createProjectChipGroup(selectedProject: task.project ?? "Inbox")
+        projectChipGroup.translatesAutoresizingMaskIntoConstraints = false
         
         // Priority selector (Segmented Control)
         let priorityItems = ["None", "Low", "High", "Highest"]
@@ -918,30 +919,30 @@ extension FluentUIToDoTableViewController {
         // Save button
         let saveButton = UIButton(type: .system)
         saveButton.setTitle("Save Changes", for: .normal)
-        saveButton.backgroundColor = .systemBlue
-        saveButton.setTitleColor(.white, for: .normal)
+        saveButton.backgroundColor = themeColors.accentPrimary
+        saveButton.setTitleColor(themeColors.accentOnPrimary, for: .normal)
         saveButton.layer.cornerRadius = 8
-        saveButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        saveButton.titleLabel?.font = UIFont.tasker.font(for: .bodyEmphasis)
         saveButton.addTarget(self, action: #selector(saveTaskChanges(_:)), for: .touchUpInside)
         saveButton.tag = indexPath.section * 1000 + indexPath.row
         
         // Complete/Incomplete button
         let toggleButton = UIButton(type: .system)
         toggleButton.setTitle(task.isComplete ? "Mark Incomplete" : "Mark Complete", for: .normal)
-        toggleButton.backgroundColor = task.isComplete ? .systemOrange : .systemGreen
-        toggleButton.setTitleColor(.white, for: .normal)
+        toggleButton.backgroundColor = task.isComplete ? themeColors.statusWarning : themeColors.statusSuccess
+        toggleButton.setTitleColor(themeColors.accentOnPrimary, for: .normal)
         toggleButton.layer.cornerRadius = 8
-        toggleButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        toggleButton.titleLabel?.font = UIFont.tasker.font(for: .bodyEmphasis)
         toggleButton.addTarget(self, action: #selector(toggleTaskCompletion(_:)), for: .touchUpInside)
         toggleButton.tag = indexPath.section * 1000 + indexPath.row
         
         // Cancel button
         let cancelButton = UIButton(type: .system)
         cancelButton.setTitle("Cancel", for: .normal)
-        cancelButton.backgroundColor = .systemGray5
-        cancelButton.setTitleColor(.label, for: .normal)
+        cancelButton.backgroundColor = themeColors.surfaceTertiary
+        cancelButton.setTitleColor(themeColors.textPrimary, for: .normal)
         cancelButton.layer.cornerRadius = 8
-        cancelButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        cancelButton.titleLabel?.font = UIFont.tasker.font(for: .bodyEmphasis)
         cancelButton.addTarget(self, action: #selector(closeSemiModal), for: .touchUpInside)
         
         // Add buttons to button stack
@@ -953,7 +954,7 @@ extension FluentUIToDoTableViewController {
         textFieldsStackView.addArrangedSubview(descriptionTextField)
         
         // Add remaining elements to bottom elements stack view
-        bottomElementsStackView.addArrangedSubview(projectPillBar)
+        bottomElementsStackView.addArrangedSubview(projectChipGroup)
         bottomElementsStackView.addArrangedSubview(prioritySegmentedControl)
         bottomElementsStackView.addArrangedSubview(buttonStackView)
         bottomElementsStackView.addArrangedSubview(cancelButton)
@@ -1004,7 +1005,7 @@ extension FluentUIToDoTableViewController {
         // Store form elements as instance variables for reliable access
         self.currentModalTaskNameTextField = taskNameTextField
         self.currentModalDescriptionTextField = descriptionTextField
-        self.currentModalProjectPillBar = projectPillBar
+        self.currentModalProjectChipGroup = projectChipGroup
         self.currentModalPrioritySegmentedControl = prioritySegmentedControl
         self.currentModalTask = task
         self.currentModalIndexPath = indexPath
@@ -1013,7 +1014,7 @@ extension FluentUIToDoTableViewController {
         print("[DEBUG] - task: \(task.name ?? "nil")")
         print("[DEBUG] - indexPath: \(indexPath)")
         print("[DEBUG] - descriptionTextField: \(descriptionTextField)")
-        print("[DEBUG] - projectPillBar: \(projectPillBar)")
+        print("[DEBUG] - projectChipGroup: \(projectChipGroup)")
         print("[DEBUG] - prioritySegmentedControl: \(prioritySegmentedControl)")
         
         // Set up modal view constraints
@@ -1064,7 +1065,7 @@ extension FluentUIToDoTableViewController {
         guard let taskNameTextField = currentModalTaskNameTextField,
               let descriptionTextField = currentModalDescriptionTextField,
               let prioritySegmentedControl = currentModalPrioritySegmentedControl,
-              let projectPillBar = currentModalProjectPillBar,
+              let projectChipGroup = currentModalProjectChipGroup,
               let task = currentModalTask else {
             print("[DEBUG] Could not find form elements - instance variables are nil")
             return
@@ -1080,11 +1081,8 @@ extension FluentUIToDoTableViewController {
         
         task.taskDetails = descriptionTextField.text
         
-        // Update project based on pill bar selection
-        if let pillBar = projectPillBar.subviews.first(where: { $0 is PillButtonBar }) as? PillButtonBar,
-           let selectedItem = pillBar.selectedItem {
-            task.project = selectedItem.title
-        }
+        // Update project based on selected chip
+        task.project = projectChipGroup.selectedTitle
         
         // Update priority based on segmented control selection
         switch prioritySegmentedControl.selectedSegmentIndex {
@@ -1114,51 +1112,25 @@ extension FluentUIToDoTableViewController {
     private func clearModalReferences() {
         currentModalTaskNameTextField = nil
         currentModalDescriptionTextField = nil
-        currentModalProjectPillBar = nil
+        currentModalProjectChipGroup = nil
         currentModalPrioritySegmentedControl = nil
         currentModalTask = nil
         currentModalIndexPath = nil
         print("[DEBUG] Cleared modal instance variables")
     }
     
-    // MARK: - Project Pill Bar Helper Methods
-    
-    private func createProjectPillBar(selectedProject: String) -> UIView {
-        let pillBarItems = buildProjectPillBarData()
-        let bar = PillButtonBar(pillButtonStyle: .primary)
-        bar.items = pillBarItems
-        
-        // Find and select the current project
-        if let selectedIndex = pillBarItems.firstIndex(where: { $0.title == selectedProject }) {
-            _ = bar.selectItem(atIndex: selectedIndex)
-        } else {
-            // Default to "Inbox" (index 0)
-            if !pillBarItems.isEmpty {
-                _ = bar.selectItem(atIndex: 0)
-            }
-        }
-        
-        bar.barDelegate = self
-        bar.centerAligned = false
-        
-        let backgroundView = UIView()
-        backgroundView.backgroundColor = .clear
-        backgroundView.addSubview(bar)
-        
-        // Set up constraints for the pill bar
-        bar.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            bar.topAnchor.constraint(equalTo: backgroundView.topAnchor, constant: 8),
-            bar.leadingAnchor.constraint(equalTo: backgroundView.leadingAnchor),
-            bar.trailingAnchor.constraint(equalTo: backgroundView.trailingAnchor),
-            bar.bottomAnchor.constraint(lessThanOrEqualTo: backgroundView.bottomAnchor, constant: -8)
-        ])
-        
-        return backgroundView
+    // MARK: - Project Chip Helper Methods
+
+    private func createProjectChipGroup(selectedProject: String) -> TaskerProjectChipGroupView {
+        let projectNames = buildProjectChipData()
+        return TaskerProjectChipGroupView(
+            projectNames: projectNames,
+            selectedProject: selectedProject
+        )
     }
-    
-    private func buildProjectPillBarData() -> [PillButtonBarItem] {
-        var pillBarItems: [PillButtonBarItem] = []
+
+    private func buildProjectChipData() -> [String] {
+        var projectNames: [String] = []
 
         // TODO: Use ViewModel/UseCaseCoordinator once Presentation/State folders are in target
         // For now, fetch projects directly from CoreData
@@ -1170,7 +1142,7 @@ extension FluentUIToDoTableViewController {
                 let projects = try context.fetch(request)
                 for project in projects {
                     if let projectName = project.projectName {
-                        pillBarItems.append(PillButtonBarItem(title: projectName))
+                        projectNames.append(projectName)
                     }
                 }
             } catch {
@@ -1182,12 +1154,12 @@ extension FluentUIToDoTableViewController {
         let inboxTitle = "Inbox"
 
         // Remove any existing "Inbox" to avoid duplicates before re-inserting at correct position
-        pillBarItems.removeAll(where: { $0.title.lowercased() == inboxTitle.lowercased() })
+        projectNames.removeAll(where: { $0.lowercased() == inboxTitle.lowercased() })
 
         // Insert "Inbox" at the beginning
-        pillBarItems.insert(PillButtonBarItem(title: inboxTitle), at: 0)
+        projectNames.insert(inboxTitle, at: 0)
 
-        return pillBarItems
+        return projectNames
     }
     
     override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
@@ -1398,6 +1370,9 @@ class RescheduleViewController: UIViewController {
     private let task: NTask
     private let onDateSelected: (Date) -> Void
     private var datePicker: UIDatePicker!
+    private var themeColors: TaskerColorTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.color
+    }
     
     init(task: NTask, onDateSelected: @escaping (Date) -> Void) {
         self.task = task
@@ -1415,7 +1390,7 @@ class RescheduleViewController: UIViewController {
     }
     
     private func setupUI() {
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = themeColors.bgCanvas
         title = "Reschedule Task"
         
         // Navigation bar buttons
@@ -1516,8 +1491,8 @@ class RescheduleViewController: UIViewController {
         let button = UIButton(type: .system)
         button.setTitle(title, for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        button.backgroundColor = .systemBlue
-        button.setTitleColor(.white, for: .normal)
+        button.backgroundColor = themeColors.accentPrimary
+        button.setTitleColor(themeColors.accentOnPrimary, for: .normal)
         button.layer.cornerRadius = 8
         button.heightAnchor.constraint(equalToConstant: 44).isActive = true
         
@@ -1552,13 +1527,82 @@ class RescheduleViewController: UIViewController {
     }
 }
 
-// MARK: - PillButtonBarDelegate
+// MARK: - Project Chip Group
 
-extension FluentUIToDoTableViewController: PillButtonBarDelegate {
-    func pillBar(_ pillBar: PillButtonBar, didSelectItem item: PillButtonBarItem, atIndex index: Int) {
-        print("Project pill bar item selected: \(item.title) at index \(index)")
-        // Store the selected project for saving later
-        // The project selection will be handled when the user taps "Save Changes"
+private final class TaskerProjectChipGroupView: UIView {
+    private let scrollView = UIScrollView()
+    private let stackView = UIStackView()
+    private var chips: [TaskerChipView] = []
+    private let colors = TaskerThemeManager.shared.currentTheme.tokens.color
+
+    private(set) var selectedTitle: String = "Inbox"
+
+    init(projectNames: [String], selectedProject: String) {
+        super.init(frame: .zero)
+        selectedTitle = selectedProject
+        setupUI(projectNames: projectNames)
+        selectChip(named: selectedProject)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupUI(projectNames: [])
+    }
+
+    private func setupUI(projectNames: [String]) {
+        backgroundColor = .clear
+
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.showsHorizontalScrollIndicator = false
+        addSubview(scrollView)
+
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        stackView.axis = .horizontal
+        stackView.spacing = TaskerThemeManager.shared.currentTheme.tokens.spacing.chipSpacing
+        scrollView.addSubview(stackView)
+
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            stackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            stackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            stackView.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 8),
+            stackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -8),
+            stackView.heightAnchor.constraint(equalTo: scrollView.heightAnchor, constant: -16)
+        ])
+
+        for name in projectNames {
+            let chip = TaskerChipView()
+            chip.setTitle(name)
+            chip.selectedStyle = .tinted
+            chip.titleLabel.textColor = colors.textSecondary
+            chip.addTarget(self, action: #selector(chipTapped(_:)), for: .touchUpInside)
+            chips.append(chip)
+            stackView.addArrangedSubview(chip)
+        }
+    }
+
+    private func selectChip(named name: String) {
+        if let matched = chips.first(where: { $0.titleLabel.text == name }) {
+            updateSelection(for: matched)
+            return
+        }
+        if let firstChip = chips.first {
+            updateSelection(for: firstChip)
+        }
+    }
+
+    @objc private func chipTapped(_ sender: TaskerChipView) {
+        updateSelection(for: sender)
+    }
+
+    private func updateSelection(for selectedChip: TaskerChipView) {
+        for chip in chips {
+            chip.isSelected = chip === selectedChip
+        }
+        selectedTitle = selectedChip.titleLabel.text ?? "Inbox"
     }
 }
 

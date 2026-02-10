@@ -94,11 +94,11 @@ extension HomeViewController {
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         // Original implementation for the main table view
         let headerView = UIView()
-        headerView.backgroundColor = UIColor.green //.clear
+        headerView.backgroundColor = .clear
         
         let titleLabel = UILabel()
         titleLabel.font = UIFont.preferredFont(forTextStyle: .headline) // Replaced todoColors.todoFont (Plan Step C)
-        titleLabel.textColor = todoColors.primaryTextColor
+        titleLabel.textColor = todoColors.textPrimary
         
         switch currentViewType {
         case .allProjectsGrouped, .selectedProjectsGrouped:
@@ -106,7 +106,7 @@ extension HomeViewController {
                 // Main header with filter icon/label
                 titleLabel.text = currentViewType == .allProjectsGrouped ? "All Projects" : "Selected Projects"
                 let filterIcon = UIImageView(image: UIImage(systemName: "line.horizontal.3.decrease.circle"))
-                filterIcon.tintColor = todoColors.primaryColor
+                filterIcon.tintColor = todoColors.accentPrimary
                 
                 // Add components to headerView with proper constraints
                 // Add tap gesture to reset filters if needed
@@ -349,7 +349,7 @@ extension HomeViewController {
                 self?.markTaskOpenOnSwipe(task: task)
                 completion(true)
             }
-            reopenAction.backgroundColor = todoColors.secondaryAccentColor
+            reopenAction.backgroundColor = todoColors.accentMuted
             
             let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] (_, _, completion) in
                 self?.deleteTaskOnSwipe(task: task)
@@ -362,7 +362,7 @@ extension HomeViewController {
                 self?.rescheduleAlertActionMenu(tasks: [task], indexPath: indexPath, tableView: tableView)
                 completion(true)
             }
-            rescheduleAction.backgroundColor = todoColors.primaryColor
+            rescheduleAction.backgroundColor = todoColors.accentPrimary
             
             let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] (_, _, completion) in
                 self?.deleteTaskOnSwipe(task: task)
@@ -497,4 +497,3 @@ extension HomeViewController {
             }
         }
     }
-

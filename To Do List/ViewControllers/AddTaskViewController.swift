@@ -87,8 +87,9 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
     var tabsSegmentedControl = UISegmentedControl() // Initialized in AddTaskForedropView extension
 
-    var todoColors = ToDoColors()
-    var todoFont = ToDoFont()
+    var todoColors: TaskerColorTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.color
+    }
     var todoTimeUtils = ToDoTimeUtils()
 
     let existingProjectCellID = "existingProject"
@@ -213,6 +214,18 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
         // Setup foredrop view accessibility
         foredropContainer.accessibilityIdentifier = "addTask.view"
+
+        TaskerThemeManager.shared.publisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshBackdropAppearanceForCurrentTheme()
+            }
+            .store(in: &cancellables)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        refreshBackdropGradientForCurrentTheme(deferredIfNeeded: false)
     }
     
     // MARK: - Clean Architecture Methods
@@ -347,10 +360,10 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // Configure navigation bar appearance
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = todoColors.primaryColor
+        appearance.backgroundColor = todoColors.accentPrimary
         appearance.titleTextAttributes = [
-            .foregroundColor: UIColor.white,
-            .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
+            .foregroundColor: todoColors.accentOnPrimary,
+            .font: TaskerThemeManager.shared.currentTheme.tokens.typography.button
         ]
 
         navController.navigationBar.standardAppearance = appearance
@@ -361,66 +374,27 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // Set title to show date
         title = todoTimeUtils.getFormattedDate(dateForAddTaskView)
 
-        // Create Cancel button (left)
-        let cancelButton = createLiquidGlassBarButton(
+        // Create Cancel button (left) — plain text style
+        let cancelItem = UIBarButtonItem(
             title: "Cancel",
-            image: UIImage(systemName: "xmark"),
+            style: .plain,
+            target: self,
             action: #selector(self.cancelAddTaskAction)
         )
-        if let customView = cancelButton.customView {
-            customView.accessibilityIdentifier = "addTask.cancelButton"
-        }
-        navigationItem.leftBarButtonItem = cancelButton
+        TaskerNavButtonStyle.apply(to: cancelItem, context: .onGradient, emphasis: .normal)
+        cancelItem.accessibilityIdentifier = "addTask.cancelButton"
+        navigationItem.leftBarButtonItem = cancelItem
 
-        // Create Done button (right)
-        let doneButton = createLiquidGlassBarButton(
+        // Create Done button (right) — bold text style
+        let doneItem = UIBarButtonItem(
             title: "Done",
-            image: UIImage(systemName: "checkmark"),
+            style: .done,
+            target: self,
             action: #selector(self.doneAddTaskAction)
         )
-        if let customView = doneButton.customView {
-            customView.accessibilityIdentifier = "addTask.saveButton"
-        }
-        navigationItem.rightBarButtonItem = doneButton
-    }
-
-    /// Creates a UIBarButtonItem with liquid glass styling
-    private func createLiquidGlassBarButton(
-        title: String,
-        image: UIImage?,
-        action: Selector
-    ) -> UIBarButtonItem {
-        // Create container with glass effect
-        let containerView = LGBaseView(frame: CGRect(x: 0, y: 0, width: 90, height: 36))
-        containerView.cornerRadius = 18
-        containerView.glassBlurStyle = .systemUltraThinMaterial
-        containerView.glassOpacity = 0.9
-        containerView.borderColor = .white.withAlphaComponent(0.3)
-
-        // Create button inside container
-        let button = UIButton(type: .system)
-        button.setTitle(title, for: .normal)
-        button.setImage(image, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        button.tintColor = .white
-        button.addTarget(self, action: action, for: .touchUpInside)
-
-        // Configure button layout (icon + text)
-        button.semanticContentAttribute = .forceLeftToRight
-        button.imageEdgeInsets = UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 4)
-        button.titleEdgeInsets = UIEdgeInsets(top: 0, left: 4, bottom: 0, right: -4)
-
-        // Add button to container
-        containerView.addSubview(button)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            button.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 8),
-            button.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -8),
-            button.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 6),
-            button.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -6)
-        ])
-
-        return UIBarButtonItem(customView: containerView)
+        TaskerNavButtonStyle.apply(to: doneItem, context: .onGradient, emphasis: .done)
+        doneItem.accessibilityIdentifier = "addTask.saveButton"
+        navigationItem.rightBarButtonItem = doneItem
     }
     
     func setupCalendarWidget() {
@@ -439,7 +413,9 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         self.descriptionTextBox_Material.sizeToFit()
         self.descriptionTextBox_Material.delegate = self
         self.descriptionTextBox_Material.clearButtonMode = .whileEditing
-        self.descriptionTextBox_Material.backgroundColor = .clear
+
+        // Token-based styling: iOS-native filled field look
+        styleFilledTextField(self.descriptionTextBox_Material)
 
         // Don't add to stack container here - it's added in viewDidLoad
     }
@@ -823,7 +799,7 @@ class ProjectCell: UICollectionViewCell {
     }
     
     func setup() {
-        self.backgroundColor = .red
+        self.backgroundColor = UIColor.tasker.surfaceSecondary
         
     }
     
@@ -833,9 +809,7 @@ class ProjectCell: UICollectionViewCell {
 }
 
 class AddNewProjectCell: UICollectionViewCell {
-    
-    var todoFont = ToDoFont()
-    
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         setup()
@@ -844,7 +818,7 @@ class AddNewProjectCell: UICollectionViewCell {
     
     
     func setup() {
-        self.backgroundColor = .blue
+        self.backgroundColor = UIColor.tasker.surfaceSecondary
         
         self.addSubview(addProjectImageView)
         self.addSubview(addProjectLabel)
@@ -857,7 +831,7 @@ class AddNewProjectCell: UICollectionViewCell {
     let addProjectImageView: UIImageView = {
         let iv = UIImageView()
         iv.contentMode = .scaleAspectFit
-        iv.backgroundColor = .green
+        iv.backgroundColor = UIColor.tasker.accentPrimary
         iv.image = #imageLiteral(resourceName: "material_add_White")
         return iv
     }()
@@ -944,5 +918,3 @@ extension UIView {
     }
     
 }
-
-

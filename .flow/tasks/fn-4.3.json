@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-02-09T19:38:28.717712Z",
+  "depends_on": [
+    "fn-4.1"
+  ],
+  "epic": "fn-4",
+  "id": "fn-4.3",
+  "priority": 3,
+  "spec_path": ".flow/tasks/fn-4.3.md",
+  "status": "todo",
+  "title": "Complete LLM token-only typography and semantic color usage",
+  "updated_at": "2026-02-09T19:38:28.717813Z"
+}

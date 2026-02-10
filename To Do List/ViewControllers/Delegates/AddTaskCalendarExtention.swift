@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import UIKit
 import FSCalendar
 import CoreData  // TODO: Migrate away from NSFetchRequest to use repository pattern
 
@@ -37,34 +38,34 @@ extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCal
     func setupCalAtAddTask() {
         let calendar = FSCalendar(frame: CGRect(x: 0, y: homeTopBar.frame.maxY-6, width: UIScreen.main.bounds.width, height:
                                                     homeTopBar.frame.maxY*3.5))
-        calendar.calendarHeaderView.backgroundColor = todoColors.primaryColorDarker
-        calendar.calendarWeekdayView.backgroundColor = todoColors.primaryColorDarker
+        calendar.calendarHeaderView.backgroundColor = todoColors.accentPrimaryPressed
+        calendar.calendarWeekdayView.backgroundColor = todoColors.accentPrimaryPressed
         calendar.appearance.headerTitleColor = .white
-        calendar.appearance.headerTitleFont = todoFont.setFont(fontSize: 16, fontweight: .light, fontDesign: .default)
+        calendar.appearance.headerTitleFont = UIFont.tasker.font(for: .headline)
         
         //weekday title
         calendar.appearance.weekdayTextColor = .lightGray//.lightGray
-        calendar.appearance.weekdayFont = todoFont.setFont(fontSize: 14, fontweight: .light, fontDesign: .rounded)
+        calendar.appearance.weekdayFont = UIFont.tasker.font(for: .callout)
         
         //weekend
-        calendar.appearance.titleWeekendColor = .systemRed
+        calendar.appearance.titleWeekendColor = todoColors.statusDanger
         
         //date
-        calendar.appearance.titleFont = todoFont.setFont(fontSize: 16, fontweight: .regular, fontDesign: .rounded)
+        calendar.appearance.titleFont = UIFont.tasker.font(for: .body)
         calendar.appearance.titleDefaultColor = .white
         calendar.appearance.caseOptions = .weekdayUsesUpperCase
         
         //selection
-        calendar.appearance.selectionColor = todoColors.secondaryAccentColor
+        calendar.appearance.selectionColor = todoColors.accentMuted
         calendar.appearance.subtitleDefaultColor = .white
         
         //today
-        calendar.appearance.todayColor = todoColors.primaryColorDarker
-        calendar.appearance.titleTodayColor = todoColors.secondaryAccentColor
-        calendar.appearance.titleSelectionColor = todoColors.primaryColorDarker
-        calendar.appearance.subtitleSelectionColor = todoColors.primaryColorDarker
-        calendar.appearance.subtitleFont = todoFont.setFont(fontSize: 10, fontweight: .regular, fontDesign: .rounded)
-        calendar.appearance.borderSelectionColor = todoColors.primaryColorDarker
+        calendar.appearance.todayColor = todoColors.accentPrimaryPressed
+        calendar.appearance.titleTodayColor = todoColors.accentOnPrimary
+        calendar.appearance.titleSelectionColor = todoColors.textPrimary
+        calendar.appearance.subtitleSelectionColor = todoColors.textSecondary
+        calendar.appearance.subtitleFont = UIFont.tasker.font(for: .caption2)
+        calendar.appearance.borderSelectionColor = todoColors.accentPrimaryPressed
         
         
         calendar.dataSource = self

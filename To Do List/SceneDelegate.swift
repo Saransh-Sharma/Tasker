@@ -42,8 +42,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let navigationController = NavigationController(rootViewController: homeViewController)
 
         // Set FluentUI custom navigation bar color to match app's primary color immediately on launch
-        let todoColors = ToDoColors()
-        homeViewController.navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.primaryColor
+        let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
+        homeViewController.navigationItem.fluentConfiguration.customNavigationBarColor = themeColors.accentPrimary
         homeViewController.navigationItem.fluentConfiguration.navigationBarStyle = .custom
 
         // Set as root view controller
@@ -81,4 +81,3 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 
 }
-

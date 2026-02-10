@@ -19,7 +19,6 @@ class ProjectManagementViewController: UIViewController {
     var emptyStateLabel: UILabel?
     
     // HUD
-    var todoColors = ToDoColors()
     
     // MARK: - Helper Methods
     private func saveContext() -> Bool {
@@ -77,7 +76,7 @@ class ProjectManagementViewController: UIViewController {
                 emptyStateLabel!.text = "Tap '+' to add your first project"
                 emptyStateLabel!.textAlignment = .center
                 emptyStateLabel!.textColor = .gray
-                emptyStateLabel!.font = UIFont.systemFont(ofSize: 16)
+                emptyStateLabel!.font = UIFont.tasker.body
                 emptyStateLabel!.translatesAutoresizingMaskIntoConstraints = false
                 view.addSubview(emptyStateLabel!)
                 

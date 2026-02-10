@@ -269,7 +269,9 @@ extension String {
 class NewProjectViewController: UIViewController, UITextFieldDelegate {
     
     //    var peoplePickers: [PeoplePicker] = []
-    var todoColors = ToDoColors()
+    private var todoColors: TaskerColorTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.color
+    }
     
     //    var description = Label(style: .subhead, colorStyle: .regular)
     
@@ -298,7 +300,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         
         view.addSubview(addProjectContainer)
         
-        addProjectContainer.backgroundColor = todoColors.backgroundColor
+        addProjectContainer.backgroundColor = todoColors.bgCanvas
         _ = addSpacer()
         _ = addLabel(text: "Add new project")
         _ = addLabel(text: "Add new project & set it's description")
@@ -490,7 +492,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         projectNameTextField.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
         projectNameTextField.label.text = "project name"
         projectNameTextField.leadingAssistiveLabel.text = "Fill in the new project name"
-        projectNameTextField.font = UIFont(name: "HelveticaNeue", size: 18)
+        projectNameTextField.font = UIFont.tasker.body
         projectNameTextField.delegate = self
         projectNameTextField.clearButtonMode = .whileEditing
         let placeholderTextArray = ["New York Trip",
@@ -519,7 +521,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         projecDescriptionTextField.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
         projecDescriptionTextField.label.text = "add description"
         projecDescriptionTextField.leadingAssistiveLabel.text = "Add project description"
-        projecDescriptionTextField.font = UIFont(name: "HelveticaNeue", size: 18)
+        projecDescriptionTextField.font = UIFont.tasker.body
         projecDescriptionTextField.delegate = self
         projecDescriptionTextField.clearButtonMode = .whileEditing
         

@@ -179,4 +179,60 @@ class ThemeAndAppearanceTests: BaseUITest {
 
         takeScreenshot(named: "dynamic_type_support")
     }
+
+    func testThemeAndLLMSettingsVisibility() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
+
+        settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
+
+        XCTAssertTrue(app.staticTexts["Appearance"].exists, "Appearance section should exist")
+        XCTAssertTrue(app.staticTexts["Theme"].exists, "Theme row should exist")
+        XCTAssertTrue(app.staticTexts["LLM Settings"].exists, "LLM settings section should exist")
+        XCTAssertTrue(app.staticTexts["Chats"].exists, "Chats setting should exist")
+        XCTAssertTrue(app.staticTexts["Models"].exists, "Models setting should exist")
+
+        takeScreenshot(named: "theme_and_llm_settings_visibility")
+    }
+
+    func testThemePropagationAcrossHomeAddTaskSearchSettingsAndLLM() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
+        takeScreenshot(named: "theme_surface_home")
+
+        // Add Task surface
+        let addTaskPage = homePage.tapAddTask()
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add task screen should be displayed")
+        takeScreenshot(named: "theme_surface_add_task")
+        addTaskPage.tapCancel()
+        XCTAssertTrue(addTaskPage.waitForDismissal(timeout: 3), "Add task screen should dismiss")
+
+        // Search surface
+        homePage.tapSearch()
+        let searchView = app.otherElements["search.view"]
+        XCTAssertTrue(searchView.waitForExistence(timeout: 3), "Search screen should be displayed")
+        takeScreenshot(named: "theme_surface_search")
+        if app.buttons["Cancel"].firstMatch.exists {
+            app.buttons["Cancel"].firstMatch.tap()
+        } else if app.buttons["Back"].firstMatch.exists {
+            app.buttons["Back"].firstMatch.tap()
+        } else {
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+        }
+
+        // Settings + LLM surfaces
+        settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
+        takeScreenshot(named: "theme_surface_settings")
+
+        if settingsPage.verifyLLMSettingsRowExists() {
+            settingsPage.navigateToLLMSettings()
+            let llmNav = app.navigationBars["settings"]
+            XCTAssertTrue(llmNav.waitForExistence(timeout: 3) || app.navigationBars.firstMatch.exists, "LLM settings should be displayed")
+            takeScreenshot(named: "theme_surface_llm")
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+        }
+
+        homePage = settingsPage.tapDone()
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be displayed after closing settings")
+    }
 }

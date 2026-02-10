@@ -9,7 +9,7 @@ struct DeviceNotSupportedView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "iphone.slash")
-                .font(.system(size: 64))
+                .font(.tasker(.display))
                 .foregroundStyle(.primary, .tertiary)
             
             VStack(spacing: 4) {

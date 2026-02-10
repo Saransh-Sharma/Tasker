@@ -18,6 +18,8 @@ struct ChartCard: View {
     let referenceDate: Date?
     @State private var chartData: [ChartDataEntry] = []
     @State private var isLoading = true
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
     
     init(title: String = "Weekly Progress", subtitle: String? = "Task completion scores", referenceDate: Date? = nil) {
         self.title = title
@@ -26,54 +28,46 @@ struct ChartCard: View {
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header with enhanced theming (Phase 4: Feature Parity)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                    .dynamicTypeSize(.large...(.accessibility5))  // Dynamic type support
-                    .accessibilityAddTraits(.isHeader)
-                
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .dynamicTypeSize(.large...(.accessibility3))  // Dynamic type support
+        TaskerCard {
+            VStack(alignment: .leading, spacing: spacing.cardPadding) {
+                VStack(alignment: .leading, spacing: spacing.titleSubtitleGap) {
+                    Text(title)
+                        .font(.tasker(.headline))
+                        .fontWeight(.semibold)
+                        .foregroundColor(.tasker(.textPrimary))
+                        .dynamicTypeSize(.large...(.accessibility5))
+                        .accessibilityAddTraits(.isHeader)
+
+                    if let subtitle = subtitle {
+                        Text(subtitle)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(.tasker(.textSecondary))
+                            .dynamicTypeSize(.large...(.accessibility3))
+                    }
                 }
-            }
-            .accessibilityElement(children: .combine)
-            
-            // Chart Container
-            ZStack {
-                if isLoading {
-                    // Loading state
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.gray.opacity(0.1))
-                        .frame(height: 200)
-                        .overlay(
-                            ProgressView()
-                                .scaleEffect(1.2)
-                        )
-                } else {
-                    // Chart view
-                    LineChartViewRepresentable(data: chartData, referenceDate: referenceDate)
-                        .frame(height: 200)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(.systemBackground))
-                                .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
-                        )
+                .accessibilityElement(children: .combine)
+
+                ZStack {
+                    if isLoading {
+                        RoundedRectangle(cornerRadius: corner.input)
+                            .fill(Color.tasker.surfaceSecondary)
+                            .frame(height: 200)
+                            .overlay(
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                            )
+                    } else {
+                        LineChartViewRepresentable(data: chartData, referenceDate: referenceDate)
+                            .frame(height: 200)
+                            .background(
+                                RoundedRectangle(cornerRadius: corner.input)
+                                    .fill(Color.tasker.surfacePrimary)
+                                    .taskerElevation(.e1, cornerRadius: corner.input, includesBorder: false)
+                            )
+                    }
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemBackground))
-                .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-        )
         .onAppear {
             loadChartData()
         }
@@ -127,7 +121,8 @@ struct LineChartViewRepresentable: UIViewRepresentable {
     }
     
     private func setupChartView(_ chartView: LineChartView) {
-        let colors = ToDoColors()
+        let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
+        let colors = themeTokens.color
         
         // Enhanced chart configuration for feature parity (Phase 4)
         chartView.backgroundColor = UIColor.clear
@@ -152,9 +147,9 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         xAxis.labelPosition = .bottom
         xAxis.drawGridLinesEnabled = false
         xAxis.drawAxisLineEnabled = true
-        xAxis.axisLineColor = colors.primaryTextColor.withAlphaComponent(0.3)
-        xAxis.labelTextColor = colors.primaryTextColor
-        xAxis.labelFont = .systemFont(ofSize: 11, weight: .medium)
+        xAxis.axisLineColor = colors.divider.withAlphaComponent(0.5)
+        xAxis.labelTextColor = colors.textSecondary
+        xAxis.labelFont = UIFont.tasker.font(for: .caption2)
         xAxis.granularity = 1
         xAxis.labelCount = 7
         xAxis.valueFormatter = WeekDayAxisValueFormatter()
@@ -163,11 +158,11 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         // Y-axis configuration
         let leftAxis = chartView.leftAxis
         leftAxis.drawGridLinesEnabled = true
-        leftAxis.gridColor = colors.primaryTextColor.withAlphaComponent(0.1)
+        leftAxis.gridColor = colors.strokeHairline.withAlphaComponent(0.12)
         leftAxis.gridLineWidth = 0.5
         leftAxis.drawAxisLineEnabled = false
-        leftAxis.labelTextColor = colors.primaryTextColor
-        leftAxis.labelFont = .systemFont(ofSize: 10, weight: .regular)
+        leftAxis.labelTextColor = colors.textTertiary
+        leftAxis.labelFont = UIFont.tasker.font(for: .caption2)
         leftAxis.granularity = 5
         leftAxis.axisMinimum = 0
         
@@ -175,9 +170,9 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         rightAxis.enabled = false
         
         // Enhanced marker configuration
-        let marker = BalloonMarker(color: colors.secondaryAccentColor.withAlphaComponent(0.9),
-                                 font: .systemFont(ofSize: 12, weight: .medium),
-                                 textColor: .white,
+        let marker = BalloonMarker(color: colors.accentPrimary.withAlphaComponent(0.9),
+                                 font: UIFont.tasker.font(for: .caption1),
+                                 textColor: colors.textInverse,
                                  insets: UIEdgeInsets(top: 8, left: 8, bottom: 20, right: 8))
         marker.chartView = chartView
         marker.minimumSize = CGSize(width: 80, height: 40)
@@ -199,7 +194,8 @@ struct LineChartViewRepresentable: UIViewRepresentable {
             return
         }
         
-        let colors = ToDoColors()
+        let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
+        let colors = themeTokens.color
         
         // Use ChartDataService with dependency injection
         let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
@@ -210,7 +206,11 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         chartView.leftAxis.axisMaximum = dynamicMaximum
         
         // Create and configure data set
-        let dataSet = chartService.createLineChartDataSet(with: data, colors: colors)
+        let dataSet = chartService.createLineChartDataSet(
+            with: data,
+            colors: colors,
+            typography: themeTokens.typography
+        )
         
         // Create chart data and apply to chart
         let chartData = LineChartData(dataSet: dataSet)
