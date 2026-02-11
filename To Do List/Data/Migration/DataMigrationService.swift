@@ -136,21 +136,6 @@ public final class DataMigrationService {
 
             case .failure(let error):
                 print("❌ Migration failed: \(error)")
-                let duration = Date().timeIntervalSince(startTime)
-
-                let report = MigrationReport(
-                    tasksProcessed: 0,
-                    projectsProcessed: 0,
-                    tasksAssignedToInbox: 0,
-                    tasksMigrated: 0,
-                    projectsCreated: 0,
-                    inboxCreated: false,
-                    errors: [error.localizedDescription],
-                    duration: duration,
-                    versionBefore: versionBefore,
-                    versionAfter: self.migrationManager.currentVersion()
-                )
-
                 completion(.failure(error))
             }
         }
@@ -269,8 +254,6 @@ public final class DataMigrationService {
     /// 🔥 CRITICAL: Ensure all new projects created going forward will always have UUIDs
     /// This should be called after app setup to verify UUID assignment is working
     public func verifyNewProjectCreation(completion: @escaping (Result<Bool, Error>) -> Void) {
-        let context = persistentContainer.viewContext
-
         // Test project creation to ensure UUID assignment works
         let backgroundContext = persistentContainer.newBackgroundContext()
         backgroundContext.perform {
