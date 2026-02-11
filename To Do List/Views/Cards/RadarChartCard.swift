@@ -142,7 +142,7 @@ struct RadarChartCard: View {
         .onAppear {
             loadPinnedProjects()
         }
-        .onChange(of: referenceDate) { _ in
+        .onChange(of: referenceDate) { _, _ in
             loadChartData()
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("TaskCompletionChanged"))) { _ in

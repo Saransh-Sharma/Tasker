@@ -71,7 +71,7 @@ struct ChartCard: View {
         .onAppear {
             loadChartData()
         }
-        .onChange(of: referenceDate) { _ in
+        .onChange(of: referenceDate) { _, _ in
             loadChartData()
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("TaskCompletionChanged"))) { _ in
