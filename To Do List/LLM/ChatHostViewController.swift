@@ -161,7 +161,7 @@ private struct ChatContainerView: View {
             if appManager.installedModels.isEmpty {
                 // Show onboarding until at least one model is installed
                 OnboardingView(showOnboarding: $showOnboarding)
-                    .onChange(of: appManager.installedModels) { _ in
+                    .onChange(of: appManager.installedModels) { _, _ in
                         // Refresh UI when a model gets installed
                         showOnboarding = false
                     }

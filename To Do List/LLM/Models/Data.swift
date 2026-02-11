@@ -178,7 +178,7 @@ class Message {
 }
 
 @Model
-final class Thread: Sendable {
+final class Thread {
     @Attribute(.unique) var id: UUID
     var title: String?
     var timestamp: Date

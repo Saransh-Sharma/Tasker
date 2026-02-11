@@ -51,7 +51,7 @@ class LoopingPlayerUIView: UIView {
         }
 
         let url = URL(fileURLWithPath: path)
-        let asset = AVAsset(url: url)
+        let asset = AVURLAsset(url: url)
         let item = AVPlayerItem(asset: asset)
 
         playerLayer.player = player
