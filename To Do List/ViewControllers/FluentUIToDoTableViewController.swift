@@ -1361,10 +1361,11 @@ extension FluentUIToDoTableViewController {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
+        let taskName = task.name ?? "Untitled Task"
         
         let alert = UIAlertController(
             title: "Task Rescheduled",
-            message: "'\(task.name)' has been rescheduled to \(formatter.string(from: date))",
+            message: "'\(taskName)' has been rescheduled to \(formatter.string(from: date))",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -1436,7 +1437,7 @@ class RescheduleViewController: UIViewController {
         
         // Task name label
         let taskLabel = UILabel()
-        taskLabel.text = "Reschedule '\(task.name)'"
+        taskLabel.text = "Reschedule '\(task.name ?? "Untitled Task")'"
         taskLabel.font = .systemFont(ofSize: 18, weight: .medium)
         taskLabel.textAlignment = .center
         taskLabel.numberOfLines = 0

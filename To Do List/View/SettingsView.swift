@@ -99,7 +99,7 @@ struct SettingsView: View {
             // For example, accessing parent UIViewController's navigationItem.
             // However, direct SwiftUI styling is preferred if possible.
         }
-        .onChange(of: UIScreen.main.traitCollection.userInterfaceStyle) { newStyle in
+        .onChange(of: UIScreen.main.traitCollection.userInterfaceStyle) { _, newStyle in
             isDarkMode = newStyle == .dark
         }
     }

@@ -156,7 +156,7 @@ extension HomeViewController {
     /// Internal access to allow use from other HomeViewController extensions
     func convertDomainProjectToEntity(_ project: Project) -> Projects? {
         // Create an in-memory context that won't persist or affect the main context
-        guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
+        guard (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer != nil else {
             return nil
         }
 
@@ -331,12 +331,19 @@ extension HomeViewController {
         
         // Print all tasks found for debugging
         print("\n📋 TASK DETAILS:")
+        let addedDateFormatter = DateFormatter()
+        addedDateFormatter.dateStyle = .short
+        addedDateFormatter.timeStyle = .short
+
         for (index, task) in allTasksForDate.enumerated() {
             let status = task.isComplete ? "✅" : "⏳"
             let priorityArray = ["🔴 P0", "🟠 P1", "🟡 P2", "🟢 P3"]
             let priorityIndex = Int(task.taskPriority - 1)
             let priority = (priorityIndex >= 0 && priorityIndex < priorityArray.count) ? priorityArray[priorityIndex] : "⚪ Unknown"
-            print("  \(index + 1). \(status) '\(task.name)' [\(priority)] - Project: '\(task.project ?? "Unknown")' - Added: \(task.dateAdded ?? Date() as NSDate)")
+            let taskName = task.name ?? "Untitled Task"
+            let addedDate = (task.dateAdded as Date?) ?? Date()
+            let addedDateText = addedDateFormatter.string(from: addedDate)
+            print("  \(index + 1). \(status) '\(taskName)' [\(priority)] - Project: '\(task.project ?? "Unknown")' - Added: \(addedDateText)")
         }
         
         // Group tasks by project

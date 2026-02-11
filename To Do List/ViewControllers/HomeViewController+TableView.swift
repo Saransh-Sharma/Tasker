@@ -197,7 +197,7 @@ extension HomeViewController {
         }
         
         if let task = task {
-            print("Table - HomeViewController: Found task '\(task.name)' for indexPath \(indexPath)")
+            print("Table - HomeViewController: Found task '\(task.name ?? "Untitled Task")' for indexPath \(indexPath)")
             configureCellForTask(cell, with: task, at: indexPath)
             if shouldAnimateCells {
                 animateTableViewReloadSingleCell(at: indexPath)

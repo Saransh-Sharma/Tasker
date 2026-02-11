@@ -82,16 +82,12 @@ class ForedropStateManager {
     /// Call this whenever device rotates or layout changes
     func recalculatePositions() {
         guard let parentView = parentView,
-              let foredropContainer = foredropContainer,
               let calendar = calendar,
               let chartsContainer = chartsContainer else {
             print("⚠️ ForedropStateManager: Missing required views for position calculation")
             return
         }
         
-        // Get navigation bar height
-        let navBarHeight = navigationController?.navigationBar.frame.height ?? 0
-        let statusBarHeight = parentView.window?.windowScene?.statusBarManager?.statusBarFrame.height ?? 0
         let totalTopHeight = calendar.frame.minY + 8
 
 
@@ -105,7 +101,6 @@ class ForedropStateManager {
         // MARK: Calendar Position
         // Calculate position to reveal full calendar with padding
         let calendarPadding: CGFloat = 14
-        let calendarHeight = calendar.frame.height
         
         // Use charts container's minY as the reveal point (just above the charts)
         // Convert to parent view's coordinate space for accurate positioning
@@ -118,7 +113,6 @@ class ForedropStateManager {
         // MARK: Charts Position
         // Calculate position to reveal both calendar and charts with padding
         let chartsPadding: CGFloat = 20
-        let chartsHeight = chartsContainer.frame.height
         
         // IMPORTANT: Use the charts parent container's maxY to ensure title, subtitle, and chart are all visible
         // Convert to parent view's coordinate space to ensure accurate positioning

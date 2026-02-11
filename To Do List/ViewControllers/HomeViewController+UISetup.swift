@@ -233,13 +233,6 @@ extension HomeViewController: BadgeViewDelegate {
         let totalTopHeight = navigationBarHeight
         
         let foredropHeight = screenHeight-totalTopHeight
-        // Calculate bottom safe area inset
-        let safeAreaBottomInset: CGFloat
-        if #available(iOS 11.0, *) {
-            safeAreaBottomInset = view.safeAreaInsets.bottom
-        } else {
-            safeAreaBottomInset = 0
-        }
         
         // Allow content to extend under the Liquid Glass bottom bar (no reserved space)
         // Keep a small top offset for styling, but do not subtract the bar height.
@@ -341,13 +334,22 @@ extension HomeViewController: BadgeViewDelegate {
         notificationBadgeNumber = getTaskForTodayCount()
         
         if UIApplication.shared.delegate is AppDelegate {
-            if self.todoTimeUtils.isNightTime(date: Date()) == false { // Updated to use date parameter
-                UIApplication.shared.applicationIconBadgeNumber = getTaskForTodayCount() // Plan Step G
-            } else {
-                UIApplication.shared.applicationIconBadgeNumber = 0 // Plan Step G
-            }
+            let badgeCount = self.todoTimeUtils.isNightTime(date: Date()) ? 0 : getTaskForTodayCount()
+            setApplicationBadgeCount(badgeCount)
             
             UIApplication.shared.registerForRemoteNotifications() // Plan Step G
+        }
+    }
+
+    private func setApplicationBadgeCount(_ count: Int) {
+        if #available(iOS 17.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(count) { error in
+                if let error {
+                    print("⚠️ Failed to set badge count: \(error)")
+                }
+            }
+        } else {
+            UIApplication.shared.applicationIconBadgeNumber = count
         }
     }
     
@@ -460,7 +462,7 @@ extension HomeViewController: BadgeViewDelegate {
         fluentToDoTableViewController?.updateData(for: date)
         
         // Calculate the top bar height dynamically
-        let topBarHeight = homeTopBar.bounds.height ?? 0
+        let topBarHeight = homeTopBar.bounds.height
         
         // Position the FluentUI sample table view to fill the available space
         // With Liquid Glass bar, content may extend underneath; do not reserve space

@@ -35,7 +35,7 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
         let chartService = ChartDataService(context: context!)
         let dailyTotal = chartService.calculateScoreForDate(date: Date())
-        print("📋 Task \(status): '\(task.name)'")
+        print("📋 Task \(status): '\(task.name ?? "Untitled Task")'")
         print("   • Task Score: \(taskScore)")
         print("   • Daily Total Score: \(dailyTotal)")
         print("   • Priority: \(task.taskPriority)")
@@ -66,7 +66,7 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         dateFormatter.timeStyle = .short
         let dueDateString = task.dueDate != nil ? dateFormatter.string(from: task.dueDate! as Date) : "No date"
         
-        print("✏️ Task updated: '\(task.name)'")
+        print("✏️ Task updated: '\(task.name ?? "Untitled Task")'")
         print("   • Task Score: \(taskScore)")
         print("   • Daily Total Score: \(dailyTotal)")
         print("   • Priority: \(task.taskPriority)")
@@ -93,7 +93,7 @@ extension HomeViewController: FluentUIToDoTableViewControllerDelegate {
         let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
         let chartService = ChartDataService(context: context!)
         let dailyTotal = chartService.calculateScoreForDate(date: Date())
-        print("🗑️ Task deleted: '\(task.name)'")
+        print("🗑️ Task deleted: '\(task.name ?? "Untitled Task")'")
         print("   • Task Score: \(taskScore)")
         print("   • Was Completed: \(task.isComplete)")
         print("   • Updated Daily Total: \(dailyTotal)")

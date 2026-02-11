@@ -1220,7 +1220,17 @@ extension HomeViewController {
 
 extension HomeViewController: AddTaskViewControllerDelegate {
     func didAddTask(_ task: NTask) {
-        print("🔄 AddTask: didAddTask called for task: \(task.name) with due date: \(task.dueDate ?? Date() as NSDate)")
+        let taskName = task.name ?? "Untitled Task"
+        let dueDateText: String
+        if let dueDate = task.dueDate as Date? {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            dueDateText = formatter.string(from: dueDate)
+        } else {
+            dueDateText = "No due date"
+        }
+        print("🔄 AddTask: didAddTask called for task: \(taskName) with due date: \(dueDateText)")
 
         // TODO: Use ViewModel to refresh once Presentation folder is added to target
         // if let viewModel = viewModel {

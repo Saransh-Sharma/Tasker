@@ -706,18 +706,16 @@ extension AddTaskViewController {
         samplePillBar = newPillBar
 
         // Add to the view hierarchy
-        if let stackView = foredropStackContainer as? UIStackView {
-            // Find correct position (after description field, before priority)
-            var insertIndex = 2 // Default position after text fields
-            for (index, view) in stackView.arrangedSubviews.enumerated() {
-                if view === tabsSegmentedControl {
-                    insertIndex = index
-                    break
-                }
+        let stackView = foredropStackContainer
+        // Find correct position (after description field, before priority)
+        var insertIndex = 2 // Default position after text fields
+        for (index, view) in stackView.arrangedSubviews.enumerated() {
+            if view === tabsSegmentedControl {
+                insertIndex = index
+                break
             }
-
-            stackView.insertArrangedSubview(newPillBar, at: insertIndex)
         }
+        stackView.insertArrangedSubview(newPillBar, at: insertIndex)
 
         // Select the specified project
         if let pillBarComponent = newPillBar.subviews.first as? PillButtonBar,
