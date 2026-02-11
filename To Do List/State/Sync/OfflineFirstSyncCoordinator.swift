@@ -289,7 +289,7 @@ final class OfflineFirstSyncCoordinator {
         }
         
         // Apply conflict resolutions
-        for resolution in resolutions {
+        for _ in resolutions {
             // Find the conflict and apply resolution
             // This is simplified - in production, you'd match the resolution to specific conflicts
         }
@@ -308,7 +308,7 @@ final class OfflineFirstSyncCoordinator {
         }
         
         // Apply conflict resolutions
-        for resolution in resolutions {
+        for _ in resolutions {
             // Find the conflict and apply resolution
             // This is simplified - in production, you'd match the resolution to specific conflicts
         }

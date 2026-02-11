@@ -116,7 +116,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
 
                 // Persist to database
                 self.backgroundContext.perform {
-                    let entity = ProjectMapper.toEntity(from: project, in: self.backgroundContext)
+                    _ = ProjectMapper.toEntity(from: project, in: self.backgroundContext)
 
                     do {
                         try self.backgroundContext.save()
@@ -152,7 +152,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                     // Create Inbox Projects entity
                     self.backgroundContext.perform {
                         let inboxProject = Project.createInbox()
-                        let entity = ProjectMapper.toEntity(from: inboxProject, in: self.backgroundContext)
+                        _ = ProjectMapper.toEntity(from: inboxProject, in: self.backgroundContext)
 
                         do {
                             try self.backgroundContext.save()

@@ -288,7 +288,7 @@ class ChartDataService {
                 print("🎯 [RADAR] UUIDs: \(selectedIDs.map { $0.uuidString }.joined(separator: ", "))")
             }
 
-            var selectedProjects = (try? context.fetch(request)) ?? []
+            let selectedProjects = (try? context.fetch(request)) ?? []
             print("🎯 [RADAR] Predicate format: \(request.predicate?.predicateFormat ?? "none")")
             print("🎯 [RADAR] Fetched \(selectedProjects.count) projects from \(selectedIDs.count) UUIDs")
 

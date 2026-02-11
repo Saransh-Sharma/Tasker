@@ -136,7 +136,7 @@ public final class ProjectTaskValidator {
                 // Check for orphaned tasks
                 let allProjects = try context.fetch(Projects.fetchRequest()) as [Projects]
                 let validProjectIDs = Set(allProjects.compactMap { $0.projectID })
-                validProjectIDs.union([ProjectConstants.inboxProjectID])
+                    .union([ProjectConstants.inboxProjectID])
 
                 let allTasks = try context.fetch(NTask.fetchRequest()) as [NTask]
                 var orphanedTasks = 0
