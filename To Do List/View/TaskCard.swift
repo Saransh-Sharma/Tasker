@@ -160,22 +160,19 @@ struct TaskCard: View {
     }
     
     private var priorityText: String {
-        switch task.taskPriority {
-        case 1: return "Highest"
-        case 2: return "High"
-        case 3: return "Medium"
-        case 4: return "Low"
-        default: return "Medium"
-        }
+        TaskPriority(rawValue: task.taskPriority).displayName
     }
     
     private var priorityColor: Color {
-        switch task.taskPriority {
-        case 1: return Color(uiColor: themeColors.statusDanger)
-        case 2: return Color(uiColor: themeColors.statusWarning)
-        case 3: return Color(uiColor: themeColors.accentPrimary)
-        case 4: return Color(uiColor: themeColors.accentMuted)
-        default: return Color(uiColor: themeColors.accentPrimary)
+        switch TaskPriority(rawValue: task.taskPriority) {
+        case .max:
+            return Color(uiColor: themeColors.statusDanger)
+        case .high:
+            return Color(uiColor: themeColors.statusWarning)
+        case .low:
+            return Color(uiColor: themeColors.accentPrimary)
+        case .none:
+            return Color(uiColor: themeColors.accentMuted)
         }
     }
 
@@ -346,22 +343,19 @@ struct FeaturedTaskCard: View {
     }
     
     private var priorityText: String {
-        switch task.taskPriority {
-        case 1: return "Highest Priority"
-        case 2: return "High Priority"
-        case 3: return "Medium Priority"
-        case 4: return "Low Priority"
-        default: return "Medium Priority"
-        }
+        "\(TaskPriority(rawValue: task.taskPriority).displayName) Priority"
     }
     
     private var priorityColor: Color {
-        switch task.taskPriority {
-        case 1: return Color(uiColor: themeColors.statusDanger)
-        case 2: return Color(uiColor: themeColors.statusWarning)
-        case 3: return Color(uiColor: themeColors.accentPrimary)
-        case 4: return Color(uiColor: themeColors.accentMuted)
-        default: return Color(uiColor: themeColors.accentPrimary)
+        switch TaskPriority(rawValue: task.taskPriority) {
+        case .max:
+            return Color(uiColor: themeColors.statusDanger)
+        case .high:
+            return Color(uiColor: themeColors.statusWarning)
+        case .low:
+            return Color(uiColor: themeColors.accentPrimary)
+        case .none:
+            return Color(uiColor: themeColors.accentMuted)
         }
     }
     

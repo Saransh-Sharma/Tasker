@@ -35,11 +35,8 @@ class TaskDetailViewFluent: UIView, UITextViewDelegate {
 
     // Priority
     private let priorityHeaderLabel = UILabel()
-    private let prioritySegmentedControl = UISegmentedControl(items: ["Low", "Medium", "High"])
-    // Priority mapping: Using TaskPriority enum values (low=1, medium=2, high=3)
-    // SegmentedControl indices: Low (0), Medium (1), High (2)
-    private let segmentedControlIndexToPriority: [Int: Int32] = [0: 4, 1: 3, 2: 2] // Maps Segment Index to TaskPriority raw values (low=4, medium=3, high=2)
-    private let priorityToSegmentedControlIndex: [Int32: Int] = [4: 0, 3: 1, 2: 2] // Maps TaskPriority raw values to Segment Index
+    private let prioritySegmentOrder = TaskPriority.uiOrder
+    private lazy var prioritySegmentedControl = UISegmentedControl(items: prioritySegmentOrder.map { $0.displayName })
 
 
     // Project
@@ -276,16 +273,8 @@ class TaskDetailViewFluent: UIView, UITextViewDelegate {
         updateDueDateButtonTitle(date: task.dueDate as Date?)
         updateProjectButtonTitle(project: task.project) // Pass the String name
 
-        if let index = priorityToSegmentedControlIndex[task.taskPriority] {
-            prioritySegmentedControl.selectedSegmentIndex = index
-        } else {
-            // Default to "Medium" (index 1) if priority is not in map (e.g. 0 or other undefined)
-            prioritySegmentedControl.selectedSegmentIndex = 1
-            // Optionally, update task.taskPriority to the default if it was invalid
-            if let defaultPriority = segmentedControlIndexToPriority[1] {
-                task.taskPriority = defaultPriority
-            }
-        }
+        let priority = TaskPriority(rawValue: task.taskPriority)
+        prioritySegmentedControl.selectedSegmentIndex = priority.segmentIndex(order: prioritySegmentOrder)
         // Ensure view is laid out to apply theme before configuring sub-components that might depend on it
         self.setNeedsLayout()
         self.layoutIfNeeded()
@@ -344,10 +333,8 @@ class TaskDetailViewFluent: UIView, UITextViewDelegate {
         task.taskDetails = descriptionTextField.text
         
         // Update priority
-        let selectedIndex = prioritySegmentedControl.selectedSegmentIndex
-        if let priorityRawValue = segmentedControlIndexToPriority[selectedIndex] {
-            task.taskPriority = priorityRawValue
-        }
+        let selectedPriority = TaskPriority.fromSegmentIndex(prioritySegmentedControl.selectedSegmentIndex, order: prioritySegmentOrder)
+        task.taskPriority = selectedPriority.rawValue
         
         // Update due date and project
         task.dueDate = (currentDueDate ?? Date()) as NSDate

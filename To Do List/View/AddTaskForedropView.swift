@@ -135,8 +135,8 @@ extension AddTaskViewController {
         // 1) Initialize with your array of titles directly
         let segmented = UISegmentedControl(items: p)
 
-        // 2) Default to the penultimate segment (or whatever index makes sense)
-        segmented.selectedSegmentIndex = max(0, p.count - 2)
+        // 2) Keep UI selection aligned with current model value
+        segmented.selectedSegmentIndex = currentTaskPriority.segmentIndex()
 
         // 3) Show/hide based on eveningSwitch
         segmented.isHidden = eveningSwitch.isOn
@@ -163,26 +163,9 @@ extension AddTaskViewController {
         self.tabsSegmentedControl = segmented
         // Don't add to stack container here - it's added in viewDidLoad
     }
-    //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
-    @objc func changeTaskPriority(_ sender: UISegmentedControl) { // Corrected sender type
-        //"None", "Low", "High", "Highest"]
-        switch sender.selectedSegmentIndex {
-        case 0:
-            print("Priority is None - priority 4")
-            self.currentTaskPriority = .low  // Map "None" to low priority
-        case 1:
-            print("Priority is Low - priority 3")
-            self.currentTaskPriority = .low
-        case 2:
-            print("Priority is High - priority 2")
-            self.currentTaskPriority = .high
-        case 3:
-            print("Priority is Highest - priority 1")
-            self.currentTaskPriority = .high  // Map "Highest" to high priority
-        default:
-            print("Failed to get Task Priority, defaulting to Low/3")
-            self.currentTaskPriority = .low
-        }
+    @objc func changeTaskPriority(_ sender: UISegmentedControl) {
+        self.currentTaskPriority = TaskPriority.fromSegmentIndex(sender.selectedSegmentIndex)
+        print("Priority selected: \(self.currentTaskPriority.displayName) (\(self.currentTaskPriority.rawValue))")
     }
     
     // OLD: setupDoneButton() method removed
