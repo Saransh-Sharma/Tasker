@@ -636,7 +636,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
                 // Fix missing priority
                 if task.taskPriority == 0 {
-                    task.taskPriority = 4 // Low priority
+                    task.taskPriority = TaskPriority.low.rawValue
                     needsSave = true
                 }
             }
