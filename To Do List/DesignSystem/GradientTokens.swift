@@ -31,7 +31,6 @@ public struct TaskerHeaderGradient {
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
         // Keep all header treatment layers behind subviews/content layers.
         // Insert at the bottom in declared order: gradient -> scrim -> bottomFade -> noise.
-        layer.insertSublayer(gradientLayer, at: 0)
 
         let scrimLayer = CAGradientLayer()
         scrimLayer.name = "taskerHeaderScrim"
@@ -40,7 +39,6 @@ public struct TaskerHeaderGradient {
         scrimLayer.locations = [0.0, 0.5, 1.0]
         scrimLayer.startPoint = CGPoint(x: 0.5, y: 0)
         scrimLayer.endPoint = CGPoint(x: 0.5, y: 1)
-        layer.insertSublayer(scrimLayer, at: 1)
 
         let bottomFade = CAGradientLayer()
         bottomFade.name = "taskerHeaderBottomFade"
@@ -49,7 +47,6 @@ public struct TaskerHeaderGradient {
         bottomFade.locations = [0.0, 0.72, 1.0]
         bottomFade.startPoint = CGPoint(x: 0.5, y: 0)
         bottomFade.endPoint = CGPoint(x: 0.5, y: 1)
-        layer.insertSublayer(bottomFade, at: 2)
 
         // Radial highlight at top-center for depth
         let radialHighlight = CAGradientLayer()
@@ -64,7 +61,6 @@ public struct TaskerHeaderGradient {
         ]
         radialHighlight.startPoint = CGPoint(x: 0.5, y: 0)
         radialHighlight.endPoint = CGPoint(x: 0.5, y: 1.0)
-        layer.insertSublayer(radialHighlight, at: 3)
 
         let noiseLayer = CALayer()
         noiseLayer.name = "taskerHeaderNoise"
@@ -73,7 +69,27 @@ public struct TaskerHeaderGradient {
         noiseLayer.contentsGravity = .resizeAspectFill
         noiseLayer.opacity = isDark ? 0.025 : 0.02
         noiseLayer.compositingFilter = "softLightBlendMode"
-        layer.insertSublayer(noiseLayer, at: 4)
+
+        // Wrap all sublayers in a container with rounded bottom corners
+        let container = CALayer()
+        container.name = "taskerHeaderGradientContainer"
+        container.frame = bounds
+        container.addSublayer(gradientLayer)
+        container.addSublayer(scrimLayer)
+        container.addSublayer(bottomFade)
+        container.addSublayer(radialHighlight)
+        container.addSublayer(noiseLayer)
+
+        let maskPath = UIBezierPath(
+            roundedRect: bounds,
+            byRoundingCorners: [.bottomLeft, .bottomRight],
+            cornerRadii: CGSize(width: 24, height: 24)
+        )
+        let maskLayer = CAShapeLayer()
+        maskLayer.path = maskPath.cgPath
+        container.mask = maskLayer
+
+        layer.insertSublayer(container, at: 0)
     }
 
     /// Backward-compatible convenience overload.
@@ -83,8 +99,7 @@ public struct TaskerHeaderGradient {
 
     /// Remove all header gradient sublayers (useful before re-applying on theme change).
     public static func removeLayers(from layer: CALayer) {
-        let names = ["taskerHeaderGradient", "taskerHeaderScrim", "taskerHeaderBottomFade", "taskerHeaderRadialHighlight", "taskerHeaderNoise"]
-        layer.sublayers?.removeAll(where: { names.contains($0.name ?? "") })
+        layer.sublayers?.removeAll(where: { $0.name == "taskerHeaderGradientContainer" })
     }
 
     // MARK: - Gradient Color Generation

@@ -121,16 +121,17 @@ public extension View {
 public extension UIView {
     @MainActor
     static func taskerSpringAnimate(
-        _ params: (duration: Double, damping: CGFloat, velocity: CGFloat) = TaskerAnimation.uiSnappy,
+        _ params: (duration: Double, damping: CGFloat, velocity: CGFloat)? = nil,
         delay: TimeInterval = 0,
         animations: @escaping () -> Void,
         completion: ((Bool) -> Void)? = nil
     ) {
+        let resolvedParams = params ?? TaskerAnimation.uiSnappy
         UIView.animate(
-            withDuration: params.duration,
+            withDuration: resolvedParams.duration,
             delay: delay,
-            usingSpringWithDamping: params.damping,
-            initialSpringVelocity: params.velocity,
+            usingSpringWithDamping: resolvedParams.damping,
+            initialSpringVelocity: resolvedParams.velocity,
             options: [.curveEaseInOut, .allowUserInteraction],
             animations: animations,
             completion: completion
