@@ -23,7 +23,7 @@ public class ProjectMapper {
         }
 
         // Check if this is the Inbox project
-        let isInbox = entity.isDefault ?? (id == ProjectConstants.inboxProjectID)
+        let isInbox = entity.isDefault || (id == ProjectConstants.inboxProjectID)
 
         return Project(
             id: id,
