@@ -15,6 +15,27 @@ public typealias TaskPriority = TaskPriorityConfig.Priority
 // MARK: - Legacy Compatibility Extensions
 
 extension TaskPriority {
+    /// Canonical UI ordering for segmented controls and chips.
+    public static var uiOrder: [TaskPriority] {
+        return [.none, .low, .high, .max]
+    }
+
+    /// Resolve a priority from a selected segment index using canonical ordering.
+    public static func fromSegmentIndex(_ index: Int, order: [TaskPriority] = TaskPriority.uiOrder) -> TaskPriority {
+        guard order.indices.contains(index) else {
+            return .low
+        }
+        return order[index]
+    }
+
+    /// Resolve segment index for this priority using canonical ordering.
+    public func segmentIndex(order: [TaskPriority] = TaskPriority.uiOrder) -> Int {
+        if let index = order.firstIndex(of: self) {
+            return index
+        }
+        return order.firstIndex(of: .low) ?? 0
+    }
+
     /// Legacy property - use displayName instead
     @available(*, deprecated, message: "Use displayName instead")
     public var scoreValue: Int {

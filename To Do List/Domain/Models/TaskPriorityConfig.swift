@@ -44,13 +44,13 @@ public struct TaskPriorityConfig {
             return TaskPriorityConfig.scoreForPriority(self)
         }
 
-        /// Hex color string for UI representation (platform-agnostic)
+        /// Hex color string for UI representation ("Four Jewels" — maximally distinct)
         public var colorHex: String {
             switch self {
-            case .none: return "#8E8E93"  // systemGray
-            case .low: return "#007AFF"   // systemBlue
-            case .high: return "#FF9500"  // systemOrange
-            case .max: return "#FF3B30"   // systemRed
+            case .none: return "#B09080"  // Antique Bronze
+            case .low: return "#38C8A8"   // Jade Teal
+            case .high: return "#7C68D8"  // Imperial Violet
+            case .max: return "#E05058"   // Scarlet Garnet
             }
         }
 
