@@ -516,12 +516,11 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     func getPriorityIcon(for priority: Int) -> String {
-        switch priority {
-        case 1: return "🔴" // P0 - Highest
-        case 2: return "🟠" // P1 - High
-        case 3: return "🟡" // P2 - Medium
-        case 4: return "🟢" // P3 - Low
-        default: return "⚪" // Unknown
+        switch TaskPriority(rawValue: Int32(priority)) {
+        case .max: return "🔴"
+        case .high: return "🟠"
+        case .low: return "🟢"
+        case .none: return "⚪"
         }
     }
     

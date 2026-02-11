@@ -337,9 +337,8 @@ extension HomeViewController {
 
         for (index, task) in allTasksForDate.enumerated() {
             let status = task.isComplete ? "✅" : "⏳"
-            let priorityArray = ["🔴 P0", "🟠 P1", "🟡 P2", "🟢 P3"]
-            let priorityIndex = Int(task.taskPriority - 1)
-            let priority = (priorityIndex >= 0 && priorityIndex < priorityArray.count) ? priorityArray[priorityIndex] : "⚪ Unknown"
+            let priorityModel = TaskPriority(rawValue: task.taskPriority)
+            let priority = "\(priorityModel.displayName) (\(priorityModel.code))"
             let taskName = task.name ?? "Untitled Task"
             let addedDate = (task.dateAdded as Date?) ?? Date()
             let addedDateText = addedDateFormatter.string(from: addedDate)

@@ -275,7 +275,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     func setupPrioritySC() -> UIView {
         
         let mView = UIView()
-        let p = ["None", "Low", "High", "Highest"]
+        let p = TaskPriority.uiOrder.map { $0.displayName }
         let prioritySC = UISegmentedControl(items: p)
         
         mView.frame = CGRect(x: 0, y: standardHeight+standardHeight+standardHeight, width: UIScreen.main.bounds.width, height: standardHeight/2)
@@ -283,7 +283,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         mView.backgroundColor = primaryColor
         prioritySC.frame = CGRect(x: 0, y: mView.bounds.minY, width: mView.bounds.width, height: mView.bounds.height)
         //Task Priority
-        prioritySC.selectedSegmentIndex = 1
+        prioritySC.selectedSegmentIndex = currentTaskPriority.segmentIndex()
         prioritySC.backgroundColor = .white
         prioritySC.selectedSegmentTintColor =  secondryColor
         prioritySC.setTitleTextAttributes([NSAttributedString.Key.foregroundColor: UIColor.white], for: UIControl.State.selected)
@@ -294,27 +294,10 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         return mView
     }
     
-    //1-4 where 1 is p0; 2 is p1; 3 is p2; 4 is none/p4; default is 3(p2)
     @objc
     func changeTaskPriority(sender: UISegmentedControl) {
-        
-        switch sender.selectedSegmentIndex {
-        case 0:
-            print("Priority is None - no priority")
-            currentTaskPriority = .low  // Map "None" to low priority
-        case 1:
-            print("Priority is Low")
-            currentTaskPriority = .low
-        case 2:
-            print("Priority is High")
-            currentTaskPriority = .high
-        case 3:
-            print("Priority is Max")
-            currentTaskPriority = .max
-        default:
-            print("Failed to get Task Priority, defaulting to low")
-            currentTaskPriority = .low
-        }
+        currentTaskPriority = TaskPriority.fromSegmentIndex(sender.selectedSegmentIndex)
+        print("Priority selected: \(currentTaskPriority.displayName) (\(currentTaskPriority.rawValue))")
     }
     
     // MARK: MAKE Second Seperator

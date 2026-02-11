@@ -83,7 +83,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     let eveningLabel = UILabel()
 
     var addTaskTextBox_Material = MDCFilledTextField()
-    let p = ["None", "Low", "High", "Max"] // Used by AddTaskForedropView extension - shortened "Highest" to "Max" to prevent text wrapping
+    let p = TaskPriority.uiOrder.map { $0.displayName }
 
     var tabsSegmentedControl = UISegmentedControl() // Initialized in AddTaskForedropView extension
 
