@@ -29,14 +29,24 @@ extension TaskerTheme {
         public static var background: Color { Color.tasker(.bgCanvas) }
         public static var surfaceSecondary: Color { Color.tasker(.surfaceSecondary) }
 
-        // Accent
+        // Primary Accent
         public static var accentPrimary: Color { Color.tasker(.accentPrimary) }
         public static var accentMuted: Color { Color.tasker(.accentMuted) }
+
+        // Secondary Accent
+        public static var accentSecondary: Color { Color.tasker(.accentSecondary) }
+        public static var accentSecondaryMuted: Color { Color.tasker(.accentSecondaryMuted) }
 
         // Status
         public static var statusSuccess: Color { Color.tasker(.statusSuccess) }
         public static var statusWarning: Color { Color.tasker(.statusWarning) }
         public static var statusDanger: Color { Color.tasker(.statusDanger) }
+
+        // Priority
+        public static var priorityMax: Color { Color.tasker(.priorityMax) }
+        public static var priorityHigh: Color { Color.tasker(.priorityHigh) }
+        public static var priorityLow: Color { Color.tasker(.priorityLow) }
+        public static var priorityNone: Color { Color.tasker(.priorityNone) }
     }
 }
 

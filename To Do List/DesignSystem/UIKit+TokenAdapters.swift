@@ -294,16 +294,14 @@ public final class TaskerCardView: UIView {
 }
 
 public extension TaskPriorityConfig.Priority {
+    @MainActor
     var color: UIColor {
+        let colors = TaskerUIKitTokens.color
         switch self {
-        case .none:
-            return UIColor.taskerDynamic(lightHex: "#9C9389", darkHex: "#9A9188")
-        case .low:
-            return UIColor(taskerHex: "#2ECC71")
-        case .high:
-            return UIColor(taskerHex: "#F5A623")
-        case .max:
-            return UIColor(taskerHex: "#E74C3C")
+        case .none: return colors.priorityNone
+        case .low:  return colors.priorityLow
+        case .high: return colors.priorityHigh
+        case .max:  return colors.priorityMax
         }
     }
 }

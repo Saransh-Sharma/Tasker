@@ -45,6 +45,10 @@ public enum TaskerColorRole: String, CaseIterable {
     case accentWash
     case accentOnPrimary
     case accentRing
+    case accentSecondary
+    case accentSecondaryPressed
+    case accentSecondaryMuted
+    case accentSecondaryWash
     case statusSuccess
     case statusWarning
     case statusDanger
@@ -54,8 +58,13 @@ public enum TaskerColorRole: String, CaseIterable {
     case taskCheckboxFill
     case taskOverdue
     case chartPrimary
+    case chartSecondary
     case chipSelectedBackground
     case chipUnselectedBackground
+    case priorityMax
+    case priorityHigh
+    case priorityLow
+    case priorityNone
 }
 
 public enum TaskerSpacingToken: CGFloat, CaseIterable {
