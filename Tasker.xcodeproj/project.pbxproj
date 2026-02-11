@@ -39,7 +39,6 @@
 		7509A01B2F13D806009162CD /* PresentationDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00A2F13D806009162CD /* PresentationDependencyContainer.swift */; };
 		7509A01C2F13D806009162CD /* ProjectManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */; };
 		750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 750F9EDB2685CC9F00C008C4 /* CloudKit.framework */; };
-		750F9EDF2685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */; };
 		751074DF2DEE038E00AC7F22 /* TaskDetailViewFluent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074DE2DEE038E00AC7F22 /* TaskDetailViewFluent.swift */; };
 		751074E52DEE048800AC7F22 /* ProjectPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074E22DEE048800AC7F22 /* ProjectPickerViewController.swift */; };
 		751074E72DEE10BF00AC7F22 /* FluentUITokenExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751074E62DEE10BF00AC7F22 /* FluentUITokenExtensions.swift */; };
@@ -116,7 +115,6 @@
 		7551DA0B24883478005CF826 /* AddTaskCalendarExtention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0A24883478005CF826 /* AddTaskCalendarExtention.swift */; };
 		75573CAF2DE88A8000F5A873 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CAE2DE88A8000F5A873 /* SettingsView.swift */; };
 		75573CB42DE8954500F5A873 /* ProjectManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75573CB22DE8954500F5A873 /* ProjectManagementView.swift */; };
-		7557547A2DEED864003C9757 /* AddTaskViewController+Foredrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755754792DEED864003C9757 /* AddTaskViewController+Foredrop.swift */; };
 		755FE8D72479159200A71A75 /* HomeCalendarExtention.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8D62479159200A71A75 /* HomeCalendarExtention.swift */; };
 		755FE8D92479169400A71A75 /* ToDoList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8D82479169400A71A75 /* ToDoList.swift */; };
 		755FE8DC2479220700A71A75 /* LineChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8DB2479220700A71A75 /* LineChart.swift */; };
@@ -160,7 +158,6 @@
 		75D827552E8C89BA000F04E1 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D827522E8C89BA000F04E1 /* User.swift */; };
 		75D827572E8C89D6000F04E1 /* TaskCollaborationSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D827562E8C89D6000F04E1 /* TaskCollaborationSyncService.swift */; };
 		75D8275B2E8C89F9000F04E1 /* CreateTaskRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D8275A2E8C89F9000F04E1 /* CreateTaskRequest.swift */; };
-		75D827612E8CE769000F04E1 /* CreateTaskRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D8275E2E8CE769000F04E1 /* CreateTaskRequest.swift */; };
 		75DFF2B22DF22E6B00EB8850 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF2AF2DF22E6B00EB8850 /* DependencyContainer.swift */; };
 		75DFF2B52DF22EA500EB8850 /* TaskData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF2B42DF22EA500EB8850 /* TaskData.swift */; };
 		75DFF2B92DF22EF200EB8850 /* NTask+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF2B82DF22EF200EB8850 /* NTask+Extensions.swift */; };
@@ -245,18 +242,6 @@
 		75F89F542DFC44E6009EDD8F /* DeviceStat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2D2DFC44E6009EDD8F /* DeviceStat.swift */; };
 		75F89F562DFC44E6009EDD8F /* MoonAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F372DFC44E6009EDD8F /* MoonAnimationView.swift */; };
 		75F89F572DFC44E6009EDD8F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F332DFC44E6009EDD8F /* ChatView.swift */; };
-		75F89F682DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F5E2DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift */; };
-		75F89F692DFC4E5D009EDD8F /* OnboardingInstallModelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F5F2DFC4E5D009EDD8F /* OnboardingInstallModelView.swift */; };
-		75F89F6A2DFC4E5D009EDD8F /* CreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F642DFC4E5D009EDD8F /* CreditsView.swift */; };
-		75F89F6B2DFC4E5D009EDD8F /* MoonAnimationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F5D2DFC4E5D009EDD8F /* MoonAnimationView.swift */; };
-		75F89F6C2DFC4E5D009EDD8F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F592DFC4E5D009EDD8F /* ChatView.swift */; };
-		75F89F6E2DFC4E5D009EDD8F /* AppearanceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F622DFC4E5D009EDD8F /* AppearanceSettingsView.swift */; };
-		75F89F6F2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F5C2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift */; };
-		75F89F702DFC4E5D009EDD8F /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F602DFC4E5D009EDD8F /* OnboardingView.swift */; };
-		75F89F712DFC4E5D009EDD8F /* ChatsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F582DFC4E5D009EDD8F /* ChatsListView.swift */; };
-		75F89F722DFC4E5D009EDD8F /* ChatsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F632DFC4E5D009EDD8F /* ChatsSettingsView.swift */; };
-		75F89F732DFC4E5D009EDD8F /* ModelsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F662DFC4E5D009EDD8F /* ModelsSettingsView.swift */; };
-		75F89F742DFC4E5D009EDD8F /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F5A2DFC4E5D009EDD8F /* ConversationView.swift */; };
 		75F89F782DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */; };
 		75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 75F89FB12DFC62C3009EDD8F /* MarkdownUI */; };
 		75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
@@ -320,7 +305,6 @@
 		7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementViewModel.swift; sourceTree = "<group>"; };
 		750F9EDA2685CC9500C008C4 /* This Day.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "This Day.entitlements"; sourceTree = "<group>"; };
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
-		750F9EDE2685D7A400C008C4 /* TaskModel.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModel.xcdatamodel; sourceTree = "<group>"; };
 		751074DE2DEE038E00AC7F22 /* TaskDetailViewFluent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailViewFluent.swift; sourceTree = "<group>"; };
 		751074E22DEE048800AC7F22 /* ProjectPickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPickerViewController.swift; sourceTree = "<group>"; };
 		751074E62DEE10BF00AC7F22 /* FluentUITokenExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FluentUITokenExtensions.swift; sourceTree = "<group>"; };
@@ -403,7 +387,6 @@
 		7551DA0A24883478005CF826 /* AddTaskCalendarExtention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskCalendarExtention.swift; sourceTree = "<group>"; };
 		75573CAE2DE88A8000F5A873 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		75573CB22DE8954500F5A873 /* ProjectManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementView.swift; sourceTree = "<group>"; };
-		755754792DEED864003C9757 /* AddTaskViewController+Foredrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AddTaskViewController+Foredrop.swift"; sourceTree = "<group>"; };
 		755FE8D62479159200A71A75 /* HomeCalendarExtention.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarExtention.swift; sourceTree = "<group>"; };
 		755FE8D82479169400A71A75 /* ToDoList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoList.swift; sourceTree = "<group>"; };
 		755FE8DB2479220700A71A75 /* LineChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineChart.swift; sourceTree = "<group>"; };
@@ -440,7 +423,6 @@
 		75D827522E8C89BA000F04E1 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		75D827562E8C89D6000F04E1 /* TaskCollaborationSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskCollaborationSyncService.swift; sourceTree = "<group>"; };
 		75D8275A2E8C89F9000F04E1 /* CreateTaskRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateTaskRequest.swift; sourceTree = "<group>"; };
-		75D8275E2E8CE769000F04E1 /* CreateTaskRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateTaskRequest.swift; sourceTree = "<group>"; };
 		75DFF2AF2DF22E6B00EB8850 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
 		75DFF2B42DF22EA500EB8850 /* TaskData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskData.swift; sourceTree = "<group>"; };
 		75DFF2B82DF22EF200EB8850 /* NTask+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NTask+Extensions.swift"; sourceTree = "<group>"; };
@@ -526,18 +508,6 @@
 		75F89F3E2DFC44E6009EDD8F /* CreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsView.swift; sourceTree = "<group>"; };
 		75F89F3F2DFC44E6009EDD8F /* ModelsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSettingsView.swift; sourceTree = "<group>"; };
 		75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHostViewController.swift; sourceTree = "<group>"; };
-		75F89F582DFC4E5D009EDD8F /* ChatsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsListView.swift; sourceTree = "<group>"; };
-		75F89F592DFC4E5D009EDD8F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
-		75F89F5A2DFC4E5D009EDD8F /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
-		75F89F5C2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceNotSupportedView.swift; sourceTree = "<group>"; };
-		75F89F5D2DFC4E5D009EDD8F /* MoonAnimationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoonAnimationView.swift; sourceTree = "<group>"; };
-		75F89F5E2DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingDownloadingModelProgressView.swift; sourceTree = "<group>"; };
-		75F89F5F2DFC4E5D009EDD8F /* OnboardingInstallModelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingInstallModelView.swift; sourceTree = "<group>"; };
-		75F89F602DFC4E5D009EDD8F /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		75F89F622DFC4E5D009EDD8F /* AppearanceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsView.swift; sourceTree = "<group>"; };
-		75F89F632DFC4E5D009EDD8F /* ChatsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsSettingsView.swift; sourceTree = "<group>"; };
-		75F89F642DFC4E5D009EDD8F /* CreditsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreditsView.swift; sourceTree = "<group>"; };
-		75F89F662DFC4E5D009EDD8F /* ModelsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSettingsView.swift; sourceTree = "<group>"; };
 		75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMSettingsView.swift; sourceTree = "<group>"; };
 		75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptMiddleware.swift; sourceTree = "<group>"; };
 		75F89FBB2DFD813F009EDD8F /* LLMTaskContextBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMTaskContextBuilder.swift; sourceTree = "<group>"; };
@@ -759,7 +729,6 @@
 		753EFC912445A24500A739E3 = {
 			isa = PBXGroup;
 			children = (
-				750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */,
 				750F9EDA2685CC9500C008C4 /* This Day.entitlements */,
 				758D4D7B24A940C300AB57A8 /* Projects+CoreDataClass.swift */,
 				758D4D7924A940BD00AB57A8 /* Projects+CoreDataProperties.swift */,
@@ -772,13 +741,6 @@
 				4FE34C754CBE9463FD207EED /* Pods */,
 				031AB8D26C533B56B12C3D36 /* Frameworks */,
 				7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */,
-				1D1019B77D01322B031EC108 /* InMemoryCacheService.swift */,
-				8AD631E2A2245F830BA92FA5 /* CoreDataProjectRepository.swift */,
-				61DD4EEC3F347BB9E2BF1639 /* CoreDataTaskRepository+Domain.swift */,
-				017ECAA6FA89C9A7825A3E8A /* EnhancedDependencyContainer.swift */,
-				928C90DA7E4426D4E1A9E257 /* LocalDataSourceProtocol.swift */,
-				B9593B616D0F29F830522613 /* RemoteDataSourceProtocol.swift */,
-				EED0C53BF9A051C58DD7354B /* OfflineFirstSyncCoordinator.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -1038,7 +1000,6 @@
 				7510750F2DEE26B100AC7F22 /* HomeViewController+Utilities.swift */,
 				751075132DEE323D00AC7F22 /* AddTaskViewControllerDelegate.swift */,
 				751075172DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift */,
-				755754792DEED864003C9757 /* AddTaskViewController+Foredrop.swift */,
 				75DFF2DB2DF2302600EB8850 /* TaskListViewController.swift */,
 				75DFF2E32DF47D4200EB8850 /* FluentUIToDoTableViewController.swift */,
 				75F3CB792DFA17BD007FF928 /* HomeViewController+FluentUIDelegate.swift */,
@@ -1183,7 +1144,6 @@
 				75E929D42E8C782100207270 /* TaskRepeatPattern.swift */,
 				75D827522E8C89BA000F04E1 /* User.swift */,
 				75D8275A2E8C89F9000F04E1 /* CreateTaskRequest.swift */,
-				75D8275E2E8CE769000F04E1 /* CreateTaskRequest.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -1335,9 +1295,6 @@
 				75F89F352DFC44E6009EDD8F /* Chat */,
 				75F89F3B2DFC44E6009EDD8F /* Onboarding */,
 				75F89F412DFC44E6009EDD8F /* Settings */,
-				75F89F5B2DFC4E5D009EDD8F /* Chat */,
-				75F89F612DFC4E5D009EDD8F /* Onboarding */,
-				75F89F672DFC4E5D009EDD8F /* Settings */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1352,39 +1309,6 @@
 				7529F7032DFDF7E3000CBE36 /* loading-animation.json */,
 			);
 			path = LLM;
-			sourceTree = "<group>";
-		};
-		75F89F5B2DFC4E5D009EDD8F /* Chat */ = {
-			isa = PBXGroup;
-			children = (
-				75F89F582DFC4E5D009EDD8F /* ChatsListView.swift */,
-				75F89F592DFC4E5D009EDD8F /* ChatView.swift */,
-				75F89F5A2DFC4E5D009EDD8F /* ConversationView.swift */,
-			);
-			path = Chat;
-			sourceTree = "<group>";
-		};
-		75F89F612DFC4E5D009EDD8F /* Onboarding */ = {
-			isa = PBXGroup;
-			children = (
-				75F89F5C2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift */,
-				75F89F5D2DFC4E5D009EDD8F /* MoonAnimationView.swift */,
-				75F89F5E2DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift */,
-				75F89F5F2DFC4E5D009EDD8F /* OnboardingInstallModelView.swift */,
-				75F89F602DFC4E5D009EDD8F /* OnboardingView.swift */,
-			);
-			path = Onboarding;
-			sourceTree = "<group>";
-		};
-		75F89F672DFC4E5D009EDD8F /* Settings */ = {
-			isa = PBXGroup;
-			children = (
-				75F89F622DFC4E5D009EDD8F /* AppearanceSettingsView.swift */,
-				75F89F632DFC4E5D009EDD8F /* ChatsSettingsView.swift */,
-				75F89F642DFC4E5D009EDD8F /* CreditsView.swift */,
-				75F89F662DFC4E5D009EDD8F /* ModelsSettingsView.swift */,
-			);
-			path = Settings;
 			sourceTree = "<group>";
 		};
 		75F9937524824E7E00C340EB /* Animation */ = {
@@ -1725,7 +1649,6 @@
 				758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */,
 				7551DA0B24883478005CF826 /* AddTaskCalendarExtention.swift in Sources */,
 				75F0C7152DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */,
-				750F9EDF2685D7A400C008C4 /* TaskModel.xcdatamodeld in Sources */,
 				753EFCA22445A24500A739E3 /* HomeViewController.swift in Sources */,
 				751074F82DEE25A000AC7F22 /* HomeViewController+DateTimePicker.swift in Sources */,
 				75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */,
@@ -1815,20 +1738,8 @@
 				75E929E32E8C782100207270 /* TaskRepeatPattern.swift in Sources */,
 				75D8274E2E8C8995000F04E1 /* UserRepositoryProtocol.swift in Sources */,
 				75D8274F2E8C8995000F04E1 /* NotificationServiceProtocol.swift in Sources */,
-				75F89F682DFC4E5D009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */,
-				75F89F692DFC4E5D009EDD8F /* OnboardingInstallModelView.swift in Sources */,
-				75F89F6A2DFC4E5D009EDD8F /* CreditsView.swift in Sources */,
-				75F89F6B2DFC4E5D009EDD8F /* MoonAnimationView.swift in Sources */,
 				75E866D92DFF0381000470B4 /* ThemeSelectionViewController.swift in Sources */,
-				75F89F6C2DFC4E5D009EDD8F /* ChatView.swift in Sources */,
-				75F89F6E2DFC4E5D009EDD8F /* AppearanceSettingsView.swift in Sources */,
-				75F89F6F2DFC4E5D009EDD8F /* DeviceNotSupportedView.swift in Sources */,
-				75F89F702DFC4E5D009EDD8F /* OnboardingView.swift in Sources */,
 				750894CC2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */,
-				75F89F712DFC4E5D009EDD8F /* ChatsListView.swift in Sources */,
-				75F89F722DFC4E5D009EDD8F /* ChatsSettingsView.swift in Sources */,
-				75F89F732DFC4E5D009EDD8F /* ModelsSettingsView.swift in Sources */,
-				75F89F742DFC4E5D009EDD8F /* ConversationView.swift in Sources */,
 				757F87D42E10550900278E0C /* HomeViewController+LegacyChartShims.swift in Sources */,
 				75F89F782DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */,
 				75F89F492DFC44E6009EDD8F /* Models.swift in Sources */,
@@ -1872,9 +1783,7 @@
 				755FE8D92479169400A71A75 /* ToDoList.swift in Sources */,
 				759F18F92468B70200293A32 /* NAddTaskScreen.swift in Sources */,
 				751075192DEE419900AC7F22 /* AddTaskViewController+Foredrop.swift in Sources */,
-				7557547A2DEED864003C9757 /* AddTaskViewController+Foredrop.swift in Sources */,
 				75A631602E8BDAB9006EEA59 /* LGSearchViewController.swift in Sources */,
-				75D827612E8CE769000F04E1 /* CreateTaskRequest.swift in Sources */,
 				75A631782E8C3C5B006EEA59 /* ForedropStateManager.swift in Sources */,
 				75A631612E8BDAB9006EEA59 /* LGSearchViewModel.swift in Sources */,
 				758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */,
@@ -2380,17 +2289,6 @@
 /* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
-		750F9EDD2685D7A400C008C4 /* TaskModel.xcdatamodeld */ = {
-			isa = XCVersionGroup;
-			children = (
-				750F9EDE2685D7A400C008C4 /* TaskModel.xcdatamodel */,
-			);
-			currentVersion = 750F9EDE2685D7A400C008C4 /* TaskModel.xcdatamodel */;
-			name = TaskModel.xcdatamodeld;
-			path = "To Do List/TaskModel.xcdatamodeld";
-			sourceTree = "<group>";
-			versionGroupType = wrapper.xcdatamodel;
-		};
 		75F18100245C99CD004D9A69 /* TaskModel.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
