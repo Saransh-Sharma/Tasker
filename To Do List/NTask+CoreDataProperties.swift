@@ -30,22 +30,11 @@ extension NTask {
     @NSManaged public var dateAdded: NSDate?
     @NSManaged public var isEveningTask: Bool
     @NSManaged public var dateCompleted: NSDate? //date its marked done
-    
+
     
 
     func getTaskScore(task: NTask) -> Int {
-        if task.taskPriority == 1 {
-            return 7
-        } else if task.taskPriority == 2 {
-            return 4
-        } else if task.taskPriority == 3 {
-            return 3
-        } else if task.taskPriority == 4 {
-            return 2
-        }
-        else {
-            return 1
-        }
+        return TaskPriorityConfig.scoreForRawValue(task.taskPriority)
     }
     
 //    func getProjectScore(task: NTask) -> Int {
