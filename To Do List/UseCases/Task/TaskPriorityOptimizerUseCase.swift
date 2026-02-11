@@ -208,7 +208,7 @@ public final class TaskPriorityOptimizerUseCase {
         
         // Apply changes
         if !optimizedTasks.isEmpty {
-            applyPriorityChanges(optimizedTasks) { [weak self] result in
+            applyPriorityChanges(optimizedTasks) { result in
                 switch result {
                 case .success:
                     let optimizationResult = PriorityOptimizationResult(

@@ -64,7 +64,6 @@ public final class TaskTimeTrackingUseCase {
         completion: @escaping (Result<TimeTrackingResult, TimeTrackingError>) -> Void
     ) {
         // For now, simulate stopping time tracking
-        let endTime = Date()
         let duration = TimeInterval(3600) // 1 hour simulation
         
         let result = TimeTrackingResult(

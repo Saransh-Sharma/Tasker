@@ -246,13 +246,12 @@ public final class TaskHabitBuilderUseCase {
         // Simulate habit progress calculation
         let streakIncreased = true
         let newStreak = 6
-        let milestoneReached = newStreak == 7 // Week milestone
         
         return HabitCompletionResult(
             habitTaskId: habitTaskId,
             streakIncreased: streakIncreased,
             newStreakCount: newStreak,
-            milestoneReached: milestoneReached ? .streak(7) : nil,
+            milestoneReached: nil,
             momentum: .building,
             nextScheduledDate: calculateNextOccurrenceDate(for: HabitDefinition.defaultDefinition())
         )
