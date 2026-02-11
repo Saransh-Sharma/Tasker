@@ -1,0 +1,16 @@
+{
+  "assignee": "saransh1337@gmail.com",
+  "claim_note": "",
+  "claimed_at": "2026-02-10T20:37:32.354760Z",
+  "created_at": "2026-02-10T20:31:17.661741Z",
+  "depends_on": [
+    "fn-5.1"
+  ],
+  "epic": "fn-5",
+  "id": "fn-5.2",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-5.2.md",
+  "status": "in_progress",
+  "title": "Sweep app-target warnings (mechanical/deprecation)",
+  "updated_at": "2026-02-10T20:37:32.354853Z"
+}
