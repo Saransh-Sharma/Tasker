@@ -19,35 +19,38 @@ struct OnboardingInstallModelView: View {
         return "\(size) GB"
     }
 
-    /// The maximum allowable model size as a fraction of the device's total RAM.
-    /// For example, a value of 0.6 means the model's size should not exceed 60% of the device's total memory.
     let modelMemoryThreshold = 0.6
 
     var modelsList: some View {
         Form {
             Section {
-                VStack(spacing: 12) {
-                    Image(systemName: "arrow.down.circle.dotted")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 64, height: 64)
-                        .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
-                        .foregroundStyle(.primary, .tertiary)
+                VStack(spacing: TaskerTheme.Spacing.lg) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.tasker(.accentWash))
+                            .frame(width: 80, height: 80)
+                        Image(systemName: "arrow.down.circle.dotted")
+                            .font(.system(size: 36, weight: .medium))
+                            .foregroundColor(Color.tasker(.accentPrimary))
+                            .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
+                    }
 
-                    VStack(spacing: 4) {
+                    VStack(spacing: TaskerTheme.Spacing.xs) {
                         Text("install a model")
-                            .font(.title)
-                            .fontWeight(.semibold)
-                        Text("select from models that are optimized for apple silicon")
-                            .foregroundStyle(.secondary)
+                            .font(.tasker(.title1))
+                            .foregroundColor(Color.tasker(.textPrimary))
+                        Text("select from models optimized for apple silicon")
+                            .font(.tasker(.callout))
+                            .foregroundColor(Color.tasker(.textSecondary))
                             .multilineTextAlignment(.center)
                         #if DEBUG
                         Text("ram: \(appManager.availableMemory) GB")
-                            .foregroundStyle(.red)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker(.statusDanger))
                         #endif
                     }
                 }
-                .padding(.vertical)
+                .padding(.vertical, TaskerTheme.Spacing.lg)
                 .frame(maxWidth: .infinity)
             }
             .listRowBackground(Color.clear)
@@ -59,15 +62,17 @@ struct OnboardingInstallModelView: View {
                         Button {} label: {
                             Label {
                                 Text(appManager.modelDisplayName(modelName))
+                                    .font(.tasker(.body))
                             } icon: {
                                 Image(systemName: "checkmark")
+                                    .foregroundColor(Color.tasker(.accentPrimary))
                             }
                         }
                         .badge(sizeBadge(model))
                         #if os(macOS)
                             .buttonStyle(.borderless)
                         #endif
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.tasker(.textSecondary))
                             .disabled(true)
                     }
                 }
@@ -76,9 +81,11 @@ struct OnboardingInstallModelView: View {
                     Button { selectedModel = suggestedModel } label: {
                         Label {
                             Text(appManager.modelDisplayName(suggestedModel.name))
-                                .tint(.primary)
+                                .font(.tasker(.body))
+                                .tint(Color.tasker(.textPrimary))
                         } icon: {
                             Image(systemName: selectedModel.name == suggestedModel.name ? "checkmark.circle.fill" : "circle")
+                                .foregroundColor(selectedModel.name == suggestedModel.name ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary))
                         }
                     }
                     .badge(sizeBadge(suggestedModel))
@@ -94,9 +101,11 @@ struct OnboardingInstallModelView: View {
                         Button { selectedModel = model } label: {
                             Label {
                                 Text(appManager.modelDisplayName(model.name))
-                                    .tint(.primary)
+                                    .font(.tasker(.body))
+                                    .tint(Color.tasker(.textPrimary))
                             } icon: {
                                 Image(systemName: selectedModel.name == model.name ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(selectedModel.name == model.name ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary))
                             }
                         }
                         .badge(sizeBadge(model))
@@ -119,6 +128,8 @@ struct OnboardingInstallModelView: View {
             #endif
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(Color.tasker(.bgCanvas))
     }
 
     var body: some View {
@@ -130,7 +141,8 @@ struct OnboardingInstallModelView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         NavigationLink(destination: OnboardingDownloadingModelProgressView(showOnboarding: $showOnboarding, selectedModel: $selectedModel)) {
                             Text("install")
-                                .font(.headline)
+                                .font(.tasker(.button))
+                                .foregroundColor(Color.tasker(.accentPrimary))
                         }
                         .disabled(filteredModels.isEmpty)
                     }
@@ -163,7 +175,6 @@ struct OnboardingInstallModelView: View {
     }
 
     func checkModels() {
-        // automatically select the first available model
         if appManager.installedModels.contains(suggestedModel.name) {
             if let model = filteredModels.first {
                 selectedModel = model

@@ -12,58 +12,83 @@ struct OnboardingDownloadingModelProgressView: View {
     @Binding var selectedModel: ModelConfiguration
     @Environment(LLMEvaluator.self) var llm
     @State var didSwitchModel = false
-    
+
     var installed: Bool {
         llm.progress == 1 && didSwitchModel
     }
-    
+
     var body: some View {
         VStack {
             Spacer()
-            
-            VStack(spacing: 128) {
+
+            VStack(spacing: TaskerTheme.Spacing.xxxl) {
                 MoonAnimationView(isDone: installed)
-                
-                VStack(spacing: 4) {
+
+                VStack(spacing: TaskerTheme.Spacing.xs) {
                     Text(installed ? "installed" : "installing")
-                        .font(.title)
-                        .fontWeight(.semibold)
+                        .font(.tasker(.title1))
+                        .foregroundColor(Color.tasker(.textPrimary))
                     Text(appManager.modelDisplayName(selectedModel.name))
-                        .foregroundStyle(.secondary)
+                        .font(.tasker(.callout))
+                        .foregroundColor(Color.tasker(.textSecondary))
                         .multilineTextAlignment(.center)
                 }
-                
-                ProgressView(value: llm.progress, total: 1)
-                    .progressViewStyle(.linear)
-                    .padding(.horizontal, 48)
+
+                // Custom progress bar
+                VStack(spacing: TaskerTheme.Spacing.sm) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill)
+                                .fill(Color.tasker(.surfaceTertiary))
+                                .frame(height: 8)
+
+                            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill)
+                                .fill(Color.tasker(.accentPrimary))
+                                .frame(width: geo.size.width * llm.progress, height: 8)
+                                .animation(TaskerAnimation.gentle, value: llm.progress)
+                        }
+                    }
+                    .frame(height: 8)
+
+                    Text("\(Int(llm.progress * 100))%")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker(.textTertiary))
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, 48)
             }
-            
+
             Spacer()
-            
+
             if installed {
                 Button(action: { showOnboarding = false }) {
                     Text("done")
                         #if os(iOS) || os(visionOS)
-                        .font(.headline)
+                        .font(.tasker(.button))
+                        .foregroundColor(Color.tasker(.accentOnPrimary))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        #endif
-                        #if os(iOS)
-                        .foregroundStyle(.background)
+                        .frame(height: 48)
+                        .background(Color.tasker(.accentPrimary))
+                        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous))
                         #endif
                 }
+                #if os(macOS)
                 .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .padding(.horizontal)
+                #endif
+                .scaleOnPress()
+                .padding(.horizontal, TaskerTheme.Spacing.xl)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .animation(TaskerAnimation.bouncy, value: installed)
             } else {
                 Text("keep this screen open and wait for the installation to complete.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker(.textQuaternary))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+                    .padding(.horizontal, TaskerTheme.Spacing.xl)
             }
         }
         .padding()
+        .background(Color.tasker(.bgCanvas))
         .navigationTitle("downloading AI model..")
         .toolbar(installed ? .hidden : .visible)
         .navigationBarBackButtonHidden()
@@ -90,12 +115,12 @@ struct OnboardingDownloadingModelProgressView: View {
         }
         #endif
     }
-    
+
     func loadLLM() async {
         await llm.switchModel(selectedModel)
         didSwitchModel = true
     }
-    
+
     func addInstalledModel() {
         if installed {
             print("added installed model")
