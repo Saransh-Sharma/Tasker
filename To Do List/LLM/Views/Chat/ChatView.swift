@@ -22,42 +22,35 @@ struct ChatView: View {
     @Binding var showChats: Bool
     @Binding var showSettings: Bool
     @Environment(\.dismiss) var dismissView
-    
+
     @State var thinkingTime: TimeInterval?
-    
+
     @State private var generatingThreadID: UUID?
-    // Track which threads already received task/project context to avoid bloating each prompt
     static private var contextInjectedThreads = Set<UUID>()
 
     var isPromptEmpty: Bool {
         prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    let platformBackgroundColor: Color = {
-        #if os(iOS)
-        return Color(UIColor.secondarySystemBackground)
-        #elseif os(visionOS)
-        return Color(UIColor.separator)
-        #elseif os(macOS)
-        return Color(NSColor.secondarySystemFill)
-        #endif
-    }()
+    // MARK: - Chat Input Bar
 
     var chatInput: some View {
         HStack(alignment: .bottom, spacing: 0) {
-            TextField("message", text: $prompt, axis: .vertical)
+            TextField("ask Eva anything...", text: $prompt, axis: .vertical)
                 .focused($isPromptFocused)
                 .textFieldStyle(.plain)
+                .font(.tasker(.body))
+                .foregroundColor(Color.tasker(.textPrimary))
             #if os(iOS) || os(visionOS)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, TaskerTheme.Spacing.lg)
             #elseif os(macOS)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, TaskerTheme.Spacing.md)
                 .onSubmit {
                     handleShiftReturn()
                 }
                 .submitLabel(.send)
             #endif
-                .padding(.vertical, 8)
+                .padding(.vertical, TaskerTheme.Spacing.sm)
             #if os(iOS) || os(visionOS)
                 .frame(minHeight: 48)
             #elseif os(macOS)
@@ -78,16 +71,23 @@ struct ChatView: View {
         }
         #if os(iOS) || os(visionOS)
         .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(platformBackgroundColor)
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.xl, style: .continuous)
+                .fill(Color.tasker(.surfaceSecondary))
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.xl, style: .continuous)
+                .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+        )
+        .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.xl)
         #elseif os(macOS)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(platformBackgroundColor)
+                .fill(Color.tasker(.surfaceSecondary))
         )
         #endif
     }
+
+    // MARK: - Model Picker Button
 
     var modelPickerButton: some View {
         Button {
@@ -103,7 +103,8 @@ struct ChatView: View {
                 #elseif os(macOS)
                     .frame(width: 12)
                 #endif
-                    .tint(.primary)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Color.tasker(.accentPrimary))
             }
             #if os(iOS) || os(visionOS)
             .frame(width: 48, height: 48)
@@ -112,61 +113,81 @@ struct ChatView: View {
             #endif
             .background(
                 Circle()
-                    .fill(platformBackgroundColor)
+                    .fill(Color.tasker(.accentWash))
+            )
+            .overlay(
+                Circle()
+                    .stroke(Color.tasker(.accentMuted), lineWidth: 1)
             )
         }
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
+        .scaleOnPress()
     }
+
+    // MARK: - Send Button
 
     var generateButton: some View {
         Button {
             generate()
         } label: {
-            Image(systemName: "arrow.up.circle.fill")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
+            Image(systemName: "arrow.up")
+                .font(.tasker(.buttonSmall))
+                .fontWeight(.semibold)
+                .foregroundColor(isPromptEmpty ? Color.tasker(.textQuaternary) : Color.tasker(.accentOnPrimary))
             #if os(iOS) || os(visionOS)
-                .frame(width: 24, height: 24)
+                .frame(width: 32, height: 32)
             #else
-                .frame(width: 16, height: 16)
+                .frame(width: 24, height: 24)
             #endif
+                .background(
+                    Circle()
+                        .fill(isPromptEmpty ? Color.tasker(.surfaceTertiary) : Color.tasker(.accentPrimary))
+                )
         }
         .disabled(isPromptEmpty)
         #if os(iOS) || os(visionOS)
-            .padding(.trailing, 12)
-            .padding(.bottom, 12)
+            .padding(.trailing, TaskerTheme.Spacing.md)
+            .padding(.bottom, TaskerTheme.Spacing.md)
         #else
-            .padding(.trailing, 8)
-            .padding(.bottom, 8)
+            .padding(.trailing, TaskerTheme.Spacing.sm)
+            .padding(.bottom, TaskerTheme.Spacing.sm)
         #endif
+        .animation(TaskerAnimation.quick, value: isPromptEmpty)
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
     }
 
+    // MARK: - Stop Button
+
     var stopButton: some View {
         Button {
             llm.stop()
         } label: {
-            Image(systemName: "stop.circle.fill")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
+            Image(systemName: "stop.fill")
+                .font(.caption)
+                .foregroundColor(Color.tasker(.accentOnPrimary))
             #if os(iOS) || os(visionOS)
-                .frame(width: 24, height: 24)
+                .frame(width: 32, height: 32)
             #else
-                .frame(width: 16, height: 16)
+                .frame(width: 24, height: 24)
             #endif
+                .background(
+                    Circle()
+                        .fill(Color.tasker(.statusDanger))
+                )
         }
         .disabled(llm.cancelled)
         #if os(iOS) || os(visionOS)
-            .padding(.trailing, 12)
-            .padding(.bottom, 12)
+            .padding(.trailing, TaskerTheme.Spacing.md)
+            .padding(.bottom, TaskerTheme.Spacing.md)
         #else
-            .padding(.trailing, 8)
-            .padding(.bottom, 8)
+            .padding(.trailing, TaskerTheme.Spacing.sm)
+            .padding(.bottom, TaskerTheme.Spacing.sm)
         #endif
+        .scaleOnPress()
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
@@ -182,27 +203,85 @@ struct ChatView: View {
         return "chat"
     }
 
+    // MARK: - Empty State
+
+    var emptyState: some View {
+        VStack(spacing: TaskerTheme.Spacing.lg) {
+            Spacer()
+
+            // Eva avatar circle
+            ZStack {
+                Circle()
+                    .fill(Color.tasker(.accentWash))
+                    .frame(width: 80, height: 80)
+                Image(systemName: "bubble.left.and.text.bubble.right")
+                    .font(.system(size: 32, weight: .light))
+                    .foregroundColor(Color.tasker(.accentPrimary))
+                    .symbolEffect(.wiggle.byLayer, options: .repeat(.periodic(delay: 3.0)))
+            }
+
+            VStack(spacing: TaskerTheme.Spacing.xs) {
+                Text("ask Eva anything")
+                    .font(.tasker(.title2))
+                    .foregroundColor(Color.tasker(.textPrimary))
+                Text("your AI assistant knows your tasks and projects")
+                    .font(.tasker(.callout))
+                    .foregroundColor(Color.tasker(.textTertiary))
+                    .multilineTextAlignment(.center)
+            }
+
+            // Suggestion chips
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: TaskerTheme.Spacing.sm) {
+                    ForEach(["what's due today?", "summarize my week", "plan tomorrow"], id: \.self) { suggestion in
+                        Button {
+                            prompt = suggestion
+                            generate()
+                        } label: {
+                            Text(suggestion)
+                                .font(.tasker(.callout))
+                                .foregroundColor(Color.tasker(.accentPrimary))
+                                .padding(.horizontal, TaskerTheme.Spacing.md)
+                                .padding(.vertical, TaskerTheme.Spacing.sm)
+                                .background(Color.tasker(.accentWash))
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
+                        }
+                        .scaleOnPress()
+                    }
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.xl)
+            }
+
+            Spacer()
+        }
+    }
+
+    // MARK: - Body
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 if let currentThread = currentThread {
                     ConversationView(thread: currentThread, generatingThreadID: generatingThreadID)
                 } else {
-                    Spacer()
-                    Image(systemName: "checkmark.circle")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 32, height: 32)
-                        .foregroundStyle(.quaternary)
-                    Spacer()
+                    emptyState
                 }
 
-                HStack(alignment: .bottom) {
+                // Bottom input area
+                HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
                     modelPickerButton
                     chatInput
                 }
-                .padding()
+                .padding(.horizontal, TaskerTheme.Spacing.lg)
+                .padding(.bottom, TaskerTheme.Spacing.md)
+                .padding(.top, TaskerTheme.Spacing.sm)
+                .background(
+                    Color.tasker(.bgCanvas)
+                        .shadow(color: Color.tasker(.textPrimary).opacity(0.04), radius: 8, y: -4)
+                )
             }
+            .background(Color.tasker(.bgCanvas))
             .navigationTitle(chatTitle)
             #if os(iOS) || os(visionOS)
                 .navigationBarTitleDisplayMode(.inline)
@@ -223,6 +302,8 @@ struct ChatView: View {
                         #endif
                     }
                     #if os(iOS)
+                    .presentationBackground(Color.tasker(.bgElevated))
+                    .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
                     .presentationDragIndicator(.visible)
                     .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium] : [.large])
                     #elseif os(macOS)
@@ -250,6 +331,8 @@ struct ChatView: View {
                         #endif
                     }
                     #if os(iOS)
+                    .presentationBackground(Color.tasker(.bgElevated))
+                    .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
                     .presentationDragIndicator(.visible)
                     .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.large] : [.large])
                     #elseif os(macOS)
@@ -287,11 +370,9 @@ struct ChatView: View {
 
     private func generate() {
         if !isPromptEmpty {
-            // Parse slash command if any
             let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
             let action = parseSlashCommand(trimmed)
 
-            // Handle /clear immediately
             if case .clear = action {
                 if let thread = currentThread {
                     modelContext.delete(thread)
@@ -302,7 +383,6 @@ struct ChatView: View {
                 return
             }
 
-            // Ensure thread exists
             if currentThread == nil {
                 let newThread = Thread()
                 currentThread = newThread
@@ -328,7 +408,6 @@ struct ChatView: View {
                     prompt = ""
                     appManager.playHaptic()
 
-                    // Build dynamic system prompt based on action
                     var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
 
                     switch action {
@@ -338,7 +417,6 @@ struct ChatView: View {
                     default:
                         break
                     }
-                    // Add task/project context only once per thread to keep prompts small
                     let tID = currentThread.id
                     if !ChatView.contextInjectedThreads.contains(tID) {
                         let tasksText = LLMTaskContextBuilder.weeklyTasksTextCached()
@@ -408,7 +486,6 @@ struct ChatView: View {
         case "/project":
             if components.count == 2 {
                 let query = components[1].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                // Get projects from Core Data directly
                 let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
                 let request: NSFetchRequest<Projects> = Projects.fetchRequest()
                 let allProjects = (try? context?.fetch(request)) ?? []
@@ -423,7 +500,6 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - Task summary helper
     private func buildTasksSummary() -> String {
         PromptMiddleware.buildTasksSummary(range: .today)
     }
