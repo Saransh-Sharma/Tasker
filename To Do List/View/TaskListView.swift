@@ -18,13 +18,17 @@ struct TaskListView: View {
     let projects: [Project]
     let doneTimelineTasks: [DomainTask]
     let activeQuickView: HomeQuickView?
+    let projectGroupingMode: HomeProjectGroupingMode
+    let customProjectOrderIDs: [UUID]
     let emptyStateMessage: String?
     let emptyStateActionTitle: String?
     var onTaskTap: ((DomainTask) -> Void)? = nil
     var onToggleComplete: ((DomainTask) -> Void)? = nil
     var onDeleteTask: ((DomainTask) -> Void)? = nil
     var onRescheduleTask: ((DomainTask) -> Void)? = nil
+    var onReorderCustomProjects: (([UUID]) -> Void)? = nil
     var onEmptyStateAction: (() -> Void)? = nil
+    @State private var draggingCustomProjectID: UUID?
 
     init(
         morningTasks: [DomainTask],
@@ -33,12 +37,15 @@ struct TaskListView: View {
         projects: [Project],
         doneTimelineTasks: [DomainTask] = [],
         activeQuickView: HomeQuickView? = nil,
+        projectGroupingMode: HomeProjectGroupingMode = .defaultMode,
+        customProjectOrderIDs: [UUID] = [],
         emptyStateMessage: String? = nil,
         emptyStateActionTitle: String? = nil,
         onTaskTap: ((DomainTask) -> Void)? = nil,
         onToggleComplete: ((DomainTask) -> Void)? = nil,
         onDeleteTask: ((DomainTask) -> Void)? = nil,
         onRescheduleTask: ((DomainTask) -> Void)? = nil,
+        onReorderCustomProjects: (([UUID]) -> Void)? = nil,
         onEmptyStateAction: (() -> Void)? = nil
     ) {
         self.morningTasks = morningTasks
@@ -47,12 +54,15 @@ struct TaskListView: View {
         self.projects = projects
         self.doneTimelineTasks = doneTimelineTasks
         self.activeQuickView = activeQuickView
+        self.projectGroupingMode = projectGroupingMode
+        self.customProjectOrderIDs = customProjectOrderIDs
         self.emptyStateMessage = emptyStateMessage
         self.emptyStateActionTitle = emptyStateActionTitle
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
         self.onDeleteTask = onDeleteTask
         self.onRescheduleTask = onRescheduleTask
+        self.onReorderCustomProjects = onReorderCustomProjects
         self.onEmptyStateAction = onEmptyStateAction
     }
 
@@ -84,7 +94,80 @@ struct TaskListView: View {
 
     @ViewBuilder
     private var regularTaskContent: some View {
-        // Overdue section (always first when present)
+        if activeQuickView == .today {
+            todayRegularTaskContent
+        } else {
+            legacyRegularTaskContent
+        }
+    }
+
+    @ViewBuilder
+    private var todayRegularTaskContent: some View {
+        let layout = HomeTaskSectionBuilder.buildTodayLayout(
+            mode: projectGroupingMode,
+            nonOverdueTasks: morningTasks + eveningTasks,
+            overdueTasks: overdueTasks,
+            projects: projects,
+            customProjectOrderIDs: customProjectOrderIDs
+        )
+        let hasInboxSection = layout.inboxSection?.tasks.isEmpty == false
+        let hasOverdueSection = projectGroupingMode == .prioritizeOverdue && !layout.overdueGroups.isEmpty
+
+        if let inboxSection = layout.inboxSection, !inboxSection.tasks.isEmpty {
+            TaskSectionView(
+                project: inboxSection.project,
+                tasks: inboxSection.tasks,
+                onTaskTap: onTaskTap,
+                onToggleComplete: onToggleComplete,
+                onDeleteTask: onDeleteTask,
+                onRescheduleTask: onRescheduleTask
+            )
+            .staggeredAppearance(index: 0)
+        }
+
+        if projectGroupingMode == .prioritizeOverdue, !layout.overdueGroups.isEmpty {
+            OverdueGroupedSectionView(
+                groups: layout.overdueGroups,
+                onTaskTap: onTaskTap,
+                onToggleComplete: onToggleComplete,
+                onDeleteTask: onDeleteTask,
+                onRescheduleTask: onRescheduleTask
+            )
+            .staggeredAppearance(index: hasInboxSection ? 1 : 0)
+        }
+
+        let currentCustomOrder = layout.customSections.map(\.project.id)
+        let customStartIndex = (hasInboxSection ? 1 : 0) + (hasOverdueSection ? 1 : 0)
+        ForEach(Array(layout.customSections.enumerated()), id: \.element.id) { index, section in
+            TaskSectionView(
+                project: section.project,
+                tasks: section.tasks,
+                onTaskTap: onTaskTap,
+                onToggleComplete: onToggleComplete,
+                onDeleteTask: onDeleteTask,
+                onRescheduleTask: onRescheduleTask
+            )
+            .staggeredAppearance(index: customStartIndex + index)
+            .onDrag {
+                draggingCustomProjectID = section.project.id
+                return NSItemProvider(object: section.project.id.uuidString as NSString)
+            }
+            .onDrop(
+                of: ["public.text"],
+                delegate: CustomProjectSectionDropDelegate(
+                    targetProjectID: section.project.id,
+                    draggedProjectID: $draggingCustomProjectID,
+                    currentCustomOrder: currentCustomOrder,
+                    onReorder: { reordered in
+                        onReorderCustomProjects?(reordered)
+                    }
+                )
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var legacyRegularTaskContent: some View {
         if !overdueTasks.isEmpty {
             TaskSectionView(
                 project: overdueProject,
@@ -98,8 +181,7 @@ struct TaskListView: View {
             .staggeredAppearance(index: 0)
         }
 
-        // Project sections (Inbox first, then alphabetical)
-        ForEach(Array(sortedProjectSections.enumerated()), id: \.element.id) { index, section in
+        ForEach(Array(legacySortedProjectSections.enumerated()), id: \.element.id) { index, section in
             TaskSectionView(
                 project: section.project,
                 tasks: section.tasks,
@@ -130,8 +212,7 @@ struct TaskListView: View {
         }
     }
 
-    private var sortedProjectSections: [ProjectSection] {
-        // Combine morning + evening (overdue is handled separately)
+    private var legacySortedProjectSections: [ProjectSection] {
         let allTasks = morningTasks + eveningTasks
 
         guard !allTasks.isEmpty else { return [] }
@@ -284,6 +365,90 @@ private struct ProjectSection: Identifiable {
     let project: Project
     let tasks: [DomainTask]
     var id: UUID { project.id }
+}
+
+private struct OverdueGroupedSectionView: View {
+    let groups: [HomeTaskOverdueGroup]
+    var onTaskTap: ((DomainTask) -> Void)?
+    var onToggleComplete: ((DomainTask) -> Void)?
+    var onDeleteTask: ((DomainTask) -> Void)?
+    var onRescheduleTask: ((DomainTask) -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
+            HStack(spacing: TaskerTheme.Spacing.md) {
+                Circle()
+                    .fill(Color.tasker(.taskOverdue))
+                    .frame(width: 4, height: 4)
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color.tasker(.taskOverdue))
+                    .frame(width: 20, alignment: .center)
+                Text("Overdue")
+                    .font(.tasker(.title3))
+                    .foregroundColor(Color.tasker.textPrimary)
+                Text("\(groups.reduce(0) { $0 + $1.tasks.count })")
+                    .font(.tasker(.caption2))
+                    .fontWeight(.medium)
+                    .foregroundColor(Color.tasker.textTertiary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(Capsule())
+            }
+            .padding(.vertical, TaskerTheme.Spacing.md)
+
+            ForEach(Array(groups.enumerated()), id: \.element.project.id) { index, group in
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                    Text(group.project.name)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .padding(.top, index == 0 ? 0 : TaskerTheme.Spacing.sm)
+
+                    ForEach(Array(group.tasks.enumerated()), id: \.element.id) { taskIndex, task in
+                        TaskRowView(
+                            task: task,
+                            showTypeBadge: false,
+                            onTap: { onTaskTap?(task) },
+                            onToggleComplete: { onToggleComplete?(task) },
+                            onDelete: { onDeleteTask?(task) },
+                            onReschedule: { onRescheduleTask?(task) }
+                        )
+                        .staggeredAppearance(index: taskIndex)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct CustomProjectSectionDropDelegate: DropDelegate {
+    let targetProjectID: UUID
+    @Binding var draggedProjectID: UUID?
+    let currentCustomOrder: [UUID]
+    let onReorder: ([UUID]) -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedProjectID, draggedProjectID != targetProjectID else { return }
+        guard let fromIndex = currentCustomOrder.firstIndex(of: draggedProjectID),
+              let toIndex = currentCustomOrder.firstIndex(of: targetProjectID),
+              fromIndex != toIndex else { return }
+
+        var reordered = currentCustomOrder
+        let moved = reordered.remove(at: fromIndex)
+        reordered.insert(moved, at: toIndex)
+        onReorder(reordered)
+        self.draggedProjectID = targetProjectID
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedProjectID = nil
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
 }
 
 // MARK: - Preview
