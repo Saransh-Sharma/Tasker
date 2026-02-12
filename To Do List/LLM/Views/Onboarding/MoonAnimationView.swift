@@ -59,7 +59,7 @@ class LoopingPlayerUIView: UIView {
         layer.addSublayer(playerLayer)
 
         playerLooper = AVPlayerLooper(player: player, templateItem: item)
-        
+
         // Prevent other audio from stopping
         do {
             try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default, options: [])
@@ -67,7 +67,7 @@ class LoopingPlayerUIView: UIView {
         } catch {
             print("Failed to set audio session category: \(error)")
         }
-        
+
         player.play()
     }
 
@@ -86,15 +86,15 @@ class LoopingPlayerUIView: UIView {
 #if os(macOS)
 struct PlayerView: NSViewRepresentable {
     var videoName: String
-    
+
     init(videoName: String) {
         self.videoName = videoName
     }
-    
+
     func updateNSView(_ nsView: NSView, context: Context) {
         // No dynamic updates needed for this player
     }
-    
+
     func makeNSView(context: Context) -> NSView {
         return LoopingPlayerNSView(videoName: videoName)
     }
@@ -104,7 +104,7 @@ class LoopingPlayerNSView: NSView {
     private var playerLayer = AVPlayerLayer()
     private var playerLooper: AVPlayerLooper?
     private var player = AVQueuePlayer()
-    
+
     init(videoName: String) {
         // Ensure the video file exists
         guard let path = Bundle.main.path(forResource: videoName, ofType: "mp4") else {
@@ -113,27 +113,27 @@ class LoopingPlayerNSView: NSView {
         let url = URL(fileURLWithPath: path)
         let asset = AVAsset(url: url)
         let item = AVPlayerItem(asset: asset)
-        
+
         super.init(frame: .zero)
-        
+
         // Configure the player layer
         playerLayer.player = player
         playerLayer.videoGravity = .resizeAspectFill
         self.wantsLayer = true
         self.layer?.addSublayer(playerLayer)
-        
+
         // Setup looping
         playerLooper = AVPlayerLooper(player: player, templateItem: item)
-        
+
         // Start playback
         player.play()
     }
-    
+
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     override func layout() {
         super.layout()
         playerLayer.frame = self.bounds
@@ -164,17 +164,24 @@ struct LottieView: UIViewRepresentable {
 
 struct MoonAnimationView: View {
     var isDone: Bool
-    
+
     var body: some View {
         ZStack {
             if isDone {
-                Image(systemName: "checkmark.circle.fill")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .foregroundStyle(.green)
+                ZStack {
+                    Circle()
+                        .fill(Color.tasker(.statusSuccess).opacity(0.15))
+                        .frame(width: 88, height: 88)
+                    Image(systemName: "checkmark.circle.fill")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 56, height: 56)
+                        .foregroundColor(Color.tasker(.statusSuccess))
+                }
+                .transition(.scale.combined(with: .opacity))
             } else {
                 // Lottie loading animation
-                
+
                 #if os(iOS) || os(visionOS)
                 LottieView(animationName: "loading-animation")
                     .aspectRatio(contentMode: .fit)
@@ -182,6 +189,7 @@ struct MoonAnimationView: View {
                         Circle()
                             .scale(0.30)
                     }
+                    .transition(.scale.combined(with: .opacity))
 #else
                 // Fallback on macOS: chat bubbles symbol with wiggle effect
                 Image(systemName: "bubble.left.and.text.bubble.right")
@@ -192,10 +200,12 @@ struct MoonAnimationView: View {
                         Circle()
                             .scale(0.40)
                     }
+                    .transition(.scale.combined(with: .opacity))
 #endif
             }
         }
-        .frame(width: 64, height: 64)
+        .frame(width: 88, height: 88)
+        .animation(TaskerAnimation.bouncy, value: isDone)
     }
 }
 
