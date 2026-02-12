@@ -2,24 +2,23 @@
 //  TaskCard.swift
 //  To Do List
 //
-//  Created by Assistant on Card View Implementation
+//  Task card variants for non-list contexts (dashboard, detail views).
+//  Migrated from NTask (CoreData) to domain Task model.
 //
 
 import SwiftUI
-import UIKit
-import CoreData
 
 // MARK: - Task Card Component
 struct TaskCard: View {
-    let task: NTask
+    let task: DomainTask
     let onTap: (() -> Void)?
     let onToggleComplete: (() -> Void)?
-    
+
     @State private var isPressed = false
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    
+
     init(
-        task: NTask,
+        task: DomainTask,
         onTap: (() -> Void)? = nil,
         onToggleComplete: (() -> Void)? = nil
     ) {
@@ -27,18 +26,18 @@ struct TaskCard: View {
         self.onTap = onTap
         self.onToggleComplete = onToggleComplete
     }
-    
+
     var body: some View {
         cardBody
     }
-    
+
     private var completionButton: some View {
         Button(action: {
             onToggleComplete?()
         }) {
             let iconName = task.isComplete ? "checkmark.circle.fill" : "circle"
             let iconColor = task.isComplete ? Color(uiColor: themeColors.accentPrimary) : Color(uiColor: themeColors.textSecondary)
-            
+
             Image(systemName: iconName)
                 .font(.title2)
                 .foregroundColor(iconColor)
@@ -46,31 +45,31 @@ struct TaskCard: View {
         }
         .buttonStyle(PlainButtonStyle())
     }
-    
+
     private var taskContent: some View {
         HStack {
             VStack(alignment: .leading, spacing: spacing.titleSubtitleGap) {
                 // Task title
-                Text(task.name ?? "Untitled Task")
+                Text(task.name)
                     .font(.tasker(.bodyEmphasis))
                     .foregroundColor(task.isComplete ? .secondary : .primary)
                     .strikethrough(task.isComplete)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                
+
                 // Task details
-                if let details = taskDetails, !details.isEmpty {
+                if let details = task.details, !details.isEmpty {
                     Text(details)
                         .font(.tasker(.caption1))
                         .foregroundColor(Color.tasker.textSecondary)
                         .lineLimit(1)
                 }
-                
+
                 // Due date and priority
                 HStack(spacing: spacing.s8) {
                     if let dueDate = task.dueDate {
                         Label {
-                            Text(DateUtils.formatDate(dueDate as Date))
+                            Text(DateUtils.formatDate(dueDate))
                                 .font(.tasker(.caption2))
                         } icon: {
                             Image(systemName: "calendar")
@@ -78,10 +77,10 @@ struct TaskCard: View {
                         }
                         .foregroundColor(dueDateColor)
                     }
-                    
-                    if task.taskPriority > 0 {
+
+                    if task.priority != .none {
                         Label {
-                            Text(priorityText)
+                            Text(task.priority.displayName)
                                 .font(.tasker(.caption2))
                         } icon: {
                             Image(systemName: "exclamationmark")
@@ -89,13 +88,13 @@ struct TaskCard: View {
                         }
                         .foregroundColor(priorityColor)
                     }
-                    
+
                     Spacer()
                 }
             }
-            
+
             Spacer()
-            
+
             // Chevron indicator
             if onTap != nil {
                 Image(systemName: "chevron.right")
@@ -104,7 +103,7 @@ struct TaskCard: View {
             }
         }
     }
-    
+
     var cardBody: some View {
         HStack(spacing: spacing.cardStackVertical) {
             completionButton
@@ -124,47 +123,28 @@ struct TaskCard: View {
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(accessibilityHint)
     }
-    
+
     // MARK: - Computed Properties
-    
-    private var taskDetails: String? {
-        var details: [String] = []
-        
-        if let taskDetails = task.taskDetails, !taskDetails.isEmpty {
-            details.append(taskDetails)
-        }
-        
-        if let project = task.project, !project.isEmpty {
-            details.append("📁 \(project)")
-        }
-        
-        return details.isEmpty ? nil : details.joined(separator: " • ")
-    }
-    
+
     private var dueDateColor: Color {
         guard let dueDate = task.dueDate else { return .secondary }
-        
+
         let calendar = Calendar.current
         let now = Date()
-        
-        let dueDateAsDate = dueDate as Date
-        if calendar.isDateInToday(dueDateAsDate) {
+
+        if calendar.isDateInToday(dueDate) {
             return Color(uiColor: themeColors.statusWarning)
-        } else if dueDateAsDate < now {
+        } else if dueDate < now {
             return Color(uiColor: themeColors.statusDanger)
-        } else if calendar.isDateInTomorrow(dueDateAsDate) {
+        } else if calendar.isDateInTomorrow(dueDate) {
             return Color(uiColor: themeColors.accentPrimary)
         } else {
             return Color(uiColor: themeColors.textSecondary)
         }
     }
-    
-    private var priorityText: String {
-        TaskPriority(rawValue: task.taskPriority).displayName
-    }
-    
+
     private var priorityColor: Color {
-        switch TaskPriority(rawValue: task.taskPriority) {
+        switch task.priority {
         case .max:
             return Color(uiColor: themeColors.statusDanger)
         case .high:
@@ -179,36 +159,36 @@ struct TaskCard: View {
     private var themeColors: TaskerColorTokens {
         TaskerThemeManager.shared.currentTheme.tokens.color
     }
-    
+
     private var accessibilityLabel: String {
-        var label = "Task: \(task.name ?? "Untitled")"
-        
+        var label = "Task: \(task.name)"
+
         if task.isComplete {
             label += ", completed"
         }
-        
+
         if let dueDate = task.dueDate {
-            label += ", due \(DateUtils.formatDate(dueDate as Date))"
+            label += ", due \(DateUtils.formatDate(dueDate))"
         }
-        
-        if task.taskPriority > 0 {
-            label += ", \(priorityText) priority"
+
+        if task.priority != .none {
+            label += ", \(task.priority.displayName) priority"
         }
-        
+
         return label
     }
-    
+
     private var accessibilityHint: String {
         var hints: [String] = []
-        
+
         if onToggleComplete != nil {
             hints.append("Double tap to toggle completion")
         }
-        
+
         if onTap != nil {
             hints.append("Tap to view details")
         }
-        
+
         return hints.joined(separator: ", ")
     }
 }
@@ -217,10 +197,10 @@ struct TaskCard: View {
 
 /// Compact version of TaskCard for list views
 struct CompactTaskCard: View {
-    let task: NTask
+    let task: DomainTask
     let onTap: (() -> Void)?
     let onToggleComplete: (() -> Void)?
-    
+
     var body: some View {
         HStack(spacing: spacing.cardStackVertical) {
             Button(action: {
@@ -231,24 +211,24 @@ struct CompactTaskCard: View {
                     .foregroundColor(task.isComplete ? Color(uiColor: themeColors.accentPrimary) : Color(uiColor: themeColors.textSecondary))
             }
             .buttonStyle(PlainButtonStyle())
-            
+
             VStack(alignment: .leading, spacing: spacing.s2) {
-                Text(task.name ?? "Untitled Task")
+                Text(task.name)
                     .font(.tasker(.callout))
                     .foregroundColor(task.isComplete ? .secondary : .primary)
                     .strikethrough(task.isComplete)
                     .lineLimit(1)
-                
+
                 if let dueDate = task.dueDate {
-                    Text(DateUtils.formatDate(dueDate as Date))
+                    Text(DateUtils.formatDate(dueDate))
                         .font(.tasker(.caption2))
                         .foregroundColor(.secondary)
                 }
             }
-            
+
             Spacer()
-            
-            if task.taskPriority > 0 {
+
+            if task.priority != .none {
                 Circle()
                     .fill(priorityColor)
                     .frame(width: 8, height: 8)
@@ -260,14 +240,13 @@ struct CompactTaskCard: View {
             onTap?()
         }
     }
-    
+
     private var priorityColor: Color {
-        switch task.taskPriority {
-        case 1: return Color(uiColor: themeColors.statusDanger)
-        case 2: return Color(uiColor: themeColors.statusWarning)
-        case 3: return Color(uiColor: themeColors.accentPrimary)
-        case 4: return Color(uiColor: themeColors.accentMuted)
-        default: return Color(uiColor: themeColors.accentPrimary)
+        switch task.priority {
+        case .max: return Color(uiColor: themeColors.priorityMax)
+        case .high: return Color(uiColor: themeColors.priorityHigh)
+        case .low: return Color(uiColor: themeColors.priorityLow)
+        case .none: return Color(uiColor: themeColors.priorityNone)
         }
     }
 
@@ -282,10 +261,10 @@ struct CompactTaskCard: View {
 
 /// Featured version of TaskCard for dashboard/home views
 struct FeaturedTaskCard: View {
-    let task: NTask
+    let task: DomainTask
     let onTap: (() -> Void)?
     let onToggleComplete: (() -> Void)?
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -297,11 +276,11 @@ struct FeaturedTaskCard: View {
                         .foregroundColor(task.isComplete ? Color(uiColor: themeColors.accentPrimary) : Color(uiColor: themeColors.textSecondary))
                 }
                 .buttonStyle(PlainButtonStyle())
-                
+
                 Spacer()
-                
-                if task.taskPriority > 0 {
-                    Text(priorityText)
+
+                if task.priority != .none {
+                    Text("\(task.priority.displayName) Priority")
                         .font(.caption)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -310,26 +289,26 @@ struct FeaturedTaskCard: View {
                         .clipShape(Capsule())
                 }
             }
-            
-            Text(task.name ?? "Untitled Task")
+
+            Text(task.name)
                 .font(.title2)
                 .fontWeight(.semibold)
                 .foregroundColor(task.isComplete ? .secondary : .primary)
                 .strikethrough(task.isComplete)
                 .lineLimit(3)
                 .multilineTextAlignment(.leading)
-            
-            if let taskDetails = task.taskDetails, !taskDetails.isEmpty {
+
+            if let taskDetails = task.details, !taskDetails.isEmpty {
                 Text(taskDetails)
                     .font(.body)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
-            
+
             if let dueDate = task.dueDate {
                 HStack {
                     Image(systemName: "calendar")
-                    Text("Due \(DateUtils.formatDate(dueDate as Date))")
+                    Text("Due \(DateUtils.formatDate(dueDate))")
                 }
                 .font(.caption)
                 .foregroundColor(dueDateColor)
@@ -341,13 +320,9 @@ struct FeaturedTaskCard: View {
             onTap?()
         }
     }
-    
-    private var priorityText: String {
-        "\(TaskPriority(rawValue: task.taskPriority).displayName) Priority"
-    }
-    
+
     private var priorityColor: Color {
-        switch TaskPriority(rawValue: task.taskPriority) {
+        switch task.priority {
         case .max:
             return Color(uiColor: themeColors.statusDanger)
         case .high:
@@ -358,19 +333,18 @@ struct FeaturedTaskCard: View {
             return Color(uiColor: themeColors.accentMuted)
         }
     }
-    
+
     private var dueDateColor: Color {
         guard let dueDate = task.dueDate else { return .secondary }
-        
+
         let calendar = Calendar.current
         let now = Date()
-        
-        let dueDateAsDate = dueDate as Date
-        if calendar.isDateInToday(dueDateAsDate) {
+
+        if calendar.isDateInToday(dueDate) {
             return Color(uiColor: themeColors.statusWarning)
-        } else if dueDateAsDate < now {
+        } else if dueDate < now {
             return Color(uiColor: themeColors.statusDanger)
-        } else if calendar.isDateInTomorrow(dueDateAsDate) {
+        } else if calendar.isDateInTomorrow(dueDate) {
             return Color(uiColor: themeColors.accentPrimary)
         } else {
             return Color(uiColor: themeColors.textSecondary)
@@ -392,13 +366,13 @@ struct TaskCard_Previews: PreviewProvider {
                 onTap: { print("Task tapped") },
                 onToggleComplete: { print("Toggle complete") }
             )
-            
+
             CompactTaskCard(
                 task: sampleTask,
                 onTap: { print("Compact task tapped") },
                 onToggleComplete: { print("Toggle complete") }
             )
-            
+
             FeaturedTaskCard(
                 task: sampleTask,
                 onTap: { print("Featured task tapped") },
@@ -408,15 +382,14 @@ struct TaskCard_Previews: PreviewProvider {
         .padding()
         .previewLayout(.sizeThatFits)
     }
-    
-    static var sampleTask: NTask {
-        let task = NTask()
-        task.name = "Sample Task"
-        task.taskDetails = "This is a sample task for preview"
-        task.dueDate = Date().addingTimeInterval(86400) as NSDate // Tomorrow
-        task.taskPriority = Int32(TaskPriority.low.rawValue)
-        task.isComplete = false
-        return task
+
+    static var sampleTask: DomainTask {
+        DomainTask(
+            name: "Sample Task",
+            details: "This is a sample task for preview",
+            priority: .low,
+            dueDate: Date().addingTimeInterval(86400)
+        )
     }
 }
 #endif
