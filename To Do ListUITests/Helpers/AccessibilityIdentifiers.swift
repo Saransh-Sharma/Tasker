@@ -28,7 +28,10 @@ enum AccessibilityIdentifiers {
         static let quickFilterMenuButton = "home.focus.menu.button"
         static let quickFilterMenuContainer = "home.focus.menu.container"
         static let quickFilterMenuAdvancedButton = "home.focus.menu.advanced"
+        static let quickFilterGroupingPrioritizeOverdue = "home.focus.grouping.prioritizeOverdue"
+        static let quickFilterGroupingGroupByProjects = "home.focus.grouping.groupByProjects"
         static let chartView = "home.chartView"
+        static let navXpPieChart = "home.navXpPieChart"
         static let taskListScrollView = "home.taskList.scrollView"
 
         // Task Cell
