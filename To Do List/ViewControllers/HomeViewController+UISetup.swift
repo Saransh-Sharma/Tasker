@@ -58,7 +58,7 @@ class TransparentHostingController<Content: View>: UIHostingController<Content> 
 }
 
 extension HomeViewController: BadgeViewDelegate {
-    private var homeTopBarHeight: CGFloat { 44 }
+    private var homeTopBarHeight: CGFloat { 132 }
     private var tableTopSpacing: CGFloat { 8 }
     
     // MARK: - BadgeViewDelegate Methods
@@ -259,17 +259,54 @@ extension HomeViewController: BadgeViewDelegate {
     
     func setupTopBarInForedrop() {
         homeTopBar = UIView(frame: CGRect(x: 0, y: 0, width: foredropContainer.bounds.width, height: homeTopBarHeight))
-        homeTopBar.backgroundColor = UIColor.clear//todoColors.bgCanvas
-        
-        // Set up the header label ("Today")
-        toDoListHeaderLabel.frame = CGRect(x: 0, y: 0, width: homeTopBar.bounds.width, height: homeTopBar.bounds.height)
+        homeTopBar.backgroundColor = UIColor.clear
+
+        homeTitleRow = UIView()
+        homeTopBar.addSubview(homeTitleRow)
+
+        // Header label
+        toDoListHeaderLabel.frame = CGRect(x: 0, y: 0, width: homeTopBar.bounds.width, height: 28)
         toDoListHeaderLabel.text = "Today"
-        toDoListHeaderLabel.textAlignment = .center
+        toDoListHeaderLabel.textAlignment = .left
         toDoListHeaderLabel.font = UIFont.preferredFont(forTextStyle: .headline)
         toDoListHeaderLabel.textColor = todoColors.textPrimary
-        
-        homeTopBar.addSubview(toDoListHeaderLabel)
+        homeTitleRow.addSubview(toDoListHeaderLabel)
+
+        focusPotentialLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
+        focusPotentialLabel.textColor = todoColors.textSecondary
+        focusPotentialLabel.textAlignment = .right
+        focusPotentialLabel.numberOfLines = 1
+        focusPotentialLabel.adjustsFontForContentSizeCategory = true
+        homeTitleRow.addSubview(focusPotentialLabel)
+
+        homeAdvancedFilterButton.setImage(UIImage(systemName: "line.3.horizontal.decrease.circle"), for: .normal)
+        homeAdvancedFilterButton.tintColor = todoColors.textPrimary
+        homeAdvancedFilterButton.accessibilityIdentifier = "home.focus.filterButton"
+        homeAdvancedFilterButton.addTarget(self, action: #selector(showAdvancedFilterSheet), for: .touchUpInside)
+        homeTitleRow.addSubview(homeAdvancedFilterButton)
+
+        quickFilterScrollView.showsHorizontalScrollIndicator = false
+        quickFilterScrollView.backgroundColor = .clear
+        homeTopBar.addSubview(quickFilterScrollView)
+
+        quickFilterStackView.axis = .horizontal
+        quickFilterStackView.alignment = .center
+        quickFilterStackView.spacing = 8
+        quickFilterStackView.distribution = .fillProportionally
+        quickFilterScrollView.addSubview(quickFilterStackView)
+
+        projectFilterScrollView.showsHorizontalScrollIndicator = false
+        projectFilterScrollView.backgroundColor = .clear
+        homeTopBar.addSubview(projectFilterScrollView)
+
+        projectFilterStackView.axis = .horizontal
+        projectFilterStackView.alignment = .center
+        projectFilterStackView.spacing = 8
+        projectFilterStackView.distribution = .fillProportionally
+        projectFilterScrollView.addSubview(projectFilterStackView)
+
         foredropContainer.addSubview(homeTopBar)
+        refreshFocusFilterRails()
     }
     
     func setupTableViewInForedrop() {
@@ -279,13 +316,20 @@ extension HomeViewController: BadgeViewDelegate {
 
     func setupTaskListViewInForedrop() {
         let input = buildTaskListInput(for: currentViewType)
-        print("HOME_DATA mode=\(currentViewType) morning=\(input.morning.count) evening=\(input.evening.count) overdue=\(input.overdue.count) projects=\(input.projects.count)")
+        print(
+            "HOME_DATA mode=\(currentViewType) morning=\(input.morning.count) evening=\(input.evening.count) " +
+            "overdue=\(input.overdue.count) done=\(input.doneTimeline.count) projects=\(input.projects.count)"
+        )
 
         let listView = TaskListView(
             morningTasks: input.morning,
             eveningTasks: input.evening,
             overdueTasks: input.overdue,
             projects: input.projects,
+            doneTimelineTasks: input.doneTimeline,
+            activeQuickView: input.activeQuickView,
+            emptyStateMessage: input.emptyStateMessage,
+            emptyStateActionTitle: input.emptyStateActionTitle,
             onTaskTap: { [weak self] task in
                 self?.handleRevampedTaskTap(task)
             },
@@ -297,6 +341,9 @@ extension HomeViewController: BadgeViewDelegate {
             },
             onRescheduleTask: { [weak self] task in
                 self?.handleRevampedTaskReschedule(task)
+            },
+            onEmptyStateAction: { [weak self] in
+                self?.AddTaskAction()
             }
         )
 
@@ -317,6 +364,173 @@ extension HomeViewController: BadgeViewDelegate {
         fluentToDoTableViewController?.view.isHidden = true
         layoutForedropListViews()
         print("HOME_UI_MODE mounted renderer=TaskListView")
+    }
+
+    func refreshFocusFilterRails() {
+        guard let viewModel else { return }
+
+        for view in quickFilterStackView.arrangedSubviews {
+            quickFilterStackView.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
+        for view in projectFilterStackView.arrangedSubviews {
+            projectFilterStackView.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
+        let activeState = viewModel.activeFilterState
+        let counts = viewModel.quickViewCounts
+        let systemViews = HomeQuickView.allCases
+        toDoListHeaderLabel.text = activeState.quickView.title
+
+        for quickView in systemViews {
+            let count = counts[quickView] ?? 0
+            let title = "\(quickView.title) \(count)"
+            let button = makeFocusChip(
+                title: title,
+                selected: activeState.quickView == quickView,
+                accessibilityID: "home.focus.quick.\(quickView.rawValue)"
+            )
+            button.addAction(UIAction { [weak self] _ in
+                self?.viewModel?.setQuickView(quickView)
+            }, for: .touchUpInside)
+            quickFilterStackView.addArrangedSubview(button)
+        }
+
+        let visibleSaved = Array(viewModel.savedHomeViews.prefix(6))
+        for savedView in visibleSaved {
+            let button = makeFocusChip(
+                title: "• \(savedView.name)",
+                selected: activeState.selectedSavedViewID == savedView.id,
+                accessibilityID: "home.focus.saved.\(savedView.id.uuidString)"
+            )
+            button.addAction(UIAction { [weak self] _ in
+                self?.viewModel?.applySavedView(id: savedView.id)
+            }, for: .touchUpInside)
+            quickFilterStackView.addArrangedSubview(button)
+        }
+
+        let selectedProjectSet = Set(activeState.selectedProjectIDs)
+        let pinnedProjects = viewModel.projects.filter { activeState.pinnedProjectIDSet.contains($0.id) }
+
+        for project in pinnedProjects {
+            let button = makeFocusChip(
+                title: project.name,
+                selected: selectedProjectSet.contains(project.id),
+                accessibilityID: "home.focus.project.\(project.id.uuidString)"
+            )
+            button.addAction(UIAction { [weak self] _ in
+                self?.viewModel?.toggleProjectFilter(project.id)
+            }, for: .touchUpInside)
+            projectFilterStackView.addArrangedSubview(button)
+        }
+
+        let allProjectsButton = makeFocusChip(
+            title: selectedProjectSet.isEmpty ? "All Projects ✓" : "All Projects",
+            selected: selectedProjectSet.isEmpty,
+            accessibilityID: "home.focus.project.all"
+        )
+        allProjectsButton.addAction(UIAction { [weak self] _ in
+            self?.viewModel?.clearProjectFilters()
+        }, for: .touchUpInside)
+        projectFilterStackView.addArrangedSubview(allProjectsButton)
+
+        let moreButton = makeFocusChip(
+            title: "More",
+            selected: false,
+            accessibilityID: "home.focus.project.more"
+        )
+        moreButton.addTarget(self, action: #selector(showProjectMultiSelectSheet), for: .touchUpInside)
+        projectFilterStackView.addArrangedSubview(moreButton)
+
+        layoutForedropListViews()
+    }
+
+    private func makeFocusChip(title: String, selected: Bool, accessibilityID: String) -> UIButton {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle(title, for: .normal)
+        button.titleLabel?.font = UIFont.preferredFont(forTextStyle: .subheadline)
+        button.titleLabel?.adjustsFontForContentSizeCategory = true
+        button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
+        button.layer.cornerRadius = 14
+        button.layer.masksToBounds = true
+        button.accessibilityIdentifier = accessibilityID
+
+        if selected {
+            button.backgroundColor = todoColors.accentPrimary
+            button.setTitleColor(todoColors.accentOnPrimary, for: .normal)
+        } else {
+            button.backgroundColor = todoColors.surfaceSecondary
+            button.setTitleColor(todoColors.textPrimary, for: .normal)
+        }
+
+        return button
+    }
+
+    @objc private func showProjectMultiSelectSheet() {
+        guard let viewModel else { return }
+
+        let alert = UIAlertController(
+            title: "Project Filters",
+            message: "Toggle projects to combine with your quick view",
+            preferredStyle: .actionSheet
+        )
+
+        let selected = Set(viewModel.activeFilterState.selectedProjectIDs)
+        for project in viewModel.projects.sorted(by: { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) {
+            let marker = selected.contains(project.id) ? "✓ " : ""
+            alert.addAction(UIAlertAction(title: "\(marker)\(project.name)", style: .default, handler: { [weak self] _ in
+                self?.viewModel?.toggleProjectFilter(project.id)
+                self?.showProjectMultiSelectSheet()
+            }))
+        }
+
+        alert.addAction(UIAlertAction(title: "Clear Selection", style: .destructive, handler: { [weak self] _ in
+            self?.viewModel?.clearProjectFilters()
+        }))
+        alert.addAction(UIAlertAction(title: "Done", style: .cancel))
+
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = homeTopBar
+            popover.sourceRect = CGRect(x: homeTopBar.bounds.midX, y: homeTopBar.bounds.midY, width: 1, height: 1)
+        }
+
+        present(alert, animated: true)
+    }
+
+    @objc func showAdvancedFilterSheet() {
+        guard let viewModel else { return }
+
+        let sheet = HomeAdvancedFilterSheetView(
+            initialFilter: viewModel.activeFilterState.advancedFilter,
+            initialShowCompletedInline: viewModel.activeFilterState.showCompletedInline,
+            savedViews: viewModel.savedHomeViews,
+            activeSavedViewID: viewModel.activeFilterState.selectedSavedViewID,
+            onApply: { [weak self] filter, showCompletedInline in
+                self?.viewModel?.applyAdvancedFilter(filter, showCompletedInline: showCompletedInline)
+            },
+            onClear: { [weak self] in
+                self?.viewModel?.applyAdvancedFilter(nil, showCompletedInline: false)
+                self?.viewModel?.clearProjectFilters()
+                self?.viewModel?.setQuickView(.today)
+            },
+            onSaveNamedView: { [weak self] filter, showCompletedInline, name in
+                self?.viewModel?.applyAdvancedFilter(filter, showCompletedInline: showCompletedInline)
+                self?.viewModel?.saveCurrentFilterAsView(name: name)
+            },
+            onApplySavedView: { [weak self] id in
+                self?.viewModel?.applySavedView(id: id)
+            },
+            onDeleteSavedView: { [weak self] id in
+                self?.viewModel?.deleteSavedView(id: id)
+            }
+        )
+
+        let hosting = UIHostingController(rootView: sheet)
+        hosting.modalPresentationStyle = .formSheet
+        present(hosting, animated: true)
     }
     
     
@@ -495,11 +709,70 @@ extension HomeViewController: BadgeViewDelegate {
             height: homeTopBarHeight
         )
 
+        homeTitleRow.frame = CGRect(
+            x: 16,
+            y: 4,
+            width: max(0, homeTopBar.bounds.width - 32),
+            height: 28
+        )
+
         toDoListHeaderLabel.frame = CGRect(
             x: 0,
             y: 0,
+            width: max(0, homeTitleRow.bounds.width - 140),
+            height: homeTitleRow.bounds.height
+        )
+
+        focusPotentialLabel.frame = CGRect(
+            x: max(0, homeTitleRow.bounds.width - 168),
+            y: 0,
+            width: 132,
+            height: homeTitleRow.bounds.height
+        )
+
+        homeAdvancedFilterButton.frame = CGRect(
+            x: max(0, homeTitleRow.bounds.width - 28),
+            y: 2,
+            width: 24,
+            height: 24
+        )
+
+        quickFilterScrollView.frame = CGRect(
+            x: 0,
+            y: homeTitleRow.frame.maxY + 4,
             width: homeTopBar.bounds.width,
-            height: homeTopBar.bounds.height
+            height: 40
+        )
+
+        quickFilterStackView.frame = CGRect(
+            x: 16,
+            y: 0,
+            width: max(quickFilterScrollView.bounds.width - 32, quickFilterStackView.intrinsicContentSize.width),
+            height: quickFilterScrollView.bounds.height
+        )
+
+        quickFilterScrollView.contentSize = CGSize(
+            width: quickFilterStackView.frame.maxX + 16,
+            height: quickFilterScrollView.bounds.height
+        )
+
+        projectFilterScrollView.frame = CGRect(
+            x: 0,
+            y: quickFilterScrollView.frame.maxY + 4,
+            width: homeTopBar.bounds.width,
+            height: 38
+        )
+
+        projectFilterStackView.frame = CGRect(
+            x: 16,
+            y: 0,
+            width: max(projectFilterScrollView.bounds.width - 32, projectFilterStackView.intrinsicContentSize.width),
+            height: projectFilterScrollView.bounds.height
+        )
+
+        projectFilterScrollView.contentSize = CGSize(
+            width: projectFilterStackView.frame.maxX + 16,
+            height: projectFilterScrollView.bounds.height
         )
 
         let tableOriginY = homeTopBar.frame.maxY + tableTopSpacing
