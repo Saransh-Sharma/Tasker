@@ -76,7 +76,9 @@ public struct HomeFilterState: Codable, Equatable {
 
     public let version: Int
     public var quickView: HomeQuickView
+    public var projectGroupingMode: HomeProjectGroupingMode
     public var selectedProjectIDs: [UUID]
+    public var customProjectOrderIDs: [UUID]
     public var pinnedProjectIDs: [UUID]
     public var advancedFilter: HomeAdvancedFilter?
     public var showCompletedInline: Bool
@@ -85,7 +87,9 @@ public struct HomeFilterState: Codable, Equatable {
     public init(
         version: Int = HomeFilterState.schemaVersion,
         quickView: HomeQuickView = .defaultView,
+        projectGroupingMode: HomeProjectGroupingMode = .defaultMode,
         selectedProjectIDs: [UUID] = [],
+        customProjectOrderIDs: [UUID] = [],
         pinnedProjectIDs: [UUID] = [],
         advancedFilter: HomeAdvancedFilter? = nil,
         showCompletedInline: Bool = false,
@@ -93,7 +97,9 @@ public struct HomeFilterState: Codable, Equatable {
     ) {
         self.version = version
         self.quickView = quickView
+        self.projectGroupingMode = projectGroupingMode
         self.selectedProjectIDs = selectedProjectIDs
+        self.customProjectOrderIDs = customProjectOrderIDs
         self.pinnedProjectIDs = pinnedProjectIDs
         self.advancedFilter = advancedFilter
         self.showCompletedInline = showCompletedInline
@@ -103,7 +109,9 @@ public struct HomeFilterState: Codable, Equatable {
     public static var `default`: HomeFilterState {
         HomeFilterState(
             quickView: .today,
+            projectGroupingMode: .defaultMode,
             selectedProjectIDs: [],
+            customProjectOrderIDs: [],
             pinnedProjectIDs: [],
             advancedFilter: nil,
             showCompletedInline: false,
@@ -117,5 +125,31 @@ public struct HomeFilterState: Codable, Equatable {
 
     public var pinnedProjectIDSet: Set<UUID> {
         Set(pinnedProjectIDs)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case quickView
+        case projectGroupingMode
+        case selectedProjectIDs
+        case customProjectOrderIDs
+        case pinnedProjectIDs
+        case advancedFilter
+        case showCompletedInline
+        case selectedSavedViewID
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        version = try container.decodeIfPresent(Int.self, forKey: .version) ?? HomeFilterState.schemaVersion
+        quickView = try container.decodeIfPresent(HomeQuickView.self, forKey: .quickView) ?? .defaultView
+        projectGroupingMode = try container.decodeIfPresent(HomeProjectGroupingMode.self, forKey: .projectGroupingMode) ?? .defaultMode
+        selectedProjectIDs = try container.decodeIfPresent([UUID].self, forKey: .selectedProjectIDs) ?? []
+        customProjectOrderIDs = try container.decodeIfPresent([UUID].self, forKey: .customProjectOrderIDs) ?? []
+        pinnedProjectIDs = try container.decodeIfPresent([UUID].self, forKey: .pinnedProjectIDs) ?? []
+        advancedFilter = try container.decodeIfPresent(HomeAdvancedFilter.self, forKey: .advancedFilter)
+        showCompletedInline = try container.decodeIfPresent(Bool.self, forKey: .showCompletedInline) ?? false
+        selectedSavedViewID = try container.decodeIfPresent(UUID.self, forKey: .selectedSavedViewID)
     }
 }
