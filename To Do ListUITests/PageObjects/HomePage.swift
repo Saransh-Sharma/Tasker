@@ -52,7 +52,30 @@ class HomePage {
     }
 
     var projectFilterButton: XCUIElement {
-        return app.buttons[AccessibilityIdentifiers.Home.projectFilterButton]
+        let quickMenu = app.buttons[AccessibilityIdentifiers.Home.quickFilterMenuButton]
+        if quickMenu.exists {
+            return quickMenu
+        }
+
+        let legacyProjectFilter = app.buttons["home.projectFilterButton"]
+        if legacyProjectFilter.exists {
+            return legacyProjectFilter
+        }
+
+        let navMenuButton = app.buttons["home.focus.menu.button.nav"]
+        if navMenuButton.exists {
+            return navMenuButton
+        }
+
+        return app.buttons["home.focus.filterButton.nav"]
+    }
+
+    var quickFilterMenuContainer: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.quickFilterMenuContainer]
+    }
+
+    var quickFilterAdvancedButton: XCUIElement {
+        return app.buttons[AccessibilityIdentifiers.Home.quickFilterMenuAdvancedButton]
     }
 
     var morningTasksList: XCUIElement {
@@ -77,6 +100,25 @@ class HomePage {
 
     var chartView: XCUIElement {
         return app.otherElements[AccessibilityIdentifiers.Home.chartView]
+    }
+
+    var taskListScrollView: XCUIElement {
+        let identifiedScrollView = app.scrollViews[AccessibilityIdentifiers.Home.taskListScrollView]
+        if identifiedScrollView.exists {
+            return identifiedScrollView
+        }
+
+        let fallbackOtherElement = app.otherElements[AccessibilityIdentifiers.Home.taskListScrollView]
+        if fallbackOtherElement.exists {
+            return fallbackOtherElement
+        }
+
+        let firstScrollView = app.scrollViews.firstMatch
+        if firstScrollView.exists {
+            return firstScrollView
+        }
+
+        return app.tables.firstMatch
     }
 
     // MARK: - Initialization

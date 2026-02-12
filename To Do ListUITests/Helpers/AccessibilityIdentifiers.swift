@@ -24,8 +24,12 @@ enum AccessibilityIdentifiers {
         static let searchButton = "home.searchButton"
         static let inboxButton = "home.inboxButton"
         static let settingsButton = "home.settingsButton"
-        static let projectFilterButton = "home.projectFilterButton"
+        static let projectFilterButton = "home.focus.menu.button"
+        static let quickFilterMenuButton = "home.focus.menu.button"
+        static let quickFilterMenuContainer = "home.focus.menu.container"
+        static let quickFilterMenuAdvancedButton = "home.focus.menu.advanced"
         static let chartView = "home.chartView"
+        static let taskListScrollView = "home.taskList.scrollView"
 
         // Task Cell
         static func taskCell(index: Int) -> String { "home.taskCell.\(index)" }
