@@ -7,7 +7,7 @@
 
 import UIKit
 import CoreData
-import FluentUI
+import SwiftUI
 
 // MARK: - LGFilterButton
 
@@ -806,69 +806,81 @@ class LGSearchViewController: UIViewController {
     }
 
     private func showTaskDetail(_ task: NTask) {
-        // Connect to existing task detail system from home screen
-        presentTaskDetailViewFluent(for: task)
+        presentTaskDetailSheet(for: task)
     }
 
-    private func presentTaskDetailViewFluent(for task: NTask) {
-        guard let homeVC = presentingViewController as? HomeViewController else {
-            print("⚠️ Cannot access HomeViewController for task detail presentation")
-            // Fallback: Simple haptic feedback
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
-            return
-        }
-
-        // Create and present the task detail view using the existing system
-        let taskDetailView = TaskDetailViewFluent()
-
-        // Get available projects for the task detail view
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let projectsRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
-        let availableProjects = (try? context?.fetch(projectsRequest)) ?? []
-
-        // Configure the task detail view
-        taskDetailView.configure(
+    private func presentTaskDetailSheet(for task: NTask) {
+        print("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.taskID?.uuidString ?? "nil")")
+        let detailView = TaskDetailSheetView(
             task: task,
-            availableProjects: availableProjects,
-            delegate: homeVC,
-            taskRepository: homeVC.taskRepository
+            projectNames: buildProjectChipData(),
+            onSave: { [weak self] in
+                self?.refreshAfterTaskDetailMutation(reason: "save")
+            },
+            onToggleComplete: { [weak self] in
+                self?.refreshAfterTaskDetailMutation(reason: "toggle")
+            },
+            onDismiss: nil,
+            onDelete: { [weak self] in
+                guard let self else { return }
+                task.managedObjectContext?.delete(task)
+                do {
+                    try task.managedObjectContext?.save()
+                    print("HOME_TAP_DETAIL mode=sheet scope=search action=delete taskID=\(task.taskID?.uuidString ?? "nil")")
+                } catch {
+                    print("HOME_TAP_DETAIL mode=sheet scope=search action=delete_error taskID=\(task.taskID?.uuidString ?? "nil") error=\(error)")
+                }
+
+                self.presentedViewController?.dismiss(animated: true) { [weak self] in
+                    self?.refreshAfterTaskDetailMutation(reason: "delete")
+                }
+            }
         )
 
-        // Create overlay background with theme-aware color
-        let overlayView = UIView()
-        overlayView.backgroundColor = todoColors.bgCanvas.withAlphaComponent(0.8)
-        overlayView.frame = view.bounds
-        overlayView.alpha = 0
-
-        view.addSubview(overlayView)
-        view.addSubview(taskDetailView)
-
-        // Position the detail view
-        taskDetailView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            taskDetailView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            taskDetailView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            taskDetailView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.9),
-            taskDetailView.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.8)
-        ])
-
-        // Animate presentation
-        UIView.animate(withDuration: 0.3) {
-            overlayView.alpha = 1
-            taskDetailView.alpha = 1
-            taskDetailView.transform = CGAffineTransform.identity
+        let hostingController = UIHostingController(rootView: detailView)
+        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        hostingController.modalPresentationStyle = .pageSheet
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
         }
 
-        // Store references for cleanup
-        homeVC.presentedFluentDetailView = taskDetailView
-        homeVC.overlayView = overlayView
-
-        // Provide haptic feedback
+        present(hostingController, animated: true)
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
+        print("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.taskID?.uuidString ?? "nil")")
+    }
 
-        print("📝 Presented task detail for: \(task.name ?? "Untitled")")
+    private func refreshAfterTaskDetailMutation(reason: String) {
+        applyFiltersAndSearch()
+        print("HOME_TAP_DETAIL mode=sheet scope=search action=refresh reason=\(reason)")
+    }
+
+    private func buildProjectChipData() -> [String] {
+        var projectNames: [String] = []
+        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
+            if let projects = try? context.fetch(request) {
+                projectNames = projects.compactMap { $0.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            }
+        }
+
+        let inboxTitle = ProjectConstants.inboxProjectName
+        projectNames.removeAll { $0.caseInsensitiveCompare(inboxTitle) == .orderedSame }
+        projectNames.insert(inboxTitle, at: 0)
+
+        var deduped: [String] = []
+        var seen = Set<String>()
+        for name in projectNames {
+            let key = name.lowercased()
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            deduped.append(name)
+        }
+        return deduped
     }
     
     deinit {
