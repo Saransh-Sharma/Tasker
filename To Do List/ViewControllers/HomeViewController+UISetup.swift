@@ -330,6 +330,11 @@ extension HomeViewController: BadgeViewDelegate {
         quickFilterMenuProjectSectionLabel.textColor = todoColors.textSecondary
         quickFilterMenuProjectSectionLabel.adjustsFontForContentSizeCategory = true
 
+        quickFilterMenuGroupingSectionLabel.text = "Group by"
+        quickFilterMenuGroupingSectionLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
+        quickFilterMenuGroupingSectionLabel.textColor = todoColors.textSecondary
+        quickFilterMenuGroupingSectionLabel.adjustsFontForContentSizeCategory = true
+
         quickFilterMenuQuickScrollView.showsHorizontalScrollIndicator = false
         quickFilterMenuQuickScrollView.backgroundColor = .clear
         quickFilterMenuQuickScrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -352,6 +357,17 @@ extension HomeViewController: BadgeViewDelegate {
         quickFilterMenuProjectStack.translatesAutoresizingMaskIntoConstraints = false
         quickFilterMenuProjectScrollView.addSubview(quickFilterMenuProjectStack)
 
+        quickFilterMenuGroupingScrollView.showsHorizontalScrollIndicator = false
+        quickFilterMenuGroupingScrollView.backgroundColor = .clear
+        quickFilterMenuGroupingScrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        quickFilterMenuGroupingStack.axis = .horizontal
+        quickFilterMenuGroupingStack.alignment = .center
+        quickFilterMenuGroupingStack.spacing = 8
+        quickFilterMenuGroupingStack.distribution = .fillProportionally
+        quickFilterMenuGroupingStack.translatesAutoresizingMaskIntoConstraints = false
+        quickFilterMenuGroupingScrollView.addSubview(quickFilterMenuGroupingStack)
+
         quickFilterMenuAdvancedButton.setTitle("Advanced Filters", for: .normal)
         quickFilterMenuAdvancedButton.titleLabel?.font = UIFont.preferredFont(forTextStyle: .subheadline)
         quickFilterMenuAdvancedButton.titleLabel?.adjustsFontForContentSizeCategory = true
@@ -366,6 +382,8 @@ extension HomeViewController: BadgeViewDelegate {
         quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuQuickScrollView)
         quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuProjectSectionLabel)
         quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuProjectScrollView)
+        quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuGroupingSectionLabel)
+        quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuGroupingScrollView)
         quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuAdvancedButton)
 
         NSLayoutConstraint.activate([
@@ -382,6 +400,7 @@ extension HomeViewController: BadgeViewDelegate {
 
             quickFilterMenuQuickScrollView.heightAnchor.constraint(equalToConstant: 40),
             quickFilterMenuProjectScrollView.heightAnchor.constraint(equalToConstant: 40),
+            quickFilterMenuGroupingScrollView.heightAnchor.constraint(equalToConstant: 40),
             quickFilterMenuAdvancedButton.heightAnchor.constraint(equalToConstant: 36),
 
             quickFilterMenuQuickStack.leadingAnchor.constraint(equalTo: quickFilterMenuQuickScrollView.contentLayoutGuide.leadingAnchor),
@@ -394,7 +413,13 @@ extension HomeViewController: BadgeViewDelegate {
             quickFilterMenuProjectStack.trailingAnchor.constraint(equalTo: quickFilterMenuProjectScrollView.contentLayoutGuide.trailingAnchor),
             quickFilterMenuProjectStack.topAnchor.constraint(equalTo: quickFilterMenuProjectScrollView.contentLayoutGuide.topAnchor),
             quickFilterMenuProjectStack.bottomAnchor.constraint(equalTo: quickFilterMenuProjectScrollView.contentLayoutGuide.bottomAnchor),
-            quickFilterMenuProjectStack.heightAnchor.constraint(equalTo: quickFilterMenuProjectScrollView.frameLayoutGuide.heightAnchor)
+            quickFilterMenuProjectStack.heightAnchor.constraint(equalTo: quickFilterMenuProjectScrollView.frameLayoutGuide.heightAnchor),
+
+            quickFilterMenuGroupingStack.leadingAnchor.constraint(equalTo: quickFilterMenuGroupingScrollView.contentLayoutGuide.leadingAnchor),
+            quickFilterMenuGroupingStack.trailingAnchor.constraint(equalTo: quickFilterMenuGroupingScrollView.contentLayoutGuide.trailingAnchor),
+            quickFilterMenuGroupingStack.topAnchor.constraint(equalTo: quickFilterMenuGroupingScrollView.contentLayoutGuide.topAnchor),
+            quickFilterMenuGroupingStack.bottomAnchor.constraint(equalTo: quickFilterMenuGroupingScrollView.contentLayoutGuide.bottomAnchor),
+            quickFilterMenuGroupingStack.heightAnchor.constraint(equalTo: quickFilterMenuGroupingScrollView.frameLayoutGuide.heightAnchor)
         ])
     }
     
@@ -417,6 +442,8 @@ extension HomeViewController: BadgeViewDelegate {
             projects: input.projects,
             doneTimelineTasks: input.doneTimeline,
             activeQuickView: input.activeQuickView,
+            projectGroupingMode: input.projectGroupingMode,
+            customProjectOrderIDs: input.customProjectOrderIDs,
             emptyStateMessage: input.emptyStateMessage,
             emptyStateActionTitle: input.emptyStateActionTitle,
             onTaskTap: { [weak self] task in
@@ -430,6 +457,9 @@ extension HomeViewController: BadgeViewDelegate {
             },
             onRescheduleTask: { [weak self] task in
                 self?.handleRevampedTaskReschedule(task)
+            },
+            onReorderCustomProjects: { [weak self] projectIDs in
+                self?.viewModel?.setCustomProjectOrder(projectIDs)
             },
             onEmptyStateAction: { [weak self] in
                 self?.AddTaskAction()
@@ -465,6 +495,11 @@ extension HomeViewController: BadgeViewDelegate {
 
         for view in quickFilterMenuProjectStack.arrangedSubviews {
             quickFilterMenuProjectStack.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
+        for view in quickFilterMenuGroupingStack.arrangedSubviews {
+            quickFilterMenuGroupingStack.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
 
@@ -534,6 +569,26 @@ extension HomeViewController: BadgeViewDelegate {
         )
         moreButton.addTarget(self, action: #selector(showProjectMultiSelectSheet), for: .touchUpInside)
         quickFilterMenuProjectStack.addArrangedSubview(moreButton)
+
+        let prioritizeOverdueButton = makeFocusChip(
+            title: HomeProjectGroupingMode.prioritizeOverdue.title,
+            selected: activeState.projectGroupingMode == .prioritizeOverdue,
+            accessibilityID: "home.focus.grouping.prioritizeOverdue"
+        )
+        prioritizeOverdueButton.addAction(UIAction { [weak self] _ in
+            self?.viewModel?.setProjectGroupingMode(.prioritizeOverdue)
+        }, for: .touchUpInside)
+        quickFilterMenuGroupingStack.addArrangedSubview(prioritizeOverdueButton)
+
+        let groupByProjectsButton = makeFocusChip(
+            title: HomeProjectGroupingMode.groupByProjects.title,
+            selected: activeState.projectGroupingMode == .groupByProjects,
+            accessibilityID: "home.focus.grouping.groupByProjects"
+        )
+        groupByProjectsButton.addAction(UIAction { [weak self] _ in
+            self?.viewModel?.setProjectGroupingMode(.groupByProjects)
+        }, for: .touchUpInside)
+        quickFilterMenuGroupingStack.addArrangedSubview(groupByProjectsButton)
 
         layoutForedropListViews()
     }
@@ -937,6 +992,12 @@ extension HomeViewController: BadgeViewDelegate {
         quickFilterMenuProjectScrollView.contentSize = CGSize(
             width: quickFilterMenuProjectStack.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width,
             height: quickFilterMenuProjectScrollView.bounds.height
+        )
+
+        quickFilterMenuGroupingStack.layoutIfNeeded()
+        quickFilterMenuGroupingScrollView.contentSize = CGSize(
+            width: quickFilterMenuGroupingStack.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width,
+            height: quickFilterMenuGroupingScrollView.bounds.height
         )
 
         let tableOriginY = homeTopBar.frame.maxY + tableTopSpacing
