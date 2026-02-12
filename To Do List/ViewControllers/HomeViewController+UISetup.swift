@@ -58,6 +58,8 @@ class TransparentHostingController<Content: View>: UIHostingController<Content> 
 }
 
 extension HomeViewController: BadgeViewDelegate {
+    private var homeTopBarHeight: CGFloat { 44 }
+    private var tableTopSpacing: CGFloat { 8 }
     
     // MARK: - BadgeViewDelegate Methods
     
@@ -247,10 +249,7 @@ extension HomeViewController: BadgeViewDelegate {
         
         // Setup top section with "Today" title
         setupTopBarInForedrop()
-        
-        // Setup new sample table view at the top
-        setupSampleTableView()
-        
+
         // Setup FluentUI table view in foredrop (main tableView removed)
         setupTableViewInForedrop()
         
@@ -259,11 +258,11 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     func setupTopBarInForedrop() {
-        homeTopBar = UIView(frame: CGRect(x: 0, y: 0, width: foredropContainer.bounds.width, height: 25))
+        homeTopBar = UIView(frame: CGRect(x: 0, y: 0, width: foredropContainer.bounds.width, height: homeTopBarHeight))
         homeTopBar.backgroundColor = UIColor.clear//todoColors.bgCanvas
         
         // Set up the header label ("Today")
-        toDoListHeaderLabel.frame = CGRect(x: 0, y: 10, width: homeTopBar.bounds.width, height: homeTopBar.bounds.height)
+        toDoListHeaderLabel.frame = CGRect(x: 0, y: 0, width: homeTopBar.bounds.width, height: homeTopBar.bounds.height)
         toDoListHeaderLabel.text = "Today"
         toDoListHeaderLabel.textAlignment = .center
         toDoListHeaderLabel.font = UIFont.preferredFont(forTextStyle: .headline)
@@ -274,17 +273,50 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     func setupTableViewInForedrop() {
-        // This method now sets up the FluentUI table view in foredrop
-        // Initialize FluentUI sample table view controller if not already done
-        if fluentToDoTableViewController == nil {
-            fluentToDoTableViewController = FluentUIToDoTableViewController(style: .insetGrouped)
-            fluentToDoTableViewController?.delegate = self
+        setupTaskListViewInForedrop()
+        print("HOME_UI_MODE setupTableViewInForedrop renderer=TaskListView")
+    }
+
+    func setupTaskListViewInForedrop() {
+        let input = buildTaskListInput(for: currentViewType)
+        print("HOME_DATA mode=\(currentViewType) morning=\(input.morning.count) evening=\(input.evening.count) overdue=\(input.overdue.count) projects=\(input.projects.count)")
+
+        let listView = TaskListView(
+            morningTasks: input.morning,
+            eveningTasks: input.evening,
+            overdueTasks: input.overdue,
+            projects: input.projects,
+            onTaskTap: { [weak self] task in
+                self?.handleRevampedTaskTap(task)
+            },
+            onToggleComplete: { [weak self] task in
+                self?.handleRevampedTaskToggleComplete(task)
+            },
+            onDeleteTask: { [weak self] task in
+                self?.handleRevampedTaskDelete(task)
+            },
+            onRescheduleTask: { [weak self] task in
+                self?.handleRevampedTaskReschedule(task)
+            }
+        )
+
+        if let hostingController = taskListHostingController {
+            hostingController.rootView = listView
+            hostingController.view.isHidden = false
+        } else {
+            let hostingController = TransparentHostingController(rootView: listView)
+            hostingController.view.backgroundColor = .clear
+            hostingController.view.isOpaque = false
+            taskListHostingController = hostingController
+
+            addChild(hostingController)
+            foredropContainer.addSubview(hostingController.view)
+            hostingController.didMove(toParent: self)
         }
-        
-        // Setup the FluentUI table to fill the foredrop
-        setupSampleTableView(for: dateForTheView)
-        
-        print("FluentUI table view setup in foredrop completed")
+
+        fluentToDoTableViewController?.view.isHidden = true
+        layoutForedropListViews()
+        print("HOME_UI_MODE mounted renderer=TaskListView")
     }
     
     
@@ -450,55 +482,46 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     func setupSampleTableView(for date: Date = Date.today()) {
-        print("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
-        
-        // Initialize FluentUI sample table view controller if not already done
-        if fluentToDoTableViewController == nil {
-            fluentToDoTableViewController = FluentUIToDoTableViewController(style: .insetGrouped)
-            fluentToDoTableViewController?.delegate = self
-        }
-        
-        // Update data for the selected date
-        fluentToDoTableViewController?.updateData(for: date)
-        
-        // Calculate the top bar height dynamically
-        let topBarHeight = homeTopBar.bounds.height
-        
-        // Position the FluentUI sample table view to fill the available space
-        // With Liquid Glass bar, content may extend underneath; do not reserve space
-        let availableHeight = foredropContainer.bounds.height - topBarHeight
-        
-        fluentToDoTableViewController?.view.frame = CGRect(
+        print("HOME_LEGACY_GUARD setupSampleTableView_called date=\(date)")
+        refreshHomeTaskList(reason: "legacyGuard.setupSampleTableView")
+    }
+
+    func layoutForedropListViews() {
+        // Keep title bar fully visible and list content separated from it.
+        homeTopBar.frame = CGRect(
             x: 0,
-            y: topBarHeight,
-            width: self.foredropContainer.bounds.width,
+            y: 0,
+            width: foredropContainer.bounds.width,
+            height: homeTopBarHeight
+        )
+
+        toDoListHeaderLabel.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: homeTopBar.bounds.width,
+            height: homeTopBar.bounds.height
+        )
+
+        let tableOriginY = homeTopBar.frame.maxY + tableTopSpacing
+        let availableHeight = max(0, foredropContainer.bounds.height - tableOriginY)
+        let listFrame = CGRect(
+            x: 0,
+            y: tableOriginY,
+            width: foredropContainer.bounds.width,
             height: availableHeight
         )
-        
-        // Add FluentUI sample table view to foredrop container
-        if let fluentView = fluentToDoTableViewController?.view {
-            // Remove any existing views (legacy cleanup)
-            // self.sampleTableView.removeFromSuperview() // Already removed from HomeViewController
-            
-            // Setup foredrop background before adding the table view
-//            setupForedropBackground()
-            
-            // Add the FluentUI table view
-            self.foredropContainer.addSubview(fluentView)
-            
-            // Make the table view background transparent so the foredrop shows through
-            fluentView.backgroundColor = UIColor.clear
-            fluentToDoTableViewController?.tableView.backgroundColor = UIColor.clear
-            fluentToDoTableViewController?.tableView.isOpaque = false
-            fluentToDoTableViewController?.tableView.backgroundView = nil
-            fluentToDoTableViewController?.tableView.separatorStyle = .none
-            
-            // Add as child view controller for proper lifecycle management
-            self.addChild(fluentToDoTableViewController!)
-            fluentToDoTableViewController?.didMove(toParent: self)
+
+        taskListHostingController?.view.frame = listFrame
+        taskListHostingController?.view.isHidden = false
+        fluentToDoTableViewController?.view.isHidden = true
+
+        // Keep the title bar above section headers.
+        if let hostingView = taskListHostingController?.view, hostingView.superview === foredropContainer {
+            foredropContainer.bringSubviewToFront(hostingView)
         }
-        
-        print("=== END FLUENT UI SAMPLE TABLE VIEW SETUP with top bar height: \(topBarHeight) ===")
+        if homeTopBar.superview === foredropContainer {
+            foredropContainer.bringSubviewToFront(homeTopBar)
+        }
     }
     
     func setupForedropBackground() {
@@ -525,8 +548,8 @@ extension HomeViewController: BadgeViewDelegate {
     }
     
     func refreshSampleTableView(for date: Date) {
-        setupSampleTableView(for: date)
-        // FluentUI table view will automatically reload when updateData is called
+        print("HOME_LEGACY_GUARD refreshSampleTableView_called date=\(date)")
+        refreshHomeTaskList(reason: "legacyGuard.refreshSampleTableView")
     }
     
     // MARK: - Two-Step Animation Helper Functions
