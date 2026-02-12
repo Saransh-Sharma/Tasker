@@ -132,11 +132,11 @@ class EdgeCaseTests: BaseUITest {
         XCTAssertGreaterThanOrEqual(taskCount, 40, "Most tasks should be created (allowing for some failures)")
 
         // Test scrolling with many tasks
-        let tableView = app.tables.firstMatch
-        if tableView.exists {
-            tableView.swipeUp()
+        let taskListScrollView = homePage.taskListScrollView
+        if taskListScrollView.exists {
+            taskListScrollView.swipeUp()
             waitForAnimations(duration: 0.3)
-            tableView.swipeUp()
+            taskListScrollView.swipeUp()
             waitForAnimations(duration: 0.3)
 
             print("✅ Scrolling works with many tasks")
