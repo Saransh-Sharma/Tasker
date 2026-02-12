@@ -204,13 +204,11 @@ extension HomeViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalend
         
         
         reloadTinyPicChartWithAnimation()
-        reloadToDoListWithAnimation()
+        refreshHomeTaskList(reason: "calendar.didSelect")
 
         // Phase 7: Update horizontal chart cards for the new week
         updateChartCardsScrollView()
-
-        // Refresh sample table view with selected date
-        refreshSampleTableView(for: date)
+        print("HOME_UI_MODE calendar.didSelect renderer=TaskListView")
         
         // Reload calendar to update custom cell appearance (today outline etc.)
         self.calendar.reloadData()

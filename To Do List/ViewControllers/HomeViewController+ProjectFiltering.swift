@@ -174,123 +174,155 @@ extension HomeViewController {
     }
     
     func updateViewForHome(viewType: ToDoListViewType, dateForView: Date? = nil) {
-        // Update view type and date
         currentViewType = viewType
         if let date = dateForView {
             dateForTheView = date
         }
 
-        // TODO: Re-enable when ViewModel is available
-        // Use Clean Architecture ViewModel if available, otherwise fallback to legacy
-        // if let viewModel = viewModel {
-        //     print("✅ Using Clean Architecture ViewModel for data loading")
-        //     updateViewUsingViewModel(viewType: viewType)
-        // } else {
-            print("⚠️ ViewModel not available, using legacy data loading")
-            updateViewUsingLegacyMethod(viewType: viewType)
-        // }
-
-        // Refresh UI
-        reloadToDoListWithAnimation()
+        updateHeaderForViewType(viewType)
+        loadDataForViewType(viewType)
+        refreshHomeTaskList(reason: "updateViewForHome.\(viewType)")
         reloadTinyPicChartWithAnimation()
     }
-    
-    /// Clean Architecture data loading using ViewModel
-    /// TODO: Re-enable when ViewModel is available
-    private func updateViewUsingViewModel(viewType: ToDoListViewType) {
-        // guard let vm = viewModel else { return }
-        //
-        // // Use reflection-based approach to safely call ViewModel methods
-        // // This avoids type conflicts while maintaining Clean Architecture patterns
-        //
-        // // Update UI based on view type
-        // switch viewType {
-        // case .todayHomeView:
-        //     toDoListHeaderLabel.text = "Today"
-        //     dateForTheView = Date.today()
-        //     print("🏗️ Clean Architecture: Loading today's tasks via ViewModel")
-        //     callViewModelMethod(vm, methodName: "loadTodayTasks")
-        //
-        // case .customDateView:
-        //     let formatter = DateFormatter()
-        //     formatter.dateFormat = "E, MMM d"
-        //     toDoListHeaderLabel.text = formatter.string(from: dateForTheView)
-        //     print("🏗️ Clean Architecture: Loading tasks for \(dateForTheView) via ViewModel")
-        //     callViewModelMethod(vm, methodName: "selectDate", parameter: dateForTheView)
-        //     callViewModelMethod(vm, methodName: "loadTasksForSelectedDate")
-        //
-        // case .projectView:
-        //     toDoListHeaderLabel.text = projectForTheView
-        //     print("🏗️ Clean Architecture: Loading tasks for project '\(projectForTheView)' via ViewModel")
-        //     callViewModelMethod(vm, methodName: "selectProject", parameter: projectForTheView)
-        //
-        // case .upcomingView:
-        //     toDoListHeaderLabel.text = "Upcoming"
-        //     print("🏗️ Clean Architecture: Loading upcoming tasks via ViewModel")
-        //     // ViewModel will handle upcoming tasks
-        //
-        // case .historyView:
-        //     toDoListHeaderLabel.text = "History"
-        //     print("🏗️ Clean Architecture: Loading history via ViewModel")
-        //     // ViewModel will handle history
-        //
-        // case .allProjectsGrouped:
-        //     toDoListHeaderLabel.text = "All Projects"
-        //     print("🏗️ Clean Architecture: Loading all projects via ViewModel")
-        //     callViewModelMethod(vm, methodName: "loadProjects")
-        //
-        // case .selectedProjectsGrouped:
-        //     toDoListHeaderLabel.text = "Selected Projects"
-        //     print("🏗️ Clean Architecture: Loading selected projects via ViewModel")
-        //     callViewModelMethod(vm, methodName: "loadProjects")
-        // }
-        print("⚠️ updateViewUsingViewModel disabled - TODO: Re-enable when ViewModel is available")
-    }
-    
-    /// Legacy data loading method (fallback)
-    private func updateViewUsingLegacyMethod(viewType: ToDoListViewType) {
-        // Update UI based on view type
+
+    private func updateHeaderForViewType(_ viewType: ToDoListViewType) {
         switch viewType {
         case .todayHomeView:
             toDoListHeaderLabel.text = "Today"
-            dateForTheView = Date.today()
-            print("🔧 Legacy: Loading today's tasks")
-            loadTasksForDateGroupedByProject()
-            
         case .customDateView:
             let formatter = DateFormatter()
             formatter.dateFormat = "E, MMM d"
             toDoListHeaderLabel.text = formatter.string(from: dateForTheView)
-            print("🔧 Legacy: Loading tasks for \(dateForTheView)")
-            loadTasksForDateGroupedByProject()
-            
         case .projectView:
             toDoListHeaderLabel.text = projectForTheView
-            print("🔧 Legacy: Loading project view")
-            
         case .upcomingView:
             toDoListHeaderLabel.text = "Upcoming"
-            print("🔧 Legacy: Loading upcoming view")
-            
         case .historyView:
             toDoListHeaderLabel.text = "History"
-            print("🔧 Legacy: Loading history view")
-            
         case .allProjectsGrouped:
             toDoListHeaderLabel.text = "All Projects"
-            print("🔧 Legacy: Loading all projects grouped")
-            prepareAndFetchTasksForProjectGroupedView()
-            
         case .selectedProjectsGrouped:
             toDoListHeaderLabel.text = "Selected Projects"
-            print("🔧 Legacy: Loading selected projects grouped")
-            prepareAndFetchTasksForProjectGroupedView()
         }
+    }
+
+    private func loadDataForViewType(_ viewType: ToDoListViewType) {
+        guard let viewModel else {
+            print("HOME_DI modeLoad viewModel=nil mode=\(viewType)")
+            return
+        }
+
+        viewModel.loadProjects()
+        switch viewType {
+        case .todayHomeView:
+            dateForTheView = Date.today()
+            viewModel.selectDate(dateForTheView)
+        case .customDateView:
+            viewModel.selectDate(dateForTheView)
+        case .projectView:
+            viewModel.selectProject(projectForTheView)
+        case .upcomingView:
+            viewModel.loadUpcomingTasks()
+        case .historyView:
+            viewModel.loadCompletedTasks()
+        case .allProjectsGrouped:
+            viewModel.selectDate(dateForTheView)
+        case .selectedProjectsGrouped:
+            viewModel.selectDate(dateForTheView)
+        }
+    }
+
+    func buildTaskListInput(for viewType: ToDoListViewType) -> HomeTaskListInput {
+        guard let viewModel else {
+            return HomeTaskListInput(morning: [], evening: [], overdue: [], projects: [])
+        }
+
+        switch viewType {
+        case .todayHomeView, .customDateView, .allProjectsGrouped:
+            let merged = mergeCompletedIntoSections(
+                morning: viewModel.morningTasks,
+                evening: viewModel.eveningTasks,
+                completed: viewModel.dailyCompletedTasks
+            )
+            return HomeTaskListInput(
+                morning: merged.morning,
+                evening: merged.evening,
+                overdue: viewModel.overdueTasks,
+                projects: viewModel.projects
+            )
+
+        case .selectedProjectsGrouped:
+            let selectedNames = Set(selectedProjectNamesForFilter)
+            let selectedProjectIDs = Set(
+                viewModel.projects
+                    .filter { selectedNames.contains($0.name) }
+                    .map(\.id)
+            )
+            let merged = mergeCompletedIntoSections(
+                morning: viewModel.morningTasks.filter { selectedProjectIDs.contains($0.projectID) },
+                evening: viewModel.eveningTasks.filter { selectedProjectIDs.contains($0.projectID) },
+                completed: viewModel.dailyCompletedTasks.filter { selectedProjectIDs.contains($0.projectID) }
+            )
+
+            return HomeTaskListInput(
+                morning: merged.morning,
+                evening: merged.evening,
+                overdue: viewModel.overdueTasks.filter { selectedProjectIDs.contains($0.projectID) },
+                projects: viewModel.projects
+            )
+
+        case .projectView:
+            return splitTasksForList(viewModel.selectedProjectTasks, projects: viewModel.projects)
+
+        case .upcomingView:
+            return splitTasksForList(viewModel.upcomingTasks, projects: viewModel.projects)
+
+        case .historyView:
+            return splitTasksForList(viewModel.completedTasks, projects: viewModel.projects)
+        }
+    }
+
+    private func mergeCompletedIntoSections(
+        morning: [DomainTask],
+        evening: [DomainTask],
+        completed: [DomainTask]
+    ) -> (morning: [DomainTask], evening: [DomainTask]) {
+        let completedMorning = completed.filter { $0.type != .evening }
+        let completedEvening = completed.filter { $0.type == .evening }
+
+        return (
+            morning: sortSectionTasks(morning + completedMorning),
+            evening: sortSectionTasks(evening + completedEvening)
+        )
+    }
+
+    private func sortSectionTasks(_ tasks: [DomainTask]) -> [DomainTask] {
+        tasks.sorted { lhs, rhs in
+            if lhs.isComplete != rhs.isComplete {
+                return !lhs.isComplete && rhs.isComplete
+            }
+            if lhs.priority.rawValue != rhs.priority.rawValue {
+                return lhs.priority.rawValue < rhs.priority.rawValue
+            }
+            let lhsDate = lhs.dueDate ?? Date.distantFuture
+            let rhsDate = rhs.dueDate ?? Date.distantFuture
+            return lhsDate < rhsDate
+        }
+    }
+
+    private func splitTasksForList(_ tasks: [DomainTask], projects: [Project]) -> HomeTaskListInput {
+        let overdue = tasks.filter(\.isOverdue)
+        let nonOverdue = tasks.filter { !$0.isOverdue }
+        let evening = nonOverdue.filter { $0.type == .evening }
+        let morning = nonOverdue.filter { $0.type != .evening }
+        return HomeTaskListInput(morning: morning, evening: evening, overdue: overdue, projects: projects)
     }
     
 
     
     func loadTasksForDateGroupedByProject() {
+        print("HOME_LEGACY_GUARD loadTasksForDateGroupedByProject_called date=\(dateForTheView)")
+
         // Clear existing sections
         ToDoListSections.removeAll()
 
@@ -328,6 +360,7 @@ extension HomeViewController {
 
     /// Process tasks and create sections for display
     private func processTasksForDisplay(_ allTasksForDate: [NTask]) {
+        print("HOME_LEGACY_GUARD processTasksForDisplay_called count=\(allTasksForDate.count)")
         
         // Print all tasks found for debugging
         print("\n📋 TASK DETAILS:")
@@ -496,14 +529,12 @@ extension HomeViewController {
         
         // Reload table view with new data
         DispatchQueue.main.async {
-            // Updated to use FluentUI table view
-        self.fluentToDoTableViewController?.tableView.reloadData()
+            self.refreshHomeTaskList(reason: "legacyProcessTasksForDisplay")
         }
     }
     
     func reloadToDoListWithAnimation() {
-        // Updated to use FluentUI table view
-        fluentToDoTableViewController?.tableView.reloadData()
+        refreshHomeTaskList(reason: "reloadToDoListWithAnimation")
         animateTableViewReload()
     }
     
