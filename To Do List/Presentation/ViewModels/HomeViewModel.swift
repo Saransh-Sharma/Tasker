@@ -254,6 +254,35 @@ public final class HomeViewModel: ObservableObject {
         applyFocusFilters(trackAnalytics: true)
     }
 
+    /// Focus Engine: set Today grouping mode.
+    public func setProjectGroupingMode(_ mode: HomeProjectGroupingMode) {
+        focusEngineEnabled = true
+        var state = activeFilterState
+        guard state.projectGroupingMode != mode else { return }
+        state.projectGroupingMode = mode
+        state.selectedSavedViewID = nil
+        activeFilterState = state
+        persistLastFilterState()
+        applyFocusFilters(trackAnalytics: false)
+    }
+
+    /// Focus Engine: set explicit custom project section order (Inbox excluded).
+    public func setCustomProjectOrder(_ orderedProjectIDs: [UUID]) {
+        focusEngineEnabled = true
+        var state = activeFilterState
+        let normalizedOrder = normalizedCustomProjectOrder(
+            from: orderedProjectIDs,
+            currentOrder: state.customProjectOrderIDs,
+            availableProjects: projects
+        )
+        guard state.customProjectOrderIDs != normalizedOrder else { return }
+        state.customProjectOrderIDs = normalizedOrder
+        state.selectedSavedViewID = nil
+        activeFilterState = state
+        persistLastFilterState()
+        applyFocusFilters(trackAnalytics: false)
+    }
+
     /// Focus Engine: toggle a project facet chip (OR across selected IDs).
     public func toggleProjectFilter(_ projectID: UUID) {
         focusEngineEnabled = true
@@ -372,7 +401,10 @@ public final class HomeViewModel: ObservableObject {
         }
 
         focusEngineEnabled = true
-        activeFilterState = saved.asFilterState(pinnedProjectIDs: activeFilterState.pinnedProjectIDs)
+        var restoredState = saved.asFilterState(pinnedProjectIDs: activeFilterState.pinnedProjectIDs)
+        restoredState.projectGroupingMode = activeFilterState.projectGroupingMode
+        restoredState.customProjectOrderIDs = activeFilterState.customProjectOrderIDs
+        activeFilterState = restoredState
         persistLastFilterState()
         trackFeatureUsage(action: "home_filter_saved_view_used", metadata: ["id": id.uuidString])
         applyFocusFilters(trackAnalytics: false)
@@ -426,7 +458,7 @@ public final class HomeViewModel: ObservableObject {
                 activeFilterState = .default
                 return
             }
-            activeFilterState = decoded
+            activeFilterState = sanitizeFilterState(decoded, availableProjects: projects)
         } catch {
             activeFilterState = .default
         }
@@ -441,6 +473,7 @@ public final class HomeViewModel: ObservableObject {
                     let loadedProjects = projectsWithStats.map { $0.project }
                     self?.projects = loadedProjects
                     self?.seedPinnedProjectsIfNeeded(from: loadedProjects)
+                    self?.normalizeCustomProjectOrderIfNeeded(from: loadedProjects)
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -705,6 +738,17 @@ public final class HomeViewModel: ObservableObject {
         persistLastFilterState()
     }
 
+    private func normalizeCustomProjectOrderIfNeeded(from projects: [Project]) {
+        let normalized = normalizedCustomProjectOrder(
+            from: activeFilterState.customProjectOrderIDs,
+            currentOrder: [],
+            availableProjects: projects
+        )
+        guard activeFilterState.customProjectOrderIDs != normalized else { return }
+        activeFilterState.customProjectOrderIDs = normalized
+        persistLastFilterState()
+    }
+
     private func bumpPinnedProject(_ id: UUID) {
         var pinned = activeFilterState.pinnedProjectIDs
         pinned.removeAll { $0 == id }
@@ -715,6 +759,55 @@ public final class HomeViewModel: ObservableObject {
         }
 
         activeFilterState.pinnedProjectIDs = pinned
+    }
+
+    private func sanitizeFilterState(_ state: HomeFilterState, availableProjects: [Project]) -> HomeFilterState {
+        var sanitized = state
+        sanitized.customProjectOrderIDs = normalizedCustomProjectOrder(
+            from: state.customProjectOrderIDs,
+            currentOrder: [],
+            availableProjects: availableProjects
+        )
+        return sanitized
+    }
+
+    private func normalizedCustomProjectOrder(
+        from requestedOrder: [UUID],
+        currentOrder: [UUID],
+        availableProjects: [Project]
+    ) -> [UUID] {
+        let customProjects = availableProjects
+            .filter { !$0.isInbox && $0.id != ProjectConstants.inboxProjectID }
+
+        let dedupedRequested = Array(NSOrderedSet(array: requestedOrder).compactMap { $0 as? UUID })
+            .filter { $0 != ProjectConstants.inboxProjectID }
+
+        let dedupedCurrent = Array(NSOrderedSet(array: currentOrder).compactMap { $0 as? UUID })
+            .filter { $0 != ProjectConstants.inboxProjectID }
+
+        guard !customProjects.isEmpty else {
+            var merged = dedupedRequested
+            for id in dedupedCurrent where !merged.contains(id) {
+                merged.append(id)
+            }
+            return merged
+        }
+
+        let customByID = Dictionary(uniqueKeysWithValues: customProjects.map { ($0.id, $0) })
+        let requestedPresent = dedupedRequested.filter { customByID[$0] != nil }
+        let currentPresent = dedupedCurrent.filter { customByID[$0] != nil }
+
+        var merged = requestedPresent
+        for id in currentPresent where !merged.contains(id) {
+            merged.append(id)
+        }
+
+        let missing = customProjects
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .map(\.id)
+            .filter { !merged.contains($0) }
+
+        return merged + missing
     }
 
     private func sortByPriorityThenDue(lhs: Task, rhs: Task) -> Bool {
