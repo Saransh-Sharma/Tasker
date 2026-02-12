@@ -46,30 +46,9 @@ public final class CreateTaskUseCase {
             return
         }
 
-        // Step 2: Determine project ID
-        let projectID: UUID
-        if let specifiedProjectID = request.projectID {
-            projectID = specifiedProjectID
-        } else {
-            // No projectID specified, default to Inbox
-            projectID = ProjectConstants.inboxProjectID
-        }
-
-        // Step 3: Verify project exists (optional, but good for data integrity)
-        projectRepository.fetchProject(withId: projectID) { [weak self] result in
-            switch result {
-            case .success(let project):
-                if project == nil && projectID != ProjectConstants.inboxProjectID {
-                    // Project doesn't exist and it's not Inbox, fall back to Inbox
-                    self?.createTaskWithProjectID(request: request, projectID: ProjectConstants.inboxProjectID, completion: completion)
-                } else {
-                    // Project exists or is Inbox, proceed
-                    self?.createTaskWithProjectID(request: request, projectID: projectID, completion: completion)
-                }
-            case .failure:
-                // If project check fails, default to Inbox for safety
-                self?.createTaskWithProjectID(request: request, projectID: ProjectConstants.inboxProjectID, completion: completion)
-            }
+        // Step 2: Resolve project ID (prefer explicit UUID, then project name, then Inbox fallback)
+        resolveProjectID(for: request) { [weak self] resolvedProjectID in
+            self?.createTaskWithProjectID(request: request, projectID: resolvedProjectID, completion: completion)
         }
     }
     
@@ -79,6 +58,50 @@ public final class CreateTaskUseCase {
         // Deprecated: Use createTaskWithProjectID instead
         // Default to Inbox for backward compatibility
         createTaskWithProjectID(request: request, projectID: ProjectConstants.inboxProjectID, completion: completion)
+    }
+
+    private func resolveProjectID(for request: CreateTaskRequest, completion: @escaping (UUID) -> Void) {
+        if let specifiedProjectID = request.projectID {
+            projectRepository.fetchProject(withId: specifiedProjectID) { result in
+                switch result {
+                case .success(let project):
+                    if project != nil || specifiedProjectID == ProjectConstants.inboxProjectID {
+                        print("HOME_ADD_RESOLVE source=projectID projectID=\(specifiedProjectID.uuidString) projectName=\(request.project ?? "nil")")
+                        completion(specifiedProjectID)
+                    } else {
+                        print("HOME_ADD_RESOLVE source=inbox_fallback projectID=\(ProjectConstants.inboxProjectID.uuidString) projectName=\(request.project ?? "nil")")
+                        completion(ProjectConstants.inboxProjectID)
+                    }
+                case .failure:
+                    print("HOME_ADD_RESOLVE source=inbox_fallback projectID=\(ProjectConstants.inboxProjectID.uuidString) projectName=\(request.project ?? "nil")")
+                    completion(ProjectConstants.inboxProjectID)
+                }
+            }
+            return
+        }
+
+        let requestedProjectName = request.project?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !requestedProjectName.isEmpty {
+            projectRepository.fetchProject(withName: requestedProjectName) { result in
+                switch result {
+                case .success(let project):
+                    if let project {
+                        print("HOME_ADD_RESOLVE source=projectName projectID=\(project.id.uuidString) projectName=\(requestedProjectName)")
+                        completion(project.id)
+                    } else {
+                        print("HOME_ADD_RESOLVE source=inbox_fallback projectID=\(ProjectConstants.inboxProjectID.uuidString) projectName=\(requestedProjectName)")
+                        completion(ProjectConstants.inboxProjectID)
+                    }
+                case .failure:
+                    print("HOME_ADD_RESOLVE source=inbox_fallback projectID=\(ProjectConstants.inboxProjectID.uuidString) projectName=\(requestedProjectName)")
+                    completion(ProjectConstants.inboxProjectID)
+                }
+            }
+            return
+        }
+
+        print("HOME_ADD_RESOLVE source=inbox_fallback projectID=\(ProjectConstants.inboxProjectID.uuidString) projectName=nil")
+        completion(ProjectConstants.inboxProjectID)
     }
 
     private func createTaskWithProjectID(request: CreateTaskRequest, projectID: UUID, completion: @escaping (Result<Task, CreateTaskError>) -> Void) {
@@ -205,5 +228,4 @@ public enum CreateTaskError: LocalizedError {
         }
     }
 }
-
 
