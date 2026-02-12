@@ -129,11 +129,7 @@ struct TaskDetailSheetView: View {
             // Checkbox + Title row
             HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
                 CompletionCheckbox(isComplete: isComplete) {
-                    withAnimation(TaskerAnimation.bouncy) {
-                        isComplete.toggle()
-                    }
-                    TaskerHaptic.success()
-                    onToggleComplete?()
+                    toggleCompletion()
                 }
 
                 if isEditingTitle {
@@ -477,11 +473,7 @@ struct TaskDetailSheetView: View {
 
             // Complete / Incomplete toggle
             Button(action: {
-                withAnimation(TaskerAnimation.bouncy) {
-                    isComplete.toggle()
-                }
-                TaskerHaptic.success()
-                onToggleComplete?()
+                toggleCompletion()
             }) {
                 HStack(spacing: TaskerTheme.Spacing.sm) {
                     Image(systemName: isComplete ? "arrow.uturn.backward" : "checkmark.circle")
@@ -537,12 +529,14 @@ struct TaskDetailSheetView: View {
 
     private func saveChanges() {
         guard !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let resolvedProject = resolveProjectSelection(for: selectedProject)
 
         task.name = taskName
         task.taskDetails = taskDescription.isEmpty ? nil : taskDescription
         task.taskPriority = taskPriority
         task.taskType = taskType
-        task.project = selectedProject
+        task.project = resolvedProject.name
+        task.projectID = resolvedProject.id
         task.dueDate = dueDate as NSDate?
         task.alertReminderTime = reminderTime as NSDate?
         task.isEveningTask = taskType == 2
@@ -551,10 +545,68 @@ struct TaskDetailSheetView: View {
             try task.managedObjectContext?.save()
             hasChanges = false
             TaskerHaptic.success()
+            print("HOME_DETAIL_SHEET save taskID=\(task.taskID?.uuidString ?? "nil") projectID=\(resolvedProject.id.uuidString) source=\(resolvedProject.source)")
             onSave?()
         } catch {
-            print("Error saving task changes: \(error)")
+            print("HOME_DETAIL_SHEET save_error taskID=\(task.taskID?.uuidString ?? "nil") error=\(error)")
         }
+    }
+
+    private func toggleCompletion() {
+        withAnimation(TaskerAnimation.bouncy) {
+            isComplete.toggle()
+        }
+
+        task.isComplete = isComplete
+        task.dateCompleted = isComplete ? Date() as NSDate : nil
+
+        do {
+            try task.managedObjectContext?.save()
+            TaskerHaptic.success()
+            print("HOME_DETAIL_SHEET toggle taskID=\(task.taskID?.uuidString ?? "nil") isComplete=\(isComplete)")
+            onToggleComplete?()
+        } catch {
+            print("HOME_DETAIL_SHEET toggle_error taskID=\(task.taskID?.uuidString ?? "nil") error=\(error)")
+        }
+    }
+
+    private func resolveProjectSelection(for projectName: String) -> (name: String, id: UUID, source: String) {
+        let trimmed = projectName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackName = ProjectConstants.inboxProjectName
+        let fallbackID = ProjectConstants.inboxProjectID
+
+        guard let context = task.managedObjectContext else {
+            let selectedName = trimmed.isEmpty ? fallbackName : trimmed
+            print("HOME_DETAIL_SHEET project_resolve source=no_context projectName=\(selectedName) projectID=\(fallbackID.uuidString)")
+            return (selectedName, fallbackID, "no_context")
+        }
+
+        if !trimmed.isEmpty {
+            let byNameRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+            byNameRequest.fetchLimit = 1
+            byNameRequest.predicate = NSPredicate(format: "projectName =[c] %@", trimmed)
+            if let project = try? context.fetch(byNameRequest).first,
+               let projectID = project.projectID {
+                let resolvedName = project.projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let name = (resolvedName?.isEmpty == false) ? (resolvedName ?? trimmed) : trimmed
+                print("HOME_DETAIL_SHEET project_resolve source=matched_name projectName=\(name) projectID=\(projectID.uuidString)")
+                return (name, projectID, "matched_name")
+            }
+        }
+
+        let inboxRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+        inboxRequest.fetchLimit = 1
+        inboxRequest.predicate = NSPredicate(format: "projectID == %@", fallbackID as CVarArg)
+        if let inbox = try? context.fetch(inboxRequest).first,
+           let inboxID = inbox.projectID {
+            let name = inbox.projectName ?? fallbackName
+            print("HOME_DETAIL_SHEET project_resolve source=inbox_entity projectName=\(name) projectID=\(inboxID.uuidString)")
+            return (name, inboxID, "inbox_entity")
+        }
+
+        let selectedName = trimmed.isEmpty ? fallbackName : trimmed
+        print("HOME_DETAIL_SHEET project_resolve source=inbox_fallback projectName=\(selectedName) projectID=\(fallbackID.uuidString)")
+        return (selectedName, fallbackID, "inbox_fallback")
     }
 
     // MARK: - Computed Helpers
