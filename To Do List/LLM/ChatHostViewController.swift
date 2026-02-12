@@ -66,7 +66,7 @@ class ChatHostViewController: UIViewController {
     // MARK: - FluentUI Navigation Bar Setup
     private func setupFluentNavigationBar() {
         // Configure navigation bar appearance using standard iOS APIs
-        title = "Chat"
+        title = "Eva"
 
         // Set FluentUI custom navigation bar color - this is the correct way to set color with FluentUI
         let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
@@ -84,7 +84,7 @@ class ChatHostViewController: UIViewController {
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
-        navigationController?.navigationBar.prefersLargeTitles = true
+        navigationController?.navigationBar.prefersLargeTitles = false
 
         // Left: Back button
         let backButton = UIBarButtonItem(
@@ -177,7 +177,7 @@ private struct ChatContainerView: View {
         }
         .environmentObject(appManager)
         .environment(llm)
-        .ignoresSafeArea()
+        .background(Color.tasker(.bgCanvas))
         // Present chat history list when showChats toggled (iPhone)
         .sheet(isPresented: $showChats) {
             ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
@@ -185,6 +185,8 @@ private struct ChatContainerView: View {
                 #if os(iOS)
                 .presentationDragIndicator(.hidden)
                 .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium, .large] : [.large])
+                .presentationBackground(Color.tasker(.bgElevated))
+                .presentationCornerRadius(TaskerTheme.CornerRadius.modal)
             #endif
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleChatHistory)) { _ in
