@@ -291,6 +291,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.refreshQuickFilterMenuContent()
+                self?.refreshTableView()
             }
             .store(in: &cancellables)
 
@@ -407,6 +408,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         let projects: [Project]
         let doneTimeline: [DomainTask]
         let activeQuickView: HomeQuickView?
+        let projectGroupingMode: HomeProjectGroupingMode
+        let customProjectOrderIDs: [UUID]
         let emptyStateMessage: String?
         let emptyStateActionTitle: String?
     }
@@ -459,10 +462,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var quickFilterMenuContentStack = UIStackView()
     var quickFilterMenuQuickSectionLabel = UILabel()
     var quickFilterMenuProjectSectionLabel = UILabel()
+    var quickFilterMenuGroupingSectionLabel = UILabel()
     var quickFilterMenuQuickScrollView = UIScrollView()
     var quickFilterMenuQuickStack = UIStackView()
     var quickFilterMenuProjectScrollView = UIScrollView()
     var quickFilterMenuProjectStack = UIStackView()
+    var quickFilterMenuGroupingScrollView = UIScrollView()
+    var quickFilterMenuGroupingStack = UIStackView()
     var quickFilterMenuAdvancedButton = UIButton(type: .system)
     var isQuickFilterMenuVisible = false
     var filledBar: UIView?
@@ -740,11 +746,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         super.viewDidAppear(animated)
         shouldAnimateCells = false
         
-        // Ensure navigation pie chart exists - recreate if needed
-        if navigationPieChartView == nil {
-            print("⚠️ Navigation pie chart is nil in viewDidAppear, attempting to create...")
-            embedNavigationPieChartOnNavigationBar()
-        }
+        // Ensure canonical nav-right pie chart exists - recreate if needed.
+        ensureNavigationPieChartBarButton()
         
         refreshNavigationPieChart()
         
@@ -858,15 +861,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         settingsButton.accessibilityIdentifier = "home.settingsButton"
         navigationItem.leftBarButtonItem = settingsButton
 
-        let filterButton = UIBarButtonItem(
-            image: UIImage(systemName: "line.3.horizontal.decrease.circle"),
-            style: .plain,
-            target: self,
-            action: #selector(toggleQuickFilterMenu)
-        )
-        filterButton.tintColor = todoColors.accentOnPrimary
-        filterButton.accessibilityIdentifier = "home.focus.menu.button.nav"
-        navigationItem.rightBarButtonItem = filterButton
+        // Move XP pie chart into the canonical top-right nav slot.
+        navigationItem.rightBarButtonItem = createPieChartBarButton()
 
         // Search bar removed - now accessed via bottom app bar button
 
@@ -874,111 +870,31 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         scoreCounter.isHidden = true
         // Ensure initial title is displayed
         updateDailyScore()
-      // Embed pie chart inside search bar accessory instead of right bar button
-        embedNavigationPieChartOnNavigationBar()
         
         // Enable scroll-to-contract behavior
         // Note: contentScrollView is FluentUI-specific, removed for native iOS compatibility
     }
     
-    private func embedNavigationPieChart(in hostView: UIView) {
-        // Avoid duplicate embedding
-        if navigationPieChartView != nil { return }
-        let size: CGFloat = 32
-        let containerView = UIView()
-        containerView.translatesAutoresizingMaskIntoConstraints = false
-        hostView.addSubview(containerView)
-        NSLayoutConstraint.activate([
-            containerView.widthAnchor.constraint(equalToConstant: size),
-            containerView.heightAnchor.constraint(equalToConstant: size),
-            containerView.trailingAnchor.constraint(equalTo: hostView.trailingAnchor, constant: -8),
-            containerView.centerYAnchor.constraint(equalTo: hostView.centerYAnchor)
-        ])
-        let navPieChart = PieChartView(frame: CGRect(x: 0, y: 0, width: size, height: size))
-        navigationPieChartView = navPieChart
-        containerView.addSubview(navPieChart)
-        navPieChart.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        setupPieChartView(pieChartView: navPieChart)
-        navPieChart.layer.borderWidth = 0
-        navPieChart.layer.borderColor = UIColor.clear.cgColor
-        navPieChart.holeRadiusPercent = 0.58
-        // Ensure the chart is visible above the navigation bar
-        navPieChart.layer.zPosition = 952
-        containerView.layer.zPosition = 952
-        navPieChart.backgroundColor = .clear
-        setNavigationPieChartData()
-        // Ensure chart has correct initial data & animation
+    private func ensureNavigationPieChartBarButton() {
+        let containerIdentifier = "home.navXpPieChart.container"
+        let currentContainer = navigationItem.rightBarButtonItem?.customView
+        let isCanonicalContainer = currentContainer?.accessibilityIdentifier == containerIdentifier
+
+        guard navigationPieChartView == nil || !isCanonicalContainer else { return }
+        navigationItem.rightBarButtonItem = createPieChartBarButton()
+    }
+
+    private func embedNavigationPieChart(in _: UIView) {
+        // Compatibility shim: retain method name for existing call sites.
+        ensureNavigationPieChartBarButton()
         refreshNavigationPieChart()
-        let tap = UITapGestureRecognizer(target: self, action: #selector(toggleCharts))
-        navPieChart.addGestureRecognizer(tap)
-        navPieChart.isUserInteractionEnabled = true
     }
     
     // MARK: - Embed Pie Chart on Navigation Bar (Right Aligned)
     private func embedNavigationPieChartOnNavigationBar() {
-        guard navigationPieChartView == nil else {
-            print("🥧 Navigation pie chart already exists, skipping creation")
-            return
-        }
-        guard let navBar = self.navigationController?.navigationBar else {
-            print("❌ Navigation bar not available, cannot embed pie chart")
-            return
-        }
-        
-        print("🥧 Creating navigation pie chart...")
-        navBar.clipsToBounds = false // allow chart to render outside if needed
-        let size: CGFloat = 110
-        let containerView = UIView()
-        containerView.translatesAutoresizingMaskIntoConstraints = false
-        containerView.backgroundColor = .clear
-        navBar.addSubview(containerView)
-        NSLayoutConstraint.activate([
-            containerView.widthAnchor.constraint(equalToConstant: size),
-            containerView.heightAnchor.constraint(equalToConstant: size),
-            containerView.trailingAnchor.constraint(equalTo: navBar.trailingAnchor, constant: -2),
-            containerView.centerYAnchor.constraint(equalTo: navBar.centerYAnchor, constant:30)
-        ])
-        let navPieChart = PieChartView(frame: .zero)
-        navigationPieChartView = navPieChart
-        containerView.addSubview(navPieChart)
-        navPieChart.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            navPieChart.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-            navPieChart.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-            navPieChart.topAnchor.constraint(equalTo: containerView.topAnchor),
-            navPieChart.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-        ])
-        setupPieChartView(pieChartView: navPieChart)
-        navPieChart.layer.borderWidth = 0
-        navPieChart.layer.borderColor = UIColor.clear.cgColor
-        navPieChart.holeRadiusPercent = 0.58
-        // Minimal appearance: no slice labels, legend, or description
-        navPieChart.drawEntryLabelsEnabled = false
-        navPieChart.legend.enabled = false
-        navPieChart.chartDescription.enabled = false
-        // Enable hole in center like demo
-        navPieChart.drawHoleEnabled = true
-        navPieChart.setExtraOffsets(left: 0, top: 0, right: 0, bottom: 0)
-        navPieChart.minOffset = 0
-        navPieChart.layer.zPosition = 900
-        containerView.layer.zPosition = 900
-        navPieChart.backgroundColor = .clear
-        
-        // Ensure visibility
-        navPieChart.isHidden = false
-        navPieChart.alpha = 1.0
-        containerView.isHidden = false
-        containerView.alpha = 1.0
-        
-        setNavigationPieChartData()
+        // Compatibility shim: no manual nav-bar subview overlays.
+        ensureNavigationPieChartBarButton()
         refreshNavigationPieChart()
-        let tap = UITapGestureRecognizer(target: self, action: #selector(toggleCharts))
-        navPieChart.addGestureRecognizer(tap)
-        navPieChart.isUserInteractionEnabled = true
-        
-        print("✅ Navigation pie chart created successfully at frame: \(navPieChart.frame)")
-        print("   Container frame: \(containerView.frame)")
-        print("   Navigation bar frame: \(navBar.frame)")
     }
     
     private func createSearchBarAccessory() -> UISearchBar {
@@ -1006,9 +922,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     // MARK: - Pie Chart Button
 
     private func createPieChartBarButton() -> UIBarButtonItem {
-        // Create a container for the chart
-        let containerView = UIView(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
+        navigationPieChartView?.removeFromSuperview()
+        navigationPieChartView = nil
+
+        let size: CGFloat = 34
+        let containerView = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
         containerView.backgroundColor = .clear
+        containerView.accessibilityIdentifier = "home.navXpPieChart.container"
         
         // Create chart view
         let navPieChart = PieChartView(frame: containerView.bounds)
@@ -1022,9 +942,16 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         navPieChart.layer.borderWidth = 0
         navPieChart.layer.borderColor = UIColor.clear.cgColor
         setTinyChartShadow(chartView: navPieChart)
-        navPieChart.layer.zPosition = 1000
-        containerView.layer.zPosition = 1000
         navPieChart.backgroundColor = .clear
+        navPieChart.drawEntryLabelsEnabled = false
+        navPieChart.legend.enabled = false
+        navPieChart.chartDescription.enabled = false
+        navPieChart.drawHoleEnabled = true
+        navPieChart.setExtraOffsets(left: 0, top: 0, right: 0, bottom: 0)
+        navPieChart.minOffset = 0
+        navPieChart.accessibilityIdentifier = "home.navXpPieChart"
+        navPieChart.isAccessibilityElement = true
+        navPieChart.accessibilityLabel = "XP chart"
         
         // Populate data
         setNavigationPieChartData()
@@ -1036,7 +963,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         // Wrap in bar button item
         let barButtonItem = UIBarButtonItem(customView: containerView)
-        barButtonItem.accessibilityLabel = "Charts"
+        barButtonItem.accessibilityLabel = "XP chart"
+        barButtonItem.accessibilityIdentifier = "home.navXpPieChart.button"
         return barButtonItem
     }
         
