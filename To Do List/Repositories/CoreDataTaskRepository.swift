@@ -51,17 +51,17 @@ final class CoreDataTaskRepository: TaskRepository {
     }
     
     func fetchTask(by taskID: NSManagedObjectID, completion: @escaping (Result<NTask, Error>) -> Void) {
-        backgroundContext.perform {
+        viewContext.perform {
             do {
-                let task = try self.backgroundContext.existingObject(with: taskID) as? NTask
+                let task = try self.viewContext.existingObject(with: taskID) as? NTask
                 if let task = task {
-                    DispatchQueue.main.async { completion(.success(task)) }
+                    completion(.success(task))
                 } else {
                     let error = NSError(domain: "TaskRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found"])
-                    DispatchQueue.main.async { completion(.failure(error)) }
+                    completion(.failure(error))
                 }
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                completion(.failure(error))
             }
         }
     }
@@ -69,25 +69,57 @@ final class CoreDataTaskRepository: TaskRepository {
     func addTask(data: TaskData, completion: ((Result<NTask, Error>) -> Void)?) {
         backgroundContext.perform {
             let managed = NTask(context: self.backgroundContext)
+            managed.taskID = UUID()
             managed.name = data.name
             managed.taskDetails = data.details
             managed.taskType = data.type
             managed.taskPriority = data.priorityRawValue
             managed.dueDate = data.dueDate as NSDate
-            managed.project = data.project
             managed.isComplete = data.isComplete
             managed.dateAdded = data.dateAdded as NSDate
             managed.dateCompleted = data.dateCompleted as NSDate?
+
+            let requestedProjectName = data.project.trimmingCharacters(in: .whitespacesAndNewlines)
+            let effectiveProjectName = requestedProjectName.isEmpty ? ProjectConstants.inboxProjectName : requestedProjectName
+
+            let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+            projectRequest.fetchLimit = 1
+            projectRequest.predicate = NSPredicate(format: "projectName ==[c] %@", effectiveProjectName)
+
+            if let matchedProject = try? self.backgroundContext.fetch(projectRequest).first,
+               let matchedProjectID = matchedProject.projectID {
+                managed.projectID = matchedProjectID
+                managed.project = matchedProject.projectName ?? effectiveProjectName
+            } else {
+                managed.projectID = ProjectConstants.inboxProjectID
+                managed.project = ProjectConstants.inboxProjectName
+            }
+
+            print(
+                "HOME_ADD create name=\(managed.name ?? "Untitled") " +
+                "taskID=\(managed.taskID?.uuidString ?? "nil") " +
+                "projectID=\(managed.projectID?.uuidString ?? "nil") " +
+                "project=\(managed.project ?? "nil")"
+            )
             
             do {
                 try self.backgroundContext.save()
-                // Get the object in the main context for the delegate
-                guard let mainContextTask = self.viewContext.object(with: managed.objectID) as? NTask else {
-                    let error = NSError(domain: "CoreDataTaskRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve saved task in main context"])
-                    DispatchQueue.main.async { completion?(.failure(error)) }
-                    return
+                let savedTaskID = managed.objectID
+                
+                // Access viewContext only on its own queue (main queue context).
+                self.viewContext.perform {
+                    do {
+                        guard let mainContextTask = try self.viewContext.existingObject(with: savedTaskID) as? NTask else {
+                            let error = NSError(domain: "CoreDataTaskRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve saved task in main context"])
+                            completion?(.failure(error))
+                            return
+                        }
+                        NotificationCenter.default.post(name: NSNotification.Name("TaskCreated"), object: mainContextTask)
+                        completion?(.success(mainContextTask))
+                    } catch {
+                        completion?(.failure(error))
+                    }
                 }
-                DispatchQueue.main.async { completion?(.success(mainContextTask)) }
             } catch {
                 print("❌ Task add error: \(error)")
                 DispatchQueue.main.async { completion?(.failure(error)) }
