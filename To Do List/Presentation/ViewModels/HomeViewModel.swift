@@ -27,7 +27,9 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var morningTasks: [Task] = []
     @Published public private(set) var eveningTasks: [Task] = []
     @Published public private(set) var overdueTasks: [Task] = []
+    @Published public private(set) var dailyCompletedTasks: [Task] = []
     @Published public private(set) var upcomingTasks: [Task] = []
+    @Published public private(set) var completedTasks: [Task] = []
     
     // Projects
     @Published public private(set) var projects: [Project] = []
@@ -62,6 +64,7 @@ public final class HomeViewModel: ObservableObject {
                     self?.morningTasks = dateResult.morningTasks
                     self?.eveningTasks = dateResult.eveningTasks
                     self?.overdueTasks = dateResult.overdueTasks
+                    self?.dailyCompletedTasks = dateResult.completedTasks
                     self?.updateCompletionRate(dateResult)
                     
                 case .failure(let error):
@@ -98,6 +101,7 @@ public final class HomeViewModel: ObservableObject {
                     self?.morningTasks = todayResult.morningTasks
                     self?.eveningTasks = todayResult.eveningTasks
                     self?.overdueTasks = todayResult.overdueTasks
+                    self?.dailyCompletedTasks = todayResult.completedTasks
                     self?.updateCompletionRate(todayResult)
 
                     print("🔍 [VIEW MODEL] Published properties updated")
@@ -124,13 +128,8 @@ public final class HomeViewModel: ObservableObject {
                 case .success(let completionResult):
                     // Update score
                     self?.dailyScore += completionResult.scoreEarned
-                    
-                    // Reload tasks to reflect changes
-                    if Calendar.current.isDateInToday(self?.selectedDate ?? Date()) {
-                        self?.loadTodayTasks()
-                    } else {
-                        self?.loadTasksForSelectedDate()
-                    }
+                    self?.invalidateTaskCaches()
+                    self?.reloadCurrentModeTasks()
                     
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -145,12 +144,8 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    // Reload tasks to show the new task
-                    if Calendar.current.isDateInToday(self?.selectedDate ?? Date()) {
-                        self?.loadTodayTasks()
-                    } else {
-                        self?.loadTasksForSelectedDate()
-                    }
+                    self?.invalidateTaskCaches()
+                    self?.reloadCurrentModeTasks()
                     
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -165,12 +160,8 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    // Reload tasks to reflect deletion
-                    if Calendar.current.isDateInToday(self?.selectedDate ?? Date()) {
-                        self?.loadTodayTasks()
-                    } else {
-                        self?.loadTasksForSelectedDate()
-                    }
+                    self?.invalidateTaskCaches()
+                    self?.reloadCurrentModeTasks()
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -185,12 +176,8 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    // Reload tasks to reflect rescheduling
-                    if Calendar.current.isDateInToday(self?.selectedDate ?? Date()) {
-                        self?.loadTodayTasks()
-                    } else {
-                        self?.loadTasksForSelectedDate()
-                    }
+                    self?.invalidateTaskCaches()
+                    self?.reloadCurrentModeTasks()
                     
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -235,6 +222,60 @@ public final class HomeViewModel: ObservableObject {
             }
         }
     }
+
+    /// Clears task-related cache entries to force fresh reads.
+    public func invalidateTaskCaches() {
+        useCaseCoordinator.cacheService?.clearAll()
+        print("HOME_CACHE invalidated scope=all")
+    }
+
+    /// Load upcoming tasks for upcoming mode.
+    public func loadUpcomingTasks() {
+        isLoading = true
+        errorMessage = nil
+
+        useCaseCoordinator.getTasks.getUpcomingTasks { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let upcomingResult):
+                    let combined = upcomingResult.thisWeek
+                        + upcomingResult.nextWeek
+                        + upcomingResult.thisMonth
+                        + upcomingResult.later
+                    self?.upcomingTasks = combined.sorted {
+                        ($0.dueDate ?? Date.distantFuture) < ($1.dueDate ?? Date.distantFuture)
+                    }
+
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    /// Load completed tasks for history mode.
+    public func loadCompletedTasks() {
+        isLoading = true
+        errorMessage = nil
+
+        useCaseCoordinator.taskRepository.fetchCompletedTasks { [weak self] result in
+            DispatchQueue.main.async {
+                self?.isLoading = false
+
+                switch result {
+                case .success(let tasks):
+                    self?.completedTasks = tasks.sorted {
+                        ($0.dateCompleted ?? Date.distantPast) > ($1.dateCompleted ?? Date.distantPast)
+                    }
+
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
     
     /// Complete morning routine
     public func completeMorningRoutine() {
@@ -273,24 +314,29 @@ public final class HomeViewModel: ObservableObject {
         // Listen for task-related notifications
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
             .sink { [weak self] _ in
-                self?.loadTasksForSelectedDate()
+                self?.invalidateTaskCaches()
+                self?.reloadCurrentModeTasks()
             }
             .store(in: &cancellables)
         
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskUpdated"))
             .sink { [weak self] _ in
-                self?.loadTasksForSelectedDate()
+                self?.invalidateTaskCaches()
+                self?.reloadCurrentModeTasks()
             }
             .store(in: &cancellables)
         
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskDeleted"))
             .sink { [weak self] _ in
-                self?.loadTasksForSelectedDate()
+                self?.invalidateTaskCaches()
+                self?.reloadCurrentModeTasks()
             }
             .store(in: &cancellables)
         
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCompletionChanged"))
             .sink { [weak self] _ in
+                self?.invalidateTaskCaches()
+                self?.reloadCurrentModeTasks()
                 self?.loadDailyAnalytics()
             }
             .store(in: &cancellables)
@@ -337,6 +383,21 @@ public final class HomeViewModel: ObservableObject {
             }
         }
     }
+
+    private func reloadCurrentModeTasks() {
+        loadProjects()
+
+        if selectedProject != "All" {
+            loadProjectTasks(selectedProject)
+            return
+        }
+
+        if Calendar.current.isDateInToday(selectedDate) {
+            loadTodayTasks()
+        } else {
+            loadTasksForSelectedDate()
+        }
+    }
     
     private func updateCompletionRate(_ result: TodayTasksResult) {
         let total = result.totalCount
@@ -366,6 +427,7 @@ extension HomeViewModel {
             eveningTasks: eveningTasks,
             overdueTasks: overdueTasks,
             upcomingTasks: upcomingTasks,
+            completedTasks: completedTasks,
             projects: projects,
             dailyScore: dailyScore,
             streak: streak,
@@ -384,6 +446,7 @@ public struct HomeViewState {
     public let eveningTasks: [Task]
     public let overdueTasks: [Task]
     public let upcomingTasks: [Task]
+    public let completedTasks: [Task]
     public let projects: [Project]
     public let dailyScore: Int
     public let streak: Int
