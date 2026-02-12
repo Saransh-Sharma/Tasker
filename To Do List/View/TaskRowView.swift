@@ -18,35 +18,39 @@ struct TaskRowView: View {
     var onDelete: (() -> Void)? = nil
     var onReschedule: (() -> Void)? = nil
 
-    @State private var rowBaseOffset: CGFloat = 0
-    @State private var didLogSwipeBegin: Bool = false
-    @GestureState private var dragTranslation: CGFloat = 0
-
     private var themeColors: TaskerColorTokens {
         TaskerThemeManager.shared.currentTheme.tokens.color
     }
 
-    private var actionButtonWidth: CGFloat { 92 }
-    private var maxReveal: CGFloat { actionButtonWidth * 2 }
-    private var currentOffset: CGFloat {
-        let raw = rowBaseOffset + dragTranslation
-        return min(0, max(-maxReveal, raw))
-    }
-
     var body: some View {
-        ZStack(alignment: .trailing) {
-            actionTray
-            rowContent
-                .offset(x: currentOffset)
-                .simultaneousGesture(swipeGesture)
-                .onTapGesture {
-                    print("HOME_TAP_UI row_tap id=\(task.id.uuidString) offset=\(currentOffset)")
-                    if rowBaseOffset != 0 {
-                        closeActions()
-                    } else {
-                        onTap?()
-                    }
+        rowContent
+        .contentShape(Rectangle())
+        .onTapGesture {
+            print("HOME_TAP_UI row_tap id=\(task.id.uuidString)")
+            onTap?()
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if task.isComplete {
+                Button {
+                    onToggleComplete?()
+                } label: {
+                    Label("Reopen", systemImage: "arrow.uturn.backward")
                 }
+                .tint(Color.tasker.accentSecondary)
+            } else {
+                Button {
+                    onReschedule?()
+                } label: {
+                    Label("Reschedule", systemImage: "calendar")
+                }
+                .tint(Color.tasker.accentPrimary)
+            }
+
+            Button(role: .destructive) {
+                onDelete?()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
         }
         .overlay(
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md)
@@ -55,10 +59,6 @@ struct TaskRowView: View {
         .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
         .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.md, includesBorder: false)
         .opacity(task.isComplete ? 0.7 : 1.0)
-        .scaleOnPress()
-        .contentShape(Rectangle())
-        .onChange(of: task.id) { _ in rowBaseOffset = 0 }
-        .onChange(of: task.isComplete) { _ in rowBaseOffset = 0 }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(accessibilityHint)
@@ -71,7 +71,6 @@ struct TaskRowView: View {
             HStack(spacing: TaskerTheme.Spacing.md) {
                 CompletionCheckbox(isComplete: task.isComplete) {
                     onToggleComplete?()
-                    closeActions()
                 }
 
                 contentStack
@@ -83,93 +82,6 @@ struct TaskRowView: View {
             .padding(.leading, TaskerTheme.Spacing.md)
         }
         .background(Color.tasker.surfacePrimary)
-    }
-
-    private var actionTray: some View {
-        HStack(spacing: 0) {
-            if task.isComplete {
-                actionButton(
-                    title: "Reopen",
-                    icon: "arrow.uturn.backward",
-                    background: Color.tasker.accentSecondary
-                ) {
-                    onToggleComplete?()
-                    closeActions()
-                }
-            } else {
-                actionButton(
-                    title: "Reschedule",
-                    icon: "calendar",
-                    background: Color.tasker.accentPrimary
-                ) {
-                    onReschedule?()
-                    closeActions()
-                }
-            }
-
-            actionButton(
-                title: "Delete",
-                icon: "trash",
-                background: Color.tasker.statusDanger
-            ) {
-                onDelete?()
-                closeActions()
-            }
-        }
-        .frame(maxHeight: .infinity)
-    }
-
-    private func actionButton(
-        title: String,
-        icon: String,
-        background: Color,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                Text(title)
-                    .font(.tasker(.caption2))
-            }
-            .foregroundColor(Color.white)
-            .frame(width: actionButtonWidth)
-            .frame(maxHeight: .infinity)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .background(background)
-    }
-
-    private var swipeGesture: some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .local)
-            .updating($dragTranslation) { value, state, _ in
-                if value.translation.width < 0 || rowBaseOffset < 0 {
-                    state = value.translation.width
-                }
-            }
-            .onChanged { value in
-                if !didLogSwipeBegin,
-                   (value.translation.width < -6 || rowBaseOffset < 0) {
-                    didLogSwipeBegin = true
-                    print("HOME_TAP_UI swipe_begin id=\(task.id.uuidString) baseOffset=\(rowBaseOffset)")
-                }
-            }
-            .onEnded { value in
-                let predicted = rowBaseOffset + value.predictedEndTranslation.width
-                let shouldReveal = predicted < (-maxReveal * 0.45)
-                withAnimation(TaskerAnimation.snappy) {
-                    rowBaseOffset = shouldReveal ? -maxReveal : 0
-                }
-                print("HOME_TAP_UI swipe_end id=\(task.id.uuidString) revealed=\(shouldReveal) offset=\(rowBaseOffset)")
-                didLogSwipeBegin = false
-            }
-    }
-
-    private func closeActions() {
-        withAnimation(TaskerAnimation.snappy) {
-            rowBaseOffset = 0
-        }
     }
 
     // MARK: - Priority Stripe
