@@ -241,6 +241,8 @@ extension HomeViewController {
                 projects: [],
                 doneTimeline: [],
                 activeQuickView: nil,
+                projectGroupingMode: .defaultMode,
+                customProjectOrderIDs: [],
                 emptyStateMessage: nil,
                 emptyStateActionTitle: nil
             )
@@ -254,6 +256,8 @@ extension HomeViewController {
                 projects: viewModel.projects,
                 doneTimeline: viewModel.doneTimelineTasks,
                 activeQuickView: viewModel.activeFilterState.quickView,
+                projectGroupingMode: viewModel.activeFilterState.projectGroupingMode,
+                customProjectOrderIDs: viewModel.activeFilterState.customProjectOrderIDs,
                 emptyStateMessage: viewModel.emptyStateMessage,
                 emptyStateActionTitle: viewModel.emptyStateActionTitle
             )
@@ -273,6 +277,8 @@ extension HomeViewController {
                 projects: viewModel.projects,
                 doneTimeline: [],
                 activeQuickView: nil,
+                projectGroupingMode: viewModel.activeFilterState.projectGroupingMode,
+                customProjectOrderIDs: viewModel.activeFilterState.customProjectOrderIDs,
                 emptyStateMessage: nil,
                 emptyStateActionTitle: nil
             )
@@ -297,6 +303,8 @@ extension HomeViewController {
                 projects: viewModel.projects,
                 doneTimeline: [],
                 activeQuickView: nil,
+                projectGroupingMode: viewModel.activeFilterState.projectGroupingMode,
+                customProjectOrderIDs: viewModel.activeFilterState.customProjectOrderIDs,
                 emptyStateMessage: nil,
                 emptyStateActionTitle: nil
             )
@@ -352,6 +360,8 @@ extension HomeViewController {
             projects: projects,
             doneTimeline: [],
             activeQuickView: nil,
+            projectGroupingMode: .defaultMode,
+            customProjectOrderIDs: [],
             emptyStateMessage: nil,
             emptyStateActionTitle: nil
         )
