@@ -77,6 +77,7 @@ struct TaskListView: View {
             }
             .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
         }
+        .accessibilityIdentifier("home.taskList.scrollView")
     }
 
     // MARK: - Regular Grouping Logic
