@@ -16,32 +16,57 @@ struct LLMSettingsView: View {
             Form {
                 Section {
                     NavigationLink(destination: ChatsSettingsView(currentThread: $currentThread)) {
-                        Label("chats", systemImage: "message")
+                        HStack(spacing: TaskerTheme.Spacing.md) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.sm, style: .continuous)
+                                    .fill(Color.tasker(.accentWash))
+                                    .frame(width: 32, height: 32)
+                                Image(systemName: "message.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Color.tasker(.accentPrimary))
+                            }
+                            Text("chats")
+                                .font(.tasker(.body))
+                                .foregroundColor(Color.tasker(.textPrimary))
+                        }
                     }
 
                     NavigationLink(destination: ModelsSettingsView()) {
-                        Label {
+                        HStack(spacing: TaskerTheme.Spacing.md) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.sm, style: .continuous)
+                                    .fill(Color.tasker(.accentWash))
+                                    .frame(width: 32, height: 32)
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Color.tasker(.accentPrimary))
+                            }
                             Text("models")
+                                .font(.tasker(.body))
+                                .foregroundColor(Color.tasker(.textPrimary))
                                 .fixedSize()
-                        } icon: {
-                            Image(systemName: "arrow.down.circle")
+                            Spacer()
+                            Text(appManager.modelDisplayName(appManager.currentModelName ?? ""))
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker(.textTertiary))
                         }
-                        .badge(appManager.modelDisplayName(appManager.currentModelName ?? ""))
                     }
                 }
 
                 Section {} footer: {
                     HStack {
                         Spacer()
-                        Text("made by Saransh")
+                        Text("made with care by Saransh")
                             .font(.tasker(.caption2))
-                            .foregroundStyle(.tertiary)
+                            .foregroundColor(Color.tasker(.textQuaternary))
                         Spacer()
                     }
-                    .padding(.vertical)
+                    .padding(.vertical, TaskerTheme.Spacing.lg)
                 }
             }
             .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .background(Color.tasker(.bgCanvas))
             .navigationTitle("settings")
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
@@ -62,9 +87,7 @@ struct LLMSettingsView: View {
                     #endif
                 }
         }
-        #if !os(visionOS)
-        .tint(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.accentPrimary))
-        #endif
+        .tint(Color.tasker(.accentPrimary))
     }
 }
 

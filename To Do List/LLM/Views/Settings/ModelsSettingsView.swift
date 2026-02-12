@@ -10,7 +10,7 @@ struct ModelsSettingsView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(LLMEvaluator.self) var llm
     @State var showOnboardingInstallModelView = false
-    
+
     var body: some View {
         Form {
             Section(header: Text("installed")) {
@@ -21,16 +21,35 @@ struct ModelsSettingsView: View {
                             await switchModel(modelName)
                         }
                     } label: {
-                        HStack {
+                        HStack(spacing: TaskerTheme.Spacing.md) {
                             Image(systemName: isCurrent ? "checkmark.circle.fill" : "circle")
-                            Text(appManager.modelDisplayName(modelName))
-                                .tint(.primary)
+                                .font(.title3)
+                                .foregroundColor(isCurrent ? Color.tasker(.accentPrimary) : Color.tasker(.textQuaternary))
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(appManager.modelDisplayName(modelName))
+                                    .font(.tasker(.bodyEmphasis))
+                                    .foregroundColor(Color.tasker(.textPrimary))
+                                    .tint(Color.tasker(.textPrimary))
+
+                                if isCurrent {
+                                    Text("active")
+                                        .font(.tasker(.caption2))
+                                        .foregroundColor(Color.tasker(.accentPrimary))
+                                }
+                            }
+
                             Spacer()
+
                             Button {
                                 deleteModel(modelName)
                             } label: {
                                 Image(systemName: "trash")
-                                    .foregroundStyle(.red)
+                                    .font(.callout)
+                                    .foregroundColor(Color.tasker(.statusDanger).opacity(0.7))
+                                    .frame(width: 36, height: 36)
+                                    .background(Color.tasker(.statusDanger).opacity(0.08))
+                                    .clipShape(Circle())
                             }
                             #if os(macOS)
                             .buttonStyle(.borderless)
@@ -43,17 +62,26 @@ struct ModelsSettingsView: View {
                 }
                 .onDelete(perform: deleteModels)
             }
-            
+
             Button {
                 showOnboardingInstallModelView.toggle()
             } label: {
-                Label("install a model", systemImage: "arrow.down.circle.dotted")
+                Label {
+                    Text("install a model")
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundColor(Color.tasker(.accentPrimary))
+                } icon: {
+                    Image(systemName: "arrow.down.circle.dotted")
+                        .foregroundColor(Color.tasker(.accentPrimary))
+                }
             }
             #if os(macOS)
             .buttonStyle(.borderless)
             #endif
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(Color.tasker(.bgCanvas))
         .navigationTitle("models")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -78,25 +106,27 @@ struct ModelsSettingsView: View {
                         #endif
                     }
             }
+            #if os(iOS)
+            .presentationBackground(Color.tasker(.bgElevated))
+            .presentationCornerRadius(TaskerTheme.CornerRadius.xl)
+            #endif
         }
     }
-    
+
     private func deleteModel(_ name: String) {
         appManager.removeInstalledModel(name)
         postDeleteAdjustments(removedNames: [name])
     }
-    
+
     private func deleteModels(at offsets: IndexSet) {
-        // Remove models at specified offsets
         let removedNames = offsets.map { appManager.installedModels[$0] }
         for name in removedNames {
             appManager.removeInstalledModel(name)
         }
         postDeleteAdjustments(removedNames: removedNames)
     }
-    
+
     private func postDeleteAdjustments(removedNames: [String]) {
-        // If the current active model was deleted, clear selection or pick first available
         if let current = appManager.currentModelName, removedNames.contains(current) {
             appManager.currentModelName = appManager.installedModels.first
             if let newName = appManager.currentModelName,
@@ -106,7 +136,6 @@ struct ModelsSettingsView: View {
                 }
             }
         }
-        // Trigger onboarding if no models remain
         if appManager.installedModels.isEmpty {
             showOnboardingInstallModelView = true
         }
