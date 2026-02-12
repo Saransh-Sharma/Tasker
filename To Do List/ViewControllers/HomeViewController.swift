@@ -229,18 +229,32 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     /// Setup Clean Architecture integration
     private func setupCleanArchitecture() {
-        // Check if ViewModel was injected by PresentationDependencyContainer
-        if let homeViewModel = viewModel {
-            print("✅ HomeViewController: Using Clean Architecture with HomeViewModel")
-            setupViewModelBindings(homeViewModel)
+        initializeCleanArchitecture()
+
+        guard let homeViewModel = viewModel else {
+            print("HOME_DI home.setup viewModel=nil")
+
+            // Keep repository available for task detail + selection flows.
+            if taskRepository == nil,
+               let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+                taskRepository = CoreDataTaskRepository(container: appDelegate.persistentContainer, defaultProject: "Inbox")
+            }
+            return
+        }
+
+        print("HOME_DI home.setup viewModel=non_nil")
+        setupViewModelBindingsIfNeeded(homeViewModel)
+        if !hasLoadedInitialViewModelData {
             loadInitialDataViaViewModel(homeViewModel)
-        } else {
-            print("⚠️ HomeViewController: No ViewModel injected - Clean Architecture setup failed")
+            hasLoadedInitialViewModelData = true
         }
     }
     
     /// Setup Combine bindings with HomeViewModel
-    private func setupViewModelBindings(_ viewModel: HomeViewModel) {
+    private func setupViewModelBindingsIfNeeded(_ viewModel: HomeViewModel) {
+        guard !hasBoundHomeViewModel else { return }
+        hasBoundHomeViewModel = true
+
         // Bind ViewModel state to UI updates
         viewModel.$morningTasks
             .receive(on: DispatchQueue.main)
@@ -254,6 +268,22 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             .receive(on: DispatchQueue.main)
             .sink { [weak self] tasks in
                 self?.updateEveningTasksUI(tasks)
+            }
+            .store(in: &cancellables)
+
+        // Bind overdue tasks
+        viewModel.$overdueTasks
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] tasks in
+                self?.updateOverdueTasksUI(tasks)
+            }
+            .store(in: &cancellables)
+
+        // Bind projects
+        viewModel.$projects
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] projects in
+                self?.updateProjectsUI(projects)
             }
             .store(in: &cancellables)
 
@@ -282,7 +312,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             }
             .store(in: &cancellables)
 
-        print("✅ HomeViewController: ViewModel bindings setup complete")
+        print("HOME_DI home.bindings ready")
     }
     
     /// Load initial data via ViewModel
@@ -295,16 +325,25 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     /// Update morning tasks UI from ViewModel
     private func updateMorningTasksUI(_ tasks: [Task]) {
-        // Convert domain tasks to UI sections
-        // Implementation depends on your specific UI requirements
         print("📋 Updating morning tasks: \(tasks.count) tasks")
         refreshTableView()
     }
     
     /// Update evening tasks UI from ViewModel
     private func updateEveningTasksUI(_ tasks: [Task]) {
-        // Convert domain tasks to UI sections
         print("🌙 Updating evening tasks: \(tasks.count) tasks")
+        refreshTableView()
+    }
+
+    /// Update overdue tasks UI from ViewModel
+    private func updateOverdueTasksUI(_ tasks: [Task]) {
+        print("⏰ Updating overdue tasks: \(tasks.count) tasks")
+        refreshTableView()
+    }
+
+    /// Update projects UI from ViewModel
+    private func updateProjectsUI(_ projects: [Project]) {
+        print("📁 Updating projects: \(projects.count) projects")
         refreshTableView()
     }
     
@@ -329,8 +368,22 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     /// Refresh table view
     private func refreshTableView() {
+        refreshHomeTaskList(reason: "viewModelPublish")
+    }
+
+    struct HomeTaskListInput {
+        let morning: [DomainTask]
+        let evening: [DomainTask]
+        let overdue: [DomainTask]
+        let projects: [Project]
+    }
+
+    func refreshHomeTaskList(reason: String = "manual") {
         DispatchQueue.main.async { [weak self] in
-            self?.fluentToDoTableViewController?.tableView.reloadData()
+            guard let self else { return }
+            self.setupTaskListViewInForedrop()
+            self.layoutForedropListViews()
+            print("HOME_UI_MODE renderer=TaskListView reason=\(reason) mode=\(self.currentViewType)")
         }
     }
     
@@ -344,6 +397,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 
     /// Combine cancellables for ViewModel bindings
     private var cancellables = Set<AnyCancellable>()
+    private var hasBoundHomeViewModel = false
+    private var hasLoadedInitialViewModelData = false
     
     let cellReuseID = TableViewCell.identifier   // FluentUI's own ID
     let headerReuseID = TableViewHeaderFooterView.identifier
@@ -359,13 +414,6 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var headerEndY: CGFloat = 128
     var todoColors: TaskerColorTokens = TaskerThemeManager.shared.currentTheme.tokens.color
     var todoTimeUtils = ToDoTimeUtils()
-    
-    // Task editing state
-    var editingTaskForDatePicker: NTask?
-    var activeTaskDetailViewFluent: TaskDetailViewFluent?
-    var editingTaskForProjectPicker: NTask?
-    var presentedFluentDetailView: TaskDetailViewFluent?
-    var overlayView: UIView?
     
     // UI Elements
     var homeTopBar: UIView = UIView()
@@ -442,6 +490,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     // FluentUI To Do TableView Controller
     var fluentToDoTableViewController: FluentUIToDoTableViewController?
+    var taskListHostingController: TransparentHostingController<TaskListView>?
     
     // View state
     var projectForTheView = "Inbox" // Default project name
@@ -480,8 +529,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 //     State flags
     var isGrouped: Bool = false {
         didSet {
-            // Updated to use FluentUI table view
-            fluentToDoTableViewController?.tableView.reloadData()
+            refreshHomeTaskList(reason: "isGrouped.didSet")
             animateTableViewReload()
         }
     }
@@ -526,34 +574,14 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     /// Initialize Clean Architecture components
     private func initializeCleanArchitecture() {
-        print("🏗️ Initializing Clean Architecture...")
-        
-        // Inject dependencies - Using dynamic approach to avoid type resolution issues
-        // This will call the actual PresentationDependencyContainer when types are resolved
-        if let containerClass = NSClassFromString("PresentationDependencyContainer") as? NSObject.Type {
-            let shared = containerClass.value(forKey: "shared") as? NSObject
-            shared?.perform(NSSelectorFromString("inject:into:"), with: self)
-        } else {
-            print("⚠️ PresentationDependencyContainer not found - using fallback injection")
+        print("HOME_DI home.inject start")
+        DependencyContainer.shared.inject(into: self)
+
+        if viewModel == nil {
+            PresentationDependencyContainer.shared.inject(into: self)
         }
 
-        // Setup Clean Architecture if ViewModel is available
-        if viewModel != nil {
-            print("✅ Clean Architecture activated with ViewModel")
-        } else {
-            print("⚠️ ViewModel not available - using legacy mode with migration adapter")
-            // Fallback to migration adapter if Clean Architecture isn't available
-
-            // Initialize taskRepository to prevent runtime crashes
-            if taskRepository == nil {
-                if let appDelegate = UIApplication.shared.delegate as? AppDelegate {
-                    taskRepository = CoreDataTaskRepository(container: appDelegate.persistentContainer, defaultProject: "Inbox")
-                    print("✅ TaskRepository initialized with CoreDataTaskRepository")
-                } else {
-                    print("❌ Failed to initialize TaskRepository - AppDelegate not found")
-                }
-            }
-        }
+        print("HOME_DI home.inject viewModel=\(viewModel != nil)")
     }
 
     /// Internal setup method - now delegated to setupCleanArchitecture
@@ -569,14 +597,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         // Setup Clean Architecture if available
         setupCleanArchitecture()
+        print("HOME_DI viewDidLoad viewModel=\(viewModel != nil)")
         
         // Legacy setup continues...
         
         print("\n=== HOME VIEW CONTROLLER LOADED ===")
         print("Initial dateForTheView: \(dateForTheView)")
-        
-        // Initialize Clean Architecture
-        initializeCleanArchitecture()
         
         // Fix invalid priority values in database
         fixInvalidTaskPriorities()
@@ -654,7 +680,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         
         
         DispatchQueue.main.async { [weak self] in 
-            self?.fluentToDoTableViewController?.tableView.reloadData()
+            guard let self else { return }
+            self.refreshHomeTaskList(reason: "viewWillAppear")
             // Animate table view reload
 //            self?.animateTableViewReload()
         }
@@ -717,6 +744,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 
         // Update foredrop state manager layout
         foredropStateManager?.updateLayout()
+
+        // Keep title/list layout in sync after bounds changes (rotation, split view).
+        layoutForedropListViews()
     }
     
     /// Sets up Auto Layout constraints for the Liquid Glass bottom app bar
@@ -1057,14 +1087,8 @@ private func setNavigationPieChartData() {
         let addTaskVC = AddTaskViewController()
         addTaskVC.delegate = self
 
-        // Use Clean Architecture dependency injection - Using dynamic approach to avoid type resolution issues
-        // This will fall back to legacy injection if Clean Architecture isn't available
-        if let containerClass = NSClassFromString("PresentationDependencyContainer") as? NSObject.Type {
-            let shared = containerClass.value(forKey: "shared") as? NSObject
-            shared?.perform(NSSelectorFromString("inject:into:"), with: addTaskVC)
-        } else {
-            print("⚠️ PresentationDependencyContainer not found - using fallback injection")
-        }
+        DependencyContainer.shared.inject(into: addTaskVC)
+        PresentationDependencyContainer.shared.inject(into: addTaskVC)
 
         // Wrap in navigation controller to support navigation bar buttons
         let navController = UINavigationController(rootViewController: addTaskVC)
@@ -1111,7 +1135,7 @@ extension HomeViewController {
         
         if searchText.isEmpty {
             // Show all tasks when search is empty - restore normal view
-            fluentToDoTableViewController?.updateData(for: dateForTheView)
+            updateViewForHome(viewType: currentViewType, dateForView: dateForTheView)
         } else {
             // Filter tasks based on search text
             filterTasksForSearch(searchText: searchText)
@@ -1121,8 +1145,7 @@ extension HomeViewController {
     func searchBarDidCancel(_ searchBar: SearchBar) {
         // Handle search cancellation
         searchBar.progressSpinner.state.isAnimating = false
-        // Restore normal view
-        fluentToDoTableViewController?.updateData(for: dateForTheView)
+        updateViewForHome(viewType: currentViewType, dateForView: dateForTheView)
     }
     
     func searchBarDidRequestSearch(_ searchBar: SearchBar) {
@@ -1160,59 +1183,38 @@ extension HomeViewController {
 
     /// Process search results and update UI
     private func processSearchResults(_ filteredTasks: [NTask]) {
-        
-        // Group tasks by project for better organization
-        let groupedTasks = Dictionary(grouping: filteredTasks) { task in
-            task.project ?? "Inbox"
-        }
-        
-        // Create filtered sections
-        var filteredSections: [ToDoListData.Section] = []
-        
-        if !filteredTasks.isEmpty {
-            // Sort projects alphabetically, but put Inbox first
-            let sortedProjects = groupedTasks.keys.sorted { project1, project2 in
-                if project1 == "Inbox" { return true }
-                if project2 == "Inbox" { return false }
-                return project1 < project2
+        let domainTasks = filteredTasks.map { TaskMapper.toDomain(from: $0) }
+        let nonOverdueTasks = domainTasks.filter { !$0.isOverdue }
+        let overdueTasks = domainTasks.filter(\.isOverdue)
+        let eveningTasks = nonOverdueTasks.filter { $0.type == .evening }
+        let morningTasks = nonOverdueTasks.filter { $0.type != .evening }
+
+        let searchListView = TaskListView(
+            morningTasks: morningTasks,
+            eveningTasks: eveningTasks,
+            overdueTasks: overdueTasks,
+            projects: viewModel?.projects ?? [],
+            onTaskTap: { [weak self] task in
+                self?.handleRevampedTaskTap(task)
+            },
+            onToggleComplete: { [weak self] task in
+                self?.handleRevampedTaskToggleComplete(task)
+            },
+            onDeleteTask: { [weak self] task in
+                self?.handleRevampedTaskDelete(task)
+            },
+            onRescheduleTask: { [weak self] task in
+                self?.handleRevampedTaskReschedule(task)
             }
-            
-            for project in sortedProjects {
-                let tasksForProject = groupedTasks[project] ?? []
-                
-                // Convert filtered NTask objects to TaskListItem objects with enhanced info
-                let filteredTaskItems = tasksForProject.map { task in
-                    let dateFormatter = DateFormatter()
-                    dateFormatter.dateStyle = .medium
-                    let dueDateString = task.dueDate != nil ? dateFormatter.string(from: task.dueDate! as Date) : "No due date"
-                    
-                    let taskTypeString = task.taskType == 1 ? "Morning" : task.taskType == 2 ? "Evening" : "Upcoming"
-                    
-                    return ToDoListData.TaskListItem(
-                        text1: task.name ?? "Untitled Task",
-                        text2: task.taskDetails ?? "",
-                        text3: "\(taskTypeString) • \(dueDateString)",
-                        image: ""
-                    )
-                }
-                
-                let searchSection = ToDoListData.Section(
-                    title: "\(project) (\(tasksForProject.count))",
-                    taskListItems: filteredTaskItems
-                )
-                filteredSections.append(searchSection)
-            }
-        } else {
-            // Show "No results" section when no tasks match
-            let noResultsSection = ToDoListData.Section(
-                title: "No results found",
-                taskListItems: []
-            )
-            filteredSections.append(noResultsSection)
+        )
+
+        if taskListHostingController == nil {
+            setupTaskListViewInForedrop()
         }
-        
-        // Update the FluentUI table view with search results
-        fluentToDoTableViewController?.updateDataWithSearchResults(filteredSections)
+        taskListHostingController?.rootView = searchListView
+        taskListHostingController?.view.isHidden = false
+        fluentToDoTableViewController?.view.isHidden = true
+        print("HOME_DATA mode=search morning=\(morningTasks.count) evening=\(eveningTasks.count) overdue=\(overdueTasks.count)")
     }
 }
 
@@ -1241,6 +1243,7 @@ extension HomeViewController: AddTaskViewControllerDelegate {
         // Step 4: Update the view on the main queue
         DispatchQueue.main.async {
             print("🔄 AddTask: Updating view on main queue")
+            self.viewModel?.invalidateTaskCaches()
             
             // Compare dates properly using startOfDay to ignore time differences
             let todayStartOfDay = Date.today().startOfDay
@@ -1287,9 +1290,6 @@ extension HomeViewController: AddTaskViewControllerDelegate {
             
             // Step 6: Force reload the table view to ensure UI is updated with the potentially new data from updateViewForHome
             print("🔄 AddTask: Reloading table data")
-            // Sync FluentUI table data with updated tasks
-            self.fluentToDoTableViewController?.updateData(for: self.dateForTheView)
-            self.fluentToDoTableViewController?.tableView.reloadData()
             
             // Update pie chart as tasks have potentially changed
             self.refreshNavigationPieChart()
@@ -1410,8 +1410,8 @@ extension HomeViewController {
                 self.setupCalAppearence()
             }
         }
-        // Reload table views to reflect accent changes inside cells
-        fluentToDoTableViewController?.tableView.reloadData()
+        // Reload task list to reflect accent changes.
+        refreshHomeTaskList(reason: "applyTheme")
     }
     
 }
