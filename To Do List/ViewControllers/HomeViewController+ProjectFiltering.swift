@@ -234,7 +234,29 @@ extension HomeViewController {
 
     func buildTaskListInput(for viewType: ToDoListViewType) -> HomeTaskListInput {
         guard let viewModel else {
-            return HomeTaskListInput(morning: [], evening: [], overdue: [], projects: [])
+            return HomeTaskListInput(
+                morning: [],
+                evening: [],
+                overdue: [],
+                projects: [],
+                doneTimeline: [],
+                activeQuickView: nil,
+                emptyStateMessage: nil,
+                emptyStateActionTitle: nil
+            )
+        }
+
+        if viewModel.focusEngineEnabled {
+            return HomeTaskListInput(
+                morning: viewModel.morningTasks,
+                evening: viewModel.eveningTasks,
+                overdue: viewModel.overdueTasks,
+                projects: viewModel.projects,
+                doneTimeline: viewModel.doneTimelineTasks,
+                activeQuickView: viewModel.activeFilterState.quickView,
+                emptyStateMessage: viewModel.emptyStateMessage,
+                emptyStateActionTitle: viewModel.emptyStateActionTitle
+            )
         }
 
         switch viewType {
@@ -248,7 +270,11 @@ extension HomeViewController {
                 morning: merged.morning,
                 evening: merged.evening,
                 overdue: viewModel.overdueTasks,
-                projects: viewModel.projects
+                projects: viewModel.projects,
+                doneTimeline: [],
+                activeQuickView: nil,
+                emptyStateMessage: nil,
+                emptyStateActionTitle: nil
             )
 
         case .selectedProjectsGrouped:
@@ -268,7 +294,11 @@ extension HomeViewController {
                 morning: merged.morning,
                 evening: merged.evening,
                 overdue: viewModel.overdueTasks.filter { selectedProjectIDs.contains($0.projectID) },
-                projects: viewModel.projects
+                projects: viewModel.projects,
+                doneTimeline: [],
+                activeQuickView: nil,
+                emptyStateMessage: nil,
+                emptyStateActionTitle: nil
             )
 
         case .projectView:
@@ -315,7 +345,16 @@ extension HomeViewController {
         let nonOverdue = tasks.filter { !$0.isOverdue }
         let evening = nonOverdue.filter { $0.type == .evening }
         let morning = nonOverdue.filter { $0.type != .evening }
-        return HomeTaskListInput(morning: morning, evening: evening, overdue: overdue, projects: projects)
+        return HomeTaskListInput(
+            morning: morning,
+            evening: evening,
+            overdue: overdue,
+            projects: projects,
+            doneTimeline: [],
+            activeQuickView: nil,
+            emptyStateMessage: nil,
+            emptyStateActionTitle: nil
+        )
     }
     
 
