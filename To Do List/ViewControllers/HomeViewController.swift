@@ -287,6 +287,34 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             }
             .store(in: &cancellables)
 
+        viewModel.$activeFilterState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshFocusFilterRails()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$quickViewCounts
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshFocusFilterRails()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$savedHomeViews
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshFocusFilterRails()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$pointsPotential
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] points in
+                self?.focusPotentialLabel.text = points > 0 ? "Potential \(points) pts" : nil
+            }
+            .store(in: &cancellables)
+
         // Bind loading state
         viewModel.$isLoading
             .receive(on: DispatchQueue.main)
@@ -344,6 +372,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     /// Update projects UI from ViewModel
     private func updateProjectsUI(_ projects: [Project]) {
         print("📁 Updating projects: \(projects.count) projects")
+        refreshFocusFilterRails()
         refreshTableView()
     }
     
@@ -376,6 +405,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         let evening: [DomainTask]
         let overdue: [DomainTask]
         let projects: [Project]
+        let doneTimeline: [DomainTask]
+        let activeQuickView: HomeQuickView?
+        let emptyStateMessage: String?
+        let emptyStateActionTitle: String?
     }
 
     func refreshHomeTaskList(reason: String = "manual") {
@@ -417,6 +450,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     // UI Elements
     var homeTopBar: UIView = UIView()
+    var homeTitleRow = UIView()
+    var focusPotentialLabel = UILabel()
+    var homeAdvancedFilterButton = UIButton(type: .system)
+    var quickFilterScrollView = UIScrollView()
+    var quickFilterStackView = UIStackView()
+    var projectFilterScrollView = UIScrollView()
+    var projectFilterStackView = UIStackView()
     var filledBar: UIView?
     var notificationBadgeNumber: Int = 0
     let ultraLightConfiguration = UIImage.SymbolConfiguration(weight: .regular)
@@ -809,6 +849,16 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         settingsButton.accessibilityLabel = "Settings"
         settingsButton.accessibilityIdentifier = "home.settingsButton"
         navigationItem.leftBarButtonItem = settingsButton
+
+        let filterButton = UIBarButtonItem(
+            image: UIImage(systemName: "line.3.horizontal.decrease.circle"),
+            style: .plain,
+            target: self,
+            action: #selector(showAdvancedFilterSheet)
+        )
+        filterButton.tintColor = todoColors.accentOnPrimary
+        filterButton.accessibilityIdentifier = "home.focus.filterButton.nav"
+        navigationItem.rightBarButtonItem = filterButton
 
         // Search bar removed - now accessed via bottom app bar button
 
