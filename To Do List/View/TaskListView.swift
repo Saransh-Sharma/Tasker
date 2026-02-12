@@ -16,39 +16,53 @@ struct TaskListView: View {
     let eveningTasks: [DomainTask]
     let overdueTasks: [DomainTask]
     let projects: [Project]
+    let doneTimelineTasks: [DomainTask]
+    let activeQuickView: HomeQuickView?
+    let emptyStateMessage: String?
+    let emptyStateActionTitle: String?
     var onTaskTap: ((DomainTask) -> Void)? = nil
     var onToggleComplete: ((DomainTask) -> Void)? = nil
     var onDeleteTask: ((DomainTask) -> Void)? = nil
     var onRescheduleTask: ((DomainTask) -> Void)? = nil
+    var onEmptyStateAction: (() -> Void)? = nil
+
+    init(
+        morningTasks: [DomainTask],
+        eveningTasks: [DomainTask],
+        overdueTasks: [DomainTask],
+        projects: [Project],
+        doneTimelineTasks: [DomainTask] = [],
+        activeQuickView: HomeQuickView? = nil,
+        emptyStateMessage: String? = nil,
+        emptyStateActionTitle: String? = nil,
+        onTaskTap: ((DomainTask) -> Void)? = nil,
+        onToggleComplete: ((DomainTask) -> Void)? = nil,
+        onDeleteTask: ((DomainTask) -> Void)? = nil,
+        onRescheduleTask: ((DomainTask) -> Void)? = nil,
+        onEmptyStateAction: (() -> Void)? = nil
+    ) {
+        self.morningTasks = morningTasks
+        self.eveningTasks = eveningTasks
+        self.overdueTasks = overdueTasks
+        self.projects = projects
+        self.doneTimelineTasks = doneTimelineTasks
+        self.activeQuickView = activeQuickView
+        self.emptyStateMessage = emptyStateMessage
+        self.emptyStateActionTitle = emptyStateActionTitle
+        self.onTaskTap = onTaskTap
+        self.onToggleComplete = onToggleComplete
+        self.onDeleteTask = onDeleteTask
+        self.onRescheduleTask = onRescheduleTask
+        self.onEmptyStateAction = onEmptyStateAction
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: TaskerTheme.Spacing.sectionGap) {
-                // Overdue section (always first when present)
-                if !overdueTasks.isEmpty {
-                    TaskSectionView(
-                        project: overdueProject,
-                        tasks: overdueTasks,
-                        isOverdueSection: true,
-                        onTaskTap: onTaskTap,
-                        onToggleComplete: onToggleComplete,
-                        onDeleteTask: onDeleteTask,
-                        onRescheduleTask: onRescheduleTask
-                    )
-                    .staggeredAppearance(index: 0)
-                }
-
-                // Project sections (Inbox first, then alphabetical)
-                ForEach(Array(sortedProjectSections.enumerated()), id: \.element.id) { index, section in
-                    TaskSectionView(
-                        project: section.project,
-                        tasks: section.tasks,
-                        onTaskTap: onTaskTap,
-                        onToggleComplete: onToggleComplete,
-                        onDeleteTask: onDeleteTask,
-                        onRescheduleTask: onRescheduleTask
-                    )
-                    .staggeredAppearance(index: index + (overdueTasks.isEmpty ? 0 : 1))
+                if activeQuickView == .done {
+                    doneTimelineContent
+                } else {
+                    regularTaskContent
                 }
 
                 // Empty state
@@ -65,7 +79,55 @@ struct TaskListView: View {
         }
     }
 
-    // MARK: - Grouping Logic
+    // MARK: - Regular Grouping Logic
+
+    @ViewBuilder
+    private var regularTaskContent: some View {
+        // Overdue section (always first when present)
+        if !overdueTasks.isEmpty {
+            TaskSectionView(
+                project: overdueProject,
+                tasks: overdueTasks,
+                isOverdueSection: true,
+                onTaskTap: onTaskTap,
+                onToggleComplete: onToggleComplete,
+                onDeleteTask: onDeleteTask,
+                onRescheduleTask: onRescheduleTask
+            )
+            .staggeredAppearance(index: 0)
+        }
+
+        // Project sections (Inbox first, then alphabetical)
+        ForEach(Array(sortedProjectSections.enumerated()), id: \.element.id) { index, section in
+            TaskSectionView(
+                project: section.project,
+                tasks: section.tasks,
+                onTaskTap: onTaskTap,
+                onToggleComplete: onToggleComplete,
+                onDeleteTask: onDeleteTask,
+                onRescheduleTask: onRescheduleTask
+            )
+            .staggeredAppearance(index: index + (overdueTasks.isEmpty ? 0 : 1))
+        }
+    }
+
+    @ViewBuilder
+    private var doneTimelineContent: some View {
+        let grouped = groupedDoneTimeline
+
+        ForEach(Array(grouped.enumerated()), id: \.element.id) { index, group in
+            TaskSectionView(
+                project: group.project,
+                tasks: group.tasks,
+                isOverdueSection: false,
+                onTaskTap: onTaskTap,
+                onToggleComplete: onToggleComplete,
+                onDeleteTask: onDeleteTask,
+                onRescheduleTask: onRescheduleTask
+            )
+            .staggeredAppearance(index: index)
+        }
+    }
 
     private var sortedProjectSections: [ProjectSection] {
         // Combine morning + evening (overdue is handled separately)
@@ -82,21 +144,17 @@ struct TaskListView: View {
             let project: Project
 
             if let projectByID = projects.first(where: { $0.id == projectID }) {
-                print("HOME_PROJECT_MAP match=id projectID=\(projectID.uuidString) taskProject=\(taskProjectName ?? "nil")")
                 project = projectByID
             } else if let taskProjectName,
                       let projectByName = projects.first(where: { $0.name.caseInsensitiveCompare(taskProjectName) == .orderedSame }) {
-                print("HOME_PROJECT_MAP match=name projectID=\(projectID.uuidString) taskProject=\(taskProjectName)")
                 project = projectByName
             } else if let taskProjectName {
-                print("HOME_PROJECT_MAP match=synthetic projectID=\(projectID.uuidString) taskProject=\(taskProjectName)")
                 project = Project(
                     id: projectID,
                     name: taskProjectName,
                     icon: taskProjectName.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame ? .inbox : .folder
                 )
             } else {
-                print("HOME_PROJECT_MAP match=uncategorized projectID=\(projectID.uuidString) taskProject=nil")
                 project = Project(id: projectID, name: "Uncategorized", icon: .folder)
             }
             return ProjectSection(project: project, tasks: tasks)
@@ -114,8 +172,41 @@ struct TaskListView: View {
         return sections
     }
 
+    private var groupedDoneTimeline: [ProjectSection] {
+        let calendar = Calendar.current
+        let grouped = Dictionary(grouping: doneTimelineTasks) { task -> Date in
+            let completionDate = task.dateCompleted ?? Date.distantPast
+            return calendar.startOfDay(for: completionDate)
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+
+        return grouped.keys.sorted(by: >).map { day in
+            let dayTasks = (grouped[day] ?? []).sorted { lhs, rhs in
+                if lhs.priority.scorePoints != rhs.priority.scorePoints {
+                    return lhs.priority.scorePoints > rhs.priority.scorePoints
+                }
+                let lhsCompletion = lhs.dateCompleted ?? Date.distantPast
+                let rhsCompletion = rhs.dateCompleted ?? Date.distantPast
+                return lhsCompletion > rhsCompletion
+            }
+
+            let project = Project(
+                id: UUID(),
+                name: formatter.string(from: day),
+                icon: .folder
+            )
+            return ProjectSection(project: project, tasks: dayTasks)
+        }
+    }
+
     private var allTasksEmpty: Bool {
-        morningTasks.isEmpty && eveningTasks.isEmpty && overdueTasks.isEmpty
+        if activeQuickView == .done {
+            return doneTimelineTasks.isEmpty
+        }
+
+        return morningTasks.isEmpty && eveningTasks.isEmpty && overdueTasks.isEmpty
     }
 
     private func normalizedTaskProjectName(from tasks: [DomainTask]) -> String? {
@@ -149,12 +240,40 @@ struct TaskListView: View {
                 .font(.tasker(.title3))
                 .foregroundColor(Color.tasker.textTertiary)
 
-            Text("No tasks for today")
+            Text(resolvedEmptyStateMessage)
                 .font(.tasker(.callout))
                 .foregroundColor(Color.tasker.textQuaternary)
+
+            if let title = emptyStateActionTitle {
+                Button(title) {
+                    onEmptyStateAction?()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.tasker.accentPrimary)
+                .padding(.top, TaskerTheme.Spacing.xs)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, TaskerTheme.Spacing.xxxl)
+    }
+
+    private var resolvedEmptyStateMessage: String {
+        if let emptyStateMessage {
+            return emptyStateMessage
+        }
+
+        switch activeQuickView {
+        case .upcoming:
+            return "No upcoming tasks in 14 days"
+        case .done:
+            return "No completed tasks in last 30 days"
+        case .morning:
+            return "No morning tasks. Add one to start strong."
+        case .evening:
+            return "No evening tasks. Plan your wind-down."
+        case .today, .none:
+            return "No tasks for today"
+        }
     }
 }
 
