@@ -85,6 +85,7 @@
 		753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA62445A24700A739E3 /* Assets.xcassets */; };
 		753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */; };
 		753EFCB52445A24700A739E3 /* To_Do_ListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */; };
+		A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */; };
 		753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCBF2445A24800A739E3 /* To_Do_ListUITests.swift */; };
 		7551BCCE2EAB665F003C6916 /* PerformanceMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCB12EAB665F003C6916 /* PerformanceMetrics.swift */; };
 		7551BCCF2EAB665F003C6916 /* TaskDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC02EAB665F003C6916 /* TaskDeletionTests.swift */; };
@@ -365,6 +366,7 @@
 		753EFCAB2445A24700A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		753EFCB02445A24700A739E3 /* TaskerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TaskerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = To_Do_ListTests.swift; sourceTree = "<group>"; };
+		A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMModelRegistryTests.swift; sourceTree = "<group>"; };
 		753EFCB62445A24800A739E3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		753EFCBB2445A24800A739E3 /* TaskerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TaskerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFCBF2445A24800A739E3 /* To_Do_ListUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = To_Do_ListUITests.swift; sourceTree = "<group>"; };
@@ -809,6 +811,7 @@
 			isa = PBXGroup;
 			children = (
 				753EFCB42445A24700A739E3 /* To_Do_ListTests.swift */,
+				A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */,
 				753EFCB62445A24800A739E3 /* Info.plist */,
 				56E141F5136022B40FFD72B3 /* DesignSystem */,
 				C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */,
@@ -1860,6 +1863,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */,
 				7509A0112F13D806009162CD /* AddTaskViewModel.swift in Sources */,
 				7509A0122F13D806009162CD /* HomeViewModel.swift in Sources */,
 				7509A0132F13D806009162CD /* PresentationDependencyContainer.swift in Sources */,
