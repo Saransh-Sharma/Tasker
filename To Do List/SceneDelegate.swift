@@ -30,13 +30,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
         
-        // Inject dependencies using Clean Architecture - Using dynamic approach to avoid type resolution issues
-        if let containerClass = NSClassFromString("PresentationDependencyContainer") as? NSObject.Type {
-            let shared = containerClass.value(forKey: "shared") as? NSObject
-            shared?.perform(NSSelectorFromString("inject:into:"), with: homeViewController)
-        } else {
-            print("⚠️ PresentationDependencyContainer not found - using fallback injection")
-        }
+        // Inject dependencies using typed APIs (no reflection).
+        DependencyContainer.shared.inject(into: homeViewController)
+        PresentationDependencyContainer.shared.inject(into: homeViewController)
+        print("HOME_DI scene.inject viewModel=\(homeViewController.viewModel != nil)")
         
         // Embed in FluentUI NavigationController
         let navigationController = NavigationController(rootViewController: homeViewController)

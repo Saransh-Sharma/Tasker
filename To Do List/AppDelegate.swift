@@ -430,20 +430,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     /// Setup Clean Architecture with modern components only
     func setupCleanArchitecture() {
         print("🏢️ Setting up Clean Architecture...")
+        print("HOME_DI app.configure start")
         
         // Configure legacy DependencyContainer for backward compatibility
         DependencyContainer.shared.configure(with: persistentContainer)
-        print("✅ Legacy DependencyContainer configured")
-        
-        // Configure the presentation dependency container using dynamic resolution
-        if let containerClass = NSClassFromString("PresentationDependencyContainer") as? NSObject.Type {
-            if let shared = containerClass.value(forKey: "shared") as? NSObject {
-                shared.perform(NSSelectorFromString("configure:with:"), with: persistentContainer)
-                logInfo("✅ PresentationDependencyContainer configured dynamically")
-            }
-        } else {
-            logWarning("🔗 Using basic configuration - PresentationDependencyContainer not found")
-        }
+        print("HOME_DI app.configure legacy=ok")
+
+        // Configure presentation container with typed API (no reflection).
+        PresentationDependencyContainer.shared.configure(with: persistentContainer)
+        print("HOME_DI app.configure presentation=ok")
         
         // Run basic data consolidation
         consolidateDataBasic()
