@@ -290,21 +290,21 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         viewModel.$activeFilterState
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.refreshFocusFilterRails()
+                self?.refreshQuickFilterMenuContent()
             }
             .store(in: &cancellables)
 
         viewModel.$quickViewCounts
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.refreshFocusFilterRails()
+                self?.refreshQuickFilterMenuContent()
             }
             .store(in: &cancellables)
 
         viewModel.$savedHomeViews
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.refreshFocusFilterRails()
+                self?.refreshQuickFilterMenuContent()
             }
             .store(in: &cancellables)
 
@@ -372,7 +372,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     /// Update projects UI from ViewModel
     private func updateProjectsUI(_ projects: [Project]) {
         print("📁 Updating projects: \(projects.count) projects")
-        refreshFocusFilterRails()
+        refreshQuickFilterMenuContent()
         refreshTableView()
     }
     
@@ -453,10 +453,18 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     var homeTitleRow = UIView()
     var focusPotentialLabel = UILabel()
     var homeAdvancedFilterButton = UIButton(type: .system)
-    var quickFilterScrollView = UIScrollView()
-    var quickFilterStackView = UIStackView()
-    var projectFilterScrollView = UIScrollView()
-    var projectFilterStackView = UIStackView()
+    var quickFilterMenuBackdrop = UIView()
+    var quickFilterMenuContainer = UIView()
+    var quickFilterMenuScrollView = UIScrollView()
+    var quickFilterMenuContentStack = UIStackView()
+    var quickFilterMenuQuickSectionLabel = UILabel()
+    var quickFilterMenuProjectSectionLabel = UILabel()
+    var quickFilterMenuQuickScrollView = UIScrollView()
+    var quickFilterMenuQuickStack = UIStackView()
+    var quickFilterMenuProjectScrollView = UIScrollView()
+    var quickFilterMenuProjectStack = UIStackView()
+    var quickFilterMenuAdvancedButton = UIButton(type: .system)
+    var isQuickFilterMenuVisible = false
     var filledBar: UIView?
     var notificationBadgeNumber: Int = 0
     let ultraLightConfiguration = UIImage.SymbolConfiguration(weight: .regular)
@@ -854,10 +862,10 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             image: UIImage(systemName: "line.3.horizontal.decrease.circle"),
             style: .plain,
             target: self,
-            action: #selector(showAdvancedFilterSheet)
+            action: #selector(toggleQuickFilterMenu)
         )
         filterButton.tintColor = todoColors.accentOnPrimary
-        filterButton.accessibilityIdentifier = "home.focus.filterButton.nav"
+        filterButton.accessibilityIdentifier = "home.focus.menu.button.nav"
         navigationItem.rightBarButtonItem = filterButton
 
         // Search bar removed - now accessed via bottom app bar button
