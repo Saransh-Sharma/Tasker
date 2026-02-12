@@ -58,7 +58,7 @@ class TransparentHostingController<Content: View>: UIHostingController<Content> 
 }
 
 extension HomeViewController: BadgeViewDelegate {
-    private var homeTopBarHeight: CGFloat { 132 }
+    private var homeTopBarHeight: CGFloat { 48 }
     private var tableTopSpacing: CGFloat { 8 }
     
     // MARK: - BadgeViewDelegate Methods
@@ -281,32 +281,121 @@ extension HomeViewController: BadgeViewDelegate {
 
         homeAdvancedFilterButton.setImage(UIImage(systemName: "line.3.horizontal.decrease.circle"), for: .normal)
         homeAdvancedFilterButton.tintColor = todoColors.textPrimary
-        homeAdvancedFilterButton.accessibilityIdentifier = "home.focus.filterButton"
-        homeAdvancedFilterButton.addTarget(self, action: #selector(showAdvancedFilterSheet), for: .touchUpInside)
+        homeAdvancedFilterButton.accessibilityIdentifier = "home.focus.menu.button"
+        homeAdvancedFilterButton.addTarget(self, action: #selector(toggleQuickFilterMenu), for: .touchUpInside)
         homeTitleRow.addSubview(homeAdvancedFilterButton)
 
-        quickFilterScrollView.showsHorizontalScrollIndicator = false
-        quickFilterScrollView.backgroundColor = .clear
-        homeTopBar.addSubview(quickFilterScrollView)
-
-        quickFilterStackView.axis = .horizontal
-        quickFilterStackView.alignment = .center
-        quickFilterStackView.spacing = 8
-        quickFilterStackView.distribution = .fillProportionally
-        quickFilterScrollView.addSubview(quickFilterStackView)
-
-        projectFilterScrollView.showsHorizontalScrollIndicator = false
-        projectFilterScrollView.backgroundColor = .clear
-        homeTopBar.addSubview(projectFilterScrollView)
-
-        projectFilterStackView.axis = .horizontal
-        projectFilterStackView.alignment = .center
-        projectFilterStackView.spacing = 8
-        projectFilterStackView.distribution = .fillProportionally
-        projectFilterScrollView.addSubview(projectFilterStackView)
-
         foredropContainer.addSubview(homeTopBar)
-        refreshFocusFilterRails()
+        setupQuickFilterMenu()
+        refreshQuickFilterMenuContent()
+    }
+
+    private func setupQuickFilterMenu() {
+        quickFilterMenuBackdrop.backgroundColor = UIColor.black.withAlphaComponent(0.12)
+        quickFilterMenuBackdrop.alpha = 0
+        quickFilterMenuBackdrop.isHidden = true
+        quickFilterMenuBackdrop.isAccessibilityElement = true
+        quickFilterMenuBackdrop.accessibilityLabel = "Dismiss quick filters"
+        quickFilterMenuBackdrop.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleQuickFilterMenuBackdropTap)))
+        foredropContainer.addSubview(quickFilterMenuBackdrop)
+
+        quickFilterMenuContainer.backgroundColor = todoColors.surfacePrimary
+        quickFilterMenuContainer.layer.cornerRadius = 16
+        quickFilterMenuContainer.layer.masksToBounds = true
+        quickFilterMenuContainer.applyTaskerElevation(.e2)
+        quickFilterMenuContainer.alpha = 0
+        quickFilterMenuContainer.isHidden = true
+        quickFilterMenuContainer.accessibilityIdentifier = "home.focus.menu.container"
+        foredropContainer.addSubview(quickFilterMenuContainer)
+
+        quickFilterMenuScrollView.showsVerticalScrollIndicator = false
+        quickFilterMenuScrollView.alwaysBounceVertical = false
+        quickFilterMenuScrollView.backgroundColor = .clear
+        quickFilterMenuScrollView.translatesAutoresizingMaskIntoConstraints = false
+        quickFilterMenuContainer.addSubview(quickFilterMenuScrollView)
+
+        quickFilterMenuContentStack.axis = .vertical
+        quickFilterMenuContentStack.alignment = .fill
+        quickFilterMenuContentStack.spacing = 8
+        quickFilterMenuContentStack.translatesAutoresizingMaskIntoConstraints = false
+        quickFilterMenuScrollView.addSubview(quickFilterMenuContentStack)
+
+        quickFilterMenuQuickSectionLabel.text = "Quick Views"
+        quickFilterMenuQuickSectionLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
+        quickFilterMenuQuickSectionLabel.textColor = todoColors.textSecondary
+        quickFilterMenuQuickSectionLabel.adjustsFontForContentSizeCategory = true
+
+        quickFilterMenuProjectSectionLabel.text = "Projects"
+        quickFilterMenuProjectSectionLabel.font = UIFont.preferredFont(forTextStyle: .caption1)
+        quickFilterMenuProjectSectionLabel.textColor = todoColors.textSecondary
+        quickFilterMenuProjectSectionLabel.adjustsFontForContentSizeCategory = true
+
+        quickFilterMenuQuickScrollView.showsHorizontalScrollIndicator = false
+        quickFilterMenuQuickScrollView.backgroundColor = .clear
+        quickFilterMenuQuickScrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        quickFilterMenuQuickStack.axis = .horizontal
+        quickFilterMenuQuickStack.alignment = .center
+        quickFilterMenuQuickStack.spacing = 8
+        quickFilterMenuQuickStack.distribution = .fillProportionally
+        quickFilterMenuQuickStack.translatesAutoresizingMaskIntoConstraints = false
+        quickFilterMenuQuickScrollView.addSubview(quickFilterMenuQuickStack)
+
+        quickFilterMenuProjectScrollView.showsHorizontalScrollIndicator = false
+        quickFilterMenuProjectScrollView.backgroundColor = .clear
+        quickFilterMenuProjectScrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        quickFilterMenuProjectStack.axis = .horizontal
+        quickFilterMenuProjectStack.alignment = .center
+        quickFilterMenuProjectStack.spacing = 8
+        quickFilterMenuProjectStack.distribution = .fillProportionally
+        quickFilterMenuProjectStack.translatesAutoresizingMaskIntoConstraints = false
+        quickFilterMenuProjectScrollView.addSubview(quickFilterMenuProjectStack)
+
+        quickFilterMenuAdvancedButton.setTitle("Advanced Filters", for: .normal)
+        quickFilterMenuAdvancedButton.titleLabel?.font = UIFont.preferredFont(forTextStyle: .subheadline)
+        quickFilterMenuAdvancedButton.titleLabel?.adjustsFontForContentSizeCategory = true
+        quickFilterMenuAdvancedButton.backgroundColor = todoColors.surfaceSecondary
+        quickFilterMenuAdvancedButton.setTitleColor(todoColors.textPrimary, for: .normal)
+        quickFilterMenuAdvancedButton.layer.cornerRadius = 12
+        quickFilterMenuAdvancedButton.accessibilityIdentifier = "home.focus.menu.advanced"
+        quickFilterMenuAdvancedButton.addTarget(self, action: #selector(openAdvancedFiltersFromMenu), for: .touchUpInside)
+        quickFilterMenuAdvancedButton.translatesAutoresizingMaskIntoConstraints = false
+
+        quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuQuickSectionLabel)
+        quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuQuickScrollView)
+        quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuProjectSectionLabel)
+        quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuProjectScrollView)
+        quickFilterMenuContentStack.addArrangedSubview(quickFilterMenuAdvancedButton)
+
+        NSLayoutConstraint.activate([
+            quickFilterMenuScrollView.leadingAnchor.constraint(equalTo: quickFilterMenuContainer.leadingAnchor, constant: 12),
+            quickFilterMenuScrollView.trailingAnchor.constraint(equalTo: quickFilterMenuContainer.trailingAnchor, constant: -12),
+            quickFilterMenuScrollView.topAnchor.constraint(equalTo: quickFilterMenuContainer.topAnchor, constant: 12),
+            quickFilterMenuScrollView.bottomAnchor.constraint(equalTo: quickFilterMenuContainer.bottomAnchor, constant: -12),
+
+            quickFilterMenuContentStack.leadingAnchor.constraint(equalTo: quickFilterMenuScrollView.contentLayoutGuide.leadingAnchor),
+            quickFilterMenuContentStack.trailingAnchor.constraint(equalTo: quickFilterMenuScrollView.contentLayoutGuide.trailingAnchor),
+            quickFilterMenuContentStack.topAnchor.constraint(equalTo: quickFilterMenuScrollView.contentLayoutGuide.topAnchor),
+            quickFilterMenuContentStack.bottomAnchor.constraint(equalTo: quickFilterMenuScrollView.contentLayoutGuide.bottomAnchor),
+            quickFilterMenuContentStack.widthAnchor.constraint(equalTo: quickFilterMenuScrollView.frameLayoutGuide.widthAnchor),
+
+            quickFilterMenuQuickScrollView.heightAnchor.constraint(equalToConstant: 40),
+            quickFilterMenuProjectScrollView.heightAnchor.constraint(equalToConstant: 40),
+            quickFilterMenuAdvancedButton.heightAnchor.constraint(equalToConstant: 36),
+
+            quickFilterMenuQuickStack.leadingAnchor.constraint(equalTo: quickFilterMenuQuickScrollView.contentLayoutGuide.leadingAnchor),
+            quickFilterMenuQuickStack.trailingAnchor.constraint(equalTo: quickFilterMenuQuickScrollView.contentLayoutGuide.trailingAnchor),
+            quickFilterMenuQuickStack.topAnchor.constraint(equalTo: quickFilterMenuQuickScrollView.contentLayoutGuide.topAnchor),
+            quickFilterMenuQuickStack.bottomAnchor.constraint(equalTo: quickFilterMenuQuickScrollView.contentLayoutGuide.bottomAnchor),
+            quickFilterMenuQuickStack.heightAnchor.constraint(equalTo: quickFilterMenuQuickScrollView.frameLayoutGuide.heightAnchor),
+
+            quickFilterMenuProjectStack.leadingAnchor.constraint(equalTo: quickFilterMenuProjectScrollView.contentLayoutGuide.leadingAnchor),
+            quickFilterMenuProjectStack.trailingAnchor.constraint(equalTo: quickFilterMenuProjectScrollView.contentLayoutGuide.trailingAnchor),
+            quickFilterMenuProjectStack.topAnchor.constraint(equalTo: quickFilterMenuProjectScrollView.contentLayoutGuide.topAnchor),
+            quickFilterMenuProjectStack.bottomAnchor.constraint(equalTo: quickFilterMenuProjectScrollView.contentLayoutGuide.bottomAnchor),
+            quickFilterMenuProjectStack.heightAnchor.constraint(equalTo: quickFilterMenuProjectScrollView.frameLayoutGuide.heightAnchor)
+        ])
     }
     
     func setupTableViewInForedrop() {
@@ -366,16 +455,16 @@ extension HomeViewController: BadgeViewDelegate {
         print("HOME_UI_MODE mounted renderer=TaskListView")
     }
 
-    func refreshFocusFilterRails() {
+    func refreshQuickFilterMenuContent() {
         guard let viewModel else { return }
 
-        for view in quickFilterStackView.arrangedSubviews {
-            quickFilterStackView.removeArrangedSubview(view)
+        for view in quickFilterMenuQuickStack.arrangedSubviews {
+            quickFilterMenuQuickStack.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
 
-        for view in projectFilterStackView.arrangedSubviews {
-            projectFilterStackView.removeArrangedSubview(view)
+        for view in quickFilterMenuProjectStack.arrangedSubviews {
+            quickFilterMenuProjectStack.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
 
@@ -394,8 +483,9 @@ extension HomeViewController: BadgeViewDelegate {
             )
             button.addAction(UIAction { [weak self] _ in
                 self?.viewModel?.setQuickView(quickView)
+                self?.hideQuickFilterMenu(animated: true)
             }, for: .touchUpInside)
-            quickFilterStackView.addArrangedSubview(button)
+            quickFilterMenuQuickStack.addArrangedSubview(button)
         }
 
         let visibleSaved = Array(viewModel.savedHomeViews.prefix(6))
@@ -407,8 +497,9 @@ extension HomeViewController: BadgeViewDelegate {
             )
             button.addAction(UIAction { [weak self] _ in
                 self?.viewModel?.applySavedView(id: savedView.id)
+                self?.hideQuickFilterMenu(animated: true)
             }, for: .touchUpInside)
-            quickFilterStackView.addArrangedSubview(button)
+            quickFilterMenuQuickStack.addArrangedSubview(button)
         }
 
         let selectedProjectSet = Set(activeState.selectedProjectIDs)
@@ -423,7 +514,7 @@ extension HomeViewController: BadgeViewDelegate {
             button.addAction(UIAction { [weak self] _ in
                 self?.viewModel?.toggleProjectFilter(project.id)
             }, for: .touchUpInside)
-            projectFilterStackView.addArrangedSubview(button)
+            quickFilterMenuProjectStack.addArrangedSubview(button)
         }
 
         let allProjectsButton = makeFocusChip(
@@ -434,7 +525,7 @@ extension HomeViewController: BadgeViewDelegate {
         allProjectsButton.addAction(UIAction { [weak self] _ in
             self?.viewModel?.clearProjectFilters()
         }, for: .touchUpInside)
-        projectFilterStackView.addArrangedSubview(allProjectsButton)
+        quickFilterMenuProjectStack.addArrangedSubview(allProjectsButton)
 
         let moreButton = makeFocusChip(
             title: "More",
@@ -442,9 +533,13 @@ extension HomeViewController: BadgeViewDelegate {
             accessibilityID: "home.focus.project.more"
         )
         moreButton.addTarget(self, action: #selector(showProjectMultiSelectSheet), for: .touchUpInside)
-        projectFilterStackView.addArrangedSubview(moreButton)
+        quickFilterMenuProjectStack.addArrangedSubview(moreButton)
 
         layoutForedropListViews()
+    }
+
+    func refreshFocusFilterRails() {
+        refreshQuickFilterMenuContent()
     }
 
     private func makeFocusChip(title: String, selected: Bool, accessibilityID: String) -> UIButton {
@@ -471,6 +566,7 @@ extension HomeViewController: BadgeViewDelegate {
 
     @objc private func showProjectMultiSelectSheet() {
         guard let viewModel else { return }
+        hideQuickFilterMenu(animated: true, announce: false)
 
         let alert = UIAlertController(
             title: "Project Filters",
@@ -500,8 +596,79 @@ extension HomeViewController: BadgeViewDelegate {
         present(alert, animated: true)
     }
 
+    @objc func toggleQuickFilterMenu() {
+        if isQuickFilterMenuVisible {
+            hideQuickFilterMenu(animated: true)
+        } else {
+            showQuickFilterMenu(animated: true)
+        }
+    }
+
+    @objc private func handleQuickFilterMenuBackdropTap() {
+        hideQuickFilterMenu(animated: true)
+    }
+
+    func showQuickFilterMenu(animated: Bool) {
+        guard !isQuickFilterMenuVisible else { return }
+        isQuickFilterMenuVisible = true
+        refreshQuickFilterMenuContent()
+        quickFilterMenuBackdrop.isHidden = false
+        quickFilterMenuContainer.isHidden = false
+        quickFilterMenuContainer.transform = CGAffineTransform(translationX: 0, y: -8)
+        quickFilterMenuContainer.alpha = 0
+        layoutForedropListViews()
+
+        let updates = {
+            self.quickFilterMenuBackdrop.alpha = 1
+            self.quickFilterMenuContainer.alpha = 1
+            self.quickFilterMenuContainer.transform = .identity
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseOut], animations: updates)
+        } else {
+            updates()
+        }
+
+        UIAccessibility.post(notification: .announcement, argument: "Quick filters expanded")
+    }
+
+    func hideQuickFilterMenu(animated: Bool, announce: Bool = true) {
+        guard isQuickFilterMenuVisible else { return }
+        isQuickFilterMenuVisible = false
+
+        let completion: (Bool) -> Void = { _ in
+            self.quickFilterMenuBackdrop.isHidden = true
+            self.quickFilterMenuContainer.isHidden = true
+            self.quickFilterMenuContainer.transform = .identity
+        }
+
+        let updates = {
+            self.quickFilterMenuBackdrop.alpha = 0
+            self.quickFilterMenuContainer.alpha = 0
+            self.quickFilterMenuContainer.transform = CGAffineTransform(translationX: 0, y: -8)
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseIn], animations: updates, completion: completion)
+        } else {
+            updates()
+            completion(true)
+        }
+
+        if announce {
+            UIAccessibility.post(notification: .announcement, argument: "Quick filters collapsed")
+        }
+    }
+
+    @objc private func openAdvancedFiltersFromMenu() {
+        hideQuickFilterMenu(animated: true, announce: false)
+        showAdvancedFilterSheet()
+    }
+
     @objc func showAdvancedFilterSheet() {
         guard let viewModel else { return }
+        hideQuickFilterMenu(animated: false, announce: false)
 
         let sheet = HomeAdvancedFilterSheetView(
             initialFilter: viewModel.activeFilterState.advancedFilter,
@@ -719,14 +886,14 @@ extension HomeViewController: BadgeViewDelegate {
         toDoListHeaderLabel.frame = CGRect(
             x: 0,
             y: 0,
-            width: max(0, homeTitleRow.bounds.width - 140),
+            width: max(0, homeTitleRow.bounds.width - 168),
             height: homeTitleRow.bounds.height
         )
 
         focusPotentialLabel.frame = CGRect(
-            x: max(0, homeTitleRow.bounds.width - 168),
+            x: max(0, homeTitleRow.bounds.width - 196),
             y: 0,
-            width: 132,
+            width: 160,
             height: homeTitleRow.bounds.height
         )
 
@@ -737,42 +904,39 @@ extension HomeViewController: BadgeViewDelegate {
             height: 24
         )
 
-        quickFilterScrollView.frame = CGRect(
+        let menuTopY = homeTopBar.frame.maxY + 6
+        let menuHorizontalInset: CGFloat = 12
+        let menuWidth = max(0, homeTopBar.bounds.width - (menuHorizontalInset * 2))
+        let menuHeight = min(max(196, quickFilterMenuContentStack.systemLayoutSizeFitting(
+            CGSize(width: menuWidth - 24, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        ).height + 24), max(220, foredropContainer.bounds.height * 0.5))
+
+        quickFilterMenuBackdrop.frame = CGRect(
             x: 0,
-            y: homeTitleRow.frame.maxY + 4,
-            width: homeTopBar.bounds.width,
-            height: 40
+            y: homeTopBar.frame.maxY,
+            width: foredropContainer.bounds.width,
+            height: max(0, foredropContainer.bounds.height - homeTopBar.frame.maxY)
         )
 
-        quickFilterStackView.frame = CGRect(
-            x: 16,
-            y: 0,
-            width: max(quickFilterScrollView.bounds.width - 32, quickFilterStackView.intrinsicContentSize.width),
-            height: quickFilterScrollView.bounds.height
+        quickFilterMenuContainer.frame = CGRect(
+            x: menuHorizontalInset,
+            y: menuTopY,
+            width: menuWidth,
+            height: menuHeight
         )
 
-        quickFilterScrollView.contentSize = CGSize(
-            width: quickFilterStackView.frame.maxX + 16,
-            height: quickFilterScrollView.bounds.height
+        quickFilterMenuQuickStack.layoutIfNeeded()
+        quickFilterMenuQuickScrollView.contentSize = CGSize(
+            width: quickFilterMenuQuickStack.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width,
+            height: quickFilterMenuQuickScrollView.bounds.height
         )
 
-        projectFilterScrollView.frame = CGRect(
-            x: 0,
-            y: quickFilterScrollView.frame.maxY + 4,
-            width: homeTopBar.bounds.width,
-            height: 38
-        )
-
-        projectFilterStackView.frame = CGRect(
-            x: 16,
-            y: 0,
-            width: max(projectFilterScrollView.bounds.width - 32, projectFilterStackView.intrinsicContentSize.width),
-            height: projectFilterScrollView.bounds.height
-        )
-
-        projectFilterScrollView.contentSize = CGSize(
-            width: projectFilterStackView.frame.maxX + 16,
-            height: projectFilterScrollView.bounds.height
+        quickFilterMenuProjectStack.layoutIfNeeded()
+        quickFilterMenuProjectScrollView.contentSize = CGSize(
+            width: quickFilterMenuProjectStack.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width,
+            height: quickFilterMenuProjectScrollView.bounds.height
         )
 
         let tableOriginY = homeTopBar.frame.maxY + tableTopSpacing
@@ -792,8 +956,22 @@ extension HomeViewController: BadgeViewDelegate {
         if let hostingView = taskListHostingController?.view, hostingView.superview === foredropContainer {
             foredropContainer.bringSubviewToFront(hostingView)
         }
+        if quickFilterMenuBackdrop.superview === foredropContainer {
+            foredropContainer.bringSubviewToFront(quickFilterMenuBackdrop)
+        }
+        if quickFilterMenuContainer.superview === foredropContainer {
+            foredropContainer.bringSubviewToFront(quickFilterMenuContainer)
+        }
         if homeTopBar.superview === foredropContainer {
             foredropContainer.bringSubviewToFront(homeTopBar)
+        }
+
+        if !isQuickFilterMenuVisible {
+            quickFilterMenuBackdrop.alpha = 0
+            quickFilterMenuBackdrop.isHidden = true
+            quickFilterMenuContainer.alpha = 0
+            quickFilterMenuContainer.isHidden = true
+            quickFilterMenuContainer.transform = .identity
         }
     }
     
