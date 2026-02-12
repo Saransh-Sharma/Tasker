@@ -11,28 +11,40 @@ struct ChatsSettingsView: View {
     @State var systemPrompt = ""
     @State var deleteAllChats = false
     @Binding var currentThread: Thread?
-    
+
     var body: some View {
         Form {
-            Section(header: Text("system prompt")) {
+            Section(header: Text("system prompt")
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker(.textTertiary))
+            ) {
                 TextEditor(text: $appManager.systemPrompt)
+                    .font(.tasker(.callout))
+                    .foregroundColor(Color.tasker(.textPrimary))
                     .frame(minHeight: 150)
                     .textEditorStyle(.plain)
+                    .tint(Color.tasker(.accentPrimary))
             }
-            
+
             if appManager.userInterfaceIdiom == .phone {
                 Section {
                     Toggle("haptics", isOn: $appManager.shouldPlayHaptics)
-                        .tint(.green)
+                        .font(.tasker(.body))
+                        .tint(Color.tasker(.accentPrimary))
                 }
             }
-            
+
             Section {
                 Button {
                     deleteAllChats.toggle()
                 } label: {
-                    Label("delete all chats", systemImage: "trash")
-                        .foregroundStyle(.red)
+                    Label {
+                        Text("delete all chats")
+                            .font(.tasker(.body))
+                    } icon: {
+                        Image(systemName: "trash")
+                    }
+                    .foregroundColor(Color.tasker(.statusDanger))
                 }
                 .alert("are you sure?", isPresented: $deleteAllChats) {
                     Button("cancel", role: .cancel) {
@@ -46,12 +58,14 @@ struct ChatsSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .background(Color.tasker(.bgCanvas))
         .navigationTitle("chats")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
     }
-    
+
     func deleteChats() {
         do {
             currentThread = nil
