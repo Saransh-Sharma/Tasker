@@ -55,6 +55,8 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var savedHomeViews: [SavedHomeView] = []
     @Published public private(set) var quickViewCounts: [HomeQuickView: Int] = [:]
     @Published public private(set) var pointsPotential: Int = 0
+    @Published public private(set) var progressState: HomeProgressState = .empty
+    @Published public private(set) var focusTasks: [Task] = []
     @Published public private(set) var emptyStateMessage: String?
     @Published public private(set) var emptyStateActionTitle: String?
     @Published public private(set) var focusEngineEnabled: Bool = true
@@ -172,6 +174,7 @@ public final class HomeViewModel: ObservableObject {
                     let stateMatchesRequest = completionResult.task.isComplete == requestedCompletion
                     if stateMatchesRequest {
                         self?.dailyScore += completionResult.scoreEarned
+                        self?.refreshProgressState()
                     } else {
                         logDebug(
                             "HOME_ROW_STATE vm.toggle_mismatch id=\(completionResult.task.id.uuidString) " +
@@ -243,6 +246,11 @@ public final class HomeViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Track Home interactions from view-layer events (animations, collapse toggles, etc.).
+    public func trackHomeInteraction(action: String, metadata: [String: Any] = [:]) {
+        trackFeatureUsage(action: action, metadata: metadata)
     }
 
     /// Change selected date.
@@ -571,6 +579,7 @@ public final class HomeViewModel: ObservableObject {
                 switch result {
                 case .success(let routineResult):
                     self?.dailyScore += routineResult.totalScore
+                    self?.refreshProgressState()
                     self?.loadTodayTasks()
 
                 case .failure(let error):
@@ -676,6 +685,7 @@ public final class HomeViewModel: ObservableObject {
                 if case .success(let analytics) = result {
                     self?.dailyScore = analytics.totalScore
                     self?.completionRate = analytics.completionRate
+                    self?.refreshProgressState()
                 }
             }
         }
@@ -684,6 +694,7 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 if case .success(let streakInfo) = result {
                     self?.streak = streakInfo.currentStreak
+                    self?.refreshProgressState()
                 }
             }
         }
@@ -748,6 +759,7 @@ public final class HomeViewModel: ObservableObject {
                     self.quickViewCounts = filteredResult.quickViewCounts
                     self.pointsPotential = filteredResult.pointsPotential
                     self.applyResultToSections(filteredResult)
+                    self.refreshProgressState()
 
                     if trackAnalytics {
                         self.trackFeatureUsage(action: "home_filter_applied", metadata: [
@@ -786,10 +798,13 @@ public final class HomeViewModel: ObservableObject {
             "open=\(summarizeRowState(openTasks)) done=\(summarizeRowState(doneTasks))"
         )
 
+        focusTasks = rankedFocusTasks(from: openTasks, relativeTo: activeScope)
+
         if activeScope == .done {
             doneTimelineTasks = doneTasks
             dailyCompletedTasks = doneTasks
             completedTasks = doneTasks
+            focusTasks = []
             upcomingTasks = []
             morningTasks = []
             eveningTasks = []
@@ -855,6 +870,21 @@ public final class HomeViewModel: ObservableObject {
     private func updateCompletionRateFromFocusResult(openTasks: [Task], doneTasks: [Task]) {
         let total = openTasks.count + doneTasks.count
         completionRate = total > 0 ? Double(doneTasks.count) / Double(total) : 0
+    }
+
+    private func refreshProgressState() {
+        let earnedXP = max(0, dailyScore)
+        let remainingPotentialXP = max(0, pointsPotential)
+        let targetXP = earnedXP + remainingPotentialXP
+        let streakDays = max(0, streak)
+
+        progressState = HomeProgressState(
+            earnedXP: earnedXP,
+            remainingPotentialXP: remainingPotentialXP,
+            todayTargetXP: targetXP,
+            streakDays: streakDays,
+            isStreakSafeToday: earnedXP > 0
+        )
     }
 
     private func persistLastFilterState() {
@@ -963,6 +993,52 @@ public final class HomeViewModel: ObservableObject {
         guard let dueDate = task.dueDate else { return false }
         let hour = Calendar.current.component(.hour, from: dueDate)
         return hour >= 17 && hour <= 23
+    }
+
+    private func rankedFocusTasks(from tasks: [Task], relativeTo scope: HomeListScope) -> [Task] {
+        guard !tasks.isEmpty else { return [] }
+
+        let calendar = Calendar.current
+        let anchorStart = calendar.startOfDay(for: scope.referenceDate)
+        let anchorEnd = calendar.date(byAdding: .day, value: 1, to: anchorStart) ?? anchorStart
+
+        func isOverdue(_ task: Task) -> Bool {
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate < anchorStart
+        }
+
+        func isDueToday(_ task: Task) -> Bool {
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate >= anchorStart && dueDate < anchorEnd
+        }
+
+        let sorted = tasks.sorted { lhs, rhs in
+            let lhsOverdue = isOverdue(lhs)
+            let rhsOverdue = isOverdue(rhs)
+            if lhsOverdue != rhsOverdue {
+                return lhsOverdue
+            }
+
+            let lhsDueToday = isDueToday(lhs)
+            let rhsDueToday = isDueToday(rhs)
+            if lhsDueToday != rhsDueToday {
+                return lhsDueToday
+            }
+
+            if lhs.priority.scorePoints != rhs.priority.scorePoints {
+                return lhs.priority.scorePoints > rhs.priority.scorePoints
+            }
+
+            let lhsDue = lhs.dueDate ?? Date.distantFuture
+            let rhsDue = rhs.dueDate ?? Date.distantFuture
+            if lhsDue != rhsDue {
+                return lhsDue < rhsDue
+            }
+
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+
+        return Array(sorted.prefix(3))
     }
 
     private func trackFeatureUsage(action: String, metadata: [String: Any]? = nil) {
@@ -1129,6 +1205,9 @@ public final class HomeViewModel: ObservableObject {
             "completed=\(completedTasks.contains(where: { $0.id == updatedTask.id })) " +
             "doneTimeline=\(doneTimelineTasks.contains(where: { $0.id == updatedTask.id }))"
         )
+
+        focusTasks = rankedFocusTasks(from: morningTasks + eveningTasks + overdueTasks, relativeTo: activeScope)
+        refreshProgressState()
     }
 
     private func replacingTask(in tasks: [Task], with updatedTask: Task) -> [Task] {
@@ -1462,6 +1541,8 @@ extension HomeViewModel {
             activeScope: activeScope,
             selectedProjectIDs: activeFilterState.selectedProjectIDs,
             pointsPotential: pointsPotential,
+            progressState: progressState,
+            focusTasks: focusTasks,
             quickViewCounts: quickViewCounts,
             savedHomeViews: savedHomeViews,
             emptyStateMessage: emptyStateMessage,
@@ -1492,10 +1573,33 @@ public struct HomeViewState {
     public let activeScope: HomeListScope
     public let selectedProjectIDs: [UUID]
     public let pointsPotential: Int
+    public let progressState: HomeProgressState
+    public let focusTasks: [Task]
     public let quickViewCounts: [HomeQuickView: Int]
     public let savedHomeViews: [SavedHomeView]
     public let emptyStateMessage: String?
     public let emptyStateActionTitle: String?
     public let showCompletedInline: Bool
     public let pinnedProjectIDs: [UUID]
+}
+
+public struct HomeProgressState: Equatable {
+    public let earnedXP: Int
+    public let remainingPotentialXP: Int
+    public let todayTargetXP: Int
+    public let streakDays: Int
+    public let isStreakSafeToday: Bool
+
+    public static let empty = HomeProgressState(
+        earnedXP: 0,
+        remainingPotentialXP: 0,
+        todayTargetXP: 0,
+        streakDays: 0,
+        isStreakSafeToday: false
+    )
+
+    public var progressFraction: Double {
+        guard todayTargetXP > 0 else { return 0 }
+        return min(1, Double(earnedXP) / Double(todayTargetXP))
+    }
 }
