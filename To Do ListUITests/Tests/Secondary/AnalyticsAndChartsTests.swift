@@ -173,6 +173,71 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "analytics_score_display")
     }
 
+    // MARK: - Test 60B: Home Cockpit XP Label
+
+    func testHomeCockpitShowsXpTodayLabel() throws {
+        let addTaskPage = homePage.tapAddTask()
+        addTaskPage.createTask(title: "Cockpit XP Task", priority: .high, taskType: .morning)
+        _ = homePage.waitForTask(withTitle: "Cockpit XP Task", timeout: 5)
+
+        let taskIndex = findTaskIndex(withTitle: "Cockpit XP Task")
+        homePage.completeTask(at: taskIndex)
+        waitForAnimations(duration: 1.0)
+
+        XCTAssertTrue(homePage.dailyScoreLabel.waitForExistence(timeout: 3), "Home cockpit XP label should be visible")
+        XCTAssertTrue(homePage.dailyScoreLabel.label.contains("XP Today"), "Cockpit should use XP Today copy")
+    }
+
+    // MARK: - Test 60C: Focus Strip Caps At Three Tasks
+
+    func testFocusStripCapsTaskCardsAtThree() throws {
+        let titles = ["Focus 1", "Focus 2", "Focus 3", "Focus 4"]
+        for title in titles {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(title: title, priority: .high, taskType: .morning)
+            _ = homePage.waitForTask(withTitle: title, timeout: 5)
+        }
+
+        XCTAssertTrue(homePage.focusStrip.waitForExistence(timeout: 3), "Focus strip should exist")
+
+        let predicate = NSPredicate(format: "identifier BEGINSWITH 'home.focus.task.'")
+        let focusCards = app.descendants(matching: .any).matching(predicate)
+        XCTAssertGreaterThan(focusCards.count, 0)
+        XCTAssertLessThanOrEqual(focusCards.count, 3, "Focus strip should show at most 3 tasks")
+    }
+
+    // MARK: - Test 60D: Completed Group Toggle Appears When Completed Rows Grow
+
+    func testCompletedGroupToggleAppearsAfterMultipleCompletions() throws {
+        let titles = ["Done A", "Done B", "Done C"]
+        for title in titles {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(title: title, priority: .low, taskType: .morning)
+            _ = homePage.waitForTask(withTitle: title, timeout: 5)
+            let idx = findTaskIndex(withTitle: title)
+            homePage.completeTask(at: idx)
+            waitForAnimations(duration: 0.6)
+        }
+
+        let togglePredicate = NSPredicate(format: "identifier BEGINSWITH 'home.completedToggle.'")
+        let completedToggle = app.descendants(matching: .any).matching(togglePredicate).firstMatch
+        XCTAssertTrue(completedToggle.waitForExistence(timeout: 3), "Completed toggle should appear once completed rows exceed 2")
+    }
+
+    // MARK: - Test 60E: Compact Row Height Regression Guard
+
+    func testTaskRowsRemainCompact() throws {
+        let taskTitle = "Compact Row Guard"
+        let addTaskPage = homePage.tapAddTask()
+        addTaskPage.createTask(title: taskTitle, priority: .high, taskType: .morning)
+        _ = homePage.waitForTask(withTitle: taskTitle, timeout: 5)
+
+        let row = homePage.taskRow(containingTitle: taskTitle)
+        XCTAssertTrue(row.waitForExistence(timeout: 3), "Task row should be visible")
+        XCTAssertLessThanOrEqual(row.frame.height, 92, "Compact row should remain visually dense")
+        takeScreenshot(named: "home_compact_row_regression")
+    }
+
     // MARK: - Test 61: Analytics Streak Display
 
     func testAnalyticsStreakDisplay() throws {

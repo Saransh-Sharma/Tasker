@@ -78,6 +78,10 @@ class HomePage {
         return app.buttons[AccessibilityIdentifiers.Home.quickFilterMenuAdvancedButton]
     }
 
+    var focusStrip: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.focusStrip]
+    }
+
     var morningTasksList: XCUIElement {
         return app.tables[AccessibilityIdentifiers.Home.morningTasksList]
     }
