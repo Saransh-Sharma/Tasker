@@ -156,6 +156,7 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let completionResult):
+                    self?.applyCompletionResultLocally(completionResult.task)
                     self?.dailyScore += completionResult.scoreEarned
                     self?.invalidateTaskCaches()
                     self?.reloadCurrentModeTasks()
@@ -679,7 +680,8 @@ public final class HomeViewModel: ObservableObject {
         }
 
         doneTimelineTasks = []
-        completedTasks = activeFilterState.showCompletedInline ? result.doneTimelineTasks : []
+        completedTasks = result.doneTimelineTasks
+        dailyCompletedTasks = result.doneTimelineTasks
 
         let overdue = result.openTasks.filter(\.isOverdue)
         let nonOverdue = result.openTasks.filter { !$0.isOverdue }
@@ -851,6 +853,57 @@ public final class HomeViewModel: ObservableObject {
         let total = result.totalCount
         let completed = result.completedTasks.count
         completionRate = total > 0 ? Double(completed) / Double(total) : 0
+    }
+
+    private func applyCompletionResultLocally(_ updatedTask: Task) {
+        morningTasks = replacingTask(in: morningTasks, with: updatedTask)
+        eveningTasks = replacingTask(in: eveningTasks, with: updatedTask)
+        overdueTasks = replacingTask(in: overdueTasks, with: updatedTask)
+        upcomingTasks = replacingTask(in: upcomingTasks, with: updatedTask)
+        selectedProjectTasks = replacingTask(in: selectedProjectTasks, with: updatedTask)
+
+        if updatedTask.isComplete {
+            completedTasks = upsertingTaskInPlace(in: completedTasks, with: updatedTask)
+            dailyCompletedTasks = upsertingTaskInPlace(in: dailyCompletedTasks, with: updatedTask)
+            doneTimelineTasks = upsertingTaskInPlace(in: doneTimelineTasks, with: updatedTask)
+        } else {
+            completedTasks = removingTask(id: updatedTask.id, from: completedTasks)
+            dailyCompletedTasks = removingTask(id: updatedTask.id, from: dailyCompletedTasks)
+            doneTimelineTasks = removingTask(id: updatedTask.id, from: doneTimelineTasks)
+        }
+
+        if let snapshot = todayTasks {
+            let updatedSnapshot = TodayTasksResult(
+                morningTasks: replacingTask(in: snapshot.morningTasks, with: updatedTask),
+                eveningTasks: replacingTask(in: snapshot.eveningTasks, with: updatedTask),
+                overdueTasks: replacingTask(in: snapshot.overdueTasks, with: updatedTask),
+                completedTasks: updatedTask.isComplete
+                    ? upsertingTaskInPlace(in: snapshot.completedTasks, with: updatedTask)
+                    : removingTask(id: updatedTask.id, from: snapshot.completedTasks),
+                totalCount: snapshot.totalCount
+            )
+            todayTasks = updatedSnapshot
+        }
+    }
+
+    private func replacingTask(in tasks: [Task], with updatedTask: Task) -> [Task] {
+        tasks.map { task in
+            task.id == updatedTask.id ? updatedTask : task
+        }
+    }
+
+    private func upsertingTaskInPlace(in tasks: [Task], with updatedTask: Task) -> [Task] {
+        guard let index = tasks.firstIndex(where: { $0.id == updatedTask.id }) else {
+            return tasks + [updatedTask]
+        }
+
+        var updated = tasks
+        updated[index] = updatedTask
+        return updated
+    }
+
+    private func removingTask(id: UUID, from tasks: [Task]) -> [Task] {
+        tasks.filter { $0.id != id }
     }
 }
 
