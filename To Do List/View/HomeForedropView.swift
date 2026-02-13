@@ -7,6 +7,24 @@
 
 import SwiftUI
 
+// MARK: - Foredrop Anchor
+
+enum ForedropAnchor: Equatable {
+    /// Foredrop covers calendar + charts. Default state.
+    case collapsed
+    /// Foredrop anchors below the weekly calendar strip.
+    case midReveal
+    /// Foredrop anchors below the chart cards (full analytics view).
+    case fullReveal
+}
+
+private struct CalendarHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 80
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct HomeBackdropForedropRootView: View {
     @ObservedObject var viewModel: HomeViewModel
 
@@ -20,7 +38,8 @@ struct HomeBackdropForedropRootView: View {
     let onOpenChat: () -> Void
     let onOpenSettings: () -> Void
 
-    @State private var isBackdropRevealed = false
+    @State private var foredropAnchor: ForedropAnchor = .collapsed
+    @State private var calendarExpandedHeight: CGFloat = 0
     @State private var showFilterDropdown = false
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
@@ -34,6 +53,18 @@ struct HomeBackdropForedropRootView: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
+    /// Vertical offset for the foredrop based on anchor + calendar expansion.
+    private var foredropOffset: CGFloat {
+        let baseOffset: CGFloat = {
+            switch foredropAnchor {
+            case .collapsed:  return 0
+            case .midReveal:  return 94 + calendarExpandedHeight
+            case .fullReveal: return 380 + calendarExpandedHeight
+            }
+        }()
+        return baseOffset
+    }
+
     var body: some View {
         ZStack {
             GeometryReader { geometry in
@@ -41,18 +72,28 @@ struct HomeBackdropForedropRootView: View {
                     backdropLayer(geometry: geometry)
 
                     foredropLayer(geometry: geometry)
-                        .offset(y: isBackdropRevealed ? 228 : 86)
-                        .animation(TaskerAnimation.snappy, value: isBackdropRevealed)
+                        .offset(y: foredropOffset)
+                        .animation(TaskerAnimation.snappy, value: foredropAnchor)
+                        .animation(TaskerAnimation.snappy, value: calendarExpandedHeight)
                         .gesture(
                             DragGesture(minimumDistance: 8)
                                 .onEnded { value in
-                                    if value.translation.height > 40 {
-                                        withAnimation(TaskerAnimation.snappy) {
-                                            isBackdropRevealed = true
-                                        }
-                                    } else if value.translation.height < -40 {
-                                        withAnimation(TaskerAnimation.snappy) {
-                                            isBackdropRevealed = false
+                                    let threshold: CGFloat = 50
+                                    withAnimation(TaskerAnimation.snappy) {
+                                        if value.translation.height > threshold {
+                                            // Pull down: advance to next stop
+                                            switch foredropAnchor {
+                                            case .collapsed:  foredropAnchor = .midReveal
+                                            case .midReveal:  foredropAnchor = .fullReveal
+                                            case .fullReveal: break
+                                            }
+                                        } else if value.translation.height < -threshold {
+                                            // Pull up: retreat to previous stop
+                                            switch foredropAnchor {
+                                            case .collapsed:  break
+                                            case .midReveal:  foredropAnchor = .collapsed
+                                            case .fullReveal: foredropAnchor = .midReveal
+                                            }
                                         }
                                     }
                                 }
@@ -162,46 +203,44 @@ struct HomeBackdropForedropRootView: View {
                         endPoint: .bottom
                     )
                 )
-                .frame(height: max(320, geometry.size.height * 0.42))
+                .frame(height: max(480, geometry.size.height * 0.65))
                 .overlay(alignment: .topLeading) {
-                    VStack(alignment: .leading, spacing: spacing.s12) {
-                        Text("Analytics")
-                            .font(.tasker(.headline))
-                            .foregroundColor(Color.tasker.textPrimary)
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        // 1. Weekly Calendar Strip
+                        WeeklyCalendarStripView(
+                            selectedDate: Binding(
+                                get: { viewModel.selectedDate },
+                                set: { viewModel.selectDate($0) }
+                            ),
+                            todayDate: Date()
+                        )
+                        .background(
+                            GeometryReader { calGeo in
+                                Color.clear.preference(
+                                    key: CalendarHeightPreferenceKey.self,
+                                    value: calGeo.size.height
+                                )
+                            }
+                        )
+                        .onPreferenceChange(CalendarHeightPreferenceKey.self) { height in
+                            let baseWeekHeight: CGFloat = 80
+                            calendarExpandedHeight = max(0, height - baseWeekHeight)
+                        }
+                        .opacity(foredropAnchor != .collapsed ? 1 : 0.001)
 
-                        ChartCardsScrollView(referenceDate: viewModel.selectedDate)
-                            .frame(height: 260)
-
-                        VStack(alignment: .leading, spacing: spacing.s8) {
-                            Text("Quick Actions")
+                        // 2. Chart Cards (visible when fully revealed)
+                        VStack(alignment: .leading, spacing: spacing.s12) {
+                            Text("Analytics")
                                 .font(.tasker(.headline))
                                 .foregroundColor(Color.tasker.textPrimary)
 
-                            HStack(spacing: spacing.s8) {
-                                launcherCard(
-                                    title: "Search",
-                                    systemImage: "magnifyingglass",
-                                    accessibilityID: "home.launch.search",
-                                    action: onOpenSearch
-                                )
-                                launcherCard(
-                                    title: "Add Task",
-                                    systemImage: "plus.circle.fill",
-                                    accessibilityID: "home.launch.addTask",
-                                    action: onAddTask
-                                )
-                                launcherCard(
-                                    title: "Chat",
-                                    systemImage: "bubble.left.and.bubble.right",
-                                    accessibilityID: "home.launch.chat",
-                                    action: onOpenChat
-                                )
-                            }
+                            ChartCardsScrollView(referenceDate: viewModel.selectedDate)
+                                .frame(height: 260)
                         }
+                        .opacity(foredropAnchor == .fullReveal ? 1 : 0.001)
                     }
                     .padding(.horizontal, spacing.s16)
-                    .padding(.top, spacing.s16)
-                    .opacity(isBackdropRevealed ? 1 : 0.001)
+                    .padding(.top, spacing.s8)
                 }
             Spacer(minLength: 0)
         }
@@ -216,10 +255,21 @@ struct HomeBackdropForedropRootView: View {
                 .padding(.horizontal, spacing.s16)
                 .padding(.top, spacing.s8)
 
-            if !viewModel.focusTasks.isEmpty {
+            if viewModel.canUseManualFocusDrag || !viewModel.focusTasks.isEmpty {
                 focusStrip
                     .padding(.horizontal, spacing.s16)
                     .padding(.top, spacing.s8)
+            }
+
+            // Next action module: contextual guidance for empty/low-content states
+            if viewModel.activeScope.quickView == .today && viewModel.pinnedFocusTaskIDs.count < 3 {
+                NextActionModule(
+                    openTaskCount: viewModel.todayOpenTaskCount,
+                    focusPinnedCount: viewModel.pinnedFocusTaskIDs.count,
+                    onAddTask: onAddTask
+                )
+                .padding(.horizontal, spacing.s16)
+                .padding(.top, spacing.s8)
             }
 
             TaskListView(
@@ -234,6 +284,7 @@ struct HomeBackdropForedropRootView: View {
                 customProjectOrderIDs: viewModel.activeFilterState.customProjectOrderIDs,
                 emptyStateMessage: viewModel.emptyStateMessage,
                 emptyStateActionTitle: viewModel.emptyStateActionTitle,
+                isTaskDragEnabled: viewModel.canUseManualFocusDrag,
                 onTaskTap: onTaskTap,
                 onToggleComplete: { task in
                     trackTaskToggle(task, source: "task_list")
@@ -252,9 +303,14 @@ struct HomeBackdropForedropRootView: View {
                         ]
                     )
                 },
-                onEmptyStateAction: onAddTask
+                onEmptyStateAction: onAddTask,
+                onTaskDragStarted: { task in
+                    trackTaskDragStarted(task, source: "task_list")
+                }
             )
             .padding(.top, spacing.s4)
+            .onDrop(of: ["public.text"], isTargeted: nil, perform: handleListDrop)
+            .accessibilityIdentifier("home.list.dropzone")
 
             foredropBottomBar
                 .padding(.horizontal, spacing.s16)
@@ -339,19 +395,33 @@ struct HomeBackdropForedropRootView: View {
                 .font(.tasker(.headline))
                 .foregroundColor(Color.tasker.textPrimary)
 
-            VStack(spacing: spacing.s4) {
-                ForEach(Array(viewModel.focusTasks.enumerated()), id: \.element.id) { index, task in
-                    focusCard(task: task, index: index)
+            if viewModel.focusTasks.isEmpty {
+                RoundedRectangle(cornerRadius: corner.input, style: .continuous)
+                    .strokeBorder(Color.tasker.strokeHairline, style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                    .frame(height: 56)
+                    .overlay {
+                        Text("Long-press and drag a task here")
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textTertiary)
+                    }
+            } else {
+                VStack(spacing: spacing.s4) {
+                    ForEach(Array(viewModel.focusTasks.enumerated()), id: \.element.id) { index, task in
+                        focusCard(task: task, index: index)
+                    }
                 }
+                .accessibilityIdentifier("home.focus.strip")
             }
         }
-        .accessibilityIdentifier("home.focus.strip")
+        .onDrop(of: ["public.text"], isTargeted: nil, perform: handleFocusDrop)
+        .accessibilityIdentifier("home.focus.dropzone")
     }
 
+    @ViewBuilder
     private func focusCard(task: DomainTask, index: Int) -> some View {
         let model = TaskRowDisplayModel.from(task: task, showTypeBadge: false)
 
-        return VStack(alignment: .leading, spacing: spacing.s4) {
+        let cardContent = VStack(alignment: .leading, spacing: spacing.s4) {
             HStack(spacing: spacing.s8) {
                 Text(task.name)
                     .font(.tasker(.bodyEmphasis))
@@ -406,6 +476,15 @@ struct HomeBackdropForedropRootView: View {
         }
         .staggeredAppearance(index: index)
         .accessibilityIdentifier("home.focus.task.\(task.id.uuidString)")
+
+        if viewModel.canUseManualFocusDrag {
+            cardContent.onDrag {
+                trackTaskDragStarted(task, source: "focus_strip")
+                return NSItemProvider(object: task.id.uuidString as NSString)
+            }
+        } else {
+            cardContent
+        }
     }
 
     private var filterSummary: HomeQuickFilterSummary {
@@ -420,7 +499,7 @@ struct HomeBackdropForedropRootView: View {
         HStack(spacing: spacing.s12) {
             Button {
                 withAnimation(TaskerAnimation.snappy) {
-                    isBackdropRevealed.toggle()
+                    foredropAnchor = foredropAnchor == .fullReveal ? .collapsed : .fullReveal
                 }
             } label: {
                 Label("Charts", systemImage: "chart.line.uptrend.xyaxis")
@@ -477,35 +556,6 @@ struct HomeBackdropForedropRootView: View {
             .accessibilityHidden(true)
     }
 
-    private func launcherCard(
-        title: String,
-        systemImage: String,
-        accessibilityID: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            action()
-        } label: {
-            VStack(alignment: .leading, spacing: spacing.s4) {
-                Image(systemName: systemImage)
-                    .font(.tasker(.title3))
-                    .foregroundColor(Color.tasker.accentPrimary)
-                Text(title)
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.textPrimary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, spacing.s12)
-            .padding(.vertical, spacing.s12)
-            .background(
-                RoundedRectangle(cornerRadius: corner.input, style: .continuous)
-                    .fill(Color.tasker.surfacePrimary.opacity(0.96))
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(accessibilityID)
-    }
-
     private var headerTitle: String {
         switch viewModel.activeScope {
         case .today:
@@ -545,6 +595,106 @@ struct HomeBackdropForedropRootView: View {
                 "current_state": task.isComplete ? "done" : "open"
             ]
         )
+    }
+
+    private func trackTaskDragStarted(_ task: DomainTask, source: String) {
+        var metadata = focusScopeMetadata(source: source, taskID: task.id)
+        metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
+        viewModel.trackHomeInteraction(
+            action: "home_focus_drag_started",
+            metadata: metadata
+        )
+    }
+
+    private func handleFocusDrop(providers: [NSItemProvider]) -> Bool {
+        guard viewModel.canUseManualFocusDrag else { return false }
+
+        return loadTaskIDFromDrop(providers: providers) { taskID in
+            guard let taskID else { return }
+
+            let pinResult = viewModel.pinTaskToFocus(taskID)
+            var metadata = focusScopeMetadata(source: "task_list", taskID: taskID)
+            metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
+
+            switch pinResult {
+            case .pinned:
+                TaskerHaptic.success()
+                viewModel.trackHomeInteraction(action: "home_focus_dropped_in", metadata: metadata)
+            case .alreadyPinned:
+                TaskerHaptic.selection()
+                metadata["result"] = "already_pinned"
+                viewModel.trackHomeInteraction(action: "home_focus_dropped_in", metadata: metadata)
+            case .capacityReached(let limit):
+                TaskerHaptic.light()
+                metadata["limit"] = limit
+                viewModel.trackHomeInteraction(action: "home_focus_drop_rejected_capacity", metadata: metadata)
+            case .taskIneligible:
+                TaskerHaptic.selection()
+            }
+        }
+    }
+
+    private func handleListDrop(providers: [NSItemProvider]) -> Bool {
+        guard viewModel.canUseManualFocusDrag else { return false }
+
+        return loadTaskIDFromDrop(providers: providers) { taskID in
+            guard let taskID else { return }
+            let wasPinned = viewModel.pinnedFocusTaskIDs.contains(taskID)
+            guard wasPinned else { return }
+
+            viewModel.unpinTaskFromFocus(taskID)
+            TaskerHaptic.selection()
+
+            var metadata = focusScopeMetadata(source: "focus_strip", taskID: taskID)
+            metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
+            viewModel.trackHomeInteraction(action: "home_focus_dropped_out", metadata: metadata)
+        }
+    }
+
+    private func loadTaskIDFromDrop(
+        providers: [NSItemProvider],
+        completion: @escaping (UUID?) -> Void
+    ) -> Bool {
+        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
+            completion(nil)
+            return false
+        }
+
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            let rawValue = (object as? NSString)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let taskID = rawValue.flatMap(UUID.init(uuidString:))
+            DispatchQueue.main.async {
+                completion(taskID)
+            }
+        }
+        return true
+    }
+
+    private func focusScopeMetadata(source: String, taskID: UUID) -> [String: Any] {
+        [
+            "source": source,
+            "task_id": taskID.uuidString,
+            "quick_view": viewModel.activeScope.quickView.analyticsAction,
+            "scope": scopeAnalyticsName
+        ]
+    }
+
+    private var scopeAnalyticsName: String {
+        switch viewModel.activeScope {
+        case .today:
+            return "today"
+        case .customDate:
+            return "custom_date"
+        case .upcoming:
+            return "upcoming"
+        case .done:
+            return "done"
+        case .morning:
+            return "morning"
+        case .evening:
+            return "evening"
+        }
     }
 
     private func handleDailyScoreUpdate(_ newScore: Int) {
