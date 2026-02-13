@@ -158,7 +158,7 @@ public class TaskMapper {
                 generateUUID(from: task.objectID) == id
             }
         } catch {
-            print("Error fetching task by ID: \(error)")
+            logError("Error fetching task by ID: \(error)")
             return nil
         }
     }

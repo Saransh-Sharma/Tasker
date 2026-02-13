@@ -72,7 +72,6 @@ public struct TaskPriorityConfig {
             case 3: self = .high
             case 4: self = .max
             default:
-                print("⚠️ Invalid priority rawValue: \(rawValue), defaulting to .none")
                 self = .none // Default fallback
             }
         }
@@ -112,7 +111,6 @@ public struct TaskPriorityConfig {
         if isValidPriority(rawValue) {
             return rawValue
         }
-        print("⚠️ Normalizing invalid priority \(rawValue) to .none (1)")
         return Priority.none.rawValue
     }
     

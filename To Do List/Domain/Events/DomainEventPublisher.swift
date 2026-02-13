@@ -56,13 +56,13 @@ public final class DomainEventPublisher: ObservableObject {
         // Publish to Combine subscribers
         eventSubject.send(event)
         
-        print("📤 Domain Event Published: \(event.eventType) for aggregate \(event.aggregateId)")
+        logDebug("📤 Domain Event Published: \(event.eventType) for aggregate \(event.aggregateId)")
     }
     
     /// Register an event handler
     public func register(handler: DomainEventHandler) {
         eventHandlers.append(handler)
-        print("📝 Registered event handler for events: \(type(of: handler))")
+        logDebug("📝 Registered event handler for events: \(type(of: handler))")
     }
     
     /// Unregister an event handler
@@ -85,7 +85,7 @@ public final class DomainEventPublisher: ObservableObject {
     /// Clear all stored events (use with caution)
     public func clearEventStorage() {
         eventStorage.removeAll()
-        print("🗑️ Event storage cleared")
+        logDebug("🗑️ Event storage cleared")
     }
     
     /// Get recent events (last N events)
@@ -146,7 +146,7 @@ public final class DomainEventPublisher: ObservableObject {
         formatter.dateFormat = "HH:mm:ss.SSS"
         let timestamp = formatter.string(from: event.occurredAt)
         
-        print("📋 [\(timestamp)] \(event.eventType) - Aggregate: \(event.aggregateId.uuidString.prefix(8))")
+        logDebug("📋 [\(timestamp)] \(event.eventType) - Aggregate: \(event.aggregateId.uuidString.prefix(8))")
     }
 }
 
@@ -180,17 +180,17 @@ public final class AnalyticsEventHandler: DomainEventHandler {
     
     private func recordTaskCompletion(_ event: TaskCompletedEvent) {
         // Record analytics for task completion
-        print("📊 Analytics: Task completed - Score: \(event.scoreEarned)")
+        logDebug("📊 Analytics: Task completed - Score: \(event.scoreEarned)")
     }
     
     private func recordTaskCreation(_ event: TaskCreatedEvent) {
         // Record analytics for task creation
-        print("📊 Analytics: Task created - Priority: \(event.taskPriority.displayName)")
+        logDebug("📊 Analytics: Task created - Priority: \(event.taskPriority.displayName)")
     }
     
     private func recordProjectCreation(_ event: ProjectCreatedEvent) {
         // Record analytics for project creation
-        print("📊 Analytics: Project created - \(event.projectName)")
+        logDebug("📊 Analytics: Project created - \(event.projectName)")
     }
 }
 
