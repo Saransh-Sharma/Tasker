@@ -28,8 +28,10 @@ struct TaskListView: View {
     var onDeleteTask: ((DomainTask) -> Void)? = nil
     var onRescheduleTask: ((DomainTask) -> Void)? = nil
     var onReorderCustomProjects: (([UUID]) -> Void)? = nil
+    var onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil
     var onEmptyStateAction: (() -> Void)? = nil
     @State private var draggingCustomProjectID: UUID?
+    @State private var isCompletedCollapsedBySection: [UUID: Bool] = [:]
 
     init(
         morningTasks: [DomainTask],
@@ -48,6 +50,7 @@ struct TaskListView: View {
         onDeleteTask: ((DomainTask) -> Void)? = nil,
         onRescheduleTask: ((DomainTask) -> Void)? = nil,
         onReorderCustomProjects: (([UUID]) -> Void)? = nil,
+        onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil,
         onEmptyStateAction: (() -> Void)? = nil
     ) {
         self.morningTasks = morningTasks
@@ -66,12 +69,13 @@ struct TaskListView: View {
         self.onDeleteTask = onDeleteTask
         self.onRescheduleTask = onRescheduleTask
         self.onReorderCustomProjects = onReorderCustomProjects
+        self.onCompletedSectionToggle = onCompletedSectionToggle
         self.onEmptyStateAction = onEmptyStateAction
     }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: TaskerTheme.Spacing.sectionGap) {
+            LazyVStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
                 if activeQuickView == .done {
                     doneTimelineContent
                 } else {
@@ -88,7 +92,7 @@ struct TaskListView: View {
                 Spacer()
                     .frame(height: TaskerTheme.Spacing.tabBarHeight)
             }
-            .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+            .padding(.horizontal, TaskerTheme.Spacing.lg)
         }
         .accessibilityIdentifier("home.taskList.scrollView")
     }
@@ -133,10 +137,15 @@ struct TaskListView: View {
             TaskSectionView(
                 project: inboxSection.project,
                 tasks: inboxSection.tasks,
+                completedCollapsed: isCompletedCollapsedBySection[inboxSection.project.id],
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,
-                onRescheduleTask: onRescheduleTask
+                onRescheduleTask: onRescheduleTask,
+                onCompletedCollapsedChange: { collapsed, count in
+                    isCompletedCollapsedBySection[inboxSection.project.id] = collapsed
+                    onCompletedSectionToggle?(inboxSection.project.id, collapsed, count)
+                }
             )
             .id(sectionRenderKey(projectID: inboxSection.project.id, tasks: inboxSection.tasks))
             .staggeredAppearance(index: 0)
@@ -160,10 +169,15 @@ struct TaskListView: View {
             TaskSectionView(
                 project: section.project,
                 tasks: section.tasks,
+                completedCollapsed: isCompletedCollapsedBySection[section.project.id],
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,
-                onRescheduleTask: onRescheduleTask
+                onRescheduleTask: onRescheduleTask,
+                onCompletedCollapsedChange: { collapsed, count in
+                    isCompletedCollapsedBySection[section.project.id] = collapsed
+                    onCompletedSectionToggle?(section.project.id, collapsed, count)
+                }
             )
             .id(sectionRenderKey(projectID: section.project.id, tasks: section.tasks))
             .staggeredAppearance(index: customStartIndex + index)
@@ -192,10 +206,15 @@ struct TaskListView: View {
                 project: overdueProject,
                 tasks: overdueTasks,
                 isOverdueSection: true,
+                completedCollapsed: isCompletedCollapsedBySection[overdueProject.id],
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,
-                onRescheduleTask: onRescheduleTask
+                onRescheduleTask: onRescheduleTask,
+                onCompletedCollapsedChange: { collapsed, count in
+                    isCompletedCollapsedBySection[overdueProject.id] = collapsed
+                    onCompletedSectionToggle?(overdueProject.id, collapsed, count)
+                }
             )
             .id(sectionRenderKey(projectID: overdueProject.id, tasks: overdueTasks))
             .staggeredAppearance(index: 0)
@@ -205,10 +224,15 @@ struct TaskListView: View {
             TaskSectionView(
                 project: section.project,
                 tasks: section.tasks,
+                completedCollapsed: isCompletedCollapsedBySection[section.project.id],
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,
-                onRescheduleTask: onRescheduleTask
+                onRescheduleTask: onRescheduleTask,
+                onCompletedCollapsedChange: { collapsed, count in
+                    isCompletedCollapsedBySection[section.project.id] = collapsed
+                    onCompletedSectionToggle?(section.project.id, collapsed, count)
+                }
             )
             .id(sectionRenderKey(projectID: section.project.id, tasks: section.tasks))
             .staggeredAppearance(index: index + (overdueTasks.isEmpty ? 0 : 1))
@@ -224,10 +248,15 @@ struct TaskListView: View {
                 project: group.project,
                 tasks: group.tasks,
                 isOverdueSection: false,
+                completedCollapsed: isCompletedCollapsedBySection[group.project.id],
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,
-                onRescheduleTask: onRescheduleTask
+                onRescheduleTask: onRescheduleTask,
+                onCompletedCollapsedChange: { collapsed, count in
+                    isCompletedCollapsedBySection[group.project.id] = collapsed
+                    onCompletedSectionToggle?(group.project.id, collapsed, count)
+                }
             )
             .id(sectionRenderKey(projectID: group.project.id, tasks: group.tasks))
             .staggeredAppearance(index: index)
