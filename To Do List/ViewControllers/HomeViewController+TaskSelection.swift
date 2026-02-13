@@ -33,14 +33,10 @@ extension HomeViewController {
             managedTask.isComplete.toggle()
             managedTask.dateCompleted = managedTask.isComplete ? Date() as NSDate : nil
             try? managedTask.managedObjectContext?.save()
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self else { return }
-            self.updateViewForHome(viewType: self.currentViewType, dateForView: self.dateForTheView)
-            self.refreshChartsAfterTaskCompletion()
-            self.updateDailyScore()
-            self.updateChartCardsScrollView()
+            updateViewForHome(viewType: currentViewType, dateForView: dateForTheView)
+            refreshChartsAfterTaskCompletion()
+            updateDailyScore()
+            updateChartCardsScrollView()
         }
     }
 
