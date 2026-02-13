@@ -51,7 +51,7 @@ public final class InMemoryCacheService: CacheServiceProtocol {
                     createdAt: Date()
                 )
             } catch {
-                print("❌ Cache encoding error for key \(key): \(error)")
+                logError(" Cache encoding error for key \(key): \(error)")
             }
         }
     }
@@ -94,7 +94,7 @@ public final class InMemoryCacheService: CacheServiceProtocol {
                     )
                 }
             } catch {
-                print("❌ Cache decoding error for key \(key): \(error)")
+                logError(" Cache decoding error for key \(key): \(error)")
                 queue.async(flags: .barrier) {
                     self._statistics = CacheStatistics(
                         totalRequests: self._statistics.totalRequests + 1,

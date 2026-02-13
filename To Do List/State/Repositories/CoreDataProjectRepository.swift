@@ -120,10 +120,10 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
 
                     do {
                         try self.backgroundContext.save()
-                        print("✅ Created project '\(project.name)' with UUID: \(project.id)")
+                        logDebug("✅ Created project '\(project.name)' with UUID: \(project.id)")
                         DispatchQueue.main.async { completion(.success(project)) }
                     } catch {
-                        print("❌ Failed to create project: \(error)")
+                        logError(" Failed to create project: \(error)")
                         DispatchQueue.main.async { completion(.failure(error)) }
                     }
                 }
@@ -156,10 +156,10 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
 
                         do {
                             try self.backgroundContext.save()
-                            print("✅ Created Inbox project with UUID: \(ProjectConstants.inboxProjectID)")
+                            logDebug("✅ Created Inbox project with UUID: \(ProjectConstants.inboxProjectID)")
                             DispatchQueue.main.async { completion(.success(inboxProject)) }
                         } catch {
-                            print("❌ Failed to create Inbox project: \(error)")
+                            logError(" Failed to create Inbox project: \(error)")
                             DispatchQueue.main.async { completion(.failure(error)) }
                         }
                     }
@@ -181,16 +181,16 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
 
                 do {
                     try self.backgroundContext.save()
-                    print("✅ Updated project '\(project.name)' with UUID: \(project.id)")
+                    logDebug("✅ Updated project '\(project.name)' with UUID: \(project.id)")
                     DispatchQueue.main.async { completion(.success(project)) }
                 } catch {
-                    print("❌ Failed to update project: \(error)")
+                    logError(" Failed to update project: \(error)")
                     DispatchQueue.main.async { completion(.failure(error)) }
                 }
             } else {
                 let error = NSError(domain: "ProjectRepository", code: 404,
                                   userInfo: [NSLocalizedDescriptionKey: "Project not found"])
-                print("❌ Project not found: \(project.id)")
+                logError(" Project not found: \(project.id)")
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
@@ -267,12 +267,12 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                     do {
                         let tasks = try self?.backgroundContext.fetch(request) ?? []
 
-                        print("🗑️ Deleting project '\(project.name)' with \(tasks.count) tasks (deleteTasks: \(deleteTasks))")
+                        logDebug("🗑️ Deleting project '\(project.name)' with \(tasks.count) tasks (deleteTasks: \(deleteTasks))")
 
                         if deleteTasks {
                             // Delete all tasks in the project
                             tasks.forEach { self?.backgroundContext.delete($0) }
-                            print("  ❌ Deleted \(tasks.count) tasks")
+                            logDebug("  ❌ Deleted \(tasks.count) tasks")
                         } else {
                             // CRITICAL FIX: Move tasks to Inbox using BOTH UUID and string (for sync)
                             let inboxID = ProjectConstants.inboxProjectID
@@ -282,7 +282,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                                 task.projectID = inboxID
                                 task.project = inboxName  // Keep string in sync for legacy support
                             }
-                            print("  ✅ Reassigned \(tasks.count) tasks to Inbox")
+                            logDebug("  ✅ Reassigned \(tasks.count) tasks to Inbox")
                         }
 
                         // Now delete the Projects entity itself (if it exists)
@@ -291,14 +291,14 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
 
                         if let projectEntity = try self?.backgroundContext.fetch(projectFetchRequest).first {
                             self?.backgroundContext.delete(projectEntity)
-                            print("  🗑️ Deleted Projects entity: '\(projectEntity.projectName ?? "Unknown")'")
+                            logDebug("  🗑️ Deleted Projects entity: '\(projectEntity.projectName ?? "Unknown")'")
                         }
 
                         try self?.backgroundContext.save()
-                        print("✅ Project deletion completed successfully")
+                        logDebug("✅ Project deletion completed successfully")
                         DispatchQueue.main.async { completion(.success(())) }
                     } catch {
-                        print("❌ Project deletion failed: \(error)")
+                        logError(" Project deletion failed: \(error)")
                         DispatchQueue.main.async { completion(.failure(error)) }
                     }
                 }
