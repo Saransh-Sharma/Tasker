@@ -22,6 +22,13 @@ public enum HomeTaskMutationEvent: String, Codable, CaseIterable {
     case bulkChanged
 }
 
+public enum FocusPinResult: Equatable {
+    case pinned
+    case alreadyPinned
+    case capacityReached(limit: Int)
+    case taskIneligible
+}
+
 public extension Notification.Name {
     static let homeTaskMutation = Notification.Name("HomeTaskMutationEvent")
 }
@@ -57,10 +64,16 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var pointsPotential: Int = 0
     @Published public private(set) var progressState: HomeProgressState = .empty
     @Published public private(set) var focusTasks: [Task] = []
+    @Published public private(set) var pinnedFocusTaskIDs: [UUID] = []
     @Published public private(set) var emptyStateMessage: String?
     @Published public private(set) var emptyStateActionTitle: String?
     @Published public private(set) var focusEngineEnabled: Bool = true
     @Published public private(set) var activeScope: HomeListScope = .today
+
+    // Next Action Module: total open tasks for today
+    public var todayOpenTaskCount: Int {
+        (morningTasks + eveningTasks).filter { !$0.isComplete }.count
+    }
 
     // Projects
     @Published public private(set) var projects: [Project] = []
@@ -78,6 +91,8 @@ public final class HomeViewModel: ObservableObject {
     // MARK: - Persistence Keys
 
     private static let lastFilterStateKey = "home.focus.lastFilterState.v1"
+    private static let pinnedFocusTaskIDsKey = "home.focus.pinnedTaskIDs.v1"
+    private static let maxPinnedFocusTasks = 3
 
     // MARK: - Session State
 
@@ -220,6 +235,7 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
+                    self?.removePinnedFocusTaskID(task.id)
                     self?.invalidateTaskCaches()
                     self?.reloadCurrentModeTasks()
                     self?.requestChartRefresh(reason: .deleted)
@@ -251,6 +267,42 @@ public final class HomeViewModel: ObservableObject {
     /// Track Home interactions from view-layer events (animations, collapse toggles, etc.).
     public func trackHomeInteraction(action: String, metadata: [String: Any] = [:]) {
         trackFeatureUsage(action: action, metadata: metadata)
+    }
+
+    public var canUseManualFocusDrag: Bool {
+        activeScope == .today
+    }
+
+    @discardableResult
+    public func pinTaskToFocus(_ taskID: UUID) -> FocusPinResult {
+        guard canUseManualFocusDrag else {
+            return .taskIneligible
+        }
+
+        let openTasks = focusOpenTasksForCurrentState()
+        guard openTasks.contains(where: { $0.id == taskID }) else {
+            return .taskIneligible
+        }
+
+        if pinnedFocusTaskIDs.contains(taskID) {
+            return .alreadyPinned
+        }
+
+        if pinnedFocusTaskIDs.count >= Self.maxPinnedFocusTasks {
+            return .capacityReached(limit: Self.maxPinnedFocusTasks)
+        }
+
+        pinnedFocusTaskIDs.append(taskID)
+        persistPinnedFocusTaskIDs()
+        focusTasks = composedFocusTasks(from: openTasks)
+        return .pinned
+    }
+
+    public func unpinTaskFromFocus(_ taskID: UUID) {
+        guard pinnedFocusTaskIDs.contains(taskID) else { return }
+        pinnedFocusTaskIDs.removeAll { $0 == taskID }
+        persistPinnedFocusTaskIDs()
+        focusTasks = composedFocusTasks(from: focusOpenTasksForCurrentState())
     }
 
     /// Change selected date.
@@ -668,6 +720,7 @@ public final class HomeViewModel: ObservableObject {
         didTrackFirstCompletionLatency = false
 
         restoreLastFilterState()
+        restorePinnedFocusTaskIDs()
         activeScope = .fromQuickView(activeFilterState.quickView)
         if case .today = activeScope {
             selectedDate = Date()
@@ -798,7 +851,10 @@ public final class HomeViewModel: ObservableObject {
             "open=\(summarizeRowState(openTasks)) done=\(summarizeRowState(doneTasks))"
         )
 
-        focusTasks = rankedFocusTasks(from: openTasks, relativeTo: activeScope)
+        if canUseManualFocusDrag {
+            prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
+        }
+        focusTasks = composedFocusTasks(from: openTasks)
 
         if activeScope == .done {
             doneTimelineTasks = doneTasks
@@ -894,6 +950,22 @@ public final class HomeViewModel: ObservableObject {
         if let data = try? encoder.encode(activeFilterState) {
             userDefaults.set(data, forKey: Self.lastFilterStateKey)
         }
+    }
+
+    private func restorePinnedFocusTaskIDs() {
+        let persistedIDs = userDefaults
+            .stringArray(forKey: Self.pinnedFocusTaskIDsKey)?
+            .compactMap(UUID.init(uuidString:))
+            ?? []
+        pinnedFocusTaskIDs = normalizedPinnedFocusTaskIDs(persistedIDs)
+    }
+
+    private func persistPinnedFocusTaskIDs() {
+        let normalized = normalizedPinnedFocusTaskIDs(pinnedFocusTaskIDs)
+        if normalized != pinnedFocusTaskIDs {
+            pinnedFocusTaskIDs = normalized
+        }
+        userDefaults.set(normalized.map(\.uuidString), forKey: Self.pinnedFocusTaskIDsKey)
     }
 
     private func seedPinnedProjectsIfNeeded(from projects: [Project]) {
@@ -1038,7 +1110,77 @@ public final class HomeViewModel: ObservableObject {
             return lhs.id.uuidString < rhs.id.uuidString
         }
 
-        return Array(sorted.prefix(3))
+        return Array(sorted.prefix(Self.maxPinnedFocusTasks))
+    }
+
+    private func composedFocusTasks(from openTasks: [Task]) -> [Task] {
+        guard !openTasks.isEmpty else { return [] }
+
+        guard canUseManualFocusDrag else {
+            return rankedFocusTasks(from: openTasks, relativeTo: activeScope)
+        }
+
+        let openByID = Dictionary(uniqueKeysWithValues: openTasks.map { ($0.id, $0) })
+        let pinnedOpen = pinnedFocusTaskIDs.compactMap { openByID[$0] }
+        let pinnedSet = Set(pinnedOpen.map(\.id))
+        let rankedAutoFill = rankedFocusTasks(
+            from: openTasks.filter { !pinnedSet.contains($0.id) },
+            relativeTo: activeScope
+        )
+
+        return Array((pinnedOpen + rankedAutoFill).prefix(Self.maxPinnedFocusTasks))
+    }
+
+    private func prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set<UUID>) {
+        let filtered = pinnedFocusTaskIDs.filter { keepingOpenTaskIDs.contains($0) }
+        guard filtered != pinnedFocusTaskIDs else { return }
+        pinnedFocusTaskIDs = filtered
+        persistPinnedFocusTaskIDs()
+    }
+
+    private func removePinnedFocusTaskID(_ taskID: UUID) {
+        guard pinnedFocusTaskIDs.contains(taskID) else { return }
+        pinnedFocusTaskIDs.removeAll { $0 == taskID }
+        persistPinnedFocusTaskIDs()
+        focusTasks = composedFocusTasks(from: focusOpenTasksForCurrentState())
+    }
+
+    private func normalizedPinnedFocusTaskIDs(_ ids: [UUID]) -> [UUID] {
+        var deduped: [UUID] = []
+        deduped.reserveCapacity(min(ids.count, Self.maxPinnedFocusTasks))
+
+        for id in ids where !deduped.contains(id) {
+            deduped.append(id)
+            if deduped.count == Self.maxPinnedFocusTasks {
+                break
+            }
+        }
+
+        return deduped
+    }
+
+    private func focusOpenTasksForCurrentState() -> [Task] {
+        switch activeScope.quickView {
+        case .done:
+            return []
+        case .upcoming:
+            return upcomingTasks.filter { !$0.isComplete }
+        case .today, .morning, .evening:
+            return (morningTasks + eveningTasks + overdueTasks).filter { !$0.isComplete }
+        }
+    }
+
+    private func refreshFocusTasksFromCurrentState() {
+        if activeScope.quickView == .done {
+            focusTasks = []
+            return
+        }
+
+        let openTasks = focusOpenTasksForCurrentState()
+        if canUseManualFocusDrag {
+            prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
+        }
+        focusTasks = composedFocusTasks(from: openTasks)
     }
 
     private func trackFeatureUsage(action: String, metadata: [String: Any]? = nil) {
@@ -1206,7 +1348,10 @@ public final class HomeViewModel: ObservableObject {
             "doneTimeline=\(doneTimelineTasks.contains(where: { $0.id == updatedTask.id }))"
         )
 
-        focusTasks = rankedFocusTasks(from: morningTasks + eveningTasks + overdueTasks, relativeTo: activeScope)
+        if updatedTask.isComplete {
+            removePinnedFocusTaskID(updatedTask.id)
+        }
+        refreshFocusTasksFromCurrentState()
         refreshProgressState()
     }
 
@@ -1543,6 +1688,7 @@ extension HomeViewModel {
             pointsPotential: pointsPotential,
             progressState: progressState,
             focusTasks: focusTasks,
+            pinnedFocusTaskIDs: pinnedFocusTaskIDs,
             quickViewCounts: quickViewCounts,
             savedHomeViews: savedHomeViews,
             emptyStateMessage: emptyStateMessage,
@@ -1575,6 +1721,7 @@ public struct HomeViewState {
     public let pointsPotential: Int
     public let progressState: HomeProgressState
     public let focusTasks: [Task]
+    public let pinnedFocusTaskIDs: [UUID]
     public let quickViewCounts: [HomeQuickView: Int]
     public let savedHomeViews: [SavedHomeView]
     public let emptyStateMessage: String?
