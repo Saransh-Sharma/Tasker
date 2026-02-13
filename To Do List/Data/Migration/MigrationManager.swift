@@ -64,7 +64,7 @@ public final class MigrationManager {
         // Add to migration history
         addToHistory(version: version, date: Date())
 
-        print("✅ Migration version updated to: \(version.description)")
+        logDebug("✅ Migration version updated to: \(version.description)")
     }
 
     /// Check if migration is needed
@@ -102,7 +102,7 @@ public final class MigrationManager {
         userDefaults.removeObject(forKey: Self.migrationVersionKey)
         userDefaults.removeObject(forKey: Self.lastMigrationDateKey)
         userDefaults.removeObject(forKey: Self.migrationHistoryKey)
-        print("⚠️ Migration state reset to legacy")
+        logDebug("Migration state reset to legacy")
     }
 
     /// 🔥 EMERGENCY: Force reset migration state to handle corrupted migration state
@@ -111,7 +111,7 @@ public final class MigrationManager {
         userDefaults.removeObject(forKey: Self.migrationVersionKey)
         userDefaults.removeObject(forKey: Self.lastMigrationDateKey)
         userDefaults.removeObject(forKey: Self.migrationHistoryKey)
-        print("🚨 EMERGENCY: Migration state reset - will force re-run")
+        logDebug("Emergency migration state reset")
     }
 
     /// Generate a migration plan based on current version
