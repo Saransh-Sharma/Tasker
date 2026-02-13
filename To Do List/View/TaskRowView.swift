@@ -59,8 +59,10 @@ struct TaskRowView: View {
         .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
         .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.md, includesBorder: false)
         .opacity(task.isComplete ? 0.7 : 1.0)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.taskRow.\(task.id.uuidString)")
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(accessibilityStateValue)
         .accessibilityHint(accessibilityHint)
     }
 
@@ -72,6 +74,8 @@ struct TaskRowView: View {
                 CompletionCheckbox(isComplete: task.isComplete) {
                     onToggleComplete?()
                 }
+                .accessibilityIdentifier("home.taskCheckbox.\(task.id.uuidString)")
+                .accessibilityValue(accessibilityStateValue)
 
                 contentStack
 
@@ -240,6 +244,10 @@ struct TaskRowView: View {
         if onTap != nil { hints.append("Tap to view details") }
         if onDelete != nil || onReschedule != nil { hints.append("Swipe left for actions") }
         return hints.joined(separator: ", ")
+    }
+
+    private var accessibilityStateValue: String {
+        task.isComplete ? "done" : "open"
     }
 }
 

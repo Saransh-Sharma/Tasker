@@ -111,18 +111,39 @@ struct TaskSectionView: View {
 
     private var taskList: some View {
         VStack(spacing: TaskerTheme.Spacing.sm) {
-            ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
+            ForEach(renderItems, id: \.renderKey) { item in
                 TaskRowView(
-                    task: task,
+                    task: item.task,
                     showTypeBadge: hasMixedTypes,
-                    onTap: { onTaskTap?(task) },
-                    onToggleComplete: { onToggleComplete?(task) },
-                    onDelete: { onDeleteTask?(task) },
-                    onReschedule: { onRescheduleTask?(task) }
+                    onTap: { onTaskTap?(item.task) },
+                    onToggleComplete: { onToggleComplete?(item.task) },
+                    onDelete: { onDeleteTask?(item.task) },
+                    onReschedule: { onRescheduleTask?(item.task) }
                 )
-                .staggeredAppearance(index: index)
+                .staggeredAppearance(index: item.index)
             }
         }
+    }
+
+    private struct TaskRowRenderItem {
+        let index: Int
+        let task: DomainTask
+        let renderKey: String
+    }
+
+    private var renderItems: [TaskRowRenderItem] {
+        tasks.enumerated().map { index, task in
+            TaskRowRenderItem(
+                index: index,
+                task: task,
+                renderKey: taskRenderKey(for: task)
+            )
+        }
+    }
+
+    private func taskRenderKey(for task: DomainTask) -> String {
+        let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
+        return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
     }
 
     // MARK: - Computed Properties

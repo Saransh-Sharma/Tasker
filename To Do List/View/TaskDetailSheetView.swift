@@ -530,6 +530,10 @@ struct TaskDetailSheetView: View {
     private func saveChanges() {
         guard !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let resolvedProject = resolveProjectSelection(for: selectedProject)
+        let oldProjectID = task.projectID
+        let oldPriority = task.taskPriority
+        let oldType = task.taskType
+        let oldDueDate = task.dueDate as Date?
 
         task.name = taskName
         task.taskDetails = taskDescription.isEmpty ? nil : taskDescription
@@ -546,6 +550,29 @@ struct TaskDetailSheetView: View {
             hasChanges = false
             TaskerHaptic.success()
             print("HOME_DETAIL_SHEET save taskID=\(task.taskID?.uuidString ?? "nil") projectID=\(resolvedProject.id.uuidString) source=\(resolvedProject.source)")
+            var mutationReasons: [HomeTaskMutationEvent] = []
+            if oldProjectID != resolvedProject.id {
+                mutationReasons.append(.projectChanged)
+            }
+            if oldPriority != taskPriority {
+                mutationReasons.append(.priorityChanged)
+            }
+            if oldType != taskType {
+                mutationReasons.append(.typeChanged)
+            }
+            if oldDueDate != dueDate {
+                mutationReasons.append(.dueDateChanged)
+            }
+            if mutationReasons.isEmpty {
+                mutationReasons = [.updated]
+            }
+            for reason in mutationReasons {
+                NotificationCenter.default.post(
+                    name: .homeTaskMutation,
+                    object: nil,
+                    userInfo: ["reason": reason.rawValue]
+                )
+            }
             onSave?()
         } catch {
             print("HOME_DETAIL_SHEET save_error taskID=\(task.taskID?.uuidString ?? "nil") error=\(error)")
@@ -564,6 +591,13 @@ struct TaskDetailSheetView: View {
             try task.managedObjectContext?.save()
             TaskerHaptic.success()
             print("HOME_DETAIL_SHEET toggle taskID=\(task.taskID?.uuidString ?? "nil") isComplete=\(isComplete)")
+            NotificationCenter.default.post(
+                name: .homeTaskMutation,
+                object: nil,
+                userInfo: [
+                    "reason": (isComplete ? HomeTaskMutationEvent.completed : HomeTaskMutationEvent.reopened).rawValue
+                ]
+            )
             onToggleComplete?()
         } catch {
             print("HOME_DETAIL_SHEET toggle_error taskID=\(task.taskID?.uuidString ?? "nil") error=\(error)")

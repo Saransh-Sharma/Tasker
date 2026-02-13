@@ -15,6 +15,7 @@ struct TaskListView: View {
     let morningTasks: [DomainTask]
     let eveningTasks: [DomainTask]
     let overdueTasks: [DomainTask]
+    let inlineCompletedTasks: [DomainTask]
     let projects: [Project]
     let doneTimelineTasks: [DomainTask]
     let activeQuickView: HomeQuickView?
@@ -34,6 +35,7 @@ struct TaskListView: View {
         morningTasks: [DomainTask],
         eveningTasks: [DomainTask],
         overdueTasks: [DomainTask],
+        inlineCompletedTasks: [DomainTask] = [],
         projects: [Project],
         doneTimelineTasks: [DomainTask] = [],
         activeQuickView: HomeQuickView? = nil,
@@ -51,6 +53,7 @@ struct TaskListView: View {
         self.morningTasks = morningTasks
         self.eveningTasks = eveningTasks
         self.overdueTasks = overdueTasks
+        self.inlineCompletedTasks = inlineCompletedTasks
         self.projects = projects
         self.doneTimelineTasks = doneTimelineTasks
         self.activeQuickView = activeQuickView
@@ -103,10 +106,23 @@ struct TaskListView: View {
 
     @ViewBuilder
     private var todayRegularTaskContent: some View {
+        let completedByID = inlineCompletedTasks.reduce(into: [UUID: DomainTask]()) { partialResult, task in
+            partialResult[task.id] = task
+        }
+        let reconciledMorning = morningTasks.map { completedByID[$0.id] ?? $0 }
+        let reconciledEvening = eveningTasks.map { completedByID[$0.id] ?? $0 }
+        let reconciledOverdue = overdueTasks.map { completedByID[$0.id] ?? $0 }
+
+        let baseNonOverdue = reconciledMorning + reconciledEvening
+        let baseIDs = Set((baseNonOverdue + reconciledOverdue).map(\.id))
+        let additionalCompleted = inlineCompletedTasks.filter { !baseIDs.contains($0.id) }
+        let mergedNonOverdue = baseNonOverdue + additionalCompleted.filter { !$0.isOverdue }
+        let mergedOverdue = reconciledOverdue + additionalCompleted.filter(\.isOverdue)
+
         let layout = HomeTaskSectionBuilder.buildTodayLayout(
             mode: projectGroupingMode,
-            nonOverdueTasks: morningTasks + eveningTasks,
-            overdueTasks: overdueTasks,
+            nonOverdueTasks: mergedNonOverdue,
+            overdueTasks: mergedOverdue,
             projects: projects,
             customProjectOrderIDs: customProjectOrderIDs
         )
@@ -122,6 +138,7 @@ struct TaskListView: View {
                 onDeleteTask: onDeleteTask,
                 onRescheduleTask: onRescheduleTask
             )
+            .id(sectionRenderKey(projectID: inboxSection.project.id, tasks: inboxSection.tasks))
             .staggeredAppearance(index: 0)
         }
 
@@ -133,6 +150,7 @@ struct TaskListView: View {
                 onDeleteTask: onDeleteTask,
                 onRescheduleTask: onRescheduleTask
             )
+            .id(overdueGroupsRenderKey(layout.overdueGroups))
             .staggeredAppearance(index: hasInboxSection ? 1 : 0)
         }
 
@@ -147,6 +165,7 @@ struct TaskListView: View {
                 onDeleteTask: onDeleteTask,
                 onRescheduleTask: onRescheduleTask
             )
+            .id(sectionRenderKey(projectID: section.project.id, tasks: section.tasks))
             .staggeredAppearance(index: customStartIndex + index)
             .onDrag {
                 draggingCustomProjectID = section.project.id
@@ -178,6 +197,7 @@ struct TaskListView: View {
                 onDeleteTask: onDeleteTask,
                 onRescheduleTask: onRescheduleTask
             )
+            .id(sectionRenderKey(projectID: overdueProject.id, tasks: overdueTasks))
             .staggeredAppearance(index: 0)
         }
 
@@ -190,6 +210,7 @@ struct TaskListView: View {
                 onDeleteTask: onDeleteTask,
                 onRescheduleTask: onRescheduleTask
             )
+            .id(sectionRenderKey(projectID: section.project.id, tasks: section.tasks))
             .staggeredAppearance(index: index + (overdueTasks.isEmpty ? 0 : 1))
         }
     }
@@ -208,6 +229,7 @@ struct TaskListView: View {
                 onDeleteTask: onDeleteTask,
                 onRescheduleTask: onRescheduleTask
             )
+            .id(sectionRenderKey(projectID: group.project.id, tasks: group.tasks))
             .staggeredAppearance(index: index)
         }
     }
@@ -289,6 +311,24 @@ struct TaskListView: View {
         }
 
         return morningTasks.isEmpty && eveningTasks.isEmpty && overdueTasks.isEmpty
+    }
+
+    private func sectionRenderKey(projectID: UUID, tasks: [DomainTask]) -> String {
+        let rows = tasks.map(taskRenderKey(for:)).joined(separator: ",")
+        return "\(projectID.uuidString)|\(rows)"
+    }
+
+    private func overdueGroupsRenderKey(_ groups: [HomeTaskOverdueGroup]) -> String {
+        groups
+            .map { group in
+                sectionRenderKey(projectID: group.project.id, tasks: group.tasks)
+            }
+            .joined(separator: ";")
+    }
+
+    private func taskRenderKey(for task: DomainTask) -> String {
+        let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
+        return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
     }
 
     private func normalizedTaskProjectName(from tasks: [DomainTask]) -> String? {
@@ -414,12 +454,19 @@ private struct OverdueGroupedSectionView: View {
                             onDelete: { onDeleteTask?(task) },
                             onReschedule: { onRescheduleTask?(task) }
                         )
+                        .id(taskRenderKey(for: task))
                         .staggeredAppearance(index: taskIndex)
                     }
                 }
             }
         }
     }
+
+    private func taskRenderKey(for task: DomainTask) -> String {
+        let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
+        return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
+    }
+
 }
 
 private struct CustomProjectSectionDropDelegate: DropDelegate {
