@@ -35,7 +35,53 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
 
         XCTAssertEqual(captured?.openTasks.map(\.name), ["Inside"])
-        XCTAssertEqual(captured?.doneTimelineTasks.count, 0)
+        XCTAssertEqual(captured?.doneTimelineTasks.map(\.name), ["Completed"])
+    }
+
+    func testTodayQuickViewIncludesCompletedTasksDueTodayOrOverdue() {
+        let now = Date()
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: now)
+        let todayAtNine = calendar.date(byAdding: .hour, value: 9, to: startOfToday)!
+        let yesterdayAtNine = calendar.date(byAdding: .day, value: -1, to: todayAtNine)!
+
+        let openToday = makeTask(name: "Open Today", dueDate: todayAtNine, isComplete: false)
+        let completedToday = makeTask(
+            name: "Completed Today",
+            dueDate: todayAtNine,
+            isComplete: true,
+            completionDate: now
+        )
+        let completedOverdue = makeTask(
+            name: "Completed Overdue",
+            dueDate: yesterdayAtNine,
+            isComplete: true,
+            completionDate: now
+        )
+
+        let repository = MockTaskRepository(tasks: [openToday, completedToday, completedOverdue])
+        let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
+
+        let expectation = expectation(description: "Today includes completed")
+        var captured: HomeFilteredTasksResult?
+
+        var state = HomeFilterState.default
+        state.quickView = .today
+
+        useCase.execute(state: state) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(captured?.openTasks.map(\.name), ["Open Today"])
+        XCTAssertEqual(
+            Set(captured?.doneTimelineTasks.map(\.name) ?? []),
+            Set(["Completed Today", "Completed Overdue"])
+        )
     }
 
     func testDoneQuickViewLimitsToLastThirtyDaysAndSortsByDayThenPriority() {
@@ -100,6 +146,71 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
 
         XCTAssertEqual(Set(captured?.openTasks.map(\.name) ?? []), Set(["Explicit Morning", "Inferred Morning"]))
+    }
+
+    func testMorningAndEveningQuickViewsIncludeCompletedTasksInDoneTimeline() {
+        let now = Date()
+        let calendar = Calendar.current
+        let baseDay = calendar.startOfDay(for: now)
+
+        let morningOpen = makeTask(
+            name: "Morning Open",
+            dueDate: calendar.date(byAdding: .hour, value: 8, to: baseDay),
+            isComplete: false,
+            type: .morning
+        )
+        let morningDone = makeTask(
+            name: "Morning Done",
+            dueDate: calendar.date(byAdding: .hour, value: 9, to: baseDay),
+            isComplete: true,
+            type: .morning,
+            completionDate: now
+        )
+        let eveningOpen = makeTask(
+            name: "Evening Open",
+            dueDate: calendar.date(byAdding: .hour, value: 19, to: baseDay),
+            isComplete: false,
+            type: .evening
+        )
+        let eveningDone = makeTask(
+            name: "Evening Done",
+            dueDate: calendar.date(byAdding: .hour, value: 20, to: baseDay),
+            isComplete: true,
+            type: .evening,
+            completionDate: now
+        )
+
+        let repository = MockTaskRepository(tasks: [morningOpen, morningDone, eveningOpen, eveningDone])
+        let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
+
+        let morningExpectation = expectation(description: "Morning includes completed")
+        var morningResult: HomeFilteredTasksResult?
+        var morningState = HomeFilterState.default
+        morningState.quickView = .morning
+        useCase.execute(state: morningState) { result in
+            if case let .success(value) = result {
+                morningResult = value
+            }
+            morningExpectation.fulfill()
+        }
+
+        let eveningExpectation = expectation(description: "Evening includes completed")
+        var eveningResult: HomeFilteredTasksResult?
+        var eveningState = HomeFilterState.default
+        eveningState.quickView = .evening
+        useCase.execute(state: eveningState) { result in
+            if case let .success(value) = result {
+                eveningResult = value
+            }
+            eveningExpectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(morningResult?.openTasks.map(\.name), ["Morning Open"])
+        XCTAssertEqual(morningResult?.doneTimelineTasks.map(\.name), ["Morning Done"])
+        XCTAssertEqual(eveningResult?.openTasks.map(\.name), ["Evening Open"])
+        XCTAssertEqual(eveningResult?.doneTimelineTasks.map(\.name), ["Evening Done"])
     }
 
     func testProjectFacetUsesORAcrossSelectedProjects() {
