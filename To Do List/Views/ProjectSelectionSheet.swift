@@ -216,14 +216,12 @@ struct ProjectSelectionSheet: View {
         if pinnedProjects.contains(projectID) {
             // Unpin
             pinnedProjects.remove(projectID)
-            print("📌 Unpinned project: \(projectID)")
+            logDebug("📌 Unpinned project: \(projectID)")
         } else {
             // Pin (if under limit)
             if pinnedProjects.count < maxSelections {
                 pinnedProjects.insert(projectID)
-                print("📌 Pinned project: \(projectID)")
-            } else {
-                print("⚠️ Cannot pin - maximum \(maxSelections) projects already pinned")
+                logDebug("📌 Pinned project: \(projectID)")
             }
         }
     }
@@ -239,10 +237,10 @@ struct ProjectSelectionSheet: View {
         // Log cleanup if it happened
         if pinnedArray.count < pinnedProjects.count {
             let cleanedCount = pinnedProjects.count - pinnedArray.count
-            print("🧹 [ProjectSelectionSheet] Cleaned up \(cleanedCount) stale pins during save")
+            logDebug("🧹 [ProjectSelectionSheet] Cleaned up \(cleanedCount) stale pins during save")
         }
 
-        print("📌 Saving \(pinnedArray.count) valid pinned projects")
+        logDebug("📌 Saving \(pinnedArray.count) valid pinned projects")
         onSave(pinnedArray)
         dismiss()
     }
@@ -250,10 +248,13 @@ struct ProjectSelectionSheet: View {
     private func loadProjects() {
         isLoading = true
 
-        print("📋 [ProjectSelectionSheet] Loading projects...")
+        logDebug("📋 [ProjectSelectionSheet] Loading projects...")
 
         guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            print("⚠️ [ProjectSelectionSheet] Failed to get context")
+            logWarning(
+                event: "project_selection_context_unavailable",
+                message: "Project selection context unavailable"
+            )
             isLoading = false
             return
         }
@@ -265,7 +266,7 @@ struct ProjectSelectionSheet: View {
             request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
 
             let allProjects = (try? context.fetch(request)) ?? []
-            print("📋 [ProjectSelectionSheet] Fetched \(allProjects.count) total projects from database")
+            logDebug("📋 [ProjectSelectionSheet] Fetched \(allProjects.count) total projects from database")
 
             // Filter out Inbox by NAME (not UUID) and projects with nil names
             // This handles both migrated (UUID-based) and legacy (string-based) data
@@ -273,19 +274,16 @@ struct ProjectSelectionSheet: View {
                 guard let name = project.projectName else { return false }
                 let isInbox = name.lowercased() == "inbox"
                 if !isInbox {
-                    print("   ✅ Including project: '\(name)' (UUID: \(project.projectID?.uuidString ?? "nil"))")
+                    logDebug("   ✅ Including project: '\(name)' (UUID: \(project.projectID?.uuidString ?? "nil"))")
                 }
                 return !isInbox
             }
 
-            print("📋 [ProjectSelectionSheet] After filtering Inbox: \(customProjects.count) custom projects")
+            logDebug("📋 [ProjectSelectionSheet] After filtering Inbox: \(customProjects.count) custom projects")
 
             // Convert to ProjectInfo with fallback logic for legacy data
             let projectInfos = customProjects.compactMap { project -> ProjectInfo? in
-                guard let name = project.projectName else {
-                    print("   ⚠️ Skipping project with nil name")
-                    return nil
-                }
+                guard let name = project.projectName else { return nil }
 
                 // Use projectID if available, otherwise generate temporary UUID from name
                 // This ensures we can track selections even for legacy projects
@@ -303,7 +301,7 @@ struct ProjectSelectionSheet: View {
                         uuid as CVarArg
                     )
                     taskCount = (try? context.count(for: uuidRequest)) ?? 0
-                    print("      UUID-based count for '\(name)': \(taskCount)")
+                    logDebug("      UUID-based count for '\(name)': \(taskCount)")
                 }
 
                 // Fall back to string-based query for legacy data
@@ -314,10 +312,10 @@ struct ProjectSelectionSheet: View {
                         name
                     )
                     taskCount = (try? context.count(for: stringRequest)) ?? 0
-                    print("      String-based count for '\(name)': \(taskCount)")
+                    logDebug("      String-based count for '\(name)': \(taskCount)")
                 }
 
-                print("   📊 Project '\(name)': \(taskCount) tasks")
+                logDebug("   📊 Project '\(name)': \(taskCount) tasks")
 
                 return ProjectInfo(
                     id: projectId,
@@ -326,14 +324,14 @@ struct ProjectSelectionSheet: View {
                 )
             }
 
-            print("📋 [ProjectSelectionSheet] Final result: \(projectInfos.count) projects to display")
+            logDebug("📋 [ProjectSelectionSheet] Final result: \(projectInfos.count) projects to display")
 
             DispatchQueue.main.async {
                 self.availableProjects = projectInfos
                 withAnimation {
                     self.isLoading = false
                 }
-                print("✅ [ProjectSelectionSheet] Projects loaded successfully")
+                logDebug("✅ [ProjectSelectionSheet] Projects loaded successfully")
             }
         }
     }

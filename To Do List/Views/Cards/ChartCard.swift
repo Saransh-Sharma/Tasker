@@ -79,7 +79,7 @@ struct ChartCard: View {
             NotificationCenter.default.publisher(for: .homeTaskMutation)
                 .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
         ) { _ in
-            print("📡 ChartCard: Received HomeTaskMutationEvent - reloading chart data")
+            logDebug("📡 ChartCard: Received HomeTaskMutationEvent - reloading chart data")
             loadChartData()
         }
     }
@@ -101,7 +101,7 @@ struct ChartCard: View {
                     self.isLoading = false
                 }
                 #if DEBUG
-                print("📊 SwiftUI Chart Card loaded \(newData.count) data points")
+                logDebug("📊 SwiftUI Chart Card loaded \(newData.count) data points")
                 #endif
             }
         }
@@ -231,7 +231,7 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         }
         
         // Log chart update for debugging
-        print("Chart updated with \(data.count) data points, max score: \(dynamicMaximum)")
+        logDebug("Chart updated with \(data.count) data points, max score: \(dynamicMaximum)")
     }
 }
 

@@ -121,7 +121,6 @@ struct RadarChartCard: View {
             ProjectSelectionSheet(
                 selectedProjectIDs: selectedProjectIDs ?? [],
                 onSave: { pinnedProjectIDs in
-                    print("📌 [RadarChartCard] Received \(pinnedProjectIDs.count) pinned projects from sheet")
                     selectedProjectIDs = pinnedProjectIDs
 
                     // Persist pinned projects using ProjectSelectionService
@@ -129,9 +128,12 @@ struct RadarChartCard: View {
                         let service = ProjectSelectionService(context: context)
                         do {
                             try service.setPinnedProjectIDs(pinnedProjectIDs)
-                            print("📌 [RadarChartCard] Successfully saved pinned projects")
                         } catch {
-                            print("⚠️ [RadarChartCard] Failed to save pinned projects: \(error)")
+                            logWarning(
+                                event: "radar_pinned_projects_save_failed",
+                                message: "Failed to save pinned projects",
+                                fields: ["error": error.localizedDescription]
+                            )
                         }
                     }
 
@@ -150,7 +152,6 @@ struct RadarChartCard: View {
             NotificationCenter.default.publisher(for: .homeTaskMutation)
                 .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
         ) { _ in
-            print("📡 RadarChartCard: Received HomeTaskMutationEvent - reloading chart data")
             loadChartData()
         }
     }
@@ -208,10 +209,12 @@ struct RadarChartCard: View {
     /// Load pinned projects from ProjectSelectionService
     /// Called once on appear to initialize selectedProjectIDs
     private func loadPinnedProjects() {
-        print("📌 [RADAR CARD] Loading pinned projects...")
 
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-            print("⚠️ [RADAR CARD] Failed to get AppDelegate")
+            logWarning(
+                event: "radar_app_delegate_unavailable",
+                message: "App delegate unavailable while loading pinned projects"
+            )
             loadChartData()
             return
         }
@@ -221,7 +224,6 @@ struct RadarChartCard: View {
 
         service.getPinnedProjectIDs { [self] pinnedIDs in
             DispatchQueue.main.async {
-                print("📌 [RADAR CARD] Loaded \(pinnedIDs.count) pinned projects: \(pinnedIDs)")
                 self.selectedProjectIDs = pinnedIDs
                 self.loadChartData()
             }
@@ -229,21 +231,21 @@ struct RadarChartCard: View {
     }
 
     private func loadChartData() {
-        print("🎨 [RADAR CARD] loadChartData() called with selectedProjectIDs: \(selectedProjectIDs?.count ?? 0)")
         isLoading = true
 
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-            print("⚠️ [RADAR CARD] Failed to get AppDelegate")
+            logWarning(
+                event: "radar_app_delegate_unavailable",
+                message: "App delegate unavailable while loading radar chart"
+            )
             isLoading = false
             return
         }
 
         let context = appDelegate.persistentContainer.viewContext
-        print("🎨 [RADAR CARD] Got viewContext: \(context)")
 
         // Execute on main context directly (SwiftUI is already on main thread)
         let chartService = ChartDataService(context: context)
-        print("🎨 [RADAR CARD] Created ChartDataService")
 
         // Generate radar chart data ONLY for selected/pinned projects
         let result = chartService.generateRadarChartData(
@@ -251,62 +253,31 @@ struct RadarChartCard: View {
             selectedProjectIDs: selectedProjectIDs
         )
 
-        print("🎨 [RADAR CARD] Generated data: \(result.entries.count) entries, \(result.labels.count) labels")
 
         self.chartData = result.entries
         self.chartLabels = result.labels
 
         // Determine empty states
-        print("🎨 [RADAR CARD] ==================")
-        print("🎨 [RADAR CARD] Determining empty states:")
-        print("   result.labels count: \(result.labels.count)")
-        print("   result.labels: \(result.labels)")
-        print("   result.entries count: \(result.entries.count)")
-        print("   result.labels.isEmpty: \(result.labels.isEmpty)")
 
         let checkResult = self.checkHasCustomProjects(context: context)
-        print("   checkHasCustomProjects() returned: \(checkResult)")
 
         self.hasCustomProjects = !result.labels.isEmpty || checkResult
-        print("   FINAL hasCustomProjects: \(self.hasCustomProjects) (from: !labels.isEmpty[\(!result.labels.isEmpty)] OR checkResult[\(checkResult)])")
 
         self.hasCompletedTasks = !result.entries.isEmpty && result.entries.contains(where: { $0.value > 0 })
-        print("   FINAL hasCompletedTasks: \(self.hasCompletedTasks)")
 
         if !self.hasCustomProjects {
-            print("   ❌ UI STATE: Will show 'No Custom Projects' empty state")
         } else if !self.hasCompletedTasks {
-            print("   ⚠️ UI STATE: Will show 'Complete Tasks' empty state")
         } else {
-            print("   ✅ UI STATE: Will show radar chart with \(result.entries.count) projects")
         }
-        print("🎨 [RADAR CARD] ==================")
 
         withAnimation(TaskerAnimation.gentle) {
             self.isLoading = false
         }
 
-        print("📊 Radar Chart loaded \(result.entries.count) projects")
     }
 
     private func checkHasCustomProjects(context: NSManagedObjectContext) -> Bool {
-        print("🔍 [CHECK PROJECTS] ==================")
-        print("🔍 [CHECK PROJECTS] Inbox UUID to exclude: \(ProjectConstants.inboxProjectID.uuidString)")
 
-        // Fetch ALL projects first to see what we have
-        let allRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
-        let allProjects = (try? context.fetch(allRequest)) ?? []
-        print("🔍 [CHECK PROJECTS] Total projects in DB: \(allProjects.count)")
-
-        for (index, project) in allProjects.enumerated() {
-            let hasID = project.projectID != nil
-            let projectID = project.projectID?.uuidString ?? "NIL"
-            let projectName = project.projectName ?? "NIL"
-            let isInbox = project.projectID == ProjectConstants.inboxProjectID
-            print("   Project \(index+1): '\(projectName)' | hasUUID: \(hasID) | UUID: \(projectID) | isInbox: \(isInbox)")
-        }
-
-        // Now run the actual filter
         let request: NSFetchRequest<Projects> = Projects.fetchRequest()
         request.predicate = NSPredicate(
             format: "projectID != %@",
@@ -315,10 +286,6 @@ struct RadarChartCard: View {
         request.fetchLimit = 1
 
         let count = (try? context.count(for: request)) ?? 0
-        print("🔍 [CHECK PROJECTS] Predicate: \(request.predicate?.predicateFormat ?? "none")")
-        print("🔍 [CHECK PROJECTS] Custom projects count (with filter): \(count)")
-        print("🔍 [CHECK PROJECTS] Returning: \(count > 0)")
-        print("🔍 [CHECK PROJECTS] ==================")
 
         return count > 0
     }
@@ -427,7 +394,6 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
             chartView.animate(yAxisDuration: 1.0, easingOption: .easeOutBack)
         }
 
-        print("Radar chart updated with \(data.count) projects, max score: \(dynamicMaximum)")
     }
 }
 

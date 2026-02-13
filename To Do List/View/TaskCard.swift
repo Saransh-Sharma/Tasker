@@ -363,20 +363,20 @@ struct TaskCard_Previews: PreviewProvider {
         VStack(spacing: 16) {
             TaskCard(
                 task: sampleTask,
-                onTap: { print("Task tapped") },
-                onToggleComplete: { print("Toggle complete") }
+                onTap: { logDebug("Task tapped") },
+                onToggleComplete: { logDebug("Toggle complete") }
             )
 
             CompactTaskCard(
                 task: sampleTask,
-                onTap: { print("Compact task tapped") },
-                onToggleComplete: { print("Toggle complete") }
+                onTap: { logDebug("Compact task tapped") },
+                onToggleComplete: { logDebug("Toggle complete") }
             )
 
             FeaturedTaskCard(
                 task: sampleTask,
-                onTap: { print("Featured task tapped") },
-                onToggleComplete: { print("Toggle complete") }
+                onTap: { logDebug("Featured task tapped") },
+                onToggleComplete: { logDebug("Toggle complete") }
             )
         }
         .padding()

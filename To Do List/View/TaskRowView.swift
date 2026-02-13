@@ -26,7 +26,7 @@ struct TaskRowView: View {
         rowContent
         .contentShape(Rectangle())
         .onTapGesture {
-            print("HOME_TAP_UI row_tap id=\(task.id.uuidString)")
+            logDebug("HOME_TAP_UI row_tap id=\(task.id.uuidString)")
             onTap?()
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {

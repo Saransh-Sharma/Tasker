@@ -77,7 +77,7 @@ struct SettingsView: View {
                 , displayMode: .inline)
             .navigationBarItems(trailing:
                 Button(action: {
-                    print("Done button tapped") // Keep for debugging if you want
+                    logDebug("Done button tapped") // Keep for debugging if you want
                     self.presentationMode.wrappedValue.dismiss() // Add this line
                 }) {
                     Text("Done")

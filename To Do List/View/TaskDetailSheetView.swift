@@ -549,7 +549,6 @@ struct TaskDetailSheetView: View {
             try task.managedObjectContext?.save()
             hasChanges = false
             TaskerHaptic.success()
-            print("HOME_DETAIL_SHEET save taskID=\(task.taskID?.uuidString ?? "nil") projectID=\(resolvedProject.id.uuidString) source=\(resolvedProject.source)")
             var mutationReasons: [HomeTaskMutationEvent] = []
             if oldProjectID != resolvedProject.id {
                 mutationReasons.append(.projectChanged)
@@ -575,7 +574,14 @@ struct TaskDetailSheetView: View {
             }
             onSave?()
         } catch {
-            print("HOME_DETAIL_SHEET save_error taskID=\(task.taskID?.uuidString ?? "nil") error=\(error)")
+            logError(
+                event: "task_detail_save_failed",
+                message: "Failed to save task details",
+                fields: [
+                    "task_id": task.taskID?.uuidString ?? "nil",
+                    "error": error.localizedDescription
+                ]
+            )
         }
     }
 
@@ -590,7 +596,6 @@ struct TaskDetailSheetView: View {
         do {
             try task.managedObjectContext?.save()
             TaskerHaptic.success()
-            print("HOME_DETAIL_SHEET toggle taskID=\(task.taskID?.uuidString ?? "nil") isComplete=\(isComplete)")
             NotificationCenter.default.post(
                 name: .homeTaskMutation,
                 object: nil,
@@ -600,7 +605,14 @@ struct TaskDetailSheetView: View {
             )
             onToggleComplete?()
         } catch {
-            print("HOME_DETAIL_SHEET toggle_error taskID=\(task.taskID?.uuidString ?? "nil") error=\(error)")
+            logError(
+                event: "task_detail_toggle_failed",
+                message: "Failed to toggle task completion",
+                fields: [
+                    "task_id": task.taskID?.uuidString ?? "nil",
+                    "error": error.localizedDescription
+                ]
+            )
         }
     }
 
@@ -611,7 +623,11 @@ struct TaskDetailSheetView: View {
 
         guard let context = task.managedObjectContext else {
             let selectedName = trimmed.isEmpty ? fallbackName : trimmed
-            print("HOME_DETAIL_SHEET project_resolve source=no_context projectName=\(selectedName) projectID=\(fallbackID.uuidString)")
+            logWarning(
+                event: "task_detail_project_context_missing",
+                message: "Task context unavailable while resolving project; using fallback",
+                fields: ["project_id": fallbackID.uuidString]
+            )
             return (selectedName, fallbackID, "no_context")
         }
 
@@ -623,7 +639,6 @@ struct TaskDetailSheetView: View {
                let projectID = project.projectID {
                 let resolvedName = project.projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
                 let name = (resolvedName?.isEmpty == false) ? (resolvedName ?? trimmed) : trimmed
-                print("HOME_DETAIL_SHEET project_resolve source=matched_name projectName=\(name) projectID=\(projectID.uuidString)")
                 return (name, projectID, "matched_name")
             }
         }
@@ -634,12 +649,15 @@ struct TaskDetailSheetView: View {
         if let inbox = try? context.fetch(inboxRequest).first,
            let inboxID = inbox.projectID {
             let name = inbox.projectName ?? fallbackName
-            print("HOME_DETAIL_SHEET project_resolve source=inbox_entity projectName=\(name) projectID=\(inboxID.uuidString)")
             return (name, inboxID, "inbox_entity")
         }
 
         let selectedName = trimmed.isEmpty ? fallbackName : trimmed
-        print("HOME_DETAIL_SHEET project_resolve source=inbox_fallback projectName=\(selectedName) projectID=\(fallbackID.uuidString)")
+        logWarning(
+            event: "task_detail_project_fallback",
+            message: "Project resolution fallback used Inbox project",
+            fields: ["project_id": fallbackID.uuidString]
+        )
         return (selectedName, fallbackID, "inbox_fallback")
     }
 
