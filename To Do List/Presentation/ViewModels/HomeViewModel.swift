@@ -8,6 +8,24 @@
 import Foundation
 import Combine
 
+public enum HomeTaskMutationEvent: String, Codable, CaseIterable {
+    case created
+    case updated
+    case deleted
+    case completed
+    case reopened
+    case rescheduled
+    case projectChanged
+    case priorityChanged
+    case typeChanged
+    case dueDateChanged
+    case bulkChanged
+}
+
+public extension Notification.Name {
+    static let homeTaskMutation = Notification.Name("HomeTaskMutationEvent")
+}
+
 /// ViewModel for the Home screen
 /// Manages all business logic and state for the home view
 public final class HomeViewModel: ObservableObject {
@@ -40,6 +58,7 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var emptyStateMessage: String?
     @Published public private(set) var emptyStateActionTitle: String?
     @Published public private(set) var focusEngineEnabled: Bool = true
+    @Published public private(set) var activeScope: HomeListScope = .today
 
     // Projects
     @Published public private(set) var projects: [Project] = []
@@ -62,6 +81,14 @@ public final class HomeViewModel: ObservableObject {
 
     private var homeOpenedAt: Date = Date()
     private var didTrackFirstCompletionLatency = false
+    private var completionOverrides: [UUID: Bool] = [:]
+    private var reloadGeneration: Int = 0
+    private var suppressCompletionReloadUntil: Date?
+
+    private let completionNotificationDebounceMS = 120
+    private let completionReloadSuppressionSeconds: TimeInterval = 0.35
+    private let mutationNotificationDebounceMS = 90
+    private static let mutationNotificationSource = "homeViewModel"
 
     // MARK: - Initialization
 
@@ -85,81 +112,79 @@ public final class HomeViewModel: ObservableObject {
 
     /// Load tasks for the selected date.
     public func loadTasksForSelectedDate() {
-        if focusEngineEnabled {
-            applyFocusFilters(trackAnalytics: false)
-            return
-        }
+        focusEngineEnabled = true
+        activeScope = .customDate(selectedDate)
+        var state = activeFilterState
+        state.quickView = .today
+        state.selectedSavedViewID = nil
+        activeFilterState = state
+        persistLastFilterState()
+        applyFocusFilters(trackAnalytics: false, generation: nextReloadGeneration())
+    }
 
-        isLoading = true
-        errorMessage = nil
-
-        useCaseCoordinator.getTasks.getTasksForDate(selectedDate) { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-
-                switch result {
-                case .success(let dateResult):
-                    self?.morningTasks = dateResult.morningTasks
-                    self?.eveningTasks = dateResult.eveningTasks
-                    self?.overdueTasks = dateResult.overdueTasks
-                    self?.dailyCompletedTasks = dateResult.completedTasks
-                    self?.updateCompletionRate(dateResult)
-
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
-                }
-            }
-        }
+    private func loadTasksForSelectedDate(generation: Int) {
+        focusEngineEnabled = true
+        activeScope = .customDate(selectedDate)
+        applyFocusFilters(trackAnalytics: false, generation: generation)
     }
 
     /// Load tasks for today.
     public func loadTodayTasks() {
-        if focusEngineEnabled {
-            var state = activeFilterState
-            state.quickView = .today
-            state.selectedSavedViewID = nil
-            activeFilterState = state
-            persistLastFilterState()
-            applyFocusFilters(trackAnalytics: false)
-            loadDailyAnalytics()
-            return
-        }
+        loadTodayTasks(generation: nextReloadGeneration())
+    }
 
-        isLoading = true
-        errorMessage = nil
-
-        useCaseCoordinator.getTasks.getTodayTasks { [weak self] result in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-
-                switch result {
-                case .success(let todayResult):
-                    self?.todayTasks = todayResult
-                    self?.morningTasks = todayResult.morningTasks
-                    self?.eveningTasks = todayResult.eveningTasks
-                    self?.overdueTasks = todayResult.overdueTasks
-                    self?.dailyCompletedTasks = todayResult.completedTasks
-                    self?.updateCompletionRate(todayResult)
-
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
-                }
-            }
-        }
-
+    private func loadTodayTasks(generation: Int) {
+        focusEngineEnabled = true
+        activeScope = .today
+        selectedDate = Date()
+        var state = activeFilterState
+        state.quickView = .today
+        state.selectedSavedViewID = nil
+        activeFilterState = state
+        persistLastFilterState()
+        applyFocusFilters(trackAnalytics: false, generation: generation)
         loadDailyAnalytics()
     }
 
     /// Toggle task completion.
     public func toggleTaskCompletion(_ task: Task) {
-        useCaseCoordinator.completeTask.execute(taskId: task.id) { [weak self] result in
+        let requestedCompletion = !task.isComplete
+        print(
+            "HOME_ROW_STATE vm.toggle_input id=\(task.id.uuidString) name=\(task.name) " +
+            "isComplete=\(task.isComplete) requested=\(requestedCompletion)"
+        )
+        useCaseCoordinator.completeTask.setCompletion(
+            taskId: task.id,
+            to: requestedCompletion,
+            taskSnapshot: task
+        ) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let completionResult):
+                    self?.completionOverrides[completionResult.task.id] = completionResult.task.isComplete
+                    self?.suppressCompletionReloadUntil = Date().addingTimeInterval(self?.completionReloadSuppressionSeconds ?? 0.35)
+                    print(
+                        "HOME_ROW_STATE vm.toggle_result id=\(completionResult.task.id.uuidString) " +
+                        "requested=\(requestedCompletion) input=\(task.isComplete) " +
+                        "result=\(completionResult.task.isComplete) override_set=true"
+                    )
                     self?.applyCompletionResultLocally(completionResult.task)
-                    self?.dailyScore += completionResult.scoreEarned
+                    let stateMatchesRequest = completionResult.task.isComplete == requestedCompletion
+                    if stateMatchesRequest {
+                        self?.dailyScore += completionResult.scoreEarned
+                    } else {
+                        print(
+                            "HOME_ROW_STATE vm.toggle_mismatch id=\(completionResult.task.id.uuidString) " +
+                            "requested=\(requestedCompletion) result=\(completionResult.task.isComplete) " +
+                            "forcing_analytics_reload=true"
+                        )
+                    }
+                    self?.loadDailyAnalytics()
                     self?.invalidateTaskCaches()
                     self?.reloadCurrentModeTasks()
+                    self?.requestChartRefresh(
+                        reason: completionResult.task.isComplete ? .completed : .reopened
+                    )
                     self?.trackFirstCompletionLatencyIfNeeded()
 
                 case .failure(let error):
@@ -177,6 +202,7 @@ public final class HomeViewModel: ObservableObject {
                 case .success:
                     self?.invalidateTaskCaches()
                     self?.reloadCurrentModeTasks()
+                    self?.requestChartRefresh(reason: .created)
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -193,6 +219,7 @@ public final class HomeViewModel: ObservableObject {
                 case .success:
                     self?.invalidateTaskCaches()
                     self?.reloadCurrentModeTasks()
+                    self?.requestChartRefresh(reason: .deleted)
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -209,6 +236,7 @@ public final class HomeViewModel: ObservableObject {
                 case .success:
                     self?.invalidateTaskCaches()
                     self?.reloadCurrentModeTasks()
+                    self?.requestChartRefresh(reason: .rescheduled)
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -223,11 +251,13 @@ public final class HomeViewModel: ObservableObject {
 
         if Calendar.current.isDateInToday(date) {
             focusEngineEnabled = true
+            activeScope = .today
             loadTodayTasks()
             return
         }
 
-        focusEngineEnabled = false
+        focusEngineEnabled = true
+        activeScope = .customDate(date)
         loadTasksForSelectedDate()
     }
 
@@ -239,14 +269,22 @@ public final class HomeViewModel: ObservableObject {
             focusEngineEnabled = true
             applyFocusFilters(trackAnalytics: false)
         } else {
-            focusEngineEnabled = false
-            loadProjectTasks(projectName)
+            focusEngineEnabled = true
+            if let project = projects.first(where: { $0.name.caseInsensitiveCompare(projectName) == .orderedSame }) {
+                setProjectFilters([project.id])
+            } else {
+                applyFocusFilters(trackAnalytics: false)
+            }
         }
     }
 
     /// Focus Engine: set quick view.
     public func setQuickView(_ quickView: HomeQuickView) {
         focusEngineEnabled = true
+        activeScope = .fromQuickView(quickView)
+        if quickView == .today {
+            selectedDate = Date()
+        }
         var state = activeFilterState
         state.quickView = quickView
         state.selectedSavedViewID = nil
@@ -402,6 +440,7 @@ public final class HomeViewModel: ObservableObject {
         }
 
         focusEngineEnabled = true
+        activeScope = .fromQuickView(saved.quickView)
         var restoredState = saved.asFilterState(pinnedProjectIDs: activeFilterState.pinnedProjectIDs)
         restoredState.projectGroupingMode = activeFilterState.projectGroupingMode
         restoredState.customProjectOrderIDs = activeFilterState.customProjectOrderIDs
@@ -467,17 +506,26 @@ public final class HomeViewModel: ObservableObject {
 
     /// Load all projects.
     public func loadProjects() {
+        loadProjects(generation: nextReloadGeneration())
+    }
+
+    private func loadProjects(generation: Int) {
         useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
             DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.isCurrentReloadGeneration(generation) else {
+                    print("HOME_ROW_STATE vm.drop_stale_reload source=projects generation=\(generation)")
+                    return
+                }
                 switch result {
                 case .success(let projectsWithStats):
                     let loadedProjects = projectsWithStats.map { $0.project }
-                    self?.projects = loadedProjects
-                    self?.seedPinnedProjectsIfNeeded(from: loadedProjects)
-                    self?.normalizeCustomProjectOrderIfNeeded(from: loadedProjects)
+                    self.projects = loadedProjects
+                    self.seedPinnedProjectsIfNeeded(from: loadedProjects)
+                    self.normalizeCustomProjectOrderIfNeeded(from: loadedProjects)
 
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    self.errorMessage = error.localizedDescription
                 }
             }
         }
@@ -487,6 +535,10 @@ public final class HomeViewModel: ObservableObject {
     public func invalidateTaskCaches() {
         useCaseCoordinator.cacheService?.clearAll()
         print("HOME_CACHE invalidated scope=all")
+    }
+
+    func completionOverride(for taskID: UUID) -> Bool? {
+        completionOverrides[taskID]
     }
 
     /// Load upcoming tasks for legacy upcoming mode.
@@ -539,6 +591,7 @@ public final class HomeViewModel: ObservableObject {
             .sink { [weak self] _ in
                 self?.invalidateTaskCaches()
                 self?.reloadCurrentModeTasks()
+                self?.requestChartRefresh(reason: .created)
             }
             .store(in: &cancellables)
 
@@ -546,6 +599,7 @@ public final class HomeViewModel: ObservableObject {
             .sink { [weak self] _ in
                 self?.invalidateTaskCaches()
                 self?.reloadCurrentModeTasks()
+                self?.requestChartRefresh(reason: .updated)
             }
             .store(in: &cancellables)
 
@@ -553,14 +607,38 @@ public final class HomeViewModel: ObservableObject {
             .sink { [weak self] _ in
                 self?.invalidateTaskCaches()
                 self?.reloadCurrentModeTasks()
+                self?.requestChartRefresh(reason: .deleted)
             }
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCompletionChanged"))
+            .receive(on: RunLoop.main)
+            .debounce(for: .milliseconds(completionNotificationDebounceMS), scheduler: RunLoop.main)
             .sink { [weak self] _ in
-                self?.invalidateTaskCaches()
-                self?.reloadCurrentModeTasks()
-                self?.loadDailyAnalytics()
+                guard let self else { return }
+                if let suppressUntil = self.suppressCompletionReloadUntil, Date() <= suppressUntil {
+                    print("HOME_ROW_STATE vm.notification_suppressed source=TaskCompletionChanged")
+                    return
+                }
+                self.invalidateTaskCaches()
+                self.reloadCurrentModeTasks()
+                self.loadDailyAnalytics()
+                self.requestChartRefresh(reason: .bulkChanged)
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .homeTaskMutation)
+            .receive(on: RunLoop.main)
+            .debounce(for: .milliseconds(mutationNotificationDebounceMS), scheduler: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let self else { return }
+
+                let source = notification.userInfo?["source"] as? String
+                guard source != Self.mutationNotificationSource else { return }
+
+                let reasonRaw = notification.userInfo?["reason"] as? String
+                let reason = reasonRaw.flatMap(HomeTaskMutationEvent.init(rawValue:)) ?? .updated
+                self.handleExternalMutation(reason: reason, repostEvent: false)
             }
             .store(in: &cancellables)
     }
@@ -570,9 +648,14 @@ public final class HomeViewModel: ObservableObject {
         didTrackFirstCompletionLatency = false
 
         restoreLastFilterState()
+        activeScope = .fromQuickView(activeFilterState.quickView)
+        if case .today = activeScope {
+            selectedDate = Date()
+        }
         loadSavedViews()
-        loadProjects()
-        applyFocusFilters(trackAnalytics: false)
+        let generation = nextReloadGeneration()
+        loadProjects(generation: generation)
+        applyFocusFilters(trackAnalytics: false, generation: generation)
         loadDailyAnalytics()
     }
 
@@ -596,50 +679,57 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func loadProjectTasks(_ projectName: String) {
+        loadProjectTasks(projectName, generation: nextReloadGeneration())
+    }
+
+    private func loadProjectTasks(_ projectName: String, generation: Int) {
         isLoading = true
 
         useCaseCoordinator.getTasks.getTasksForProject(projectName) { [weak self] result in
             DispatchQueue.main.async {
-                self?.isLoading = false
+                guard let self else { return }
+                guard self.isCurrentReloadGeneration(generation) else {
+                    print("HOME_ROW_STATE vm.drop_stale_reload source=project generation=\(generation)")
+                    return
+                }
+                self.isLoading = false
 
                 switch result {
                 case .success(let projectResult):
-                    self?.selectedProjectTasks = projectResult.tasks
+                    let overridden = self.applyCompletionOverrides(
+                        openTasks: projectResult.tasks.filter { !$0.isComplete },
+                        doneTasks: projectResult.tasks.filter(\.isComplete)
+                    )
+                    self.selectedProjectTasks = overridden.openTasks + overridden.doneTasks
 
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    self.errorMessage = error.localizedDescription
                 }
             }
         }
     }
 
     private func reloadCurrentModeTasks() {
-        loadProjects()
-
-        if focusEngineEnabled {
-            applyFocusFilters(trackAnalytics: false)
-            return
-        }
-
-        if selectedProject != "All" {
-            loadProjectTasks(selectedProject)
-            return
-        }
-
-        if Calendar.current.isDateInToday(selectedDate) {
-            loadTodayTasks()
-        } else {
-            loadTasksForSelectedDate()
-        }
+        let generation = nextReloadGeneration()
+        loadProjects(generation: generation)
+        applyFocusFilters(trackAnalytics: false, generation: generation)
     }
 
     private func applyFocusFilters(trackAnalytics: Bool) {
+        applyFocusFilters(trackAnalytics: trackAnalytics, generation: nextReloadGeneration())
+    }
+
+    private func applyFocusFilters(trackAnalytics: Bool, generation: Int) {
         isLoading = true
         errorMessage = nil
 
-        homeFilteredTasksUseCase.execute(state: activeFilterState) { [weak self] result in
+        homeFilteredTasksUseCase.execute(state: activeFilterState, scope: activeScope) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
+                guard self.isCurrentReloadGeneration(generation) else {
+                    print("HOME_ROW_STATE vm.drop_stale_reload source=focus generation=\(generation)")
+                    return
+                }
                 self.isLoading = false
 
                 switch result {
@@ -650,7 +740,8 @@ public final class HomeViewModel: ObservableObject {
 
                     if trackAnalytics {
                         self.trackFeatureUsage(action: "home_filter_applied", metadata: [
-                            "quick_view": self.activeFilterState.quickView.analyticsAction,
+                            "quick_view": self.activeScope.quickView.analyticsAction,
+                            "scope": self.scopeAnalyticsAction(self.activeScope),
                             "project_count": self.activeFilterState.selectedProjectIDs.count,
                             "saved_view": self.activeFilterState.selectedSavedViewID?.uuidString ?? "",
                             "advanced_filter": self.activeFilterState.advancedFilter != nil
@@ -665,37 +756,69 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func applyResultToSections(_ result: HomeFilteredTasksResult) {
-        if activeFilterState.quickView == .done {
-            doneTimelineTasks = result.doneTimelineTasks
-            dailyCompletedTasks = result.doneTimelineTasks
-            completedTasks = result.doneTimelineTasks
+        let overriddenResult = applyCompletionOverrides(
+            openTasks: result.openTasks,
+            doneTasks: result.doneTimelineTasks
+        )
+        let openTasks = overriddenResult.openTasks
+        let incomingDoneTasks = overriddenResult.doneTasks
+        let shouldKeepCompletedInline = shouldKeepCompletedInline(for: activeScope)
+        let doneTasks = mergedInlineDoneTasks(
+            incomingDoneTasks: incomingDoneTasks,
+            openTasks: openTasks,
+            shouldKeepCompletedInline: shouldKeepCompletedInline
+        )
+        let visibleTasks = shouldKeepCompletedInline ? (openTasks + doneTasks) : openTasks
+
+        print(
+            "HOME_ROW_STATE vm.apply_result quick=\(activeScope.quickView.rawValue) " +
+            "open=\(summarizeRowState(openTasks)) done=\(summarizeRowState(doneTasks))"
+        )
+
+        if activeScope == .done {
+            doneTimelineTasks = doneTasks
+            dailyCompletedTasks = doneTasks
+            completedTasks = doneTasks
             upcomingTasks = []
             morningTasks = []
             eveningTasks = []
             overdueTasks = []
             emptyStateMessage = "No completed tasks in last 30 days"
             emptyStateActionTitle = nil
-            updateCompletionRateFromFocusResult(openTasks: result.openTasks, doneTasks: result.doneTimelineTasks)
+            updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
             return
         }
 
         doneTimelineTasks = []
-        completedTasks = result.doneTimelineTasks
-        dailyCompletedTasks = result.doneTimelineTasks
+        completedTasks = doneTasks
+        dailyCompletedTasks = doneTasks
 
-        let overdue = result.openTasks.filter(\.isOverdue)
-        let nonOverdue = result.openTasks.filter { !$0.isOverdue }
+        let overdue = visibleTasks.filter { isTaskOverdue($0, relativeTo: activeScope) }
+        let nonOverdue = visibleTasks.filter { !isTaskOverdue($0, relativeTo: activeScope) }
 
-        let evening = nonOverdue.filter { isEveningTaskHybrid($0) }
-        let morning = nonOverdue.filter { !isEveningTaskHybrid($0) }
+        let computedEvening = nonOverdue.filter { isEveningTaskHybrid($0) }.sorted(by: sortByPriorityThenDue)
+        let computedMorning = nonOverdue.filter { !isEveningTaskHybrid($0) }.sorted(by: sortByPriorityThenDue)
+        let computedOverdue = overdue.sorted(by: sortByPriorityThenDue)
 
-        morningTasks = morning.sorted(by: sortByPriorityThenDue)
-        eveningTasks = evening.sorted(by: sortByPriorityThenDue)
-        overdueTasks = overdue.sorted(by: sortByPriorityThenDue)
+        if shouldKeepCompletedInline {
+            let retained = retainingInlineCompletedRows(
+                computedMorning: computedMorning,
+                computedEvening: computedEvening,
+                computedOverdue: computedOverdue,
+                doneTasks: doneTasks
+            )
+            morningTasks = retained.morning
+            eveningTasks = retained.evening
+            overdueTasks = retained.overdue
+        } else {
+            morningTasks = computedMorning
+            eveningTasks = computedEvening
+            overdueTasks = computedOverdue
+        }
 
-        switch activeFilterState.quickView {
+        switch activeScope.quickView {
         case .upcoming:
-            upcomingTasks = result.openTasks
+            upcomingTasks = openTasks
             emptyStateMessage = "No upcoming tasks in 14 days"
             emptyStateActionTitle = nil
         case .morning:
@@ -715,7 +838,7 @@ public final class HomeViewModel: ObservableObject {
             break
         }
 
-        updateCompletionRateFromFocusResult(openTasks: result.openTasks, doneTasks: result.doneTimelineTasks)
+        updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
     }
 
     private func updateCompletionRateFromFocusResult(openTasks: [Task], doneTasks: [Task]) {
@@ -835,6 +958,42 @@ public final class HomeViewModel: ObservableObject {
         analyticsService?.trackFeatureUsage(feature: "home_filter", action: action, metadata: metadata)
     }
 
+    public func handleExternalMutation(reason: HomeTaskMutationEvent, repostEvent: Bool = true) {
+        invalidateTaskCaches()
+        reloadCurrentModeTasks()
+        if repostEvent {
+            requestChartRefresh(reason: reason)
+        }
+    }
+
+    public func requestChartRefresh(reason: HomeTaskMutationEvent) {
+        NotificationCenter.default.post(
+            name: .homeTaskMutation,
+            object: nil,
+            userInfo: [
+                "reason": reason.rawValue,
+                "source": Self.mutationNotificationSource
+            ]
+        )
+    }
+
+    private func scopeAnalyticsAction(_ scope: HomeListScope) -> String {
+        switch scope {
+        case .today:
+            return "today"
+        case .customDate:
+            return "custom_date"
+        case .upcoming:
+            return "upcoming"
+        case .done:
+            return "done"
+        case .morning:
+            return "morning"
+        case .evening:
+            return "evening"
+        }
+    }
+
     private func trackFirstCompletionLatencyIfNeeded() {
         guard !didTrackFirstCompletionLatency else { return }
         didTrackFirstCompletionLatency = true
@@ -856,10 +1015,13 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func applyCompletionResultLocally(_ updatedTask: Task) {
-        morningTasks = replacingTask(in: morningTasks, with: updatedTask)
-        eveningTasks = replacingTask(in: eveningTasks, with: updatedTask)
-        overdueTasks = replacingTask(in: overdueTasks, with: updatedTask)
-        upcomingTasks = replacingTask(in: upcomingTasks, with: updatedTask)
+        let keepsCompletedInline = shouldKeepCompletedInline(for: activeScope)
+
+        if keepsCompletedInline {
+            upsertTaskInOpenProjectionPreservingPosition(updatedTask)
+        } else {
+            removeTaskFromOpenProjections(id: updatedTask.id)
+        }
         selectedProjectTasks = replacingTask(in: selectedProjectTasks, with: updatedTask)
 
         if updatedTask.isComplete {
@@ -867,23 +1029,95 @@ public final class HomeViewModel: ObservableObject {
             dailyCompletedTasks = upsertingTaskInPlace(in: dailyCompletedTasks, with: updatedTask)
             doneTimelineTasks = upsertingTaskInPlace(in: doneTimelineTasks, with: updatedTask)
         } else {
+            if !keepsCompletedInline {
+                insertTaskIntoOpenProjection(updatedTask)
+                if activeFilterState.quickView == .upcoming {
+                    upcomingTasks = upsertingTaskInPlace(in: upcomingTasks, with: updatedTask)
+                }
+            }
             completedTasks = removingTask(id: updatedTask.id, from: completedTasks)
             dailyCompletedTasks = removingTask(id: updatedTask.id, from: dailyCompletedTasks)
             doneTimelineTasks = removingTask(id: updatedTask.id, from: doneTimelineTasks)
         }
 
         if let snapshot = todayTasks {
+            var snapshotMorning = snapshot.morningTasks
+            var snapshotEvening = snapshot.eveningTasks
+            var snapshotOverdue = snapshot.overdueTasks
+            var snapshotCompleted = removingTask(id: updatedTask.id, from: snapshot.completedTasks)
+
+            let snapshotWasInMorning = snapshotMorning.contains(where: { $0.id == updatedTask.id })
+            let snapshotWasInEvening = snapshotEvening.contains(where: { $0.id == updatedTask.id })
+            let snapshotWasInOverdue = snapshotOverdue.contains(where: { $0.id == updatedTask.id })
+
+            if updatedTask.isComplete {
+                snapshotCompleted = upsertingTaskInPlace(in: snapshotCompleted, with: updatedTask)
+                if keepsCompletedInline {
+                    if snapshotWasInMorning {
+                        snapshotMorning = replacingTaskIfPresent(in: snapshotMorning, with: updatedTask)
+                    } else if snapshotWasInEvening {
+                        snapshotEvening = replacingTaskIfPresent(in: snapshotEvening, with: updatedTask)
+                    } else if snapshotWasInOverdue {
+                        snapshotOverdue = replacingTaskIfPresent(in: snapshotOverdue, with: updatedTask)
+                    } else if updatedTask.isOverdue {
+                        snapshotOverdue = upsertingTaskInPlace(in: snapshotOverdue, with: updatedTask)
+                    } else if isEveningTaskHybrid(updatedTask) {
+                        snapshotEvening = upsertingTaskInPlace(in: snapshotEvening, with: updatedTask)
+                    } else {
+                        snapshotMorning = upsertingTaskInPlace(in: snapshotMorning, with: updatedTask)
+                    }
+                } else {
+                    snapshotMorning = removingTask(id: updatedTask.id, from: snapshotMorning)
+                    snapshotEvening = removingTask(id: updatedTask.id, from: snapshotEvening)
+                    snapshotOverdue = removingTask(id: updatedTask.id, from: snapshotOverdue)
+                }
+            } else {
+                if keepsCompletedInline {
+                    if snapshotWasInMorning {
+                        snapshotMorning = replacingTaskIfPresent(in: snapshotMorning, with: updatedTask)
+                    } else if snapshotWasInEvening {
+                        snapshotEvening = replacingTaskIfPresent(in: snapshotEvening, with: updatedTask)
+                    } else if snapshotWasInOverdue {
+                        snapshotOverdue = replacingTaskIfPresent(in: snapshotOverdue, with: updatedTask)
+                    } else if updatedTask.isOverdue {
+                        snapshotOverdue = upsertingTaskInPlace(in: snapshotOverdue, with: updatedTask)
+                    } else if isEveningTaskHybrid(updatedTask) {
+                        snapshotEvening = upsertingTaskInPlace(in: snapshotEvening, with: updatedTask)
+                    } else {
+                        snapshotMorning = upsertingTaskInPlace(in: snapshotMorning, with: updatedTask)
+                    }
+                } else {
+                    snapshotMorning = removingTask(id: updatedTask.id, from: snapshotMorning)
+                    snapshotEvening = removingTask(id: updatedTask.id, from: snapshotEvening)
+                    snapshotOverdue = removingTask(id: updatedTask.id, from: snapshotOverdue)
+                    if updatedTask.isOverdue {
+                        snapshotOverdue = upsertingTaskInPlace(in: snapshotOverdue, with: updatedTask)
+                    } else if isEveningTaskHybrid(updatedTask) {
+                        snapshotEvening = upsertingTaskInPlace(in: snapshotEvening, with: updatedTask)
+                    } else {
+                        snapshotMorning = upsertingTaskInPlace(in: snapshotMorning, with: updatedTask)
+                    }
+                }
+            }
+
             let updatedSnapshot = TodayTasksResult(
-                morningTasks: replacingTask(in: snapshot.morningTasks, with: updatedTask),
-                eveningTasks: replacingTask(in: snapshot.eveningTasks, with: updatedTask),
-                overdueTasks: replacingTask(in: snapshot.overdueTasks, with: updatedTask),
-                completedTasks: updatedTask.isComplete
-                    ? upsertingTaskInPlace(in: snapshot.completedTasks, with: updatedTask)
-                    : removingTask(id: updatedTask.id, from: snapshot.completedTasks),
+                morningTasks: sortTasksByPriorityThenDue(snapshotMorning),
+                eveningTasks: sortTasksByPriorityThenDue(snapshotEvening),
+                overdueTasks: sortTasksByPriorityThenDue(snapshotOverdue),
+                completedTasks: snapshotCompleted,
                 totalCount: snapshot.totalCount
             )
             todayTasks = updatedSnapshot
         }
+
+        print(
+            "HOME_ROW_STATE vm.local_apply id=\(updatedTask.id.uuidString) isComplete=\(updatedTask.isComplete) " +
+            "morning=\(morningTasks.contains(where: { $0.id == updatedTask.id })) " +
+            "evening=\(eveningTasks.contains(where: { $0.id == updatedTask.id })) " +
+            "overdue=\(overdueTasks.contains(where: { $0.id == updatedTask.id })) " +
+            "completed=\(completedTasks.contains(where: { $0.id == updatedTask.id })) " +
+            "doneTimeline=\(doneTimelineTasks.contains(where: { $0.id == updatedTask.id }))"
+        )
     }
 
     private func replacingTask(in tasks: [Task], with updatedTask: Task) -> [Task] {
@@ -902,8 +1136,293 @@ public final class HomeViewModel: ObservableObject {
         return updated
     }
 
+    private func replacingTaskIfPresent(in tasks: [Task], with updatedTask: Task) -> [Task] {
+        guard let index = tasks.firstIndex(where: { $0.id == updatedTask.id }) else {
+            return tasks
+        }
+
+        var updated = tasks
+        updated[index] = updatedTask
+        return updated
+    }
+
     private func removingTask(id: UUID, from tasks: [Task]) -> [Task] {
         tasks.filter { $0.id != id }
+    }
+
+    private func removeTaskFromOpenProjections(id: UUID) {
+        morningTasks = removingTask(id: id, from: morningTasks)
+        eveningTasks = removingTask(id: id, from: eveningTasks)
+        overdueTasks = removingTask(id: id, from: overdueTasks)
+        upcomingTasks = removingTask(id: id, from: upcomingTasks)
+    }
+
+    private func upsertTaskInOpenProjectionPreservingPosition(_ task: Task) {
+        if morningTasks.contains(where: { $0.id == task.id }) {
+            morningTasks = replacingTaskIfPresent(in: morningTasks, with: task)
+            return
+        }
+        if eveningTasks.contains(where: { $0.id == task.id }) {
+            eveningTasks = replacingTaskIfPresent(in: eveningTasks, with: task)
+            return
+        }
+        if overdueTasks.contains(where: { $0.id == task.id }) {
+            overdueTasks = replacingTaskIfPresent(in: overdueTasks, with: task)
+            return
+        }
+        if upcomingTasks.contains(where: { $0.id == task.id }) {
+            upcomingTasks = replacingTaskIfPresent(in: upcomingTasks, with: task)
+            return
+        }
+
+        insertTaskIntoOpenProjection(task)
+    }
+
+    private func insertTaskIntoOpenProjection(_ task: Task) {
+        if task.isOverdue {
+            overdueTasks = sortTasksByPriorityThenDue(upsertingTaskInPlace(in: overdueTasks, with: task))
+            return
+        }
+
+        if isEveningTaskHybrid(task) {
+            eveningTasks = sortTasksByPriorityThenDue(upsertingTaskInPlace(in: eveningTasks, with: task))
+        } else {
+            morningTasks = sortTasksByPriorityThenDue(upsertingTaskInPlace(in: morningTasks, with: task))
+        }
+    }
+
+    private func sortTasksByPriorityThenDue(_ tasks: [Task]) -> [Task] {
+        tasks.sorted(by: sortByPriorityThenDue)
+    }
+
+    private enum InlineSection {
+        case morning
+        case evening
+        case overdue
+    }
+
+    private func retainingInlineCompletedRows(
+        computedMorning: [Task],
+        computedEvening: [Task],
+        computedOverdue: [Task],
+        doneTasks: [Task]
+    ) -> (morning: [Task], evening: [Task], overdue: [Task]) {
+        var morning = computedMorning
+        var evening = computedEvening
+        var overdue = computedOverdue
+
+        var visibleIDs = Set((morning + evening + overdue).map(\.id))
+        let doneByID = Dictionary(uniqueKeysWithValues: doneTasks.map { ($0.id, $0) })
+
+        let priorCompleted: [(InlineSection, Int, Task)] = {
+            let morningRows = morningTasks.enumerated().compactMap { index, task in
+                task.isComplete ? (InlineSection.morning, index, task) : nil
+            }
+            let eveningRows = eveningTasks.enumerated().compactMap { index, task in
+                task.isComplete ? (InlineSection.evening, index, task) : nil
+            }
+            let overdueRows = overdueTasks.enumerated().compactMap { index, task in
+                task.isComplete ? (InlineSection.overdue, index, task) : nil
+            }
+            return morningRows + eveningRows + overdueRows
+        }()
+
+        for (section, previousIndex, previousTask) in priorCompleted {
+            if visibleIDs.contains(previousTask.id) {
+                continue
+            }
+
+            let completionOverride = completionOverrides[previousTask.id]
+            guard doneByID[previousTask.id] != nil || completionOverride == true else {
+                continue
+            }
+            if completionOverride == false {
+                continue
+            }
+
+            var restoredTask = doneByID[previousTask.id] ?? previousTask
+            if completionOverride == true {
+                restoredTask.isComplete = true
+                restoredTask.dateCompleted = restoredTask.dateCompleted ?? Date()
+            }
+
+            switch section {
+            case .morning:
+                insertTaskIfMissing(&morning, task: restoredTask, preferredIndex: previousIndex)
+            case .evening:
+                insertTaskIfMissing(&evening, task: restoredTask, preferredIndex: previousIndex)
+            case .overdue:
+                insertTaskIfMissing(&overdue, task: restoredTask, preferredIndex: previousIndex)
+            }
+            visibleIDs.insert(restoredTask.id)
+        }
+
+        return (morning: morning, evening: evening, overdue: overdue)
+    }
+
+    private func insertTaskIfMissing(_ tasks: inout [Task], task: Task, preferredIndex: Int) {
+        if let existingIndex = tasks.firstIndex(where: { $0.id == task.id }) {
+            tasks[existingIndex] = task
+            return
+        }
+
+        let targetIndex = max(0, min(preferredIndex, tasks.count))
+        tasks.insert(task, at: targetIndex)
+    }
+
+    private func isTaskOverdue(_ task: Task, relativeTo scope: HomeListScope) -> Bool {
+        guard let dueDate = task.dueDate else { return false }
+
+        switch scope {
+        case .today:
+            return dueDate < Calendar.current.startOfDay(for: Date())
+        case .customDate(let anchorDate):
+            return dueDate < Calendar.current.startOfDay(for: anchorDate)
+        case .upcoming, .done, .morning, .evening:
+            return task.isOverdue
+        }
+    }
+
+    private func shouldKeepCompletedInline(for scope: HomeListScope) -> Bool {
+        switch scope {
+        case .today, .customDate:
+            return true
+        case .upcoming, .done, .morning, .evening:
+            return false
+        }
+    }
+
+    private func mergedInlineDoneTasks(
+        incomingDoneTasks: [Task],
+        openTasks: [Task],
+        shouldKeepCompletedInline: Bool
+    ) -> [Task] {
+        guard shouldKeepCompletedInline else {
+            return incomingDoneTasks
+        }
+
+        let openIDs = Set(openTasks.map(\.id))
+        let retainedPriorDone = completedTasks.filter { task in
+            !openIDs.contains(task.id)
+        }
+
+        var merged: [Task] = []
+        var seen = Set<UUID>()
+        for task in incomingDoneTasks + retainedPriorDone where task.isComplete {
+            if seen.insert(task.id).inserted {
+                merged.append(task)
+            }
+        }
+        return merged
+    }
+
+    private func normalizedSections(
+        morning: [Task],
+        evening: [Task],
+        overdue: [Task],
+        completed: [Task]
+    ) -> (morning: [Task], evening: [Task], overdue: [Task], completed: [Task]) {
+        let overridden = applyCompletionOverrides(
+            openTasks: morning + evening + overdue,
+            doneTasks: completed
+        )
+
+        let openTasks = overridden.openTasks
+        let normalizedOverdue = sortTasksByPriorityThenDue(openTasks.filter(\.isOverdue))
+        let nonOverdue = openTasks.filter { !$0.isOverdue }
+        let normalizedEvening = sortTasksByPriorityThenDue(nonOverdue.filter { isEveningTaskHybrid($0) })
+        let normalizedMorning = sortTasksByPriorityThenDue(nonOverdue.filter { !isEveningTaskHybrid($0) })
+
+        return (
+            morning: normalizedMorning,
+            evening: normalizedEvening,
+            overdue: normalizedOverdue,
+            completed: overridden.doneTasks
+        )
+    }
+
+    @discardableResult
+    private func nextReloadGeneration() -> Int {
+        reloadGeneration += 1
+        return reloadGeneration
+    }
+
+    private func isCurrentReloadGeneration(_ generation: Int) -> Bool {
+        generation == reloadGeneration
+    }
+
+    private func applyCompletionOverrides(openTasks: [Task], doneTasks: [Task]) -> (openTasks: [Task], doneTasks: [Task]) {
+        let normalizedOpen = openTasks.map(applyingCompletionOverrideIfNeeded)
+        let normalizedDone = doneTasks.map(applyingCompletionOverrideIfNeeded)
+
+        var mergedOpen: [Task] = []
+        var openIDs = Set<UUID>()
+        for task in normalizedOpen where !task.isComplete {
+            if openIDs.insert(task.id).inserted {
+                mergedOpen.append(task)
+            }
+        }
+        for task in normalizedDone where !task.isComplete {
+            if openIDs.insert(task.id).inserted {
+                mergedOpen.append(task)
+            }
+        }
+
+        var mergedDone: [Task] = []
+        var doneIDs = Set<UUID>()
+        for task in normalizedDone where task.isComplete {
+            if doneIDs.insert(task.id).inserted {
+                mergedDone.append(task)
+            }
+        }
+        for task in normalizedOpen where task.isComplete {
+            if doneIDs.insert(task.id).inserted {
+                mergedDone.append(task)
+            }
+        }
+
+        reconcileCompletionOverrides(persistedTasks: openTasks + doneTasks)
+        return (openTasks: mergedOpen, doneTasks: mergedDone)
+    }
+
+    private func applyingCompletionOverrideIfNeeded(_ task: Task) -> Task {
+        guard let expectedCompletion = completionOverrides[task.id],
+              expectedCompletion != task.isComplete else {
+            return task
+        }
+
+        var updated = task
+        updated.isComplete = expectedCompletion
+        updated.dateCompleted = expectedCompletion ? (updated.dateCompleted ?? Date()) : nil
+        return updated
+    }
+
+    private func reconcileCompletionOverrides(persistedTasks: [Task]) {
+        guard !completionOverrides.isEmpty else { return }
+
+        var resolvedIDs: [UUID] = []
+        for (id, expectedCompletion) in completionOverrides {
+            guard let persistedTask = persistedTasks.first(where: { $0.id == id }) else { continue }
+            if persistedTask.isComplete == expectedCompletion {
+                resolvedIDs.append(id)
+            }
+        }
+
+        guard !resolvedIDs.isEmpty else { return }
+        for id in resolvedIDs {
+            completionOverrides.removeValue(forKey: id)
+        }
+
+        let resolvedSummary = resolvedIDs.map { $0.uuidString.prefix(8) }.joined(separator: ",")
+        print("HOME_ROW_STATE vm.override_cleared ids=[\(resolvedSummary)]")
+    }
+
+    private func summarizeRowState(_ tasks: [Task], limit: Int = 4) -> String {
+        let summary = tasks.prefix(limit).map { task in
+            let state = task.isComplete ? "done" : "open"
+            return "\(task.id.uuidString.prefix(8)):\(state):\(task.name)"
+        }.joined(separator: "|")
+        return "[\(summary)] total=\(tasks.count)"
     }
 }
 
@@ -929,6 +1448,7 @@ extension HomeViewModel {
             streak: streak,
             completionRate: completionRate,
             activeQuickView: activeFilterState.quickView,
+            activeScope: activeScope,
             selectedProjectIDs: activeFilterState.selectedProjectIDs,
             pointsPotential: pointsPotential,
             quickViewCounts: quickViewCounts,
@@ -958,6 +1478,7 @@ public struct HomeViewState {
     public let streak: Int
     public let completionRate: Double
     public let activeQuickView: HomeQuickView
+    public let activeScope: HomeListScope
     public let selectedProjectIDs: [UUID]
     public let pointsPotential: Int
     public let quickViewCounts: [HomeQuickView: Int]
