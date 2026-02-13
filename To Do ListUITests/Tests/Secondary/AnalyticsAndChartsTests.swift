@@ -42,7 +42,73 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "chart_renders_after_completion")
     }
 
-    // MARK: - Test 58: Radar Chart Display
+    // MARK: - Test 58: Nav XP Chart Visibility Follows Daily XP
+
+    func testNavXpPieChartVisibilityFollowsDailyXP() throws {
+        // GIVEN: User is on home screen with fresh app state
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
+
+        // THEN: Zero XP day should hide nav chart and nav chart button
+        XCTAssertTrue(
+            homePage.verifyNavXpPieChartIsHidden(timeout: 2),
+            "Navigation XP pie chart should be hidden when score is zero"
+        )
+        XCTAssertTrue(
+            homePage.verifyNavXpPieChartButtonIsAbsent(),
+            "Navigation XP pie chart button should be absent when score is zero"
+        )
+
+        // WHEN: User completes a task and gains XP
+        let taskTitle = "Nav XP Visibility Task"
+        let addTaskPage = homePage.tapAddTask()
+        addTaskPage.createTask(title: taskTitle, priority: .max, taskType: .morning)
+        XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should be created")
+
+        let completeIndex = findTaskIndex(withTitle: taskTitle)
+        homePage.completeTask(at: completeIndex)
+        waitForAnimations(duration: 1.5)
+
+        // THEN: Nav chart and nav chart button should appear
+        XCTAssertTrue(
+            homePage.verifyNavXpPieChartIsVisible(timeout: 5),
+            "Navigation XP pie chart should be visible when score is positive"
+        )
+        XCTAssertTrue(
+            homePage.verifyNavXpPieChartButtonIsPresent(timeout: 3),
+            "Navigation XP pie chart button should be present when score is positive"
+        )
+        XCTAssertTrue(
+            homePage.verifyNavXpPieChartIsHittable(),
+            "Navigation XP pie chart should be hittable when visible"
+        )
+        XCTAssertTrue(
+            homePage.verifyNavXpPieChartSize(expected: 102, tolerance: 10),
+            "Floating navigation XP pie chart should be approximately 102x102"
+        )
+
+        // Interaction should still work while visible
+        homePage.tapNavXpPieChart()
+        waitForAnimations(duration: 0.8)
+
+        // WHEN: User reopens the same task and score returns to zero
+        let reopenIndex = findTaskIndex(withTitle: taskTitle)
+        homePage.uncompleteTask(at: reopenIndex)
+        waitForAnimations(duration: 1.5)
+
+        // THEN: Nav chart and nav chart button should hide again
+        XCTAssertTrue(
+            homePage.verifyNavXpPieChartIsHidden(timeout: 3),
+            "Navigation XP pie chart should hide again when score returns to zero"
+        )
+        XCTAssertTrue(
+            homePage.verifyNavXpPieChartButtonIsAbsent(),
+            "Navigation XP pie chart button should be absent again when score returns to zero"
+        )
+
+        takeScreenshot(named: "nav_xp_pie_chart_visibility_follows_score")
+    }
+
+    // MARK: - Test 59: Radar Chart Display
 
     func testRadarChartDisplay() throws {
         // GIVEN: User is on home screen with completed tasks
@@ -80,7 +146,7 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "radar_chart_display")
     }
 
-    // MARK: - Test 59: Analytics Score Display
+    // MARK: - Test 60: Analytics Score Display
 
     func testAnalyticsScoreDisplay() throws {
         // GIVEN: User has completed tasks with score
@@ -107,7 +173,7 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "analytics_score_display")
     }
 
-    // MARK: - Test 60: Analytics Streak Display
+    // MARK: - Test 61: Analytics Streak Display
 
     func testAnalyticsStreakDisplay() throws {
         // GIVEN: User has a streak
