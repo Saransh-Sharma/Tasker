@@ -45,7 +45,7 @@ public final class CoreDataXPRepository: XPRepositoryProtocol {
                 }
             }
         } catch {
-            print("Error fetching user stats for daily XP: \(error)")
+            logError("Error fetching user stats for daily XP: \(error)")
         }
 
         // Return new DailyXP if not found or date mismatch
