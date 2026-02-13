@@ -2,13 +2,97 @@
 //  TaskRowView.swift
 //  Tasker
 //
-//  Refined task row with jewel-toned priority stripe, multi-line support,
-//  and restrained status badges. Part of the "Obsidian & Gems" design system.
+//  Compact Home row optimized for scan speed and low-friction completion.
 //
 
 import SwiftUI
 
-// MARK: - Task Row View
+struct TaskRowDisplayModel: Equatable {
+    let rowMetaText: String
+    let trailingMetaText: String
+    let xpValue: Int
+    let urgencyLabel: String?
+    let noteText: String?
+
+    static func from(task: DomainTask, showTypeBadge: Bool, now: Date = Date()) -> TaskRowDisplayModel {
+        let xpValue = task.priority.scorePoints
+        let projectName = resolvedProjectName(for: task)
+
+        var metaParts = [projectName, "+\(xpValue) XP"]
+        if showTypeBadge {
+            if task.type == .morning {
+                metaParts.append("Morning")
+            } else if task.type == .evening {
+                metaParts.append("Evening")
+            }
+        }
+        if task.isOverdue {
+            metaParts.append("Overdue")
+        }
+
+        let trailingMetaText = trailingMetaText(for: task, xpValue: xpValue)
+        let urgencyLabel = urgencyLabel(for: task, now: now)
+        let noteText = task.details?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty
+
+        return TaskRowDisplayModel(
+            rowMetaText: metaParts.joined(separator: " • "),
+            trailingMetaText: trailingMetaText,
+            xpValue: xpValue,
+            urgencyLabel: urgencyLabel,
+            noteText: noteText
+        )
+    }
+
+    private static func resolvedProjectName(for task: DomainTask) -> String {
+        if let project = task.project?.trimmingCharacters(in: .whitespacesAndNewlines), !project.isEmpty {
+            return project
+        }
+        if task.projectID == ProjectConstants.inboxProjectID {
+            return ProjectConstants.inboxProjectName
+        }
+        return "Project"
+    }
+
+    private static func trailingMetaText(for task: DomainTask, xpValue: Int) -> String {
+        guard let dueDate = task.dueDate else {
+            return "+\(xpValue) XP"
+        }
+
+        let calendar = Calendar.current
+        if dueDate < Date(), !task.isComplete {
+            return "Overdue"
+        }
+        if calendar.isDateInToday(dueDate) {
+            return timeFormatter.string(from: dueDate)
+        }
+        if calendar.isDateInTomorrow(dueDate) {
+            return "Tomorrow"
+        }
+        return DateUtils.formatDate(dueDate)
+    }
+
+    private static func urgencyLabel(for task: DomainTask, now: Date) -> String? {
+        guard !task.isComplete else { return nil }
+        if task.isOverdue {
+            return "Overdue"
+        }
+        guard let dueDate = task.dueDate else { return nil }
+        let timeRemaining = dueDate.timeIntervalSince(now)
+        if timeRemaining > 0, timeRemaining <= (2 * 60 * 60) {
+            return "Due soon"
+        }
+        return nil
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter
+    }()
+}
 
 struct TaskRowView: View {
     let task: DomainTask
@@ -18,60 +102,65 @@ struct TaskRowView: View {
     var onDelete: (() -> Void)? = nil
     var onReschedule: (() -> Void)? = nil
 
+    private var displayModel: TaskRowDisplayModel {
+        TaskRowDisplayModel.from(task: task, showTypeBadge: showTypeBadge)
+    }
+
     private var themeColors: TaskerColorTokens {
         TaskerThemeManager.shared.currentTheme.tokens.color
     }
 
     var body: some View {
         rowContent
-        .contentShape(Rectangle())
-        .onTapGesture {
-            logDebug("HOME_TAP_UI row_tap id=\(task.id.uuidString)")
-            onTap?()
-        }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if task.isComplete {
+            .contentShape(Rectangle())
+            .onTapGesture {
+                logDebug("HOME_TAP_UI row_tap id=\(task.id.uuidString)")
+                onTap?()
+            }
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 Button {
                     onToggleComplete?()
                 } label: {
-                    Label("Reopen", systemImage: "arrow.uturn.backward")
+                    Label(task.isComplete ? "Reopen" : "Complete", systemImage: task.isComplete ? "arrow.uturn.backward" : "checkmark")
                 }
-                .tint(Color.tasker.accentSecondary)
-            } else {
-                Button {
-                    onReschedule?()
-                } label: {
-                    Label("Reschedule", systemImage: "calendar")
-                }
-                .tint(Color.tasker.accentPrimary)
+                .tint(task.isComplete ? Color.tasker.accentSecondary : Color.tasker.statusSuccess)
             }
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                if !task.isComplete {
+                    Button {
+                        onReschedule?()
+                    } label: {
+                        Label("Reschedule", systemImage: "calendar")
+                    }
+                    .tint(Color.tasker.accentPrimary)
+                }
 
-            Button(role: .destructive) {
-                onDelete?()
-            } label: {
-                Label("Delete", systemImage: "trash")
+                Button(role: .destructive) {
+                    onDelete?()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
             }
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md)
-                .stroke(Color.tasker.strokeHairline, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
-        .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.md, includesBorder: false)
-        .opacity(task.isComplete ? 0.7 : 1.0)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.taskRow.\(task.id.uuidString)")
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(accessibilityStateValue)
-        .accessibilityHint(accessibilityHint)
+            .overlay(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md)
+                    .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+            .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.md, includesBorder: false)
+            .opacity(task.isComplete ? 0.58 : 1.0)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.taskRow.\(task.id.uuidString)")
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityValue(accessibilityStateValue)
+            .accessibilityHint(accessibilityHint)
     }
 
     private var rowContent: some View {
         HStack(spacing: 0) {
             priorityStripe
 
-            HStack(spacing: TaskerTheme.Spacing.md) {
-                CompletionCheckbox(isComplete: task.isComplete) {
+            HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+                CompletionCheckbox(isComplete: task.isComplete, compact: true) {
                     onToggleComplete?()
                 }
                 .accessibilityIdentifier("home.taskCheckbox.\(task.id.uuidString)")
@@ -80,15 +169,19 @@ struct TaskRowView: View {
                 contentStack
 
                 Spacer(minLength: 0)
+
+                Text(displayModel.trailingMetaText)
+                    .font(.tasker(.caption2))
+                    .foregroundColor(trailingMetaColor)
+                    .lineLimit(1)
             }
-            .padding(.vertical, TaskerTheme.Spacing.md)
-            .padding(.trailing, TaskerTheme.Spacing.lg)
-            .padding(.leading, TaskerTheme.Spacing.md)
+            .padding(.vertical, 8)
+            .padding(.trailing, TaskerTheme.Spacing.md)
+            .padding(.leading, TaskerTheme.Spacing.sm)
+            .frame(minHeight: 60)
         }
         .background(Color.tasker.surfacePrimary)
     }
-
-    // MARK: - Priority Stripe
 
     private var priorityStripe: some View {
         UnevenRoundedRectangle(
@@ -103,137 +196,68 @@ struct TaskRowView: View {
 
     private var stripeColor: Color {
         if task.isComplete {
-            return Color.tasker.textQuaternary.opacity(0.2)
+            return Color.tasker.textQuaternary.opacity(0.25)
         }
         if task.isOverdue {
             return Color(uiColor: themeColors.taskOverdue)
         }
         switch task.priority {
-        case .max:  return Color.tasker.priorityMax
-        case .high: return Color.tasker.priorityHigh
-        case .low:  return Color.tasker.priorityLow
-        case .none: return Color.tasker.priorityNone.opacity(0.3)
+        case .max:  return Color.tasker.priorityMax.opacity(0.8)
+        case .high: return Color.tasker.priorityHigh.opacity(0.75)
+        case .low:  return Color.tasker.priorityLow.opacity(0.65)
+        case .none: return Color.tasker.priorityNone.opacity(0.35)
         }
     }
 
-    // MARK: - Content Stack
+    private var trailingMetaColor: Color {
+        guard let dueDate = task.dueDate else {
+            return task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textSecondary
+        }
+        if dueDate < Date(), !task.isComplete {
+            return Color(uiColor: themeColors.taskOverdue)
+        }
+        if Calendar.current.isDateInToday(dueDate) {
+            return Color.tasker.statusWarning
+        }
+        return task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textSecondary
+    }
 
     private var contentStack: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-            // Title
+        VStack(alignment: .leading, spacing: 2) {
             Text(task.name)
                 .font(.tasker(.bodyEmphasis))
                 .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
                 .strikethrough(task.isComplete, color: Color.tasker.textQuaternary)
-                .lineLimit(3)
+                .lineLimit(1)
                 .multilineTextAlignment(.leading)
 
-            // Description
-            if let details = task.details, !details.isEmpty {
-                Text(details)
-                    .font(.tasker(.callout))
-                    .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textSecondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+            Text(displayModel.rowMetaText)
+                .font(.tasker(.caption2))
+                .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textSecondary)
+                .lineLimit(1)
+
+            if let note = displayModel.noteText {
+                Text(note)
+                    .font(.tasker(.caption2))
+                    .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textTertiary)
+                    .lineLimit(1)
             }
 
-            // Badge row
-            if hasBadges {
-                badgeRow
-            }
-        }
-    }
-
-    // MARK: - Badge Row
-
-    private var hasBadges: Bool {
-        guard !task.isComplete else { return false }
-        return task.isOverdue
-            || task.dueDate != nil
-            || (showTypeBadge && (task.type == .morning || task.type == .evening))
-            || task.priority.isHighPriority
-    }
-
-    private var badgeRow: some View {
-        HStack(spacing: TaskerTheme.Spacing.sm) {
-            // Overdue badge (supersedes due date)
-            if task.isOverdue {
-                InfoPill(
-                    icon: "clock.badge.exclamationmark",
-                    text: "Overdue",
-                    color: Color(uiColor: themeColors.taskOverdue)
-                )
-            }
-            // Due date badge (only if not overdue)
-            else if let dueDate = task.dueDate {
-                InfoPill(
-                    icon: "calendar",
-                    text: dueDateText(for: dueDate),
-                    color: dueDateColor(for: dueDate)
-                )
-            }
-
-            // Type badge (only in mixed sections)
-            if showTypeBadge {
-                if task.type == .morning {
-                    InfoPill(
-                        icon: "sun.max",
-                        text: "Morning",
-                        color: Color.tasker.statusWarning
-                    )
-                } else if task.type == .evening {
-                    InfoPill(
-                        icon: "moon.fill",
-                        text: "Evening",
-                        color: Color.tasker.accentSecondary
-                    )
-                }
-            }
-
-            // Priority badge (high and max only)
-            if task.priority.isHighPriority {
-                PriorityBadge(priority: Int32(task.priority.rawValue))
+            if let urgencyLabel = displayModel.urgencyLabel, !task.isComplete {
+                Text(urgencyLabel)
+                    .font(.tasker(.caption2))
+                    .foregroundColor(urgencyLabel == "Overdue" ? Color(uiColor: themeColors.taskOverdue) : Color.tasker.statusWarning)
+                    .lineLimit(1)
             }
         }
     }
-
-    // MARK: - Due Date Helpers
-
-    private func dueDateText(for date: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
-            return "Today"
-        } else if calendar.isDateInTomorrow(date) {
-            return "Tomorrow"
-        } else {
-            return DateUtils.formatDate(date)
-        }
-    }
-
-    private func dueDateColor(for date: Date) -> Color {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
-            return Color.tasker.statusWarning
-        } else if calendar.isDateInTomorrow(date) {
-            return Color.tasker.accentPrimary
-        } else if date < Date() {
-            return Color.tasker.statusDanger
-        } else {
-            return Color.tasker.textSecondary
-        }
-    }
-
-    // MARK: - Accessibility
 
     private var accessibilityLabel: String {
         var parts: [String] = ["Task: \(task.name)"]
         if task.isComplete { parts.append("completed") }
-        if task.isOverdue { parts.append("overdue") }
-        if let dueDate = task.dueDate {
-            parts.append("due \(DateUtils.formatDate(dueDate))")
-        }
-        if task.priority.isHighPriority {
-            parts.append("\(task.priority.displayName) priority")
+        parts.append(displayModel.rowMetaText)
+        if let urgencyLabel = displayModel.urgencyLabel {
+            parts.append(urgencyLabel.lowercased())
         }
         return parts.joined(separator: ", ")
     }
@@ -242,7 +266,7 @@ struct TaskRowView: View {
         var hints: [String] = []
         if onToggleComplete != nil { hints.append("Double tap to toggle completion") }
         if onTap != nil { hints.append("Tap to view details") }
-        if onDelete != nil || onReschedule != nil { hints.append("Swipe left for actions") }
+        if onDelete != nil || onReschedule != nil { hints.append("Swipe for actions") }
         return hints.joined(separator: ", ")
     }
 
@@ -251,72 +275,30 @@ struct TaskRowView: View {
     }
 }
 
-// MARK: - Preview
-
 #if DEBUG
 struct TaskRowView_Previews: PreviewProvider {
     static var previews: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             TaskRowView(
                 task: DomainTask(
-                    name: "Review quarterly financial reports and prepare summary for the board meeting presentation",
-                    details: "Include revenue projections and year-over-year comparisons with charts",
-                    type: .morning,
-                    priority: .max,
-                    dueDate: Date()
-                ),
-                showTypeBadge: true,
-                onTap: {},
-                onToggleComplete: {}
-            )
-
-            TaskRowView(
-                task: DomainTask(
-                    name: "Morning meditation",
+                    name: "Review pull requests",
+                    details: "Prioritize API migration and checkout fixes",
                     type: .morning,
                     priority: .high,
-                    dueDate: Date().addingTimeInterval(86400)
+                    dueDate: Date()
                 ),
-                showTypeBadge: false,
-                onTap: {},
-                onToggleComplete: {}
-            )
-
-            TaskRowView(
-                task: DomainTask(
-                    name: "Buy groceries",
-                    details: "Milk, eggs, bread, avocados",
-                    type: .evening,
-                    priority: .low,
-                    dueDate: Date().addingTimeInterval(-86400),
-                    isComplete: false
-                ),
-                showTypeBadge: true,
-                onTap: {},
-                onToggleComplete: {}
+                showTypeBadge: true
             )
 
             TaskRowView(
                 task: DomainTask(
                     name: "Completed task example",
                     type: .morning,
-                    priority: .high,
-                    isComplete: true
+                    priority: .low,
+                    isComplete: true,
+                    dateCompleted: Date()
                 ),
-                showTypeBadge: false,
-                onTap: {},
-                onToggleComplete: {}
-            )
-
-            TaskRowView(
-                task: DomainTask(
-                    name: "Simple low priority task",
-                    type: .inbox,
-                    priority: .none
-                ),
-                showTypeBadge: false,
-                onTap: {},
-                onToggleComplete: {}
+                showTypeBadge: false
             )
         }
         .padding(.horizontal, 20)
@@ -325,3 +307,9 @@ struct TaskRowView_Previews: PreviewProvider {
     }
 }
 #endif
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
+}
