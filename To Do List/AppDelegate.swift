@@ -20,29 +20,65 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Override point for customization after application launch.
 
 //        HomeViewController.setDateForViewValue(dateToSetForView: Date.today())
+        let launchArguments = ProcessInfo.processInfo.arguments
 
         // MARK: - UI Testing Mode
         // Handle launch arguments for UI testing
-        if ProcessInfo.processInfo.arguments.contains("-UI_TESTING") {
+        if launchArguments.contains("-UI_TESTING") {
 
             // Disable animations for faster, more stable tests
-            if ProcessInfo.processInfo.arguments.contains("-DISABLE_ANIMATIONS") {
+            if launchArguments.contains("-DISABLE_ANIMATIONS") {
                 UIView.setAnimationsEnabled(false)
             }
 
             // Reset app state for clean test runs
-            if ProcessInfo.processInfo.arguments.contains("-RESET_APP_STATE") {
+            if launchArguments.contains("-RESET_APP_STATE") {
                 resetAppState()
             }
         }
 
-        // Configure Firebase and suppress non-critical SDK logs.
-        FirebaseApp.configure()
-        FirebaseConfiguration.shared.setLoggerLevel(.error)
-        
-        #if !DEBUG
-        Analytics.setAnalyticsCollectionEnabled(true)
-        #endif
+        // DEBUG defaults to Firebase off to avoid noisy simulator Network.framework QUIC logs.
+        let shouldConfigureFirebase: Bool = {
+            #if DEBUG
+            return launchArguments.contains("-TASKER_ENABLE_FIREBASE_DEBUG")
+            #else
+            return true
+            #endif
+        }()
+
+        if shouldConfigureFirebase {
+            FirebaseApp.configure()
+            FirebaseConfiguration.shared.setLoggerLevel(.error)
+
+            #if !DEBUG
+            Analytics.setAnalyticsCollectionEnabled(true)
+            #endif
+
+            #if DEBUG
+            let firebaseStartupSource = "debug_launch_argument"
+            #else
+            let firebaseStartupSource = "release_default_enabled"
+            #endif
+
+            logWarning(
+                event: "firebase_startup_mode",
+                message: "Firebase configured for this run",
+                fields: [
+                    "enabled": "true",
+                    "source": firebaseStartupSource
+                ]
+            )
+        } else {
+            logWarning(
+                event: "firebase_startup_mode",
+                message: "Firebase skipped in DEBUG (opt in with launch arg)",
+                fields: [
+                    "enabled": "false",
+                    "source": "debug_default_disabled",
+                    "launch_arg": "-TASKER_ENABLE_FIREBASE_DEBUG"
+                ]
+            )
+        }
         
         // Configure UIAppearance to make ShyHeaderController's dummy table view transparent
         UITableView.appearance().backgroundColor = UIColor.clear

@@ -199,6 +199,7 @@ Runtime logging is restricted to actionable issues only:
 - Levels retained by default: `WARN`, `ERROR`, `FATAL`
 - Default minimum level: `.warning` in both Debug and Release
 - Temporary deep diagnostics: launch with `-TASKER_VERBOSE_LOGS`
+- Firebase startup in Debug: disabled by default to reduce simulator Network/QUIC noise; opt in with `-TASKER_ENABLE_FIREBASE_DEBUG`
 
 Standard log contract:
 - `ts=<ISO8601UTC> lvl=<WARN|ERROR|FATAL> cmp=<Component> evt=<event_name> msg="<short message>" key=value ...`
