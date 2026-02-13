@@ -328,6 +328,42 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertEqual(canonical.morning.map(\.isComplete), [false, true])
     }
 
+    func testTaskRowDisplayModelBuildsCompactMetadataAndTrailingDue() {
+        let due = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) ?? Date()
+        let task = DomainTask(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Metadata task",
+            details: "  Add note  ",
+            type: .morning,
+            priority: .high,
+            dueDate: due,
+            project: ProjectConstants.inboxProjectName
+        )
+
+        let model = TaskRowDisplayModel.from(task: task, showTypeBadge: false, now: Date())
+
+        XCTAssertTrue(model.rowMetaText.contains("Inbox"))
+        XCTAssertTrue(model.rowMetaText.contains("+\(task.priority.scorePoints) XP"))
+        XCTAssertFalse(model.trailingMetaText.isEmpty)
+        XCTAssertEqual(model.noteText, "Add note")
+    }
+
+    func testTaskRowDisplayModelFallsBackToXPWhenNoDueDate() {
+        let task = DomainTask(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "No due date",
+            type: .morning,
+            priority: .low,
+            dueDate: nil,
+            project: nil
+        )
+
+        let model = TaskRowDisplayModel.from(task: task, showTypeBadge: true, now: Date())
+        XCTAssertEqual(model.trailingMetaText, "+\(task.priority.scorePoints) XP")
+        XCTAssertTrue(model.rowMetaText.contains("Inbox"))
+        XCTAssertTrue(model.rowMetaText.contains("Morning"))
+    }
+
     private func makeTask(
         id: UUID = UUID(),
         name: String,

@@ -47,6 +47,131 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testProgressStateTracksEarnedAndRemainingXP() {
+        let suiteName = "HomeViewModelPersistenceTests.ProgressState.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let highXPTask = makeTask(name: "Progress task", project: inbox, dueDate: Date(), priority: .high)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [highXPTask])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.progressState.earnedXP, viewModel.dailyScore)
+        XCTAssertEqual(viewModel.progressState.remainingPotentialXP, viewModel.pointsPotential)
+        XCTAssertEqual(
+            viewModel.progressState.todayTargetXP,
+            viewModel.progressState.earnedXP + viewModel.progressState.remainingPotentialXP
+        )
+        XCTAssertEqual(viewModel.progressState.isStreakSafeToday, viewModel.progressState.earnedXP > 0)
+
+        guard let openTask = viewModel.morningTasks.first else {
+            return XCTFail("Expected open task in morning list")
+        }
+
+        viewModel.toggleTaskCompletion(openTask)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.progressState.earnedXP, viewModel.dailyScore)
+        XCTAssertEqual(viewModel.progressState.remainingPotentialXP, viewModel.pointsPotential)
+        XCTAssertEqual(
+            viewModel.progressState.todayTargetXP,
+            viewModel.progressState.earnedXP + viewModel.progressState.remainingPotentialXP
+        )
+        XCTAssertEqual(viewModel.progressState.isStreakSafeToday, viewModel.progressState.earnedXP > 0)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testFocusTasksRankingPrioritizesOverdueThenDueTodayThenXP() {
+        let suiteName = "HomeViewModelPersistenceTests.FocusRanking.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: startOfToday) ?? now
+        let todayMorning = calendar.date(byAdding: .hour, value: 9, to: startOfToday) ?? now
+        let todayEvening = calendar.date(byAdding: .hour, value: 18, to: startOfToday) ?? now
+
+        let inbox = Project.createInbox()
+        let tasks = [
+            makeTask(name: "Today Low", project: inbox, dueDate: todayMorning, priority: .low),
+            makeTask(name: "Overdue Low", project: inbox, dueDate: yesterday, priority: .low),
+            makeTask(name: "Today High", project: inbox, dueDate: todayEvening, priority: .high),
+            makeTask(name: "Overdue High", project: inbox, dueDate: yesterday, priority: .high)
+        ]
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.focusTasks.map(\.name), ["Overdue High", "Overdue Low", "Today High"])
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testFocusTasksTieBreakUsesStableUUIDOrdering() {
+        let suiteName = "HomeViewModelPersistenceTests.FocusStableID.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let idA = UUID(uuidString: "00000000-0000-0000-0000-000000000010")!
+        let idB = UUID(uuidString: "00000000-0000-0000-0000-000000000020")!
+        let inbox = Project.createInbox()
+
+        let taskA = makeTask(id: idA, name: "A", project: inbox, dueDate: now, priority: .low)
+        let taskB = makeTask(id: idB, name: "B", project: inbox, dueDate: now, priority: .low)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [taskB, taskA])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.focusTasks.map(\.id), [idA, idB])
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     private func waitForMainQueueFlush() {
         let expectation = expectation(description: "MainQueueFlush")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -55,10 +180,18 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 
-    private func makeTask(name: String, project: Project, dueDate: Date) -> Task {
+    private func makeTask(
+        id: UUID = UUID(),
+        name: String,
+        project: Project,
+        dueDate: Date,
+        priority: TaskPriority = .low
+    ) -> Task {
         Task(
+            id: id,
             projectID: project.id,
             name: name,
+            priority: priority,
             dueDate: dueDate,
             project: project.name
         )
