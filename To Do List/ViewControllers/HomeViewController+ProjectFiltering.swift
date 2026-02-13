@@ -249,13 +249,36 @@ extension HomeViewController {
         }
 
         if viewModel.focusEngineEnabled {
-            return HomeTaskListInput(
+            let activeQuickView = viewModel.activeFilterState.quickView
+            if activeQuickView == .done {
+                return HomeTaskListInput(
+                    morning: viewModel.morningTasks,
+                    evening: viewModel.eveningTasks,
+                    overdue: viewModel.overdueTasks,
+                    projects: viewModel.projects,
+                    doneTimeline: viewModel.doneTimelineTasks,
+                    activeQuickView: activeQuickView,
+                    projectGroupingMode: viewModel.activeFilterState.projectGroupingMode,
+                    customProjectOrderIDs: viewModel.activeFilterState.customProjectOrderIDs,
+                    emptyStateMessage: viewModel.emptyStateMessage,
+                    emptyStateActionTitle: viewModel.emptyStateActionTitle
+                )
+            }
+
+            let merged = mergeCompletedIntoSections(
                 morning: viewModel.morningTasks,
                 evening: viewModel.eveningTasks,
                 overdue: viewModel.overdueTasks,
+                completed: viewModel.completedTasks
+            )
+
+            return HomeTaskListInput(
+                morning: merged.morning,
+                evening: merged.evening,
+                overdue: merged.overdue,
                 projects: viewModel.projects,
                 doneTimeline: viewModel.doneTimelineTasks,
-                activeQuickView: viewModel.activeFilterState.quickView,
+                activeQuickView: activeQuickView,
                 projectGroupingMode: viewModel.activeFilterState.projectGroupingMode,
                 customProjectOrderIDs: viewModel.activeFilterState.customProjectOrderIDs,
                 emptyStateMessage: viewModel.emptyStateMessage,
@@ -268,12 +291,13 @@ extension HomeViewController {
             let merged = mergeCompletedIntoSections(
                 morning: viewModel.morningTasks,
                 evening: viewModel.eveningTasks,
+                overdue: viewModel.overdueTasks,
                 completed: viewModel.dailyCompletedTasks
             )
             return HomeTaskListInput(
                 morning: merged.morning,
                 evening: merged.evening,
-                overdue: viewModel.overdueTasks,
+                overdue: merged.overdue,
                 projects: viewModel.projects,
                 doneTimeline: [],
                 activeQuickView: nil,
@@ -293,13 +317,14 @@ extension HomeViewController {
             let merged = mergeCompletedIntoSections(
                 morning: viewModel.morningTasks.filter { selectedProjectIDs.contains($0.projectID) },
                 evening: viewModel.eveningTasks.filter { selectedProjectIDs.contains($0.projectID) },
+                overdue: viewModel.overdueTasks.filter { selectedProjectIDs.contains($0.projectID) },
                 completed: viewModel.dailyCompletedTasks.filter { selectedProjectIDs.contains($0.projectID) }
             )
 
             return HomeTaskListInput(
                 morning: merged.morning,
                 evening: merged.evening,
-                overdue: viewModel.overdueTasks.filter { selectedProjectIDs.contains($0.projectID) },
+                overdue: merged.overdue,
                 projects: viewModel.projects,
                 doneTimeline: [],
                 activeQuickView: nil,
@@ -323,22 +348,35 @@ extension HomeViewController {
     private func mergeCompletedIntoSections(
         morning: [DomainTask],
         evening: [DomainTask],
+        overdue: [DomainTask],
         completed: [DomainTask]
-    ) -> (morning: [DomainTask], evening: [DomainTask]) {
-        let completedMorning = completed.filter { $0.type != .evening }
-        let completedEvening = completed.filter { $0.type == .evening }
+    ) -> (morning: [DomainTask], evening: [DomainTask], overdue: [DomainTask]) {
+        var mergedMorning = morning
+        var mergedEvening = evening
+        var mergedOverdue = overdue
+
+        for task in completed {
+            if isTaskOverdueForCurrentView(task) {
+                mergedOverdue.append(task)
+                continue
+            }
+
+            if isEveningTaskHybrid(task) {
+                mergedEvening.append(task)
+            } else {
+                mergedMorning.append(task)
+            }
+        }
 
         return (
-            morning: sortSectionTasks(morning + completedMorning),
-            evening: sortSectionTasks(evening + completedEvening)
+            morning: sortSectionTasks(deduplicateTasksByID(mergedMorning)),
+            evening: sortSectionTasks(deduplicateTasksByID(mergedEvening)),
+            overdue: sortSectionTasks(deduplicateTasksByID(mergedOverdue))
         )
     }
 
     private func sortSectionTasks(_ tasks: [DomainTask]) -> [DomainTask] {
         tasks.sorted { lhs, rhs in
-            if lhs.isComplete != rhs.isComplete {
-                return !lhs.isComplete && rhs.isComplete
-            }
             if lhs.priority.rawValue != rhs.priority.rawValue {
                 return lhs.priority.rawValue < rhs.priority.rawValue
             }
@@ -346,6 +384,32 @@ extension HomeViewController {
             let rhsDate = rhs.dueDate ?? Date.distantFuture
             return lhsDate < rhsDate
         }
+    }
+
+    private func deduplicateTasksByID(_ tasks: [DomainTask]) -> [DomainTask] {
+        var seen = Set<UUID>()
+        return tasks.filter { task in
+            if seen.contains(task.id) {
+                return false
+            }
+            seen.insert(task.id)
+            return true
+        }
+    }
+
+    private func isTaskOverdueForCurrentView(_ task: DomainTask) -> Bool {
+        guard let dueDate = task.dueDate else { return false }
+        let startOfDay = Calendar.current.startOfDay(for: dateForTheView)
+        return dueDate < startOfDay
+    }
+
+    private func isEveningTaskHybrid(_ task: DomainTask) -> Bool {
+        if task.type == .evening { return true }
+        if task.type == .morning { return false }
+
+        guard let dueDate = task.dueDate else { return false }
+        let hour = Calendar.current.component(.hour, from: dueDate)
+        return hour >= 17 && hour <= 23
     }
 
     private func splitTasksForList(_ tasks: [DomainTask], projects: [Project]) -> HomeTaskListInput {
