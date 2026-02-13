@@ -10,6 +10,7 @@ import SwiftUI
 import CoreData
 import DGCharts
 import UIKit
+import Combine
 
 // MARK: - Radar Chart Card
 
@@ -145,8 +146,11 @@ struct RadarChartCard: View {
         .onChange(of: referenceDate) { _, _ in
             loadChartData()
         }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("TaskCompletionChanged"))) { _ in
-            print("📡 RadarChartCard: Received TaskCompletionChanged - reloading chart data")
+        .onReceive(
+            NotificationCenter.default.publisher(for: .homeTaskMutation)
+                .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
+        ) { _ in
+            print("📡 RadarChartCard: Received HomeTaskMutationEvent - reloading chart data")
             loadChartData()
         }
     }
