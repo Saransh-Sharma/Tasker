@@ -225,6 +225,45 @@ class HomePage {
         return app.buttons[identifier]
     }
 
+    /// Get SwiftUI task row by title using stable row accessibility identifiers.
+    func taskRow(containingTitle title: String) -> XCUIElement {
+        let predicate = NSPredicate(
+            format: "identifier BEGINSWITH 'home.taskRow.' AND label CONTAINS[c] %@",
+            title
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
+    }
+
+    /// Get SwiftUI task checkbox by title using stable checkbox accessibility identifiers.
+    func taskCheckbox(containingTitle title: String) -> XCUIElement {
+        let row = taskRow(containingTitle: title)
+        let checkboxPredicate = NSPredicate(format: "identifier BEGINSWITH 'home.taskCheckbox.'")
+        let checkboxInRow = row.buttons.matching(checkboxPredicate).firstMatch
+        if checkboxInRow.exists {
+            return checkboxInRow
+        }
+        return app.buttons.matching(checkboxPredicate).firstMatch
+    }
+
+    /// Read row state accessibility value ("open" / "done") for a task title.
+    func taskRowStateValue(containingTitle title: String) -> String? {
+        taskRow(containingTitle: title).value as? String
+    }
+
+    /// Wait for a task row state value ("open" / "done") for a given title.
+    func waitForTaskRowState(_ expectedState: String, title: String, timeout: TimeInterval) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            guard let value = self.taskRowStateValue(containingTitle: title) else {
+                return false
+            }
+            return value.caseInsensitiveCompare(expectedState) == .orderedSame
+        }
+
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+        return result == .completed
+    }
+
     /// Complete task at index by tapping checkbox
     func completeTask(at index: Int) {
         let checkbox = taskCheckbox(at: index)

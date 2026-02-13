@@ -202,6 +202,33 @@ class TaskCompletionTests: BaseUITest {
         takeScreenshot(named: "complete_via_checkbox")
     }
 
+    // MARK: - Open/Done/Open Immediate Rendering
+
+    func testTaskOpenDoneOpenUpdatesInlineRowStateWithoutRelaunch() throws {
+        let taskTitle = "P0 Task"
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: taskTitle), "Task should exist in Today view")
+
+        let initialRow = homePage.taskRow(containingTitle: taskTitle)
+        XCTAssertTrue(initialRow.waitForExistence(timeout: 5), "Task row should be visible")
+        XCTAssertTrue(homePage.waitForTaskRowState("open", title: taskTitle, timeout: 5), "Initial task state should be open")
+
+        let completeCheckbox = homePage.taskCheckbox(containingTitle: taskTitle)
+        XCTAssertTrue(completeCheckbox.waitForExistence(timeout: 5), "Task checkbox should exist")
+        completeCheckbox.tap()
+
+        XCTAssertTrue(homePage.waitForTaskRowState("done", title: taskTitle, timeout: 5), "Task state should switch to done immediately")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: taskTitle), "Completed task should remain inline in Today view")
+
+        let reopenCheckbox = homePage.taskCheckbox(containingTitle: taskTitle)
+        XCTAssertTrue(reopenCheckbox.waitForExistence(timeout: 5), "Task checkbox should still exist for reopen")
+        reopenCheckbox.tap()
+
+        XCTAssertTrue(homePage.waitForTaskRowState("open", title: taskTitle, timeout: 5), "Task state should switch back to open immediately")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: taskTitle), "Task should remain visible after reopen")
+
+        takeScreenshot(named: "task_open_done_open_state_transition")
+    }
+
     // MARK: - Test 15: Completed Task Shows Strikethrough
 
     func testCompletedTaskShowsStrikethrough() throws {
