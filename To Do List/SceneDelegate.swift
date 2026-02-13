@@ -33,7 +33,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Inject dependencies using typed APIs (no reflection).
         DependencyContainer.shared.inject(into: homeViewController)
         PresentationDependencyContainer.shared.inject(into: homeViewController)
-        print("HOME_DI scene.inject viewModel=\(homeViewController.viewModel != nil)")
         
         // Embed in FluentUI NavigationController
         let navigationController = NavigationController(rootViewController: homeViewController)

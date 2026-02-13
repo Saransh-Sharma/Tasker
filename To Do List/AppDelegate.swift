@@ -24,29 +24,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // MARK: - UI Testing Mode
         // Handle launch arguments for UI testing
         if ProcessInfo.processInfo.arguments.contains("-UI_TESTING") {
-            print("🧪 UI Testing Mode Enabled")
 
             // Disable animations for faster, more stable tests
             if ProcessInfo.processInfo.arguments.contains("-DISABLE_ANIMATIONS") {
                 UIView.setAnimationsEnabled(false)
-                print("  ✓ Animations disabled")
             }
 
             // Reset app state for clean test runs
             if ProcessInfo.processInfo.arguments.contains("-RESET_APP_STATE") {
                 resetAppState()
-                print("  ✓ App state reset")
             }
         }
 
-        // Configure Firebase with reduced logging
+        // Configure Firebase and suppress non-critical SDK logs.
         FirebaseApp.configure()
+        FirebaseConfiguration.shared.setLoggerLevel(.error)
         
         #if !DEBUG
-        // Reduce Firebase analytics logging in release builds
-        if let analytics = Analytics.analytics() {
-            analytics.setAnalyticsCollectionEnabled(true)
-        }
+        Analytics.setAnalyticsCollectionEnabled(true)
         #endif
         
         // Configure UIAppearance to make ShyHeaderController's dummy table view transparent
@@ -91,15 +86,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                             as? [NSPersistentCloudKitContainer.Event]
             else { return }
 
-            for event in events {
-                // Log the event type
-                print("📡 CloudKit event:", event.type)
-
-                // Log any errors
-                if let err = event.error {
-                    print("   ⛔️ error:", err)
-                }
-
+            for event in events where event.error != nil {
+                let errorDescription = event.error?.localizedDescription ?? "unknown"
+                logError(
+                    event: "cloudkit_event_error",
+                    message: "CloudKit container event reported error",
+                    fields: [
+                        "event_type": "\(event.type)",
+                        "error": errorDescription
+                    ]
+                )
             }
         }
         
@@ -111,17 +107,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     /// Reset app state for UI testing
     /// This clears UserDefaults and Core Data to ensure clean test runs
     private func resetAppState() {
-        print("🧹 Resetting app state for UI tests...")
 
         // Clear UserDefaults
         let domain = Bundle.main.bundleIdentifier!
         UserDefaults.standard.removePersistentDomain(forName: domain)
         UserDefaults.standard.synchronize()
-        print("  ✓ UserDefaults cleared")
 
         // Clear Core Data
         clearCoreData()
-        print("  ✓ Core Data cleared")
     }
 
     /// Clear all Core Data entities for testing
@@ -140,9 +133,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
             do {
                 try context.execute(deleteRequest)
-                print("    - Cleared \(entityName)")
             } catch {
-                print("    ⚠️ Failed to clear \(entityName): \(error)")
+                logError(
+                    event: "coredata_clear_entity_failed",
+                    message: "Failed to clear Core Data entity during UI test reset",
+                    fields: [
+                        "entity": entityName,
+                        "error": error.localizedDescription
+                    ]
+                )
             }
         }
 
@@ -150,7 +149,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         do {
             try context.save()
         } catch {
-            print("    ⚠️ Failed to save context after clearing: \(error)")
+            logError(
+                event: "coredata_clear_save_failed",
+                message: "Failed to save context after clearing entities",
+                fields: [
+                    "error": error.localizedDescription
+                ]
+            )
         }
     }
 
@@ -195,20 +200,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 // Handle CloudKit-specific errors gracefully
                 if error.domain == NSCocoaErrorDomain && error.code == 134400 {
                     // iCloud account not available - continue without CloudKit
-                    print("ℹ️ iCloud not available - running in local mode")
                     // Disable CloudKit for this session
                     storeDescription.cloudKitContainerOptions = nil
+                    logWarning(
+                        event: "cloudkit_unavailable_local_mode",
+                        message: "CloudKit unavailable; using local persistent store",
+                        fields: [
+                            "domain": error.domain,
+                            "code": String(error.code)
+                        ]
+                    )
                 } else {
                     // Handle other errors
-                    print("❌ Core Data error: \(error.localizedDescription)")
+                    logError(
+                        event: "persistent_store_load_failed",
+                        message: "Persistent store failed to load",
+                        fields: [
+                            "domain": error.domain,
+                            "code": String(error.code),
+                            "error": error.localizedDescription
+                        ]
+                    )
                     // Don't crash the app, continue with available functionality
                 }
-            }
-            
-            if let cloudKitID = storeDescription.cloudKitContainerOptions?.containerIdentifier {
-                print("✅ Successfully loaded persistent store: \(storeDescription.url?.lastPathComponent ?? "N/A") with CloudKit: \(cloudKitID)")
-            } else {
-                print("✅ Successfully loaded persistent store: \(storeDescription.url?.lastPathComponent ?? "N/A") in local mode")
             }
         })
         
@@ -243,9 +257,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let context = persistentContainer.viewContext
         // Perform merging on the context's queue to avoid threading issues
         context.perform { // Changed from performAndWait to perform for potentially better responsiveness
-            print("AppDelegate: Handling persistent store remote change notification.")
             context.mergeChanges(fromContextDidSave: notification) // Correct method signature
-            print("AppDelegate: Successfully merged changes from remote store.")
 
             // **CRITICAL: Call consolidation logic after merging CloudKit changes**
             // Note: consolidateDataWithCleanArchitecture is private, call setupCleanArchitecture instead
@@ -261,11 +273,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     // Remote notification registration success/failure callbacks
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
-        print("✅ APNs token registered successfully")
     }
     
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("❌ APNs registration failed: \(error)")
+        logError(
+            event: "apns_registration_failed",
+            message: "APNs registration failed",
+            fields: [
+                "error": error.localizedDescription
+            ]
+        )
     }
 
     // MARK: - UUID Migration
@@ -273,7 +290,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     /// Perform startup migration to ensure all entities have UUIDs
     /// This is critical for transitioning from legacy string-based to UUID-based project references
     private func performStartupMigration() {
-        print("🔄 Checking for UUID migration needs...")
 
         let migrationManager = MigrationManager()
         let migrationService = DataMigrationService(persistentContainer: persistentContainer, migrationManager: migrationManager)
@@ -288,18 +304,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let semaphore = DispatchSemaphore(value: 0)
 
         // Step 1: Force UUID assignment to all projects
-        print("🚨 EMERGENCY: Starting emergency UUID migration...")
         inboxInitializer.forceAssignUUIDsToAllProjects { result in
             switch result {
             case .success(let count):
-                print("🚨 Emergency: Assigned UUIDs to \(count) projects")
-
                 // Step 2: Fix task references
                 inboxInitializer.forceUpdateTaskProjectReferences { taskResult in
                     switch taskResult {
                     case .success(let taskCount):
-                        print("🚨 Emergency: Updated \(taskCount) task references")
-
                         // Step 3: Reset migration state to trigger proper migration
                         migrationManager.forceResetMigration()
 
@@ -307,7 +318,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                         migrationService.migrateToUUIDs { migrationResult in
                             switch migrationResult {
                             case .success(let report):
-                                print("✅ Emergency migration completed: \(report.description)")
 
                                 // Step 5: Verify results
                                 self.verifyMigrationResults()
@@ -316,31 +326,63 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                                 migrationService.verifyNewProjectCreation { verificationResult in
                                     switch verificationResult {
                                     case .success(let worksCorrectly):
-                                        if worksCorrectly {
-                                            print("✅ New project creation verification PASSED")
-                                        } else {
-                                            print("❌ New project creation verification FAILED - new projects may not get UUIDs!")
+                                        if !worksCorrectly {
+                                            logError(
+                                                event: "project_uuid_verification_failed",
+                                                message: "New project UUID verification failed",
+                                                fields: [
+                                                    "projects_assigned": String(count),
+                                                    "tasks_updated": String(taskCount)
+                                                ]
+                                            )
                                         }
                                     case .failure(let error):
-                                        print("❌ New project creation verification ERROR: \(error)")
+                                        logError(
+                                            event: "project_uuid_verification_error",
+                                            message: "New project UUID verification errored",
+                                            fields: [
+                                                "error": error.localizedDescription
+                                            ]
+                                        )
                                     }
                                 }
 
                             case .failure(let error):
-                                print("❌ Emergency migration failed: \(error)")
+                                logError(
+                                    event: "emergency_migration_failed",
+                                    message: "Emergency migration failed",
+                                    fields: [
+                                        "projects_assigned": String(count),
+                                        "tasks_updated": String(taskCount),
+                                        "error": error.localizedDescription
+                                    ]
+                                )
                                 // Continue app launch even if migration fails
                             }
                             semaphore.signal()
                         }
 
                     case .failure(let error):
-                        print("❌ Emergency task update failed: \(error)")
+                        logError(
+                            event: "emergency_task_reference_update_failed",
+                            message: "Emergency task reference update failed",
+                            fields: [
+                                "projects_assigned": String(count),
+                                "error": error.localizedDescription
+                            ]
+                        )
                         semaphore.signal()
                     }
                 }
 
             case .failure(let error):
-                print("❌ Emergency UUID assignment failed: \(error)")
+                logError(
+                    event: "emergency_project_uuid_assignment_failed",
+                    message: "Emergency project UUID assignment failed",
+                    fields: [
+                        "error": error.localizedDescription
+                    ]
+                )
                 semaphore.signal()
             }
         }
@@ -348,13 +390,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Wait for migration to complete (with extended timeout for emergency fix)
         let timeout = DispatchTime.now() + .seconds(60)
         if semaphore.wait(timeout: timeout) == .timedOut {
-            print("⚠️ Emergency migration timed out")
+            logWarning(
+                event: "emergency_migration_timeout",
+                message: "Emergency migration timed out",
+                fields: [
+                    "timeout_seconds": "60"
+                ]
+            )
         }
     }
 
     /// 🔥 EMERGENCY: Verify migration results to ensure all data has proper UUIDs
     private func verifyMigrationResults() {
-        print("📊 Verifying migration results...")
 
         let context = persistentContainer.viewContext
 
@@ -362,8 +409,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
         do {
             let allProjects = try context.fetch(projectRequest)
-            print("📊 Post-migration project verification:")
-            print("   Total projects: \(allProjects.count)")
 
             var projectsWithUUID = 0
             var projectsWithoutUUID = 0
@@ -372,22 +417,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 if project.projectID != nil {
                     projectsWithUUID += 1
                     if let projectName = project.projectName {
-                        print("   ✅ Project '\(projectName)' has UUID: \(project.projectID!.uuidString)")
                     }
                 } else {
                     projectsWithoutUUID += 1
-                    print("   ❌ Project without UUID: \(project.projectName ?? "Unknown")")
                 }
             }
 
-            print("   ✅ Projects with UUID: \(projectsWithUUID)")
-            print("   ❌ Projects without UUID: \(projectsWithoutUUID)")
 
             // Check Tasks
             let taskRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
             let allTasks = try context.fetch(taskRequest)
-            print("📊 Post-migration task verification:")
-            print("   Total tasks: \(allTasks.count)")
 
             var tasksWithUUID = 0
             var tasksWithoutUUID = 0
@@ -408,20 +447,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 }
             }
 
-            print("   ✅ Tasks with taskID: \(tasksWithUUID)")
-            print("   ❌ Tasks without taskID: \(tasksWithoutUUID)")
-            print("   ✅ Tasks with projectID: \(tasksWithProjectUUID)")
-            print("   ❌ Tasks without projectID: \(tasksWithoutProjectUUID)")
 
             // Overall status
             if projectsWithoutUUID == 0 && tasksWithoutUUID == 0 && tasksWithoutProjectUUID == 0 {
-                print("🎉 MIGRATION SUCCESS: All entities have proper UUIDs!")
             } else {
-                print("⚠️ MIGRATION INCOMPLETE: Some entities still missing UUIDs")
+                logWarning(
+                    event: "migration_incomplete",
+                    message: "Migration incomplete: entities still missing UUIDs",
+                    fields: [
+                        "projects_without_uuid": String(projectsWithoutUUID),
+                        "tasks_without_uuid": String(tasksWithoutUUID),
+                        "tasks_without_project_uuid": String(tasksWithoutProjectUUID)
+                    ]
+                )
             }
 
         } catch {
-            print("❌ Verification failed: \(error)")
+            logError(
+                event: "migration_verification_failed",
+                message: "Migration verification failed",
+                fields: [
+                    "error": error.localizedDescription
+                ]
+            )
         }
     }
 
@@ -429,26 +477,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     /// Setup Clean Architecture with modern components only
     func setupCleanArchitecture() {
-        print("🏢️ Setting up Clean Architecture...")
-        print("HOME_DI app.configure start")
         
         // Configure legacy DependencyContainer for backward compatibility
         DependencyContainer.shared.configure(with: persistentContainer)
-        print("HOME_DI app.configure legacy=ok")
 
         // Configure presentation container with typed API (no reflection).
         PresentationDependencyContainer.shared.configure(with: persistentContainer)
-        print("HOME_DI app.configure presentation=ok")
         
         // Run basic data consolidation
         consolidateDataBasic()
         
-        print("✅ Clean Architecture setup complete")
     }
     
     /// Basic data consolidation without complex type dependencies
     private func consolidateDataBasic() {
-        print("🔄 Running basic data consolidation...")
 
         // Run cleanup first to remove duplicates
         cleanupDuplicateProjects()
@@ -459,7 +501,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Fix any tasks with missing data
         fixMissingTaskData()
 
-        print("✅ Basic data consolidation complete")
     }
 
     /// Clean up duplicate projects from the database
@@ -538,12 +579,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             // Save changes if any duplicates were removed
             if inboxDuplicatesRemoved > 0 || customDuplicatesRemoved > 0 {
                 try context.save()
-                print("🧹 Cleanup completed - Inbox duplicates removed: \(inboxDuplicatesRemoved), Custom duplicates removed: \(customDuplicatesRemoved)")
-            } else {
-                print("✅ No duplicate projects found")
             }
         } catch {
-            print("⚠️ Error cleaning up duplicate projects: \(error)")
+            logWarning(
+                event: "duplicate_project_cleanup_failed",
+                message: "Failed to clean duplicate projects",
+                fields: [
+                    "error": error.localizedDescription
+                ]
+            )
         }
     }
     
@@ -567,19 +611,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 inboxProject.projecDescription = ProjectConstants.inboxProjectDescription
 
                 try context.save()
-                print("✅ Created default Inbox project with UUID: \(ProjectConstants.inboxProjectID)")
             } else {
                 // Ensure existing Inbox has the correct UUID
                 if let inbox = existingProjects.first, inbox.projectID != ProjectConstants.inboxProjectID {
                     inbox.projectID = ProjectConstants.inboxProjectID
                     try context.save()
-                    print("✅ Updated Inbox project with correct UUID")
-                } else {
-                    print("✅ Inbox project already exists with correct UUID")
                 }
             }
         } catch {
-            print("⚠️ Error ensuring Inbox project exists: \(error)")
+            logWarning(
+                event: "ensure_inbox_project_failed",
+                message: "Failed to ensure Inbox project exists",
+                fields: [
+                    "error": error.localizedDescription
+                ]
+            )
         }
     }
     
@@ -638,11 +684,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
             if needsSave {
                 try context.save()
-                print("✅ Fixed missing task data including UUIDs")
             }
 
         } catch {
-            print("⚠️ Error fixing task data: \(error)")
+            logWarning(
+                event: "fix_missing_task_data_failed",
+                message: "Failed to fix missing task data",
+                fields: [
+                    "error": error.localizedDescription
+                ]
+            )
         }
     }
     
