@@ -67,7 +67,7 @@ public final class CompleteTaskUseCase {
         completion: @escaping (Result<TaskCompletionResult, CompleteTaskError>) -> Void
     ) {
         let inputState = taskSnapshot?.isComplete
-        print(
+        logDebug(
             "HOME_ROW_STATE usecase.set_completion " +
             "id=\(taskId.uuidString) requested=\(desiredCompletion) input=\(String(describing: inputState))"
         )
@@ -228,7 +228,7 @@ public final class CompleteTaskUseCase {
                     object: updatedTask
                 )
 
-                print(
+                logDebug(
                     "HOME_ROW_STATE usecase.set_completion_result " +
                     "id=\(taskId.uuidString) requested=true result=\(updatedTask.isComplete)"
                 )
@@ -266,7 +266,7 @@ public final class CompleteTaskUseCase {
                     object: updatedTask
                 )
 
-                print(
+                logDebug(
                     "HOME_ROW_STATE usecase.set_completion_result " +
                     "id=\(taskId.uuidString) requested=false result=\(updatedTask.isComplete)"
                 )

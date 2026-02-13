@@ -66,14 +66,16 @@ public final class CreateTaskUseCase {
                 switch result {
                 case .success(let project):
                     if project != nil || specifiedProjectID == ProjectConstants.inboxProjectID {
-                        print("HOME_ADD_RESOLVE source=projectID projectID=\(specifiedProjectID.uuidString) projectName=\(request.project ?? "nil")")
                         completion(specifiedProjectID)
                     } else {
-                        print("HOME_ADD_RESOLVE source=inbox_fallback projectID=\(ProjectConstants.inboxProjectID.uuidString) projectName=\(request.project ?? "nil")")
                         completion(ProjectConstants.inboxProjectID)
                     }
                 case .failure:
-                    print("HOME_ADD_RESOLVE source=inbox_fallback projectID=\(ProjectConstants.inboxProjectID.uuidString) projectName=\(request.project ?? "nil")")
+                    logWarning(
+                        event: "create_task_project_lookup_failed",
+                        message: "Failed to resolve project by ID; using Inbox",
+                        fields: ["source": "project_id"]
+                    )
                     completion(ProjectConstants.inboxProjectID)
                 }
             }
@@ -86,21 +88,22 @@ public final class CreateTaskUseCase {
                 switch result {
                 case .success(let project):
                     if let project {
-                        print("HOME_ADD_RESOLVE source=projectName projectID=\(project.id.uuidString) projectName=\(requestedProjectName)")
                         completion(project.id)
                     } else {
-                        print("HOME_ADD_RESOLVE source=inbox_fallback projectID=\(ProjectConstants.inboxProjectID.uuidString) projectName=\(requestedProjectName)")
                         completion(ProjectConstants.inboxProjectID)
                     }
                 case .failure:
-                    print("HOME_ADD_RESOLVE source=inbox_fallback projectID=\(ProjectConstants.inboxProjectID.uuidString) projectName=\(requestedProjectName)")
+                    logWarning(
+                        event: "create_task_project_lookup_failed",
+                        message: "Failed to resolve project by name; using Inbox",
+                        fields: ["source": "project_name"]
+                    )
                     completion(ProjectConstants.inboxProjectID)
                 }
             }
             return
         }
 
-        print("HOME_ADD_RESOLVE source=inbox_fallback projectID=\(ProjectConstants.inboxProjectID.uuidString) projectName=nil")
         completion(ProjectConstants.inboxProjectID)
     }
 
@@ -228,4 +231,3 @@ public enum CreateTaskError: LocalizedError {
         }
     }
 }
-

@@ -213,7 +213,6 @@ public struct TaskStatistics: Codable {
             guard let rawValue = Int32(key) else { continue }
             // Validate rawValue before creating TaskPriority to avoid silently mapping invalid values to .none
             guard TaskPriorityConfig.isValidPriority(rawValue) else {
-                print("⚠️ GetTaskStatisticsUseCase: Skipping invalid priority rawValue \(rawValue) during decoding")
                 continue
             }
             let priority = TaskPriority(rawValue: rawValue)
