@@ -102,6 +102,22 @@ class HomePage {
         return app.otherElements[AccessibilityIdentifiers.Home.chartView]
     }
 
+    var navXpPieChart: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.navXpPieChart]
+    }
+
+    var navXpPieChartButton: XCUIElement {
+        let byButtonQuery = app.buttons["home.navXpPieChart.button"]
+        if byButtonQuery.exists {
+            return byButtonQuery
+        }
+        let byOtherElementsQuery = app.otherElements["home.navXpPieChart.button"]
+        if byOtherElementsQuery.exists {
+            return byOtherElementsQuery
+        }
+        return app.otherElements["home.navXpPieChart.container"]
+    }
+
     var taskListScrollView: XCUIElement {
         let identifiedScrollView = app.scrollViews[AccessibilityIdentifiers.Home.taskListScrollView]
         if identifiedScrollView.exists {
@@ -151,6 +167,13 @@ class HomePage {
     /// Tap inbox button
     func tapInbox() {
         inboxButton.tap()
+    }
+
+    /// Tap floating nav XP pie chart.
+    func tapNavXpPieChart() {
+        let chart = navXpPieChart
+        XCTAssertTrue(chart.waitForExistence(timeout: 5), "Navigation XP pie chart should exist before tapping")
+        chart.tap()
     }
 
     /// Tap project filter button
@@ -338,6 +361,70 @@ class HomePage {
     /// Verify chart is visible
     func verifyChartIsVisible() -> Bool {
         return chartView.exists
+    }
+
+    /// Verify floating nav XP pie chart is visible.
+    func verifyNavXpPieChartIsVisible(timeout: TimeInterval = 5) -> Bool {
+        navXpPieChart.waitForExistence(timeout: timeout)
+    }
+
+    /// Verify floating nav XP pie chart is hidden.
+    func verifyNavXpPieChartIsHidden(timeout: TimeInterval = 2) -> Bool {
+        !navXpPieChart.waitForExistence(timeout: timeout)
+    }
+
+    /// Verify floating nav XP pie chart can be interacted with.
+    @discardableResult
+    func verifyNavXpPieChartIsHittable(file: StaticString = #file, line: UInt = #line) -> Bool {
+        let isHittable = navXpPieChart.isHittable
+        if !isHittable {
+            XCTFail("Navigation XP pie chart should be hittable", file: file, line: line)
+        }
+        return isHittable
+    }
+
+    /// Verify floating nav XP pie chart size is approximately expected.
+    @discardableResult
+    func verifyNavXpPieChartSize(
+        expected: CGFloat = 102,
+        tolerance: CGFloat = 12,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        let frame = navXpPieChart.frame
+        let widthMatches = abs(frame.width - expected) <= tolerance
+        let heightMatches = abs(frame.height - expected) <= tolerance
+        let matches = widthMatches && heightMatches
+
+        if !matches {
+            XCTFail(
+                "Expected nav XP pie chart size near \(expected)x\(expected), got \(frame.width)x\(frame.height)",
+                file: file,
+                line: line
+            )
+        }
+
+        return matches
+    }
+
+    /// Verify nav XP pie chart button/container is absent.
+    @discardableResult
+    func verifyNavXpPieChartButtonIsAbsent(file: StaticString = #file, line: UInt = #line) -> Bool {
+        let isAbsent = !navXpPieChartButton.exists
+        if !isAbsent {
+            XCTFail("Navigation XP pie chart button should be absent", file: file, line: line)
+        }
+        return isAbsent
+    }
+
+    /// Verify nav XP pie chart button/container is present.
+    @discardableResult
+    func verifyNavXpPieChartButtonIsPresent(timeout: TimeInterval = 3, file: StaticString = #file, line: UInt = #line) -> Bool {
+        let isPresent = navXpPieChartButton.waitForExistence(timeout: timeout)
+        if !isPresent {
+            XCTFail("Navigation XP pie chart button should be present", file: file, line: line)
+        }
+        return isPresent
     }
 
     /// Verify empty state (no tasks)
