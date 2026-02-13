@@ -162,7 +162,7 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
-    private func applyQuickView(_ view: HomeQuickView, to tasks: [Task], state: HomeFilterState) -> [Task] {
+    private func applyQuickView(_ view: HomeQuickView, to tasks: [Task], state _: HomeFilterState) -> [Task] {
         let calendar = Calendar.current
         let now = Date()
         let startOfToday = calendar.startOfDay(for: now)
@@ -178,17 +178,12 @@ public final class GetHomeFilteredTasksUseCase {
                 let overdue = dueDate.map { $0 < startOfToday } ?? false
 
                 guard dueToday || overdue else { return false }
-
-                if task.isComplete {
-                    return state.showCompletedInline
-                }
-
                 return true
             }
 
         case .upcoming:
             return tasks.filter { task in
-                guard !task.isComplete, let dueDate = task.dueDate else { return false }
+                guard let dueDate = task.dueDate else { return false }
                 return dueDate >= startOfTomorrow && dueDate <= endOfUpcomingWindow
             }
 
@@ -200,17 +195,11 @@ public final class GetHomeFilteredTasksUseCase {
 
         case .morning:
             return tasks.filter { task in
-                if task.isComplete && !state.showCompletedInline {
-                    return false
-                }
                 return isMorningTaskHybrid(task)
             }
 
         case .evening:
             return tasks.filter { task in
-                if task.isComplete && !state.showCompletedInline {
-                    return false
-                }
                 return isEveningTaskHybrid(task)
             }
         }
