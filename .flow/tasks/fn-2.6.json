@@ -1,0 +1,16 @@
+{
+  "assignee": null,
+  "claim_note": "",
+  "claimed_at": null,
+  "created_at": "2026-02-13T17:40:28.445164Z",
+  "depends_on": [
+    "fn-2.5"
+  ],
+  "epic": "fn-2",
+  "id": "fn-2.6",
+  "priority": null,
+  "spec_path": ".flow/tasks/fn-2.6.md",
+  "status": "todo",
+  "title": "Focus drag/drop interactions and state",
+  "updated_at": "2026-02-13T17:40:28.445266Z"
+}
