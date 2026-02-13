@@ -1,0 +1,23 @@
+{
+  "checks": [
+    {
+      "command": "./scripts/check-no-print-logs.sh",
+      "result": "passed"
+    },
+    {
+      "command": "rg -n '\\blogWarning\\(\\s*\"' 'To Do List' -g '*.swift'",
+      "result": "no matches"
+    },
+    {
+      "command": "rg -n 'HOME_DI|HOME_DATA|HOME_UI_MODE|\\[RADAR\\]' 'To Do List' -g '*.swift'",
+      "result": "no matches"
+    },
+    {
+      "command": "rg -n 'customClassName=\"\\[(UUID|String)\\]\"' 'To Do List/TaskModel.xcdatamodeld/TaskModel.xcdatamodel/contents'",
+      "result": "no matches"
+    }
+  ],
+  "notes": [
+    "xcodebuild verification deferred to user manual run due sandbox restrictions."
+  ]
+}

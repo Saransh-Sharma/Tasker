@@ -1,0 +1,37 @@
+{
+  "assignee": "saransh1337@gmail.com",
+  "claim_note": "",
+  "claimed_at": "2026-02-13T15:27:16.477747Z",
+  "created_at": "2026-02-13T15:03:43.506470Z",
+  "depends_on": [],
+  "epic": "fn-1",
+  "evidence": {
+    "checks": [
+      {
+        "command": "./scripts/check-no-print-logs.sh",
+        "result": "passed"
+      },
+      {
+        "command": "rg -n '\\blogWarning\\(\\s*\"' 'To Do List' -g '*.swift'",
+        "result": "no matches"
+      },
+      {
+        "command": "rg -n 'HOME_DI|HOME_DATA|HOME_UI_MODE|\\[RADAR\\]' 'To Do List' -g '*.swift'",
+        "result": "no matches"
+      },
+      {
+        "command": "rg -n 'customClassName=\"\\[(UUID|String)\\]\"' 'To Do List/TaskModel.xcdatamodeld/TaskModel.xcdatamodel/contents'",
+        "result": "no matches"
+      }
+    ],
+    "notes": [
+      "xcodebuild verification deferred to user manual run due sandbox restrictions."
+    ]
+  },
+  "id": "fn-1.1",
+  "priority": 2,
+  "spec_path": ".flow/tasks/fn-1.1.md",
+  "status": "done",
+  "title": "Prune verbose logs and migrate retained logs",
+  "updated_at": "2026-02-13T15:28:26.055510Z"
+}
