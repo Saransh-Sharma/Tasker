@@ -2,892 +2,111 @@
 //  HomeViewController.swift
 //  To Do List
 //
-//  Created by Saransh Sharma on 14/04/20.
-//  Copyright 2020 saransh1337. All rights reserved.
+//  SwiftUI host for Home screen with backdrop/foredrop shell.
 //
 
 import UIKit
-import SemiModalViewController
-import ViewAnimator
-import FSCalendar
+import SwiftUI
+import Combine
+import CoreData
 import DGCharts
 import FluentUI
-import UserNotifications
-import TinyConstraints
-import MaterialComponents.MaterialButtons
-import MaterialComponents.MaterialBottomAppBar
-import SwiftUI
-import MaterialComponents.MaterialButtons_Theming
-import MaterialComponents.MaterialRipple
-import Combine
-import CoreData  // TODO: Remove once all NSFetchRequest calls are migrated to repository pattern
 
-// MARK: - Clean Architecture Integration
-// Import actual Clean Architecture types from Presentation layer
-// - HomeViewControllerProtocol: Protocol for DI to inject HomeViewModel
-// - HomeViewModel: ViewModel for business logic and state management
-// - PresentationDependencyContainer: Dependency injection container
+final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeViewControllerProtocol {
 
-// MARK: - Liquid Glass Bottom App Bar
+    // MARK: - Dependencies
 
-/// iOS 26 style bottom app bar with liquid glass transparent material background
-class LiquidGlassBottomAppBar: UIView, UITabBarDelegate {
-    
-    // MARK: - Properties
-    
-    /// Native tab bar configured with liquid glass appearance
-    private let tabBar = UITabBar()
-    
-    /// Mapping from tab index to original target/action
-    private var itemActions: [(target: AnyObject?, action: Selector?)] = []
-    
-    /// Glass morphism background layers
-    private let blurEffectView = UIVisualEffectView()
-    private let gradientLayer = CAGradientLayer()
-    private let borderLayer = CAShapeLayer()
-    
-    /// Expose a custom floating button (not Material)
-    let floatingButton: UIButton = {
-        let b = UIButton(type: .custom)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        b.backgroundColor = .clear
-        b.tintColor = .label
-        b.layer.cornerRadius = 28
-        b.clipsToBounds = false
-        b.isHidden = true
-        return b
-    }()
-    
-    /// Tint color for tab items
-    override var tintColor: UIColor! {
-        didSet {
-            tabBar.tintColor = tintColor
-            tabBar.unselectedItemTintColor = tintColor?.withAlphaComponent(0.6)
-            updateGlassAppearance()
-        }
-    }
-    
-    // MARK: - Initialization
-    
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        setupLiquidGlassView()
-    }
-    
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setupLiquidGlassView()
-    }
-    
-    // MARK: - Setup
-    
-    private func setupLiquidGlassView() {
-        // Ensure container view is fully transparent
-        backgroundColor = .clear
-        isOpaque = false
-
-        // Configure the tab bar
-        tabBar.translatesAutoresizingMaskIntoConstraints = false
-        tabBar.isTranslucent = true
-        tabBar.backgroundImage = UIImage()
-        tabBar.shadowImage = UIImage()
-        tabBar.backgroundColor = .clear
-        tabBar.clipsToBounds = false
-        tabBar.delegate = self
-        setupTabBarAppearance()
-        addSubview(tabBar)
-
-        // Add floating button
-        addSubview(floatingButton)
-        let tokens = TaskerThemeManager.shared.currentTheme.tokens
-        floatingButton.backgroundColor = tokens.color.accentPrimary
-        floatingButton.tintColor = tokens.color.accentOnPrimary
-        floatingButton.applyTaskerElevation(.e2)
-
-        // Layout constraints
-        NSLayoutConstraint.activate([
-            tabBar.leadingAnchor.constraint(equalTo: leadingAnchor),
-            tabBar.trailingAnchor.constraint(equalTo: trailingAnchor),
-            tabBar.topAnchor.constraint(equalTo: topAnchor),
-            tabBar.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            floatingButton.centerXAnchor.constraint(equalTo: centerXAnchor),
-            // Position FAB to overlap the top edge slightly
-            floatingButton.centerYAnchor.constraint(equalTo: topAnchor),
-            floatingButton.widthAnchor.constraint(equalToConstant: 56),
-            floatingButton.heightAnchor.constraint(equalToConstant: 56)
-        ])
-
-        // No extra background layers; rely on transparent tab bar appearance only
-        setupGlassLayers()
-
-        // Initial appearance
-        updateGlassAppearance()
-    }
-    
-    private func setupGlassLayers() {
-        // Remove any previously added background layers to avoid a rectangle behind the tab bar
-        if blurEffectView.superview != nil { blurEffectView.removeFromSuperview() }
-        gradientLayer.removeFromSuperlayer()
-        borderLayer.removeFromSuperlayer()
-    }
-    
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        updateGlassLayers()
-    }
-    
-    private func updateGlassLayers() {
-        // No-op: we removed background layers
-    }
-    
-    // MARK: - Glass Morphism Appearance
-    
-    private func updateGlassAppearance() {
-        // No background layers; keep items only
-        updateBorder()
-    }
-    
-    private func updateBlurEffect() {
-        // No blur view used; rely on UITabBarAppearance only
-    }
-    
-    private func updateGradientOverlay() {
-        // No gradient overlay
-    }
-    
-    private func updateBorder() {
-        // No border to keep the bar fully clean
-        borderLayer.lineWidth = 0
-        borderLayer.strokeColor = UIColor.clear.cgColor
-    }
-    
-    // MARK: - Convenience Methods
-    
-    /// Sets up the bottom app bar with common configuration
-    func configureStandardAppBar(leadingItems: [UIBarButtonItem] = [],
-                                 trailingItems: [UIBarButtonItem] = [],
-                                 showFloatingButton: Bool = false) {
-        // Map UIBarButtonItems to UITabBarItems and store actions
-        let allItems = leadingItems + trailingItems
-        itemActions = allItems.map { ($0.target as AnyObject?, $0.action) }
-        let tabItems: [UITabBarItem] = allItems.enumerated().map { (idx, barItem) in
-            let item = UITabBarItem(title: nil, image: barItem.image, tag: idx)
-            return item
-        }
-        tabBar.items = tabItems
-        tabBar.selectedItem = nil
-
-        // Show or hide floating button
-        floatingButton.isHidden = !showFloatingButton
-
-        // Ensure it stays above other views
-        layer.zPosition = 1000
-    }
-
-    private func setupTabBarAppearance() {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithTransparentBackground()
-        // No background effect; keep the tab bar fully clear (no rectangle view behind)
-        appearance.backgroundEffect = nil
-        appearance.backgroundColor = .clear
-        appearance.shadowColor = .clear
-
-        // Optional: tweak item appearance
-        let fallbackTint = TaskerThemeManager.shared.currentTheme.tokens.color.accentOnPrimary
-        let normalColor = (tintColor ?? fallbackTint).withAlphaComponent(0.6)
-        appearance.stackedLayoutAppearance.normal.iconColor = normalColor
-        appearance.inlineLayoutAppearance.normal.iconColor = normalColor
-        appearance.compactInlineLayoutAppearance.normal.iconColor = normalColor
-
-        tabBar.standardAppearance = appearance
-        if #available(iOS 15.0, *) {
-            tabBar.scrollEdgeAppearance = appearance
-        }
-    }
-
-    // MARK: - UITabBarDelegate
-    func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-        guard let idx = tabBar.items?.firstIndex(of: item) else { return }
-        let mapping = itemActions[idx]
-        if let action = mapping.action {
-            UIApplication.shared.sendAction(action, to: mapping.target, from: self, for: nil)
-        }
-        // Deselect to behave like buttons rather than persistent selection
-        tabBar.selectedItem = nil
-    }
-}
-// Import the delegate protocol
-import Foundation
-
-// Import TaskProgressCard from Views/Cards
-// Note: TaskProgressCard is defined in ChartCard.swift
-
-class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchControllerDelegate, UITableViewDataSource, UITableViewDelegate, UISearchBarDelegate, TaskRepositoryDependent, HomeViewControllerProtocol {
-    
-    // MARK: - Clean Architecture Integration
-    
-    /// Setup Clean Architecture integration
-    private func setupCleanArchitecture() {
-        initializeCleanArchitecture()
-
-        guard let homeViewModel = viewModel else {
-            print("HOME_DI home.setup viewModel=nil")
-
-            // Keep repository available for task detail + selection flows.
-            if taskRepository == nil,
-               let appDelegate = UIApplication.shared.delegate as? AppDelegate {
-                taskRepository = CoreDataTaskRepository(container: appDelegate.persistentContainer, defaultProject: "Inbox")
-            }
-            return
-        }
-
-        print("HOME_DI home.setup viewModel=non_nil")
-        setupViewModelBindingsIfNeeded(homeViewModel)
-        if !hasLoadedInitialViewModelData {
-            loadInitialDataViaViewModel(homeViewModel)
-            hasLoadedInitialViewModelData = true
-        }
-    }
-    
-    /// Setup Combine bindings with HomeViewModel
-    private func setupViewModelBindingsIfNeeded(_ viewModel: HomeViewModel) {
-        guard !hasBoundHomeViewModel else { return }
-        hasBoundHomeViewModel = true
-
-        // Bind ViewModel state to UI updates
-        viewModel.$morningTasks
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] tasks in
-                self?.updateMorningTasksUI(tasks)
-            }
-            .store(in: &cancellables)
-
-        // Bind evening tasks
-        viewModel.$eveningTasks
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] tasks in
-                self?.updateEveningTasksUI(tasks)
-            }
-            .store(in: &cancellables)
-
-        // Bind overdue tasks
-        viewModel.$overdueTasks
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] tasks in
-                self?.updateOverdueTasksUI(tasks)
-            }
-            .store(in: &cancellables)
-
-        // Bind completion-derived task collections to ensure immediate done/reopen rendering updates.
-        viewModel.$doneTimelineTasks
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.refreshTableView()
-            }
-            .store(in: &cancellables)
-
-        viewModel.$completedTasks
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.refreshTableView()
-            }
-            .store(in: &cancellables)
-
-        viewModel.$dailyCompletedTasks
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.refreshTableView()
-            }
-            .store(in: &cancellables)
-
-        // Bind projects
-        viewModel.$projects
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] projects in
-                self?.updateProjectsUI(projects)
-            }
-            .store(in: &cancellables)
-
-        viewModel.$activeFilterState
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.refreshQuickFilterMenuContent()
-                self?.refreshTableView()
-            }
-            .store(in: &cancellables)
-
-        viewModel.$quickViewCounts
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.refreshQuickFilterMenuContent()
-            }
-            .store(in: &cancellables)
-
-        viewModel.$savedHomeViews
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.refreshQuickFilterMenuContent()
-            }
-            .store(in: &cancellables)
-
-        viewModel.$pointsPotential
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] points in
-                self?.focusPotentialLabel.text = points > 0 ? "Potential \(points) pts" : nil
-            }
-            .store(in: &cancellables)
-
-        // Bind loading state
-        viewModel.$isLoading
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] isLoading in
-                self?.updateLoadingState(isLoading)
-            }
-            .store(in: &cancellables)
-
-        // Bind error messages
-        viewModel.$errorMessage
-            .compactMap { $0 }
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] error in
-                self?.showError(error)
-            }
-            .store(in: &cancellables)
-
-        // Bind daily score
-        viewModel.$dailyScore
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] score in
-                self?.updateScoreDisplay(score)
-            }
-            .store(in: &cancellables)
-
-        print("HOME_DI home.bindings ready")
-    }
-    
-    /// Load initial data via ViewModel
-    private func loadInitialDataViaViewModel(_ viewModel: HomeViewModel) {
-        // Load today's tasks and projects
-        viewModel.loadTodayTasks()
-        viewModel.loadProjects()
-        print("✅ HomeViewController: Initial data loading via ViewModel")
-    }
-    
-    /// Update morning tasks UI from ViewModel
-    private func updateMorningTasksUI(_ tasks: [Task]) {
-        print("📋 Updating morning tasks: \(tasks.count) tasks")
-        refreshTableView()
-    }
-    
-    /// Update evening tasks UI from ViewModel
-    private func updateEveningTasksUI(_ tasks: [Task]) {
-        print("🌙 Updating evening tasks: \(tasks.count) tasks")
-        refreshTableView()
-    }
-
-    /// Update overdue tasks UI from ViewModel
-    private func updateOverdueTasksUI(_ tasks: [Task]) {
-        print("⏰ Updating overdue tasks: \(tasks.count) tasks")
-        refreshTableView()
-    }
-
-    /// Update projects UI from ViewModel
-    private func updateProjectsUI(_ projects: [Project]) {
-        print("📁 Updating projects: \(projects.count) projects")
-        refreshQuickFilterMenuContent()
-        refreshTableView()
-    }
-    
-    /// Update loading state
-    private func updateLoadingState(_ isLoading: Bool) {
-        // Show/hide loading indicators
-        print("⏳ Loading: \(isLoading)")
-    }
-    
-    /// Show error message
-    private func showError(_ message: String) {
-        let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
-    }
-    
-    /// Update score display
-    private func updateScoreDisplay(_ score: Int) {
-        print("🏆 Daily Score: \(score)")
-        guard Calendar.current.isDateInToday(dateForTheView) else { return }
-        applyScoreDisplay(score, for: dateForTheView)
-    }
-    
-    /// Refresh table view
-    private func refreshTableView() {
-        refreshHomeTaskList(reason: "viewModelPublish")
-    }
-
-    struct HomeTaskListInput {
-        let morning: [DomainTask]
-        let evening: [DomainTask]
-        let overdue: [DomainTask]
-        let projects: [Project]
-        let doneTimeline: [DomainTask]
-        let activeQuickView: HomeQuickView?
-        let projectGroupingMode: HomeProjectGroupingMode
-        let customProjectOrderIDs: [UUID]
-        let emptyStateMessage: String?
-        let emptyStateActionTitle: String?
-    }
-
-    func refreshHomeTaskList(reason: String = "manual") {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.setupTaskListViewInForedrop()
-            self.layoutForedropListViews()
-            print("HOME_UI_MODE renderer=TaskListView reason=\(reason) mode=\(self.currentViewType)")
-        }
-    }
-    
-    // MARK: - Legacy Properties & Methods
-    
-    /// Task repository dependency (injected)
     var taskRepository: TaskRepository!
-    
-    /// HomeViewModel dependency (injected) - Clean Architecture
     var viewModel: HomeViewModel!
 
-    /// Combine cancellables for ViewModel bindings
-    private var cancellables = Set<AnyCancellable>()
-    private var hasBoundHomeViewModel = false
-    private var hasLoadedInitialViewModelData = false
-    
-    let cellReuseID = TableViewCell.identifier   // FluentUI's own ID
-    let headerReuseID = TableViewHeaderFooterView.identifier
-    
-    // View containers
-    var backdropContainer = UIView()
-    var foredropContainer = UIView()
-    var bottomBarContainer = UIView()
-    let lineSeparator = UIView()
-    
-    // Utilities
-    let notificationCenter = NotificationCenter.default
-    var headerEndY: CGFloat = 128
-    var todoColors: TaskerColorTokens = TaskerThemeManager.shared.currentTheme.tokens.color
-    var todoTimeUtils = ToDoTimeUtils()
-    
-    // UI Elements
-    var homeTopBar: UIView = UIView()
-    var homeTitleRow = UIView()
-    var focusPotentialLabel = UILabel()
-    var homeAdvancedFilterButton = UIButton(type: .system)
-    var quickFilterMenuBackdrop = UIView()
-    var quickFilterMenuContainer = UIView()
-    var quickFilterMenuScrollView = UIScrollView()
-    var quickFilterMenuContentStack = UIStackView()
-    var quickFilterMenuQuickSectionLabel = UILabel()
-    var quickFilterMenuProjectSectionLabel = UILabel()
-    var quickFilterMenuGroupingSectionLabel = UILabel()
-    var quickFilterMenuQuickScrollView = UIScrollView()
-    var quickFilterMenuQuickStack = UIStackView()
-    var quickFilterMenuProjectScrollView = UIScrollView()
-    var quickFilterMenuProjectStack = UIStackView()
-    var quickFilterMenuGroupingScrollView = UIScrollView()
-    var quickFilterMenuGroupingStack = UIStackView()
-    var quickFilterMenuAdvancedButton = UIButton(type: .system)
-    var isQuickFilterMenuVisible = false
-    var filledBar: UIView?
-    var notificationBadgeNumber: Int = 0
-    let ultraLightConfiguration = UIImage.SymbolConfiguration(weight: .regular)
-    var highestPrioritySymbol = UIImage()
-    var highPrioritySymbol = UIImage()
-    
-    // FSCalendar instance for backdrop calendar (initialized in UISetup extension)
-    var calendar: FSCalendar!
-    
-    // Table view state
-    var shouldAnimateCells = true
-    var ToDoListSections: [ToDoListData.Section] = []
-    var listSection: ToDoListData.Section? = nil
-    var openTaskCheckboxTag = 0
-    var currentIndex: IndexPath = [0,0]
-    let toDoListHeaderLabel = UILabel()
-    // Added properties for backdrop/foredrop UI elements (Plan Step K)
-    let revealCalAtHomeButton    = UIButton(type: .system)
-    let revealChartsAtHomeButton = UIButton(type: .system)
-    let backdropBackgroundImageView = UIImageView()
-    let backdropNochImageView       = UIImageView()
-    var backdropForeImageView = UIImageView()
-    let backdropForeImage = UIImage(named: "backdropFrontImage")
-    var seperatorTopLineView = UIView()
-    let homeDate_Day     = UILabel()
-    let homeDate_WeekDay = UILabel()
-    let homeDate_Month   = UILabel()
-    
-    // UI Components
-    var filterProjectsPillBar: UIView?
-    var bar = PillButtonBar(pillButtonStyle: .primary)
-    var pillBarProjectList: [PillButtonBarItem] = []
-    
-    // Constants
-    static let margin: CGFloat = 16
-    static let horizontalSpacing: CGFloat = 40
-    static let verticalSpacing: CGFloat = 16
-    static let rowTextWidth: CGFloat = 75
-    
-    // Charts (Phase 5: Transition Complete)
-    // Legacy UIKit charts - kept for compatibility but deprecated
-    lazy var lineChartView: LineChartView = {
-        let chart = LineChartView()
-        chart.isHidden = true // keep legacy chart invisible
-        return chart
-    }() // Legacy DGCharts view kept only for backward compatibility
-    lazy var tinyPieChartView: PieChartView = { return PieChartView() }()
-    var navigationPieChartView: PieChartView?
+    // MARK: - UI
+
+    private var homeHostingController: UIHostingController<HomeBackdropForedropRootView>?
+
+    // Tiny pie chart / nav XP state
+    lazy var tinyPieChartView: PieChartView = { PieChartView() }()
+    private var navigationPieChartView: PieChartView?
     private weak var navigationPieChartAnchorView: UIView?
-    private let navigationPieChartAnchorSize: CGFloat = 34
-    private let navigationPieChartFloatingScale: CGFloat = 3
+    private let navigationPieChartSize: CGFloat = 34
     private var shouldShowNavigationPieChart = false
-    private var navigationPieChartFloatingSize: CGFloat {
-        navigationPieChartAnchorSize * navigationPieChartFloatingScale
-    }
-    
-    // Tiny pie chart config (used by TinyPieChart.swift)
-    var shouldHideData: Bool = false
-    var tinyPieChartSections: [String] = ["Done", "In Progress", "Not Started", "Overdue"]
-    
-    // Primary SwiftUI Chart Card (Phase 5: Now the main chart implementation)
-    // Note: TaskProgressCard is defined in ChartCard.swift
-    // Using AnyView to work around type resolution issue
-    var swiftUIChartHostingController: UIHostingController<AnyView>?
-    var swiftUIChartContainer: UIView?
 
-    // Radar Chart Card (Phase 6: Project breakdown chart)
-    var radarChartHostingController: UIHostingController<AnyView>?
-    var radarChartContainer: UIView?
+    // MARK: - State
 
-    // Horizontally Scrollable Chart Cards (Phase 7: Unified chart view)
-    var chartScrollHostingController: UIHostingController<AnyView>?
-    var chartScrollContainer: UIView?
+    private let notificationCenter = NotificationCenter.default
+    private var cancellables = Set<AnyCancellable>()
+    private var pendingChartRefreshWorkItem: DispatchWorkItem?
+    private let chartRefreshDebounceSeconds: TimeInterval = 0.12
 
-    // Legacy properties removed - sampleTableView and sampleData
-    // var sampleTableView = UITableView(frame: .zero, style: .grouped)
-    // var sampleData: [(String, [NTask])] = []
-    
-    // FluentUI To Do TableView Controller
-    var fluentToDoTableViewController: FluentUIToDoTableViewController?
-    var taskListHostingController: TransparentHostingController<TaskListView>?
-    
-    // View state
-    var projectForTheView = "Inbox" // Default project name
-    var currentViewType = ToDoListViewType.todayHomeView
-    var selectedProjectNamesForFilter: [String] = []
-    var projectsToDisplayAsSections: [Projects] = []
-    var tasksGroupedByProject: [String: [NTask]] = [:]
-    
-    // Date handling
-    var firstDay = Date.today()
-    var nextDay = Date.today()
+    var shouldHideData = false
     var dateForTheView = Date.today()
-    
-    // Scores and labels
-    var scoreForTheDay: UILabel! = nil
-    let scoreAtHomeLabel = UILabel()
-    // Legacy scoreCounter kept for backward-compatibility with existing code paths
-    var scoreCounter = UILabel()
-    // New navigation title label containing date + score
-    var navigationTitleLabel: UILabel?
-    
-    // Bottom app bar - Liquid Glass UI
-    var liquidGlassBottomBar: LiquidGlassBottomAppBar?
-    
-    // Foredrop state management
-    var foredropStateManager: ForedropStateManager?
-    
-    // Legacy state flags (deprecated - use foredropStateManager instead)
-    var isCalDown: Bool = false
-    var isChartsDown: Bool = false
-    
-    // Animations
-    let toDoAnimations: ToDoAnimations = ToDoAnimations()
-    
-    
-//     State flags
-    var isGrouped: Bool = false {
-        didSet {
-            refreshHomeTaskList(reason: "isGrouped.didSet")
-            animateTableViewReload()
-        }
-    }
-    var isBackdropRevealed: Bool = false
-    var foredropClosedY: CGFloat = 0
-    var revealDistance: CGFloat = 0
-    var originalForedropCenterY: CGFloat = .zero // Added (Plan Step K)
-    var chartRevealDistance: CGFloat = 0 // Distance for chart animations
-    
-    // MARK: - Dynamic Animation Calculations
-    
-    
-    
-    func calculateRevealDistance() -> CGFloat {
-        guard let chartContainer = swiftUIChartContainer else { return 300 } // Default fallback
-        let chartStartY = chartContainer.frame.minY
-        let padding: CGFloat = 20
-        let targetY = chartStartY - padding
-        let currentForedropTop = originalForedropCenterY - (foredropContainer.bounds.height / 2)
-        return max(0, targetY - currentForedropTop)
+    var todoColors: TaskerColorTokens = TaskerThemeManager.shared.currentTheme.tokens.color
+
+    // MARK: - Lifecycle
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        injectDependenciesIfNeeded()
+        configureNavigationBar()
+        bindTheme()
+        bindViewModel()
+        mountHomeShell()
+        observeMutations()
+
+        updateDailyScore(for: dateForTheView)
     }
 
-    func calculateChartRevealDistance() -> CGFloat {
-        guard let chartContainer = swiftUIChartContainer else { return 500 } // Default fallback
-        let chartStartY = chartContainer.frame.minY
-        let chartHeight = chartContainer.frame.height
-        let padding: CGFloat = 20
-        let targetY = chartStartY + chartHeight + padding
-        let currentForedropTop = originalForedropCenterY - (foredropContainer.bounds.height / 2)
-        return max(0, targetY - currentForedropTop)
-    }
-
-    // IBOutlets
-    @IBOutlet weak var addTaskButton: MDCFloatingButton! {
-        didSet {
-            addTaskButton?.accessibilityIdentifier = "home.addTaskButton"
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if shouldShowNavigationPieChart {
+            layoutNavigationPieChart()
         }
     }
-    @IBOutlet weak var darkModeToggle: UISwitch!
-    
-    // MARK: - Clean Architecture Integration
-    
-    /// Initialize Clean Architecture components
-    private func initializeCleanArchitecture() {
-        print("HOME_DI home.inject start")
-        DependencyContainer.shared.inject(into: self)
+
+    deinit {
+        notificationCenter.removeObserver(self)
+    }
+
+    // MARK: - Setup
+
+    private func injectDependenciesIfNeeded() {
+        if taskRepository == nil {
+            DependencyContainer.shared.inject(into: self)
+        }
 
         if viewModel == nil {
             PresentationDependencyContainer.shared.inject(into: self)
         }
 
-        print("HOME_DI home.inject viewModel=\(viewModel != nil)")
-    }
-
-    /// Internal setup method - now delegated to setupCleanArchitecture
-    private func setupCleanArchitectureInternal() {
-        // Clean Architecture setup is now handled in setupCleanArchitecture()
-        // This method is kept for compatibility with existing code
-    }
-
-    // MARK: - Lifecycle Methods
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        
-        // Setup Clean Architecture if available
-        setupCleanArchitecture()
-        print("HOME_DI viewDidLoad viewModel=\(viewModel != nil)")
-        
-        // Legacy setup continues...
-        
-        print("\n=== HOME VIEW CONTROLLER LOADED ===")
-        print("Initial dateForTheView: \(dateForTheView)")
-        
-        // Fix invalid priority values in database
-        fixInvalidTaskPriorities()
-        
-        print("=== HOME VIEW CONTROLLER SETUP COMPLETE ===")
-        TaskerThemeManager.shared.publisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.applyTheme()
-            }
-            .store(in: &cancellables)
-        
-        // Setup FluentUI Navigation Bar
-        setupFluentUINavigationBar()
-        
-        // Setup notification observers
-        notificationCenter.addObserver(self, selector: #selector(appMovedToForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
-        notificationCenter.addObserver(self, selector: #selector(appMovedToBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
-        notificationCenter.addObserver(self, selector: #selector(appTerminated), name: UIApplication.willTerminateNotification, object: nil)
-        
-        // Setup chart refresh notification observer
-        notificationCenter.addObserver(self, selector: #selector(taskCompletionChanged), name: NSNotification.Name("TaskCompletionChanged"), object: nil)
-        print("📡 HomeViewController: Added TaskCompletionChanged notification observer")
-        
-        // Configure UI
-        dateForTheView = Date.today()
-        
-        // Note: contentScrollView is FluentUI-specific, removed for native iOS compatibility
-        // ShyHeaderController behavior will be handled differently if needed
-        
-        highestPrioritySymbol = (UIImage(systemName: "circle.fill", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.accentMuted, renderingMode: .alwaysOriginal))!
-        highPrioritySymbol = (UIImage(systemName: "circle", withConfiguration: ultraLightConfiguration)?.withTintColor(todoColors.accentMuted, renderingMode: .alwaysOriginal))!
-        
-        self.setupBackdrop()
-        view.addSubview(backdropContainer)
-        
-        view.addSubview(foredropContainer)
-        foredropContainer.accessibilityIdentifier = "home.view"
-        self.setupHomeFordrop()
-        
-        // Setup and add bottom app bar - it should be the topmost view
-        self.configureLiquidGlassBottomAppBar()
-        if let lgBottomBar = liquidGlassBottomBar {
-            view.addSubview(lgBottomBar)
-            // Set up constraints immediately after adding to view hierarchy
-            setupLiquidGlassBottomBarConstraints(lgBottomBar)
-        }
-        
-        foredropContainer.backgroundColor = todoColors.surfacePrimary
-        // Apply initial themed backgrounds
-        view.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.05)
-        backdropContainer.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.05)
-        
-        // Initial data loading handled by setupCleanArchitectureIfAvailable()
-        
-        // Enable dark mode if preset
-        enableDarkModeIfPreset()
-        
-        // Initial view update
-        updateViewForHome(viewType: .todayHomeView)
-
-        // Phase 7: Old single chart removed - now using chartScrollContainer with horizontal scrolling
-        // setupSwiftUIChartCard()
-
-        // Initialize foredrop state manager after all views are set up
-        initializeForedropStateManager()
-        
-        // Display today's initial score in navigation bar
-        updateDailyScore()
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(true)
-        
-        
-        
-        DispatchQueue.main.async { [weak self] in 
-            guard let self else { return }
-            self.refreshHomeTaskList(reason: "viewWillAppear")
-            // Animate table view reload
-//            self?.animateTableViewReload()
+        // Safety fallback for development paths where presentation DI was skipped.
+        if viewModel == nil,
+           let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+            let taskRepo = CoreDataTaskRepository(container: appDelegate.persistentContainer, defaultProject: "Inbox")
+            let projectRepo = CoreDataProjectRepository(container: appDelegate.persistentContainer)
+            let coordinator = UseCaseCoordinator(taskRepository: taskRepo, projectRepository: projectRepo)
+            viewModel = HomeViewModel(useCaseCoordinator: coordinator)
         }
 
-    }
-    
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        shouldAnimateCells = false
-        
-        if shouldShowNavigationPieChart {
-            // Ensure canonical nav-right pie chart exists - recreate if needed.
-            ensureNavigationPieChartBarButton()
-            refreshNavigationPieChart()
-        }
-        
-        // Runtime backup fix: Find and fix any dummy table views created by ShyHeaderController
-        findAndFixDummyTableView()
-    } // end of viewDidAppear
-    
-    /// Recursively searches the view hierarchy for UITableView instances (excluding our main table view)
-    /// and makes them transparent. This is a backup fix for any dummy table views created by ShyHeaderController.
-    private func findAndFixDummyTableView() {
-        func searchViewHierarchy(_ view: UIView) {
-            for subview in view.subviews {
-                if let tableView = subview as? UITableView,
-                   tableView != fluentToDoTableViewController?.tableView {
-                    // Found a dummy table view - make it transparent
-                    tableView.backgroundColor = UIColor.clear
-                    tableView.isOpaque = false
-                    tableView.backgroundView = nil
-                    print("🔧 Fixed dummy UITableView at \(tableView)")
-                }
-                // Recursively search subviews
-                searchViewHierarchy(subview)
-            }
-        }
-        
-        // Start search from navigation controller's view if available
-        if let navView = navigationController?.view {
-            searchViewHierarchy(navView)
-        }
-        // Also search our own view hierarchy
-        searchViewHierarchy(view)
-    }
-    
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-    }
-    
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-
-        // Resize/reapply header gradient layers to match current bounds
-        refreshBackdropGradientForCurrentTheme(deferredIfNeeded: false)
-
-        // Liquid Glass bottom app bar uses Auto Layout constraints set up in viewDidLoad
-
-        // Update foredrop state manager layout
-        foredropStateManager?.updateLayout()
-
-        // Keep title/list layout in sync after bounds changes (rotation, split view).
-        layoutForedropListViews()
-
-        // Keep floating navigation chart aligned with its nav bar anchor.
-        if shouldShowNavigationPieChart {
-            attachNavigationPieChartOverlayIfNeeded()
-            layoutNavigationPieChartOverlayFromAnchor()
+        if taskRepository == nil,
+           let appDelegate = UIApplication.shared.delegate as? AppDelegate {
+            taskRepository = CoreDataTaskRepository(container: appDelegate.persistentContainer, defaultProject: "Inbox")
         }
     }
-    
-    /// Sets up Auto Layout constraints for the Liquid Glass bottom app bar
-    private func setupLiquidGlassBottomBarConstraints(_ lgBottomBar: LiquidGlassBottomAppBar) {
-        // Ensure Auto Layout is enabled
-        lgBottomBar.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Use safe area for proper positioning
-        let safeArea = view.safeAreaLayoutGuide
-        let barHeight: CGFloat = 64
-        
-        NSLayoutConstraint.activate([
-            lgBottomBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            lgBottomBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            lgBottomBar.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            lgBottomBar.topAnchor.constraint(equalTo: safeArea.bottomAnchor, constant: -barHeight)
-        ])
-        
-        print("🌊 Liquid Glass bottom app bar constraints activated with height: \(barHeight)")
-    }
-    
-    deinit {
-        notificationCenter.removeObserver(self)
-    }
-    
-    // MARK: - FluentUI Navigation Bar Setup
-    
-    private func setupFluentUINavigationBar() {
-        // Set FluentUI custom navigation bar color - this is the correct way to set color with FluentUI
-        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
-        navigationItem.fluentConfiguration.navigationBarStyle = .custom
 
-        // Configure navigation bar appearance using standard iOS APIs
+    private func configureNavigationBar() {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = todoColors.accentPrimary
         appearance.titleTextAttributes = [.foregroundColor: todoColors.accentOnPrimary]
-        appearance.largeTitleTextAttributes = [.foregroundColor: todoColors.accentOnPrimary]
 
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
-        
-        // Disable large titles so our score label is not obscured
         navigationController?.navigationBar.prefersLargeTitles = false
-        navigationItem.largeTitleDisplayMode = .never
-        title = "" // Clear default title
-        if let navBar = navigationController?.navigationBar {
-            navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
-            navBar.clipsToBounds = false
-        }
 
-        // Add settings menu button on left side
+        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
+        navigationItem.fluentConfiguration.navigationBarStyle = .custom
+
         let settingsButton = UIBarButtonItem(
             image: UIImage(systemName: "list.bullet"),
             style: .plain,
@@ -895,43 +114,420 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             action: #selector(onMenuButtonTapped)
         )
         settingsButton.tintColor = todoColors.accentOnPrimary
-        settingsButton.accessibilityLabel = "Settings"
         settingsButton.accessibilityIdentifier = "home.settingsButton"
         navigationItem.leftBarButtonItem = settingsButton
 
-        // Start hidden. `updateDailyScore()` decides visibility from score.
         setNavigationPieChartVisible(false)
-
-        // Search bar removed - now accessed via bottom app bar button
-
-        // Hide legacy scoreCounter label (we now show score in title)
-        scoreCounter.isHidden = true
-        // Ensure initial title is displayed
-        updateDailyScore()
-        
-        // Enable scroll-to-contract behavior
-        // Note: contentScrollView is FluentUI-specific, removed for native iOS compatibility
     }
-    
-    private func ensureNavigationPieChartBarButton() {
-        guard shouldShowNavigationPieChart else { return }
 
-        let containerIdentifier = "home.navXpPieChart.container"
-        let currentContainer = navigationItem.rightBarButtonItem?.customView
-        let isCanonicalContainer = currentContainer?.accessibilityIdentifier == containerIdentifier
+    private func bindTheme() {
+        TaskerThemeManager.shared.publisher
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applyTheme()
+            }
+            .store(in: &cancellables)
+    }
 
-        if let currentContainer, isCanonicalContainer {
-            navigationPieChartAnchorView = currentContainer
+    private func bindViewModel() {
+        guard let viewModel else { return }
+
+        viewModel.$selectedDate
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] selectedDate in
+                self?.dateForTheView = selectedDate
+                self?.updateDailyScore(for: selectedDate)
+            }
+            .store(in: &cancellables)
+
+        viewModel.$dailyScore
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] score in
+                guard let self else { return }
+                if Calendar.current.isDateInToday(self.dateForTheView) {
+                    self.applyScoreDisplay(score, for: self.dateForTheView)
+                }
+            }
+            .store(in: &cancellables)
+
+        if !viewModel.focusEngineEnabled {
+            viewModel.loadTodayTasks()
         }
 
-        if navigationPieChartView == nil || !isCanonicalContainer {
-            navigationItem.rightBarButtonItem = createPieChartBarButton()
-            navigationPieChartAnchorView = navigationItem.rightBarButtonItem?.customView
+        viewModel.loadProjects()
+        viewModel.loadTodayTasks()
+    }
+
+    private func mountHomeShell() {
+        guard let viewModel else { return }
+
+        let root = HomeBackdropForedropRootView(
+            viewModel: viewModel,
+            onTaskTap: { [weak self] task in
+                self?.handleTaskTap(task)
+            },
+            onToggleComplete: { [weak self] task in
+                self?.viewModel?.toggleTaskCompletion(task)
+            },
+            onDeleteTask: { [weak self] task in
+                self?.viewModel?.deleteTask(task)
+            },
+            onRescheduleTask: { [weak self] task in
+                self?.handleTaskReschedule(task)
+            },
+            onReorderCustomProjects: { [weak self] projectIDs in
+                self?.viewModel?.setCustomProjectOrder(projectIDs)
+            },
+            onAddTask: { [weak self] in
+                self?.AddTaskAction()
+            },
+            onOpenSearch: { [weak self] in
+                self?.searchButtonTapped()
+            },
+            onOpenChat: { [weak self] in
+                self?.chatButtonTapped()
+            },
+            onOpenSettings: { [weak self] in
+                self?.onMenuButtonTapped()
+            }
+        )
+
+        let hostingController = UIHostingController(rootView: root)
+        homeHostingController?.willMove(toParent: nil)
+        homeHostingController?.view.removeFromSuperview()
+        homeHostingController?.removeFromParent()
+
+        homeHostingController = hostingController
+        addChild(hostingController)
+        view.addSubview(hostingController.view)
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
+        hostingController.didMove(toParent: self)
+    }
+
+    private func observeMutations() {
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(homeTaskMutationReceived(_:)),
+            name: .homeTaskMutation,
+            object: nil
+        )
+    }
+
+    // MARK: - Navigation Actions
+
+    @objc func onMenuButtonTapped() {
+        let settingsVC = SettingsPageViewController()
+        let navController = UINavigationController(rootViewController: settingsVC)
+        navController.navigationBar.prefersLargeTitles = false
+
+        let controller = DrawerController(sourceView: view, sourceRect: .zero, presentationDirection: .fromLeading)
+        controller.contentController = navController
+        controller.preferredContentSize.width = 350
+        controller.resizingBehavior = .dismiss
+
+        present(controller, animated: true)
+    }
+
+    @objc func AddTaskAction() {
+        let addTaskVC = AddTaskViewController()
+        addTaskVC.delegate = self
+
+        DependencyContainer.shared.inject(into: addTaskVC)
+        PresentationDependencyContainer.shared.inject(into: addTaskVC)
+
+        let navController = UINavigationController(rootViewController: addTaskVC)
+        navController.modalPresentationStyle = .fullScreen
+        present(navController, animated: true)
+    }
+
+    @objc func searchButtonTapped() {
+        let searchVC = LGSearchViewController()
+        searchVC.modalPresentationStyle = .fullScreen
+        searchVC.modalTransitionStyle = .crossDissolve
+        present(searchVC, animated: true)
+    }
+
+    @objc func chatButtonTapped() {
+        let chatHostVC = ChatHostViewController()
+        let navController = NavigationController(rootViewController: chatHostVC)
+        navController.modalPresentationStyle = .fullScreen
+        navController.navigationBar.prefersLargeTitles = false
+        present(navController, animated: true)
+    }
+
+    // MARK: - Task Routing
+
+    private func handleTaskTap(_ task: DomainTask) {
+        guard let managedTask = resolveManagedTask(for: task) else {
+            return
+        }
+        presentTaskDetailView(for: managedTask)
+    }
+
+    private func handleTaskReschedule(_ task: DomainTask) {
+        guard let managedTask = resolveManagedTask(for: task) else {
+            return
         }
 
-        attachNavigationPieChartOverlayIfNeeded()
-        layoutNavigationPieChartOverlayFromAnchor()
+        let rescheduleVC = RescheduleViewController(task: managedTask) { [weak self] selectedDate in
+            guard let self else { return }
+            self.viewModel?.rescheduleTask(task, to: selectedDate)
+        }
+
+        let navController = UINavigationController(rootViewController: rescheduleVC)
+        present(navController, animated: true)
     }
+
+    private func resolveManagedTask(for task: DomainTask) -> NTask? {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return nil
+        }
+
+        let idRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
+        idRequest.fetchLimit = 1
+        idRequest.predicate = NSPredicate(format: "taskID == %@", task.id as CVarArg)
+        if let exact = try? context.fetch(idRequest).first {
+            return exact
+        }
+
+        let metadataRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
+        metadataRequest.fetchLimit = 30
+
+        var predicates: [NSPredicate] = [
+            NSPredicate(format: "name == %@", task.name),
+            NSPredicate(format: "taskType == %d", task.type.rawValue),
+            NSPredicate(format: "taskPriority == %d", task.priority.rawValue)
+        ]
+
+        if let dueDate = task.dueDate {
+            let lowerBound = dueDate.addingTimeInterval(-180)
+            let upperBound = dueDate.addingTimeInterval(180)
+            predicates.append(NSPredicate(format: "dueDate >= %@ AND dueDate <= %@", lowerBound as NSDate, upperBound as NSDate))
+        } else {
+            predicates.append(NSPredicate(format: "dueDate == nil"))
+        }
+
+        metadataRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        metadataRequest.sortDescriptors = [NSSortDescriptor(key: "dateAdded", ascending: false)]
+
+        if let candidates = try? context.fetch(metadataRequest) {
+            return bestCandidate(for: task, in: candidates)
+        }
+
+        return nil
+    }
+
+    private func bestCandidate(for task: DomainTask, in candidates: [NTask]) -> NTask? {
+        guard !candidates.isEmpty else { return nil }
+
+        var scored: [(NTask, Int)] = candidates.map { candidate in
+            var score = 0
+            if candidate.name == task.name { score += 4 }
+            if candidate.isComplete == task.isComplete { score += 2 }
+            if candidate.projectID == task.projectID { score += 4 }
+            if candidate.taskType == task.type.rawValue { score += 2 }
+            if candidate.taskPriority == task.priority.rawValue { score += 2 }
+
+            switch (candidate.dueDate as Date?, task.dueDate) {
+            case let (lhs?, rhs?) where abs(lhs.timeIntervalSince(rhs)) <= 180:
+                score += 2
+            case (nil, nil):
+                score += 1
+            default:
+                break
+            }
+
+            return (candidate, score)
+        }
+
+        scored.sort { lhs, rhs in
+            if lhs.1 != rhs.1 { return lhs.1 > rhs.1 }
+            let lhsDate = lhs.0.dateAdded as Date? ?? Date.distantPast
+            let rhsDate = rhs.0.dateAdded as Date? ?? Date.distantPast
+            return lhsDate > rhsDate
+        }
+
+        return scored.first?.0
+    }
+
+    private func presentTaskDetailView(for task: NTask) {
+        let detailView = TaskDetailSheetView(
+            task: task,
+            projectNames: buildProjectChipData(),
+            onDismiss: nil,
+            onDelete: { [weak self] in
+                guard let self else { return }
+                task.managedObjectContext?.delete(task)
+                try? task.managedObjectContext?.save()
+                self.viewModel?.handleExternalMutation(reason: .deleted, repostEvent: true)
+                self.presentedViewController?.dismiss(animated: true)
+            }
+        )
+
+        let hostingController = UIHostingController(rootView: detailView)
+        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        hostingController.modalPresentationStyle = .pageSheet
+
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+        }
+
+        present(hostingController, animated: true)
+    }
+
+    private func buildProjectChipData() -> [String] {
+        var projectNames: [String] = []
+        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
+            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
+            if let projects = try? context.fetch(request) {
+                projectNames = projects.compactMap { $0.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
+            }
+        }
+
+        let inboxTitle = ProjectConstants.inboxProjectName
+        projectNames.removeAll { $0.caseInsensitiveCompare(inboxTitle) == .orderedSame }
+        projectNames.insert(inboxTitle, at: 0)
+
+        var deduped: [String] = []
+        var seen = Set<String>()
+        for name in projectNames {
+            let key = name.lowercased()
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            deduped.append(name)
+        }
+        return deduped
+    }
+
+    // MARK: - Chart Refresh Contract
+
+    func refreshChartsAfterTaskCompletion() {
+        refreshChartsAfterTaskMutation(reason: .completed)
+    }
+
+    func refreshChartsAfterTaskMutation(reason: HomeTaskMutationEvent? = nil) {
+        if let reason {
+            print("🎯 HomeViewController chart refresh reason=\(reason.rawValue)")
+        }
+
+        updateTinyPieChartData()
+        refreshNavigationPieChart()
+        updateDailyScore(for: dateForTheView)
+    }
+
+    @objc private func homeTaskMutationReceived(_ notification: Notification) {
+        let reasonRaw = notification.userInfo?["reason"] as? String
+        let reason = reasonRaw.flatMap(HomeTaskMutationEvent.init(rawValue:))
+
+        pendingChartRefreshWorkItem?.cancel()
+        let refreshWorkItem = DispatchWorkItem { [weak self] in
+            self?.refreshChartsAfterTaskMutation(reason: reason)
+        }
+        pendingChartRefreshWorkItem = refreshWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + chartRefreshDebounceSeconds, execute: refreshWorkItem)
+    }
+
+    // MARK: - Score / Tiny Pie
+
+    func calculateTodaysScore() -> Int {
+        let targetDate = dateForTheView
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return 0
+        }
+
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let start = Calendar.current.startOfDay(for: targetDate)
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? targetDate
+
+        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "isComplete == YES"),
+            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(format: "dateCompleted >= %@ AND dateCompleted < %@", start as NSDate, end as NSDate),
+                NSPredicate(format: "dateCompleted == nil AND dueDate >= %@ AND dueDate < %@", start as NSDate, end as NSDate)
+            ])
+        ])
+
+        let tasks = (try? context.fetch(request)) ?? []
+        return tasks.reduce(0) { partial, task in
+            partial + TaskPriority(rawValue: task.taskPriority).scorePoints
+        }
+    }
+
+    func priorityBreakdown(for date: Date) -> [Int32: Int] {
+        var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0]
+
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return counts
+        }
+
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        guard let allTasks = try? context.fetch(request) else {
+            return counts
+        }
+
+        let currentCalendar = Calendar.current
+        for task in allTasks {
+            guard task.isComplete else { continue }
+            let referenceDate = (task.dateCompleted as Date?) ?? (task.dueDate as Date?)
+            guard let ref = referenceDate, currentCalendar.isDate(ref, inSameDayAs: date) else { continue }
+            let normalizedPriority = TaskPriorityConfig.normalizePriority(task.taskPriority)
+            counts[normalizedPriority, default: 0] += 1
+        }
+
+        return counts
+    }
+
+    func updateDailyScore(for date: Date? = nil) {
+        let targetDate = date ?? dateForTheView
+
+        if let viewModel, Calendar.current.isDateInToday(targetDate) {
+            applyScoreDisplay(viewModel.dailyScore, for: targetDate)
+            return
+        }
+
+        guard let repository = taskRepository else {
+            applyScoreDisplay(0, for: targetDate)
+            return
+        }
+
+        TaskScoringService.shared.calculateTotalScore(for: targetDate, using: repository) { [weak self] total in
+            DispatchQueue.main.async {
+                self?.applyScoreDisplay(total, for: targetDate)
+            }
+        }
+    }
+
+    private func applyScoreDisplay(_ score: Int, for date: Date) {
+        let shouldShow = score > 0
+        setNavigationPieChartVisible(shouldShow)
+
+        tinyPieChartView.centerAttributedText = setTinyPieChartScoreText(
+            pieChartView: tinyPieChartView,
+            scoreOverride: score
+        )
+
+        if shouldShow, let navChart = navigationPieChartView {
+            navChart.centerAttributedText = setTinyPieChartScoreText(
+                pieChartView: navChart,
+                scoreOverride: score
+            )
+            buildNavigationPieChartData(for: date)
+        }
+    }
+
+    // MARK: - Nav Pie UI
 
     private func setNavigationPieChartVisible(_ isVisible: Bool) {
         shouldShowNavigationPieChart = isVisible
@@ -940,998 +536,144 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             ensureNavigationPieChartBarButton()
             navigationPieChartView?.isHidden = false
             navigationPieChartView?.alpha = 1
-            navigationPieChartView?.isUserInteractionEnabled = true
-            attachNavigationPieChartOverlayIfNeeded()
-            layoutNavigationPieChartOverlayFromAnchor()
             return
         }
 
         navigationItem.rightBarButtonItem = nil
         navigationPieChartView?.removeFromSuperview()
-        navigationPieChartView?.isHidden = true
+        navigationPieChartView = nil
         navigationPieChartAnchorView = nil
     }
 
-    private func attachNavigationPieChartOverlayIfNeeded() {
-        guard shouldShowNavigationPieChart,
-              let navBar = navigationController?.navigationBar,
-              let navPieChart = navigationPieChartView else { return }
-
-        navBar.clipsToBounds = false
-        if navPieChart.superview !== navBar {
-            navPieChart.removeFromSuperview()
-            navBar.addSubview(navPieChart)
-        }
-        navPieChart.layer.zPosition = 810
-    }
-
-    private func layoutNavigationPieChartOverlayFromAnchor() {
-        guard shouldShowNavigationPieChart,
-              let navBar = navigationController?.navigationBar,
-              let navPieChart = navigationPieChartView else { return }
-
-        let resolvedAnchor = navigationPieChartAnchorView ?? navigationItem.rightBarButtonItem?.customView
-        guard let anchorView = resolvedAnchor else { return }
-        navigationPieChartAnchorView = anchorView
-
-        guard let anchorSuperview = anchorView.superview else {
-            DispatchQueue.main.async { [weak self] in
-                self?.attachNavigationPieChartOverlayIfNeeded()
-                self?.layoutNavigationPieChartOverlayFromAnchor()
-            }
+    private func ensureNavigationPieChartBarButton() {
+        if navigationPieChartView != nil, navigationItem.rightBarButtonItem != nil {
+            layoutNavigationPieChart()
             return
         }
 
-        let anchorCenterInNavBar = anchorSuperview.convert(anchorView.center, to: navBar)
-        navPieChart.bounds = CGRect(
-            x: 0,
-            y: 0,
-            width: navigationPieChartFloatingSize,
-            height: navigationPieChartFloatingSize
-        )
-        navPieChart.center = anchorCenterInNavBar
-        setTinyChartShadow(chartView: navPieChart)
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: navigationPieChartSize, height: navigationPieChartSize))
+        container.backgroundColor = .clear
+        container.accessibilityIdentifier = "home.navXpPieChart.container"
+
+        let pieChart = PieChartView(frame: container.bounds)
+        pieChart.backgroundColor = .clear
+        pieChart.accessibilityIdentifier = "home.navXpPieChart"
+        pieChart.accessibilityLabel = "XP chart"
+        setupPieChartView(pieChartView: pieChart)
+
+        container.addSubview(pieChart)
+        navigationPieChartView = pieChart
+        navigationPieChartAnchorView = container
+
+        let item = UIBarButtonItem(customView: container)
+        item.accessibilityIdentifier = "home.navXpPieChart.button"
+        navigationItem.rightBarButtonItem = item
+
+        buildNavigationPieChartData(for: dateForTheView)
+        layoutNavigationPieChart()
     }
 
-    private func embedNavigationPieChart(in _: UIView) {
-        // Compatibility shim: retain method name for existing call sites.
-        ensureNavigationPieChartBarButton()
-        refreshNavigationPieChart()
-    }
-    
-    // MARK: - Embed Pie Chart on Navigation Bar (Right Aligned)
-    private func embedNavigationPieChartOnNavigationBar() {
-        // Compatibility shim: no manual nav-bar subview overlays.
-        ensureNavigationPieChartBarButton()
-        refreshNavigationPieChart()
-    }
-    
-    private func createSearchBarAccessory() -> UISearchBar {
-        let searchBar = UISearchBar()
-        searchBar.placeholder = "Search tasks..."
-        searchBar.delegate = self
-        
-        // Make the search bar background transparent
-        searchBar.backgroundColor = UIColor.clear
-        searchBar.barTintColor = UIColor.clear
-        searchBar.searchBarStyle = .minimal
-        
-        // Make the search field background semi-transparent
-        let textField = searchBar.searchTextField
-        textField.backgroundColor = todoColors.accentOnPrimary.withAlphaComponent(0.20)
-        textField.textColor = todoColors.accentOnPrimary
-        textField.attributedPlaceholder = NSAttributedString(
-            string: "Search tasks...",
-            attributes: [NSAttributedString.Key.foregroundColor: todoColors.accentOnPrimary.withAlphaComponent(0.7)]
-        )
-        
-        return searchBar
+    private func layoutNavigationPieChart() {
+        guard let pieChart = navigationPieChartView else { return }
+        pieChart.frame = CGRect(x: 0, y: 0, width: navigationPieChartSize, height: navigationPieChartSize)
+        setTinyChartShadow(chartView: pieChart)
     }
 
-    // MARK: - Pie Chart Button
+    private func buildNavigationPieChartData(for date: Date) {
+        guard let navPieChart = navigationPieChartView else { return }
 
-    private func createPieChartBarButton() -> UIBarButtonItem {
-        navigationPieChartView?.removeFromSuperview()
-        navigationPieChartView = nil
+        let breakdown = priorityBreakdown(for: date)
+        let entries: [PieChartDataEntry] = [
+            (Int32(1), "None"),
+            (Int32(2), "Low"),
+            (Int32(3), "High"),
+            (Int32(4), "Max")
+        ].compactMap { priorityRaw, label in
+            let rawCount = Double(breakdown[priorityRaw] ?? 0)
+            let weight = TaskPriorityConfig.chartWeightForPriority(priorityRaw)
+            let weightedValue = rawCount * weight
+            return weightedValue > 0 ? PieChartDataEntry(value: weightedValue, label: label) : nil
+        }
 
-        let containerView = UIView(
-            frame: CGRect(
-                x: 0,
-                y: 0,
-                width: navigationPieChartAnchorSize,
-                height: navigationPieChartAnchorSize
-            )
-        )
-        containerView.backgroundColor = .clear
-        containerView.accessibilityIdentifier = "home.navXpPieChart.container"
-        navigationPieChartAnchorView = containerView
-        
-        // Create a floating chart view (3x anchor size) and overlay on the nav bar.
-        let navPieChart = PieChartView(
-            frame: CGRect(
-                x: 0,
-                y: 0,
-                width: navigationPieChartFloatingSize,
-                height: navigationPieChartFloatingSize
-            )
-        )
-        navigationPieChartView = navPieChart
-        
-        // Configure appearance
-        setupPieChartView(pieChartView: navPieChart)
-        navPieChart.holeRadiusPercent = 0.58
-        navPieChart.layer.borderWidth = 0
-        navPieChart.layer.borderColor = UIColor.clear.cgColor
-        setTinyChartShadow(chartView: navPieChart)
-        navPieChart.backgroundColor = .clear
+        guard !entries.isEmpty else {
+            navPieChart.data = nil
+            navPieChart.setNeedsDisplay()
+            return
+        }
+
+        var sliceColors: [UIColor] = []
+        for entry in entries {
+            switch entry.label {
+            case "None":
+                sliceColors.append(TaskPriorityConfig.Priority.none.color)
+            case "Low":
+                sliceColors.append(TaskPriorityConfig.Priority.low.color)
+            case "High":
+                sliceColors.append(TaskPriorityConfig.Priority.high.color)
+            case "Max":
+                sliceColors.append(TaskPriorityConfig.Priority.max.color)
+            default:
+                sliceColors.append(todoColors.accentMuted)
+            }
+        }
+
+        let set = PieChartDataSet(entries: entries, label: "")
+        set.drawIconsEnabled = false
+        set.drawValuesEnabled = false
+        set.sliceSpace = 2
+        set.colors = sliceColors
+
         navPieChart.drawEntryLabelsEnabled = false
-        navPieChart.legend.enabled = false
-        navPieChart.chartDescription.enabled = false
-        navPieChart.drawHoleEnabled = true
-        navPieChart.setExtraOffsets(left: 0, top: 0, right: 0, bottom: 0)
-        navPieChart.minOffset = 0
-        navPieChart.accessibilityIdentifier = "home.navXpPieChart"
-        navPieChart.isAccessibilityElement = true
-        navPieChart.accessibilityLabel = "XP chart"
-        
-        // Populate data
-        setNavigationPieChartData()
-        
-        // Interaction
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(toggleCharts))
-        navPieChart.addGestureRecognizer(tapGesture)
-        navPieChart.isUserInteractionEnabled = true
-        attachNavigationPieChartOverlayIfNeeded()
-        DispatchQueue.main.async { [weak self] in
-            self?.attachNavigationPieChartOverlayIfNeeded()
-            self?.layoutNavigationPieChartOverlayFromAnchor()
-        }
-        
-        // Wrap in bar button item
-        let barButtonItem = UIBarButtonItem(customView: containerView)
-        barButtonItem.accessibilityLabel = "XP chart"
-        barButtonItem.accessibilityIdentifier = "home.navXpPieChart.button"
-        return barButtonItem
-    }
-        
-
-    
-    // MARK: - Navigation Actions
-    
-    @objc func onMenuButtonTapped() {
-        // Handle menu button tap
-        // This might open a side menu or settings panel
-        presentSideDrawer()
-    }
-    
-
-    
-    /// Updates navigation pie chart with real completed-task breakdown for the supplied date (defaults to today's view date)
-    /// Priorities: 1=None (2pts), 2=Low (3pts), 3=High (5pts), 4=Max (7pts)
-// Core pie-chart data builder – DO NOT overload with same name without parameter
-private func buildNavigationPieChartData(for date: Date) {
-    guard let navPieChart = navigationPieChartView else {
-        print("⚠️ buildNavigationPieChartData called but navigationPieChartView is nil")
-        return
+        navPieChart.data = PieChartData(dataSet: set)
     }
 
-    // Fetch priority counts for completed tasks on the given date
-    let breakdown = priorityBreakdown(for: date)
-    print("📊 Priority breakdown for \(date): \(breakdown)")
-    
-    // Use chart weights from centralized config
-    let entries: [PieChartDataEntry] = [
-        (Int32(1), "None"),    // None priority
-        (Int32(2), "Low"),     // Low priority
-        (Int32(3), "High"),    // High priority
-        (Int32(4), "Max")      // Max priority
-    ].compactMap { (priorityRaw, label) in
-        let rawCount = Double(breakdown[priorityRaw] ?? 0)
-        let weight = TaskPriorityConfig.chartWeightForPriority(priorityRaw)
-        let weightedValue = rawCount * weight
-        return weightedValue > 0 ? PieChartDataEntry(value: weightedValue, label: label) : nil
-    }
-
-    print("📊 Pie chart entries: \(entries.count) slices")
-    
-    // Guard against no-data scenario – just clear chart and exit
-    guard !entries.isEmpty else {
-        print("⚠️ No data for pie chart, clearing chart")
-        navPieChart.data = nil
-        navPieChart.setNeedsDisplay()
-        return
-    }
-
-    // Build matching colour array using centralized config colors
-    var sliceColors: [UIColor] = []
-    for entry in entries {
-        switch entry.label {
-        case "None":
-            sliceColors.append(TaskPriorityConfig.Priority.none.color)
-        case "Low":
-            sliceColors.append(TaskPriorityConfig.Priority.low.color)
-        case "High":
-            sliceColors.append(TaskPriorityConfig.Priority.high.color)
-        case "Max":
-            sliceColors.append(TaskPriorityConfig.Priority.max.color)
-        default:
-            sliceColors.append(todoColors.accentMuted) // fallback
-        }
-    }
-
-    let set = PieChartDataSet(entries: entries, label: "")
-    set.drawIconsEnabled = false
-    set.drawValuesEnabled = false
-    set.sliceSpace = 2
-    set.colors = sliceColors
-
-    let data = PieChartData(dataSet: set)
-    navPieChart.drawEntryLabelsEnabled = false
-    navPieChart.data = data
-    print("✅ Navigation pie chart data set with \(entries.count) entries")
-}
-
-/// Parameterless wrapper used by existing call sites
-private func setNavigationPieChartData() {
-    buildNavigationPieChartData(for: dateForTheView)
-}
-
-        
-        private func presentSideDrawer() {
-        // Create the settings page view controller
-        let settingsVC = SettingsPageViewController()
-        
-        // Embed it in a navigation controller for proper navigation
-        let navController = UINavigationController(rootViewController: settingsVC)
-        navController.navigationBar.prefersLargeTitles = false
-        
-        // Create the drawer controller with the settings navigation controller
-        let controller = DrawerController(sourceView: view, sourceRect: .zero, presentationDirection: .fromLeading)
-        controller.contentController = navController
-        controller.preferredContentSize.width = 350
-        controller.resizingBehavior = .dismiss
-        
-        present(controller, animated: true)
-    }
-    
-    @objc func AddTaskAction() {
-        // Present add task interface with Clean Architecture
-        let addTaskVC = AddTaskViewController()
-        addTaskVC.delegate = self
-
-        DependencyContainer.shared.inject(into: addTaskVC)
-        PresentationDependencyContainer.shared.inject(into: addTaskVC)
-
-        // Wrap in navigation controller to support navigation bar buttons
-        let navController = UINavigationController(rootViewController: addTaskVC)
-        navController.modalPresentationStyle = .fullScreen
-        present(navController, animated: true, completion: nil)
-    }
-    
-
-    
-    // MARK: - ChartViewDelegate
-    
-    func chartValueSelected(_ chartView: ChartViewBase, entry: ChartDataEntry, highlight: Highlight) {
-        // Handle chart value selection
-    }
-    
-    // MARK: - MDCRippleTouchControllerDelegate
-    
-    func rippleTouchController(_ rippleTouchController: MDCRippleTouchController, didProcessRippleView rippleView: MDCRippleView) {
-        // Handle ripple touch
-    }
-    
-    // MARK: - Helper method to update view
-    
-    private func refreshHomeView() {
-        // Reload data for current view type
-        updateViewForHome(viewType: currentViewType)
-        
-        // Animate table view reload
-        animateTableViewReload()
-    }
-}
-
-// MARK: - SearchBarDelegate Extension
-
-extension HomeViewController {
-    func searchBarDidBeginEditing(_ searchBar: SearchBar) {
-        // Handle when search begins
-        searchBar.progressSpinner.state.isAnimating = false
-    }
-    
-    func searchBar(_ searchBar: SearchBar, didUpdateSearchText newSearchText: String?) {
-        // Handle search text changes
-        let searchText = newSearchText?.lowercased() ?? ""
-        
-        if searchText.isEmpty {
-            // Show all tasks when search is empty - restore normal view
-            updateViewForHome(viewType: currentViewType, dateForView: dateForTheView)
-        } else {
-            // Filter tasks based on search text
-            filterTasksForSearch(searchText: searchText)
-        }
-    }
-    
-    func searchBarDidCancel(_ searchBar: SearchBar) {
-        // Handle search cancellation
-        searchBar.progressSpinner.state.isAnimating = false
-        updateViewForHome(viewType: currentViewType, dateForView: dateForTheView)
-    }
-    
-    func searchBarDidRequestSearch(_ searchBar: SearchBar) {
-        // Handle search button tap
-        _ = searchBar.resignFirstResponder()
-    }
-    
-    private func filterTasksForSearch(searchText: String) {
-        // TODO: Use repository once it has fetchAllTasks method
-        // For now, use direct CoreData access
-        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-            request.sortDescriptors = [NSSortDescriptor(key: "dateAdded", ascending: false)]
-
-            do {
-                let allTasks = try context.fetch(request)
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
-
-                    // Filter tasks based on search text
-                    let filteredTasks = allTasks.filter { task in
-                        let searchTextLower = searchText.lowercased()
-                        return (task.name ?? "").lowercased().contains(searchTextLower) ||
-                               (task.taskDetails?.lowercased().contains(searchTextLower) ?? false) ||
-                               (task.project?.lowercased().contains(searchTextLower) ?? false)
-                    }
-
-                    self.processSearchResults(filteredTasks)
-                }
-            } catch {
-                print("❌ Error fetching tasks for search: \(error)")
-            }
-        }
-    }
-
-    /// Process search results and update UI
-    private func processSearchResults(_ filteredTasks: [NTask]) {
-        let domainTasks = filteredTasks.map { TaskMapper.toDomain(from: $0) }
-        let nonOverdueTasks = domainTasks.filter { !$0.isOverdue }
-        let overdueTasks = domainTasks.filter(\.isOverdue)
-        let eveningTasks = nonOverdueTasks.filter { $0.type == .evening }
-        let morningTasks = nonOverdueTasks.filter { $0.type != .evening }
-
-        let searchListView = TaskListView(
-            morningTasks: morningTasks,
-            eveningTasks: eveningTasks,
-            overdueTasks: overdueTasks,
-            projects: viewModel?.projects ?? [],
-            onTaskTap: { [weak self] task in
-                self?.handleRevampedTaskTap(task)
-            },
-            onToggleComplete: { [weak self] task in
-                self?.handleRevampedTaskToggleComplete(task)
-            },
-            onDeleteTask: { [weak self] task in
-                self?.handleRevampedTaskDelete(task)
-            },
-            onRescheduleTask: { [weak self] task in
-                self?.handleRevampedTaskReschedule(task)
-            }
-        )
-
-        if taskListHostingController == nil {
-            setupTaskListViewInForedrop()
-        }
-        taskListHostingController?.rootView = searchListView
-        taskListHostingController?.view.isHidden = false
-        fluentToDoTableViewController?.view.isHidden = true
-        print("HOME_DATA mode=search morning=\(morningTasks.count) evening=\(eveningTasks.count) overdue=\(overdueTasks.count)")
-    }
-}
-
-// MARK: - AddTaskViewControllerDelegate Extension
-
-extension HomeViewController: AddTaskViewControllerDelegate {
-    func didAddTask(_ task: NTask) {
-        let taskName = task.name ?? "Untitled Task"
-        let dueDateText: String
-        if let dueDate = task.dueDate as Date? {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .medium
-            formatter.timeStyle = .short
-            dueDateText = formatter.string(from: dueDate)
-        } else {
-            dueDateText = "No due date"
-        }
-        print("🔄 AddTask: didAddTask called for task: \(taskName) with due date: \(dueDateText)")
-
-        // TODO: Use ViewModel to refresh once Presentation folder is added to target
-        // if let viewModel = viewModel {
-        //     print("✅ Using ViewModel to refresh after task addition")
-        //     viewModel.loadTodayTasks()
-        // }
-        
-        // Step 4: Update the view on the main queue
-        DispatchQueue.main.async {
-            print("🔄 AddTask: Updating view on main queue")
-            self.viewModel?.invalidateTaskCaches()
-            
-            // Compare dates properly using startOfDay to ignore time differences
-            let todayStartOfDay = Date.today().startOfDay
-            let viewDateStartOfDay = self.dateForTheView.startOfDay
-            let taskDueDateStartOfDay = (task.dueDate as Date?)?.startOfDay ?? Date().startOfDay
-            
-            print("📅 AddTask: Today: \(todayStartOfDay)")
-            print("📅 AddTask: View date: \(viewDateStartOfDay)")
-            print("📅 AddTask: Task due date: \(taskDueDateStartOfDay)")
-            
-            // Step 5: Determine the correct view type and update accordingly
-            // Ensure the view is updated with the correct date context before reloading data.
-            // This will repopulate ToDoListSections which is the datasource for the table.
-            if self.currentViewType == .todayHomeView && taskDueDateStartOfDay == todayStartOfDay {
-                print("🔄 AddTask: Refreshing TODAY view for a new task due today")
-                self.updateViewForHome(viewType: .todayHomeView)
-            } else if self.currentViewType == .customDateView && taskDueDateStartOfDay == viewDateStartOfDay {
-                print("🔄 AddTask: Refreshing CUSTOM DATE view for a new task due on this custom date: \(self.dateForTheView)")
-                self.updateViewForHome(viewType: .customDateView, dateForView: self.dateForTheView)
-            } else if self.currentViewType == .allProjectsGrouped {
-                 print("🔄 AddTask: Refreshing ALL PROJECTS GROUPED view")
-                 self.updateViewForHome(viewType: .allProjectsGrouped)
-            } else if self.currentViewType == .projectView {
-                print("🔄 AddTask: Refreshing PROJECT view for project: \(self.projectForTheView)")
-                 self.updateViewForHome(viewType: .projectView)
-            } else {
-                // Fallback: If the task is for today and current view is today, refresh today view.
-                // Otherwise, if task is for the currently viewed date, refresh that.
-                // This handles cases where currentViewType might not be explicitly today/custom but the new task is relevant.
-                if taskDueDateStartOfDay == todayStartOfDay {
-                     print("🔄 AddTask: Fallback - Refreshing TODAY view as task is for today")
-                     self.updateViewForHome(viewType: .todayHomeView)
-                } else if taskDueDateStartOfDay == viewDateStartOfDay {
-                    print("🔄 AddTask: Fallback - Refreshing CUSTOM DATE view as task is for \(self.dateForTheView)")
-                    self.updateViewForHome(viewType: .customDateView, dateForView: self.dateForTheView)
-                } else {
-                    print("ℹ️ AddTask: New task is not for the current view's date (Today or \(viewDateStartOfDay)). Current view might not immediately show it unless it's an 'All Tasks' or relevant project view.")
-                    // Optionally, you could switch the view to the task's due date if desired UX
-                    // For now, we just ensure the current view is refreshed based on its existing context.
-                    // The task will appear if the user navigates to its due date or an encompassing view.
-                    self.updateViewForHome(viewType: self.currentViewType, dateForView: self.dateForTheView) // Refresh current view
-                }
-            }
-            
-            // Step 6: Force reload the table view to ensure UI is updated with the potentially new data from updateViewForHome
-            print("🔄 AddTask: Reloading table data")
-            
-            // Update pie chart as tasks have potentially changed
-            self.refreshNavigationPieChart()
-            
-            // Step 7: Check if the new task should be visible in current view (logging purpose)
-            if taskDueDateStartOfDay == viewDateStartOfDay {
-                print("✅ AddTask: New task *should* be visible if current view is for \(viewDateStartOfDay)")
-            } else {
-                print("ℹ️ AddTask: New task due on \(taskDueDateStartOfDay) won't appear in view for \(viewDateStartOfDay) unless it's a broader view type (e.g., All Tasks).")
-            }
-            
-            print("🔄 AddTask: View update completed")
-        }
-    }
-}
-
-// MARK: - Theme Handling
-
-extension HomeViewController {
-    fileprivate func refreshBackdropGradientForCurrentTheme(deferredIfNeeded: Bool = true) {
-        let bounds = backdropContainer.bounds
-        guard bounds.width > 0, bounds.height > 0 else {
-            guard deferredIfNeeded else { return }
-            DispatchQueue.main.async { [weak self] in
-                self?.refreshBackdropGradientForCurrentTheme(deferredIfNeeded: false)
-            }
-            return
-        }
-
-        TaskerHeaderGradient.apply(
-            to: backdropContainer.layer,
-            bounds: bounds,
-            traits: traitCollection
-        )
-    }
-
-    /// Re-applies current theme colors to primary UI elements.
-    fileprivate func applyTheme() {
-        // Refresh color source
-        todoColors = TaskerThemeManager.shared.currentTheme.tokens.color
-
-        // Update FluentUI navigation bar color via custom property - this is the correct way with FluentUI
-        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
-        navigationItem.fluentConfiguration.navigationBarStyle = .custom
-
-        // Navigation bar (using standard iOS appearance)
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = todoColors.accentPrimary
-        navigationController?.navigationBar.standardAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
-        navigationController?.navigationBar.compactAppearance = appearance
-        // Keep title label transparent on theme change
-        if let navBar = navigationController?.navigationBar {
-            navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
-            navBar.clipsToBounds = false
-        }
-        // System/global tint
-        // Global tint
-        view.tintColor = todoColors.accentPrimary
-        // Main view background color should follow theme immediately
-        view.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.05)
-        
-        
-        
-        
-        
-        // Bottom app bar - update Liquid Glass version
-        if let lgBottomBar = liquidGlassBottomBar {
-            lgBottomBar.tintColor = todoColors.accentOnPrimary
-            // Liquid Glass bottom bar automatically updates its appearance based on theme
-        }
-        // Backdrop container background (subtle tint for blurred backdrop)
-        backdropContainer.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.05)
-        // Floating action button (if instantiated via storyboard & bottom bar)
-        if let fab = addTaskButton {
-            // For MDCFloatingButton use setBackgroundColor to ensure ripple layer also updates
-            fab.setBackgroundColor(todoColors.accentPrimary, for: .normal)
-            fab.setBackgroundColor(todoColors.accentPrimary.withAlphaComponent(0.8), for: .highlighted)
-            fab.tintColor = todoColors.accentOnPrimary
-            fab.backgroundColor = todoColors.accentPrimary
-        }
-        // Custom floating button color handled in setupLiquidGlassBottomBar
-        // Update any search bar accessory background (keep transparent)
-        if let accSearchBar = navigationItem.titleView as? UISearchBar {
-            accSearchBar.backgroundColor = UIColor.clear
-            accSearchBar.barTintColor = UIColor.clear
-            // Update the search field styling
-            let textField = accSearchBar.searchTextField
-            textField.backgroundColor = todoColors.accentOnPrimary.withAlphaComponent(0.20)
-            textField.textColor = todoColors.accentOnPrimary
-            textField.attributedPlaceholder = NSAttributedString(
-                string: "Search tasks...",
-                attributes: [NSAttributedString.Key.foregroundColor: todoColors.accentOnPrimary.withAlphaComponent(0.7)]
-            )
-        }
-        if let controllerSearchBar = navigationItem.searchController?.searchBar {
-            controllerSearchBar.backgroundColor = UIColor.clear
-            controllerSearchBar.barTintColor = UIColor.clear
-        }
-        if shouldShowNavigationPieChart {
-            ensureNavigationPieChartBarButton()
-            layoutNavigationPieChartOverlayFromAnchor()
-        } else {
-            setNavigationPieChartVisible(false)
-        }
-        // Update chart accent colors if present
-        refreshBackdropGradientForCurrentTheme()
-        
-        // Update calendar appearance & refresh
-        if let cal = self.calendar {
-            // Header & weekday background colours
-            cal.calendarHeaderView.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.5)
-            cal.calendarWeekdayView.backgroundColor = todoColors.accentPrimaryPressed
-        }
-        if let cal = self.calendar {
-            cal.appearance.selectionColor = todoColors.accentPrimary
-            cal.appearance.todayColor = todoColors.accentPrimary
-            cal.appearance.headerTitleColor = todoColors.accentPrimary
-            cal.appearance.weekdayTextColor = todoColors.accentPrimary
-            cal.backgroundColor = todoColors.accentPrimary.withAlphaComponent(0.05)
-            cal.collectionView.backgroundColor = cal.backgroundColor
-            // Reapply full appearance settings (header, weekday, selection etc.)
-            DispatchQueue.main.async {
-                self.setupCalAppearence()
-            }
-        }
-        // Reload task list to reflect accent changes.
-        refreshHomeTaskList(reason: "applyTheme")
-    }
-    
-}
-
-
-
-// MARK: - Bottom App Bar Setup & Chat Integration
-
-extension HomeViewController {
-    
-    /// Sets up the bottom app bar - always uses Liquid Glass UI
-    fileprivate func configureLiquidGlassBottomAppBar() {
-        setupLiquidGlassBottomBar()
-    }
-    
-    /// Sets up the Liquid Glass bottom app bar with iOS 26 transparent material
-    private func setupLiquidGlassBottomBar() {
-        // Create Liquid Glass bottom app bar
-        liquidGlassBottomBar = LiquidGlassBottomAppBar()
-        guard let lgBottomBar = liquidGlassBottomBar else { return }
-        
-        // Configure with Auto Layout
-        lgBottomBar.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Create all bar button items matching original layout
-        // Icon size: 56x56 (2x larger for better visibility)
-        let iconSize = CGSize(width: 48, height: 48)
-        
-        // Calendar button - Using 3D icon
-        let calendarImage = UIImage(named: "cal")
-        let calendarImageResized = calendarImage?.resized(to: iconSize)
-        let calendarItem = UIBarButtonItem(image: calendarImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(toggleCalendar))
-        calendarItem.accessibilityLabel = "Calendar"
-        calendarItem.accessibilityIdentifier = "home.calendarButton"
-
-        // Charts/Analytics button - Using 3D icon
-        let chartImage = UIImage(named: "charts")
-        let chartImageResized = chartImage?.resized(to: iconSize)
-        let chartItem = UIBarButtonItem(image: chartImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(toggleCharts))
-        chartItem.accessibilityLabel = "Analytics"
-        chartItem.accessibilityIdentifier = "home.chartsButton"
-
-        // Search button - Using 3D icon
-        let searchImage = UIImage(named: "search")
-        let searchImageResized = searchImage?.resized(to: iconSize)
-        let searchItem = UIBarButtonItem(image: searchImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(searchButtonTapped))
-        searchItem.accessibilityLabel = "Search Tasks"
-        searchItem.accessibilityIdentifier = "home.searchButton"
-
-        // Chat button (rightmost) - Using 3D icon
-        let chatImage = UIImage(named: "chat")
-        let chatImageResized = chatImage?.resized(to: iconSize)
-        let chatButtonItem = UIBarButtonItem(image: chatImageResized?.withRenderingMode(.alwaysOriginal), style: .plain, target: self, action: #selector(chatButtonTapped))
-        chatButtonItem.accessibilityLabel = "Chat with LLM"
-        chatButtonItem.accessibilityIdentifier = "home.chatButton"
-
-        // Configure the bottom app bar with 4 buttons (removed settings)
-        lgBottomBar.configureStandardAppBar(
-            leadingItems: [calendarItem, chartItem, searchItem, chatButtonItem],
-            trailingItems: [],
-            showFloatingButton: true
-        )
-        
-        // Configure floating action button
-        let fab = lgBottomBar.floatingButton
-        let addTaskImage = UIImage(named: "add_task") ?? UIImage(systemName: "plus")
-        fab.setImage(addTaskImage, for: .normal)
-        fab.backgroundColor = todoColors.accentMuted
-        fab.addTarget(self, action: #selector(AddTaskAction), for: .touchUpInside)
-        fab.tintColor = todoColors.accentOnPrimary
-        fab.accessibilityIdentifier = "home.addTaskButton"
-
-        // Set tint color to match theme
-        lgBottomBar.tintColor = todoColors.accentOnPrimary
-        
-        print("🌊 Liquid Glass bottom app bar configured with iOS 26 transparent material")
-    }
-    
-
-    /// Presents the Liquid Glass Search screen modally.
-    @objc func searchButtonTapped() {
-        let searchVC = LGSearchViewController()
-        searchVC.modalPresentationStyle = .fullScreen
-        searchVC.modalTransitionStyle = .crossDissolve
-        present(searchVC, animated: true)
-    }
-    
-    /// Presents the ChatHostViewController modally.
-    @objc func chatButtonTapped() {
-        let chatHostVC = ChatHostViewController()
-        let navController = NavigationController(rootViewController: chatHostVC)
-        navController.modalPresentationStyle = .fullScreen
-        // Prefer FluentUI styling if available
-        navController.navigationBar.prefersLargeTitles = false
-        present(navController, animated: true)
-    }
-    
-    /// Public method called directly by FluentUIToDoTableViewController when task completion changes
-    /// This is more reliable than notifications
-    func refreshChartsAfterTaskCompletion() {
-        print("🎯 HomeViewController: refreshChartsAfterTaskCompletion() called DIRECTLY")
-        
-        // Calculate new score
-        let score = self.calculateTodaysScore()
-        self.scoreCounter.text = "\(score)"
-        print("📊 New score calculated: \(score)")
-        
-        // Update tiny pie chart DATA
-        print("🥧 Updating tiny pie chart data...")
-        self.updateTinyPieChartData()
-        
-        // Update tiny pie chart CENTER TEXT with new score
-        print("📝 Updating tiny pie chart center text with score: \(score)")
-        self.tinyPieChartView.centerAttributedText = self.setTinyPieChartScoreText(
-            pieChartView: self.tinyPieChartView,
-            scoreOverride: score
-        )
-        
-        // Animate tiny pie chart
-        print("🎬 Animating tiny pie chart...")
-        self.tinyPieChartView.animate(xAxisDuration: 1.4, easingOption: .easeOutBack)
-        
-        // Refresh navigation pie chart
-        print("🔄 Refreshing navigation pie chart...")
-        self.refreshNavigationPieChart()
-
-        // Phase 7: Update horizontally scrollable chart cards (line + radar) and daily score
-        print("📊 Updating Chart Cards ScrollView (Line + Radar) and daily score...")
-        self.updateChartCardsScrollView()
-        self.updateDailyScore()
-        
-        print("✅ HomeViewController: ALL charts refreshed successfully (including tiny pie chart)")
-    }
-    
-    @objc private func taskCompletionChanged() {
-        print("📊 HomeViewController: Received TaskCompletionChanged notification - refreshing ALL charts")
-        DispatchQueue.main.async { [weak self] in
-            self?.refreshChartsAfterTaskCompletion()
-        }
-    }
-    
-    /// Animates + refreshes the navigation pie chart using current `dateForTheView`.
     func refreshNavigationPieChart() {
-        guard shouldShowNavigationPieChart else {
-            print("ℹ️ refreshNavigationPieChart skipped: chart hidden for zero XP")
-            return
-        }
-        guard let navChart = navigationPieChartView else {
-            print("⚠️ refreshNavigationPieChart called but navigationPieChartView is nil")
-            return
-        }
-        print("🔄 Refreshing navigation pie chart for date: \(dateForTheView)")
-        setNavigationPieChartData()
-        navChart.animate(xAxisDuration: 0.3, easingOption: .easeOutBack)
-        print("✅ Navigation pie chart refreshed - isHidden: \(navChart.isHidden), alpha: \(navChart.alpha), data: \(navChart.data?.entryCount ?? 0) entries")
+        guard shouldShowNavigationPieChart else { return }
+        buildNavigationPieChartData(for: dateForTheView)
+        navigationPieChartView?.animate(xAxisDuration: 0.3, easingOption: .easeOutBack)
     }
-    
-    /// Compatibility shim for existing calendar extension call
+
     @objc func reloadTinyPicChartWithAnimation() {
         refreshNavigationPieChart()
     }
-    
-    /// Fixes invalid task priority values in the database (one-time migration)
-    /// Priorities: 1=None, 2=Low, 3=High, 4=Max
-    private func fixInvalidTaskPriorities() {
-        // TODO: Use repository once it has fetchAllTasks method
-        // For now, use direct CoreData access
-        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
 
-            do {
-                let allTasks = try context.fetch(request)
-                var fixedCount = 0
-                for task in allTasks {
-                    let priority = task.taskPriority
-                    // Check if priority is invalid (not 1, 2, 3, or 4)
-                    if !TaskPriorityConfig.isValidPriority(priority) {
-                        let normalized = TaskPriorityConfig.normalizePriority(priority)
-                        print("🔧 Fixing invalid priority \(priority) for task '\(task.name ?? "")' -> setting to \(TaskPriority(rawValue: normalized).displayName) (\(normalized))")
-                        task.taskPriority = normalized
-                        fixedCount += 1
-                    }
-                }
+    // MARK: - Theme
 
-                if fixedCount > 0 {
-                    try context.save()
-                    print("✅ Fixed \(fixedCount) tasks with invalid priorities")
-                } else {
-                    print("✅ All task priorities are valid")
-                }
-            } catch {
-                print("❌ Error fixing invalid priorities: \(error)")
-            }
-        }
+    private func applyTheme() {
+        todoColors = TaskerThemeManager.shared.currentTheme.tokens.color
+
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = todoColors.accentPrimary
+        appearance.titleTextAttributes = [.foregroundColor: todoColors.accentOnPrimary]
+        navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        navigationController?.navigationBar.compactAppearance = appearance
+
+        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
+        navigationItem.fluentConfiguration.navigationBarStyle = .custom
+
+        setNavigationPieChartVisible(shouldShowNavigationPieChart)
     }
-    
-    /// Returns a dictionary of counts of completed tasks grouped by priority for a given date
-    /// Priorities: 1=None, 2=Low, 3=High, 4=Max
-    func priorityBreakdown(for date: Date) -> [Int32: Int] {
-        // Use raw values to avoid enum compilation issues
-        var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0] // none, low, high, max
 
-        // TODO: Use repository once it has fetchAllTasks method
-        // For now, use direct CoreData access
-        var allTasks: [NTask] = []
-        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-            allTasks = (try? context.fetch(request)) ?? []
+    func setFont(fontSize: CGFloat, fontweight: UIFont.Weight = .regular, fontDesign: UIFontDescriptor.SystemDesign = .default) -> UIFont {
+        let descriptor = UIFont.systemFont(ofSize: fontSize, weight: fontweight).fontDescriptor
+        if let designed = descriptor.withDesign(fontDesign) {
+            return UIFont(descriptor: designed, size: fontSize)
         }
-
-        let currentCalendar = Calendar.current
-
-        for task in allTasks {
-            guard task.isComplete else { continue }
-            // Prefer recorded completion date; fall back to due date (covers legacy data)
-            let referenceDate: Date?
-            if let completed = task.dateCompleted as Date? {
-                referenceDate = completed
-            } else if let due = task.dueDate as Date? {
-                referenceDate = due
-            } else {
-                referenceDate = nil
-            }
-            guard let ref = referenceDate,
-                  currentCalendar.isDate(ref, inSameDayAs: date) else { continue }
-
-            // Normalize priority value using centralized config
-            let normalizedPriority = TaskPriorityConfig.normalizePriority(task.taskPriority)
-            counts[normalizedPriority, default: 0] += 1
-        }
-        return counts
+        return UIFont.systemFont(ofSize: fontSize, weight: fontweight)
     }
-    
 }
 
-// MARK: - Daily Score Updates
-extension HomeViewController {
-    /// Calculates the score for the provided date (defaults to `dateForTheView`) asynchronously and updates the navigation title and the legacy `scoreCounter` label.
-    func updateDailyScore(for date: Date? = nil) {
-        let targetDate = date ?? dateForTheView
-        if let viewModel,
-           Calendar.current.isDateInToday(targetDate) {
-            applyScoreDisplay(viewModel.dailyScore, for: targetDate)
-            return
-        }
+// MARK: - AddTaskViewControllerDelegate
 
-        if let repository = taskRepository {
-            TaskScoringService.shared.calculateTotalScore(for: targetDate, using: repository) { [weak self] total in
-                DispatchQueue.main.async {
-                    self?.applyScoreDisplay(total, for: targetDate)
-                }
-            }
-        } else {
-            // Fallback: Use TaskScoringService with a default repository if none exists
-            // This should never happen in production but provides safety
-            print("⚠️ Warning: taskRepository is nil in updateDailyScore, this should not happen")
-            // Fallback to 0 score to avoid crashing
-            DispatchQueue.main.async { [weak self] in
-                self?.applyScoreDisplay(0, for: targetDate)
-            }
-        }
-    }
+extension HomeViewController: AddTaskViewControllerDelegate {
+    func didAddTask(_ task: NTask) {
+        viewModel?.handleExternalMutation(reason: .created, repostEvent: true)
 
-    private func applyScoreDisplay(_ score: Int, for date: Date) {
-        scoreCounter.text = "\(score)"
-        updateNavigationBarTitle(date: date, score: score)
-        let shouldShowNavXP = score > 0
-        setNavigationPieChartVisible(shouldShowNavXP)
-
-        tinyPieChartView.centerAttributedText = setTinyPieChartScoreText(
-            pieChartView: tinyPieChartView,
-            scoreOverride: score
-        )
-
-        if shouldShowNavXP, let navChart = navigationPieChartView {
-            navChart.centerAttributedText = setTinyPieChartScoreText(
-                pieChartView: navChart,
-                scoreOverride: score
-            )
-            refreshNavigationPieChart()
+        // Keep currently selected scope and date; let ViewModel reload pipeline settle.
+        if let selected = viewModel?.selectedDate {
+            dateForTheView = selected
         }
     }
 }
-    
-extension HomeViewController {
-    /// Sets up the SwiftUI chart card and embeds it in the view hierarchy.
-    func setupSwiftUIChartCard() {
-        // 1. Initialize the SwiftUI View
-        let chartView = TaskProgressCard(referenceDate: dateForTheView)
-        
-        // 2. Create a UIHostingController
-        let hostingController = UIHostingController(rootView: AnyView(chartView))
-        self.swiftUIChartHostingController = hostingController
-        
-        // 3. Configure the hosting controller's view
-        hostingController.view.backgroundColor = .clear
-        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
-        
-        // 4. Create a container view
-        let container = UIView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.backgroundColor = .clear
-        container.clipsToBounds = false // Allow shadow to be visible
-        self.swiftUIChartContainer = container
-        
-        // 5. Add the hosting controller's view to the container
-        container.addSubview(hostingController.view)
-        
-        // 6. Add the container to the backdrop
-        backdropContainer.addSubview(container)
-        
-        // 7. Set constraints
-        NSLayoutConstraint.activate([
-            // Container constraints (with padding for shadow)
-            container.leadingAnchor.constraint(equalTo: backdropContainer.leadingAnchor, constant: 16),
-            container.trailingAnchor.constraint(equalTo: backdropContainer.trailingAnchor, constant: -16),
-            container.topAnchor.constraint(equalTo: backdropContainer.topAnchor, constant: 120),
-            container.heightAnchor.constraint(equalToConstant: 250),
-            
-            // Hosting controller's view constraints (pinned to container)
-            hostingController.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            hostingController.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            hostingController.view.topAnchor.constraint(equalTo: container.topAnchor),
-            hostingController.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
-        
-        // 8. Add child view controller
-        addChild(hostingController)
-        hostingController.didMove(toParent: self)
-
-        // Phase 7: Hide this old single chart - we now use chartScrollContainer with horizontal scrolling
-        container.isHidden = true
-    }
-
-    /// Updates the horizontally scrollable chart cards (line + radar) with the latest data.
-    func updateChartCardsScrollView() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self,
-                  let container = self.chartScrollContainer else {
-                print("⚠️ updateChartCardsScrollView: chartScrollContainer is nil")
-                return
-            }
-
-            // Remove old hosting controller
-            if let oldHost = self.chartScrollHostingController {
-                oldHost.willMove(toParent: nil)
-                oldHost.view.removeFromSuperview()
-                oldHost.removeFromParent()
-            }
-
-            // Create a fresh chart scroll view and hosting controller with updated data
-            let chartScrollView = ChartCardsScrollView(referenceDate: self.dateForTheView)
-            let newHost = UIHostingController(rootView: AnyView(chartScrollView))
-            self.chartScrollHostingController = newHost
-
-            newHost.view.backgroundColor = .clear
-            newHost.view.translatesAutoresizingMaskIntoConstraints = false
-
-            container.addSubview(newHost.view)
-
-            NSLayoutConstraint.activate([
-                newHost.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-                newHost.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                newHost.view.topAnchor.constraint(equalTo: container.topAnchor),
-                newHost.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-            ])
-
-            self.addChild(newHost)
-            newHost.didMove(toParent: self)
-
-            print("📊 Chart Cards ScrollView (Line + Radar) completely rebuilt with latest data")
-        }
-    }
-
-    /// Updates the SwiftUI chart card with the latest data.
-    func updateSwiftUIChartCard() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self,
-                  let container = self.swiftUIChartContainer else { return }
-            // Remove old hosting controller
-            if let oldHost = self.swiftUIChartHostingController {
-                oldHost.willMove(toParent: nil)
-                oldHost.view.removeFromSuperview()
-                oldHost.removeFromParent()
-            }
-            // Create a fresh chart view and hosting controller
-            let chartView = TaskProgressCard(referenceDate: self.dateForTheView)
-            let newHost = UIHostingController(rootView: AnyView(chartView))
-            self.swiftUIChartHostingController = newHost
-            newHost.view.backgroundColor = .clear
-            newHost.view.translatesAutoresizingMaskIntoConstraints = false
-            container.addSubview(newHost.view)
-            NSLayoutConstraint.activate([
-                newHost.view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-                newHost.view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-                newHost.view.topAnchor.constraint(equalTo: container.topAnchor),
-                newHost.view.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-            ])
-            self.addChild(newHost)
-            newHost.didMove(toParent: self)
-            print("📊 SwiftUI Chart Card completely rebuilt with latest data")
-        }
-    }
- }
