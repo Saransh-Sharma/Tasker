@@ -21,6 +21,7 @@ struct HomeBackdropForedropRootView: View {
     let onOpenSettings: () -> Void
 
     @State private var isBackdropRevealed = false
+    @State private var showFilterDropdown = false
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
     @State private var draftDate = Date()
@@ -29,86 +30,103 @@ struct HomeBackdropForedropRootView: View {
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .top) {
-                backdropLayer(geometry: geometry)
+        ZStack {
+            GeometryReader { geometry in
+                ZStack(alignment: .top) {
+                    backdropLayer(geometry: geometry)
 
-                foredropLayer(geometry: geometry)
-                    .offset(y: isBackdropRevealed ? 228 : 86)
-                    .animation(TaskerAnimation.snappy, value: isBackdropRevealed)
-                    .gesture(
-                        DragGesture(minimumDistance: 8)
-                            .onEnded { value in
-                                if value.translation.height > 40 {
-                                    withAnimation(TaskerAnimation.snappy) {
-                                        isBackdropRevealed = true
-                                    }
-                                } else if value.translation.height < -40 {
-                                    withAnimation(TaskerAnimation.snappy) {
-                                        isBackdropRevealed = false
+                    foredropLayer(geometry: geometry)
+                        .offset(y: isBackdropRevealed ? 228 : 86)
+                        .animation(TaskerAnimation.snappy, value: isBackdropRevealed)
+                        .gesture(
+                            DragGesture(minimumDistance: 8)
+                                .onEnded { value in
+                                    if value.translation.height > 40 {
+                                        withAnimation(TaskerAnimation.snappy) {
+                                            isBackdropRevealed = true
+                                        }
+                                    } else if value.translation.height < -40 {
+                                        withAnimation(TaskerAnimation.snappy) {
+                                            isBackdropRevealed = false
+                                        }
                                     }
                                 }
-                            }
-                    )
-            }
-            .background(Color.tasker.bgCanvas)
-            .sheet(isPresented: $showDatePicker) {
-                NavigationView {
-                    VStack(spacing: spacing.s16) {
-                        DatePicker(
-                            "Select date",
-                            selection: $draftDate,
-                            displayedComponents: .date
                         )
-                        .datePickerStyle(.graphical)
-                        .padding(.horizontal, spacing.s16)
+                }
+                .background(Color.tasker.bgCanvas)
+                .sheet(isPresented: $showDatePicker) {
+                    NavigationView {
+                        VStack(spacing: spacing.s16) {
+                            DatePicker(
+                                "Select date",
+                                selection: $draftDate,
+                                displayedComponents: .date
+                            )
+                            .datePickerStyle(.graphical)
+                            .padding(.horizontal, spacing.s16)
 
-                        HStack(spacing: spacing.s12) {
-                            Button("Today") {
-                                draftDate = Date()
-                                viewModel.selectDate(Date())
-                                showDatePicker = false
-                            }
-                            .buttonStyle(.bordered)
+                            HStack(spacing: spacing.s12) {
+                                Button("Today") {
+                                    draftDate = Date()
+                                    viewModel.selectDate(Date())
+                                    showDatePicker = false
+                                }
+                                .buttonStyle(.bordered)
 
-                            Button("Apply") {
-                                viewModel.selectDate(draftDate)
-                                showDatePicker = false
+                                Button("Apply") {
+                                    viewModel.selectDate(draftDate)
+                                    showDatePicker = false
+                                }
+                                .buttonStyle(.borderedProminent)
                             }
-                            .buttonStyle(.borderedProminent)
                         }
-                    }
-                    .navigationTitle("Date")
-                    .toolbar {
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Close") { showDatePicker = false }
+                        .navigationTitle("Date")
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Close") { showDatePicker = false }
+                            }
                         }
                     }
                 }
+                .sheet(isPresented: $showAdvancedFilters) {
+                    HomeAdvancedFilterSheetView(
+                        initialFilter: viewModel.activeFilterState.advancedFilter,
+                        initialShowCompletedInline: viewModel.activeFilterState.showCompletedInline,
+                        savedViews: viewModel.savedHomeViews,
+                        activeSavedViewID: viewModel.activeFilterState.selectedSavedViewID,
+                        onApply: { filter, showCompletedInline in
+                            viewModel.applyAdvancedFilter(filter, showCompletedInline: showCompletedInline)
+                        },
+                        onClear: {
+                            viewModel.applyAdvancedFilter(nil, showCompletedInline: false)
+                            viewModel.clearProjectFilters()
+                            viewModel.setQuickView(.today)
+                        },
+                        onSaveNamedView: { filter, showCompletedInline, name in
+                            viewModel.applyAdvancedFilter(filter, showCompletedInline: showCompletedInline)
+                            viewModel.saveCurrentFilterAsView(name: name)
+                        },
+                        onApplySavedView: { id in
+                            viewModel.applySavedView(id: id)
+                        },
+                        onDeleteSavedView: { id in
+                            viewModel.deleteSavedView(id: id)
+                        }
+                    )
+                }
             }
-            .sheet(isPresented: $showAdvancedFilters) {
-                HomeAdvancedFilterSheetView(
-                    initialFilter: viewModel.activeFilterState.advancedFilter,
-                    initialShowCompletedInline: viewModel.activeFilterState.showCompletedInline,
-                    savedViews: viewModel.savedHomeViews,
-                    activeSavedViewID: viewModel.activeFilterState.selectedSavedViewID,
-                    onApply: { filter, showCompletedInline in
-                        viewModel.applyAdvancedFilter(filter, showCompletedInline: showCompletedInline)
+
+            // Filter dropdown overlay
+            if showFilterDropdown {
+                HomeQuickFilterDropdown(
+                    viewModel: viewModel,
+                    isPresented: $showFilterDropdown,
+                    onShowDatePicker: {
+                        draftDate = viewModel.selectedDate
+                        showDatePicker = true
                     },
-                    onClear: {
-                        viewModel.applyAdvancedFilter(nil, showCompletedInline: false)
-                        viewModel.clearProjectFilters()
-                        viewModel.setQuickView(.today)
-                    },
-                    onSaveNamedView: { filter, showCompletedInline, name in
-                        viewModel.applyAdvancedFilter(filter, showCompletedInline: showCompletedInline)
-                        viewModel.saveCurrentFilterAsView(name: name)
-                    },
-                    onApplySavedView: { id in
-                        viewModel.applySavedView(id: id)
-                    },
-                    onDeleteSavedView: { id in
-                        viewModel.deleteSavedView(id: id)
+                    onShowAdvancedFilters: {
+                        showAdvancedFilters = true
                     }
                 )
             }
@@ -182,9 +200,6 @@ struct HomeBackdropForedropRootView: View {
                 .padding(.horizontal, spacing.s16)
                 .padding(.top, spacing.s8)
 
-            filterRails
-                .padding(.top, spacing.s8)
-
             TaskListView(
                 morningTasks: viewModel.morningTasks,
                 eveningTasks: viewModel.eveningTasks,
@@ -246,21 +261,15 @@ struct HomeBackdropForedropRootView: View {
 
             Spacer()
 
-            Button {
-                draftDate = viewModel.selectedDate
-                showDatePicker = true
-            } label: {
-                Image(systemName: "calendar")
+            // Filter dropdown trigger
+            HomeQuickFilterTriggerButton(
+                summary: filterSummary,
+                isOpen: $showFilterDropdown
+            ) {
+                showFilterDropdown = true
             }
-            .buttonStyle(.bordered)
 
-            Button {
-                showAdvancedFilters = true
-            } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-            }
-            .buttonStyle(.bordered)
-
+            // Settings button
             Button {
                 onOpenSettings()
             } label: {
@@ -270,68 +279,12 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private var filterRails: some View {
-        VStack(spacing: spacing.s8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: spacing.s8) {
-                    ForEach(HomeQuickView.allCases, id: \.rawValue) { quickView in
-                        let count = viewModel.quickViewCounts[quickView] ?? 0
-                        TaskerChip(
-                            title: "\(quickView.title) \(count)",
-                            isSelected: viewModel.activeScope.quickView == quickView,
-                            selectedStyle: .filled
-                        ) {
-                            viewModel.setQuickView(quickView)
-                        }
-                    }
-                }
-                .padding(.horizontal, spacing.s16)
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: spacing.s8) {
-                    let selectedProjectIDs = Set(viewModel.activeFilterState.selectedProjectIDs)
-                    let pinned = viewModel.projects.filter { viewModel.activeFilterState.pinnedProjectIDSet.contains($0.id) }
-                    ForEach(pinned, id: \.id) { project in
-                        TaskerChip(
-                            title: project.name,
-                            isSelected: selectedProjectIDs.contains(project.id),
-                            selectedStyle: .tinted
-                        ) {
-                            viewModel.toggleProjectFilter(project.id)
-                        }
-                    }
-                    TaskerChip(
-                        title: selectedProjectIDs.isEmpty ? "All Projects ✓" : "All Projects",
-                        isSelected: selectedProjectIDs.isEmpty,
-                        selectedStyle: .tinted
-                    ) {
-                        viewModel.clearProjectFilters()
-                    }
-                }
-                .padding(.horizontal, spacing.s16)
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: spacing.s8) {
-                    TaskerChip(
-                        title: HomeProjectGroupingMode.prioritizeOverdue.title,
-                        isSelected: viewModel.activeFilterState.projectGroupingMode == .prioritizeOverdue,
-                        selectedStyle: .tinted
-                    ) {
-                        viewModel.setProjectGroupingMode(.prioritizeOverdue)
-                    }
-                    TaskerChip(
-                        title: HomeProjectGroupingMode.groupByProjects.title,
-                        isSelected: viewModel.activeFilterState.projectGroupingMode == .groupByProjects,
-                        selectedStyle: .tinted
-                    ) {
-                        viewModel.setProjectGroupingMode(.groupByProjects)
-                    }
-                }
-                .padding(.horizontal, spacing.s16)
-            }
-        }
+    private var filterSummary: HomeQuickFilterSummary {
+        HomeQuickFilterSummary.from(
+            scope: viewModel.activeScope,
+            filterState: viewModel.activeFilterState,
+            customDate: viewModel.selectedDate
+        )
     }
 
     private var foredropBottomBar: some View {

@@ -32,9 +32,11 @@
 		5C40177A9B3FF3166F615605 /* LocalDataSourceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 928C90DA7E4426D4E1A9E257 /* LocalDataSourceProtocol.swift */; };
 		5F230AF6BB3D9F989C5A6418 /* ColorTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B812E7A0B879607C95C0571B /* ColorTokens.swift */; };
 		600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */; };
+		664B05702E92F236C487E1AD /* HomeQuickFilterDropdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */; };
 		6A386E990F32D3D2DF9AE465 /* UnifiedThemePickerCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 741573708CF6B514C62FF327 /* UnifiedThemePickerCell.swift */; };
 		6BFABA2E6D0DFA253AEC67A9 /* UserDefaultsSavedHomeViewRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A365503F0A1EC71D5D159FC0 /* UserDefaultsSavedHomeViewRepository.swift */; };
 		6CD89F72FF32B97D5478AC7C /* Pods_Tasker.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C5C2E036C6F5C5CAEC0C45B /* Pods_Tasker.framework */; };
+		7225854435E82849B5E3C425 /* HomeQuickFilterTriggerButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A05E16369BC6D8B09B0D460 /* HomeQuickFilterTriggerButton.swift */; };
 		75018BBB2E8D0C7C00EA3D0D /* AnalyticsServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75018BB42E8D0C7C00EA3D0D /* AnalyticsServiceProtocol.swift */; };
 		750894CC2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750894C92E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift */; };
 		75098D3B2E96794800AA1331 /* MigrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75098D3A2E96794800AA1331 /* MigrationManager.swift */; };
@@ -251,6 +253,7 @@
 		8B3CA34519B5A28D8599A5B0 /* SwiftUI+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 817A26FD3474A08EC2250BED /* SwiftUI+TokenAdapters.swift */; };
 		8CEB7AF8EA56D5550356778F /* CoreDataProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD631E2A2245F830BA92FA5 /* CoreDataProjectRepository.swift */; };
 		93A08D4876826EDED0777968 /* FluentUI+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24149B5075EA3C58461BC9C7 /* FluentUI+TokenAdapters.swift */; };
+		9F8F96DA53998188FCCE898D /* HomeQuickFilterSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D233F155B6A87F62F52F845 /* HomeQuickFilterSummary.swift */; };
 		A1B2C3D4E5F607080910AB01 /* GradientTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F607080910AB02 /* GradientTokens.swift */; };
 		A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */; };
 		A3A6DF9571AB7FEB410EB861 /* HomeAdvancedFilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */; };
@@ -303,10 +306,12 @@
 		2E753995C5FB25BE948BE1E9 /* HomeFilterState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeFilterState.swift; path = HomeFilterState.swift; sourceTree = "<group>"; };
 		32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TypographyTokenTests.swift; path = TypographyTokenTests.swift; sourceTree = "<group>"; };
 		39E32E99EEF0995842E5A3C1 /* TaskDetailSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailSheetView.swift; sourceTree = "<group>"; };
+		3D233F155B6A87F62F52F845 /* HomeQuickFilterSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeQuickFilterSummary.swift; path = HomeQuickFilterSummary.swift; sourceTree = "<group>"; };
 		474D6F9924059D6D0EA332F2 /* Pods-TaskerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TaskerTests.debug.xcconfig"; path = "Target Support Files/Pods-TaskerTests/Pods-TaskerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailComponents.swift; sourceTree = "<group>"; };
 		55C5A46909EF46C27D7B84E3 /* SavedHomeViewRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SavedHomeViewRepositoryProtocol.swift; path = SavedHomeViewRepositoryProtocol.swift; sourceTree = "<group>"; };
 		594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeAdvancedFilterSheetView.swift; path = HomeAdvancedFilterSheetView.swift; sourceTree = "<group>"; };
+		5A05E16369BC6D8B09B0D460 /* HomeQuickFilterTriggerButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeQuickFilterTriggerButton.swift; path = HomeQuickFilterTriggerButton.swift; sourceTree = "<group>"; };
 		5DA1D87ADF956BED887FE0CC /* TaskerThemeManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskerThemeManagerTests.swift; path = TaskerThemeManagerTests.swift; sourceTree = "<group>"; };
 		607D98C13538414095C75E7B /* AddTaskMetadataRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskMetadataRow.swift; sourceTree = "<group>"; };
 		61DD4EEC3F347BB9E2BF1639 /* CoreDataTaskRepository+Domain.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "CoreDataTaskRepository+Domain.swift"; path = "To Do List/State/Repositories/CoreDataTaskRepository+Domain.swift"; sourceTree = SOURCE_ROOT; };
@@ -516,6 +521,7 @@
 		7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpacingElevationCornerTests.swift; path = SpacingElevationCornerTests.swift; sourceTree = "<group>"; };
 		7F7676A13058C4757D1E2718 /* SavedHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SavedHomeView.swift; path = SavedHomeView.swift; sourceTree = "<group>"; };
 		817A26FD3474A08EC2250BED /* SwiftUI+TokenAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "SwiftUI+TokenAdapters.swift"; path = "SwiftUI+TokenAdapters.swift"; sourceTree = "<group>"; };
+		82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeQuickFilterDropdown.swift; path = HomeQuickFilterDropdown.swift; sourceTree = "<group>"; };
 		8AD631E2A2245F830BA92FA5 /* CoreDataProjectRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoreDataProjectRepository.swift; path = "To Do List/State/Repositories/CoreDataProjectRepository.swift"; sourceTree = SOURCE_ROOT; };
 		8BCC6B8451418E0C7CDE922C /* Pods-TaskerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TaskerTests.release.xcconfig"; path = "Target Support Files/Pods-TaskerTests/Pods-TaskerTests.release.xcconfig"; sourceTree = "<group>"; };
 		8C72110A1F555F951D89BBEB /* CornerTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CornerTokens.swift; path = CornerTokens.swift; sourceTree = "<group>"; };
@@ -963,6 +969,8 @@
 				F0A1B2C3D4E5F60718293A4C /* HomeTaskSectionBuilder.swift */,
 				594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */,
 				BF5D7161411B42651DF00D60 /* HomeForedropView.swift */,
+				82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */,
+				5A05E16369BC6D8B09B0D460 /* HomeQuickFilterTriggerButton.swift */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -1163,6 +1171,7 @@
 				F0A1B2C3D4E5F60718293A4B /* HomeProjectGroupingMode.swift */,
 				2E753995C5FB25BE948BE1E9 /* HomeFilterState.swift */,
 				7F7676A13058C4757D1E2718 /* SavedHomeView.swift */,
+				3D233F155B6A87F62F52F845 /* HomeQuickFilterSummary.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -1837,6 +1846,9 @@
 				6A386E990F32D3D2DF9AE465 /* UnifiedThemePickerCell.swift in Sources */,
 				DCF44651412668651994B7BB /* DarkModeToggleCell.swift in Sources */,
 				355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */,
+				664B05702E92F236C487E1AD /* HomeQuickFilterDropdown.swift in Sources */,
+				7225854435E82849B5E3C425 /* HomeQuickFilterTriggerButton.swift in Sources */,
+				9F8F96DA53998188FCCE898D /* HomeQuickFilterSummary.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
