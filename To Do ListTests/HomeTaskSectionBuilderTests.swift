@@ -90,11 +90,54 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertEqual(layout.customSections.map(\.project.name), ["Gamma", "Alpha", "Beta"])
     }
 
-    private func makeTask(name: String, project: Project, dueDate: Date) -> DomainTask {
+    func testGroupedSectionsDoNotForceCompletionBasedReordering() {
+        let inbox = Project.createInbox()
+        let work = Project(id: UUID(), name: "Work", icon: .work)
+
+        let openTask = makeTask(
+            name: "Open Task",
+            project: work,
+            dueDate: Date(),
+            isComplete: false,
+            priority: .low
+        )
+        let completedTask = makeTask(
+            name: "Completed Task",
+            project: work,
+            dueDate: Date(),
+            isComplete: true,
+            priority: .max
+        )
+
+        let layout = HomeTaskSectionBuilder.buildTodayLayout(
+            mode: .groupByProjects,
+            nonOverdueTasks: [completedTask, openTask],
+            overdueTasks: [],
+            projects: [inbox, work],
+            customProjectOrderIDs: [work.id]
+        )
+
+        guard let workSection = layout.customSections.first(where: { $0.project.id == work.id }) else {
+            return XCTFail("Expected Work section")
+        }
+
+        XCTAssertEqual(workSection.tasks.map(\.name), ["Completed Task", "Open Task"])
+        XCTAssertEqual(workSection.tasks.map(\.isComplete), [true, false])
+    }
+
+    private func makeTask(
+        name: String,
+        project: Project,
+        dueDate: Date,
+        isComplete: Bool = false,
+        priority: TaskPriority = .low
+    ) -> DomainTask {
         DomainTask(
             projectID: project.id,
             name: name,
             dueDate: dueDate,
+            isComplete: isComplete,
+            priority: priority,
             project: project.name
         )
     }
