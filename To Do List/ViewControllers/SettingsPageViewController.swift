@@ -93,7 +93,8 @@ class SettingsPageViewController: UIViewController {
         settingsTableView.delegate = self
         settingsTableView.dataSource = self
         settingsTableView.register(UITableViewCell.self, forCellReuseIdentifier: "settingsCell")
-        settingsTableView.register(ThemeSelectionCell.self, forCellReuseIdentifier: ThemeSelectionCell.reuseID)
+        settingsTableView.register(UnifiedThemePickerCell.self, forCellReuseIdentifier: UnifiedThemePickerCell.reuseID)
+        settingsTableView.register(DarkModeToggleCell.self, forCellReuseIdentifier: DarkModeToggleCell.reuseID)
         settingsTableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         
         // Add to view hierarchy
@@ -102,13 +103,9 @@ class SettingsPageViewController: UIViewController {
     
     // MARK: - Data Setup
     private func setupSettingsSections() {
-        // Determine dynamic titles/icons
-        let modeTitle = isDarkMode ? "Light Mode" : "Dark Mode"
-        let modeIcon = isDarkMode ? "sun.max.fill" : "moon.fill"
-        
         // Compute LLM model display name to show as badge/detail
         let modelDisplayName = appManager.modelDisplayName(appManager.currentModelName ?? "")
-        
+
         sections = [
             SettingsSection(title: "Projects", items: [
                 SettingsItem(title: "Project Management", iconName: "folder.fill", action: { [weak self] in
@@ -116,15 +113,9 @@ class SettingsPageViewController: UIViewController {
                 })
             ]),
             SettingsSection(title: "Appearance", items: [
-                SettingsItem(title: modeTitle, iconName: modeIcon, action: { [weak self] in
-                    self?.toggleDarkMode()
-                }),
-                SettingsItem(title: "Theme", iconName: nil, action: nil),
-                SettingsItem(title: "Theme QA Swatches", iconName: "paintpalette.fill", action: { [weak self] in
-                    self?.navigateToThemeDebugSwatches()
-                })
+                SettingsItem(title: "Dark Mode", iconName: nil, action: nil),  // Handled by DarkModeToggleCell
+                SettingsItem(title: "Theme", iconName: nil, action: nil)       // Handled by UnifiedThemePickerCell
             ]),
-            // LLM Settings
             SettingsSection(title: "LLM Settings", items: [
                 SettingsItem(title: "Chats", iconName: "message", action: { [weak self] in
                     self?.navigateToLLMChatsSettings()
@@ -149,11 +140,6 @@ class SettingsPageViewController: UIViewController {
     // MARK: - Theme Navigation
     private func navigateToThemeSelection() {
         let vc = ThemeSelectionViewController()
-        self.navigationController?.pushViewController(vc, animated: true)
-    }
-
-    private func navigateToThemeDebugSwatches() {
-        let vc = ThemeDebugSwatchesViewController()
         self.navigationController?.pushViewController(vc, animated: true)
     }
 
@@ -186,37 +172,6 @@ class SettingsPageViewController: UIViewController {
         let alert = UIAlertController(title: "Coming Soon", message: "This feature is not yet implemented", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
         present(alert, animated: true)
-    }
-    
-    private func toggleDarkMode() {
-        // Toggle our tracked dark mode state
-        isDarkMode = !isDarkMode
-        
-        // Toggle between light and dark mode
-        if #available(iOS 13.0, *) {
-            let newStyle: UIUserInterfaceStyle = isDarkMode ? .dark : .light
-            
-            // Apply to all windows for consistent appearance
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-                windowScene.windows.forEach { window in
-                    window.overrideUserInterfaceStyle = newStyle
-                }
-            }
-            
-            // Show confirmation toast
-            let message = isDarkMode ? "Dark Mode Enabled" : "Light Mode Enabled"
-            let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            present(alert, animated: true)
-            
-            // Update settings sections to reflect the new mode
-            setupSettingsSections()
-            
-            // Refresh the table to update appearance changes and button text/icon
-            settingsTableView.reloadData()
-        } else {
-            showNotImplementedAlert()
-        }
     }
     
     private func showVersionInfo() {
@@ -254,44 +209,63 @@ extension SettingsPageViewController: UITableViewDataSource {
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        // Provide custom theme picker cell for the "Theme" item under the Appearance section
-        if sections[indexPath.section].title == "Appearance" && sections[indexPath.section].items[indexPath.row].title == "Theme" {
-            let themeCell = tableView.dequeueReusableCell(withIdentifier: ThemeSelectionCell.reuseID, for: indexPath)
-            themeCell.selectionStyle = .none
-            // Hide the default text label so only the collection view is visible
-            themeCell.textLabel?.text = nil
-            return themeCell
+        let sectionTitle = sections[indexPath.section].title
+        let itemTitle = sections[indexPath.section].items[indexPath.row].title
+        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
+
+        // MARK: Appearance – Dark Mode toggle
+        if sectionTitle == "Appearance" && itemTitle == "Dark Mode" {
+            let cell = tableView.dequeueReusableCell(withIdentifier: DarkModeToggleCell.reuseID, for: indexPath) as! DarkModeToggleCell
+            cell.delegate = self
+            cell.update(isDarkMode: isDarkMode)
+            cell.backgroundColor = colors.surfacePrimary
+            return cell
         }
 
-        let cell = tableView.dequeueReusableCell(withIdentifier: "settingsCell", for: indexPath)
-        let item = sections[indexPath.section].items[indexPath.row]
-        
-        // Configure cell
-        cell.textLabel?.text = item.title
-        cell.accessoryType = item.action != nil ? .disclosureIndicator : .none
-        
-        // Configure icon if available
-        if let iconName = item.iconName {
-            cell.imageView?.image = UIImage(systemName: iconName)
-            cell.imageView?.tintColor = TaskerThemeManager.shared.currentTheme.tokens.color.accentPrimary
+        // MARK: Appearance – Theme gallery
+        if sectionTitle == "Appearance" && itemTitle == "Theme" {
+            let cell = tableView.dequeueReusableCell(withIdentifier: UnifiedThemePickerCell.reuseID, for: indexPath)
+            cell.selectionStyle = .none
+            cell.textLabel?.text = nil
+            cell.backgroundColor = colors.surfacePrimary
+            return cell
         }
-        
-        // Configure detail text if available
+
+        // MARK: Default rows – token-based styling
+        let cell = UITableViewCell(style: .value1, reuseIdentifier: "settingsCell")
+        let item = sections[indexPath.section].items[indexPath.row]
+
+        cell.textLabel?.text = item.title
+        cell.textLabel?.font = TaskerUIKitTokens.typography.body
+        cell.textLabel?.textColor = colors.textPrimary
+        cell.accessoryType = item.action != nil ? .disclosureIndicator : .none
+        cell.backgroundColor = colors.surfacePrimary
+
+        if let iconName = item.iconName {
+            let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+            cell.imageView?.image = UIImage(systemName: iconName, withConfiguration: config)
+            cell.imageView?.tintColor = colors.accentPrimary
+        }
+
         if let detailText = item.detailText {
             cell.detailTextLabel?.text = detailText
+            cell.detailTextLabel?.textColor = colors.textTertiary
+            cell.detailTextLabel?.font = TaskerUIKitTokens.typography.callout
         }
-        
+
         return cell
     }
 }
 
 // MARK: - UITableViewDelegate
 extension SettingsPageViewController: UITableViewDelegate {
-    // Provide taller height for theme picker cell
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        if sections[indexPath.section].title == "Appearance" && sections[indexPath.section].items[indexPath.row].title == "Theme" {
-            return 110
+        guard sections[indexPath.section].title == "Appearance" else {
+            return UITableView.automaticDimension
         }
+        let itemTitle = sections[indexPath.section].items[indexPath.row].title
+        if itemTitle == "Theme" { return 128 }
+        if itemTitle == "Dark Mode" { return 52 }
         return UITableView.automaticDimension
     }
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -299,8 +273,8 @@ extension SettingsPageViewController: UITableViewDelegate {
         
         // Execute the action if available
         let item = sections[indexPath.section].items[indexPath.row]
-        // Ignore selection for theme picker row
-        if item.title == "Theme" && sections[indexPath.section].title == "Appearance" {
+        // Ignore selection for Appearance rows (handled by their own controls)
+        if sections[indexPath.section].title == "Appearance" {
             return
         }
         if let action = item.action {
@@ -560,11 +534,28 @@ class ProjectManagementViewControllerEmbedded: UIViewController {
     }
 }
 
+// MARK: - DarkModeToggleCellDelegate
+extension SettingsPageViewController: DarkModeToggleCellDelegate {
+    func darkModeToggleCell(_ cell: DarkModeToggleCell, didToggle isDark: Bool) {
+        isDarkMode = isDark
+        let newStyle: UIUserInterfaceStyle = isDark ? .dark : .light
+
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            windowScene.windows.forEach { $0.overrideUserInterfaceStyle = newStyle }
+        }
+
+        setupSettingsSections()
+        applyTheme()
+    }
+}
+
 // MARK: - Theme Change Handling
 extension SettingsPageViewController {
     private func applyTheme() {
         let colors = TaskerThemeManager.shared.currentTheme.tokens.color
         view.tintColor = colors.accentPrimary
+        view.backgroundColor = colors.bgCanvas
+        settingsTableView.backgroundColor = colors.bgCanvas
         settingsTableView.reloadData()
     }
 }
