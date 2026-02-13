@@ -389,15 +389,23 @@ struct ChatView: View {
                 modelContext.insert(newThread)
                 do {
                     try modelContext.save()
-                    print("[DEBUG] saved new thread OK")
+                    logDebug("[DEBUG] saved new thread OK")
                 } catch {
-                    print("[DEBUG] save thread error: \(error)")
+                    logError(
+                        event: "chat_thread_save_failed",
+                        message: "Failed to save chat thread",
+                        fields: ["error": error.localizedDescription]
+                    )
                 }
                 do {
                     let all = try modelContext.fetch(FetchDescriptor<Thread>())
-                    print("[DEBUG] after creating thread, total threads: \(all.count)")
+                    logDebug("[DEBUG] after creating thread, total threads: \(all.count)")
                 } catch {
-                    print("[DEBUG] fetch threads error: \(error)")
+                    logError(
+                        event: "chat_thread_fetch_failed",
+                        message: "Failed to fetch chat threads",
+                        fields: ["error": error.localizedDescription]
+                    )
                 }
             }
 
@@ -438,10 +446,10 @@ struct ChatView: View {
                                 return
                             }
                             os_log("SystemPrompt length %d", dynamicSystemPrompt.count)
-                            print("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
-                            print("USER MESSAGE ->\n\(message)")
+                            logDebug("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
+                            logDebug("USER MESSAGE ->\n\(message)")
                             let output = await llm.generate(modelName: modelName, thread: currentThread, systemPrompt: dynamicSystemPrompt)
-                            print("LLM RESPONSE ->\n\(output)")
+                            logDebug("LLM RESPONSE ->\n\(output)")
                             sendMessage(Message(role: .assistant, content: output, thread: currentThread, generatingTime: llm.thinkingTime))
                             generatingThreadID = nil
                         }
@@ -456,15 +464,23 @@ struct ChatView: View {
         modelContext.insert(message)
         do {
             try modelContext.save()
-            print("[DEBUG] saved message OK")
+            logDebug("[DEBUG] saved message OK")
         } catch {
-            print("[DEBUG] save message error: \(error)")
+            logError(
+                event: "chat_message_save_failed",
+                message: "Failed to save chat message",
+                fields: ["error": error.localizedDescription]
+            )
         }
         do {
             let all = try modelContext.fetch(FetchDescriptor<Message>())
-            print("[DEBUG] after inserting message, total messages: \(all.count)")
+            logDebug("[DEBUG] after inserting message, total messages: \(all.count)")
         } catch {
-            print("[DEBUG] fetch messages error: \(error)")
+            logError(
+                event: "chat_message_fetch_failed",
+                message: "Failed to fetch chat messages",
+                fields: ["error": error.localizedDescription]
+            )
         }
     }
 

@@ -65,7 +65,7 @@ class LoopingPlayerUIView: UIView {
             try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default, options: [])
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            print("Failed to set audio session category: \(error)")
+            logError("Failed to set audio session category: \(error)")
         }
 
         player.play()

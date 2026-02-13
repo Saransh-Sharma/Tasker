@@ -72,7 +72,7 @@ struct ChatsSettingsView: View {
             try modelContext.delete(model: Thread.self)
             try modelContext.delete(model: Message.self)
         } catch {
-            print("Failed to delete.")
+            logError("Failed to delete.")
         }
     }
 }

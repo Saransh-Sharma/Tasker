@@ -49,7 +49,7 @@ class AppManager: ObservableObject {
     
     func incrementNumberOfVisits() {
         numberOfVisits += 1
-        print("app visits: \(numberOfVisits)")
+        logDebug("app visits: \(numberOfVisits)")
     }
     
     // Function to save the array to UserDefaults as JSON
@@ -89,7 +89,7 @@ class AppManager: ObservableObject {
                 try FileManager.default.removeItem(at: folder)
             }
         } catch {
-            print("Failed to delete model files for \(model): \(error)")
+            logError("Failed to delete model files for \(model): \(error)")
         }
     }
     

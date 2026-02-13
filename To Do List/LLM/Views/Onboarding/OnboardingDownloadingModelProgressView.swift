@@ -123,7 +123,7 @@ struct OnboardingDownloadingModelProgressView: View {
 
     func addInstalledModel() {
         if installed {
-            print("added installed model")
+            logDebug("added installed model")
             appManager.currentModelName = selectedModel.name
             appManager.addInstalledModel(selectedModel.name)
         }
