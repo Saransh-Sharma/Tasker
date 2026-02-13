@@ -3,6 +3,79 @@ import XCTest
 
 final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
+    func testCustomDateScopeIncludesAnchorDayAndAnchorRelativeOverdue() {
+        let calendar = Calendar.current
+        let anchor = calendar.date(from: DateComponents(year: 2026, month: 2, day: 10, hour: 10, minute: 0, second: 0))!
+        let startOfAnchor = calendar.startOfDay(for: anchor)
+        let anchorMorning = calendar.date(byAdding: .hour, value: 9, to: startOfAnchor)!
+        let previousDay = calendar.date(byAdding: .day, value: -1, to: anchorMorning)!
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: anchorMorning)!
+
+        let dueOnAnchor = makeTask(name: "Due On Anchor", dueDate: anchorMorning, isComplete: false)
+        let overdueRelativeToAnchor = makeTask(name: "Overdue Relative Anchor", dueDate: previousDay, isComplete: false)
+        let dueAfterAnchor = makeTask(name: "Due After Anchor", dueDate: nextDay, isComplete: false)
+
+        let repository = MockTaskRepository(tasks: [dueOnAnchor, overdueRelativeToAnchor, dueAfterAnchor])
+        let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
+
+        let expectation = expectation(description: "Custom date scope")
+        var captured: HomeFilteredTasksResult?
+
+        useCase.execute(state: .default, scope: .customDate(anchor)) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(
+            Set(captured?.openTasks.map(\.name) ?? []),
+            Set(["Due On Anchor", "Overdue Relative Anchor"])
+        )
+        XCTAssertEqual(captured?.doneTimelineTasks.count, 0)
+    }
+
+    func testCustomDateScopeComputesTodayQuickCountFromAnchorDate() {
+        let calendar = Calendar.current
+        let anchor = calendar.date(from: DateComponents(year: 2026, month: 2, day: 8, hour: 10, minute: 0, second: 0))!
+        let startOfAnchor = calendar.startOfDay(for: anchor)
+
+        let dueOnAnchor = makeTask(
+            name: "Anchor Day Task",
+            dueDate: calendar.date(byAdding: .hour, value: 8, to: startOfAnchor),
+            isComplete: false
+        )
+        let overdueRelativeToAnchor = makeTask(
+            name: "Anchor Overdue",
+            dueDate: calendar.date(byAdding: .day, value: -1, to: startOfAnchor),
+            isComplete: false
+        )
+        let futureRelativeToAnchor = makeTask(
+            name: "Anchor Future",
+            dueDate: calendar.date(byAdding: .day, value: 2, to: startOfAnchor),
+            isComplete: false
+        )
+
+        let repository = MockTaskRepository(tasks: [dueOnAnchor, overdueRelativeToAnchor, futureRelativeToAnchor])
+        let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
+
+        let expectation = expectation(description: "Custom date quick count")
+        var captured: HomeFilteredTasksResult?
+
+        useCase.execute(state: .default, scope: .customDate(anchor)) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(captured?.quickViewCounts[.today], 2)
+    }
+
     func testUpcomingQuickViewReturnsOnlyNext14DaysOpenTasks() {
         let now = Date()
         let calendar = Calendar.current

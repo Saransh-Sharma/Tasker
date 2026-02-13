@@ -3,6 +3,119 @@ import XCTest
 
 final class HomeViewModelCompletionStateTests: XCTestCase {
 
+    func testRequestChartRefreshPostsReasonPayload() {
+        let expectation = expectation(description: "homeTaskMutation notification")
+
+        let suiteName = "HomeViewModelCompletionStateTests.RequestChartRefresh.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [])
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        var observedReason: String?
+        let token = NotificationCenter.default.addObserver(
+            forName: .homeTaskMutation,
+            object: nil,
+            queue: .main
+        ) { notification in
+            observedReason = notification.userInfo?["reason"] as? String
+            expectation.fulfill()
+        }
+
+        defer {
+            NotificationCenter.default.removeObserver(token)
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        viewModel.requestChartRefresh(reason: .priorityChanged)
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(observedReason, HomeTaskMutationEvent.priorityChanged.rawValue)
+    }
+
+    func testCreateDeleteRescheduleAndToggleEmitMutationRefreshEvents() {
+        let suiteName = "HomeViewModelCompletionStateTests.MutationEvents.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let seedTask = Task(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Seed",
+            type: .morning,
+            dueDate: now.addingTimeInterval(1800),
+            project: ProjectConstants.inboxProjectName
+        )
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [seedTask])
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        var observedReasons: [String] = []
+        let token = NotificationCenter.default.addObserver(
+            forName: .homeTaskMutation,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let reason = notification.userInfo?["reason"] as? String {
+                observedReasons.append(reason)
+            }
+        }
+
+        defer {
+            NotificationCenter.default.removeObserver(token)
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        waitForMainQueueFlush()
+
+        viewModel.createTask(
+            request: CreateTaskRequest(
+                name: "Created",
+                dueDate: Date().addingTimeInterval(3600)
+            )
+        )
+        waitForMainQueueDelay(0.1)
+
+        guard let openTask = viewModel.morningTasks.first else {
+            return XCTFail("Expected an open task after initial load")
+        }
+
+        viewModel.rescheduleTask(openTask, to: Date().addingTimeInterval(7200))
+        waitForMainQueueDelay(0.1)
+
+        viewModel.toggleTaskCompletion(openTask)
+        waitForMainQueueDelay(0.1)
+
+        viewModel.deleteTask(openTask)
+        waitForMainQueueDelay(0.1)
+
+        let reasonSet = Set(observedReasons)
+        XCTAssertTrue(reasonSet.contains(HomeTaskMutationEvent.created.rawValue))
+        XCTAssertTrue(reasonSet.contains(HomeTaskMutationEvent.rescheduled.rawValue))
+        XCTAssertTrue(reasonSet.contains(HomeTaskMutationEvent.completed.rawValue) || reasonSet.contains(HomeTaskMutationEvent.reopened.rawValue))
+        XCTAssertTrue(reasonSet.contains(HomeTaskMutationEvent.deleted.rawValue))
+    }
+
     func testToggleCompletionUpdatesPublishedOpenAndCompletedStateWithoutRestart() {
         let suiteName = "HomeViewModelCompletionStateTests.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -43,8 +156,9 @@ final class HomeViewModelCompletionStateTests: XCTestCase {
         viewModel.toggleTaskCompletion(openTask)
         waitForMainQueueFlush()
 
-        XCTAssertTrue(viewModel.morningTasks.isEmpty)
+        XCTAssertTrue(viewModel.morningTasks.contains(where: { $0.id == task.id && $0.isComplete }))
         XCTAssertEqual(viewModel.completedTasks.map(\.id), [task.id])
+        assertNoOpenDoneOverlap(viewModel)
 
         guard let completedTask = viewModel.completedTasks.first else {
             return XCTFail("Expected task to move to completed collection")
@@ -54,6 +168,7 @@ final class HomeViewModelCompletionStateTests: XCTestCase {
 
         XCTAssertEqual(viewModel.completedTasks.count, 0)
         XCTAssertEqual(viewModel.morningTasks.map(\.id), [task.id])
+        assertNoOpenDoneOverlap(viewModel)
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -97,8 +212,120 @@ final class HomeViewModelCompletionStateTests: XCTestCase {
         viewModel.toggleTaskCompletion(openTask)
         waitForMainQueueDelay(0.05)
 
-        XCTAssertEqual(viewModel.morningTasks.first?.id, task.id)
-        XCTAssertEqual(viewModel.morningTasks.first?.isComplete, true)
+        XCTAssertTrue(viewModel.morningTasks.contains(where: { $0.id == task.id && $0.isComplete }))
+        XCTAssertTrue(viewModel.completedTasks.contains(where: { $0.id == task.id && $0.isComplete }))
+        assertNoOpenDoneOverlap(viewModel)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testReopenMovesTaskBackToOpenImmediatelyBeforeReloadCompletes() {
+        let suiteName = "HomeViewModelCompletionStateTests.ReopenImmediate.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let task = Task(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Immediate reopen task",
+            type: .morning,
+            dueDate: now,
+            project: ProjectConstants.inboxProjectName
+        )
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [task])
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+        taskRepository.fetchAllTasksDelay = 0.4
+
+        guard let openTask = viewModel.morningTasks.first else {
+            return XCTFail("Expected initial open task")
+        }
+
+        viewModel.toggleTaskCompletion(openTask)
+        waitForMainQueueDelay(0.05)
+        guard let completedTask = viewModel.completedTasks.first(where: { $0.id == task.id }) else {
+            return XCTFail("Expected completed task before reopen")
+        }
+
+        viewModel.toggleTaskCompletion(completedTask)
+        waitForMainQueueDelay(0.05)
+
+        XCTAssertFalse(viewModel.completedTasks.contains(where: { $0.id == task.id }))
+        XCTAssertTrue(viewModel.morningTasks.contains(where: { $0.id == task.id && !$0.isComplete }))
+        assertNoOpenDoneOverlap(viewModel)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testCustomDateToggleCompletionKeepsTaskInlineInVisibleSection() {
+        let suiteName = "HomeViewModelCompletionStateTests.CustomDateInline.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let calendar = Calendar.current
+        let anchorDate = calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        let dueDate = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: anchorDate) ?? anchorDate
+
+        let task = Task(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Custom date inline task",
+            type: .morning,
+            dueDate: dueDate,
+            project: ProjectConstants.inboxProjectName
+        )
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [task])
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+        viewModel.selectDate(anchorDate)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.activeScope, .customDate(anchorDate))
+        guard let openTask = viewModel.morningTasks.first(where: { $0.id == task.id }) else {
+            return XCTFail("Expected task in custom-date morning list")
+        }
+
+        viewModel.toggleTaskCompletion(openTask)
+        waitForMainQueueDelay(0.05)
+
+        XCTAssertTrue(viewModel.morningTasks.contains(where: { $0.id == task.id && $0.isComplete }))
+        XCTAssertTrue(viewModel.completedTasks.contains(where: { $0.id == task.id && $0.isComplete }))
+        assertNoOpenDoneOverlap(viewModel)
+
+        guard let completedTask = viewModel.completedTasks.first(where: { $0.id == task.id }) else {
+            return XCTFail("Expected completed task in custom-date scope")
+        }
+
+        viewModel.toggleTaskCompletion(completedTask)
+        waitForMainQueueDelay(0.05)
+
+        XCTAssertTrue(viewModel.morningTasks.contains(where: { $0.id == task.id && !$0.isComplete }))
+        XCTAssertFalse(viewModel.completedTasks.contains(where: { $0.id == task.id }))
+        assertNoOpenDoneOverlap(viewModel)
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -151,6 +378,407 @@ final class HomeViewModelCompletionStateTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testCompletionOverrideClearsAfterReloadReconcilesPersistedState() {
+        let suiteName = "HomeViewModelCompletionStateTests.OverrideClear.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let task = Task(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Override clear task",
+            type: .morning,
+            dueDate: now,
+            project: ProjectConstants.inboxProjectName
+        )
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [task])
+        taskRepository.fetchAllTasksDelay = 0.3
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+        guard let openTask = viewModel.morningTasks.first else {
+            return XCTFail("Expected initial open task in morning list")
+        }
+
+        viewModel.toggleTaskCompletion(openTask)
+        waitForMainQueueDelay(0.05)
+        XCTAssertEqual(viewModel.completionOverride(for: task.id), true)
+
+        waitForMainQueueDelay(0.35)
+        XCTAssertNil(viewModel.completionOverride(for: task.id))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testLatestReloadGenerationWinsOverStaleResponse() {
+        let suiteName = "HomeViewModelCompletionStateTests.GenerationGuard.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let taskID = UUID()
+        let openTask = Task(
+            id: taskID,
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Generation guarded task",
+            type: .morning,
+            dueDate: now,
+            project: ProjectConstants.inboxProjectName,
+            isComplete: false
+        )
+        let doneTask = Task(
+            id: taskID,
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Generation guarded task",
+            type: .morning,
+            dueDate: now,
+            project: ProjectConstants.inboxProjectName,
+            isComplete: true,
+            dateCompleted: now
+        )
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [openTask])
+        taskRepository.scriptedFetchAllTasksResponses = [
+            (delay: 0.30, tasks: [openTask]),   // stale response (older generation)
+            (delay: 0.05, tasks: [doneTask])    // latest response
+        ]
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+
+        viewModel.loadTodayTasks()
+        viewModel.loadTodayTasks()
+
+        waitForMainQueueDelay(0.45)
+
+        XCTAssertTrue(viewModel.completedTasks.contains(where: { $0.id == taskID && $0.isComplete }))
+        XCTAssertFalse(viewModel.morningTasks.contains(where: { $0.id == taskID && !$0.isComplete }))
+        assertNoOpenDoneOverlap(viewModel)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testRapidOpenDoneOpenTogglesDoNotProduceStaleState() {
+        let suiteName = "HomeViewModelCompletionStateTests.RapidToggle.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let task = Task(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Rapid toggle task",
+            type: .morning,
+            dueDate: now,
+            project: ProjectConstants.inboxProjectName
+        )
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [task])
+        taskRepository.fetchAllTasksDelay = 0.35
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+
+        guard var currentTask = viewModel.morningTasks.first(where: { $0.id == task.id }) else {
+            return XCTFail("Expected initial open task")
+        }
+
+        for step in 0..<4 {
+            viewModel.toggleTaskCompletion(currentTask)
+            waitForMainQueueDelay(0.05)
+            assertNoOpenDoneOverlap(viewModel)
+
+            if step % 2 == 0 {
+                guard let doneTask = viewModel.completedTasks.first(where: { $0.id == task.id && $0.isComplete }) else {
+                    return XCTFail("Expected done state at step \(step)")
+                }
+                currentTask = doneTask
+            } else {
+                guard let openTask = viewModel.morningTasks.first(where: { $0.id == task.id && !$0.isComplete }) else {
+                    return XCTFail("Expected open state at step \(step)")
+                }
+                currentTask = openTask
+            }
+        }
+
+        waitForMainQueueDelay(0.4)
+        assertNoOpenDoneOverlap(viewModel)
+        XCTAssertTrue(viewModel.morningTasks.contains(where: { $0.id == task.id && !$0.isComplete }))
+        XCTAssertFalse(viewModel.completedTasks.contains(where: { $0.id == task.id }))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testRapidToggleOverrideReconcilesWithoutRegressingImmediateRowState() {
+        let suiteName = "HomeViewModelCompletionStateTests.OverrideRapid.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let task = Task(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Override rapid task",
+            type: .morning,
+            dueDate: now,
+            project: ProjectConstants.inboxProjectName
+        )
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [task])
+        taskRepository.fetchAllTasksDelay = 0.35
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+        guard let openTask = viewModel.morningTasks.first(where: { $0.id == task.id }) else {
+            return XCTFail("Expected initial open task")
+        }
+
+        viewModel.toggleTaskCompletion(openTask)
+        waitForMainQueueDelay(0.05)
+        XCTAssertEqual(viewModel.completionOverride(for: task.id), true)
+        XCTAssertTrue(viewModel.completedTasks.contains(where: { $0.id == task.id && $0.isComplete }))
+
+        guard let doneTask = viewModel.completedTasks.first(where: { $0.id == task.id }) else {
+            return XCTFail("Expected done task before reopen")
+        }
+        viewModel.toggleTaskCompletion(doneTask)
+        waitForMainQueueDelay(0.05)
+
+        XCTAssertEqual(viewModel.completionOverride(for: task.id), false)
+        XCTAssertTrue(viewModel.morningTasks.contains(where: { $0.id == task.id && !$0.isComplete }))
+        XCTAssertFalse(viewModel.completedTasks.contains(where: { $0.id == task.id }))
+        assertNoOpenDoneOverlap(viewModel)
+
+        waitForMainQueueDelay(0.4)
+        XCTAssertNil(viewModel.completionOverride(for: task.id))
+        XCTAssertTrue(viewModel.morningTasks.contains(where: { $0.id == task.id && !$0.isComplete }))
+        XCTAssertFalse(viewModel.completedTasks.contains(where: { $0.id == task.id }))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testTodayCompletionRetainedInlineWhenReloadSnapshotTemporarilyDropsTask() {
+        let suiteName = "HomeViewModelCompletionStateTests.TodayRetention.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let dueDate = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: now) ?? now
+        let task = Task(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Inline retention task",
+            type: .morning,
+            dueDate: dueDate,
+            project: ProjectConstants.inboxProjectName
+        )
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [task])
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+        guard let openTask = viewModel.morningTasks.first(where: { $0.id == task.id }) else {
+            return XCTFail("Expected initial task in morning list")
+        }
+
+        taskRepository.scriptedFetchAllTasksResponses = [(delay: 0.0, tasks: [])]
+
+        viewModel.toggleTaskCompletion(openTask)
+        waitForMainQueueDelay(0.12)
+
+        let allVisible = viewModel.morningTasks + viewModel.eveningTasks + viewModel.overdueTasks
+        XCTAssertTrue(allVisible.contains(where: { $0.id == task.id && $0.isComplete }))
+        XCTAssertTrue(viewModel.completedTasks.contains(where: { $0.id == task.id && $0.isComplete }))
+        assertNoOpenDoneOverlap(viewModel)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testToggleCompletionIgnoresStaleFetchTaskSnapshotAndFollowsRowIntent() {
+        let suiteName = "HomeViewModelCompletionStateTests.StaleFetchSnapshot.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let dueDate = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: now) ?? now
+        let task = Task(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Stale fetch task",
+            type: .morning,
+            dueDate: dueDate,
+            project: ProjectConstants.inboxProjectName
+        )
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [task])
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+        guard let openTask = viewModel.morningTasks.first(where: { $0.id == task.id && !$0.isComplete }) else {
+            return XCTFail("Expected open task in morning list")
+        }
+
+        var staleCompleted = task
+        staleCompleted.isComplete = true
+        staleCompleted.dateCompleted = Date()
+        taskRepository.fetchTaskOverrideByID[task.id] = staleCompleted
+
+        viewModel.toggleTaskCompletion(openTask)
+        waitForMainQueueDelay(0.05)
+
+        XCTAssertEqual(taskRepository.fetchTaskCallCount, 0, "Home completion should not depend on fetchTask for toggle direction")
+        XCTAssertTrue(viewModel.morningTasks.contains(where: { $0.id == task.id && $0.isComplete }))
+        XCTAssertTrue(viewModel.completedTasks.contains(where: { $0.id == task.id && $0.isComplete }))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testUpcomingToggleCompletionKeepsNonDateScopeBehavior() {
+        let suiteName = "HomeViewModelCompletionStateTests.UpcomingNonInline.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let dueTomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)) ?? now
+        let task = Task(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Upcoming scope task",
+            type: .morning,
+            dueDate: dueTomorrow,
+            project: ProjectConstants.inboxProjectName
+        )
+
+        let taskRepository = MutableCompletionMockTaskRepository(tasks: [task])
+        let projectRepository = MutableCompletionMockProjectRepository(projects: [Project.createInbox()])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: coordinator,
+            userDefaults: defaults
+        )
+
+        waitForMainQueueFlush()
+        viewModel.setQuickView(.upcoming)
+        waitForMainQueueFlush()
+
+        guard let openTask = viewModel.upcomingTasks.first(where: { $0.id == task.id && !$0.isComplete }) else {
+            return XCTFail("Expected open task in upcoming list")
+        }
+
+        viewModel.toggleTaskCompletion(openTask)
+        waitForMainQueueDelay(0.05)
+
+        XCTAssertFalse(viewModel.upcomingTasks.contains(where: { $0.id == task.id }), "Upcoming should keep non-inline behavior")
+        XCTAssertTrue(viewModel.completedTasks.contains(where: { $0.id == task.id && $0.isComplete }))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testSetCompletionUsesRequestedStateWithoutFetchTaskDirectionCheck() {
+        let task = Task(
+            projectID: ProjectConstants.inboxProjectID,
+            name: "Deterministic use case task",
+            type: .morning,
+            priority: .high,
+            dueDate: Date(),
+            project: ProjectConstants.inboxProjectName,
+            isComplete: true,
+            dateCompleted: Date()
+        )
+
+        let repository = MutableCompletionMockTaskRepository(tasks: [task])
+        var staleOpen = task
+        staleOpen.isComplete = false
+        staleOpen.dateCompleted = nil
+        repository.fetchTaskOverrideByID[task.id] = staleOpen
+
+        let useCase = CompleteTaskUseCase(
+            taskRepository: repository,
+            scoringService: DefaultTaskScoringService(),
+            analyticsService: nil
+        )
+
+        let expectation = expectation(description: "setCompletion deterministic")
+        var captured: TaskCompletionResult?
+
+        useCase.setCompletion(taskId: task.id, to: false, taskSnapshot: task) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1.0)
+
+        XCTAssertEqual(repository.fetchTaskCallCount, 0)
+        XCTAssertEqual(captured?.task.id, task.id)
+        XCTAssertEqual(captured?.task.isComplete, false)
+        XCTAssertEqual(captured?.scoreEarned, -task.priority.scorePoints)
+    }
+
     private func waitForMainQueueFlush() {
         let expectation = expectation(description: "MainQueueFlush")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -165,6 +793,37 @@ final class HomeViewModelCompletionStateTests: XCTestCase {
             expectation.fulfill()
         }
         wait(for: [expectation], timeout: max(1.0, delay + 0.5))
+    }
+
+    private func assertNoOpenDoneOverlap(_ viewModel: HomeViewModel) {
+        let openTasks = viewModel.morningTasks + viewModel.eveningTasks + viewModel.overdueTasks + viewModel.upcomingTasks
+        let openIDs = Set(openTasks.map(\.id))
+        let doneIDs = Set(
+            (viewModel.completedTasks + viewModel.dailyCompletedTasks + viewModel.doneTimelineTasks)
+                .map(\.id)
+        )
+        let overlap = openIDs.intersection(doneIDs)
+
+        if isDateAnchoredScope(viewModel.activeScope) {
+            let inlineCompletedIDs = Set(openTasks.filter(\.isComplete).map(\.id))
+            XCTAssertEqual(
+                overlap,
+                inlineCompletedIDs,
+                "Only inline completed rows should overlap with done collections in date-anchored scopes"
+            )
+            return
+        }
+
+        XCTAssertTrue(overlap.isEmpty, "Task IDs should not exist in both open and done sets")
+    }
+
+    private func isDateAnchoredScope(_ scope: HomeListScope) -> Bool {
+        switch scope {
+        case .today, .customDate:
+            return true
+        case .upcoming, .done, .morning, .evening:
+            return false
+        }
     }
 }
 
@@ -259,12 +918,27 @@ private final class MutableCompletionMockProjectRepository: ProjectRepositoryPro
 private final class MutableCompletionMockTaskRepository: TaskRepositoryProtocol {
     private var tasks: [Task]
     var fetchAllTasksDelay: TimeInterval = 0
+    var scriptedFetchAllTasksResponses: [(delay: TimeInterval, tasks: [Task])] = []
+    var fetchTaskCallCount: Int = 0
+    var fetchTaskOverrideByID: [UUID: Task] = [:]
 
     init(tasks: [Task]) {
         self.tasks = tasks
     }
 
     func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+        if !scriptedFetchAllTasksResponses.isEmpty {
+            let response = scriptedFetchAllTasksResponses.removeFirst()
+            guard response.delay > 0 else {
+                completion(.success(response.tasks))
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + response.delay) {
+                completion(.success(response.tasks))
+            }
+            return
+        }
+
         let snapshot = tasks
         guard fetchAllTasksDelay > 0 else {
             completion(.success(snapshot))
@@ -283,7 +957,14 @@ private final class MutableCompletionMockTaskRepository: TaskRepositoryProtocol 
     func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
     func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.isComplete })) }
     func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.type == type })) }
-    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) { completion(.success(tasks.first { $0.id == id })) }
+    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) {
+        fetchTaskCallCount += 1
+        if let override = fetchTaskOverrideByID[id] {
+            completion(.success(override))
+            return
+        }
+        completion(.success(tasks.first { $0.id == id }))
+    }
     func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { task in
         guard let dueDate = task.dueDate else { return false }
         return dueDate >= startDate && dueDate <= endDate
