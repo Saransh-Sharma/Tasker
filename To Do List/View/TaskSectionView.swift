@@ -14,10 +14,12 @@ struct TaskSectionView: View {
     let project: Project
     let tasks: [DomainTask]
     let isOverdueSection: Bool
+    let completedCollapsed: Bool?
     var onTaskTap: ((DomainTask) -> Void)?
     var onToggleComplete: ((DomainTask) -> Void)?
     var onDeleteTask: ((DomainTask) -> Void)?
     var onRescheduleTask: ((DomainTask) -> Void)?
+    var onCompletedCollapsedChange: ((Bool, Int) -> Void)?
 
     @State private var isExpanded: Bool = true
 
@@ -29,18 +31,22 @@ struct TaskSectionView: View {
         project: Project,
         tasks: [DomainTask],
         isOverdueSection: Bool = false,
+        completedCollapsed: Bool? = nil,
         onTaskTap: ((DomainTask) -> Void)? = nil,
         onToggleComplete: ((DomainTask) -> Void)? = nil,
         onDeleteTask: ((DomainTask) -> Void)? = nil,
-        onRescheduleTask: ((DomainTask) -> Void)? = nil
+        onRescheduleTask: ((DomainTask) -> Void)? = nil,
+        onCompletedCollapsedChange: ((Bool, Int) -> Void)? = nil
     ) {
         self.project = project
         self.tasks = tasks
         self.isOverdueSection = isOverdueSection
+        self.completedCollapsed = completedCollapsed
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
         self.onDeleteTask = onDeleteTask
         self.onRescheduleTask = onRescheduleTask
+        self.onCompletedCollapsedChange = onCompletedCollapsedChange
     }
 
     var body: some View {
@@ -49,7 +55,7 @@ struct TaskSectionView: View {
 
             if isExpanded {
                 taskList
-                    .padding(.top, TaskerTheme.Spacing.sm)
+                    .padding(.top, TaskerTheme.Spacing.xs)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -79,7 +85,7 @@ struct TaskSectionView: View {
 
                 // Project name
                 Text(sectionTitle)
-                    .font(.tasker(.title3))
+                    .font(.tasker(.headline))
                     .foregroundColor(Color.tasker.textPrimary)
 
                 // Task count
@@ -101,7 +107,7 @@ struct TaskSectionView: View {
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .animation(TaskerAnimation.snappy, value: isExpanded)
             }
-            .padding(.vertical, TaskerTheme.Spacing.md)
+            .padding(.vertical, TaskerTheme.Spacing.sm)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -110,8 +116,8 @@ struct TaskSectionView: View {
     // MARK: - Task List
 
     private var taskList: some View {
-        VStack(spacing: TaskerTheme.Spacing.sm) {
-            ForEach(renderItems, id: \.renderKey) { item in
+        VStack(spacing: 6) {
+            ForEach(openRenderItems, id: \.renderKey) { item in
                 TaskRowView(
                     task: item.task,
                     showTypeBadge: hasMixedTypes,
@@ -122,6 +128,26 @@ struct TaskSectionView: View {
                 )
                 .staggeredAppearance(index: item.index)
             }
+
+            if !completedTasks.isEmpty {
+                completedToggleRow
+                    .padding(.top, 2)
+                    .staggeredAppearance(index: openRenderItems.count)
+
+                if !isCompletedCollapsed {
+                    ForEach(completedRenderItems, id: \.renderKey) { item in
+                        TaskRowView(
+                            task: item.task,
+                            showTypeBadge: hasMixedTypes,
+                            onTap: { onTaskTap?(item.task) },
+                            onToggleComplete: { onToggleComplete?(item.task) },
+                            onDelete: { onDeleteTask?(item.task) },
+                            onReschedule: { onRescheduleTask?(item.task) }
+                        )
+                        .staggeredAppearance(index: item.index + openRenderItems.count + 1)
+                    }
+                }
+            }
         }
     }
 
@@ -131,14 +157,80 @@ struct TaskSectionView: View {
         let renderKey: String
     }
 
-    private var renderItems: [TaskRowRenderItem] {
-        tasks.enumerated().map { index, task in
+    private var openRenderItems: [TaskRowRenderItem] {
+        openTasks.enumerated().map { index, task in
             TaskRowRenderItem(
                 index: index,
                 task: task,
                 renderKey: taskRenderKey(for: task)
             )
         }
+    }
+
+    private var completedRenderItems: [TaskRowRenderItem] {
+        completedTasks.enumerated().map { index, task in
+            TaskRowRenderItem(
+                index: index,
+                task: task,
+                renderKey: taskRenderKey(for: task)
+            )
+        }
+    }
+
+    private var openTasks: [DomainTask] {
+        tasks.filter { !$0.isComplete }
+    }
+
+    private var completedTasks: [DomainTask] {
+        tasks
+            .filter(\.isComplete)
+            .sorted { lhs, rhs in
+                let lhsCompleted = lhs.dateCompleted ?? Date.distantPast
+                let rhsCompleted = rhs.dateCompleted ?? Date.distantPast
+                if lhsCompleted != rhsCompleted {
+                    return lhsCompleted > rhsCompleted
+                }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+    }
+
+    private var isCompletedCollapsed: Bool {
+        guard completedTasks.count > 2 else { return false }
+        return completedCollapsed ?? true
+    }
+
+    private var completedToggleRow: some View {
+        Button {
+            let nextCollapsed = !isCompletedCollapsed
+            onCompletedCollapsedChange?(nextCollapsed, completedTasks.count)
+            TaskerHaptic.selection()
+        } label: {
+            HStack(spacing: TaskerTheme.Spacing.sm) {
+                Text("Completed")
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textTertiary)
+
+                Text("\(completedTasks.count)")
+                    .font(.tasker(.caption2))
+                    .foregroundColor(Color.tasker.textQuaternary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(Capsule())
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Color.tasker.textQuaternary)
+                    .rotationEffect(.degrees(isCompletedCollapsed ? 0 : 90))
+                    .animation(TaskerAnimation.snappy, value: isCompletedCollapsed)
+            }
+            .padding(.horizontal, 2)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.completedToggle.\(project.id.uuidString)")
     }
 
     private func taskRenderKey(for task: DomainTask) -> String {
