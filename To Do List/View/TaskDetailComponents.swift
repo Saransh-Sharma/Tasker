@@ -311,6 +311,7 @@ struct TaskDetailSectionDivider: View {
 /// Animated completion checkbox with bounce and haptic feedback.
 struct CompletionCheckbox: View {
     let isComplete: Bool
+    var compact: Bool = false
     let action: () -> Void
 
     @State private var bounceScale: CGFloat = 1.0
@@ -327,13 +328,24 @@ struct CompletionCheckbox: View {
             }
             action()
         }) {
-            Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 28, weight: .light))
-                .foregroundColor(isComplete ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
-                .scaleEffect(bounceScale)
+            ZStack {
+                Circle()
+                    .stroke(
+                        isComplete ? Color.tasker.textTertiary.opacity(0.55) : Color.tasker.textQuaternary.opacity(0.6),
+                        lineWidth: compact ? 1.8 : 2.2
+                    )
+
+                if isComplete {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: compact ? 11 : 14, weight: .semibold))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .transition(.opacity.combined(with: .scale))
+                }
+            }
+            .scaleEffect(bounceScale)
         }
         .buttonStyle(.plain)
-        .frame(width: 44, height: 44)
+        .frame(width: compact ? 30 : 44, height: compact ? 30 : 44)
         .accessibilityLabel(isComplete ? "Completed" : "Not completed")
         .accessibilityHint("Double tap to toggle completion")
     }
