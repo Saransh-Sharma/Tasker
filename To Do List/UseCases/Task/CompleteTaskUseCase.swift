@@ -57,6 +57,27 @@ public final class CompleteTaskUseCase {
             }
         }
     }
+
+    /// Deterministically sets the completion status based on explicit user intent.
+    /// This avoids stale fetch-driven toggle direction errors.
+    public func setCompletion(
+        taskId: UUID,
+        to desiredCompletion: Bool,
+        taskSnapshot: Task?,
+        completion: @escaping (Result<TaskCompletionResult, CompleteTaskError>) -> Void
+    ) {
+        let inputState = taskSnapshot?.isComplete
+        print(
+            "HOME_ROW_STATE usecase.set_completion " +
+            "id=\(taskId.uuidString) requested=\(desiredCompletion) input=\(String(describing: inputState))"
+        )
+
+        if desiredCompletion {
+            forceComplete(taskId: taskId, taskSnapshot: taskSnapshot, completion: completion)
+        } else {
+            forceUncomplete(taskId: taskId, taskSnapshot: taskSnapshot, completion: completion)
+        }
+    }
     
     /// Marks a specific task as complete
     public func completeTask(_ taskId: UUID, completion: @escaping (Result<TaskCompletionResult, CompleteTaskError>) -> Void) {
@@ -185,6 +206,130 @@ public final class CompleteTaskUseCase {
         // In a real implementation, you'd track consecutive days of task completion
         return 1
     }
+
+    private func forceComplete(
+        taskId: UUID,
+        taskSnapshot: Task?,
+        completion: @escaping (Result<TaskCompletionResult, CompleteTaskError>) -> Void
+    ) {
+        taskRepository.completeTask(withId: taskId) { [weak self] result in
+            switch result {
+            case .success(let updatedTask):
+                guard let self else { return }
+                let score = self.scoreForCompletion(task: updatedTask, fallback: taskSnapshot)
+                self.analyticsService?.trackTaskCompleted(
+                    task: updatedTask,
+                    score: score,
+                    completionTime: Date()
+                )
+
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TaskCompletionChanged"),
+                    object: updatedTask
+                )
+
+                print(
+                    "HOME_ROW_STATE usecase.set_completion_result " +
+                    "id=\(taskId.uuidString) requested=true result=\(updatedTask.isComplete)"
+                )
+
+                completion(.success(TaskCompletionResult(
+                    task: updatedTask,
+                    scoreEarned: score,
+                    currentStreak: self.calculateStreak(for: updatedTask),
+                    completedAt: updatedTask.dateCompleted ?? Date()
+                )))
+
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    private func forceUncomplete(
+        taskId: UUID,
+        taskSnapshot: Task?,
+        completion: @escaping (Result<TaskCompletionResult, CompleteTaskError>) -> Void
+    ) {
+        taskRepository.uncompleteTask(withId: taskId) { [weak self] result in
+            switch result {
+            case .success(let updatedTask):
+                guard let self else { return }
+                let scoreToDeduct = self.scoreForUncompletion(task: updatedTask, fallback: taskSnapshot)
+                self.analyticsService?.trackTaskUncompleted(
+                    task: updatedTask,
+                    scoreDeducted: scoreToDeduct
+                )
+
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TaskCompletionChanged"),
+                    object: updatedTask
+                )
+
+                print(
+                    "HOME_ROW_STATE usecase.set_completion_result " +
+                    "id=\(taskId.uuidString) requested=false result=\(updatedTask.isComplete)"
+                )
+
+                completion(.success(TaskCompletionResult(
+                    task: updatedTask,
+                    scoreEarned: -scoreToDeduct,
+                    currentStreak: 0,
+                    completedAt: nil
+                )))
+
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    private func scoreForCompletion(task: Task, fallback: Task?) -> Int {
+        var scoringTask = task
+        if !scoringTask.isComplete {
+            scoringTask.isComplete = true
+        }
+        if scoringTask.dateCompleted == nil {
+            scoringTask.dateCompleted = Date()
+        }
+
+        let computed = scoringService.calculateScore(for: scoringTask)
+        if computed > 0 {
+            return computed
+        }
+
+        if let fallback {
+            var fallbackScoringTask = fallback
+            fallbackScoringTask.isComplete = true
+            fallbackScoringTask.dateCompleted = fallbackScoringTask.dateCompleted ?? Date()
+            let fallbackScore = scoringService.calculateScore(for: fallbackScoringTask)
+            if fallbackScore > 0 {
+                return fallbackScore
+            }
+            return fallback.priority.scorePoints
+        }
+
+        return task.priority.scorePoints
+    }
+
+    private func scoreForUncompletion(task: Task, fallback: Task?) -> Int {
+        if let fallback {
+            var fallbackScoringTask = fallback
+            fallbackScoringTask.isComplete = true
+            fallbackScoringTask.dateCompleted = fallbackScoringTask.dateCompleted ?? Date()
+            let fallbackScore = scoringService.calculateScore(for: fallbackScoringTask)
+            if fallbackScore > 0 {
+                return fallbackScore
+            }
+            return fallback.priority.scorePoints
+        }
+
+        var scoringTask = task
+        scoringTask.isComplete = true
+        scoringTask.dateCompleted = scoringTask.dateCompleted ?? Date()
+        let computed = scoringService.calculateScore(for: scoringTask)
+        return computed > 0 ? computed : task.priority.scorePoints
+    }
 }
 
 // MARK: - Result Model
@@ -217,5 +362,4 @@ public enum CompleteTaskError: LocalizedError {
         }
     }
 }
-
 

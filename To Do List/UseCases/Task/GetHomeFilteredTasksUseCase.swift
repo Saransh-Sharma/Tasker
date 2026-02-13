@@ -35,6 +35,7 @@ public final class GetHomeFilteredTasksUseCase {
 
     public func execute(
         state: HomeFilterState,
+        scope: HomeListScope,
         completion: @escaping (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
     ) {
         taskRepository.fetchAllTasks { [weak self] result in
@@ -43,8 +44,8 @@ public final class GetHomeFilteredTasksUseCase {
             switch result {
             case .success(let tasks):
                 let facetedTasks = self.applyProjectAndAdvancedFacets(tasks, state: state)
-                let quickCounts = self.computeQuickViewCounts(from: facetedTasks)
-                let filtered = self.applyQuickView(state.quickView, to: facetedTasks, state: state)
+                let quickCounts = self.computeQuickViewCounts(from: facetedTasks, scope: scope)
+                let filtered = self.applyScope(scope, to: facetedTasks)
 
                 let pointsPotential = filtered
                     .filter { !$0.isComplete }
@@ -71,14 +72,19 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
-    private func computeQuickViewCounts(from tasks: [Task]) -> [HomeQuickView: Int] {
+    public func execute(
+        state: HomeFilterState,
+        completion: @escaping (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
+    ) {
+        execute(state: state, scope: .fromQuickView(state.quickView), completion: completion)
+    }
+
+    private func computeQuickViewCounts(from tasks: [Task], scope: HomeListScope) -> [HomeQuickView: Int] {
         var counts: [HomeQuickView: Int] = [:]
-        let defaultState = HomeFilterState.default
+        let anchorDate = scope.referenceDate
 
         for view in HomeQuickView.allCases {
-            var state = defaultState
-            state.quickView = view
-            let filtered = applyQuickView(view, to: tasks, state: state)
+            let filtered = applyQuickView(view, to: tasks, anchorDate: anchorDate)
             counts[view] = filtered.count
         }
 
@@ -162,35 +168,58 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
-    private func applyQuickView(_ view: HomeQuickView, to tasks: [Task], state _: HomeFilterState) -> [Task] {
+    private func applyScope(_ scope: HomeListScope, to tasks: [Task]) -> [Task] {
+        switch scope {
+        case .today:
+            return applyQuickView(.today, to: tasks, anchorDate: Date())
+        case .customDate(let date):
+            return applyQuickView(.today, to: tasks, anchorDate: date)
+        case .upcoming:
+            return applyQuickView(.upcoming, to: tasks, anchorDate: Date())
+        case .done:
+            return applyQuickView(.done, to: tasks, anchorDate: Date())
+        case .morning:
+            return applyQuickView(.morning, to: tasks, anchorDate: Date())
+        case .evening:
+            return applyQuickView(.evening, to: tasks, anchorDate: Date())
+        }
+    }
+
+    private func applyQuickView(_ view: HomeQuickView, to tasks: [Task], anchorDate: Date) -> [Task] {
         let calendar = Calendar.current
-        let now = Date()
-        let startOfToday = calendar.startOfDay(for: now)
-        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
-        let endOfUpcomingWindow = calendar.date(byAdding: .day, value: 14, to: startOfToday) ?? now
-        let doneWindowStart = calendar.date(byAdding: .day, value: -30, to: startOfToday) ?? Date.distantPast
+        let startOfAnchorDay = calendar.startOfDay(for: anchorDate)
+        let startOfNextDay = calendar.date(byAdding: .day, value: 1, to: startOfAnchorDay) ?? anchorDate
+        let endOfUpcomingWindow = calendar.date(byAdding: .day, value: 14, to: startOfAnchorDay) ?? anchorDate
+        let doneWindowStart = calendar.date(byAdding: .day, value: -30, to: startOfAnchorDay) ?? Date.distantPast
+        let doneWindowEnd = calendar.date(byAdding: .day, value: 1, to: startOfAnchorDay) ?? anchorDate
 
         switch view {
         case .today:
             return tasks.filter { task in
                 let dueDate = task.dueDate
-                let dueToday = dueDate.map { calendar.isDateInToday($0) } ?? false
-                let overdue = dueDate.map { $0 < startOfToday } ?? false
+                let dueOnAnchorDay = dueDate.map { $0 >= startOfAnchorDay && $0 < startOfNextDay } ?? false
+                let overdue = dueDate.map { $0 < startOfAnchorDay } ?? false
+                let completedOnAnchorDay: Bool
+                if task.isComplete, let completionDate = task.dateCompleted {
+                    completedOnAnchorDay = completionDate >= startOfAnchorDay && completionDate < startOfNextDay
+                } else {
+                    completedOnAnchorDay = false
+                }
 
-                guard dueToday || overdue else { return false }
+                guard dueOnAnchorDay || overdue || completedOnAnchorDay else { return false }
                 return true
             }
 
         case .upcoming:
             return tasks.filter { task in
                 guard let dueDate = task.dueDate else { return false }
-                return dueDate >= startOfTomorrow && dueDate <= endOfUpcomingWindow
+                return dueDate >= startOfNextDay && dueDate <= endOfUpcomingWindow
             }
 
         case .done:
             return tasks.filter { task in
                 guard task.isComplete, let completionDate = task.dateCompleted else { return false }
-                return completionDate >= doneWindowStart && completionDate <= now
+                return completionDate >= doneWindowStart && completionDate < doneWindowEnd
             }
 
         case .morning:
