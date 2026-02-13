@@ -279,6 +279,28 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
             }
             .store(in: &cancellables)
 
+        // Bind completion-derived task collections to ensure immediate done/reopen rendering updates.
+        viewModel.$doneTimelineTasks
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshTableView()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$completedTasks
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshTableView()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$dailyCompletedTasks
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshTableView()
+            }
+            .store(in: &cancellables)
+
         // Bind projects
         viewModel.$projects
             .receive(on: DispatchQueue.main)
@@ -392,8 +414,9 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     
     /// Update score display
     private func updateScoreDisplay(_ score: Int) {
-        // Update score UI element
         print("🏆 Daily Score: \(score)")
+        guard Calendar.current.isDateInToday(dateForTheView) else { return }
+        applyScoreDisplay(score, for: dateForTheView)
     }
     
     /// Refresh table view
@@ -519,6 +542,13 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }() // Legacy DGCharts view kept only for backward compatibility
     lazy var tinyPieChartView: PieChartView = { return PieChartView() }()
     var navigationPieChartView: PieChartView?
+    private weak var navigationPieChartAnchorView: UIView?
+    private let navigationPieChartAnchorSize: CGFloat = 34
+    private let navigationPieChartFloatingScale: CGFloat = 3
+    private var shouldShowNavigationPieChart = false
+    private var navigationPieChartFloatingSize: CGFloat {
+        navigationPieChartAnchorSize * navigationPieChartFloatingScale
+    }
     
     // Tiny pie chart config (used by TinyPieChart.swift)
     var shouldHideData: Bool = false
@@ -746,10 +776,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         super.viewDidAppear(animated)
         shouldAnimateCells = false
         
-        // Ensure canonical nav-right pie chart exists - recreate if needed.
-        ensureNavigationPieChartBarButton()
-        
-        refreshNavigationPieChart()
+        if shouldShowNavigationPieChart {
+            // Ensure canonical nav-right pie chart exists - recreate if needed.
+            ensureNavigationPieChartBarButton()
+            refreshNavigationPieChart()
+        }
         
         // Runtime backup fix: Find and fix any dummy table views created by ShyHeaderController
         findAndFixDummyTableView()
@@ -798,6 +829,12 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
 
         // Keep title/list layout in sync after bounds changes (rotation, split view).
         layoutForedropListViews()
+
+        // Keep floating navigation chart aligned with its nav bar anchor.
+        if shouldShowNavigationPieChart {
+            attachNavigationPieChartOverlayIfNeeded()
+            layoutNavigationPieChartOverlayFromAnchor()
+        }
     }
     
     /// Sets up Auto Layout constraints for the Liquid Glass bottom app bar
@@ -847,6 +884,7 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         title = "" // Clear default title
         if let navBar = navigationController?.navigationBar {
             navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
+            navBar.clipsToBounds = false
         }
 
         // Add settings menu button on left side
@@ -861,8 +899,8 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         settingsButton.accessibilityIdentifier = "home.settingsButton"
         navigationItem.leftBarButtonItem = settingsButton
 
-        // Move XP pie chart into the canonical top-right nav slot.
-        navigationItem.rightBarButtonItem = createPieChartBarButton()
+        // Start hidden. `updateDailyScore()` decides visibility from score.
+        setNavigationPieChartVisible(false)
 
         // Search bar removed - now accessed via bottom app bar button
 
@@ -876,12 +914,83 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
     }
     
     private func ensureNavigationPieChartBarButton() {
+        guard shouldShowNavigationPieChart else { return }
+
         let containerIdentifier = "home.navXpPieChart.container"
         let currentContainer = navigationItem.rightBarButtonItem?.customView
         let isCanonicalContainer = currentContainer?.accessibilityIdentifier == containerIdentifier
 
-        guard navigationPieChartView == nil || !isCanonicalContainer else { return }
-        navigationItem.rightBarButtonItem = createPieChartBarButton()
+        if let currentContainer, isCanonicalContainer {
+            navigationPieChartAnchorView = currentContainer
+        }
+
+        if navigationPieChartView == nil || !isCanonicalContainer {
+            navigationItem.rightBarButtonItem = createPieChartBarButton()
+            navigationPieChartAnchorView = navigationItem.rightBarButtonItem?.customView
+        }
+
+        attachNavigationPieChartOverlayIfNeeded()
+        layoutNavigationPieChartOverlayFromAnchor()
+    }
+
+    private func setNavigationPieChartVisible(_ isVisible: Bool) {
+        shouldShowNavigationPieChart = isVisible
+
+        if isVisible {
+            ensureNavigationPieChartBarButton()
+            navigationPieChartView?.isHidden = false
+            navigationPieChartView?.alpha = 1
+            navigationPieChartView?.isUserInteractionEnabled = true
+            attachNavigationPieChartOverlayIfNeeded()
+            layoutNavigationPieChartOverlayFromAnchor()
+            return
+        }
+
+        navigationItem.rightBarButtonItem = nil
+        navigationPieChartView?.removeFromSuperview()
+        navigationPieChartView?.isHidden = true
+        navigationPieChartAnchorView = nil
+    }
+
+    private func attachNavigationPieChartOverlayIfNeeded() {
+        guard shouldShowNavigationPieChart,
+              let navBar = navigationController?.navigationBar,
+              let navPieChart = navigationPieChartView else { return }
+
+        navBar.clipsToBounds = false
+        if navPieChart.superview !== navBar {
+            navPieChart.removeFromSuperview()
+            navBar.addSubview(navPieChart)
+        }
+        navPieChart.layer.zPosition = 810
+    }
+
+    private func layoutNavigationPieChartOverlayFromAnchor() {
+        guard shouldShowNavigationPieChart,
+              let navBar = navigationController?.navigationBar,
+              let navPieChart = navigationPieChartView else { return }
+
+        let resolvedAnchor = navigationPieChartAnchorView ?? navigationItem.rightBarButtonItem?.customView
+        guard let anchorView = resolvedAnchor else { return }
+        navigationPieChartAnchorView = anchorView
+
+        guard let anchorSuperview = anchorView.superview else {
+            DispatchQueue.main.async { [weak self] in
+                self?.attachNavigationPieChartOverlayIfNeeded()
+                self?.layoutNavigationPieChartOverlayFromAnchor()
+            }
+            return
+        }
+
+        let anchorCenterInNavBar = anchorSuperview.convert(anchorView.center, to: navBar)
+        navPieChart.bounds = CGRect(
+            x: 0,
+            y: 0,
+            width: navigationPieChartFloatingSize,
+            height: navigationPieChartFloatingSize
+        )
+        navPieChart.center = anchorCenterInNavBar
+        setTinyChartShadow(chartView: navPieChart)
     }
 
     private func embedNavigationPieChart(in _: UIView) {
@@ -925,16 +1034,28 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         navigationPieChartView?.removeFromSuperview()
         navigationPieChartView = nil
 
-        let size: CGFloat = 34
-        let containerView = UIView(frame: CGRect(x: 0, y: 0, width: size, height: size))
+        let containerView = UIView(
+            frame: CGRect(
+                x: 0,
+                y: 0,
+                width: navigationPieChartAnchorSize,
+                height: navigationPieChartAnchorSize
+            )
+        )
         containerView.backgroundColor = .clear
         containerView.accessibilityIdentifier = "home.navXpPieChart.container"
+        navigationPieChartAnchorView = containerView
         
-        // Create chart view
-        let navPieChart = PieChartView(frame: containerView.bounds)
+        // Create a floating chart view (3x anchor size) and overlay on the nav bar.
+        let navPieChart = PieChartView(
+            frame: CGRect(
+                x: 0,
+                y: 0,
+                width: navigationPieChartFloatingSize,
+                height: navigationPieChartFloatingSize
+            )
+        )
         navigationPieChartView = navPieChart
-        containerView.addSubview(navPieChart)
-        navPieChart.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         
         // Configure appearance
         setupPieChartView(pieChartView: navPieChart)
@@ -960,6 +1081,11 @@ class HomeViewController: UIViewController, ChartViewDelegate, MDCRippleTouchCon
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(toggleCharts))
         navPieChart.addGestureRecognizer(tapGesture)
         navPieChart.isUserInteractionEnabled = true
+        attachNavigationPieChartOverlayIfNeeded()
+        DispatchQueue.main.async { [weak self] in
+            self?.attachNavigationPieChartOverlayIfNeeded()
+            self?.layoutNavigationPieChartOverlayFromAnchor()
+        }
         
         // Wrap in bar button item
         let barButtonItem = UIBarButtonItem(customView: containerView)
@@ -1331,6 +1457,7 @@ extension HomeViewController {
         // Keep title label transparent on theme change
         if let navBar = navigationController?.navigationBar {
             navBar.subviews.compactMap { $0 as? UILabel }.forEach { $0.backgroundColor = .clear }
+            navBar.clipsToBounds = false
         }
         // System/global tint
         // Global tint
@@ -1374,6 +1501,12 @@ extension HomeViewController {
         if let controllerSearchBar = navigationItem.searchController?.searchBar {
             controllerSearchBar.backgroundColor = UIColor.clear
             controllerSearchBar.barTintColor = UIColor.clear
+        }
+        if shouldShowNavigationPieChart {
+            ensureNavigationPieChartBarButton()
+            layoutNavigationPieChartOverlayFromAnchor()
+        } else {
+            setNavigationPieChartVisible(false)
         }
         // Update chart accent colors if present
         refreshBackdropGradientForCurrentTheme()
@@ -1541,6 +1674,10 @@ extension HomeViewController {
     
     /// Animates + refreshes the navigation pie chart using current `dateForTheView`.
     func refreshNavigationPieChart() {
+        guard shouldShowNavigationPieChart else {
+            print("ℹ️ refreshNavigationPieChart skipped: chart hidden for zero XP")
+            return
+        }
         guard let navChart = navigationPieChartView else {
             print("⚠️ refreshNavigationPieChart called but navigationPieChartView is nil")
             return
@@ -1634,19 +1771,16 @@ extension HomeViewController {
     /// Calculates the score for the provided date (defaults to `dateForTheView`) asynchronously and updates the navigation title and the legacy `scoreCounter` label.
     func updateDailyScore(for date: Date? = nil) {
         let targetDate = date ?? dateForTheView
+        if let viewModel,
+           Calendar.current.isDateInToday(targetDate) {
+            applyScoreDisplay(viewModel.dailyScore, for: targetDate)
+            return
+        }
+
         if let repository = taskRepository {
             TaskScoringService.shared.calculateTotalScore(for: targetDate, using: repository) { [weak self] total in
                 DispatchQueue.main.async {
-                    self?.scoreCounter.text = "\(total)"
-                    self?.updateNavigationBarTitle(date: targetDate, score: total)
-                    // Update tiny pie chart center text (legacy chart)
-                    if let chartView = self?.tinyPieChartView {
-                        chartView.centerAttributedText = self?.setTinyPieChartScoreText(pieChartView: chartView, scoreOverride: total)
-                    }
-                    // Update navigation bar pie chart center text
-                    if let navChart = self?.navigationPieChartView {
-                        navChart.centerAttributedText = self?.setTinyPieChartScoreText(pieChartView: navChart, scoreOverride: total)
-                    }
+                    self?.applyScoreDisplay(total, for: targetDate)
                 }
             }
         } else {
@@ -1655,9 +1789,28 @@ extension HomeViewController {
             print("⚠️ Warning: taskRepository is nil in updateDailyScore, this should not happen")
             // Fallback to 0 score to avoid crashing
             DispatchQueue.main.async { [weak self] in
-                self?.scoreCounter.text = "0"
-                self?.updateNavigationBarTitle(date: targetDate, score: 0)
+                self?.applyScoreDisplay(0, for: targetDate)
             }
+        }
+    }
+
+    private func applyScoreDisplay(_ score: Int, for date: Date) {
+        scoreCounter.text = "\(score)"
+        updateNavigationBarTitle(date: date, score: score)
+        let shouldShowNavXP = score > 0
+        setNavigationPieChartVisible(shouldShowNavXP)
+
+        tinyPieChartView.centerAttributedText = setTinyPieChartScoreText(
+            pieChartView: tinyPieChartView,
+            scoreOverride: score
+        )
+
+        if shouldShowNavXP, let navChart = navigationPieChartView {
+            navChart.centerAttributedText = setTinyPieChartScoreText(
+                pieChartView: navChart,
+                scoreOverride: score
+            )
+            refreshNavigationPieChart()
         }
     }
 }
