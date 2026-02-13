@@ -332,11 +332,7 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
                 }
                 let updatedTask = TaskMapper.toDomain(from: entity)
                 
-                // Post notification for charts refresh
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
-                    completion(.success(updatedTask))
-                }
+                DispatchQueue.main.async { completion(.success(updatedTask)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
@@ -362,11 +358,7 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
                 }
                 let updatedTask = TaskMapper.toDomain(from: entity)
                 
-                // Post notification for charts refresh
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
-                    completion(.success(updatedTask))
-                }
+                DispatchQueue.main.async { completion(.success(updatedTask)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }

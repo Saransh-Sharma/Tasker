@@ -78,6 +78,7 @@ final class CoreDataTaskRepository: TaskRepository {
             managed.isComplete = data.isComplete
             managed.dateAdded = data.dateAdded as NSDate
             managed.dateCompleted = data.dateCompleted as NSDate?
+            managed.alertReminderTime = data.alertReminderTime as NSDate?
 
             let requestedProjectName = data.project.trimmingCharacters(in: .whitespacesAndNewlines)
             let effectiveProjectName = requestedProjectName.isEmpty ? ProjectConstants.inboxProjectName : requestedProjectName
