@@ -236,6 +236,20 @@ class FluentUIToDoTableViewController: UITableViewController {
             title = "\(weekday), \(ordinalDay)"
         }
     }
+
+    private func saveContext() {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return
+        }
+
+        guard context.hasChanges else { return }
+
+        do {
+            try context.save()
+        } catch {
+            print("Error saving Core Data context: \(error)")
+        }
+    }
     
     // Helper method to add ordinal suffix to day numbers
     private func formatDayWithOrdinalSuffix(_ day: Int) -> String {
