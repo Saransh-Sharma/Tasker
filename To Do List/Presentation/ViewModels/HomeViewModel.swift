@@ -149,7 +149,7 @@ public final class HomeViewModel: ObservableObject {
     /// Toggle task completion.
     public func toggleTaskCompletion(_ task: Task) {
         let requestedCompletion = !task.isComplete
-        print(
+        logDebug(
             "HOME_ROW_STATE vm.toggle_input id=\(task.id.uuidString) name=\(task.name) " +
             "isComplete=\(task.isComplete) requested=\(requestedCompletion)"
         )
@@ -163,7 +163,7 @@ public final class HomeViewModel: ObservableObject {
                 case .success(let completionResult):
                     self?.completionOverrides[completionResult.task.id] = completionResult.task.isComplete
                     self?.suppressCompletionReloadUntil = Date().addingTimeInterval(self?.completionReloadSuppressionSeconds ?? 0.35)
-                    print(
+                    logDebug(
                         "HOME_ROW_STATE vm.toggle_result id=\(completionResult.task.id.uuidString) " +
                         "requested=\(requestedCompletion) input=\(task.isComplete) " +
                         "result=\(completionResult.task.isComplete) override_set=true"
@@ -173,7 +173,7 @@ public final class HomeViewModel: ObservableObject {
                     if stateMatchesRequest {
                         self?.dailyScore += completionResult.scoreEarned
                     } else {
-                        print(
+                        logDebug(
                             "HOME_ROW_STATE vm.toggle_mismatch id=\(completionResult.task.id.uuidString) " +
                             "requested=\(requestedCompletion) result=\(completionResult.task.isComplete) " +
                             "forcing_analytics_reload=true"
@@ -468,6 +468,17 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Focus Engine: reset all filters to default state.
+    public func resetAllFilters() {
+        focusEngineEnabled = true
+        activeScope = .today
+        selectedDate = Date()
+        activeFilterState = .default
+        persistLastFilterState()
+        trackFeatureUsage(action: "home_filter_reset", metadata: [:])
+        applyFocusFilters(trackAnalytics: true)
+    }
+
     /// Focus Engine: load saved views from persistence.
     public func loadSavedViews() {
         savedHomeViewRepository.fetchAll { [weak self] result in
@@ -514,7 +525,7 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
-                    print("HOME_ROW_STATE vm.drop_stale_reload source=projects generation=\(generation)")
+                    logDebug("HOME_ROW_STATE vm.drop_stale_reload source=projects generation=\(generation)")
                     return
                 }
                 switch result {
@@ -534,7 +545,7 @@ public final class HomeViewModel: ObservableObject {
     /// Clears task-related cache entries to force fresh reads.
     public func invalidateTaskCaches() {
         useCaseCoordinator.cacheService?.clearAll()
-        print("HOME_CACHE invalidated scope=all")
+        logDebug("HOME_CACHE invalidated scope=all")
     }
 
     func completionOverride(for taskID: UUID) -> Bool? {
@@ -617,7 +628,7 @@ public final class HomeViewModel: ObservableObject {
             .sink { [weak self] _ in
                 guard let self else { return }
                 if let suppressUntil = self.suppressCompletionReloadUntil, Date() <= suppressUntil {
-                    print("HOME_ROW_STATE vm.notification_suppressed source=TaskCompletionChanged")
+                    logDebug("HOME_ROW_STATE vm.notification_suppressed source=TaskCompletionChanged")
                     return
                 }
                 self.invalidateTaskCaches()
@@ -689,7 +700,7 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
-                    print("HOME_ROW_STATE vm.drop_stale_reload source=project generation=\(generation)")
+                    logDebug("HOME_ROW_STATE vm.drop_stale_reload source=project generation=\(generation)")
                     return
                 }
                 self.isLoading = false
@@ -727,7 +738,7 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
-                    print("HOME_ROW_STATE vm.drop_stale_reload source=focus generation=\(generation)")
+                    logDebug("HOME_ROW_STATE vm.drop_stale_reload source=focus generation=\(generation)")
                     return
                 }
                 self.isLoading = false
@@ -770,7 +781,7 @@ public final class HomeViewModel: ObservableObject {
         )
         let visibleTasks = shouldKeepCompletedInline ? (openTasks + doneTasks) : openTasks
 
-        print(
+        logDebug(
             "HOME_ROW_STATE vm.apply_result quick=\(activeScope.quickView.rawValue) " +
             "open=\(summarizeRowState(openTasks)) done=\(summarizeRowState(doneTasks))"
         )
@@ -1110,7 +1121,7 @@ public final class HomeViewModel: ObservableObject {
             todayTasks = updatedSnapshot
         }
 
-        print(
+        logDebug(
             "HOME_ROW_STATE vm.local_apply id=\(updatedTask.id.uuidString) isComplete=\(updatedTask.isComplete) " +
             "morning=\(morningTasks.contains(where: { $0.id == updatedTask.id })) " +
             "evening=\(eveningTasks.contains(where: { $0.id == updatedTask.id })) " +
@@ -1414,7 +1425,7 @@ public final class HomeViewModel: ObservableObject {
         }
 
         let resolvedSummary = resolvedIDs.map { $0.uuidString.prefix(8) }.joined(separator: ",")
-        print("HOME_ROW_STATE vm.override_cleared ids=[\(resolvedSummary)]")
+        logDebug("HOME_ROW_STATE vm.override_cleared ids=[\(resolvedSummary)]")
     }
 
     private func summarizeRowState(_ tasks: [Task], limit: Int = 4) -> String {
