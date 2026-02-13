@@ -85,7 +85,13 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     var addTaskTextBox_Material = MDCFilledTextField()
     let p = TaskPriority.uiOrder.map { $0.displayName }
 
-    var tabsSegmentedControl = UISegmentedControl() // Initialized in AddTaskForedropView extension
+    var tabsSegmentedControl = UISegmentedControl() // Legacy — kept for reference
+
+    // MARK: - New Components (Obsidian & Gems)
+    let metadataRow = AddTaskMetadataRowView()
+    let priorityPicker = AddTaskPriorityPickerView()
+    let inlineProjectCreator = AddTaskInlineProjectCreatorView()
+    var alertReminderTime: Date?
 
     var todoColors: TaskerColorTokens {
         TaskerThemeManager.shared.currentTheme.tokens.color
@@ -174,34 +180,40 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // Setup form components
         setupAddTaskTextField()
         setupDescriptionTextField()
-        setupSamplePillBar() // New sample pill bar
-        setupPrioritySC()
-        // OLD: setupDoneButton() - removed, now using navigation bar Done button
+        setupMetadataRow()
+        setupSamplePillBar()
+        setupInlineProjectCreator()
+        setupPriorityPicker()
 
-        // Add components to foredrop stack container in order
-        // Ensure all components are visible and properly configured
-        self.addTaskTextBox_Material.isHidden = false
-        self.addTaskTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
-        self.foredropStackContainer.addArrangedSubview(self.addTaskTextBox_Material)
+        // Add components to foredrop stack in order
+        // 1. Title field
+        addTaskTextBox_Material.isHidden = false
+        addTaskTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(addTaskTextBox_Material)
 
-        self.descriptionTextBox_Material.isHidden = false
-        self.descriptionTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
-        self.foredropStackContainer.addArrangedSubview(self.descriptionTextBox_Material)
+        // 2. Description field
+        descriptionTextBox_Material.isHidden = false
+        descriptionTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(descriptionTextBox_Material)
 
-        // Add the new sample pill bar after description text field
-        if let samplePillBar = self.samplePillBar {
+        // 3. Metadata row (date / reminder / morning-evening chips)
+        metadataRow.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(metadataRow)
+
+        // 4. Project pill bar
+        if let samplePillBar = samplePillBar {
             samplePillBar.isHidden = false
             samplePillBar.translatesAutoresizingMaskIntoConstraints = false
-            self.foredropStackContainer.addArrangedSubview(samplePillBar)
+            foredropStackContainer.addArrangedSubview(samplePillBar)
         }
 
-        self.tabsSegmentedControl.isHidden = false
-        self.tabsSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
-        self.foredropStackContainer.addArrangedSubview(self.tabsSegmentedControl)
+        // 5. Inline project creator (hidden by default)
+        inlineProjectCreator.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(inlineProjectCreator)
 
-        // OLD: Done button FAB removed - now using navigation bar button
-        // self.fab_doneTask.translatesAutoresizingMaskIntoConstraints = false
-        // self.foredropStackContainer.addArrangedSubview(self.fab_doneTask)
+        // 6. Priority picker (jewel-tone pills)
+        priorityPicker.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(priorityPicker)
 
         addTaskTextBox_Material.accessibilityIdentifier = "addTask.titleField"
         addTaskTextBox_Material.becomeFirstResponder()
@@ -215,6 +227,11 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // Setup foredrop view accessibility
         foredropContainer.accessibilityIdentifier = "addTask.view"
 
+        // Wire delegates for new components
+        metadataRow.delegate = self
+        priorityPicker.delegate = self
+        inlineProjectCreator.delegate = self
+
         TaskerThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -227,7 +244,14 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         super.viewDidLayoutSubviews()
         refreshBackdropGradientForCurrentTheme(deferredIfNeeded: false)
     }
-    
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // Staggered entrance for new components
+        metadataRow.staggerEntrance(baseDelay: 0.1)
+        priorityPicker.staggerEntrance(baseDelay: 0.2)
+    }
+
     // MARK: - Clean Architecture Methods
     
     /// Setup ViewModel bindings for reactive UI
@@ -342,8 +366,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
             let isEmpty = currentTaskInMaterialTextBox.isEmpty
             // Enable/disable navigation bar Done button based on text field content
             navigationItem.rightBarButtonItem?.isEnabled = !isEmpty
-            // Show/hide priority segmented control based on text field content
-            self.tabsSegmentedControl.isHidden = isEmpty
+            // Show/hide priority picker based on text field content
+            self.priorityPicker.isHidden = isEmpty
         }
         return true
     }
@@ -430,7 +454,22 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         samplePillBar = pillBar
         // Don't add to stack container here - it's added in viewDidLoad
     }
-    
+
+    // MARK: - Metadata Row Setup
+    func setupMetadataRow() {
+        metadataRow.updateDate(dateForAddTaskView)
+    }
+
+    // MARK: - Priority Picker Setup
+    func setupPriorityPicker() {
+        priorityPicker.selectedPriority = currentTaskPriority
+    }
+
+    // MARK: - Inline Project Creator Setup
+    func setupInlineProjectCreator() {
+        // Hidden by default — shown when "Add Project" pill is tapped
+    }
+
     /// Load projects via fallback using CoreDataProjectRepository
     /// Called when ViewModel is not available
     private func loadProjectsFallback() {
@@ -564,8 +603,8 @@ extension AddTaskViewController {
             
             // PHASE 3: Check if "Add Project" was tapped
             if item.title == addProjectString {
-                print("🎯 Phase 3: 'Add Project' button tapped")
-                presentAddProjectDialog()
+                print("🎯 'Add Project' button tapped — showing inline creator")
+                inlineProjectCreator.show()
                 
                 // Re-select the previously selected project (don't leave "Add Project" selected)
                 if let previousProjectIndex = samplePillBarItems.firstIndex(where: { $0.title == currenttProjectForAddTaskView }) {
@@ -707,13 +746,12 @@ extension AddTaskViewController {
 
         // Add to the view hierarchy
         let stackView = foredropStackContainer
-        // Find correct position (after description field, before priority)
-        var insertIndex = 2 // Default position after text fields
-        for (index, view) in stackView.arrangedSubviews.enumerated() {
-            if view === tabsSegmentedControl {
-                insertIndex = index
-                break
-            }
+        // Find correct position (after metadata row, before priority)
+        var insertIndex: Int
+        if let metadataIndex = stackView.arrangedSubviews.firstIndex(where: { $0 === metadataRow }) {
+            insertIndex = metadataIndex + 1
+        } else {
+            insertIndex = min(3, stackView.arrangedSubviews.count)
         }
         stackView.insertArrangedSubview(newPillBar, at: insertIndex)
 
@@ -786,6 +824,60 @@ extension AddTaskViewController {
         let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+}
+
+// MARK: - AddTaskMetadataRowDelegate
+
+extension AddTaskViewController: AddTaskMetadataRowDelegate {
+    func metadataRow(_ row: AddTaskMetadataRowView, didSelectDate date: Date) {
+        dateForAddTaskView = date
+        // Sync FSCalendar selection
+        calendar?.select(date, scrollToDate: true)
+        // Update nav title
+        title = todoTimeUtils.getFormattedDate(date)
+    }
+
+    func metadataRow(_ row: AddTaskMetadataRowView, didSetReminder time: Date?) {
+        alertReminderTime = time
+    }
+
+    func metadataRow(_ row: AddTaskMetadataRowView, didToggleEvening isEvening: Bool) {
+        isThisEveningTask = isEvening
+    }
+}
+
+// MARK: - AddTaskPriorityPickerDelegate
+
+extension AddTaskViewController: AddTaskPriorityPickerDelegate {
+    func priorityPicker(_ picker: AddTaskPriorityPickerView, didSelect priority: TaskPriority) {
+        currentTaskPriority = priority
+    }
+}
+
+// MARK: - InlineProjectCreatorDelegate
+
+extension AddTaskViewController: InlineProjectCreatorDelegate {
+    func inlineProjectCreator(_ creator: AddTaskInlineProjectCreatorView, didCreate projectName: String) {
+        // Validate reserved name
+        if projectName.lowercased() == "inbox" {
+            creator.showValidationError()
+            return
+        }
+
+        // Check for duplicates
+        if samplePillBarItems.contains(where: { $0.title.lowercased() == projectName.lowercased() }) {
+            creator.showValidationError()
+            return
+        }
+
+        // Create project using existing Clean Architecture flow
+        createNewProject(name: projectName, description: nil)
+        creator.hide(success: true)
+    }
+
+    func inlineProjectCreatorDidCancel(_ creator: AddTaskInlineProjectCreatorView) {
+        creator.hide()
     }
 }
 

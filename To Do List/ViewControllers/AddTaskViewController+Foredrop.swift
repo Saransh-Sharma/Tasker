@@ -159,7 +159,8 @@ extension AddTaskViewController {
             type: taskType,
             priorityRawValue: Int32(currentTaskPriority.rawValue),
             dueDate: dateForAddTaskView,
-            project: currenttProjectForAddTaskView
+            project: currenttProjectForAddTaskView,
+            alertReminderTime: alertReminderTime
         )
         print("📦 AddTask: TaskData created successfully")
         

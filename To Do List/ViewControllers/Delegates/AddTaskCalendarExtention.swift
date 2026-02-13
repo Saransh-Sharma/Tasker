@@ -81,7 +81,8 @@ extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCal
         print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
         
         dateForAddTaskView = date
-        
+        metadataRow.updateDate(date)
+
         let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
         paragraphStyle.lineBreakMode = .byTruncatingTail
         paragraphStyle.alignment = .center
