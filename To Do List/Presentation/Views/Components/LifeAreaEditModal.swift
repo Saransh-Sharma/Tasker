@@ -491,8 +491,8 @@ struct LifeAreaEditModal_Previews: PreviewProvider {
         LifeAreaEditModal(
             editData: .constant(LifeAreaEditData()),
             isPresented: .constant(true),
-            onSave: { _ in print("Save tapped") },
-            onCancel: { print("Cancel tapped") }
+            onSave: { _ in logDebug("Save tapped") },
+            onCancel: { logDebug("Cancel tapped") }
         )
         .previewDisplayName("Life Area Edit Modal")
     }
