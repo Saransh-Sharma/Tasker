@@ -101,7 +101,7 @@ extension HomeViewController {
         
         let centerText = NSMutableAttributedString(string: "\(scoreNumber)")
         if (effectiveScore < 9) {
-            print("FONT SMALL")
+            logDebug("FONT SMALL")
             centerText.setAttributes([
                 .font : setFont(fontSize: 44, fontweight: .medium, fontDesign: .rounded),
                 .paragraphStyle : paragraphStyle,
@@ -111,7 +111,7 @@ extension HomeViewController {
             
             range: NSRange(location: 0, length: centerText.length))
         } else {
-            print("FONT BIG")
+            logDebug("FONT BIG")
             centerText.setAttributes([
                 .font : setFont(fontSize: 32, fontweight: .medium, fontDesign: .rounded),
                 .paragraphStyle : paragraphStyle,
@@ -133,11 +133,11 @@ extension HomeViewController {
             return
         }
         
-        print("🥧 Updating tiny pie chart data for date: \(dateForTheView)")
+        logDebug("🥧 Updating tiny pie chart data for date: \(dateForTheView)")
         
         // Get priority breakdown for current view date
         let breakdown = priorityBreakdown(for: dateForTheView)
-        print("📊 Tiny chart priority breakdown: \(breakdown)")
+        logDebug("📊 Tiny chart priority breakdown: \(breakdown)")
         
         // Build entries using chart weights from config
         let entries: [PieChartDataEntry] = [
@@ -154,7 +154,6 @@ extension HomeViewController {
         
         // If no data, show empty chart
         guard !entries.isEmpty else {
-            print("⚠️ No data for tiny pie chart")
             tinyPieChartView.data = nil
             return
         }
@@ -186,7 +185,7 @@ extension HomeViewController {
         tinyPieChartView.drawEntryLabelsEnabled = false
         tinyPieChartView.data = data
         
-        print("✅ Tiny pie chart updated with \(entries.count) slices")
+        logDebug("✅ Tiny pie chart updated with \(entries.count) slices")
     }
     
     

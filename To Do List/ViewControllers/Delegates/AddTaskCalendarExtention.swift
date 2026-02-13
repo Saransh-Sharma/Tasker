@@ -78,7 +78,7 @@ extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCal
     
     //MARK: Cal changes VIEW + SCORE on date change
     func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
-        print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
+        logDebug("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
         
         dateForAddTaskView = date
         metadataRow.updateDate(date)

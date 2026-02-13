@@ -72,7 +72,7 @@ class LGSearchViewModel {
             searchResults = try context.fetch(request)
             onResultsUpdated?(searchResults)
         } catch {
-            print("❌ Search error: \(error)")
+            logError(" Search error: \(error)")
             searchResults = []
             onResultsUpdated?([])
         }
@@ -89,7 +89,7 @@ class LGSearchViewModel {
             searchResults = try context.fetch(request)
             onResultsUpdated?(searchResults)
         } catch {
-            print("❌ Fetch all tasks error: \(error)")
+            logError(" Fetch all tasks error: \(error)")
             searchResults = []
             onResultsUpdated?([])
         }
@@ -128,7 +128,7 @@ class LGSearchViewModel {
             let projects = Set(tasks.compactMap { $0.project })
             return Array(projects).sorted()
         } catch {
-            print("❌ Fetch projects error: \(error)")
+            logError(" Fetch projects error: \(error)")
             return []
         }
     }

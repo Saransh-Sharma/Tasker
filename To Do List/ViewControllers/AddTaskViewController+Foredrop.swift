@@ -55,23 +55,19 @@ extension AddTaskViewController {
 
     @objc func doneAddTaskAction() {
         guard !currentTaskInMaterialTextBox.isEmpty else { 
-            print("⚠️ AddTask: Task name is empty, returning early")
             return 
         }
         
-        print("🚀 AddTask: Starting task creation process...")
-        print("📝 AddTask: Task name: '\(currentTaskInMaterialTextBox)'")
-        print("📅 AddTask: Due date: \(dateForAddTaskView)")
-        print("📁 AddTask: Project: '\(currenttProjectForAddTaskView)'")
-        print("🤝 AddTask: Delegate is set: \(delegate != nil)")
-        
+        logDebug("🚀 AddTask: Starting task creation process...")
+        logDebug("📝 AddTask: Task name: '\(currentTaskInMaterialTextBox)'")
+        logDebug("📅 AddTask: Due date: \(dateForAddTaskView)")
+        logDebug("📁 AddTask: Project: '\(currenttProjectForAddTaskView)'")
         // TODO: Re-enable when ViewModel is available
         // CHECK CLEAN ARCHITECTURE FIRST
         // if let viewModel = viewModel {
-        //     print("✅ AddTask: Using Clean Architecture with ViewModel")
+        //     logDebug("✅ AddTask: Using Clean Architecture with ViewModel")
         //     createTaskUsingViewModel(viewModel)
         // } else {
-            print("⚠️ AddTask: ViewModel not available, using legacy repository method")
             createTaskUsingRepository()
         // }
     }
@@ -81,11 +77,10 @@ extension AddTaskViewController {
     /// Create task using Clean Architecture ViewModel
     /// TODO: Re-enable when ViewModel is available
     // private func createTaskUsingViewModel(_ viewModel: AddTaskViewModel) {
-    //     print("🏗️ AddTask: Creating task via ViewModel (Clean Architecture)")
+    //     logDebug("🏗️ AddTask: Creating task via ViewModel (Clean Architecture)")
     //
     //     // TODO: The ViewModel API has changed - this needs to be refactored to use the new API
     //     // For now, using legacy repository to avoid breaking the flow
-    //     print("⚠️ AddTask: ViewModel API refactor needed - using legacy path")
     //
     //     /* New API expects:
     //     viewModel.taskName = currentTaskInMaterialTextBox
@@ -121,37 +116,40 @@ extension AddTaskViewController {
     //
     //     // TODO: Use legacy repository until ViewModel integration is complete
     //     // The TaskRepository API doesn't match - needs migration
-    //     print("⚠️ AddTask: Falling back to legacy addTask path - Clean Architecture ViewModel not fully integrated yet")
     // }
     
     /// Legacy task creation using repository (fallback)
     private func createTaskUsingRepository() {
-        print("🔧 AddTask: Using legacy repository method")
+        logDebug("🔧 AddTask: Using legacy repository method")
         // CRITICAL: Check taskRepository state before using it
-        print("🔍 AddTask: Checking taskRepository state...")
+        logDebug("🔍 AddTask: Checking taskRepository state...")
         if taskRepository == nil {
-            print("❌ AddTask: CRITICAL ERROR - taskRepository is nil!")
-            print("🔧 AddTask: This indicates dependency injection failed")
-            print("📊 AddTask: View controller type: \(String(describing: type(of: self)))")
-            print("🏗️ AddTask: Attempting to get repository from DependencyContainer...")
+            logError(
+                event: "add_task_repository_missing",
+                message: "Task repository missing before task creation"
+            )
+            logDebug("📊 AddTask: View controller type: \(String(describing: type(of: self)))")
+            logDebug("🏗️ AddTask: Attempting to get repository from DependencyContainer...")
             
             // Fallback: try to get repository from dependency container
             if let fallbackRepository = DependencyContainer.shared.taskRepository {
-                print("✅ AddTask: Found fallback repository from DependencyContainer")
                 taskRepository = fallbackRepository
             } else {
-                print("💥 AddTask: FATAL - No repository available anywhere!")
+                logFatal(
+                    event: "add_task_repository_unavailable",
+                    message: "No repository available for task creation"
+                )
                 showLegacyError("Unable to save task. Please try again.")
                 return
             }
         } else {
-            print("✅ AddTask: taskRepository is properly initialized")
-            print("📊 AddTask: Repository type: \(String(describing: type(of: taskRepository)))")
+            logDebug("✅ AddTask: taskRepository is properly initialized")
+            logDebug("📊 AddTask: Repository type: \(String(describing: type(of: taskRepository)))")
         }
         
         // Continue with legacy task creation...
         let taskType: Int32 = isThisEveningTask ? 2 : 1
-        print("🌅 AddTask: Task type: \(taskType)")
+        logDebug("🌅 AddTask: Task type: \(taskType)")
         
         let taskData = TaskData(
             name: currentTaskInMaterialTextBox,
@@ -162,19 +160,23 @@ extension AddTaskViewController {
             project: currenttProjectForAddTaskView,
             alertReminderTime: alertReminderTime
         )
-        print("📦 AddTask: TaskData created successfully")
+        logDebug("📦 AddTask: TaskData created successfully")
         
         taskRepository.addTask(data: taskData) { [weak self] (result: Result<NTask, Error>) in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let createdTask):
-                    print("✅ AddTask: Legacy task created successfully!")
+                    logDebug("✅ AddTask: Legacy task created successfully!")
                     self?.dismiss(animated: true) {
                         self?.delegate?.didAddTask(createdTask)
                     }
                     
                 case .failure(let error):
-                    print("❌ AddTask: Legacy task creation failed: \(error)")
+                    logError(
+                        event: "add_task_legacy_create_failed",
+                        message: "Legacy task creation failed",
+                        fields: ["error": error.localizedDescription]
+                    )
                     self?.showLegacyError("Failed to create task: \(error.localizedDescription)")
                 }
             }

@@ -419,7 +419,7 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
 
     func refreshChartsAfterTaskMutation(reason: HomeTaskMutationEvent? = nil) {
         if let reason {
-            print("🎯 HomeViewController chart refresh reason=\(reason.rawValue)")
+            logDebug("🎯 HomeViewController chart refresh reason=\(reason.rawValue)")
         }
 
         updateTinyPieChartData()

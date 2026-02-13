@@ -261,7 +261,7 @@ class LGSearchViewController: UIViewController {
 
     private func setupViewModel() {
         guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            print("❌ Failed to get Core Data context")
+            logError(" Failed to get Core Data context")
             return
         }
 
@@ -810,7 +810,7 @@ class LGSearchViewController: UIViewController {
     }
 
     private func presentTaskDetailSheet(for task: NTask) {
-        print("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.taskID?.uuidString ?? "nil")")
+        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.taskID?.uuidString ?? "nil")")
         let detailView = TaskDetailSheetView(
             task: task,
             projectNames: buildProjectChipData(),
@@ -826,9 +826,16 @@ class LGSearchViewController: UIViewController {
                 task.managedObjectContext?.delete(task)
                 do {
                     try task.managedObjectContext?.save()
-                    print("HOME_TAP_DETAIL mode=sheet scope=search action=delete taskID=\(task.taskID?.uuidString ?? "nil")")
+                    logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=delete taskID=\(task.taskID?.uuidString ?? "nil")")
                 } catch {
-                    print("HOME_TAP_DETAIL mode=sheet scope=search action=delete_error taskID=\(task.taskID?.uuidString ?? "nil") error=\(error)")
+                    logError(
+                        event: "search_task_delete_failed",
+                        message: "Failed to delete task from search detail sheet",
+                        fields: [
+                            "task_id": task.taskID?.uuidString ?? "nil",
+                            "error": error.localizedDescription
+                        ]
+                    )
                 }
 
                 self.presentedViewController?.dismiss(animated: true) { [weak self] in
@@ -849,12 +856,12 @@ class LGSearchViewController: UIViewController {
         present(hostingController, animated: true)
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
-        print("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.taskID?.uuidString ?? "nil")")
+        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.taskID?.uuidString ?? "nil")")
     }
 
     private func refreshAfterTaskDetailMutation(reason: String) {
         applyFiltersAndSearch()
-        print("HOME_TAP_DETAIL mode=sheet scope=search action=refresh reason=\(reason)")
+        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=refresh reason=\(reason)")
     }
 
     private func buildProjectChipData() -> [String] {

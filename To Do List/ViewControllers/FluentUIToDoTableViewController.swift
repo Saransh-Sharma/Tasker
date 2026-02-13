@@ -92,7 +92,7 @@ class FluentUIToDoTableViewController: UITableViewController {
     }
     
     private func setupToDoData(for date: Date) {
-        print("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
+        logDebug("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
 
         // TODO: Use repository once it has getTasksForDate method
         // For now, use direct CoreData access
@@ -110,22 +110,22 @@ class FluentUIToDoTableViewController: UITableViewController {
             do {
                 let allTasksForDate = try context.fetch(request)
                 DispatchQueue.main.async { [weak self] in
-                    print("📅 Found \(allTasksForDate.count) total tasks for \(date)")
-                    print("🔍 [TABLE VIEW] Fetched tasks breakdown:")
+                    logDebug("📅 Found \(allTasksForDate.count) total tasks for \(date)")
+                    logDebug("🔍 [TABLE VIEW] Fetched tasks breakdown:")
                     for (index, task) in allTasksForDate.enumerated() {
-                        print("  Task \(index + 1): '\(task.name ?? "NO NAME")' | dueDate: \(task.dueDate ?? NSDate()) | isComplete: \(task.isComplete)")
+                        logDebug("  Task \(index + 1): '\(task.name ?? "NO NAME")' | dueDate: \(task.dueDate ?? NSDate()) | isComplete: \(task.isComplete)")
                     }
 
                     self?.processTasksForDisplay(allTasksForDate, date: date)
                 }
             } catch {
-                print("❌ Error fetching tasks: \(error)")
+                logError(" Error fetching tasks: \(error)")
                 DispatchQueue.main.async { [weak self] in
                     self?.processTasksForDisplay([], date: date)
                 }
             }
         } else {
-            print("❌ No context available")
+            logError(" No context available")
             processTasksForDisplay([], date: date)
         }
     }
@@ -171,7 +171,7 @@ class FluentUIToDoTableViewController: UITableViewController {
         if let inboxTasks = tasksByProject[inboxProjectName], !inboxTasks.isEmpty {
             let sortedInboxTasks = createSortedTasks(from: inboxTasks)
             sections.append(("📥 Inbox", sortedInboxTasks))
-            print("FluentUI SampleTableView: Added Inbox section with \(sortedInboxTasks.count) tasks")
+            logDebug("FluentUI SampleTableView: Added Inbox section with \(sortedInboxTasks.count) tasks")
         }
         
         // Then add other project sections
@@ -180,7 +180,7 @@ class FluentUIToDoTableViewController: UITableViewController {
             let displayName = "📁 \(projectName.capitalized)"
             let sortedProjectTasks = createSortedTasks(from: projectTasks)
             sections.append((displayName, sortedProjectTasks))
-            print("FluentUI SampleTableView: Added \(displayName) section with \(sortedProjectTasks.count) tasks")
+            logDebug("FluentUI SampleTableView: Added \(displayName) section with \(sortedProjectTasks.count) tasks")
         }
         
         // If no tasks, show a placeholder with empty task array
@@ -188,11 +188,11 @@ class FluentUIToDoTableViewController: UITableViewController {
             sections.append(("📅 No Tasks for \(formatDate(date))", []))
         }
         
-        print("\nFluentUI SampleTableView sections summary:")
+        logDebug("\nFluentUI SampleTableView sections summary:")
         for (index, section) in sections.enumerated() {
-            print("Section \(index): '\(section.0)' with \(section.1.count) tasks")
+            logDebug("Section \(index): '\(section.0)' with \(section.1.count) tasks")
         }
-        print("=== END FLUENT UI SAMPLE TABLE VIEW SETUP ===")
+        logDebug("=== END FLUENT UI SAMPLE TABLE VIEW SETUP ===")
         
         // Update data and reload table view atomically on main thread
         DispatchQueue.main.async {
@@ -247,7 +247,7 @@ class FluentUIToDoTableViewController: UITableViewController {
         do {
             try context.save()
         } catch {
-            print("Error saving Core Data context: \(error)")
+            logError("Error saving Core Data context: \(error)")
         }
     }
     
@@ -299,7 +299,7 @@ class FluentUIToDoTableViewController: UITableViewController {
                         }
                     }
                 } catch {
-                    print("❌ Error fetching all tasks: \(error)")
+                    logError(" Error fetching all tasks: \(error)")
                 }
             }
             
@@ -823,7 +823,7 @@ extension FluentUIToDoTableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        print("🔵 SEMI-MODAL APPROACH: FluentUIToDoTableViewController didSelectRowAt called")
+        logDebug("🔵 SEMI-MODAL APPROACH: FluentUIToDoTableViewController didSelectRowAt called")
         
         let sectionData = toDoData[indexPath.section]
         
@@ -832,7 +832,7 @@ extension FluentUIToDoTableViewController {
         
         let task = sectionData.1[indexPath.row]
         
-        print("🔵 SEMI-MODAL: About to present semi-modal for task: \(task.name ?? "Unknown")")
+        logDebug("🔵 SEMI-MODAL: About to present semi-modal for task: \(task.name ?? "Unknown")")
         
         // Create and present SemiModalView with task details
         presentTaskDetailSemiModal(for: task, at: indexPath)
@@ -900,7 +900,7 @@ extension FluentUIToDoTableViewController {
                     }
                 }
             } catch {
-                print("❌ Error fetching projects: \(error)")
+                logError(" Error fetching projects: \(error)")
             }
         }
 
@@ -925,17 +925,17 @@ extension FluentUIToDoTableViewController {
     private func markTaskComplete(_ task: NTask) {
         task.isComplete = true
         task.dateCompleted = Date() as NSDate  // Set completion date for scoring
-        print("🎯 Task completed: '\(task.name ?? "Unknown")' at \(Date())")
+        logDebug("🎯 Task completed: '\(task.name ?? "Unknown")' at \(Date())")
         saveTask(task)
         delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
         
         // Notify that charts should be refreshed
         NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
-        print("📡 FluentUI: Posted TaskCompletionChanged notification")
+        logDebug("📡 FluentUI: Posted TaskCompletionChanged notification")
         
         // DIRECT CALL: Refresh charts immediately (more reliable than notification)
         if let homeVC = delegate as? HomeViewController {
-            print("🔄 FluentUI: Calling HomeViewController chart refresh directly")
+            logDebug("🔄 FluentUI: Calling HomeViewController chart refresh directly")
             homeVC.refreshChartsAfterTaskCompletion()
         }
     }
@@ -943,17 +943,17 @@ extension FluentUIToDoTableViewController {
     private func markTaskIncomplete(_ task: NTask) {
         task.isComplete = false
         task.dateCompleted = nil  // Clear completion date when marking incomplete
-        print("↩️ Task marked incomplete: '\(task.name ?? "Unknown")'")
+        logDebug("↩️ Task marked incomplete: '\(task.name ?? "Unknown")'")
         saveTask(task)
         delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
         
         // Notify that charts should be refreshed
         NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
-        print("📡 FluentUI: Posted TaskCompletionChanged notification")
+        logDebug("📡 FluentUI: Posted TaskCompletionChanged notification")
         
         // DIRECT CALL: Refresh charts immediately (more reliable than notification)
         if let homeVC = delegate as? HomeViewController {
-            print("🔄 FluentUI: Calling HomeViewController chart refresh directly")
+            logDebug("🔄 FluentUI: Calling HomeViewController chart refresh directly")
             homeVC.refreshChartsAfterTaskCompletion()
         }
     }
@@ -961,7 +961,7 @@ extension FluentUIToDoTableViewController {
     private func deleteTask(_ task: NTask) {
         // Delete the task from Core Data context
         guard let context = task.managedObjectContext else {
-            print("Error: Task has no managed object context")
+            logError("Error: Task has no managed object context")
             return
         }
         
@@ -979,7 +979,7 @@ extension FluentUIToDoTableViewController {
             // since the task no longer exists in the data source
             
         } catch {
-            print("Error deleting task: \(error)")
+            logError("Error deleting task: \(error)")
             // Show error alert
             let alert = UIAlertController(
                 title: "Error",
@@ -1006,7 +1006,7 @@ extension FluentUIToDoTableViewController {
             // Refresh the data and reload the specific cell
             setupToDoData(for: selectedDate)
         } catch {
-            print("Error saving task changes: \(error)")
+            logError("Error saving task changes: \(error)")
             // Show error alert
             let alert = UIAlertController(
                 title: "Error",
@@ -1024,7 +1024,7 @@ extension FluentUIToDoTableViewController {
             // Refresh the data
             setupToDoData(for: selectedDate)
         } catch {
-            print("Error saving task: \(error)")
+            logError("Error saving task: \(error)")
             // Show error alert
             let alert = UIAlertController(
                 title: "Error",

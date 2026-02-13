@@ -96,7 +96,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         
         // cancel button position
-        print("whereis cancel button?")
+        logDebug("whereis cancel button?")
         fab_cancelTask.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/8, y: UIScreen.main.bounds.minY+40, width: 25, height: 25)
         let addTaskIcon = UIImage(named: "material_close")
         fab_cancelTask.setImage(addTaskIcon, for: .normal)
@@ -113,7 +113,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         let doneButtonHeightWidth: CGFloat = 50
         //        let doneButtonY = 4*(standardHeight)+standardHeight/2-(doneButtonHeightWidth/2)
         let doneButtonY = 4*(standardHeight)+standardHeight-(doneButtonHeightWidth/2)
-        print("Placing done button at: \(doneButtonY)")
+        logDebug("Placing done button at: \(doneButtonY)")
         
         fab_doneTask.mode = .expanded
         fab_doneTask.setTitle("done", for: .normal)
@@ -171,7 +171,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         isThisEveningTask = isEveningSwitchOn(sender: eveningSwitch)
         
         if currentTaskInMaterialTextBox != "" {
-            print("Adding task: \(currentTaskInMaterialTextBox)")
+            logDebug("Adding task: \(currentTaskInMaterialTextBox)")
             let taskTypeToSave = getTaskType() // Now returns Int32 directly
             let taskPriorityToSave = currentTaskPriority // Now already a TaskPriority enum
             
@@ -215,7 +215,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
                 DispatchQueue.main.async {
                     switch result {
                     case .success:
-                        print("Task added successfully")
+                        logDebug("Task added successfully")
                         // Navigation logic
                         let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
                         let newViewController = storyBoard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
@@ -223,13 +223,13 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
                         newViewController.modalPresentationStyle = .fullScreen
                         self?.present(newViewController, animated: true, completion: nil)
                     case .failure(let error):
-                        print("Failed to add task: \(error)")
+                        logError("Failed to add task: \(error)")
                         // Show error alert to user
                     }
                 }
             }
         } else {
-            print("EMPTY TASK ! - Nothing to add")
+            logDebug("EMPTY TASK ! - Nothing to add")
             // Optionally, show an alert to the user
             return // Don't navigate if task is empty
         }
@@ -297,7 +297,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     @objc
     func changeTaskPriority(sender: UISegmentedControl) {
         currentTaskPriority = TaskPriority.fromSegmentIndex(sender.selectedSegmentIndex)
-        print("Priority selected: \(currentTaskPriority.displayName) (\(currentTaskPriority.rawValue))")
+        logDebug("Priority selected: \(currentTaskPriority.displayName) (\(currentTaskPriority.rawValue))")
     }
     
     // MARK: MAKE Second Seperator
@@ -346,11 +346,11 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     @objc func isEveningSwitchOn(sender:UISwitch!) -> Bool {
         if (sender.isOn == true){
-            print("SWITCH: on")
+            logDebug("SWITCH: on")
             return true
         }
         else{
-            print("SWITCH: off")
+            logDebug("SWITCH: off")
             return false
         }
     }
@@ -376,7 +376,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         
         let doneButtonHeightWidth: CGFloat = 50
         let doneButtonY = 4*(standardHeight)+standardHeight/2-(doneButtonHeightWidth/2)
-        print("Placing done button at: \(doneButtonY)")
+        logDebug("Placing done button at: \(doneButtonY)")
         
         addTaskButtonDone.frame = CGRect(x: UIScreen.main.bounds.maxX-UIScreen.main.bounds.maxX/5, y: doneButtonY, width: doneButtonHeightWidth, height: doneButtonHeightWidth)
         
@@ -392,18 +392,18 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         let oldText = textField.text!
-        print("old text is: \(oldText)")
+        logDebug("old text is: \(oldText)")
         let stringRange = Range(range, in:oldText)!
         let newText = oldText.replacingCharacters(in: stringRange, with: string)
-        print("new text is: \(newText)")
+        logDebug("new text is: \(newText)")
         
         currentTaskInMaterialTextBox = newText
         
         if newText.isEmpty {
-            print("EMPTY")
+            logDebug("EMPTY")
             fab_doneTask.isEnabled = false
         } else {
-            print("NOT EMPTY")
+            logDebug("NOT EMPTY")
             fab_doneTask.isEnabled = true
             
         }
@@ -486,7 +486,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     }
     
     func circleMenu(_: CircleMenu, buttonWillSelected _: UIButton, atIndex: Int) {
-        print("button will selected: \(atIndex)")
+        logDebug("button will selected: \(atIndex)")
         if (atIndex == 3) { //Opens settings menu
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { //adds delay
@@ -511,7 +511,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     func getTaskType() -> Int32 { //extend this to return for inbox & upcoming/someday
         if eveningSwitch.isOn {
-            print("Adding evening task")
+            logDebug("Adding evening task")
             return 2 // .evening
         }
         //        else if isInboxTask {
@@ -522,7 +522,7 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
         //        }
         else {
             //this is morning task
-            print("Adding morning task")
+            logDebug("Adding morning task")
             return 1 // .morning
         }
     }
@@ -544,11 +544,11 @@ class NAddTaskScreen: UIViewController, UIPickerViewDelegate, UIPickerViewDataSo
     
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
         
-        print("DAY: \(dataArray[row])")
-        print("DAY ROW: \(row)")
+        logDebug("DAY: \(dataArray[row])")
+        logDebug("DAY ROW: \(row)")
         taskDayFromPicker = dataArray[row]
         
-        print("---- Picked task:  \(dataArray[row])")
+        logDebug("---- Picked task:  \(dataArray[row])")
         
     }
 } // This should be the closing brace of NAddTaskScreen class
