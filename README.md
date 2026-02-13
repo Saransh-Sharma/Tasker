@@ -193,6 +193,24 @@ xcodebuild test -scheme Tasker -destination 'platform=iOS Simulator,name=iPhone 
 
 Test coverage is currently ~10% with planned expansion as Clean Architecture migration progresses.
 
+## Logging Policy
+
+Runtime logging is restricted to actionable issues only:
+- Levels retained by default: `WARN`, `ERROR`, `FATAL`
+- Default minimum level: `.warning` in both Debug and Release
+- Temporary deep diagnostics: launch with `-TASKER_VERBOSE_LOGS`
+
+Standard log contract:
+- `ts=<ISO8601UTC> lvl=<WARN|ERROR|FATAL> cmp=<Component> evt=<event_name> msg="<short message>" key=value ...`
+- `evt` is required and uses snake_case
+- Logs are single-line key-value output (no multiline dumps, no emoji prefixes)
+
+Guardrails:
+```bash
+./scripts/check-no-print-logs.sh
+```
+This fails when direct `print(...)` remains in production app source.
+
 ## Contributing
 
 Contributions are welcome! This project follows Clean Architecture principles. Please review:
