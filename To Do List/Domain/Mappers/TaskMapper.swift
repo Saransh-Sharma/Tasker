@@ -114,34 +114,24 @@ public class TaskMapper {
     /// Generate a UUID from NSManagedObjectID
     /// This creates a deterministic UUID based on the object ID
     private static func generateUUID(from objectID: NSManagedObjectID) -> UUID {
-        // Use the URI representation of the object ID to create a deterministic UUID
         let uriString = objectID.uriRepresentation().absoluteString
-        
-        // Create a hash from the URI string
-        let hash = uriString.hash
-        
-        // Create UUID bytes from the hash
-        var bytes: [UInt8] = []
-        var hashValue = hash
-        for _ in 0..<16 {
-            bytes.append(UInt8(hashValue & 0xFF))
-            hashValue = hashValue >> 8
+        let forward = fnv1a64(bytes: uriString.utf8)
+        let reverse = fnv1a64(bytes: uriString.utf8.reversed())
+
+        var raw = [UInt8](repeating: 0, count: 16)
+        withUnsafeBytes(of: forward.bigEndian) { buffer in
+            raw.replaceSubrange(0..<8, with: buffer)
         }
-        
-        // Ensure we have exactly 16 bytes
-        while bytes.count < 16 {
-            bytes.append(0)
+        withUnsafeBytes(of: reverse.bigEndian) { buffer in
+            raw.replaceSubrange(8..<16, with: buffer)
         }
-        
-        // Create UUID from bytes
-        let uuid = UUID(uuid: (
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5], bytes[6], bytes[7],
-            bytes[8], bytes[9], bytes[10], bytes[11],
-            bytes[12], bytes[13], bytes[14], bytes[15]
+
+        return UUID(uuid: (
+            raw[0], raw[1], raw[2], raw[3],
+            raw[4], raw[5], raw[6], raw[7],
+            raw[8], raw[9], raw[10], raw[11],
+            raw[12], raw[13], raw[14], raw[15]
         ))
-        
-        return uuid
     }
     
     /// Find an existing NTask entity by UUID
@@ -156,11 +146,33 @@ public class TaskMapper {
 
         do {
             let tasks = try context.fetch(request)
-            return tasks.first
+            if let matched = tasks.first {
+                return matched
+            }
+
+            let legacyRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
+            legacyRequest.predicate = NSPredicate(format: "taskID == nil")
+
+            let legacyTasks = try context.fetch(legacyRequest)
+            return legacyTasks.first { task in
+                generateUUID(from: task.objectID) == id
+            }
         } catch {
             print("Error fetching task by ID: \(error)")
             return nil
         }
+    }
+
+    private static func fnv1a64<S: Sequence>(bytes: S) -> UInt64 where S.Element == UInt8 {
+        let prime: UInt64 = 1_099_511_628_211
+        var hash: UInt64 = 14_695_981_039_346_656_037
+
+        for byte in bytes {
+            hash ^= UInt64(byte)
+            hash &*= prime
+        }
+
+        return hash
     }
     
     // MARK: - Enhanced Property Helpers
