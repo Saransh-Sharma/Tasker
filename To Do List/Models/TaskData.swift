@@ -14,7 +14,8 @@ struct TaskData {
     let isComplete: Bool
     let dateAdded: Date
     let dateCompleted: Date?
-    
+    let alertReminderTime: Date?
+
     /// Creates a TaskData from an NTask managed object
     /// - Parameter managedObject: The Core Data managed object to convert
     init(managedObject: NTask) {
@@ -29,11 +30,12 @@ struct TaskData {
         self.isComplete = managedObject.isComplete
         self.dateAdded = managedObject.dateAdded as Date? ?? Date()
         self.dateCompleted = managedObject.dateCompleted as Date?
+        self.alertReminderTime = managedObject.alertReminderTime as Date?
     }
-    
+
     /// Creates a new TaskData instance with provided values
     /// - Parameters values for the task properties
-    init(id: NSManagedObjectID? = nil, 
+    init(id: NSManagedObjectID? = nil,
          name: String,
          details: String? = nil,
          type: Int32, // TaskType raw value
@@ -42,7 +44,8 @@ struct TaskData {
          project: String = "Inbox",
          isComplete: Bool = false,
          dateAdded: Date = Date(),
-         dateCompleted: Date? = nil) {
+         dateCompleted: Date? = nil,
+         alertReminderTime: Date? = nil) {
         self.id = id
         self.name = name
         self.details = details
@@ -53,6 +56,7 @@ struct TaskData {
         self.isComplete = isComplete
         self.dateAdded = dateAdded
         self.dateCompleted = dateCompleted
+        self.alertReminderTime = alertReminderTime
     }
     
     // MARK: - Computed Properties for Priority Access
