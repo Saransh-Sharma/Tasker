@@ -16,6 +16,7 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
     
     func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
         viewContext.perform {
+            self.viewContext.refreshAllObjects()
             let request: NSFetchRequest<NTask> = NTask.fetchRequest()
             request.sortDescriptors = [
                 NSSortDescriptor(key: "taskPriority", ascending: true),
@@ -238,6 +239,7 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
     
     func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) {
         viewContext.perform {
+            self.viewContext.refreshAllObjects()
             if let entity = TaskMapper.findEntity(byId: id, in: self.viewContext) {
                 let task = TaskMapper.toDomain(from: entity)
                 DispatchQueue.main.async { completion(.success(task)) }
@@ -325,6 +327,9 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
             
             do {
                 try self.backgroundContext.save()
+                self.viewContext.performAndWait {
+                    self.viewContext.refreshAllObjects()
+                }
                 let updatedTask = TaskMapper.toDomain(from: entity)
                 
                 // Post notification for charts refresh
@@ -352,6 +357,9 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
             
             do {
                 try self.backgroundContext.save()
+                self.viewContext.performAndWait {
+                    self.viewContext.refreshAllObjects()
+                }
                 let updatedTask = TaskMapper.toDomain(from: entity)
                 
                 // Post notification for charts refresh
