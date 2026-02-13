@@ -85,25 +85,6 @@ extension AddTaskViewController {
         styleFilledTextField(self.addTaskTextBox_Material)
     }
     
-    func setupEveningTaskSwitch() {
-
-        
-        self.eveningLabel.text = "Evening Task"
-        self.eveningLabel.textColor = UIColor.tasker.textSecondary
-        self.eveningLabel.font = UIFont.tasker.font(for: .body)
-        self.eveningSwitch.isOn = false
-        self.eveningSwitch.onTintColor = UIColor.tasker.accentPrimary
-        
-        self.eveningSwitch.addTarget(self, action: #selector(self.isEveningSwitchOn(sender:)), for: .valueChanged)
-        
-        // Add eveningLabel and eveningSwitch to a UIStackView, then add that stack view to self.foredropStackContainer
-        let switchRow = UIStackView(arrangedSubviews: [self.eveningLabel, self.eveningSwitch])
-        switchRow.spacing = 8
-        switchRow.alignment = .center
-        // switchRow.distribution = .fill // Or .equalSpacing, .fillProportionally as needed
-        self.foredropStackContainer.addArrangedSubview(switchRow)
-    }
-    
     // MARK: - Shared Field Styling
 
     /// Apply token-based styling to MDCFilledTextField for iOS-native filled look.
@@ -128,63 +109,7 @@ extension AddTaskViewController {
         field.tintColor = todoColors.accentPrimary
     }
 
-    // MARK: MAKE Priority SC
-    func setupPrioritySC() {
-        print("SETUP PRIORITY SC")
-
-        // 1) Initialize with your array of titles directly
-        let segmented = UISegmentedControl(items: p)
-
-        // 2) Keep UI selection aligned with current model value
-        segmented.selectedSegmentIndex = currentTaskPriority.segmentIndex()
-
-        // 3) Show/hide based on eveningSwitch
-        segmented.isHidden = eveningSwitch.isOn
-
-        // 4) Token-based styling
-        segmented.backgroundColor = todoColors.surfaceTertiary
-        segmented.selectedSegmentTintColor = todoColors.surfacePrimary
-        segmented.setTitleTextAttributes([
-            .foregroundColor: todoColors.textSecondary,
-            .font: UIFont.tasker.font(for: .callout)
-        ], for: .normal)
-        segmented.setTitleTextAttributes([
-            .foregroundColor: todoColors.accentPrimary,
-            .font: UIFont.tasker.font(for: .callout)
-        ], for: .selected)
-
-        // 5) Wire up selection using standard UISegmentedControl API
-        segmented.addTarget(self, action: #selector(changeTaskPriority(_:)), for: .valueChanged)
-
-        // 6) Set accessibility identifier
-        segmented.accessibilityIdentifier = "addTask.prioritySegmentedControl"
-
-        // 7) Keep a reference
-        self.tabsSegmentedControl = segmented
-        // Don't add to stack container here - it's added in viewDidLoad
-    }
-    @objc func changeTaskPriority(_ sender: UISegmentedControl) {
-        self.currentTaskPriority = TaskPriority.fromSegmentIndex(sender.selectedSegmentIndex)
-        print("Priority selected: \(self.currentTaskPriority.displayName) (\(self.currentTaskPriority.rawValue))")
-    }
-    
-    // OLD: setupDoneButton() method removed
-    // Now using navigation bar Done button instead of FAB
-    // See AddTaskViewController.swift setupNavigationBar() for new implementation
-
-
     func getTaskType() -> Int32 {
         return self.isThisEveningTask ? 2 : 1 // 2=evening, 1=morning
-    }
-    
-    @objc func isEveningSwitchOn(sender: UISwitch!) -> Bool {
-        self.isThisEveningTask = sender.isOn
-        if sender.isOn {
-            print("SWITCH: on")
-            return true
-        } else {
-            print("SWITCH: off")
-            return false
-        }
     }
 }

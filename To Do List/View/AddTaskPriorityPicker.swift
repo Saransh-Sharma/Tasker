@@ -148,8 +148,8 @@ private final class PriorityPillButton: UIControl {
             backgroundColor = colors.surfaceTertiary
             label.textColor = colors.textSecondary
             label.font = UIFont.tasker.font(for: .callout)
-            layer.borderColor = UIColor.clear.cgColor
-            layer.borderWidth = 0
+            layer.borderColor = colors.strokeHairline.cgColor
+            layer.borderWidth = 1
 
             dotView.layer.shadowOpacity = 0
         }

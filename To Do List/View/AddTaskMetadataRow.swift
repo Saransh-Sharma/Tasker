@@ -293,8 +293,8 @@ private final class MetadataChipButton: UIControl {
             backgroundColor = colors.chipUnselectedBackground
             iconView.tintColor = colors.textTertiary
             label.textColor = colors.textTertiary
-            layer.borderColor = UIColor.clear.cgColor
-            layer.borderWidth = 0
+            layer.borderColor = colors.strokeHairline.cgColor
+            layer.borderWidth = 1
         }
     }
 
