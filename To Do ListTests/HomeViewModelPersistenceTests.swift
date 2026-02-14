@@ -172,6 +172,180 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testPinnedFocusTasksPersistAcrossSessions() {
+        let suiteName = "HomeViewModelPersistenceTests.PinnedPersist.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let pinCandidate = makeTask(name: "Pin me", project: inbox, dueDate: Date(), priority: .low)
+        let supportA = makeTask(name: "Support A", project: inbox, dueDate: Date(), priority: .high)
+        let supportB = makeTask(name: "Support B", project: inbox, dueDate: Date(), priority: .high)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [pinCandidate, supportA, supportB])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModelA = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModelA.pinTaskToFocus(pinCandidate.id), .pinned)
+        XCTAssertEqual(viewModelA.pinnedFocusTaskIDs.first, pinCandidate.id)
+
+        let viewModelB = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModelB.pinnedFocusTaskIDs, [pinCandidate.id])
+        XCTAssertEqual(viewModelB.focusTasks.first?.id, pinCandidate.id)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testFocusTasksComposePinnedFirstWithAutofillRanking() {
+        let suiteName = "HomeViewModelPersistenceTests.FocusComposed.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let now = Date()
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: startOfToday) ?? now
+        let evening = calendar.date(byAdding: .hour, value: 18, to: startOfToday) ?? now
+
+        let inbox = Project.createInbox()
+        let pinnedLow = makeTask(name: "Pinned Low", project: inbox, dueDate: evening, priority: .low)
+        let overdueHigh = makeTask(name: "Overdue High", project: inbox, dueDate: yesterday, priority: .high)
+        let overdueLow = makeTask(name: "Overdue Low", project: inbox, dueDate: yesterday, priority: .low)
+        let todayHigh = makeTask(name: "Today High", project: inbox, dueDate: evening, priority: .high)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [todayHigh, overdueLow, overdueHigh, pinnedLow])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.pinTaskToFocus(pinnedLow.id), .pinned)
+        XCTAssertEqual(viewModel.focusTasks.map(\.name), ["Pinned Low", "Overdue High", "Overdue Low"])
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testPinTaskRejectsFourthPinAtCapacity() {
+        let suiteName = "HomeViewModelPersistenceTests.PinCapacity.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let tasks = (1...4).map { index in
+            makeTask(name: "Pin \(index)", project: inbox, dueDate: Date(), priority: .low)
+        }
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.pinTaskToFocus(tasks[0].id), .pinned)
+        XCTAssertEqual(viewModel.pinTaskToFocus(tasks[1].id), .pinned)
+        XCTAssertEqual(viewModel.pinTaskToFocus(tasks[2].id), .pinned)
+        XCTAssertEqual(viewModel.pinTaskToFocus(tasks[3].id), .capacityReached(limit: 3))
+        XCTAssertEqual(viewModel.pinnedFocusTaskIDs, [tasks[0].id, tasks[1].id, tasks[2].id])
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testPinnedTaskPrunesAfterCompletion() {
+        let suiteName = "HomeViewModelPersistenceTests.PinPruneCompletion.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let pinnedTask = makeTask(name: "Pinned", project: inbox, dueDate: Date(), priority: .low)
+        let highA = makeTask(name: "High A", project: inbox, dueDate: Date(), priority: .high)
+        let highB = makeTask(name: "High B", project: inbox, dueDate: Date(), priority: .high)
+        let highC = makeTask(name: "High C", project: inbox, dueDate: Date(), priority: .high)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [pinnedTask, highA, highB, highC])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.pinTaskToFocus(pinnedTask.id), .pinned)
+        viewModel.toggleTaskCompletion(pinnedTask)
+        waitForMainQueueFlush()
+
+        XCTAssertFalse(viewModel.pinnedFocusTaskIDs.contains(pinnedTask.id))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testPinnedTaskPrunesAfterDelete() {
+        let suiteName = "HomeViewModelPersistenceTests.PinPruneDelete.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let pinnedTask = makeTask(name: "Pinned Delete", project: inbox, dueDate: Date(), priority: .low)
+        let otherTask = makeTask(name: "Other", project: inbox, dueDate: Date(), priority: .high)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [pinnedTask, otherTask])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertEqual(viewModel.pinTaskToFocus(pinnedTask.id), .pinned)
+        viewModel.deleteTask(pinnedTask)
+        waitForMainQueueFlush()
+
+        XCTAssertFalse(viewModel.pinnedFocusTaskIDs.contains(pinnedTask.id))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testPinTaskIneligibleOutsideTodayScope() {
+        let suiteName = "HomeViewModelPersistenceTests.PinScopeGate.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let upcomingDueDate = Calendar.current.date(byAdding: .day, value: 2, to: Date()) ?? Date()
+        let task = makeTask(name: "Upcoming", project: inbox, dueDate: upcomingDueDate, priority: .low)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [task])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        viewModel.setQuickView(.upcoming)
+        waitForMainQueueFlush()
+
+        XCTAssertFalse(viewModel.canUseManualFocusDrag)
+        XCTAssertEqual(viewModel.pinTaskToFocus(task.id), .taskIneligible)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     private func waitForMainQueueFlush() {
         let expectation = expectation(description: "MainQueueFlush")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -184,8 +358,10 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         id: UUID = UUID(),
         name: String,
         project: Project,
-        dueDate: Date,
-        priority: TaskPriority = .low
+        dueDate: Date? = Date(),
+        priority: TaskPriority = .low,
+        isComplete: Bool = false,
+        dateCompleted: Date? = nil
     ) -> Task {
         Task(
             id: id,
@@ -193,7 +369,9 @@ final class HomeViewModelPersistenceTests: XCTestCase {
             name: name,
             priority: priority,
             dueDate: dueDate,
-            project: project.name
+            project: project.name,
+            isComplete: isComplete,
+            dateCompleted: dateCompleted
         )
     }
 }
