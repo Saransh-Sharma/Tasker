@@ -27,7 +27,9 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
     lazy var tinyPieChartView: PieChartView = { PieChartView() }()
     private var navigationPieChartView: PieChartView?
     private weak var navigationPieChartAnchorView: UIView?
-    private let navigationPieChartSize: CGFloat = 34
+    private let navigationPieChartSize: CGFloat = 136
+    private let navigationPieChartTrailingInset: CGFloat = 10
+    private let navigationPieChartZPosition: CGFloat = 999
     private var shouldShowNavigationPieChart = false
 
     // MARK: - State
@@ -58,8 +60,21 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        if shouldShowNavigationPieChart {
+        if navigationPieChartView != nil {
             layoutNavigationPieChart()
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        ensureNavigationPieChartAsRightItem()
+        layoutNavigationPieChart()
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        if navigationController?.topViewController !== self {
+            removeNavigationPieChartOverlay(resetChartState: true)
         }
     }
 
@@ -107,17 +122,11 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
         navigationItem.fluentConfiguration.navigationBarStyle = .custom
 
-        let settingsButton = UIBarButtonItem(
-            image: UIImage(systemName: "list.bullet"),
-            style: .plain,
-            target: self,
-            action: #selector(onMenuButtonTapped)
-        )
-        settingsButton.tintColor = todoColors.accentOnPrimary
-        settingsButton.accessibilityIdentifier = "home.settingsButton"
-        navigationItem.leftBarButtonItem = settingsButton
+        // Pie chart on the right
+        ensureNavigationPieChartAsRightItem()
 
-        setNavigationPieChartVisible(false)
+        // Date header with XP as title view
+        updateNavigationDateHeader()
     }
 
     private func bindTheme() {
@@ -147,6 +156,13 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
                 if Calendar.current.isDateInToday(self.dateForTheView) {
                     self.applyScoreDisplay(score, for: self.dateForTheView)
                 }
+            }
+            .store(in: &cancellables)
+
+        viewModel.$progressState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateNavigationDateHeader()
             }
             .store(in: &cancellables)
 
@@ -510,21 +526,24 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
     }
 
     private func applyScoreDisplay(_ score: Int, for date: Date) {
-        let shouldShow = score > 0
-        setNavigationPieChartVisible(shouldShow)
+        // Always show the nav pie chart (even at score 0 with empty ring)
+        ensureNavigationPieChartAsRightItem()
 
         tinyPieChartView.centerAttributedText = setTinyPieChartScoreText(
             pieChartView: tinyPieChartView,
             scoreOverride: score
         )
 
-        if shouldShow, let navChart = navigationPieChartView {
+        if let navChart = navigationPieChartView {
             navChart.centerAttributedText = setTinyPieChartScoreText(
                 pieChartView: navChart,
                 scoreOverride: score
             )
             buildNavigationPieChartData(for: date)
         }
+
+        // Update date header when date changes
+        updateNavigationDateHeader()
     }
 
     // MARK: - Nav Pie UI
@@ -533,50 +552,107 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         shouldShowNavigationPieChart = isVisible
 
         if isVisible {
-            ensureNavigationPieChartBarButton()
+            ensureNavigationPieChartAsRightItem()
+            navigationPieChartAnchorView?.isHidden = false
             navigationPieChartView?.isHidden = false
             navigationPieChartView?.alpha = 1
             return
         }
 
         navigationItem.rightBarButtonItem = nil
-        navigationPieChartView?.removeFromSuperview()
-        navigationPieChartView = nil
-        navigationPieChartAnchorView = nil
+        removeNavigationPieChartOverlay(resetChartState: true)
     }
 
-    private func ensureNavigationPieChartBarButton() {
-        if navigationPieChartView != nil, navigationItem.rightBarButtonItem != nil {
+    private func ensureNavigationPieChartAsRightItem() {
+        guard let navigationController else { return }
+        navigationItem.rightBarButtonItem = nil
+
+        if let container = navigationPieChartAnchorView,
+           navigationPieChartView != nil,
+           container.superview === navigationController.view {
             layoutNavigationPieChart()
             return
         }
 
-        let container = UIView(frame: CGRect(x: 0, y: 0, width: navigationPieChartSize, height: navigationPieChartSize))
-        container.backgroundColor = .clear
-        container.accessibilityIdentifier = "home.navXpPieChart.container"
+        removeNavigationPieChartOverlay(resetChartState: true)
 
-        let pieChart = PieChartView(frame: container.bounds)
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.backgroundColor = .clear
+        container.clipsToBounds = false
+        container.accessibilityIdentifier = "home.navXpPieChart.container"
+        container.layer.zPosition = navigationPieChartZPosition
+        navigationController.view.addSubview(container)
+
+        NSLayoutConstraint.activate([
+            container.widthAnchor.constraint(equalToConstant: navigationPieChartSize),
+            container.heightAnchor.constraint(equalToConstant: navigationPieChartSize),
+            container.trailingAnchor.constraint(equalTo: navigationController.navigationBar.trailingAnchor, constant: -navigationPieChartTrailingInset),
+            container.centerYAnchor.constraint(equalTo: navigationController.navigationBar.centerYAnchor)
+        ])
+
+        let buttonProxy = UIView()
+        buttonProxy.translatesAutoresizingMaskIntoConstraints = false
+        buttonProxy.backgroundColor = .clear
+        buttonProxy.isUserInteractionEnabled = false
+        buttonProxy.accessibilityIdentifier = "home.navXpPieChart.button"
+        container.addSubview(buttonProxy)
+
+        let pieChart = PieChartView()
+        pieChart.translatesAutoresizingMaskIntoConstraints = false
         pieChart.backgroundColor = .clear
         pieChart.accessibilityIdentifier = "home.navXpPieChart"
         pieChart.accessibilityLabel = "XP chart"
         setupPieChartView(pieChartView: pieChart)
 
         container.addSubview(pieChart)
+
+        NSLayoutConstraint.activate([
+            buttonProxy.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            buttonProxy.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            buttonProxy.topAnchor.constraint(equalTo: container.topAnchor),
+            buttonProxy.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            pieChart.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            pieChart.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            pieChart.topAnchor.constraint(equalTo: container.topAnchor),
+            pieChart.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        ])
+
         navigationPieChartView = pieChart
         navigationPieChartAnchorView = container
-
-        let item = UIBarButtonItem(customView: container)
-        item.accessibilityIdentifier = "home.navXpPieChart.button"
-        navigationItem.rightBarButtonItem = item
 
         buildNavigationPieChartData(for: dateForTheView)
         layoutNavigationPieChart()
     }
 
+    private func updateNavigationDateHeader() {
+        let dateView = HomeDateHeaderView(
+            date: dateForTheView,
+            progressState: viewModel?.progressState ?? .empty,
+            accentOnPrimaryColor: todoColors.accentOnPrimary
+        )
+        let hostingController = UIHostingController(rootView: dateView)
+        hostingController.view.backgroundColor = .clear
+        hostingController.sizingOptions = .intrinsicContentSize
+        hostingController.view.sizeToFit()
+        navigationItem.titleView = hostingController.view
+    }
+
     private func layoutNavigationPieChart() {
-        guard let pieChart = navigationPieChartView else { return }
-        pieChart.frame = CGRect(x: 0, y: 0, width: navigationPieChartSize, height: navigationPieChartSize)
+        guard let pieChart = navigationPieChartView, let container = navigationPieChartAnchorView else { return }
+        container.layer.zPosition = navigationPieChartZPosition
+        navigationController?.view.bringSubviewToFront(container)
+        container.layoutIfNeeded()
+        pieChart.layoutIfNeeded()
         setTinyChartShadow(chartView: pieChart)
+    }
+
+    private func removeNavigationPieChartOverlay(resetChartState: Bool) {
+        navigationPieChartAnchorView?.removeFromSuperview()
+        if resetChartState {
+            navigationPieChartView = nil
+            navigationPieChartAnchorView = nil
+        }
     }
 
     private func buildNavigationPieChartData(for date: Date) {
@@ -596,8 +672,15 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         }
 
         guard !entries.isEmpty else {
-            navPieChart.data = nil
-            navPieChart.setNeedsDisplay()
+            // Show empty ring at score 0
+            let emptyEntry = PieChartDataEntry(value: 1, label: "Empty")
+            let emptySet = PieChartDataSet(entries: [emptyEntry], label: "")
+            emptySet.drawIconsEnabled = false
+            emptySet.drawValuesEnabled = false
+            emptySet.sliceSpace = 0
+            emptySet.colors = [todoColors.accentMuted.withAlphaComponent(0.3)]
+            navPieChart.drawEntryLabelsEnabled = false
+            navPieChart.data = PieChartData(dataSet: emptySet)
             return
         }
 
@@ -628,7 +711,6 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
     }
 
     func refreshNavigationPieChart() {
-        guard shouldShowNavigationPieChart else { return }
         buildNavigationPieChartData(for: dateForTheView)
         navigationPieChartView?.animate(xAxisDuration: 0.3, easingOption: .easeOutBack)
     }
@@ -653,7 +735,8 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
         navigationItem.fluentConfiguration.navigationBarStyle = .custom
 
-        setNavigationPieChartVisible(shouldShowNavigationPieChart)
+        ensureNavigationPieChartAsRightItem()
+        updateNavigationDateHeader()
     }
 
     func setFont(fontSize: CGFloat, fontweight: UIFont.Weight = .regular, fontDesign: UIFontDescriptor.SystemDesign = .default) -> UIFont {
