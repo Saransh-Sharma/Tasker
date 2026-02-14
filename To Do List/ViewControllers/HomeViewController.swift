@@ -31,6 +31,8 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
     private let navigationPieChartTrailingInset: CGFloat = 10
     private let navigationPieChartZPosition: CGFloat = 999
     private var shouldShowNavigationPieChart = false
+    private var foredropSettingsButtonGlobalFrame: CGRect = .null
+    private var navigationPieChartCenterXConstraint: NSLayoutConstraint?
 
     // MARK: - State
 
@@ -205,6 +207,17 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
             },
             onOpenSettings: { [weak self] in
                 self?.onMenuButtonTapped()
+            },
+            onSettingsButtonFrameChange: { [weak self] frame in
+                guard let self else { return }
+                if self.foredropSettingsButtonGlobalFrame.integral == frame.integral {
+                    return
+                }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.foredropSettingsButtonGlobalFrame = frame
+                    self.layoutNavigationPieChart()
+                }
             }
         )
 
@@ -587,9 +600,14 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         NSLayoutConstraint.activate([
             container.widthAnchor.constraint(equalToConstant: navigationPieChartSize),
             container.heightAnchor.constraint(equalToConstant: navigationPieChartSize),
-            container.trailingAnchor.constraint(equalTo: navigationController.navigationBar.trailingAnchor, constant: -navigationPieChartTrailingInset),
             container.centerYAnchor.constraint(equalTo: navigationController.navigationBar.centerYAnchor)
         ])
+        let centerXConstraint = container.centerXAnchor.constraint(
+            equalTo: navigationController.view.leadingAnchor,
+            constant: defaultNavigationPieChartCenterX(in: navigationController)
+        )
+        navigationPieChartCenterXConstraint = centerXConstraint
+        centerXConstraint.isActive = true
 
         let buttonProxy = UIView()
         buttonProxy.translatesAutoresizingMaskIntoConstraints = false
@@ -640,6 +658,10 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
 
     private func layoutNavigationPieChart() {
         guard let pieChart = navigationPieChartView, let container = navigationPieChartAnchorView else { return }
+        let didUpdateAlignment = updateNavigationPieChartHorizontalAlignment()
+        if didUpdateAlignment {
+            navigationController?.view.layoutIfNeeded()
+        }
         container.layer.zPosition = navigationPieChartZPosition
         navigationController?.view.bringSubviewToFront(container)
         container.layoutIfNeeded()
@@ -652,7 +674,41 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         if resetChartState {
             navigationPieChartView = nil
             navigationPieChartAnchorView = nil
+            navigationPieChartCenterXConstraint = nil
         }
+    }
+
+    private func defaultNavigationPieChartCenterX(in navigationController: UINavigationController) -> CGFloat {
+        let navigationView = navigationController.view
+        let fallbackByNavBar = navigationController.navigationBar.frame.maxX - navigationPieChartTrailingInset - (navigationPieChartSize / 2)
+        if fallbackByNavBar > 0 {
+            return fallbackByNavBar
+        }
+        return navigationView.bounds.width - navigationView.safeAreaInsets.right - navigationPieChartTrailingInset - (navigationPieChartSize / 2)
+    }
+
+    @discardableResult
+    private func updateNavigationPieChartHorizontalAlignment() -> Bool {
+        guard let navigationController,
+              let centerXConstraint = navigationPieChartCenterXConstraint else { return false }
+
+        let navigationView = navigationController.view
+        guard navigationView.bounds.width > 0 else { return false }
+
+        let targetCenterX: CGFloat
+        if !foredropSettingsButtonGlobalFrame.isNull, !foredropSettingsButtonGlobalFrame.isEmpty {
+            let settingsFrameInNavigationView = navigationView.convert(foredropSettingsButtonGlobalFrame, from: nil)
+            targetCenterX = settingsFrameInNavigationView.midX
+        } else {
+            targetCenterX = defaultNavigationPieChartCenterX(in: navigationController)
+        }
+
+        let minCenterX = navigationView.safeAreaInsets.left + (navigationPieChartSize / 2)
+        let maxCenterX = max(minCenterX, navigationView.bounds.width - navigationView.safeAreaInsets.right - (navigationPieChartSize / 2))
+        let clampedCenterX = min(max(targetCenterX, minCenterX), maxCenterX)
+        guard abs(centerXConstraint.constant - clampedCenterX) > 0.5 else { return false }
+        centerXConstraint.constant = clampedCenterX
+        return true
     }
 
     private func buildNavigationPieChartData(for date: Date) {
@@ -736,6 +792,7 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         navigationItem.fluentConfiguration.navigationBarStyle = .custom
 
         ensureNavigationPieChartAsRightItem()
+        layoutNavigationPieChart()
         updateNavigationDateHeader()
     }
 

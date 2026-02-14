@@ -25,6 +25,13 @@ private struct CalendarHeightPreferenceKey: PreferenceKey {
     }
 }
 
+private struct SettingsButtonFramePreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect = .null
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
+}
+
 struct HomeBackdropForedropRootView: View {
     @ObservedObject var viewModel: HomeViewModel
 
@@ -37,6 +44,7 @@ struct HomeBackdropForedropRootView: View {
     let onOpenSearch: () -> Void
     let onOpenChat: () -> Void
     let onOpenSettings: () -> Void
+    let onSettingsButtonFrameChange: (CGRect) -> Void
 
     @State private var foredropAnchor: ForedropAnchor = .collapsed
     @State private var calendarExpandedHeight: CGFloat = 0
@@ -189,6 +197,9 @@ struct HomeBackdropForedropRootView: View {
         }
         .onAppear {
             lastDailyScore = viewModel.dailyScore
+        }
+        .onPreferenceChange(SettingsButtonFramePreferenceKey.self) { frame in
+            onSettingsButtonFrameChange(frame)
         }
         .onReceive(viewModel.$dailyScore.receive(on: RunLoop.main)) { newScore in
             handleDailyScoreUpdate(newScore)
@@ -380,6 +391,15 @@ struct HomeBackdropForedropRootView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .accessibilityIdentifier("home.settingsButton")
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: SettingsButtonFramePreferenceKey.self,
+                            value: proxy.frame(in: .global)
+                        )
+                    }
+                )
             }
 
             cockpitStats
