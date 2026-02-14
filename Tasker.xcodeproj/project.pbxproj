@@ -22,6 +22,12 @@
 		3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */; };
 		350E661527174B8BDEE11FCC /* TaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D379A868382E81C83D874E36 /* TaskRowView.swift */; };
 		355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* HomeForedropView.swift */; };
+		F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */; };
+		F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */; };
+		F2A1B2C3D4E5F60718293B52 /* HomeGlassBottomBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A52 /* HomeGlassBottomBar.swift */; };
+		7F7EB577ACD1D0E4495420B5 /* HomeDateHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4644C4A070EF40143E3F1C1E /* HomeDateHeaderView.swift */; };
+		A81985165D5E3A5F46B5A5FB /* WeeklyCalendarStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFF019E9E7D0253D5D139030 /* WeeklyCalendarStripView.swift */; };
+		2F8630D073B32E4FB52F1DAE /* NextActionModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FCA458CC709E59AA20BC5C8 /* NextActionModule.swift */; };
 		3AB385B89C00477CF14637A3 /* AddTaskPriorityPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */; };
 		4026F77624CAF2E20A59D057 /* TypographyTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA35E641ED7341169B9EC48D /* TypographyTokens.swift */; };
 		4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */; };
@@ -272,6 +278,7 @@
 		F0A1B2C3D4E5F60718293B4D /* HomeFilterStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */; };
 		F0A1B2C3D4E5F60718293B4E /* HomeTaskSectionBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */; };
 		F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */; };
+		F2A1B2C3D4E5F60718293B53 /* HomeBottomBarStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E3 /* TaskerTheme+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E2 /* TaskerTheme+SwiftUI.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E5 /* TaskerAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E4 /* TaskerAnimations.swift */; };
 /* End PBXBuildFile section */
@@ -537,6 +544,12 @@
 		B9593B616D0F29F830522613 /* RemoteDataSourceProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RemoteDataSourceProtocol.swift; path = "To Do List/State/DataSources/RemoteDataSourceProtocol.swift"; sourceTree = SOURCE_ROOT; };
 		BA10AF9F27C7CB8AF51F58E8 /* Pods-Tasker-TaskerUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Tasker-TaskerUITests.release.xcconfig"; path = "Target Support Files/Pods-Tasker-TaskerUITests/Pods-Tasker-TaskerUITests.release.xcconfig"; sourceTree = "<group>"; };
 		BF5D7161411B42651DF00D60 /* HomeForedropView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeForedropView.swift; path = HomeForedropView.swift; sourceTree = "<group>"; };
+		F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeBottomBarItem.swift; path = HomeBottomBarItem.swift; sourceTree = "<group>"; };
+		F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeBottomBarState.swift; path = HomeBottomBarState.swift; sourceTree = "<group>"; };
+		F2A1B2C3D4E5F60718293A52 /* HomeGlassBottomBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeGlassBottomBar.swift; path = HomeGlassBottomBar.swift; sourceTree = "<group>"; };
+		4644C4A070EF40143E3F1C1E /* HomeDateHeaderView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeDateHeaderView.swift; path = HomeDateHeaderView.swift; sourceTree = "<group>"; };
+		CFF019E9E7D0253D5D139030 /* WeeklyCalendarStripView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyCalendarStripView.swift; path = WeeklyCalendarStripView.swift; sourceTree = "<group>"; };
+		4FCA458CC709E59AA20BC5C8 /* NextActionModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NextActionModule.swift; path = NextActionModule.swift; sourceTree = "<group>"; };
 		C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GetHomeFilteredTasksUseCaseTests.swift; path = GetHomeFilteredTasksUseCaseTests.swift; sourceTree = "<group>"; };
 		CA0D110D1F5E47D4A44DD1FF /* Pods-Tasker.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Tasker.debug.xcconfig"; path = "Target Support Files/Pods-Tasker/Pods-Tasker.debug.xcconfig"; sourceTree = "<group>"; };
 		CA35E641ED7341169B9EC48D /* TypographyTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TypographyTokens.swift; path = TypographyTokens.swift; sourceTree = "<group>"; };
@@ -553,6 +566,7 @@
 		F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFilterStateTests.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskSectionBuilderTests.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewModelPersistenceTests.swift; sourceTree = "<group>"; };
+		F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeBottomBarStateTests.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* TaskerTheme+SwiftUI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "TaskerTheme+SwiftUI.swift"; path = "TaskerTheme+SwiftUI.swift"; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F7A8B9C0D1E4 /* TaskerAnimations.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskerAnimations.swift; path = TaskerAnimations.swift; sourceTree = "<group>"; };
 		FB9BE07CCB7761E186498D8C /* TaskerTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskerTheme.swift; path = TaskerTheme.swift; sourceTree = "<group>"; };
@@ -812,6 +826,7 @@
 				F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */,
 				F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */,
 				F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */,
+				F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */,
 				753EFCB62445A24800A739E3 /* Info.plist */,
 				56E141F5136022B40FFD72B3 /* DesignSystem */,
 				C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */,
@@ -969,6 +984,12 @@
 				F0A1B2C3D4E5F60718293A4C /* HomeTaskSectionBuilder.swift */,
 				594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */,
 				BF5D7161411B42651DF00D60 /* HomeForedropView.swift */,
+				F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */,
+				F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */,
+				F2A1B2C3D4E5F60718293A52 /* HomeGlassBottomBar.swift */,
+				4644C4A070EF40143E3F1C1E /* HomeDateHeaderView.swift */,
+				CFF019E9E7D0253D5D139030 /* WeeklyCalendarStripView.swift */,
+				4FCA458CC709E59AA20BC5C8 /* NextActionModule.swift */,
 				82752F8BF563DB0673AB2770 /* HomeQuickFilterDropdown.swift */,
 				5A05E16369BC6D8B09B0D460 /* HomeQuickFilterTriggerButton.swift */,
 			);
@@ -1846,6 +1867,12 @@
 				6A386E990F32D3D2DF9AE465 /* UnifiedThemePickerCell.swift in Sources */,
 				DCF44651412668651994B7BB /* DarkModeToggleCell.swift in Sources */,
 				355015C0A77A72D864F1AC64 /* HomeForedropView.swift in Sources */,
+				F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */,
+				F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */,
+				F2A1B2C3D4E5F60718293B52 /* HomeGlassBottomBar.swift in Sources */,
+				7F7EB577ACD1D0E4495420B5 /* HomeDateHeaderView.swift in Sources */,
+				A81985165D5E3A5F46B5A5FB /* WeeklyCalendarStripView.swift in Sources */,
+				2F8630D073B32E4FB52F1DAE /* NextActionModule.swift in Sources */,
 				664B05702E92F236C487E1AD /* HomeQuickFilterDropdown.swift in Sources */,
 				7225854435E82849B5E3C425 /* HomeQuickFilterTriggerButton.swift in Sources */,
 				9F8F96DA53998188FCCE898D /* HomeQuickFilterSummary.swift in Sources */,
@@ -1870,6 +1897,7 @@
 				F0A1B2C3D4E5F60718293B4D /* HomeFilterStateTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4E /* HomeTaskSectionBuilderTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */,
+				F2A1B2C3D4E5F60718293B53 /* HomeBottomBarStateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
