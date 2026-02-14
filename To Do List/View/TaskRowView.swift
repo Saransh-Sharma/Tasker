@@ -26,9 +26,6 @@ struct TaskRowDisplayModel: Equatable {
                 metaParts.append("Evening")
             }
         }
-        if task.isOverdue {
-            metaParts.append("Overdue")
-        }
 
         let trailingMetaText = trailingMetaText(for: task, xpValue: xpValue)
         let urgencyLabel = urgencyLabel(for: task, now: now)
@@ -97,10 +94,12 @@ struct TaskRowDisplayModel: Equatable {
 struct TaskRowView: View {
     let task: DomainTask
     let showTypeBadge: Bool
+    let isTaskDragEnabled: Bool
     var onTap: (() -> Void)? = nil
     var onToggleComplete: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
     var onReschedule: (() -> Void)? = nil
+    var onTaskDragStarted: ((DomainTask) -> Void)? = nil
 
     private var displayModel: TaskRowDisplayModel {
         TaskRowDisplayModel.from(task: task, showTypeBadge: showTypeBadge)
@@ -110,7 +109,7 @@ struct TaskRowView: View {
         TaskerThemeManager.shared.currentTheme.tokens.color
     }
 
-    var body: some View {
+    private var rowBase: some View {
         rowContent
             .contentShape(Rectangle())
             .onTapGesture {
@@ -155,6 +154,18 @@ struct TaskRowView: View {
             .accessibilityHint(accessibilityHint)
     }
 
+    @ViewBuilder
+    var body: some View {
+        if isTaskDragEnabled {
+            rowBase.onDrag {
+                onTaskDragStarted?(task)
+                return NSItemProvider(object: task.id.uuidString as NSString)
+            }
+        } else {
+            rowBase
+        }
+    }
+
     private var rowContent: some View {
         HStack(spacing: 0) {
             priorityStripe
@@ -166,14 +177,44 @@ struct TaskRowView: View {
                 .accessibilityIdentifier("home.taskCheckbox.\(task.id.uuidString)")
                 .accessibilityValue(accessibilityStateValue)
 
-                contentStack
+                // Left column: name + note
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(task.name)
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
+                        .strikethrough(task.isComplete, color: Color.tasker.textQuaternary)
+                        .lineLimit(1)
+                        .multilineTextAlignment(.leading)
+
+                    if let note = displayModel.noteText {
+                        Text(note)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textTertiary)
+                            .lineLimit(1)
+                    }
+                }
 
                 Spacer(minLength: 0)
 
-                Text(displayModel.trailingMetaText)
-                    .font(.tasker(.caption2))
-                    .foregroundColor(trailingMetaColor)
-                    .lineLimit(1)
+                // Right column: urgency/time + meta
+                VStack(alignment: .trailing, spacing: 2) {
+                    if let urgencyLabel = displayModel.urgencyLabel, !task.isComplete {
+                        Text(urgencyLabel)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(urgencyLabel == "Overdue" ? Color(uiColor: themeColors.taskOverdue) : Color.tasker.statusWarning)
+                            .lineLimit(1)
+                    } else {
+                        Text(displayModel.trailingMetaText)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(trailingMetaColor)
+                            .lineLimit(1)
+                    }
+
+                    Text(displayModel.rowMetaText)
+                        .font(.tasker(.caption2))
+                        .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textSecondary)
+                        .lineLimit(1)
+                }
             }
             .padding(.vertical, 8)
             .padding(.trailing, TaskerTheme.Spacing.md)
@@ -222,35 +263,7 @@ struct TaskRowView: View {
         return task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textSecondary
     }
 
-    private var contentStack: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(task.name)
-                .font(.tasker(.bodyEmphasis))
-                .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
-                .strikethrough(task.isComplete, color: Color.tasker.textQuaternary)
-                .lineLimit(1)
-                .multilineTextAlignment(.leading)
-
-            Text(displayModel.rowMetaText)
-                .font(.tasker(.caption2))
-                .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textSecondary)
-                .lineLimit(1)
-
-            if let note = displayModel.noteText {
-                Text(note)
-                    .font(.tasker(.caption2))
-                    .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textTertiary)
-                    .lineLimit(1)
-            }
-
-            if let urgencyLabel = displayModel.urgencyLabel, !task.isComplete {
-                Text(urgencyLabel)
-                    .font(.tasker(.caption2))
-                    .foregroundColor(urgencyLabel == "Overdue" ? Color(uiColor: themeColors.taskOverdue) : Color.tasker.statusWarning)
-                    .lineLimit(1)
-            }
-        }
-    }
+    // contentStack replaced by inline two-column layout in rowContent
 
     private var accessibilityLabel: String {
         var parts: [String] = ["Task: \(task.name)"]
@@ -267,6 +280,7 @@ struct TaskRowView: View {
         if onToggleComplete != nil { hints.append("Double tap to toggle completion") }
         if onTap != nil { hints.append("Tap to view details") }
         if onDelete != nil || onReschedule != nil { hints.append("Swipe for actions") }
+        if isTaskDragEnabled { hints.append("Long press and drag to move task to Focus") }
         return hints.joined(separator: ", ")
     }
 
@@ -287,7 +301,8 @@ struct TaskRowView_Previews: PreviewProvider {
                     priority: .high,
                     dueDate: Date()
                 ),
-                showTypeBadge: true
+                showTypeBadge: true,
+                isTaskDragEnabled: true
             )
 
             TaskRowView(
@@ -298,7 +313,8 @@ struct TaskRowView_Previews: PreviewProvider {
                     isComplete: true,
                     dateCompleted: Date()
                 ),
-                showTypeBadge: false
+                showTypeBadge: false,
+                isTaskDragEnabled: false
             )
         }
         .padding(.horizontal, 20)

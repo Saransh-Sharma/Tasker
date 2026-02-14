@@ -11,7 +11,17 @@ import SwiftUI
 
 // MARK: - Task List View
 
+private struct TaskListScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 struct TaskListView: View {
+    private static let defaultBottomContentInset: CGFloat = 80
+
     let morningTasks: [DomainTask]
     let eveningTasks: [DomainTask]
     let overdueTasks: [DomainTask]
@@ -32,8 +42,11 @@ struct TaskListView: View {
     var onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil
     var onEmptyStateAction: (() -> Void)? = nil
     var onTaskDragStarted: ((DomainTask) -> Void)? = nil
+    var onScrollOffsetChange: ((CGFloat) -> Void)? = nil
+    let bottomContentInset: CGFloat
     @State private var draggingCustomProjectID: UUID?
     @State private var isCompletedCollapsedBySection: [UUID: Bool] = [:]
+    private let scrollCoordinateSpace = "home.taskList.scrollSpace"
 
     init(
         morningTasks: [DomainTask],
@@ -55,7 +68,9 @@ struct TaskListView: View {
         onReorderCustomProjects: (([UUID]) -> Void)? = nil,
         onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil,
         onEmptyStateAction: (() -> Void)? = nil,
-        onTaskDragStarted: ((DomainTask) -> Void)? = nil
+        onTaskDragStarted: ((DomainTask) -> Void)? = nil,
+        onScrollOffsetChange: ((CGFloat) -> Void)? = nil,
+        bottomContentInset: CGFloat = TaskListView.defaultBottomContentInset
     ) {
         self.morningTasks = morningTasks
         self.eveningTasks = eveningTasks
@@ -77,11 +92,24 @@ struct TaskListView: View {
         self.onCompletedSectionToggle = onCompletedSectionToggle
         self.onEmptyStateAction = onEmptyStateAction
         self.onTaskDragStarted = onTaskDragStarted
+        self.onScrollOffsetChange = onScrollOffsetChange
+        self.bottomContentInset = bottomContentInset
     }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
+                Color.clear
+                    .frame(height: 0)
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: TaskListScrollOffsetPreferenceKey.self,
+                                value: max(0, -proxy.frame(in: .named(scrollCoordinateSpace)).minY)
+                            )
+                        }
+                    )
+
                 if activeQuickView == .done {
                     doneTimelineContent
                 } else {
@@ -96,9 +124,13 @@ struct TaskListView: View {
 
                 // Bottom spacer for tab bar
                 Spacer()
-                    .frame(height: TaskerTheme.Spacing.tabBarHeight)
+                    .frame(height: bottomContentInset)
             }
             .padding(.horizontal, TaskerTheme.Spacing.lg)
+        }
+        .coordinateSpace(name: scrollCoordinateSpace)
+        .onPreferenceChange(TaskListScrollOffsetPreferenceKey.self) { offset in
+            onScrollOffsetChange?(offset)
         }
         .accessibilityIdentifier("home.taskList.scrollView")
     }
