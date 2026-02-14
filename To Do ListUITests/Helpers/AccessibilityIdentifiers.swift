@@ -14,6 +14,7 @@ enum AccessibilityIdentifiers {
 
     enum Home {
         static let view = "home.view"
+        static let foredropSurface = "home.foredrop.surface"
         static let addTaskButton = "home.addTaskButton"
         static let morningTasksList = "home.morningTasksList"
         static let eveningTasksList = "home.eveningTasksList"
@@ -21,7 +22,10 @@ enum AccessibilityIdentifiers {
         static let streakLabel = "home.streakLabel"
         static let completionRateLabel = "home.completionRateLabel"
         static let datePicker = "home.datePicker"
+        static let bottomBar = "home.bottomBar"
+        static let bottomBarCharts = "home.bottomBar.charts"
         static let searchButton = "home.searchButton"
+        static let chatButton = "home.chatButton"
         static let inboxButton = "home.inboxButton"
         static let settingsButton = "home.settingsButton"
         static let projectFilterButton = "home.focus.menu.button"
@@ -31,6 +35,8 @@ enum AccessibilityIdentifiers {
         static let quickFilterGroupingPrioritizeOverdue = "home.focus.grouping.prioritizeOverdue"
         static let quickFilterGroupingGroupByProjects = "home.focus.grouping.groupByProjects"
         static let focusStrip = "home.focus.strip"
+        static let focusDropZone = "home.focus.dropzone"
+        static let listDropZone = "home.list.dropzone"
         static let chartView = "home.chartView"
         static let navXpPieChart = "home.navXpPieChart"
         static let taskListScrollView = "home.taskList.scrollView"
