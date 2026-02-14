@@ -82,13 +82,33 @@ class AnalyticsAndChartsTests: BaseUITest {
             "Navigation XP pie chart should be hittable when visible"
         )
         XCTAssertTrue(
-            homePage.verifyNavXpPieChartSize(expected: 102, tolerance: 10),
-            "Floating navigation XP pie chart should be approximately 102x102"
+            homePage.verifyNavXpPieChartSize(expected: 136, tolerance: 10),
+            "Floating navigation XP pie chart should be approximately 136x136"
+        )
+        XCTAssertTrue(
+            homePage.verifyNavXpPieChartIsFullyVisibleInWindow(),
+            "Floating navigation XP pie chart should be fully visible inside the app window"
         )
 
         // Interaction should still work while visible
         homePage.tapNavXpPieChart()
         waitForAnimations(duration: 0.8)
+
+        // Chart should remain visible and unclipped after date updates.
+        if let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) {
+            homePage.navigateToDate(tomorrow)
+            waitForAnimations(duration: 0.8)
+            XCTAssertTrue(
+                homePage.verifyNavXpPieChartIsVisible(timeout: 3),
+                "Navigation XP pie chart should remain visible after date changes"
+            )
+            XCTAssertTrue(
+                homePage.verifyNavXpPieChartIsFullyVisibleInWindow(),
+                "Navigation XP pie chart should remain fully visible after date changes"
+            )
+            homePage.navigateToDate(Date())
+            waitForAnimations(duration: 0.8)
+        }
 
         // WHEN: User reopens the same task and score returns to zero
         let reopenIndex = findTaskIndex(withTitle: taskTitle)
@@ -206,6 +226,89 @@ class AnalyticsAndChartsTests: BaseUITest {
         XCTAssertLessThanOrEqual(focusCards.count, 3, "Focus strip should show at most 3 tasks")
     }
 
+    // MARK: - Test 60F: Drag Task Into Focus Adds Focus Card
+
+    func testDragTaskToFocusAddsPinnedCard() throws {
+        let rankedTitles = ["Ranked A", "Ranked B", "Ranked C"]
+        for title in rankedTitles {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(title: title, priority: .high, taskType: .morning)
+            _ = homePage.waitForTask(withTitle: title, timeout: 5)
+        }
+
+        let pinCandidate = "Pin Candidate"
+        let addTaskPage = homePage.tapAddTask()
+        addTaskPage.createTask(title: pinCandidate, priority: .low, taskType: .morning)
+        _ = homePage.waitForTask(withTitle: pinCandidate, timeout: 5)
+
+        XCTAssertTrue(homePage.dragTaskToFocus(title: pinCandidate), "Should drag task row to focus drop zone")
+        waitForAnimations(duration: 1.0)
+
+        let pinnedCard = homePage.focusTaskCard(containingTitle: pinCandidate)
+        XCTAssertTrue(pinnedCard.waitForExistence(timeout: 3), "Pinned task should appear in focus strip")
+    }
+
+    // MARK: - Test 60G: Drag Focus Card Out Keeps Task In List
+
+    func testDragFocusTaskToListRemovesPinnedCardAndKeepsRow() throws {
+        let rankedTitles = ["Keep Rank A", "Keep Rank B", "Keep Rank C"]
+        for title in rankedTitles {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(title: title, priority: .high, taskType: .morning)
+            _ = homePage.waitForTask(withTitle: title, timeout: 5)
+        }
+
+        let pinCandidate = "Unpin Candidate"
+        let addTaskPage = homePage.tapAddTask()
+        addTaskPage.createTask(title: pinCandidate, priority: .low, taskType: .morning)
+        _ = homePage.waitForTask(withTitle: pinCandidate, timeout: 5)
+
+        XCTAssertTrue(homePage.dragTaskToFocus(title: pinCandidate), "Should drag candidate into focus")
+        waitForAnimations(duration: 1.0)
+        XCTAssertTrue(homePage.focusTaskCard(containingTitle: pinCandidate).exists, "Pinned card should exist before unpin")
+
+        XCTAssertTrue(homePage.dragFocusTaskToList(title: pinCandidate), "Should drag focus card back to list drop zone")
+        waitForAnimations(duration: 1.0)
+
+        XCTAssertFalse(homePage.focusTaskCard(containingTitle: pinCandidate).exists, "Pinned card should be removed from focus strip")
+        XCTAssertTrue(homePage.taskRow(containingTitle: pinCandidate).exists, "Task should remain in task list after unpin")
+    }
+
+    // MARK: - Test 60H: Fourth Pin Is Rejected
+
+    func testFourthFocusPinIsRejected() throws {
+        let rankedTitles = ["Rank Base A", "Rank Base B", "Rank Base C"]
+        for title in rankedTitles {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(title: title, priority: .high, taskType: .morning)
+            _ = homePage.waitForTask(withTitle: title, timeout: 5)
+        }
+
+        let pinCandidates = ["Pin 1", "Pin 2", "Pin 3", "Pin 4"]
+        for title in pinCandidates {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(title: title, priority: .low, taskType: .morning)
+            _ = homePage.waitForTask(withTitle: title, timeout: 5)
+        }
+
+        XCTAssertTrue(homePage.dragTaskToFocus(title: "Pin 1"))
+        XCTAssertTrue(homePage.dragTaskToFocus(title: "Pin 2"))
+        XCTAssertTrue(homePage.dragTaskToFocus(title: "Pin 3"))
+        waitForAnimations(duration: 1.2)
+
+        XCTAssertTrue(homePage.focusTaskCard(containingTitle: "Pin 1").exists)
+        XCTAssertTrue(homePage.focusTaskCard(containingTitle: "Pin 2").exists)
+        XCTAssertTrue(homePage.focusTaskCard(containingTitle: "Pin 3").exists)
+
+        XCTAssertTrue(homePage.dragTaskToFocus(title: "Pin 4"))
+        waitForAnimations(duration: 1.0)
+
+        XCTAssertFalse(
+            homePage.focusTaskCard(containingTitle: "Pin 4").exists,
+            "Fourth pin should be rejected when manual focus capacity is full"
+        )
+    }
+
     // MARK: - Test 60D: Completed Group Toggle Appears When Completed Rows Grow
 
     func testCompletedGroupToggleAppearsAfterMultipleCompletions() throws {
@@ -236,6 +339,59 @@ class AnalyticsAndChartsTests: BaseUITest {
         XCTAssertTrue(row.waitForExistence(timeout: 3), "Task row should be visible")
         XCTAssertLessThanOrEqual(row.frame.height, 92, "Compact row should remain visually dense")
         takeScreenshot(named: "home_compact_row_regression")
+    }
+
+    // MARK: - Test 60I: Foredrop Surface Extends Behind Bottom Bar
+
+    func testForedropSurfaceExtendsToBottomAndTaskListRemainsScrollable() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
+        XCTAssertTrue(homePage.foredropSurface.waitForExistence(timeout: 3), "Foredrop surface should exist")
+        XCTAssertTrue(homePage.bottomBar.waitForExistence(timeout: 3), "Bottom bar should exist")
+        XCTAssertTrue(homePage.taskListScrollView.waitForExistence(timeout: 3), "Task list should exist")
+
+        for index in 1...10 {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(title: "Backdrop Fill \(index)", priority: .low, taskType: .morning)
+            _ = homePage.waitForTask(withTitle: "Backdrop Fill \(index)", timeout: 5)
+        }
+
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should start expanded")
+        XCTAssertGreaterThan(
+            homePage.taskListScrollView.frame.maxY,
+            homePage.bottomBar.frame.minY,
+            "Task list should extend behind the bottom bar when expanded"
+        )
+        XCTAssertGreaterThanOrEqual(
+            homePage.foredropSurface.frame.maxY,
+            homePage.view.frame.maxY - 2,
+            "Foredrop surface should reach screen edge when expanded"
+        )
+
+        let scrollView = homePage.taskListScrollView
+        scrollView.swipeUp()
+        waitForAnimations(duration: 0.5)
+        if !homePage.waitForBottomBarState("minimized", timeout: 2) {
+            scrollView.swipeUp()
+            waitForAnimations(duration: 0.5)
+        }
+
+        XCTAssertTrue(homePage.waitForBottomBarState("minimized", timeout: 3), "Bottom bar should minimize on list scroll")
+        XCTAssertGreaterThan(
+            homePage.taskListScrollView.frame.maxY,
+            homePage.bottomBar.frame.minY,
+            "Task list should remain behind the bottom bar when minimized"
+        )
+        XCTAssertGreaterThanOrEqual(
+            homePage.foredropSurface.frame.maxY,
+            homePage.view.frame.maxY - 2,
+            "Foredrop surface should reach screen edge when minimized"
+        )
+
+        scrollView.swipeDown()
+        waitForAnimations(duration: 0.5)
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 3), "Bottom bar should restore after reverse scroll")
+        XCTAssertTrue(homePage.taskRow(containingTitle: "Backdrop Fill 1").waitForExistence(timeout: 3), "Task list should remain interactive")
+        takeScreenshot(named: "home_foredrop_bottom_extension")
     }
 
     // MARK: - Test 61: Analytics Streak Display
