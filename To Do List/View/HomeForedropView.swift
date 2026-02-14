@@ -49,6 +49,8 @@ struct HomeBackdropForedropRootView: View {
     @State private var xpBurstValue = 0
     @State private var xpBurstOffsetY: CGFloat = 24
     @State private var xpBurstOpacity: Double = 0
+    @State private var bottomBarState = HomeBottomBarState()
+    @State private var lastTaskListOffset: CGFloat = 0
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
@@ -182,6 +184,9 @@ struct HomeBackdropForedropRootView: View {
             }
         }
         .accessibilityIdentifier("home.view")
+        .overlay(alignment: .bottom) {
+            homeBottomBar
+        }
         .onAppear {
             lastDailyScore = viewModel.dailyScore
         }
@@ -306,28 +311,42 @@ struct HomeBackdropForedropRootView: View {
                 onEmptyStateAction: onAddTask,
                 onTaskDragStarted: { task in
                     trackTaskDragStarted(task, source: "task_list")
-                }
+                },
+                onScrollOffsetChange: { newOffset in
+                    let delta = newOffset - lastTaskListOffset
+                    bottomBarState.updateMinimizeState(fromScrollDelta: delta)
+                    lastTaskListOffset = newOffset
+                },
+                bottomContentInset: 0
             )
             .padding(.top, spacing.s4)
             .onDrop(of: ["public.text"], isTargeted: nil, perform: handleListDrop)
             .accessibilityIdentifier("home.list.dropzone")
-
-            foredropBottomBar
-                .padding(.horizontal, spacing.s16)
-                .padding(.vertical, spacing.s12)
-                .background(Color.tasker.surfacePrimary.opacity(0.98))
         }
         .frame(
             width: geometry.size.width,
-            height: geometry.size.height - 58,
+            height: geometry.size.height,
             alignment: .top
         )
         .background(
-            RoundedRectangle(cornerRadius: corner.modal, style: .continuous)
+            UnevenRoundedRectangle(
+                topLeadingRadius: corner.modal,
+                bottomLeadingRadius: 0,
+                bottomTrailingRadius: 0,
+                topTrailingRadius: corner.modal
+            )
                 .fill(Color.tasker.surfacePrimary)
                 .taskerElevation(.e2, cornerRadius: corner.modal, includesBorder: false)
         )
-        .clipShape(RoundedRectangle(cornerRadius: corner.modal, style: .continuous))
+        .clipShape(
+            UnevenRoundedRectangle(
+                topLeadingRadius: corner.modal,
+                bottomLeadingRadius: 0,
+                bottomTrailingRadius: 0,
+                topTrailingRadius: corner.modal
+            )
+        )
+        .accessibilityIdentifier("home.foredrop.surface")
     }
 
     private var handleBar: some View {
@@ -495,46 +514,29 @@ struct HomeBackdropForedropRootView: View {
         )
     }
 
-    private var foredropBottomBar: some View {
-        HStack(spacing: spacing.s12) {
-            Button {
+    private var homeBottomBar: some View {
+        HomeGlassBottomBar(
+            state: bottomBarState,
+            onChartsToggle: {
                 withAnimation(TaskerAnimation.snappy) {
                     foredropAnchor = foredropAnchor == .fullReveal ? .collapsed : .fullReveal
                 }
-            } label: {
-                Label("Charts", systemImage: "chart.line.uptrend.xyaxis")
-            }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("home.foredrop.chartsToggle")
-
-            Button {
+            },
+            onSearch: {
                 onOpenSearch()
-            } label: {
-                Label("Search", systemImage: "magnifyingglass")
-            }
-            .buttonStyle(.bordered)
-
-            Button {
+            },
+            onChat: {
                 onOpenChat()
-            } label: {
-                Label("Chat", systemImage: "bubble.left.and.bubble.right")
-            }
-            .buttonStyle(.bordered)
-
-            Spacer()
-
-            Button {
+            },
+            onCreate: {
                 onAddTask()
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .bold))
-                    .frame(width: 42, height: 42)
-                    .foregroundColor(Color.tasker.accentOnPrimary)
-                    .background(Color.tasker.accentPrimary)
-                    .clipShape(Circle())
             }
-            .accessibilityIdentifier("home.addTaskButton")
-        }
+        )
+        .padding(.horizontal, spacing.s16)
+        .padding(.bottom, 0)
+        .ignoresSafeArea(.container, edges: .bottom)
+        .offset(y: 6)
+        .animation(TaskerAnimation.snappy, value: bottomBarState.isMinimized)
     }
 
     private var xpBurstOverlay: some View {
@@ -585,6 +587,7 @@ struct HomeBackdropForedropRootView: View {
         }
         return "Streak at risk • Complete 1 task to protect"
     }
+
 
     private func trackTaskToggle(_ task: DomainTask, source: String) {
         viewModel.trackHomeInteraction(
