@@ -15,11 +15,13 @@ struct TaskSectionView: View {
     let tasks: [DomainTask]
     let isOverdueSection: Bool
     let completedCollapsed: Bool?
+    let isTaskDragEnabled: Bool
     var onTaskTap: ((DomainTask) -> Void)?
     var onToggleComplete: ((DomainTask) -> Void)?
     var onDeleteTask: ((DomainTask) -> Void)?
     var onRescheduleTask: ((DomainTask) -> Void)?
     var onCompletedCollapsedChange: ((Bool, Int) -> Void)?
+    var onTaskDragStarted: ((DomainTask) -> Void)?
 
     @State private var isExpanded: Bool = true
 
@@ -32,21 +34,25 @@ struct TaskSectionView: View {
         tasks: [DomainTask],
         isOverdueSection: Bool = false,
         completedCollapsed: Bool? = nil,
+        isTaskDragEnabled: Bool = false,
         onTaskTap: ((DomainTask) -> Void)? = nil,
         onToggleComplete: ((DomainTask) -> Void)? = nil,
         onDeleteTask: ((DomainTask) -> Void)? = nil,
         onRescheduleTask: ((DomainTask) -> Void)? = nil,
-        onCompletedCollapsedChange: ((Bool, Int) -> Void)? = nil
+        onCompletedCollapsedChange: ((Bool, Int) -> Void)? = nil,
+        onTaskDragStarted: ((DomainTask) -> Void)? = nil
     ) {
         self.project = project
         self.tasks = tasks
         self.isOverdueSection = isOverdueSection
         self.completedCollapsed = completedCollapsed
+        self.isTaskDragEnabled = isTaskDragEnabled
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
         self.onDeleteTask = onDeleteTask
         self.onRescheduleTask = onRescheduleTask
         self.onCompletedCollapsedChange = onCompletedCollapsedChange
+        self.onTaskDragStarted = onTaskDragStarted
     }
 
     var body: some View {
@@ -121,10 +127,12 @@ struct TaskSectionView: View {
                 TaskRowView(
                     task: item.task,
                     showTypeBadge: hasMixedTypes,
+                    isTaskDragEnabled: isTaskDragEnabled,
                     onTap: { onTaskTap?(item.task) },
                     onToggleComplete: { onToggleComplete?(item.task) },
                     onDelete: { onDeleteTask?(item.task) },
-                    onReschedule: { onRescheduleTask?(item.task) }
+                    onReschedule: { onRescheduleTask?(item.task) },
+                    onTaskDragStarted: onTaskDragStarted
                 )
                 .staggeredAppearance(index: item.index)
             }
@@ -139,6 +147,7 @@ struct TaskSectionView: View {
                         TaskRowView(
                             task: item.task,
                             showTypeBadge: hasMixedTypes,
+                            isTaskDragEnabled: false,
                             onTap: { onTaskTap?(item.task) },
                             onToggleComplete: { onToggleComplete?(item.task) },
                             onDelete: { onDeleteTask?(item.task) },
@@ -317,7 +326,8 @@ struct TaskSectionView_Previews: PreviewProvider {
                         type: .evening,
                         priority: .none
                     )
-                ]
+                ],
+                isTaskDragEnabled: true
             )
 
             // Custom project
@@ -331,7 +341,8 @@ struct TaskSectionView_Previews: PreviewProvider {
                         priority: .high,
                         dueDate: Date().addingTimeInterval(86400)
                     )
-                ]
+                ],
+                isTaskDragEnabled: true
             )
         }
         .padding(.horizontal, 20)
