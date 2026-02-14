@@ -679,8 +679,10 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
     }
 
     private func defaultNavigationPieChartCenterX(in navigationController: UINavigationController) -> CGFloat {
-        let navigationView = navigationController.view
         let fallbackByNavBar = navigationController.navigationBar.frame.maxX - navigationPieChartTrailingInset - (navigationPieChartSize / 2)
+        guard let navigationView = navigationController.view else {
+            return max(fallbackByNavBar, navigationPieChartSize / 2)
+        }
         if fallbackByNavBar > 0 {
             return fallbackByNavBar
         }
@@ -690,10 +692,9 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
     @discardableResult
     private func updateNavigationPieChartHorizontalAlignment() -> Bool {
         guard let navigationController,
-              let centerXConstraint = navigationPieChartCenterXConstraint else { return false }
-
-        let navigationView = navigationController.view
-        guard navigationView.bounds.width > 0 else { return false }
+              let centerXConstraint = navigationPieChartCenterXConstraint,
+              let navigationView = navigationController.view,
+              navigationView.bounds.width > 0 else { return false }
 
         let targetCenterX: CGFloat
         if !foredropSettingsButtonGlobalFrame.isNull, !foredropSettingsButtonGlobalFrame.isEmpty {
