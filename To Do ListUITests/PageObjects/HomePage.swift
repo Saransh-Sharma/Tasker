@@ -36,6 +36,11 @@ class HomePage {
     }
 
     var settingsButton: XCUIElement {
+        let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.settingsButton]
+        if byIdentifier.exists {
+            return byIdentifier
+        }
+
         // Fallback to finding by predicate if accessibility identifier not set
         let predicate = NSPredicate(format: "label CONTAINS[c] 'Settings' OR label CONTAINS[c] 'gear' OR identifier CONTAINS[c] 'settings'")
         let settingsButtons = app.buttons.containing(predicate)
@@ -541,6 +546,36 @@ class HomePage {
             )
         }
         return isFullyVisible
+    }
+
+    /// Verify nav pie chart is horizontally aligned with settings button and positioned above it.
+    @discardableResult
+    func verifyNavXpPieChartAlignedWithSettingsButton(
+        horizontalTolerance: CGFloat = 16,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        let chartExists = navXpPieChart.waitForExistence(timeout: 5)
+        let settingsExists = settingsButton.waitForExistence(timeout: 5)
+        guard chartExists, settingsExists else {
+            XCTFail("Expected nav pie chart and settings button to exist for alignment check", file: file, line: line)
+            return false
+        }
+
+        let chartFrame = navXpPieChart.frame
+        let settingsFrame = settingsButton.frame
+        let isHorizontallyAligned = abs(chartFrame.midX - settingsFrame.midX) <= horizontalTolerance
+        let isAboveSettings = chartFrame.midY < settingsFrame.midY
+        let isAligned = isHorizontallyAligned && isAboveSettings
+
+        if !isAligned {
+            XCTFail(
+                "Expected nav pie chart aligned above settings. chart=\(chartFrame), settings=\(settingsFrame), tolerance=\(horizontalTolerance)",
+                file: file,
+                line: line
+            )
+        }
+        return isAligned
     }
 
     /// Verify nav XP pie chart button/container is absent.

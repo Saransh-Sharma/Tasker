@@ -89,6 +89,10 @@ class AnalyticsAndChartsTests: BaseUITest {
             homePage.verifyNavXpPieChartIsFullyVisibleInWindow(),
             "Floating navigation XP pie chart should be fully visible inside the app window"
         )
+        XCTAssertTrue(
+            homePage.verifyNavXpPieChartAlignedWithSettingsButton(horizontalTolerance: 20),
+            "Floating navigation XP pie chart should stay aligned above the settings button"
+        )
 
         // Interaction should still work while visible
         homePage.tapNavXpPieChart()
@@ -105,6 +109,10 @@ class AnalyticsAndChartsTests: BaseUITest {
             XCTAssertTrue(
                 homePage.verifyNavXpPieChartIsFullyVisibleInWindow(),
                 "Navigation XP pie chart should remain fully visible after date changes"
+            )
+            XCTAssertTrue(
+                homePage.verifyNavXpPieChartAlignedWithSettingsButton(horizontalTolerance: 20),
+                "Navigation XP pie chart should remain aligned above settings after date changes"
             )
             homePage.navigateToDate(Date())
             waitForAnimations(duration: 0.8)
