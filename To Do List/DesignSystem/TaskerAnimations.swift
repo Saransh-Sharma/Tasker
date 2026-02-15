@@ -142,7 +142,7 @@ public extension UIView {
 // MARK: - Haptic Helpers
 
 @MainActor
-public enum TaskerHaptic {
+public enum TaskerFeedback {
     public static func light() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
