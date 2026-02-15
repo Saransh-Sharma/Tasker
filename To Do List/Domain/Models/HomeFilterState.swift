@@ -127,6 +127,14 @@ public struct HomeFilterState: Codable, Equatable {
         Set(pinnedProjectIDs)
     }
 
+    /// Compatibility helper for legacy filter checks in views.
+    public var hasActiveFilters: Bool {
+        !selectedProjectIDs.isEmpty
+            || advancedFilter != nil
+            || quickView != .today
+            || projectGroupingMode != .defaultMode
+    }
+
     private enum CodingKeys: String, CodingKey {
         case version
         case quickView
