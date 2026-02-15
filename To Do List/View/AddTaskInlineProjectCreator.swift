@@ -189,12 +189,12 @@ final class AddTaskInlineProjectCreatorView: UIView, UITextFieldDelegate {
             showValidationError()
             return
         }
-        TaskerHaptic.success()
+        TaskerFeedback.success()
         delegate?.inlineProjectCreator(self, didCreate: name)
     }
 
     @objc private func cancelTapped() {
-        TaskerHaptic.light()
+        TaskerFeedback.light()
         delegate?.inlineProjectCreatorDidCancel(self)
     }
 

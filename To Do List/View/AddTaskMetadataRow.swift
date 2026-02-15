@@ -149,7 +149,7 @@ final class AddTaskMetadataRowView: UIView {
     // MARK: - Actions
 
     @objc private func dateTapped() {
-        TaskerHaptic.selection()
+        TaskerFeedback.selection()
         // Cycle: Today -> Tomorrow -> day after
         let calendar = Calendar.current
         if calendar.isDateInToday(selectedDate) {
@@ -167,7 +167,7 @@ final class AddTaskMetadataRowView: UIView {
     }
 
     @objc private func reminderTapped() {
-        TaskerHaptic.selection()
+        TaskerFeedback.selection()
         if selectedReminderTime != nil {
             // Clear reminder
             selectedReminderTime = nil
@@ -180,7 +180,7 @@ final class AddTaskMetadataRowView: UIView {
     }
 
     @objc private func timeOfDayTapped() {
-        TaskerHaptic.selection()
+        TaskerFeedback.selection()
         isEvening.toggle()
 
         // Cross-fade icon

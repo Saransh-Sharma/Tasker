@@ -78,7 +78,7 @@ final class AddTaskPriorityPickerView: UIView {
 
     @objc private func buttonTapped(_ sender: PriorityPillButton) {
         guard sender.priority != selectedPriority else { return }
-        TaskerHaptic.selection()
+        TaskerFeedback.selection()
         selectedPriority = sender.priority
 
         // Spring pulse animation
