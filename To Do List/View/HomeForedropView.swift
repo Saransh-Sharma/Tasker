@@ -48,15 +48,12 @@ struct HomeBackdropForedropRootView: View {
 
     @State private var foredropAnchor: ForedropAnchor = .collapsed
     @State private var calendarExpandedHeight: CGFloat = 0
-    @State private var showFilterDropdown = false
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
     @State private var draftDate = Date()
     @State private var lastDailyScore: Int?
     @State private var showXPBurst = false
     @State private var xpBurstValue = 0
-    @State private var xpBurstOffsetY: CGFloat = 24
-    @State private var xpBurstOpacity: Double = 0
     @State private var bottomBarState = HomeBottomBarState()
     @State private var lastTaskListOffset: CGFloat = 0
 
@@ -175,21 +172,6 @@ struct HomeBackdropForedropRootView: View {
             if showXPBurst {
                 xpBurstOverlay
             }
-
-            // Filter dropdown overlay
-            if showFilterDropdown {
-                HomeQuickFilterDropdown(
-                    viewModel: viewModel,
-                    isPresented: $showFilterDropdown,
-                    onShowDatePicker: {
-                        draftDate = viewModel.selectedDate
-                        showDatePicker = true
-                    },
-                    onShowAdvancedFilters: {
-                        showAdvancedFilters = true
-                    }
-                )
-            }
         }
         .accessibilityIdentifier("home.view")
         .overlay(alignment: .bottom) {
@@ -273,8 +255,9 @@ struct HomeBackdropForedropRootView: View {
 
             if viewModel.canUseManualFocusDrag || !viewModel.focusTasks.isEmpty {
                 focusStrip
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, spacing.s16)
-                    .padding(.top, spacing.s8)
+                    .padding(.top, spacing.s2)
             }
 
             // Next action module: contextual guidance for empty/low-content states
@@ -284,8 +267,9 @@ struct HomeBackdropForedropRootView: View {
                     focusPinnedCount: viewModel.pinnedFocusTaskIDs.count,
                     onAddTask: onAddTask
                 )
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, spacing.s16)
-                .padding(.top, spacing.s8)
+                .padding(.top, spacing.s4)
             }
 
             TaskListView(
@@ -369,28 +353,63 @@ struct HomeBackdropForedropRootView: View {
 
     private var homeHeader: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
+            // Navigation bar with quick view selector, pie chart, and actions
             HStack(spacing: spacing.s8) {
-                Text(headerTitle)
-                    .font(.tasker(.title3))
-                    .foregroundColor(Color.tasker.textPrimary)
+                // Quick view selector
+                QuickViewSelector(
+                    selectedQuickView: Binding(
+                        get: { viewModel.activeScope.quickView },
+                        set: { viewModel.setQuickView($0) }
+                    ),
+                    taskCounts: viewModel.quickViewCounts,
+                    onShowDatePicker: {
+                        draftDate = viewModel.selectedDate
+                        showDatePicker = true
+                    },
+                    onShowAdvancedFilters: {
+                        showAdvancedFilters = true
+                    },
+                    onResetFilters: {
+                        viewModel.resetAllFilters()
+                    }
+                )
 
                 Spacer()
 
-                HomeQuickFilterTriggerButton(
-                    summary: filterSummary,
-                    isOpen: $showFilterDropdown
+                // Score pie chart
+                NavPieChart(
+                    score: viewModel.dailyScore,
+                    maxScore: viewModel.progressState.todayTargetXP
                 ) {
-                    showFilterDropdown = true
+                    withAnimation(TaskerAnimation.snappy) {
+                        foredropAnchor = foredropAnchor == .fullReveal ? .collapsed : .fullReveal
+                    }
                 }
-                .controlSize(.small)
 
+                // Search button
+                Button {
+                    onOpenSearch()
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Color.tasker.surfaceSecondary))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Search tasks")
+
+                // Settings button
                 Button {
                     onOpenSettings()
                 } label: {
-                    Image(systemName: "slider.horizontal.3")
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(Circle().fill(Color.tasker.surfaceSecondary))
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .buttonStyle(.plain)
                 .accessibilityIdentifier("home.settingsButton")
                 .background(
                     GeometryReader { proxy in
@@ -402,135 +421,139 @@ struct HomeBackdropForedropRootView: View {
                 )
             }
 
+            // XP progress bar with streak
             cockpitStats
+
+            // Quick filter pills (when filters are active)
+            if !viewModel.activeFilterState.selectedProjectIDs.isEmpty
+                || viewModel.activeFilterState.advancedFilter != nil {
+                quickFilterPills
+            }
+        }
+    }
+
+    private var quickFilterPills: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: spacing.s4) {
+                if let projectFilter = viewModel.activeFilterState.selectedProjectIDs.first {
+                    FilterPill(
+                        title: viewModel.projects.first(where: { $0.id == projectFilter })?.name ?? "Project",
+                        systemImage: "folder"
+                    ) {
+                        viewModel.clearProjectFilters()
+                    }
+                }
+
+                if viewModel.activeFilterState.advancedFilter != nil {
+                    FilterPill(
+                        title: "Filters",
+                        systemImage: "slider.horizontal.3"
+                    ) {
+                        viewModel.applyAdvancedFilter(nil, showCompletedInline: false)
+                    }
+                }
+
+                FilterPill(
+                    title: "Clear all",
+                    systemImage: "xmark.circle.fill",
+                    isDestructive: true
+                ) {
+                    viewModel.resetAllFilters()
+                }
+            }
         }
     }
 
     private var cockpitStats: some View {
         let progress = viewModel.progressState
         let denominator = max(1, progress.todayTargetXP)
+        let progressRatio = min(1, Double(progress.earnedXP) / Double(denominator))
 
-        return VStack(alignment: .leading, spacing: spacing.s4) {
-            Text("XP Today: \(progress.earnedXP) / \(progress.todayTargetXP)")
-                .font(.tasker(.headline))
-                .foregroundColor(Color.tasker.textPrimary)
-                .accessibilityIdentifier("home.dailyScoreLabel")
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: spacing.s8) {
+                Text("\(progress.earnedXP)/\(progress.todayTargetXP) XP")
+                    .font(.tasker(.bodyEmphasis))
+                    .foregroundColor(Color.tasker.textPrimary)
 
-            Text(streakSafetyText(for: progress))
+                Text("\u{00B7}")
+                    .foregroundColor(Color.tasker.textQuaternary)
+
+                streakIndicator(for: progress)
+
+                Spacer()
+            }
+            .accessibilityIdentifier("home.dailyScoreLabel")
+
+            // Enhanced progress bar with gradient and glow
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    // Background track
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.tasker.surfaceSecondary)
+
+                    // Progress fill with gradient
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(
+                            LinearGradient(
+                                colors: progressGradientColors(isStreakSafe: progress.isStreakSafeToday),
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geo.size.width * progressRatio)
+                        .shadow(
+                            color: progress.isStreakSafeToday
+                                ? Color.tasker.accentPrimary.opacity(0.4)
+                                : Color.tasker.statusWarning.opacity(0.4),
+                            radius: 4,
+                            x: 2,
+                            y: 0
+                        )
+                }
+            }
+            .frame(height: 6)
+            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: progressRatio)
+        }
+    }
+
+    private func progressGradientColors(isStreakSafe: Bool) -> [Color] {
+        if isStreakSafe {
+            return [Color.tasker.accentPrimary, Color.tasker.accentSecondary]
+        } else {
+            return [Color.tasker.statusWarning, Color.tasker.statusWarning.opacity(0.7)]
+        }
+    }
+
+    @ViewBuilder
+    private func streakIndicator(for progress: HomeProgressState) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(progress.isStreakSafeToday ? Color.tasker.accentSecondary : Color.tasker.statusWarning)
+                .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !progress.isStreakSafeToday)
+
+            Text("\(progress.streakDays)d")
                 .font(.tasker(.caption1))
+                .fontWeight(.medium)
                 .foregroundColor(progress.isStreakSafeToday ? Color.tasker.textSecondary : Color.tasker.statusWarning)
-                .accessibilityIdentifier("home.streakLabel")
-
-            ProgressView(value: min(1, Double(progress.earnedXP) / Double(denominator)))
-                .progressViewStyle(.linear)
-                .tint(progress.isStreakSafeToday ? Color.tasker.accentPrimary : Color.tasker.statusWarning)
-                .frame(maxWidth: .infinity)
         }
     }
 
     private var focusStrip: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            Text("Focus Now")
-                .font(.tasker(.headline))
-                .foregroundColor(Color.tasker.textPrimary)
-
-            if viewModel.focusTasks.isEmpty {
-                RoundedRectangle(cornerRadius: corner.input, style: .continuous)
-                    .strokeBorder(Color.tasker.strokeHairline, style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
-                    .frame(height: 56)
-                    .overlay {
-                        Text("Long-press and drag a task here")
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textTertiary)
-                    }
-            } else {
-                VStack(spacing: spacing.s4) {
-                    ForEach(Array(viewModel.focusTasks.enumerated()), id: \.element.id) { index, task in
-                        focusCard(task: task, index: index)
-                    }
-                }
-                .accessibilityIdentifier("home.focus.strip")
-            }
-        }
-        .onDrop(of: ["public.text"], isTargeted: nil, perform: handleFocusDrop)
-        .accessibilityIdentifier("home.focus.dropzone")
-    }
-
-    @ViewBuilder
-    private func focusCard(task: DomainTask, index: Int) -> some View {
-        let model = TaskRowDisplayModel.from(task: task, showTypeBadge: false)
-
-        let cardContent = VStack(alignment: .leading, spacing: spacing.s4) {
-            HStack(spacing: spacing.s8) {
-                Text(task.name)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(Color.tasker.textPrimary)
-                    .lineLimit(1)
-
-                Spacer(minLength: 0)
-
-                Text(model.trailingMetaText)
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .lineLimit(1)
-            }
-
-            HStack(spacing: spacing.s8) {
-                Text(model.rowMetaText)
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .lineLimit(1)
-
-                if let urgency = model.urgencyLabel {
-                    Text(urgency)
-                        .font(.tasker(.caption2))
-                        .foregroundColor(urgency == "Overdue" ? Color.tasker.statusDanger : Color.tasker.statusWarning)
-                        .padding(.horizontal, spacing.s8)
-                        .padding(.vertical, spacing.s2)
-                        .background((urgency == "Overdue" ? Color.tasker.statusDanger : Color.tasker.statusWarning).opacity(0.12))
-                        .clipShape(Capsule())
-                }
-            }
-        }
-        .padding(.horizontal, spacing.s12)
-        .padding(.vertical, spacing.s8)
-        .background(
-            RoundedRectangle(cornerRadius: corner.input, style: .continuous)
-                .fill(Color.tasker.surfaceSecondary)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: corner.input, style: .continuous)
-                .stroke(Color.tasker.strokeHairline, lineWidth: 1)
-        )
-        .contentShape(RoundedRectangle(cornerRadius: corner.input, style: .continuous))
-        .onTapGesture { onTaskTap(task) }
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            Button {
+        FocusZone(
+            tasks: viewModel.focusTasks,
+            canDrag: viewModel.canUseManualFocusDrag,
+            onTaskTap: { task in
+                onTaskTap(task)
+            },
+            onToggleComplete: { task in
                 trackTaskToggle(task, source: "focus_strip")
                 onToggleComplete(task)
-            } label: {
-                Label(task.isComplete ? "Reopen" : "Complete", systemImage: task.isComplete ? "arrow.uturn.backward" : "checkmark")
-            }
-            .tint(task.isComplete ? Color.tasker.accentSecondary : Color.tasker.statusSuccess)
-        }
-        .staggeredAppearance(index: index)
-        .accessibilityIdentifier("home.focus.task.\(task.id.uuidString)")
-
-        if viewModel.canUseManualFocusDrag {
-            cardContent.onDrag {
+            },
+            onTaskDragStarted: { task in
                 trackTaskDragStarted(task, source: "focus_strip")
-                return NSItemProvider(object: task.id.uuidString as NSString)
-            }
-        } else {
-            cardContent
-        }
-    }
-
-    private var filterSummary: HomeQuickFilterSummary {
-        HomeQuickFilterSummary.from(
-            scope: viewModel.activeScope,
-            filterState: viewModel.activeFilterState,
-            customDate: viewModel.selectedDate
+            },
+            onDrop: handleFocusDrop
         )
     }
 
@@ -560,22 +583,10 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private var xpBurstOverlay: some View {
-        Text("+\(xpBurstValue) XP")
-            .font(.tasker(.headline))
-            .foregroundColor(Color.tasker.accentPrimary)
-            .padding(.horizontal, spacing.s12)
-            .padding(.vertical, spacing.s8)
-            .background(
-                Capsule()
-                    .fill(Color.tasker.surfacePrimary)
-                    .overlay(
-                        Capsule().stroke(Color.tasker.accentPrimary.opacity(0.4), lineWidth: 1)
-                    )
-            )
-            .offset(y: xpBurstOffsetY)
-            .opacity(xpBurstOpacity)
+        XPCelebrationView(xpValue: xpBurstValue, isPresented: $showXPBurst)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.top, 100)
             .allowsHitTesting(false)
-            .accessibilityHidden(true)
     }
 
     private var headerTitle: String {
@@ -600,14 +611,6 @@ struct HomeBackdropForedropRootView: View {
         formatter.dateFormat = "E, MMM d"
         return formatter
     }()
-
-    private func streakSafetyText(for progress: HomeProgressState) -> String {
-        if progress.isStreakSafeToday {
-            return "Streak safe • \(progress.streakDays) day streak"
-        }
-        return "Streak at risk • Complete 1 task to protect"
-    }
-
 
     private func trackTaskToggle(_ task: DomainTask, source: String) {
         viewModel.trackHomeInteraction(
@@ -641,18 +644,18 @@ struct HomeBackdropForedropRootView: View {
 
             switch pinResult {
             case .pinned:
-                TaskerHaptic.success()
+                TaskerFeedback.success()
                 viewModel.trackHomeInteraction(action: "home_focus_dropped_in", metadata: metadata)
             case .alreadyPinned:
-                TaskerHaptic.selection()
+                TaskerFeedback.selection()
                 metadata["result"] = "already_pinned"
                 viewModel.trackHomeInteraction(action: "home_focus_dropped_in", metadata: metadata)
             case .capacityReached(let limit):
-                TaskerHaptic.light()
+                TaskerFeedback.light()
                 metadata["limit"] = limit
                 viewModel.trackHomeInteraction(action: "home_focus_drop_rejected_capacity", metadata: metadata)
             case .taskIneligible:
-                TaskerHaptic.selection()
+                TaskerFeedback.selection()
             }
         }
     }
@@ -666,7 +669,7 @@ struct HomeBackdropForedropRootView: View {
             guard wasPinned else { return }
 
             viewModel.unpinTaskFromFocus(taskID)
-            TaskerHaptic.selection()
+            TaskerFeedback.selection()
 
             var metadata = focusScopeMetadata(source: "focus_strip", taskID: taskID)
             metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
@@ -728,24 +731,20 @@ struct HomeBackdropForedropRootView: View {
         guard delta > 0 else { return }
 
         xpBurstValue = delta
-        xpBurstOffsetY = 24
-        xpBurstOpacity = 1
         showXPBurst = true
 
-        TaskerHaptic.light()
+        // Enhanced haptic feedback based on XP gain
+        if delta >= 7 {
+            TaskerFeedback.success()
+        } else if delta >= 4 {
+            TaskerFeedback.medium()
+        } else {
+            TaskerFeedback.light()
+        }
+
         viewModel.trackHomeInteraction(
             action: "home_reward_xp_burst",
             metadata: ["delta": delta, "new_score": newScore]
         )
-
-        withAnimation(TaskerAnimation.gentle) {
-            xpBurstOffsetY = -18
-        }
-        withAnimation(.easeOut(duration: 0.38).delay(0.2)) {
-            xpBurstOpacity = 0
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.62) {
-            showXPBurst = false
-        }
     }
 }
