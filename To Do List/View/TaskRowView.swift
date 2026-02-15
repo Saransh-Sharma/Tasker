@@ -14,6 +14,18 @@ struct TaskRowDisplayModel: Equatable {
     let urgencyLabel: String?
     let noteText: String?
 
+    /// Compact trailing text for focus rows: just urgency/time, no XP.
+    var focusTrailingText: String {
+        if let urgency = urgencyLabel {
+            return urgency
+        }
+        return trailingMetaText
+    }
+
+    var focusTrailingIsUrgent: Bool {
+        urgencyLabel == "Overdue"
+    }
+
     static func from(task: DomainTask, showTypeBadge: Bool, now: Date = Date()) -> TaskRowDisplayModel {
         let xpValue = task.priority.scorePoints
         let projectName = resolvedProjectName(for: task)
@@ -181,39 +193,37 @@ struct TaskRowView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(task.name)
                         .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
-                        .strikethrough(task.isComplete, color: Color.tasker.textQuaternary)
+                        .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textPrimary)
                         .lineLimit(1)
                         .multilineTextAlignment(.leading)
 
                     if let note = displayModel.noteText {
                         Text(note)
                             .font(.tasker(.caption2))
-                            .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textTertiary)
+                            .foregroundColor(task.isComplete ? Color.tasker.textQuaternary.opacity(0.7) : Color.tasker.textTertiary)
                             .lineLimit(1)
                     }
                 }
 
                 Spacer(minLength: 0)
 
-                // Right column: urgency/time + meta
-                VStack(alignment: .trailing, spacing: 2) {
-                    if let urgencyLabel = displayModel.urgencyLabel, !task.isComplete {
-                        Text(urgencyLabel)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(urgencyLabel == "Overdue" ? Color(uiColor: themeColors.taskOverdue) : Color.tasker.statusWarning)
-                            .lineLimit(1)
-                    } else {
+                // Right column: urgency badge + XP badge
+                HStack(spacing: 6) {
+                    // Urgency badge (only for incomplete tasks with urgency)
+                    if !task.isComplete {
+                        UrgencyBadge(level: UrgencyLevel.from(task: task), isCompact: true)
+                    }
+
+                    // Time display (when no urgency)
+                    if task.isComplete || UrgencyLevel.from(task: task) == .none {
                         Text(displayModel.trailingMetaText)
                             .font(.tasker(.caption2))
                             .foregroundColor(trailingMetaColor)
                             .lineLimit(1)
                     }
 
-                    Text(displayModel.rowMetaText)
-                        .font(.tasker(.caption2))
-                        .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textSecondary)
-                        .lineLimit(1)
+                    // XP badge
+                    XPBadge(xpValue: displayModel.xpValue, priority: task.priority, isCompact: true, showLabel: false)
                 }
             }
             .padding(.vertical, 8)
@@ -221,7 +231,17 @@ struct TaskRowView: View {
             .padding(.leading, TaskerTheme.Spacing.sm)
             .frame(minHeight: 60)
         }
-        .background(Color.tasker.surfacePrimary)
+        .background(rowBackground)
+    }
+
+    private var rowBackground: Color {
+        if task.isComplete {
+            return Color.tasker.surfacePrimary.opacity(0.7)
+        }
+        if task.isOverdue {
+            return Color.tasker.statusDanger.opacity(0.03)
+        }
+        return Color.tasker.surfacePrimary
     }
 
     private var priorityStripe: some View {
@@ -231,22 +251,65 @@ struct TaskRowView: View {
             bottomTrailingRadius: 0,
             topTrailingRadius: 0
         )
-        .fill(stripeColor)
-        .frame(width: 3)
+        .fill(stripeFill)
+        .frame(width: 4)
+    }
+
+    private var stripeFill: some ShapeStyle {
+        if task.isComplete {
+            return AnyShapeStyle(Color.tasker.textQuaternary.opacity(0.3))
+        }
+        if task.isOverdue {
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [Color(uiColor: themeColors.taskOverdue), Color(uiColor: themeColors.taskOverdue).opacity(0.7)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
+        switch task.priority {
+        case .max:
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [Color.tasker.priorityMax, Color.tasker.priorityMax.opacity(0.75)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        case .high:
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [Color.tasker.priorityHigh, Color.tasker.priorityHigh.opacity(0.75)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        case .low:
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [Color.tasker.priorityLow, Color.tasker.priorityLow.opacity(0.8)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        case .none:
+            return AnyShapeStyle(Color.tasker.priorityNone.opacity(0.5))
+        }
     }
 
     private var stripeColor: Color {
         if task.isComplete {
-            return Color.tasker.textQuaternary.opacity(0.25)
+            return Color.tasker.textQuaternary.opacity(0.3)
         }
         if task.isOverdue {
             return Color(uiColor: themeColors.taskOverdue)
         }
         switch task.priority {
-        case .max:  return Color.tasker.priorityMax.opacity(0.8)
-        case .high: return Color.tasker.priorityHigh.opacity(0.75)
-        case .low:  return Color.tasker.priorityLow.opacity(0.65)
-        case .none: return Color.tasker.priorityNone.opacity(0.35)
+        case .max:  return Color.tasker.priorityMax
+        case .high: return Color.tasker.priorityHigh
+        case .low:  return Color.tasker.priorityLow
+        case .none: return Color.tasker.priorityNone.opacity(0.5)
         }
     }
 
