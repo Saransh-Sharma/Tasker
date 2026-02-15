@@ -103,7 +103,7 @@ final class DarkModeToggleCell: UITableViewCell {
     // MARK: - Actions
 
     @objc private func switchChanged() {
-        TaskerHaptic.selection()
+        TaskerFeedback.selection()
         updateVisuals(isDark: modeSwitch.isOn, animated: true)
         delegate?.darkModeToggleCell(self, didToggle: modeSwitch.isOn)
     }

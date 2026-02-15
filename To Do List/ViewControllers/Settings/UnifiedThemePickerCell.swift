@@ -76,7 +76,7 @@ extension UnifiedThemePickerCell: UICollectionViewDataSource, UICollectionViewDe
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        TaskerHaptic.selection()
+        TaskerFeedback.selection()
         TaskerThemeManager.shared.selectTheme(index: indexPath.item)
     }
 

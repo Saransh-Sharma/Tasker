@@ -452,7 +452,7 @@ class FluentUIToDoTableViewController: UITableViewController {
     private func updateCheckBoxAppearance(_ checkBox: UIButton, isComplete: Bool) {
         if isComplete {
             // Bounce + checkmark draw animation + haptic
-            TaskerHaptic.success()
+            TaskerFeedback.success()
             checkBox.transform = CGAffineTransform(scaleX: 0.7, y: 0.7)
             UIView.taskerSpringAnimate(TaskerAnimation.uiBouncy) {
                 checkBox.transform = .identity
@@ -461,7 +461,7 @@ class FluentUIToDoTableViewController: UITableViewController {
                 checkBox.setImage(checkmarkImage, for: .normal)
             }
         } else {
-            TaskerHaptic.selection()
+            TaskerFeedback.selection()
             UIView.taskerSpringAnimate(TaskerAnimation.uiSnappy) {
                 checkBox.backgroundColor = UIColor.clear
                 checkBox.setImage(nil, for: .normal)
