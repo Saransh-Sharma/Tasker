@@ -376,7 +376,7 @@ struct TaskDetailSheetView: View {
                                 withAnimation(TaskerAnimation.snappy) {
                                     selectedProject = name
                                 }
-                                TaskerHaptic.selection()
+                                TaskerFeedback.selection()
                             }
                         }
                     }
@@ -548,7 +548,7 @@ struct TaskDetailSheetView: View {
         do {
             try task.managedObjectContext?.save()
             hasChanges = false
-            TaskerHaptic.success()
+            TaskerFeedback.success()
             var mutationReasons: [HomeTaskMutationEvent] = []
             if oldProjectID != resolvedProject.id {
                 mutationReasons.append(.projectChanged)
@@ -595,7 +595,7 @@ struct TaskDetailSheetView: View {
 
         do {
             try task.managedObjectContext?.save()
-            TaskerHaptic.success()
+            TaskerFeedback.success()
             NotificationCenter.default.post(
                 name: .homeTaskMutation,
                 object: nil,

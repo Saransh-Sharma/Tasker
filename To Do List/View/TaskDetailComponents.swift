@@ -18,19 +18,19 @@ struct PriorityPillSelector: View {
         HStack(spacing: TaskerTheme.Spacing.sm) {
             PriorityPill(label: "None", color: Color.tasker.priorityNone, isSelected: selectedPriority == 4) {
                 withAnimation(TaskerAnimation.snappy) { selectedPriority = 4 }
-                TaskerHaptic.selection()
+                TaskerFeedback.selection()
             }
             PriorityPill(label: "Low", color: Color.tasker.priorityLow, isSelected: selectedPriority == 3) {
                 withAnimation(TaskerAnimation.snappy) { selectedPriority = 3 }
-                TaskerHaptic.selection()
+                TaskerFeedback.selection()
             }
             PriorityPill(label: "High", color: Color.tasker.priorityHigh, isSelected: selectedPriority == 2) {
                 withAnimation(TaskerAnimation.snappy) { selectedPriority = 2 }
-                TaskerHaptic.selection()
+                TaskerFeedback.selection()
             }
             PriorityPill(label: "Max", color: Color.tasker.priorityMax, isSelected: selectedPriority == 1) {
                 withAnimation(TaskerAnimation.snappy) { selectedPriority = 1 }
-                TaskerHaptic.selection()
+                TaskerFeedback.selection()
             }
         }
     }
@@ -242,15 +242,15 @@ struct TypeChipSelector: View {
         HStack(spacing: TaskerTheme.Spacing.sm) {
             TaskerChip(title: "Morning", isSelected: selectedType == 1, selectedStyle: .tinted) {
                 withAnimation(TaskerAnimation.snappy) { selectedType = 1 }
-                TaskerHaptic.selection()
+                TaskerFeedback.selection()
             }
             TaskerChip(title: "Evening", isSelected: selectedType == 2, selectedStyle: .tinted) {
                 withAnimation(TaskerAnimation.snappy) { selectedType = 2 }
-                TaskerHaptic.selection()
+                TaskerFeedback.selection()
             }
             TaskerChip(title: "Upcoming", isSelected: selectedType == 3, selectedStyle: .tinted) {
                 withAnimation(TaskerAnimation.snappy) { selectedType = 3 }
-                TaskerHaptic.selection()
+                TaskerFeedback.selection()
             }
         }
     }
