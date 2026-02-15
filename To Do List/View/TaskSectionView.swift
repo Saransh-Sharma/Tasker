@@ -75,7 +75,7 @@ struct TaskSectionView: View {
             withAnimation(TaskerAnimation.snappy) {
                 isExpanded.toggle()
             }
-            TaskerHaptic.selection()
+            TaskerFeedback.selection()
         } label: {
             HStack(spacing: TaskerTheme.Spacing.md) {
                 // Accent dot — the visual thread
@@ -212,7 +212,7 @@ struct TaskSectionView: View {
         Button {
             let nextCollapsed = !isCompletedCollapsed
             onCompletedCollapsedChange?(nextCollapsed, completedTasks.count)
-            TaskerHaptic.selection()
+            TaskerFeedback.selection()
         } label: {
             HStack(spacing: TaskerTheme.Spacing.sm) {
                 Text("Completed")

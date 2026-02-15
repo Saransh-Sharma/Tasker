@@ -104,7 +104,7 @@ struct WeeklyCalendarStripView: View {
                         withAnimation(TaskerAnimation.snappy) {
                             selectedDate = date
                         }
-                        TaskerHaptic.selection()
+                        TaskerFeedback.selection()
                     }
             }
         }
@@ -190,7 +190,7 @@ struct WeeklyCalendarStripView: View {
             withAnimation(TaskerAnimation.snappy) {
                 selectedDate = date
             }
-            TaskerHaptic.selection()
+            TaskerFeedback.selection()
         } label: {
             ZStack {
                 if isSelected {
@@ -228,7 +228,7 @@ struct WeeklyCalendarStripView: View {
             withAnimation(TaskerAnimation.snappy) {
                 isExpanded.toggle()
             }
-            TaskerHaptic.selection()
+            TaskerFeedback.selection()
         } label: {
             Image(systemName: "chevron.down")
                 .font(.system(size: 10, weight: .bold))
@@ -261,7 +261,7 @@ struct WeeklyCalendarStripView: View {
         withAnimation(TaskerAnimation.snappy) {
             displayedWeekStart = newStart
         }
-        TaskerHaptic.selection()
+        TaskerFeedback.selection()
     }
 
     // MARK: - Formatters
