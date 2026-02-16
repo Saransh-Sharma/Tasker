@@ -84,7 +84,6 @@ public final class AddTaskViewModel: ObservableObject {
                 switch result {
                 case .success:
                     self?.isTaskCreated = true
-                    self?.resetForm()
                     
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription

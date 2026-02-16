@@ -42,20 +42,20 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "chart_renders_after_completion")
     }
 
-    // MARK: - Test 58: Nav XP Chart Visibility Follows Daily XP
+    // MARK: - Test 58: Nav XP Chart Remains Hidden
 
     func testNavXpPieChartVisibilityFollowsDailyXP() throws {
         // GIVEN: User is on home screen with fresh app state
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
-        // THEN: Zero XP day should hide nav chart and nav chart button
+        // THEN: Nav chart should be hidden and nav chart button absent
         XCTAssertTrue(
             homePage.verifyNavXpPieChartIsHidden(timeout: 2),
-            "Navigation XP pie chart should be hidden when score is zero"
+            "Navigation XP pie chart should be hidden by default"
         )
         XCTAssertTrue(
             homePage.verifyNavXpPieChartButtonIsAbsent(),
-            "Navigation XP pie chart button should be absent when score is zero"
+            "Navigation XP pie chart button should be absent by default"
         )
 
         // WHEN: User completes a task and gains XP
@@ -68,51 +68,27 @@ class AnalyticsAndChartsTests: BaseUITest {
         homePage.completeTask(at: completeIndex)
         waitForAnimations(duration: 1.5)
 
-        // THEN: Nav chart and nav chart button should appear
+        // THEN: Nav chart and nav chart button should still remain hidden
         XCTAssertTrue(
-            homePage.verifyNavXpPieChartIsVisible(timeout: 5),
-            "Navigation XP pie chart should be visible when score is positive"
+            homePage.verifyNavXpPieChartIsHidden(timeout: 3),
+            "Navigation XP pie chart should remain hidden when score is positive"
         )
         XCTAssertTrue(
-            homePage.verifyNavXpPieChartButtonIsPresent(timeout: 3),
-            "Navigation XP pie chart button should be present when score is positive"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartIsHittable(),
-            "Navigation XP pie chart should be hittable when visible"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartSize(expected: 136, tolerance: 10),
-            "Floating navigation XP pie chart should be approximately 136x136"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartIsFullyVisibleInWindow(),
-            "Floating navigation XP pie chart should be fully visible inside the app window"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartAlignedWithSettingsButton(horizontalTolerance: 20),
-            "Floating navigation XP pie chart should stay aligned above the settings button"
+            homePage.verifyNavXpPieChartButtonIsAbsent(),
+            "Navigation XP pie chart button should remain absent when score is positive"
         )
 
-        // Interaction should still work while visible
-        homePage.tapNavXpPieChart()
-        waitForAnimations(duration: 0.8)
-
-        // Chart should remain visible and unclipped after date updates.
+        // Chart should remain hidden after date updates.
         if let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) {
             homePage.navigateToDate(tomorrow)
             waitForAnimations(duration: 0.8)
             XCTAssertTrue(
-                homePage.verifyNavXpPieChartIsVisible(timeout: 3),
-                "Navigation XP pie chart should remain visible after date changes"
+                homePage.verifyNavXpPieChartIsHidden(timeout: 3),
+                "Navigation XP pie chart should remain hidden after date changes"
             )
             XCTAssertTrue(
-                homePage.verifyNavXpPieChartIsFullyVisibleInWindow(),
-                "Navigation XP pie chart should remain fully visible after date changes"
-            )
-            XCTAssertTrue(
-                homePage.verifyNavXpPieChartAlignedWithSettingsButton(horizontalTolerance: 20),
-                "Navigation XP pie chart should remain aligned above settings after date changes"
+                homePage.verifyNavXpPieChartButtonIsAbsent(),
+                "Navigation XP pie chart button should remain absent after date changes"
             )
             homePage.navigateToDate(Date())
             waitForAnimations(duration: 0.8)
@@ -123,14 +99,14 @@ class AnalyticsAndChartsTests: BaseUITest {
         homePage.uncompleteTask(at: reopenIndex)
         waitForAnimations(duration: 1.5)
 
-        // THEN: Nav chart and nav chart button should hide again
+        // THEN: Nav chart and nav chart button should still be hidden
         XCTAssertTrue(
             homePage.verifyNavXpPieChartIsHidden(timeout: 3),
-            "Navigation XP pie chart should hide again when score returns to zero"
+            "Navigation XP pie chart should remain hidden when score returns to zero"
         )
         XCTAssertTrue(
             homePage.verifyNavXpPieChartButtonIsAbsent(),
-            "Navigation XP pie chart button should be absent again when score returns to zero"
+            "Navigation XP pie chart button should remain absent when score returns to zero"
         )
 
         takeScreenshot(named: "nav_xp_pie_chart_visibility_follows_score")
@@ -139,8 +115,10 @@ class AnalyticsAndChartsTests: BaseUITest {
     // MARK: - Test 59: Radar Chart Display
 
     func testRadarChartDisplay() throws {
-        // GIVEN: User is on home screen with completed tasks
-        // Create and complete multiple tasks
+        // GIVEN: User has a custom project with completed tasks
+        let projectName = uniqueProjectName(prefix: "Radar Display")
+        createCustomProject(named: projectName)
+
         let tasks = [
             ("Chart Task 1", TestDataFactory.TaskPriority.max),
             ("Chart Task 2", TestDataFactory.TaskPriority.high),
@@ -149,8 +127,8 @@ class AnalyticsAndChartsTests: BaseUITest {
 
         for (title, priority) in tasks {
             let addTaskPage = homePage.tapAddTask()
-            addTaskPage.createTask(title: title, priority: priority, taskType: .morning)
-            _ = homePage.waitForTask(withTitle: title, timeout: 5)
+            addTaskPage.createTask(title: title, priority: priority, taskType: .morning, project: projectName)
+            XCTAssertTrue(homePage.waitForTask(withTitle: title, timeout: 5), "Task '\(title)' should be created")
 
             let taskIndex = findTaskIndex(withTitle: title)
             homePage.completeTask(at: taskIndex)
@@ -159,19 +137,46 @@ class AnalyticsAndChartsTests: BaseUITest {
 
         waitForAnimations(duration: 2.0)
 
-        // WHEN: User views home screen
         // THEN: Radar/radial chart should be displayed
-        let chartView = homePage.chartView
+        XCTAssertTrue(waitForRadarChartToAppear(timeout: 5), "Radar chart should be visible after custom project completions")
+        takeScreenshot(named: "radar_chart_display")
+    }
 
-        if chartView.exists {
-            print("✅ Radar chart is displayed")
-            XCTAssertTrue(true, "Radar chart exists")
-        } else {
-            // Chart might require scrolling or be in analytics section
-            print("⚠️ Radar chart not immediately visible - may require scrolling")
+    // MARK: - Test 59B: Radar Chart Entry Count Growth Crash Guard
+
+    func testRadarChartDoesNotCrashWhenEntryCountIncreasesAfterTaskCompletion() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
+
+        let projectA = uniqueProjectName(prefix: "Radar A")
+        let projectB = uniqueProjectName(prefix: "Radar B")
+        createCustomProject(named: projectA)
+
+        let projectATask = "Radar Task A"
+        createAndCompleteTask(title: projectATask, priority: .high, project: projectA)
+        XCTAssertTrue(waitForRadarChartToAppear(timeout: 5), "Radar chart should appear after first project completion")
+
+        createCustomProject(named: projectB)
+
+        let projectBTask = "Radar Task B"
+        createAndCompleteTask(title: projectBTask, priority: .max, project: projectB)
+        XCTAssertTrue(waitForRadarChartToAppear(timeout: 5), "Radar chart should stay visible after entry-count growth")
+        XCTAssertEqual(app.state, .runningForeground, "App should remain running after radar redraw with increased entries")
+
+        for iteration in 1...3 {
+            var toggleIndex = findTaskIndex(withTitle: projectBTask)
+            homePage.uncompleteTask(at: toggleIndex)
+            waitForAnimations(duration: 0.8)
+            XCTAssertEqual(app.state, .runningForeground, "App should remain running after uncomplete iteration \(iteration)")
+            XCTAssertTrue(waitForRadarChartToAppear(timeout: 4), "Radar chart should remain visible after uncomplete iteration \(iteration)")
+
+            toggleIndex = findTaskIndex(withTitle: projectBTask)
+            homePage.completeTask(at: toggleIndex)
+            waitForAnimations(duration: 0.8)
+            XCTAssertEqual(app.state, .runningForeground, "App should remain running after complete iteration \(iteration)")
+            XCTAssertTrue(waitForRadarChartToAppear(timeout: 4), "Radar chart should remain visible after complete iteration \(iteration)")
         }
 
-        takeScreenshot(named: "radar_chart_display")
+        takeScreenshot(named: "radar_chart_entry_count_growth_no_crash")
     }
 
     // MARK: - Test 60: Analytics Score Display
@@ -402,6 +407,45 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "home_foredrop_bottom_extension")
     }
 
+    // MARK: - Test 60J: Full Reveal Shows Collapse Hint And Collapses Back
+
+    func testForedropFullRevealShowsCollapseHintAndTapCollapsesToDefault() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
+        XCTAssertTrue(homePage.foredropSurface.waitForExistence(timeout: 3), "Foredrop surface should exist")
+        XCTAssertTrue(homePage.chartsButton.waitForExistence(timeout: 3), "Charts button should exist")
+
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 2), "Foredrop should start collapsed")
+        XCTAssertFalse(homePage.foredropCollapseHint.exists, "Collapse hint should be hidden while collapsed")
+
+        let collapsedMinY = homePage.foredropSurface.frame.minY
+
+        homePage.tapCharts()
+        waitForAnimations(duration: 0.6)
+
+        XCTAssertTrue(homePage.waitForForedropState("fullReveal", timeout: 3), "Charts action should reach full reveal")
+        XCTAssertTrue(homePage.foredropCollapseHint.waitForExistence(timeout: 2), "Collapse hint should be visible at full reveal")
+
+        let fullRevealMinY = homePage.foredropSurface.frame.minY
+        XCTAssertGreaterThan(
+            fullRevealMinY,
+            collapsedMinY + 220,
+            "Foredrop should move down substantially when fully revealing analytics"
+        )
+        XCTAssertGreaterThan(
+            fullRevealMinY,
+            homePage.view.frame.height * 0.70,
+            "Foredrop full reveal should reach a low enough position across screen sizes"
+        )
+
+        XCTAssertTrue(homePage.foredropCollapseHint.isHittable, "Collapse hint should be tappable")
+        homePage.foredropCollapseHint.tap()
+        waitForAnimations(duration: 0.5)
+
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Collapse hint should return foredrop to default state")
+        XCTAssertFalse(homePage.foredropCollapseHint.waitForExistence(timeout: 1), "Collapse hint should hide after collapsing")
+        takeScreenshot(named: "home_foredrop_full_reveal_collapse_hint")
+    }
+
     // MARK: - Test 61: Analytics Streak Display
 
     func testAnalyticsStreakDisplay() throws {
@@ -475,6 +519,64 @@ class AnalyticsAndChartsTests: BaseUITest {
     }
 
     // MARK: - Helper
+
+    private func uniqueProjectName(prefix: String) -> String {
+        let suffix = UUID().uuidString.prefix(6)
+        return "\(prefix) \(suffix)"
+    }
+
+    private func createCustomProject(named name: String) {
+        let settingsPage = homePage.tapSettings()
+        XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be visible before creating project '\(name)'")
+
+        let projectPage = settingsPage.navigateToProjectManagement()
+        XCTAssertTrue(projectPage.verifyIsDisplayed(), "Project Management should be visible before creating project '\(name)'")
+
+        let newProjectPage = projectPage.tapAddProject()
+        let updatedProjectPage = newProjectPage.createProject(
+            name: name,
+            description: "Radar crash regression project"
+        )
+        XCTAssertTrue(updatedProjectPage.waitForProject(named: name, timeout: 5), "Project '\(name)' should be created")
+
+        let backToSettings = updatedProjectPage.tapBack()
+        homePage = backToSettings.tapDone()
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible after creating project '\(name)'")
+    }
+
+    private func createAndCompleteTask(
+        title: String,
+        priority: TestDataFactory.TaskPriority,
+        project: String
+    ) {
+        let addTaskPage = homePage.tapAddTask()
+        addTaskPage.createTask(title: title, priority: priority, taskType: .morning, project: project)
+        XCTAssertTrue(homePage.waitForTask(withTitle: title, timeout: 5), "Task '\(title)' should be created in project '\(project)'")
+
+        let taskIndex = findTaskIndex(withTitle: title)
+        homePage.completeTask(at: taskIndex)
+        waitForAnimations(duration: 1.0)
+    }
+
+    private func waitForRadarChartToAppear(timeout: TimeInterval) -> Bool {
+        if homePage.radarChartView.waitForExistence(timeout: timeout) {
+            return true
+        }
+
+        let scrollView = homePage.taskListScrollView
+        guard scrollView.exists else {
+            return homePage.radarChartView.exists
+        }
+
+        for _ in 0..<3 {
+            scrollView.swipeUp()
+            if homePage.radarChartView.waitForExistence(timeout: 1.0) {
+                return true
+            }
+        }
+
+        return homePage.radarChartView.exists
+    }
 
     private func findTaskIndex(withTitle title: String) -> Int {
         let cells = app.tables.cells

@@ -12,6 +12,7 @@ import SwiftUI
 struct AddTaskTitleField: View {
     @Binding var text: String
     @FocusState.Binding var isFocused: Bool
+    let onSubmit: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
@@ -22,6 +23,7 @@ struct AddTaskTitleField: View {
             .foregroundColor(Color.tasker.textPrimary)
             .focused($isFocused)
             .submitLabel(.done)
+            .onSubmit(onSubmit)
             .padding(.horizontal, spacing.s16)
             .frame(height: spacing.buttonHeight)
             .background(Color.tasker.surfaceSecondary)
@@ -47,7 +49,7 @@ struct AddTaskTitleField_Previews: PreviewProvider {
 
     static var previews: some View {
         VStack(spacing: 16) {
-            AddTaskTitleField(text: $text, isFocused: $isFocused)
+            AddTaskTitleField(text: $text, isFocused: $isFocused, onSubmit: {})
 
             Text("Preview text: \(text)")
                 .font(.tasker(.caption1))

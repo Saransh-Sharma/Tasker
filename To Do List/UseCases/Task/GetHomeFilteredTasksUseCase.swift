@@ -196,18 +196,15 @@ public final class GetHomeFilteredTasksUseCase {
         switch view {
         case .today:
             return tasks.filter { task in
+                if task.isComplete {
+                    guard let completionDate = task.dateCompleted else { return false }
+                    return completionDate >= startOfAnchorDay && completionDate < startOfNextDay
+                }
+
                 let dueDate = task.dueDate
                 let dueOnAnchorDay = dueDate.map { $0 >= startOfAnchorDay && $0 < startOfNextDay } ?? false
                 let overdue = dueDate.map { $0 < startOfAnchorDay } ?? false
-                let completedOnAnchorDay: Bool
-                if task.isComplete, let completionDate = task.dateCompleted {
-                    completedOnAnchorDay = completionDate >= startOfAnchorDay && completionDate < startOfNextDay
-                } else {
-                    completedOnAnchorDay = false
-                }
-
-                guard dueOnAnchorDay || overdue || completedOnAnchorDay else { return false }
-                return true
+                return dueOnAnchorDay || overdue
             }
 
         case .upcoming:

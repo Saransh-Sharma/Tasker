@@ -30,6 +30,7 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
     private let navigationPieChartSize: CGFloat = 136
     private let navigationPieChartTrailingInset: CGFloat = 10
     private let navigationPieChartZPosition: CGFloat = 999
+    private let isNavigationPieChartEnabled = false
     private var shouldShowNavigationPieChart = false
     private var foredropSettingsButtonGlobalFrame: CGRect = .null
     private var navigationPieChartCenterXConstraint: NSLayoutConstraint?
@@ -577,6 +578,12 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
     }
 
     private func ensureNavigationPieChartAsRightItem() {
+        guard isNavigationPieChartEnabled else {
+            navigationItem.rightBarButtonItem = nil
+            removeNavigationPieChartOverlay(resetChartState: true)
+            return
+        }
+
         guard let navigationController else { return }
         navigationItem.rightBarButtonItem = nil
 

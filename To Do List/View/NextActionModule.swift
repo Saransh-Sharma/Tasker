@@ -12,6 +12,27 @@ struct NextActionModule: View {
     let focusPinnedCount: Int
     let onAddTask: () -> Void
 
+    @State private var selectedEmptyStateTitle = NextActionModule.randomEmptyStateTitle()
+    @State private var previousOpenTaskCount: Int?
+
+    private static let emptyStateTitles: [String] = [
+        "Start your day with one task",
+        "Add your first task today",
+        "Kick off today with a task",
+        "Capture your first task for today",
+        "What's your first task today?",
+        "Pick your first priority",
+        "Plan your first move for today",
+        "Add your first win today",
+        "Start small, add a task",
+        "Begin today with intention",
+        "Create your first to-do for the day",
+        "Make your first move",
+        "Queue up your first task",
+        "Set your first focus task",
+        "Start strong with one task"
+    ]
+
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
@@ -29,6 +50,14 @@ struct NextActionModule: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityIdentifier("home.nextActionModule")
+        .onAppear {
+            previousOpenTaskCount = openTaskCount
+        }
+        .onChange(of: openTaskCount) { newCount in
+            defer { previousOpenTaskCount = newCount }
+            guard let previousOpenTaskCount, previousOpenTaskCount > 0, newCount == 0 else { return }
+            selectedEmptyStateTitle = Self.randomEmptyStateTitle()
+        }
     }
 
     private func actionRow(icon: String, title: String, showChevron: Bool = false) -> some View {
@@ -57,10 +86,14 @@ struct NextActionModule: View {
 
     private var zeroTasksState: some View {
         Button(action: onAddTask) {
-            actionRow(icon: "plus.circle.fill", title: "Add your first task", showChevron: true)
+            actionRow(icon: "plus.circle.fill", title: selectedEmptyStateTitle, showChevron: true)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Add your first task for today")
+        .accessibilityLabel(selectedEmptyStateTitle)
         .accessibilityHint("Opens the task creation screen")
+    }
+
+    private static func randomEmptyStateTitle() -> String {
+        emptyStateTitles.randomElement() ?? "Add your first task today"
     }
 }

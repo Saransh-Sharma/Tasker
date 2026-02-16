@@ -111,12 +111,13 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         XCTAssertEqual(captured?.doneTimelineTasks.map(\.name), ["Completed"])
     }
 
-    func testTodayQuickViewIncludesCompletedTasksDueTodayOrOverdue() {
+    func testTodayQuickViewIncludesOnlyCompletedTasksCompletedToday() {
         let now = Date()
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: now)
         let todayAtNine = calendar.date(byAdding: .hour, value: 9, to: startOfToday)!
         let yesterdayAtNine = calendar.date(byAdding: .day, value: -1, to: todayAtNine)!
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: now)!
 
         let openToday = makeTask(name: "Open Today", dueDate: todayAtNine, isComplete: false)
         let completedToday = makeTask(
@@ -131,8 +132,33 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
             isComplete: true,
             completionDate: now
         )
+        let completedYesterdayDueToday = makeTask(
+            name: "Completed Yesterday Due Today",
+            dueDate: todayAtNine,
+            isComplete: true,
+            completionDate: yesterday
+        )
+        let completedYesterdayOverdue = makeTask(
+            name: "Completed Yesterday Overdue",
+            dueDate: yesterdayAtNine,
+            isComplete: true,
+            completionDate: yesterday
+        )
+        let completedMissingDate = makeTask(
+            name: "Completed Missing Date",
+            dueDate: todayAtNine,
+            isComplete: true,
+            completionDate: nil
+        )
 
-        let repository = MockTaskRepository(tasks: [openToday, completedToday, completedOverdue])
+        let repository = MockTaskRepository(tasks: [
+            openToday,
+            completedToday,
+            completedOverdue,
+            completedYesterdayDueToday,
+            completedYesterdayOverdue,
+            completedMissingDate
+        ])
         let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
 
         let expectation = expectation(description: "Today includes completed")
@@ -155,6 +181,85 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
             Set(captured?.doneTimelineTasks.map(\.name) ?? []),
             Set(["Completed Today", "Completed Overdue"])
         )
+    }
+
+    func testCustomDateScopeIncludesOnlyCompletedTasksCompletedOnAnchorDay() {
+        let calendar = Calendar.current
+        let anchor = calendar.date(from: DateComponents(year: 2026, month: 2, day: 10, hour: 10, minute: 0, second: 0))!
+        let startOfAnchor = calendar.startOfDay(for: anchor)
+        let anchorMorning = calendar.date(byAdding: .hour, value: 9, to: startOfAnchor)!
+        let previousDay = calendar.date(byAdding: .day, value: -1, to: anchorMorning)!
+        let anchorCompletion = calendar.date(byAdding: .hour, value: 12, to: startOfAnchor)!
+        let previousCompletion = calendar.date(byAdding: .hour, value: 12, to: previousDay)!
+
+        let openOnAnchor = makeTask(name: "Open On Anchor", dueDate: anchorMorning, isComplete: false)
+        let overdueOpen = makeTask(name: "Overdue Open", dueDate: previousDay, isComplete: false)
+        let completedOnAnchor = makeTask(
+            name: "Completed On Anchor",
+            dueDate: previousDay,
+            isComplete: true,
+            completionDate: anchorCompletion
+        )
+        let completedBeforeAnchor = makeTask(
+            name: "Completed Before Anchor",
+            dueDate: anchorMorning,
+            isComplete: true,
+            completionDate: previousCompletion
+        )
+
+        let repository = MockTaskRepository(tasks: [openOnAnchor, overdueOpen, completedOnAnchor, completedBeforeAnchor])
+        let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
+
+        let expectation = expectation(description: "Custom date completed on anchor")
+        var captured: HomeFilteredTasksResult?
+
+        useCase.execute(state: .default, scope: .customDate(anchor)) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(
+            Set(captured?.openTasks.map(\.name) ?? []),
+            Set(["Open On Anchor", "Overdue Open"])
+        )
+        XCTAssertEqual(captured?.doneTimelineTasks.map(\.name), ["Completed On Anchor"])
+    }
+
+    func testCustomDateScopeExcludesCompletedTasksMissingCompletionDate() {
+        let calendar = Calendar.current
+        let anchor = calendar.date(from: DateComponents(year: 2026, month: 2, day: 10, hour: 10, minute: 0, second: 0))!
+        let startOfAnchor = calendar.startOfDay(for: anchor)
+        let anchorMorning = calendar.date(byAdding: .hour, value: 9, to: startOfAnchor)!
+
+        let openOnAnchor = makeTask(name: "Open On Anchor", dueDate: anchorMorning, isComplete: false)
+        let completedMissingDate = makeTask(
+            name: "Completed Missing Date",
+            dueDate: anchorMorning,
+            isComplete: true,
+            completionDate: nil
+        )
+
+        let repository = MockTaskRepository(tasks: [openOnAnchor, completedMissingDate])
+        let useCase = GetHomeFilteredTasksUseCase(taskRepository: repository)
+
+        let expectation = expectation(description: "Custom date excludes missing completion")
+        var captured: HomeFilteredTasksResult?
+
+        useCase.execute(state: .default, scope: .customDate(anchor)) { result in
+            if case let .success(value) = result {
+                captured = value
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(captured?.openTasks.map(\.name), ["Open On Anchor"])
+        XCTAssertEqual(captured?.doneTimelineTasks.count, 0)
     }
 
     func testDoneQuickViewLimitsToLastThirtyDaysAndSortsByDayThenPriority() {

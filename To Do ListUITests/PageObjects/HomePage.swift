@@ -23,6 +23,14 @@ class HomePage {
         return app.otherElements[AccessibilityIdentifiers.Home.foredropSurface]
     }
 
+    var foredropHandle: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.foredropHandle]
+    }
+
+    var foredropCollapseHint: XCUIElement {
+        return app.buttons[AccessibilityIdentifiers.Home.foredropCollapseHint]
+    }
+
     var addTaskButton: XCUIElement {
         return app.buttons[AccessibilityIdentifiers.Home.addTaskButton]
     }
@@ -133,6 +141,10 @@ class HomePage {
 
     var chartView: XCUIElement {
         return app.otherElements[AccessibilityIdentifiers.Home.chartView]
+    }
+
+    var radarChartView: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.radarChartView]
     }
 
     var navXpPieChart: XCUIElement {
@@ -394,6 +406,14 @@ class HomePage {
     func waitForBottomBarState(_ expectedState: String, timeout: TimeInterval = 3) -> Bool {
         let predicate = NSPredicate(format: "value == %@", expectedState)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: bottomBar)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+        return result == .completed
+    }
+
+    @discardableResult
+    func waitForForedropState(_ expectedState: String, timeout: TimeInterval = 3) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", expectedState)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: foredropSurface)
         let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
         return result == .completed
     }

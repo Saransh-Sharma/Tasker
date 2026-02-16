@@ -346,6 +346,59 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testSelectingCustomDateDoesNotRetainCompletedTasksFromDifferentDay() {
+        let suiteName = "HomeViewModelPersistenceTests.CustomDateCompletedScope.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+        let todayDue = calendar.date(byAdding: .hour, value: 9, to: startOfToday) ?? now
+        let todayCompleted = calendar.date(byAdding: .hour, value: 10, to: startOfToday) ?? now
+
+        let tomorrowStart = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? now
+        let tomorrowDue = calendar.date(byAdding: .hour, value: 9, to: tomorrowStart) ?? tomorrowStart
+
+        let inbox = Project.createInbox()
+        let completedToday = makeTask(
+            name: "Completed Today",
+            project: inbox,
+            dueDate: todayDue,
+            priority: .high,
+            isComplete: true,
+            dateCompleted: todayCompleted
+        )
+        let openTomorrow = makeTask(
+            name: "Open Tomorrow",
+            project: inbox,
+            dueDate: tomorrowDue,
+            priority: .low,
+            isComplete: false
+        )
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [completedToday, openTomorrow])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.completedTasks.contains(where: { $0.name == "Completed Today" }))
+
+        viewModel.selectDate(tomorrowDue)
+        waitForMainQueueFlush()
+
+        XCTAssertTrue(viewModel.completedTasks.isEmpty)
+        XCTAssertFalse(viewModel.morningTasks.contains(where: { $0.name == "Completed Today" }))
+        XCTAssertFalse(viewModel.eveningTasks.contains(where: { $0.name == "Completed Today" }))
+        XCTAssertFalse(viewModel.overdueTasks.contains(where: { $0.name == "Completed Today" }))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     private func waitForMainQueueFlush() {
         let expectation = expectation(description: "MainQueueFlush")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
