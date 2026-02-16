@@ -20,8 +20,9 @@ enum ForedropAnchor: Equatable {
 
 struct HomeForedropLayoutMetrics {
     static let midRevealBaseOffset: CGFloat = 94
-    static let extraFullRevealPadding: CGFloat = 56
-    static let minimumVisibleForedropHeight: CGFloat = 220
+    static let extraFullRevealPadding: CGFloat = 72
+    static let minimumVisibleForedropHeight: CGFloat = 120
+    static let minimumAnalyticsPeekAtFullReveal: CGFloat = 620
 
     var calendarExpandedHeight: CGFloat
     var analyticsSectionHeight: CGFloat
@@ -32,7 +33,9 @@ struct HomeForedropLayoutMetrics {
     }
 
     var fullOffset: CGFloat {
-        let fullRaw = midOffset + analyticsSectionHeight + Self.extraFullRevealPadding
+        let analyticsDrivenPeek = analyticsSectionHeight + Self.extraFullRevealPadding
+        let targetPeek = max(analyticsDrivenPeek, Self.minimumAnalyticsPeekAtFullReveal)
+        let fullRaw = midOffset + targetPeek
         let cappedOffset = min(fullRaw, geometryHeight - Self.minimumVisibleForedropHeight)
         return max(midOffset, cappedOffset)
     }
@@ -123,7 +126,10 @@ struct HomeBackdropForedropRootView: View {
     }
 
     private func chartCardsViewportHeight(for geometry: GeometryProxy) -> CGFloat {
-        min(max(geometry.size.height * 0.38, 240), 420)
+        let preferred = geometry.size.height * 0.66
+        let lowerBound: CGFloat = 560
+        let upperBound = geometry.size.height - 150
+        return min(max(preferred, lowerBound), upperBound)
     }
 
     var body: some View {
@@ -478,19 +484,6 @@ struct HomeBackdropForedropRootView: View {
                         foredropAnchor = foredropAnchor == .fullReveal ? .collapsed : .fullReveal
                     }
                 }
-
-                // Search button
-                Button {
-                    onOpenSearch()
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color.tasker.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(Color.tasker.surfaceSecondary))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Search tasks")
 
                 // Settings button
                 Button {
