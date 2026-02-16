@@ -1523,6 +1523,9 @@ public final class HomeViewModel: ObservableObject {
                 restoredTask.isComplete = true
                 restoredTask.dateCompleted = restoredTask.dateCompleted ?? Date()
             }
+            guard isTaskCompletedOnActiveScopeDay(restoredTask) else {
+                continue
+            }
 
             switch section {
             case .morning:
@@ -1570,6 +1573,20 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    private func isTaskCompletedOnScopeDay(_ task: Task, scope: HomeListScope) -> Bool {
+        guard task.isComplete, let completionDate = task.dateCompleted else { return false }
+        let calendar = Calendar.current
+        let startOfScopeDay = calendar.startOfDay(for: scope.referenceDate)
+        guard let startOfNextScopeDay = calendar.date(byAdding: .day, value: 1, to: startOfScopeDay) else {
+            return false
+        }
+        return completionDate >= startOfScopeDay && completionDate < startOfNextScopeDay
+    }
+
+    private func isTaskCompletedOnActiveScopeDay(_ task: Task) -> Bool {
+        isTaskCompletedOnScopeDay(task, scope: activeScope)
+    }
+
     private func mergedInlineDoneTasks(
         incomingDoneTasks: [Task],
         openTasks: [Task],
@@ -1581,12 +1598,12 @@ public final class HomeViewModel: ObservableObject {
 
         let openIDs = Set(openTasks.map(\.id))
         let retainedPriorDone = completedTasks.filter { task in
-            !openIDs.contains(task.id)
+            !openIDs.contains(task.id) && isTaskCompletedOnActiveScopeDay(task)
         }
 
         var merged: [Task] = []
         var seen = Set<UUID>()
-        for task in incomingDoneTasks + retainedPriorDone where task.isComplete {
+        for task in incomingDoneTasks + retainedPriorDone where task.isComplete && isTaskCompletedOnActiveScopeDay(task) {
             if seen.insert(task.id).inserted {
                 merged.append(task)
             }
