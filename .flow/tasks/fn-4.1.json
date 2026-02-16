@@ -1,0 +1,26 @@
+{
+  "assignee": "saransh1337@gmail.com",
+  "claim_note": "",
+  "claimed_at": "2026-02-16T15:59:37.776231Z",
+  "created_at": "2026-02-16T15:59:29.237215Z",
+  "depends_on": [],
+  "epic": "fn-4",
+  "evidence": {
+    "artifacts": [
+      "/tmp/tasker-radar-crash-signature.txt",
+      "/tmp/tasker-radar-baseline-git-status.txt",
+      "/tmp/tasker-radar-baseline-rg.txt",
+      "/tmp/tasker-radar-baseline-note.txt"
+    ],
+    "commands": [
+      "git status --short > /tmp/tasker-radar-baseline-git-status.txt",
+      "rg -n \"RadarChartRenderer|RadarChartViewRepresentable|homeTaskMutation\" \"To Do List\" \"Pods/DGCharts/Source/Charts/Renderers/RadarChartRenderer.swift\" > /tmp/tasker-radar-baseline-rg.txt"
+    ]
+  },
+  "id": "fn-4.1",
+  "priority": 1,
+  "spec_path": ".flow/tasks/fn-4.1.md",
+  "status": "done",
+  "title": "Capture crash baseline and scope",
+  "updated_at": "2026-02-16T16:07:11.803647Z"
+}
