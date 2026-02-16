@@ -15,12 +15,8 @@ target 'Tasker' do
   pod 'CircleMenu',              '~> 4.1.0'
   pod 'MaterialComponents',      '~> 124.2'
   pod 'ViewAnimator',            '~> 3.1'     # latest; no :modular_headers needed
-  pod 'Timepiece',               '~> 1.3.1'
   pod 'FSCalendar',              '~> 2.8.1'
-  pod 'EasyPeasy',               '~> 1.9.0'
-  pod 'BEMCheckBox',             '~> 1.4.1'
   pod 'DGCharts',                '~> 5.1'
-  pod 'TinyConstraints',         '~> 4.0.1'
   pod 'MicrosoftFluentUI', '~> 0.34.0'
   pod 'FluentIcons', '~> 1.1.302' # Added FluentIcons pod
 

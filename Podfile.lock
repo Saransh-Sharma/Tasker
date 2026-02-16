@@ -1,10 +1,8 @@
 PODS:
-  - BEMCheckBox (1.4.1)
   - CircleMenu (4.1.0)
   - DGCharts (5.1.0):
     - DGCharts/Core (= 5.1.0)
   - DGCharts/Core (5.1.0)
-  - EasyPeasy (1.9.0)
   - Firebase/Analytics (11.15.0):
     - Firebase/Core
   - Firebase/Core (11.15.0):
@@ -984,15 +982,11 @@ PODS:
   - PromisesSwift (2.4.0):
     - PromisesObjC (= 2.4.0)
   - SemiModalViewController (1.0.1)
-  - Timepiece (1.3.1)
-  - TinyConstraints (4.0.2)
   - ViewAnimator (3.1.0)
 
 DEPENDENCIES:
-  - BEMCheckBox (~> 1.4.1)
   - CircleMenu (~> 4.1.0)
   - DGCharts (~> 5.1)
-  - EasyPeasy (~> 1.9.0)
   - Firebase/Analytics (~> 11.13)
   - Firebase/Crashlytics (~> 11.13)
   - Firebase/Performance (~> 11.13)
@@ -1001,16 +995,12 @@ DEPENDENCIES:
   - MaterialComponents (~> 124.2)
   - MicrosoftFluentUI (~> 0.34.0)
   - SemiModalViewController (~> 1.0.1)
-  - Timepiece (~> 1.3.1)
-  - TinyConstraints (~> 4.0.1)
   - ViewAnimator (~> 3.1)
 
 SPEC REPOS:
   trunk:
-    - BEMCheckBox
     - CircleMenu
     - DGCharts
-    - EasyPeasy
     - Firebase
     - FirebaseABTesting
     - FirebaseAnalytics
@@ -1040,15 +1030,11 @@ SPEC REPOS:
     - PromisesObjC
     - PromisesSwift
     - SemiModalViewController
-    - Timepiece
-    - TinyConstraints
     - ViewAnimator
 
 SPEC CHECKSUMS:
-  BEMCheckBox: 5ba6e37ade3d3657b36caecc35c8b75c6c2b1a4e
   CircleMenu: a66095199a5e26f19acbb212f077010257767fe5
   DGCharts: 1c6daf585b6cfc78807af44ea690d357c410627f
-  EasyPeasy: 19a84ef8f8bbcf925b9fecc29d1d78b7dab96718
   Firebase: d99ac19b909cd2c548339c2241ecd0d1599ab02e
   FirebaseABTesting: 5e9d432834aebf27ab72100d37af44dfbe8d82f7
   FirebaseAnalytics: 6433dfd311ba78084fc93bdfc145e8cb75740eae
@@ -1078,10 +1064,8 @@ SPEC CHECKSUMS:
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PromisesSwift: 9d77319bbe72ebf6d872900551f7eeba9bce2851
   SemiModalViewController: 13fe8b991b501c7cd6a9ec7c782ed7a5c72c12e6
-  Timepiece: c0760ec0e545697d86b80424dcd2b4d5ef66cf51
-  TinyConstraints: 7b7ccc0c485bb3bb47082138ff28bc33cd49897f
   ViewAnimator: a9ceed80266e00fd435ec4fb99b2df64d580d0e4
 
-PODFILE CHECKSUM: d685433249b0c382c65239a303b745df44d27899
+PODFILE CHECKSUM: 705514839309f8e15562a81c8ac06fd98694ac42
 
 COCOAPODS: 1.16.2
