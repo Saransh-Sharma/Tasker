@@ -733,12 +733,12 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func loadDailyAnalytics() {
+        refreshDailyScoreFromCompletedTasksToday()
+
         useCaseCoordinator.calculateAnalytics.calculateTodayAnalytics { [weak self] result in
             DispatchQueue.main.async {
                 if case .success(let analytics) = result {
-                    self?.dailyScore = analytics.totalScore
                     self?.completionRate = analytics.completionRate
-                    self?.refreshProgressState()
                 }
             }
         }
@@ -748,6 +748,48 @@ public final class HomeViewModel: ObservableObject {
                 if case .success(let streakInfo) = result {
                     self?.streak = streakInfo.currentStreak
                     self?.refreshProgressState()
+                }
+            }
+        }
+    }
+
+    private func refreshDailyScoreFromCompletedTasksToday(referenceDate: Date = Date()) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: referenceDate)
+        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else {
+            return
+        }
+
+        useCaseCoordinator.taskRepository.fetchCompletedTasks { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+
+                switch result {
+                case .success(let completedTasks):
+                    let totalScore = completedTasks.reduce(0) { partial, task in
+                        let countsForToday: Bool
+                        if let completionDate = task.dateCompleted {
+                            countsForToday = completionDate >= startOfDay && completionDate < endOfDay
+                        } else if let dueDate = task.dueDate {
+                            // Legacy fallback for records missing dateCompleted.
+                            countsForToday = dueDate >= startOfDay && dueDate < endOfDay
+                        } else {
+                            countsForToday = false
+                        }
+
+                        guard countsForToday else { return partial }
+                        return partial + task.priority.scorePoints
+                    }
+
+                    self.dailyScore = totalScore
+                    self.refreshProgressState()
+
+                case .failure(let error):
+                    logWarning(
+                        event: "home_daily_score_refresh_failed",
+                        message: "Failed to refresh completion-date XP score",
+                        fields: ["error": error.localizedDescription]
+                    )
                 }
             }
         }
@@ -1190,6 +1232,7 @@ public final class HomeViewModel: ObservableObject {
     public func handleExternalMutation(reason: HomeTaskMutationEvent, repostEvent: Bool = true) {
         invalidateTaskCaches()
         reloadCurrentModeTasks()
+        loadDailyAnalytics()
         if repostEvent {
             requestChartRefresh(reason: reason)
         }

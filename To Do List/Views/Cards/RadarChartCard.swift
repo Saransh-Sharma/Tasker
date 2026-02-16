@@ -356,10 +356,21 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         chartView.accessibilityLabel = "Project breakdown radar chart"
         chartView.accessibilityHint = "Shows weekly scores across your custom projects"
         chartView.accessibilityTraits = [.updatesFrequently]
+        chartView.accessibilityIdentifier = "home.radarChartView"
     }
 
     private func updateChartData(_ chartView: RadarChartView) {
-        guard !data.isEmpty else {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            logWarning(
+                event: "radar_context_unavailable",
+                message: "App delegate unavailable while updating radar chart render data"
+            )
+            chartView.data = nil
+            return
+        }
+
+        let normalizedPayload = normalizedRenderPayload()
+        guard !normalizedPayload.entries.isEmpty else {
             chartView.data = nil
             return
         }
@@ -368,19 +379,25 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         let colors = themeTokens.color
 
         // Use ChartDataService for consistent styling
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let chartService = ChartDataService(context: context!)
+        let chartService = ChartDataService(context: context)
 
         // Calculate dynamic maximum
-        let dynamicMaximum = chartService.calculateRadarChartMaximum(for: data)
+        let dynamicMaximum = chartService.calculateRadarChartMaximum(for: normalizedPayload.entries)
         chartView.yAxis.axisMaximum = dynamicMaximum
 
+        // Rebuild renderer to prevent stale accessibility label caches inside DGCharts.
+        chartView.renderer = RadarChartRenderer(
+            chart: chartView,
+            animator: chartView.chartAnimator,
+            viewPortHandler: chartView.viewPortHandler
+        )
+
         // Update X-axis labels
-        chartView.xAxis.valueFormatter = RadarXAxisFormatter(labels: labels)
+        chartView.xAxis.valueFormatter = RadarXAxisFormatter(labels: normalizedPayload.labels)
 
         // Create data set
         let dataSet = chartService.createRadarChartDataSet(
-            with: data,
+            with: normalizedPayload.entries,
             colors: colors,
             typography: themeTokens.typography
         )
@@ -388,12 +405,36 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         // Create chart data
         let radarData = RadarChartData(dataSet: dataSet)
         chartView.data = radarData
+        chartView.notifyDataSetChanged()
 
         // Animate chart
         DispatchQueue.main.async {
             chartView.animate(yAxisDuration: 1.0, easingOption: .easeOutBack)
         }
 
+    }
+
+    private func normalizedRenderPayload() -> (entries: [RadarChartDataEntry], labels: [String]) {
+        let pairedCount = min(data.count, labels.count)
+        if data.count != labels.count {
+            logWarning(
+                event: "radar_data_label_count_mismatch",
+                message: "Radar chart data/label counts differ; trimming to safe paired payload",
+                fields: [
+                    "entry_count": String(data.count),
+                    "label_count": String(labels.count),
+                    "paired_count": String(pairedCount)
+                ]
+            )
+        }
+
+        guard pairedCount > 0 else {
+            return ([], [])
+        }
+
+        let pairedEntries = Array(data.prefix(pairedCount))
+        let pairedLabels = Array(labels.prefix(pairedCount))
+        return (pairedEntries, pairedLabels)
     }
 }
 

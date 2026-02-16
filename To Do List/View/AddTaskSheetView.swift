@@ -57,7 +57,7 @@ public extension AddTaskSheetView {
     /// Creates AddTaskSheetView with default ViewModel from dependency container
     static func make() -> AddTaskSheetView {
         AddTaskSheetView(
-            viewModel: PresentationDependencyContainer.shared.makeAddTaskViewModel()
+            viewModel: PresentationDependencyContainer.shared.makeNewAddTaskViewModel()
         )
     }
 }

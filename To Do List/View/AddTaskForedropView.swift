@@ -33,7 +33,7 @@ struct AddTaskForedropView: View {
             ) {
                 onCancel()
             } onSave: {
-                onCreate()
+                submitTask()
             }
             .padding(.horizontal, spacing.s16)
 
@@ -43,7 +43,8 @@ struct AddTaskForedropView: View {
                     // Title field
                     AddTaskTitleField(
                         text: $viewModel.taskName,
-                        isFocused: $titleFieldFocused
+                        isFocused: $titleFieldFocused,
+                        onSubmit: submitTask
                     )
                     .staggeredAppearance(index: 0)
 
@@ -108,7 +109,7 @@ struct AddTaskForedropView: View {
             AddTaskCreateButton(
                 isEnabled: viewModel.viewState.canSubmit,
                 isLoading: viewModel.isLoading,
-                action: onCreate
+                action: submitTask
             )
             .padding(.horizontal, spacing.s16)
             .padding(.bottom, spacing.s16)
@@ -140,6 +141,13 @@ struct AddTaskForedropView: View {
     }
 
     // MARK: - Handle Bar
+
+    private func submitTask() {
+        guard viewModel.viewState.canSubmit, !viewModel.isLoading else {
+            return
+        }
+        onCreate()
+    }
 
     private var handleBar: some View {
         Capsule()
