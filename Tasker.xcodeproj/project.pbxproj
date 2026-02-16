@@ -140,6 +140,7 @@
 		75A6316A2E8BDADC006EEA59 /* LGBaseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A631642E8BDADC006EEA59 /* LGBaseView.swift */; };
 		75A6316B2E8BDADC006EEA59 /* LGSearchBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A631652E8BDADC006EEA59 /* LGSearchBar.swift */; };
 		75A6316C2E8BDADC006EEA59 /* LGTaskCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A631662E8BDADC006EEA59 /* LGTaskCard.swift */; };
+		F3B4C5D6E7F8091A2B3C4D51 /* LiquidGlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B4C5D6E7F8091A2B3C4D50 /* LiquidGlassSurface.swift */; };
 		75B7121D246AFF5B00453AEC /* UpcominngTasksViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75B7121C246AFF5B00453AEC /* UpcominngTasksViewController.swift */; };
 		75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */; };
 		75D5D3212E0330EF007A243A /* CardViewModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D5D31D2E0330EE007A243A /* CardViewModifier.swift */; };
@@ -440,6 +441,7 @@
 		75A631652E8BDADC006EEA59 /* LGSearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LGSearchBar.swift; sourceTree = "<group>"; };
 		75A631662E8BDADC006EEA59 /* LGTaskCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LGTaskCard.swift; sourceTree = "<group>"; };
 		75A631672E8BDADC006EEA59 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		F3B4C5D6E7F8091A2B3C4D50 /* LiquidGlassSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassSurface.swift; sourceTree = "<group>"; };
 		75B7121C246AFF5B00453AEC /* UpcominngTasksViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcominngTasksViewController.swift; sourceTree = "<group>"; };
 		75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPageViewController.swift; sourceTree = "<group>"; };
 		75D5D31D2E0330EE007A243A /* CardViewModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardViewModifier.swift; sourceTree = "<group>"; };
@@ -1070,6 +1072,7 @@
 				75A631642E8BDADC006EEA59 /* LGBaseView.swift */,
 				75A631652E8BDADC006EEA59 /* LGSearchBar.swift */,
 				75A631662E8BDADC006EEA59 /* LGTaskCard.swift */,
+				F3B4C5D6E7F8091A2B3C4D50 /* LiquidGlassSurface.swift */,
 				75A631672E8BDADC006EEA59 /* README.md */,
 			);
 			path = LiquidGlass;
@@ -1735,6 +1738,7 @@
 			files = (
 				75A6316A2E8BDADC006EEA59 /* LGBaseView.swift in Sources */,
 				75A6316B2E8BDADC006EEA59 /* LGSearchBar.swift in Sources */,
+				F3B4C5D6E7F8091A2B3C4D51 /* LiquidGlassSurface.swift in Sources */,
 				752A97642E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */,
 				75E929F12E8C7B6B00207270 /* DomainEventPublisher.swift in Sources */,
 				75E929F22E8C7B6B00207270 /* DomainEvent.swift in Sources */,
