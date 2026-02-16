@@ -42,20 +42,20 @@ class AnalyticsAndChartsTests: BaseUITest {
         takeScreenshot(named: "chart_renders_after_completion")
     }
 
-    // MARK: - Test 58: Nav XP Chart Visibility Follows Daily XP
+    // MARK: - Test 58: Nav XP Chart Remains Hidden
 
     func testNavXpPieChartVisibilityFollowsDailyXP() throws {
         // GIVEN: User is on home screen with fresh app state
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
-        // THEN: Zero XP day should hide nav chart and nav chart button
+        // THEN: Nav chart should be hidden and nav chart button absent
         XCTAssertTrue(
             homePage.verifyNavXpPieChartIsHidden(timeout: 2),
-            "Navigation XP pie chart should be hidden when score is zero"
+            "Navigation XP pie chart should be hidden by default"
         )
         XCTAssertTrue(
             homePage.verifyNavXpPieChartButtonIsAbsent(),
-            "Navigation XP pie chart button should be absent when score is zero"
+            "Navigation XP pie chart button should be absent by default"
         )
 
         // WHEN: User completes a task and gains XP
@@ -68,51 +68,27 @@ class AnalyticsAndChartsTests: BaseUITest {
         homePage.completeTask(at: completeIndex)
         waitForAnimations(duration: 1.5)
 
-        // THEN: Nav chart and nav chart button should appear
+        // THEN: Nav chart and nav chart button should still remain hidden
         XCTAssertTrue(
-            homePage.verifyNavXpPieChartIsVisible(timeout: 5),
-            "Navigation XP pie chart should be visible when score is positive"
+            homePage.verifyNavXpPieChartIsHidden(timeout: 3),
+            "Navigation XP pie chart should remain hidden when score is positive"
         )
         XCTAssertTrue(
-            homePage.verifyNavXpPieChartButtonIsPresent(timeout: 3),
-            "Navigation XP pie chart button should be present when score is positive"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartIsHittable(),
-            "Navigation XP pie chart should be hittable when visible"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartSize(expected: 136, tolerance: 10),
-            "Floating navigation XP pie chart should be approximately 136x136"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartIsFullyVisibleInWindow(),
-            "Floating navigation XP pie chart should be fully visible inside the app window"
-        )
-        XCTAssertTrue(
-            homePage.verifyNavXpPieChartAlignedWithSettingsButton(horizontalTolerance: 20),
-            "Floating navigation XP pie chart should stay aligned above the settings button"
+            homePage.verifyNavXpPieChartButtonIsAbsent(),
+            "Navigation XP pie chart button should remain absent when score is positive"
         )
 
-        // Interaction should still work while visible
-        homePage.tapNavXpPieChart()
-        waitForAnimations(duration: 0.8)
-
-        // Chart should remain visible and unclipped after date updates.
+        // Chart should remain hidden after date updates.
         if let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) {
             homePage.navigateToDate(tomorrow)
             waitForAnimations(duration: 0.8)
             XCTAssertTrue(
-                homePage.verifyNavXpPieChartIsVisible(timeout: 3),
-                "Navigation XP pie chart should remain visible after date changes"
+                homePage.verifyNavXpPieChartIsHidden(timeout: 3),
+                "Navigation XP pie chart should remain hidden after date changes"
             )
             XCTAssertTrue(
-                homePage.verifyNavXpPieChartIsFullyVisibleInWindow(),
-                "Navigation XP pie chart should remain fully visible after date changes"
-            )
-            XCTAssertTrue(
-                homePage.verifyNavXpPieChartAlignedWithSettingsButton(horizontalTolerance: 20),
-                "Navigation XP pie chart should remain aligned above settings after date changes"
+                homePage.verifyNavXpPieChartButtonIsAbsent(),
+                "Navigation XP pie chart button should remain absent after date changes"
             )
             homePage.navigateToDate(Date())
             waitForAnimations(duration: 0.8)
@@ -123,14 +99,14 @@ class AnalyticsAndChartsTests: BaseUITest {
         homePage.uncompleteTask(at: reopenIndex)
         waitForAnimations(duration: 1.5)
 
-        // THEN: Nav chart and nav chart button should hide again
+        // THEN: Nav chart and nav chart button should still be hidden
         XCTAssertTrue(
             homePage.verifyNavXpPieChartIsHidden(timeout: 3),
-            "Navigation XP pie chart should hide again when score returns to zero"
+            "Navigation XP pie chart should remain hidden when score returns to zero"
         )
         XCTAssertTrue(
             homePage.verifyNavXpPieChartButtonIsAbsent(),
-            "Navigation XP pie chart button should be absent again when score returns to zero"
+            "Navigation XP pie chart button should remain absent when score returns to zero"
         )
 
         takeScreenshot(named: "nav_xp_pie_chart_visibility_follows_score")
@@ -429,6 +405,40 @@ class AnalyticsAndChartsTests: BaseUITest {
         XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 3), "Bottom bar should restore after reverse scroll")
         XCTAssertTrue(homePage.taskRow(containingTitle: "Backdrop Fill 1").waitForExistence(timeout: 3), "Task list should remain interactive")
         takeScreenshot(named: "home_foredrop_bottom_extension")
+    }
+
+    // MARK: - Test 60J: Full Reveal Shows Collapse Hint And Collapses Back
+
+    func testForedropFullRevealShowsCollapseHintAndTapCollapsesToDefault() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
+        XCTAssertTrue(homePage.foredropSurface.waitForExistence(timeout: 3), "Foredrop surface should exist")
+        XCTAssertTrue(homePage.chartsButton.waitForExistence(timeout: 3), "Charts button should exist")
+
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 2), "Foredrop should start collapsed")
+        XCTAssertFalse(homePage.foredropCollapseHint.exists, "Collapse hint should be hidden while collapsed")
+
+        let collapsedMinY = homePage.foredropSurface.frame.minY
+
+        homePage.tapCharts()
+        waitForAnimations(duration: 0.6)
+
+        XCTAssertTrue(homePage.waitForForedropState("fullReveal", timeout: 3), "Charts action should reach full reveal")
+        XCTAssertTrue(homePage.foredropCollapseHint.waitForExistence(timeout: 2), "Collapse hint should be visible at full reveal")
+
+        let fullRevealMinY = homePage.foredropSurface.frame.minY
+        XCTAssertGreaterThan(
+            fullRevealMinY,
+            collapsedMinY + 120,
+            "Foredrop should move down substantially when fully revealing analytics"
+        )
+
+        XCTAssertTrue(homePage.foredropCollapseHint.isHittable, "Collapse hint should be tappable")
+        homePage.foredropCollapseHint.tap()
+        waitForAnimations(duration: 0.5)
+
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Collapse hint should return foredrop to default state")
+        XCTAssertFalse(homePage.foredropCollapseHint.waitForExistence(timeout: 1), "Collapse hint should hide after collapsing")
+        takeScreenshot(named: "home_foredrop_full_reveal_collapse_hint")
     }
 
     // MARK: - Test 61: Analytics Streak Display
