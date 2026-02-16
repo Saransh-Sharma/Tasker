@@ -209,13 +209,15 @@ struct TaskRowView: View {
 
                 // Right column: urgency badge + XP badge
                 HStack(spacing: 6) {
+                    let urgencyLevel = TaskRowUrgencyLevel.from(task: task)
+
                     // Urgency badge (only for incomplete tasks with urgency)
-                    if !task.isComplete {
-                        UrgencyBadge(level: UrgencyLevel.from(task: task), isCompact: true)
+                    if !task.isComplete, urgencyLevel != .none {
+                        compactUrgencyBadge(for: urgencyLevel)
                     }
 
                     // Time display (when no urgency)
-                    if task.isComplete || UrgencyLevel.from(task: task) == .none {
+                    if task.isComplete || urgencyLevel == .none {
                         Text(displayModel.trailingMetaText)
                             .font(.tasker(.caption2))
                             .foregroundColor(trailingMetaColor)
@@ -223,7 +225,7 @@ struct TaskRowView: View {
                     }
 
                     // XP badge
-                    XPBadge(xpValue: displayModel.xpValue, priority: task.priority, isCompact: true, showLabel: false)
+                    compactXPBadge
                 }
             }
             .padding(.vertical, 8)
@@ -350,6 +352,51 @@ struct TaskRowView: View {
     private var accessibilityStateValue: String {
         task.isComplete ? "done" : "open"
     }
+
+    @ViewBuilder
+    private func compactUrgencyBadge(for level: TaskRowUrgencyLevel) -> some View {
+        let badge: (text: String, background: Color, foreground: Color)? = {
+            switch level {
+            case .overdue:
+                return ("Overdue", Color.tasker.statusDanger.opacity(0.15), Color.tasker.statusDanger)
+            case .dueSoon:
+                return ("Due soon", Color.tasker.statusWarning.opacity(0.15), Color.tasker.statusWarning)
+            case .today:
+                return ("Today", Color.tasker.statusSuccess.opacity(0.12), Color.tasker.statusSuccess)
+            case .none:
+                return nil
+            }
+        }()
+
+        if let badge {
+            Text(badge.text)
+                .font(.tasker(.caption2))
+                .fontWeight(.medium)
+                .foregroundColor(badge.foreground)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(badge.background))
+                .fixedSize()
+        }
+    }
+
+    private var compactXPBadge: some View {
+        Text("+\(displayModel.xpValue)")
+            .font(.tasker(.caption2))
+            .fontWeight(task.priority == .max || task.priority == .high ? .bold : .medium)
+            .foregroundColor(task.priority == .max || task.priority == .high ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary.opacity(0.3) : .clear, lineWidth: 1)
+            )
+            .fixedSize()
+    }
 }
 
 #if DEBUG
@@ -390,5 +437,22 @@ struct TaskRowView_Previews: PreviewProvider {
 private extension String {
     var nilIfEmpty: String? {
         isEmpty ? nil : self
+    }
+}
+
+private enum TaskRowUrgencyLevel: Equatable {
+    case overdue
+    case dueSoon
+    case today
+    case none
+
+    static func from(task: DomainTask, now: Date = Date()) -> TaskRowUrgencyLevel {
+        guard !task.isComplete else { return .none }
+        if task.isOverdue { return .overdue }
+        guard let dueDate = task.dueDate else { return .none }
+        let timeRemaining = dueDate.timeIntervalSince(now)
+        if timeRemaining > 0, timeRemaining <= (2 * 60 * 60) { return .dueSoon }
+        if Calendar.current.isDateInToday(dueDate) { return .today }
+        return .none
     }
 }

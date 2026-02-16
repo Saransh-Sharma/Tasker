@@ -195,12 +195,36 @@ private struct FocusZoneRow: View {
             Spacer(minLength: 0)
 
             // Urgency indicator
-            if !task.isComplete {
-                UrgencyBadge(level: UrgencyLevel.from(task: task), isCompact: true)
+            if let urgencyLabel = displayModel.urgencyLabel {
+                Text(urgencyLabel)
+                    .font(.tasker(.caption2))
+                    .fontWeight(.medium)
+                    .foregroundColor(focusUrgencyColor(for: urgencyLabel))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(focusUrgencyColor(for: urgencyLabel).opacity(0.15))
+                    )
+                    .fixedSize()
             }
 
             // XP badge
-            XPBadge(xpValue: displayModel.xpValue, priority: task.priority, isCompact: true, showLabel: false)
+            Text("+\(displayModel.xpValue)")
+                .font(.tasker(.caption2))
+                .fontWeight(task.priority == .max || task.priority == .high ? .bold : .medium)
+                .foregroundColor(task.priority == .max || task.priority == .high ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary.opacity(0.3) : .clear, lineWidth: 1)
+                )
+                .fixedSize()
         }
         .padding(.vertical, 6)
         .padding(.horizontal, spacing.s4)
@@ -221,6 +245,19 @@ private struct FocusZoneRow: View {
                 onDragStarted()
                 return NSItemProvider(object: task.id.uuidString as NSString)
             }
+        }
+    }
+
+    private func focusUrgencyColor(for label: String) -> Color {
+        switch label {
+        case "Overdue":
+            return Color.tasker.statusDanger
+        case "Due soon":
+            return Color.tasker.statusWarning
+        case "Today":
+            return Color.tasker.statusSuccess
+        default:
+            return Color.tasker.textSecondary
         }
     }
 }
