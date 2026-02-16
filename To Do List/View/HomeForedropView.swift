@@ -18,8 +18,46 @@ enum ForedropAnchor: Equatable {
     case fullReveal
 }
 
+struct HomeForedropLayoutMetrics {
+    static let midRevealBaseOffset: CGFloat = 94
+    static let extraFullRevealPadding: CGFloat = 56
+    static let minimumVisibleForedropHeight: CGFloat = 220
+
+    var calendarExpandedHeight: CGFloat
+    var analyticsSectionHeight: CGFloat
+    var geometryHeight: CGFloat
+
+    var midOffset: CGFloat {
+        Self.midRevealBaseOffset + calendarExpandedHeight
+    }
+
+    var fullOffset: CGFloat {
+        let fullRaw = midOffset + analyticsSectionHeight + Self.extraFullRevealPadding
+        let cappedOffset = min(fullRaw, geometryHeight - Self.minimumVisibleForedropHeight)
+        return max(midOffset, cappedOffset)
+    }
+
+    func offset(for anchor: ForedropAnchor) -> CGFloat {
+        switch anchor {
+        case .collapsed:
+            return 0
+        case .midReveal:
+            return midOffset
+        case .fullReveal:
+            return fullOffset
+        }
+    }
+}
+
 private struct CalendarHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 80
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct AnalyticsSectionHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
     }
@@ -29,6 +67,19 @@ private struct SettingsButtonFramePreferenceKey: PreferenceKey {
     static var defaultValue: CGRect = .null
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
         value = nextValue()
+    }
+}
+
+private extension ForedropAnchor {
+    var accessibilityValue: String {
+        switch self {
+        case .collapsed:
+            return "collapsed"
+        case .midReveal:
+            return "midReveal"
+        case .fullReveal:
+            return "fullReveal"
+        }
     }
 }
 
@@ -48,6 +99,7 @@ struct HomeBackdropForedropRootView: View {
 
     @State private var foredropAnchor: ForedropAnchor = .collapsed
     @State private var calendarExpandedHeight: CGFloat = 0
+    @State private var analyticsSectionHeight: CGFloat = 0
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
     @State private var draftDate = Date()
@@ -61,16 +113,17 @@ struct HomeBackdropForedropRootView: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
-    /// Vertical offset for the foredrop based on anchor + calendar expansion.
-    private var foredropOffset: CGFloat {
-        let baseOffset: CGFloat = {
-            switch foredropAnchor {
-            case .collapsed:  return 0
-            case .midReveal:  return 94 + calendarExpandedHeight
-            case .fullReveal: return 380 + calendarExpandedHeight
-            }
-        }()
-        return baseOffset
+    private func foredropOffset(for geometryHeight: CGFloat) -> CGFloat {
+        let metrics = HomeForedropLayoutMetrics(
+            calendarExpandedHeight: calendarExpandedHeight,
+            analyticsSectionHeight: analyticsSectionHeight,
+            geometryHeight: geometryHeight
+        )
+        return metrics.offset(for: foredropAnchor)
+    }
+
+    private func chartCardsViewportHeight(for geometry: GeometryProxy) -> CGFloat {
+        min(max(geometry.size.height * 0.38, 240), 420)
     }
 
     var body: some View {
@@ -80,9 +133,10 @@ struct HomeBackdropForedropRootView: View {
                     backdropLayer(geometry: geometry)
 
                     foredropLayer(geometry: geometry)
-                        .offset(y: foredropOffset)
+                        .offset(y: foredropOffset(for: geometry.size.height))
                         .animation(TaskerAnimation.snappy, value: foredropAnchor)
                         .animation(TaskerAnimation.snappy, value: calendarExpandedHeight)
+                        .animation(TaskerAnimation.snappy, value: analyticsSectionHeight)
                         .gesture(
                             DragGesture(minimumDistance: 8)
                                 .onEnded { value in
@@ -239,7 +293,18 @@ struct HomeBackdropForedropRootView: View {
                                 .foregroundColor(Color.tasker.textPrimary)
 
                             ChartCardsScrollView(referenceDate: viewModel.selectedDate)
-                                .frame(height: 260)
+                                .frame(height: chartCardsViewportHeight(for: geometry))
+                        }
+                        .background(
+                            GeometryReader { analyticsGeo in
+                                Color.clear.preference(
+                                    key: AnalyticsSectionHeightPreferenceKey.self,
+                                    value: analyticsGeo.size.height
+                                )
+                            }
+                        )
+                        .onPreferenceChange(AnalyticsSectionHeightPreferenceKey.self) { height in
+                            analyticsSectionHeight = max(0, height)
                         }
                         .opacity(foredropAnchor == .fullReveal ? 1 : 0.001)
                     }
@@ -348,13 +413,35 @@ struct HomeBackdropForedropRootView: View {
             )
         )
         .accessibilityIdentifier("home.foredrop.surface")
+        .accessibilityValue(foredropAnchor.accessibilityValue)
     }
 
     private var handleBar: some View {
-        Capsule()
-            .fill(Color.tasker.textQuaternary.opacity(0.4))
-            .frame(width: 44, height: 5)
-            .accessibilityIdentifier("home.foredrop.handle")
+        VStack(spacing: spacing.s4) {
+            Capsule()
+                .fill(Color.tasker.textQuaternary.opacity(0.4))
+                .frame(width: 44, height: 5)
+                .accessibilityIdentifier("home.foredrop.handle")
+
+            if foredropAnchor == .fullReveal {
+                Button {
+                    withAnimation(TaskerAnimation.snappy) {
+                        foredropAnchor = .collapsed
+                    }
+                } label: {
+                    HStack(spacing: spacing.s4) {
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("collapse")
+                            .font(.tasker(.caption2))
+                    }
+                    .foregroundColor(Color.tasker.textQuaternary.opacity(0.85))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("home.foredrop.collapseHint")
+                .accessibilityLabel("Collapse analytics")
+            }
+        }
     }
 
     private var homeHeader: some View {
