@@ -406,6 +406,14 @@ class AddTaskPage {
         }
     }
 
+    /// Submit the add-task form via keyboard Done from title field.
+    func submitTitleWithKeyboardDone(times: Int = 1) {
+        titleField.tap()
+        for _ in 0..<max(1, times) {
+            titleField.typeText("\n")
+        }
+    }
+
     // MARK: - Complex Actions (Fluent API)
 
     /// Create task with all details (fluent interface)

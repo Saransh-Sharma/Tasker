@@ -38,6 +38,7 @@ enum AccessibilityIdentifiers {
         static let focusDropZone = "home.focus.dropzone"
         static let listDropZone = "home.list.dropzone"
         static let chartView = "home.chartView"
+        static let radarChartView = "home.radarChartView"
         static let navXpPieChart = "home.navXpPieChart"
         static let taskListScrollView = "home.taskList.scrollView"
 

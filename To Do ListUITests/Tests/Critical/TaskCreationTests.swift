@@ -2,7 +2,7 @@
 //  TaskCreationTests.swift
 //  To Do ListUITests
 //
-//  Critical Tests: Task Creation (8 tests)
+//  Critical Tests: Task Creation
 //  Tests the core functionality of creating tasks with various properties and validation
 //
 
@@ -63,6 +63,7 @@ class TaskCreationTests: BaseUITest {
         addTaskPage.enterTitle(taskTitle)
         addTaskPage.selectTaskType(.evening)
         addTaskPage.tapSave()
+        XCTAssertTrue(addTaskPage.waitForDismissal(timeout: 3), "Add Task screen should dismiss after Save")
 
         // Wait for task to appear
         XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should appear in task list")
@@ -71,6 +72,54 @@ class TaskCreationTests: BaseUITest {
         XCTAssertTrue(homePage.verifyTaskExists(withTitle: taskTitle), "Evening task should exist in task list")
 
         takeScreenshot(named: "evening_task_minimal_info")
+    }
+
+    // MARK: - Regression: Keyboard Done Creates Task and Dismisses
+
+    func testKeyboardDoneOnTitleFieldCreatesTaskAndDismissesSheet() throws {
+        let taskTitle = "Keyboard Done \(UUID().uuidString.prefix(8))"
+
+        let addTaskPage = homePage.tapAddTask()
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add Task screen should appear")
+
+        addTaskPage.enterTitle(taskTitle)
+        addTaskPage.submitTitleWithKeyboardDone()
+
+        XCTAssertTrue(addTaskPage.waitForDismissal(timeout: 3), "Add Task screen should dismiss on keyboard Done")
+        XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should appear after keyboard Done")
+        XCTAssertTrue(homePage.verifyTaskExists(withTitle: taskTitle), "Task should exist after keyboard Done")
+    }
+
+    // MARK: - Regression: Empty Title + Keyboard Done Stays on Add Sheet
+
+    func testKeyboardDoneWithEmptyTitleDoesNotDismissSheet() throws {
+        let addTaskPage = homePage.tapAddTask()
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add Task screen should appear")
+
+        addTaskPage.submitTitleWithKeyboardDone()
+
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(timeout: 2), "Add Task screen should remain visible")
+        XCTAssertFalse(addTaskPage.waitForDismissal(timeout: 1), "Add Task screen should not dismiss with empty title")
+        XCTAssertTrue(addTaskPage.verifySaveButtonDisabled(), "Save button should stay disabled for empty title")
+    }
+
+    // MARK: - Regression: Duplicate Submit Guard While Loading
+
+    func testKeyboardDoneRapidSubmitCreatesOnlyOneTask() throws {
+        let taskTitle = "Rapid Submit \(UUID().uuidString.prefix(8))"
+
+        let addTaskPage = homePage.tapAddTask()
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add Task screen should appear")
+
+        addTaskPage.enterTitle(taskTitle)
+        addTaskPage.submitTitleWithKeyboardDone(times: 3)
+
+        XCTAssertTrue(addTaskPage.waitForDismissal(timeout: 3), "Add Task screen should dismiss after first valid submit")
+        XCTAssertTrue(homePage.waitForTask(withTitle: taskTitle, timeout: 5), "Task should appear after rapid submit")
+
+        let exactTitlePredicate = NSPredicate(format: "label == %@", taskTitle)
+        let createdRows = app.staticTexts.matching(exactTitlePredicate).count
+        XCTAssertEqual(createdRows, 1, "Rapid keyboard submits should create exactly one task row")
     }
 
     // MARK: - Test 3: Validate Empty Title Error

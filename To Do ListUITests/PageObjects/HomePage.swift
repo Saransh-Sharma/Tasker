@@ -135,6 +135,10 @@ class HomePage {
         return app.otherElements[AccessibilityIdentifiers.Home.chartView]
     }
 
+    var radarChartView: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.radarChartView]
+    }
+
     var navXpPieChart: XCUIElement {
         return app.otherElements[AccessibilityIdentifiers.Home.navXpPieChart]
     }
