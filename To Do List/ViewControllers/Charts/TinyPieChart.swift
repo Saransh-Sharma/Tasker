@@ -125,66 +125,65 @@ extension HomeViewController {
     }
     
     //---------- SETUP: CHART
-    
+
     /// Updates tiny pie chart with real task data based on priority breakdown
     func updateTinyPieChartData() {
         if self.shouldHideData {
             tinyPieChartView.data = nil
             return
         }
-        
+
         logDebug("🥧 Updating tiny pie chart data for date: \(dateForTheView)")
-        
+
         // Get priority breakdown for current view date
         let breakdown = priorityBreakdown(for: dateForTheView)
         logDebug("📊 Tiny chart priority breakdown: \(breakdown)")
-        
-        // Build entries using chart weights from config
-        let entries: [PieChartDataEntry] = [
-            (Int32(1), "None"),    // None priority
-            (Int32(2), "Low"),     // Low priority
-            (Int32(3), "High"),    // High priority
-            (Int32(4), "Max")      // Max priority
-        ].compactMap { (priorityRaw, label) in
+
+        // Build entries with priority info for color mapping (no labels to prevent rendering)
+        typealias PriorityEntry = (entry: PieChartDataEntry, priority: Int32)
+        let priorityEntries: [PriorityEntry] = [Int32(1), Int32(2), Int32(3), Int32(4)].compactMap { priorityRaw in
             let rawCount = Double(breakdown[priorityRaw] ?? 0)
             let weight = TaskPriorityConfig.chartWeightForPriority(priorityRaw)
             let weightedValue = rawCount * weight
-            return weightedValue > 0 ? PieChartDataEntry(value: weightedValue, label: label) : nil
+            // Note: No label to prevent any text from rendering
+            guard weightedValue > 0 else { return nil }
+            return PriorityEntry(entry: PieChartDataEntry(value: weightedValue), priority: priorityRaw)
         }
-        
+
         // If no data, show empty chart
-        guard !entries.isEmpty else {
+        guard !priorityEntries.isEmpty else {
             tinyPieChartView.data = nil
             return
         }
-        
-        // Build colors array matching entries
+
+        // Map colors using priority values directly
         var sliceColors: [UIColor] = []
-        for entry in entries {
-            switch entry.label {
-            case "None":
+        for priorityEntry in priorityEntries {
+            switch priorityEntry.priority {
+            case 1:
                 sliceColors.append(TaskPriorityConfig.Priority.none.color)
-            case "Low":
+            case 2:
                 sliceColors.append(TaskPriorityConfig.Priority.low.color)
-            case "High":
+            case 3:
                 sliceColors.append(TaskPriorityConfig.Priority.high.color)
-            case "Max":
+            case 4:
                 sliceColors.append(TaskPriorityConfig.Priority.max.color)
             default:
                 sliceColors.append(todoColors.accentMuted)
             }
         }
-        
+
+        let entries = priorityEntries.map { $0.entry }
         let set = PieChartDataSet(entries: entries, label: "")
         set.drawIconsEnabled = false
         set.drawValuesEnabled = false
         set.sliceSpace = 2
         set.colors = sliceColors
-        
+
         let data = PieChartData(dataSet: set)
         tinyPieChartView.drawEntryLabelsEnabled = false
         tinyPieChartView.data = data
-        
+
         logDebug("✅ Tiny pie chart updated with \(entries.count) slices")
     }
     
