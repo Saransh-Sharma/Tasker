@@ -18,117 +18,246 @@ struct HomeGlassBottomBar: View {
 
     var body: some View {
         HStack(spacing: state.isMinimized ? spacing.s8 : spacing.s12) {
-            actionButton(
-                iconAssetName: "charts",
-                item: .charts,
-                accessibilityID: "home.bottomBar.charts",
-                accessibilityLabel: "Charts",
-                action: onChartsToggle
+            LiquidToolCluster(
+                selectedItem: state.selectedItem,
+                isMinimized: state.isMinimized,
+                onTap: handleToolTap
             )
 
-            actionButton(
-                iconAssetName: "search",
-                item: .search,
-                accessibilityID: "home.searchButton",
-                accessibilityLabel: "Search",
-                action: onSearch
-            )
+            Spacer(minLength: spacing.s2)
 
-            Spacer(minLength: spacing.s4)
-
-            addButton
-
-            Spacer(minLength: spacing.s4)
-
-            actionButton(
-                iconAssetName: "chat",
-                item: .chat,
-                accessibilityID: "home.chatButton",
-                accessibilityLabel: "Chat",
-                action: onChat
+            LiquidAddTaskCTA(
+                isMinimized: state.isMinimized,
+                onTap: handleCreateTap
             )
         }
         .padding(.horizontal, state.isMinimized ? spacing.s12 : spacing.s16)
         .padding(.vertical, state.isMinimized ? spacing.s8 : spacing.s12)
-        .background(containerBackground)
         .accessibilityIdentifier("home.bottomBar")
         .accessibilityValue(state.isMinimized ? "minimized" : "expanded")
     }
 
-    private func actionButton(
-        iconAssetName: String,
-        item: HomeBottomBarItem,
-        accessibilityID: String,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
+    private func handleToolTap(_ item: HomeBottomBarItem) {
+        TaskerFeedback.selection()
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
             state.select(item)
-            action()
-        } label: {
-            Image(iconAssetName)
-                .resizable()
-                .scaledToFit()
-                .frame(width: state.isMinimized ? 20 : 22, height: state.isMinimized ? 20 : 22)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-            .background(
-                Capsule(style: .continuous)
-                    .fill(state.selectedItem == item ? Color.tasker.accentPrimary.opacity(0.18) : .clear)
-            )
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(accessibilityID)
-        .accessibilityLabel(accessibilityLabel)
+
+        switch item {
+        case .charts:
+            onChartsToggle()
+        case .search:
+            onSearch()
+        case .chat:
+            onChat()
+        case .create:
+            break
+        }
     }
 
-    private var addButton: some View {
-        Button {
+    private func handleCreateTap() {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
             state.select(.create)
-            onCreate()
+        }
+        onCreate()
+    }
+}
+
+private struct BottomToolDescriptor: Identifiable {
+    let item: HomeBottomBarItem
+    let symbolName: String
+    let accessibilityID: String
+    let accessibilityLabel: String
+
+    var id: String { accessibilityID }
+}
+
+private struct LiquidToolCluster: View {
+    private static let tools: [BottomToolDescriptor] = [
+        BottomToolDescriptor(
+            item: .search,
+            symbolName: "magnifyingglass",
+            accessibilityID: "home.searchButton",
+            accessibilityLabel: "Search"
+        ),
+        BottomToolDescriptor(
+            item: .charts,
+            symbolName: "chart.bar.xaxis",
+            accessibilityID: "home.bottomBar.charts",
+            accessibilityLabel: "Analytics"
+        ),
+        BottomToolDescriptor(
+            item: .chat,
+            symbolName: "sparkles",
+            accessibilityID: "home.chatButton",
+            accessibilityLabel: "Chat"
+        )
+    ]
+
+    let selectedItem: HomeBottomBarItem?
+    let isMinimized: Bool
+    let onTap: (HomeBottomBarItem) -> Void
+
+    @Namespace private var selectionNamespace
+    @State private var pressedItem: HomeBottomBarItem?
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var buttonWidth: CGFloat { isMinimized ? 46 : 54 }
+    private var buttonHeight: CGFloat { isMinimized ? 42 : 44 }
+    private var clusterHeight: CGFloat { isMinimized ? 52 : 56 }
+
+    var body: some View {
+        LiquidGlassSurface(shape: Capsule(style: .continuous), emphasis: .normal) {
+            HStack(spacing: isMinimized ? 2 : 4) {
+                ForEach(Self.tools) { tool in
+                    ZStack {
+                        if selectedItem == tool.item {
+                            selectionHighlight
+                                .matchedGeometryEffect(id: "home.bottomBar.selection", in: selectionNamespace)
+                        }
+
+                        Button {
+                            onTap(tool.item)
+                        } label: {
+                            Image(systemName: tool.symbolName)
+                                .font(.system(size: isMinimized ? 16 : 18, weight: selectedItem == tool.item ? .bold : .semibold))
+                                .frame(width: 44, height: 44)
+                                .foregroundStyle(selectedItem == tool.item ? Color.tasker.textPrimary : Color.tasker.textSecondary)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier(tool.accessibilityID)
+                        .accessibilityLabel(tool.accessibilityLabel)
+                        .simultaneousGesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { _ in
+                                    if pressedItem != tool.item {
+                                        pressedItem = tool.item
+                                    }
+                                }
+                                .onEnded { _ in
+                                    pressedItem = nil
+                                }
+                        )
+                    }
+                    .frame(width: buttonWidth, height: buttonHeight)
+                    .scaleEffect(pressedItem == tool.item ? 0.96 : 1.0)
+                    .animation(.spring(response: 0.22, dampingFraction: 0.85), value: pressedItem == tool.item)
+                }
+            }
+            .padding(.horizontal, isMinimized ? 6 : 8)
+            .padding(.vertical, isMinimized ? 5 : 6)
+        }
+        .frame(height: clusterHeight)
+    }
+
+    private var selectionHighlight: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(Color.tasker.textPrimary.opacity(colorScheme == .dark ? 0.14 : 0.10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.08), lineWidth: 1)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(colorScheme == .dark ? 0.14 : 0.10),
+                                .clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .blendMode(.screen)
+            )
+            .frame(width: buttonWidth, height: buttonHeight)
+    }
+}
+
+private struct LiquidAddTaskCTA: View {
+    let isMinimized: Bool
+    let onTap: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var isPressed = false
+    @State private var sheenOffset: CGFloat = -1.0
+    @State private var showSheen = false
+
+    var body: some View {
+        Button {
+            TaskerFeedback.medium()
+            triggerSheenIfNeeded()
+            onTap()
         } label: {
-            Image(systemName: "plus")
-                .font(.system(size: state.isMinimized ? 18 : 20, weight: .bold))
-                .frame(width: state.isMinimized ? 44 : 48, height: state.isMinimized ? 44 : 48)
-                .foregroundColor(Color.tasker.accentOnPrimary)
-                .background(addButtonBackground)
+            LiquidGlassSurface(shape: Capsule(style: .continuous), emphasis: .strong) {
+                Image(systemName: "plus")
+                    .font(.system(size: isMinimized ? 17 : 18, weight: .bold))
+                .foregroundStyle(Color.tasker.textPrimary)
+                .frame(width: isMinimized ? 48 : 56)
+                .frame(height: isMinimized ? 48 : 56)
+                .overlay(
+                    sheenOverlay
+                )
+            }
         }
         .buttonStyle(.plain)
+        .scaleEffect(isPressed ? 0.975 : 1.0)
+        .brightness(isPressed ? 0.03 : 0)
+        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: isPressed)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    isPressed = true
+                }
+                .onEnded { _ in
+                    isPressed = false
+                }
+        )
         .accessibilityIdentifier("home.addTaskButton")
+        .accessibilityLabel("Add Task")
     }
 
     @ViewBuilder
-    private var addButtonBackground: some View {
-        if #available(iOS 26.0, *) {
-            Circle()
-                .fill(Color.tasker.accentPrimary)
-                .glassEffect()
-                .shadow(color: .black.opacity(0.2), radius: 10, y: 4)
-        } else {
-            Circle()
-                .fill(Color.tasker.accentPrimary)
-                .shadow(color: .black.opacity(0.2), radius: 10, y: 4)
+    private var sheenOverlay: some View {
+        if showSheen && !reduceMotion {
+            GeometryReader { proxy in
+                Capsule(style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                .clear,
+                                Color.white.opacity(colorScheme == .dark ? 0.16 : 0.10),
+                                .clear
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: proxy.size.width * 0.70)
+                    .offset(x: sheenOffset * proxy.size.width)
+                    .blendMode(.screen)
+            }
+            .clipShape(Capsule(style: .continuous))
+            .allowsHitTesting(false)
         }
     }
 
-    @ViewBuilder
-    private var containerBackground: some View {
-        if #available(iOS 26.0, *) {
-            Capsule(style: .continuous)
-                .fill(Color.tasker.surfacePrimary.opacity(0.88))
-                .overlay(
-                    Capsule(style: .continuous)
-                        .stroke(Color.tasker.textPrimary.opacity(0.14), lineWidth: 0.8)
-                )
-                .glassEffect()
-        } else {
-            Capsule(style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule(style: .continuous)
-                        .stroke(Color.white.opacity(0.22), lineWidth: 0.8)
-                )
-                .shadow(color: .black.opacity(0.16), radius: 10, y: 4)
+    private func triggerSheenIfNeeded() {
+        guard !reduceMotion else { return }
+
+        showSheen = true
+        sheenOffset = -0.8
+
+        withAnimation(.easeInOut(duration: 0.35)) {
+            sheenOffset = 0.8
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            showSheen = false
         }
     }
 }
