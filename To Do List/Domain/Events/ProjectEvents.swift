@@ -33,10 +33,12 @@ public struct ProjectCreatedEvent: SerializableDomainEvent {
         color: ProjectColor,
         icon: ProjectIcon,
         parentProjectId: UUID? = nil,
-        userId: UUID? = nil
+        userId: UUID? = nil,
+        eventId: UUID = UUID(),
+        occurredAt: Date = Date()
     ) {
-        self.eventId = UUID()
-        self.occurredAt = Date()
+        self.eventId = eventId
+        self.occurredAt = occurredAt
         self.aggregateId = projectId
         self.userId = userId
         self.projectName = projectName
@@ -89,9 +91,10 @@ public struct ProjectCreatedEvent: SerializableDomainEvent {
             return nil
         }
         
-        let userId = dict["userId"] as? String != nil ? UUID(uuidString: dict["userId"] as! String) : nil
+        let occurredAt = Date(timeIntervalSince1970: occurredAtInterval)
+        let userId = (dict["userId"] as? String).flatMap(UUID.init(uuidString:))
         let projectDescription = dict["projectDescription"] as? String
-        let parentProjectId = dict["parentProjectId"] as? String != nil ? UUID(uuidString: dict["parentProjectId"] as! String) : nil
+        let parentProjectId = (dict["parentProjectId"] as? String).flatMap(UUID.init(uuidString:))
         
         return ProjectCreatedEvent(
             projectId: aggregateId,
@@ -100,7 +103,9 @@ public struct ProjectCreatedEvent: SerializableDomainEvent {
             color: color,
             icon: icon,
             parentProjectId: parentProjectId,
-            userId: userId
+            userId: userId,
+            eventId: eventId,
+            occurredAt: occurredAt
         )
     }
 }
@@ -125,10 +130,12 @@ public struct ProjectUpdatedEvent: SerializableDomainEvent {
         changedFields: [String],
         oldValues: [String: Any],
         newValues: [String: Any],
-        userId: UUID? = nil
+        userId: UUID? = nil,
+        eventId: UUID = UUID(),
+        occurredAt: Date = Date()
     ) {
-        self.eventId = UUID()
-        self.occurredAt = Date()
+        self.eventId = eventId
+        self.occurredAt = occurredAt
         self.aggregateId = projectId
         self.userId = userId
         self.changedFields = changedFields
@@ -171,14 +178,17 @@ public struct ProjectUpdatedEvent: SerializableDomainEvent {
             return nil
         }
         
-        let userId = dict["userId"] as? String != nil ? UUID(uuidString: dict["userId"] as! String) : nil
+        let occurredAt = Date(timeIntervalSince1970: occurredAtInterval)
+        let userId = (dict["userId"] as? String).flatMap(UUID.init(uuidString:))
         
         return ProjectUpdatedEvent(
             projectId: aggregateId,
             changedFields: changedFields,
             oldValues: oldValues,
             newValues: newValues,
-            userId: userId
+            userId: userId,
+            eventId: eventId,
+            occurredAt: occurredAt
         )
     }
 }
@@ -203,10 +213,12 @@ public struct ProjectArchivedEvent: SerializableDomainEvent {
         projectName: String,
         reason: String? = nil,
         taskCount: Int = 0,
-        userId: UUID? = nil
+        userId: UUID? = nil,
+        eventId: UUID = UUID(),
+        occurredAt: Date = Date()
     ) {
-        self.eventId = UUID()
-        self.occurredAt = Date()
+        self.eventId = eventId
+        self.occurredAt = occurredAt
         self.aggregateId = projectId
         self.userId = userId
         self.projectName = projectName
@@ -251,7 +263,8 @@ public struct ProjectArchivedEvent: SerializableDomainEvent {
             return nil
         }
         
-        let userId = dict["userId"] as? String != nil ? UUID(uuidString: dict["userId"] as! String) : nil
+        let occurredAt = Date(timeIntervalSince1970: occurredAtInterval)
+        let userId = (dict["userId"] as? String).flatMap(UUID.init(uuidString:))
         let reason = dict["reason"] as? String
         
         return ProjectArchivedEvent(
@@ -259,7 +272,9 @@ public struct ProjectArchivedEvent: SerializableDomainEvent {
             projectName: projectName,
             reason: reason,
             taskCount: taskCount,
-            userId: userId
+            userId: userId,
+            eventId: eventId,
+            occurredAt: occurredAt
         )
     }
 }
@@ -284,10 +299,12 @@ public struct ProjectDeletedEvent: SerializableDomainEvent {
         projectName: String,
         reason: String? = nil,
         taskCount: Int = 0,
-        userId: UUID? = nil
+        userId: UUID? = nil,
+        eventId: UUID = UUID(),
+        occurredAt: Date = Date()
     ) {
-        self.eventId = UUID()
-        self.occurredAt = Date()
+        self.eventId = eventId
+        self.occurredAt = occurredAt
         self.aggregateId = projectId
         self.userId = userId
         self.projectName = projectName
@@ -332,7 +349,8 @@ public struct ProjectDeletedEvent: SerializableDomainEvent {
             return nil
         }
         
-        let userId = dict["userId"] as? String != nil ? UUID(uuidString: dict["userId"] as! String) : nil
+        let occurredAt = Date(timeIntervalSince1970: occurredAtInterval)
+        let userId = (dict["userId"] as? String).flatMap(UUID.init(uuidString:))
         let reason = dict["reason"] as? String
         
         return ProjectDeletedEvent(
@@ -340,7 +358,9 @@ public struct ProjectDeletedEvent: SerializableDomainEvent {
             projectName: projectName,
             reason: reason,
             taskCount: taskCount,
-            userId: userId
+            userId: userId,
+            eventId: eventId,
+            occurredAt: occurredAt
         )
     }
 }

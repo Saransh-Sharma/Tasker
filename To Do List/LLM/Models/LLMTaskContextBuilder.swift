@@ -191,7 +191,7 @@ struct LLMTaskContextBuilder {
             if let completed = task.dateCompleted as Date? {
                 dict["completionDate"] = dateFormatter.string(from: completed)
             }
-            if let notes = task.taskDetails, !(notes.isEmpty ?? true) {
+            if let notes = task.taskDetails, !notes.isEmpty {
                 dict["notes"] = notes
             }
             return dict
@@ -208,7 +208,7 @@ struct LLMTaskContextBuilder {
             if let due = task.dueDate as Date? {
                 dict["dueDate"] = dateFormatter.string(from: due)
             }
-            if let notes = task.taskDetails, !(notes.isEmpty ?? true) {
+            if let notes = task.taskDetails, !notes.isEmpty {
                 dict["notes"] = notes
             }
             return dict
@@ -265,7 +265,7 @@ struct LLMTaskContextBuilder {
                 if let completed = task.dateCompleted as Date? {
                     dict["completionDate"] = dateFormatter.string(from: completed)
                 }
-                if let notes = task.taskDetails, !(notes.isEmpty ?? true) {
+                if let notes = task.taskDetails, !notes.isEmpty {
                     dict["notes"] = notes
                 }
                 return dict

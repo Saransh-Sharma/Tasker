@@ -1,25 +1,20 @@
-# fn-2.4 Add TaskPriority validation in GetTaskStatisticsUseCase
+# fn-2.4 Verification: unit/UI/visual regression coverage for redesign
 
 ## Description
-TBD
-
+Implement and run the validation suite for the redesign: unit tests for ranking/progress/metadata, UI tests for cockpit/focus/completed/swipe flows, and visual regression checks for compact density and readability. This task closes functional and UX regression risk before rollout.
 ## Acceptance
-- [ ] Validate rawValue before using TaskPriority(rawValue:)
-- [ ] Skip or fail on invalid priorities instead of mapping to .none
-- [ ] Optionally log invalid raw values
+- [ ] Add unit tests for `HomeViewModel` focus ranking determinism across mixed overdue/due/priority/time datasets.
+- [ ] Add unit tests for `progressState` updates on complete/reopen transitions.
+- [ ] Add unit tests for compact row metadata formatting outputs.
+- [ ] Add/update UI tests validating cockpit XP text updates, focus strip visibility/order, completed collapse/expand, and swipe behaviors.
+- [ ] Add visual/snapshot regression checks for compact row height, completed contrast readability, and long-text clipping safety.
+- [ ] Run project test/build commands and record evidence in flow task done summaries.
 
 
 ## Done summary
-- Added TaskPriorityConfig.isValidPriority() check before creating TaskPriority
-- Invalid raw values are now skipped with a warning log instead of silently mapping to .none
-- Prevents corrupted/unknown priority codes from polluting statistics
+TBD
 
-**Why:**
-- Silently mapping invalid priorities to .none could hide data corruption issues
-
-**Verification:**
-- Code review confirms validation is applied before TaskPriority initialization
 ## Evidence
-- Commits: 8ac4fbbb35a6718de9645ea152319d0db1bc1cc6
+- Commits:
 - Tests:
 - PRs:

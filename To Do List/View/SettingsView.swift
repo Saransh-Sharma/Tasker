@@ -77,7 +77,7 @@ struct SettingsView: View {
                 , displayMode: .inline)
             .navigationBarItems(trailing:
                 Button(action: {
-                    print("Done button tapped") // Keep for debugging if you want
+                    logDebug("Done button tapped") // Keep for debugging if you want
                     self.presentationMode.wrappedValue.dismiss() // Add this line
                 }) {
                     Text("Done")
@@ -99,7 +99,7 @@ struct SettingsView: View {
             // For example, accessing parent UIViewController's navigationItem.
             // However, direct SwiftUI styling is preferred if possible.
         }
-        .onChange(of: UIScreen.main.traitCollection.userInterfaceStyle) { newStyle in
+        .onChange(of: UIScreen.main.traitCollection.userInterfaceStyle) { _, newStyle in
             isDarkMode = newStyle == .dark
         }
     }

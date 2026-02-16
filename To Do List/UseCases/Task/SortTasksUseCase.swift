@@ -363,8 +363,8 @@ public final class SortTasksUseCase {
             return order == .ascending ? comparison : invertComparison(comparison)
             
         case .complexity(let order):
-            let complexity1 = task1.complexityScore ?? 0
-            let complexity2 = task2.complexityScore ?? 0
+            let complexity1 = task1.complexityScore
+            let complexity2 = task2.complexityScore
             let comparison = complexity1 < complexity2 ? ComparisonResult.orderedAscending :
                            complexity1 > complexity2 ? ComparisonResult.orderedDescending : ComparisonResult.orderedSame
             return order == .ascending ? comparison : invertComparison(comparison)
@@ -390,10 +390,6 @@ public final class SortTasksUseCase {
     }
     
     private func determineSmartSortCriteria(for context: SortContext) -> SortCriteria {
-        let now = Date()
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: now)
-        
         switch context {
         case .general:
             // General smart sorting: priority first, then due date

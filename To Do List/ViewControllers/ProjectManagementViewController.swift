@@ -31,7 +31,7 @@ class ProjectManagementViewController: UIViewController {
                 try context.save()
                 return true
             } catch {
-                print("Error saving context: \(error)")
+                logError("Error saving context: \(error)")
                 return false
             }
         }
@@ -202,7 +202,7 @@ class ProjectManagementViewController: UIViewController {
                         // Project already exists - ensure it has UUID and use it
                         if existingProject.projectID == nil {
                             existingProject.projectID = UUID()
-                            print("✅ Assigned UUID to existing project: \(projectName)")
+                            logDebug("✅ Assigned UUID to existing project: \(projectName)")
                             try context.save()
                         }
                         self.showError(message: "Project '\(projectName)' already exists")
@@ -218,13 +218,13 @@ class ProjectManagementViewController: UIViewController {
                     newProject.createdDate = Date()
                     newProject.modifiedDate = Date()
 
-                    print("🆕 Creating project '\(projectName)' with UUID: \(generatedUUID.uuidString)")
+                    logDebug("🆕 Creating project '\(projectName)' with UUID: \(generatedUUID.uuidString)")
 
                     try context.save()
                     self.showSuccess(message: "Project created")
                     self.loadProjects()
                 } catch {
-                    print("❌ Failed to create project: \(error)")
+                    logError(" Failed to create project: \(error)")
                     self.showError(message: "Failed to create project: \(error.localizedDescription)")
                 }
             }

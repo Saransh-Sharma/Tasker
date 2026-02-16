@@ -33,10 +33,12 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
         taskPriority: TaskPriority,
         projectName: String?,
         dueDate: Date?,
-        userId: UUID? = nil
+        userId: UUID? = nil,
+        eventId: UUID = UUID(),
+        occurredAt: Date = Date()
     ) {
-        self.eventId = UUID()
-        self.occurredAt = Date()
+        self.eventId = eventId
+        self.occurredAt = occurredAt
         self.aggregateId = taskId
         self.userId = userId
         self.taskName = taskName
@@ -93,9 +95,9 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
         let taskType = TaskType(rawValue: taskTypeRaw)
         let taskPriority = TaskPriority(rawValue: taskPriorityRaw)
         
-        let userId = dict["userId"] as? String != nil ? UUID(uuidString: dict["userId"] as! String) : nil
+        let userId = (dict["userId"] as? String).flatMap(UUID.init(uuidString:))
         let projectName = dict["projectName"] as? String
-        let dueDate = dict["dueDate"] as? TimeInterval != nil ? Date(timeIntervalSince1970: dict["dueDate"] as! TimeInterval) : nil
+        let dueDate = (dict["dueDate"] as? TimeInterval).map { Date(timeIntervalSince1970: $0) }
         
         return TaskCreatedEvent(
             taskId: aggregateId,
@@ -104,7 +106,9 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
             taskPriority: taskPriority,
             projectName: projectName,
             dueDate: dueDate,
-            userId: userId
+            userId: userId,
+            eventId: eventId,
+            occurredAt: occurredAt
         )
     }
 }
@@ -131,10 +135,12 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
         taskPriority: TaskPriority,
         scoreEarned: Int,
         completionTime: TimeInterval? = nil,
-        userId: UUID? = nil
+        userId: UUID? = nil,
+        eventId: UUID = UUID(),
+        occurredAt: Date = Date()
     ) {
-        self.eventId = UUID()
-        self.occurredAt = Date()
+        self.eventId = eventId
+        self.occurredAt = occurredAt
         self.aggregateId = taskId
         self.userId = userId
         self.taskName = taskName
@@ -184,7 +190,7 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
         
         let occurredAt = Date(timeIntervalSince1970: occurredAtInterval)
         let taskPriority = TaskPriority(rawValue: taskPriorityRaw)
-        let userId = dict["userId"] as? String != nil ? UUID(uuidString: dict["userId"] as! String) : nil
+        let userId = (dict["userId"] as? String).flatMap(UUID.init(uuidString:))
         let completionTime = dict["completionTime"] as? TimeInterval
         
         return TaskCompletedEvent(
@@ -193,7 +199,9 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
             taskPriority: taskPriority,
             scoreEarned: scoreEarned,
             completionTime: completionTime,
-            userId: userId
+            userId: userId,
+            eventId: eventId,
+            occurredAt: occurredAt
         )
     }
 }
@@ -218,10 +226,12 @@ public struct TaskUpdatedEvent: SerializableDomainEvent {
         changedFields: [String],
         oldValues: [String: Any],
         newValues: [String: Any],
-        userId: UUID? = nil
+        userId: UUID? = nil,
+        eventId: UUID = UUID(),
+        occurredAt: Date = Date()
     ) {
-        self.eventId = UUID()
-        self.occurredAt = Date()
+        self.eventId = eventId
+        self.occurredAt = occurredAt
         self.aggregateId = taskId
         self.userId = userId
         self.changedFields = changedFields
@@ -264,14 +274,17 @@ public struct TaskUpdatedEvent: SerializableDomainEvent {
             return nil
         }
         
-        let userId = dict["userId"] as? String != nil ? UUID(uuidString: dict["userId"] as! String) : nil
+        let occurredAt = Date(timeIntervalSince1970: occurredAtInterval)
+        let userId = (dict["userId"] as? String).flatMap(UUID.init(uuidString:))
         
         return TaskUpdatedEvent(
             taskId: aggregateId,
             changedFields: changedFields,
             oldValues: oldValues,
             newValues: newValues,
-            userId: userId
+            userId: userId,
+            eventId: eventId,
+            occurredAt: occurredAt
         )
     }
 }
@@ -294,10 +307,12 @@ public struct TaskDeletedEvent: SerializableDomainEvent {
         taskId: UUID,
         taskName: String,
         reason: String? = nil,
-        userId: UUID? = nil
+        userId: UUID? = nil,
+        eventId: UUID = UUID(),
+        occurredAt: Date = Date()
     ) {
-        self.eventId = UUID()
-        self.occurredAt = Date()
+        self.eventId = eventId
+        self.occurredAt = occurredAt
         self.aggregateId = taskId
         self.userId = userId
         self.taskName = taskName
@@ -338,14 +353,17 @@ public struct TaskDeletedEvent: SerializableDomainEvent {
             return nil
         }
         
-        let userId = dict["userId"] as? String != nil ? UUID(uuidString: dict["userId"] as! String) : nil
+        let occurredAt = Date(timeIntervalSince1970: occurredAtInterval)
+        let userId = (dict["userId"] as? String).flatMap(UUID.init(uuidString:))
         let reason = dict["reason"] as? String
         
         return TaskDeletedEvent(
             taskId: aggregateId,
             taskName: taskName,
             reason: reason,
-            userId: userId
+            userId: userId,
+            eventId: eventId,
+            occurredAt: occurredAt
         )
     }
 }

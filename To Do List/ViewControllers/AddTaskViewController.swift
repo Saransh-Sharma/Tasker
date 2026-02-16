@@ -83,9 +83,15 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     let eveningLabel = UILabel()
 
     var addTaskTextBox_Material = MDCFilledTextField()
-    let p = ["None", "Low", "High", "Max"] // Used by AddTaskForedropView extension - shortened "Highest" to "Max" to prevent text wrapping
+    let p = TaskPriority.uiOrder.map { $0.displayName }
 
-    var tabsSegmentedControl = UISegmentedControl() // Initialized in AddTaskForedropView extension
+    var tabsSegmentedControl = UISegmentedControl() // Legacy — kept for reference
+
+    // MARK: - New Components (Obsidian & Gems)
+    let metadataRow = AddTaskMetadataRowView()
+    let priorityPicker = AddTaskPriorityPickerView()
+    let inlineProjectCreator = AddTaskInlineProjectCreatorView()
+    var alertReminderTime: Date?
 
     var todoColors: TaskerColorTokens {
         TaskerThemeManager.shared.currentTheme.tokens.color
@@ -112,7 +118,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 //    @objc func doneAddTaskAction() {
 //        // This is just a stub that will be called from the extension
 //        // The actual implementation is in AddTaskForedropView.swift extension
-//        print("AddTaskViewController: doneAddTaskAction (stub) called")
+//        logDebug("AddTaskViewController: doneAddTaskAction (stub) called")
 //    }
     
     // Correct: static func for creating the container
@@ -128,37 +134,34 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        print("🚀 AddTaskViewController: viewDidLoad called")
+        logDebug("🚀 AddTaskViewController: viewDidLoad called")
         
         // ACTIVATE CLEAN ARCHITECTURE - Primary dependency injection
-        print("🏗️ Activating AddTask Clean Architecture")
+        logDebug("🏗️ Activating AddTask Clean Architecture")
         // Use legacy injection for now until module issues are resolved
         DependencyContainer.shared.inject(into: self)
         
-        print("🔍 AddTaskViewController: Checking dependency injection state...")
+        logDebug("🔍 AddTaskViewController: Checking dependency injection state...")
         
         // TODO: Re-enable when ViewModel is available
         // Check Clean Architecture vs Legacy injection state
         // if viewModel != nil {
-        //     print("✅ AddTaskViewController: ViewModel properly injected - Using Clean Architecture")
-        //     print("📊 AddTaskViewController: ViewModel type: \(String(describing: type(of: viewModel)))")
+        //     logDebug("✅ AddTaskViewController: ViewModel properly injected - Using Clean Architecture")
+        //     logDebug("📊 AddTaskViewController: ViewModel type: \(String(describing: type(of: viewModel)))")
         //     setupViewModelBindings()
         // } else {
-            print("⚠️ AddTaskViewController: ViewModel is nil - Using Legacy Mode")
         // }
         
         // Check legacy repository injection
         if taskRepository == nil {
-            print("❌ AddTaskViewController: taskRepository is nil in viewDidLoad!")
-            print("🔧 AddTaskViewController: This indicates dependency injection hasn't happened yet")
+            logError(
+                event: "add_task_repository_missing",
+                message: "Task repository missing in viewDidLoad"
+            )
+            logDebug("🔧 AddTaskViewController: This indicates dependency injection hasn't happened yet")
         } else {
-            print("✅ AddTaskViewController: taskRepository is properly injected")
-            print("📊 AddTaskViewController: Repository type: \(String(describing: type(of: taskRepository)))")
-        }
-        
-        print("🤝 AddTaskViewController: Delegate state: \(delegate != nil ? "Set" : "Nil")")
-        if let delegate = delegate {
-            print("📊 AddTaskViewController: Delegate type: \(String(describing: type(of: delegate)))")
+            logDebug("✅ AddTaskViewController: taskRepository is properly injected")
+            logDebug("📊 AddTaskViewController: Repository type: \(String(describing: type(of: taskRepository)))")
         }
         
         // Setup backdrop with navigation bar and calendar
@@ -174,34 +177,40 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // Setup form components
         setupAddTaskTextField()
         setupDescriptionTextField()
-        setupSamplePillBar() // New sample pill bar
-        setupPrioritySC()
-        // OLD: setupDoneButton() - removed, now using navigation bar Done button
+        setupMetadataRow()
+        setupSamplePillBar()
+        setupInlineProjectCreator()
+        setupPriorityPicker()
 
-        // Add components to foredrop stack container in order
-        // Ensure all components are visible and properly configured
-        self.addTaskTextBox_Material.isHidden = false
-        self.addTaskTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
-        self.foredropStackContainer.addArrangedSubview(self.addTaskTextBox_Material)
+        // Add components to foredrop stack in order
+        // 1. Title field
+        addTaskTextBox_Material.isHidden = false
+        addTaskTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(addTaskTextBox_Material)
 
-        self.descriptionTextBox_Material.isHidden = false
-        self.descriptionTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
-        self.foredropStackContainer.addArrangedSubview(self.descriptionTextBox_Material)
+        // 2. Description field
+        descriptionTextBox_Material.isHidden = false
+        descriptionTextBox_Material.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(descriptionTextBox_Material)
 
-        // Add the new sample pill bar after description text field
-        if let samplePillBar = self.samplePillBar {
+        // 3. Metadata row (date / reminder / morning-evening chips)
+        metadataRow.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(metadataRow)
+
+        // 4. Project pill bar
+        if let samplePillBar = samplePillBar {
             samplePillBar.isHidden = false
             samplePillBar.translatesAutoresizingMaskIntoConstraints = false
-            self.foredropStackContainer.addArrangedSubview(samplePillBar)
+            foredropStackContainer.addArrangedSubview(samplePillBar)
         }
 
-        self.tabsSegmentedControl.isHidden = false
-        self.tabsSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
-        self.foredropStackContainer.addArrangedSubview(self.tabsSegmentedControl)
+        // 5. Inline project creator (hidden by default)
+        inlineProjectCreator.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(inlineProjectCreator)
 
-        // OLD: Done button FAB removed - now using navigation bar button
-        // self.fab_doneTask.translatesAutoresizingMaskIntoConstraints = false
-        // self.foredropStackContainer.addArrangedSubview(self.fab_doneTask)
+        // 6. Priority picker (jewel-tone pills)
+        priorityPicker.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(priorityPicker)
 
         addTaskTextBox_Material.accessibilityIdentifier = "addTask.titleField"
         addTaskTextBox_Material.becomeFirstResponder()
@@ -215,6 +224,11 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // Setup foredrop view accessibility
         foredropContainer.accessibilityIdentifier = "addTask.view"
 
+        // Wire delegates for new components
+        metadataRow.delegate = self
+        priorityPicker.delegate = self
+        inlineProjectCreator.delegate = self
+
         TaskerThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -227,7 +241,14 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         super.viewDidLayoutSubviews()
         refreshBackdropGradientForCurrentTheme(deferredIfNeeded: false)
     }
-    
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // Staggered entrance for new components
+        metadataRow.staggerEntrance(baseDelay: 0.1)
+        priorityPicker.staggerEntrance(baseDelay: 0.2)
+    }
+
     // MARK: - Clean Architecture Methods
     
     /// Setup ViewModel bindings for reactive UI
@@ -264,7 +285,6 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         //     }
         //     .store(in: &cancellables)
         // */
-        print("⚠️ setupViewModelBindings disabled - TODO: Re-enable when ViewModel is available")
     }
     
     /// Check if using Clean Architecture or legacy
@@ -287,31 +307,33 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        print("👁️ AddTaskViewController: viewWillAppear called")
+        logDebug("👁️ AddTaskViewController: viewWillAppear called")
         
         // Re-check dependency injection state before view appears
-        print("🔍 AddTaskViewController: Re-checking dependency injection state...")
+        logDebug("🔍 AddTaskViewController: Re-checking dependency injection state...")
         if taskRepository == nil {
-            print("❌ AddTaskViewController: taskRepository is STILL nil in viewWillAppear!")
-            print("🚨 AddTaskViewController: This is a critical issue - attempting fallback injection")
+            logError(
+                event: "add_task_repository_missing",
+                message: "Task repository missing in viewWillAppear"
+            )
             
             // Try to inject dependencies as a fallback
             DependencyContainer.shared.inject(into: self)
             
             if taskRepository != nil {
-                print("✅ AddTaskViewController: Fallback injection successful")
             } else {
-                print("💥 AddTaskViewController: Fallback injection FAILED - this will likely cause crashes")
+                logFatal(
+                    event: "add_task_fallback_injection_failed",
+                    message: "Fallback dependency injection failed in AddTaskViewController"
+                )
             }
         } else {
-            print("✅ AddTaskViewController: taskRepository is properly available")
+            logDebug("✅ AddTaskViewController: taskRepository is properly available")
         }
-        
-        print("🤝 AddTaskViewController: Delegate state: \(delegate != nil ? "Set" : "Nil")")
         
         // Set default project to Inbox
         currenttProjectForAddTaskView = "Inbox"
-        print("📁 AddTaskViewController: Default project set to: \(currenttProjectForAddTaskView)")
+        logDebug("📁 AddTaskViewController: Default project set to: \(currenttProjectForAddTaskView)")
     }
     
     // MARK:- Build Page Header
@@ -322,7 +344,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     // MARK: - UITextFieldDelegate
     // This function is called when you click return key in the text field.
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        print("textFieldShouldReturn called")
+        logDebug("textFieldShouldReturn called")
         textField.resignFirstResponder()
         self.doneAddTaskAction() // Call the action defined in the extension
         return true
@@ -331,7 +353,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         if let oldText = textField.text, let stringRange = Range(range, in: oldText) {
             let newText = oldText.replacingCharacters(in: stringRange, with: string)
-            print("AddTaskViewController: new text is: \(newText)")
+            logDebug("AddTaskViewController: new text is: \(newText)")
             
             if textField == addTaskTextBox_Material {
                 currentTaskInMaterialTextBox = newText
@@ -342,8 +364,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
             let isEmpty = currentTaskInMaterialTextBox.isEmpty
             // Enable/disable navigation bar Done button based on text field content
             navigationItem.rightBarButtonItem?.isEnabled = !isEmpty
-            // Show/hide priority segmented control based on text field content
-            self.tabsSegmentedControl.isHidden = isEmpty
+            // Show/hide priority picker based on text field content
+            self.priorityPicker.isHidden = isEmpty
         }
         return true
     }
@@ -353,7 +375,10 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     func setupNavigationBar() {
         // Setup liquid glass navigation bar with Cancel and Done buttons
         guard let navController = navigationController else {
-            print("⚠️ AddTaskViewController: No navigation controller found")
+            logWarning(
+                event: "add_task_navigation_controller_missing",
+                message: "Navigation controller unavailable during Add Task setup"
+            )
             return
         }
 
@@ -430,14 +455,30 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         samplePillBar = pillBar
         // Don't add to stack container here - it's added in viewDidLoad
     }
-    
+
+    // MARK: - Metadata Row Setup
+    func setupMetadataRow() {
+        metadataRow.updateDate(dateForAddTaskView)
+    }
+
+    // MARK: - Priority Picker Setup
+    func setupPriorityPicker() {
+        priorityPicker.selectedPriority = currentTaskPriority
+    }
+
+    // MARK: - Inline Project Creator Setup
+    func setupInlineProjectCreator() {
+        // Hidden by default — shown when "Add Project" pill is tapped
+    }
+
     /// Load projects via fallback using CoreDataProjectRepository
     /// Called when ViewModel is not available
     private func loadProjectsFallback() {
-        print("⚠️ ViewModel not available, using fallback to load projects")
-
         guard let container = DependencyContainer.shared.persistentContainer else {
-            print("❌ Failed to get persistentContainer for project fallback")
+            logError(
+                event: "add_task_project_fallback_container_missing",
+                message: "Persistent container unavailable for fallback project load"
+            )
             samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
             return
         }
@@ -468,10 +509,8 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
                     // Add all custom projects after Inbox
                     for project in customProjects {
                         self.samplePillBarItems.append(PillButtonBarItem(title: project.name))
-                        print("✅ Added custom project to pill bar: \(project.name)")
+                        logDebug("✅ Added custom project to pill bar: \(project.name)")
                     }
-
-                    print("✅ Loaded \(customProjects.count) custom projects via fallback")
 
                     // Determine which project to select:
                     // - If currenttProjectForAddTaskView is set to a valid project (e.g., after creating a new project), select it
@@ -489,7 +528,11 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
                     self.updatePillBarUI(selectProject: projectToSelect)
 
                 case .failure(let error):
-                    print("❌ Failed to load projects via fallback: \(error)")
+                    logError(
+                        event: "add_task_project_fallback_load_failed",
+                        message: "Fallback project load failed",
+                        fields: ["error": error.localizedDescription]
+                    )
                     // Ensure at least Inbox is present
                     self.samplePillBarItems = []
                     self.samplePillBarItems.append(PillButtonBarItem(title: self.addProjectString))
@@ -521,17 +564,17 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
             if let inboxIndex = items.firstIndex(where: { $0.title.lowercased() == "inbox" }) {
                 _ = bar.selectItem(atIndex: inboxIndex) // Pre-select Inbox
                 self.currenttProjectForAddTaskView = items[inboxIndex].title
-                print("✅ Phase 3: Pre-selected '\(items[inboxIndex].title)' at index \(inboxIndex)")
+                logDebug("✅ Phase 3: Pre-selected '\(items[inboxIndex].title)' at index \(inboxIndex)")
             } else if items.count > 1 {
                 // Fallback to second item if Inbox not found and array has more than 1 element
                 _ = bar.selectItem(atIndex: 1)
                 self.currenttProjectForAddTaskView = items[1].title
-                print("✅ Phase 3: Pre-selected '\(items[1].title)' at index 1")
+                logDebug("✅ Phase 3: Pre-selected '\(items[1].title)' at index 1")
             } else {
                 // Only "Add Project" item exists - select first item
                 _ = bar.selectItem(atIndex: 0)
                 self.currenttProjectForAddTaskView = items[0].title
-                print("✅ Phase 3: Pre-selected '\(items[0].title)' at index 0")
+                logDebug("✅ Phase 3: Pre-selected '\(items[0].title)' at index 0")
             }
         }
 
@@ -564,8 +607,8 @@ extension AddTaskViewController {
             
             // PHASE 3: Check if "Add Project" was tapped
             if item.title == addProjectString {
-                print("🎯 Phase 3: 'Add Project' button tapped")
-                presentAddProjectDialog()
+                logDebug("🎯 'Add Project' button tapped — showing inline creator")
+                inlineProjectCreator.show()
                 
                 // Re-select the previously selected project (don't leave "Add Project" selected)
                 if let previousProjectIndex = samplePillBarItems.firstIndex(where: { $0.title == currenttProjectForAddTaskView }) {
@@ -581,7 +624,7 @@ extension AddTaskViewController {
             }
             
             // Update current project based on pill selection
-            print("Sample pill bar item selected: \(item.title) at index \(index)")
+            logDebug("Sample pill bar item selected: \(item.title) at index \(index)")
             self.currenttProjectForAddTaskView = item.title
             return
         }
@@ -645,7 +688,6 @@ extension AddTaskViewController {
     private func createNewProject(name: String, description: String?) {
         // Use ViewModel to create project (Clean Architecture)
         // guard let viewModel = viewModel else {
-        //     print("⚠️ ViewModel not available")
         //     showProjectError(message: "Failed to create project")
         //     return
         // }
@@ -655,9 +697,7 @@ extension AddTaskViewController {
         //
         // // Use UseCaseCoordinator through ViewModel
         // // Note: AddTaskViewModel should have a createProject method that calls UseCaseCoordinator.manageProjects
-        // print("🆕 Creating project '\(name)' using Clean Architecture")
-
-        print("⚠️ Creating project using legacy method - TODO: Re-enable Clean Architecture when ViewModel is available")
+        // logDebug("🆕 Creating project '\(name)' using Clean Architecture")
 
         // Create request for new project
         let request = CreateProjectRequest(name: name, description: description)
@@ -666,7 +706,10 @@ extension AddTaskViewController {
         // TODO: Add createProject method to AddTaskViewModel
         guard let taskRepo = DependencyContainer.shared.taskRepository as? TaskRepositoryProtocol,
               let container = DependencyContainer.shared.persistentContainer else {
-            print("❌ Failed to get dependencies")
+            logError(
+                event: "add_task_project_create_dependencies_missing",
+                message: "Missing dependencies for project creation"
+            )
             showProjectError(message: "Failed to create project")
             return
         }
@@ -683,12 +726,16 @@ extension AddTaskViewController {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let project):
-                    print("✅ Phase 3: Successfully created project '\(project.name)'")
+                    logDebug("✅ Phase 3: Successfully created project '\(project.name)'")
                     self?.showProjectSuccess(message: "Project '\(project.name)' created")
                     self?.addNewProjectToPillBar(project: project)
 
                 case .failure(let error):
-                    print("❌ Phase 3: Failed to create project: \(error)")
+                    logError(
+                        event: "add_task_project_create_failed",
+                        message: "Project creation failed",
+                        fields: ["error": error.localizedDescription]
+                    )
                     self?.showProjectError(message: "Failed to create project")
                 }
             }
@@ -706,25 +753,22 @@ extension AddTaskViewController {
         samplePillBar = newPillBar
 
         // Add to the view hierarchy
-        if let stackView = foredropStackContainer as? UIStackView {
-            // Find correct position (after description field, before priority)
-            var insertIndex = 2 // Default position after text fields
-            for (index, view) in stackView.arrangedSubviews.enumerated() {
-                if view === tabsSegmentedControl {
-                    insertIndex = index
-                    break
-                }
-            }
-
-            stackView.insertArrangedSubview(newPillBar, at: insertIndex)
+        let stackView = foredropStackContainer
+        // Find correct position (after metadata row, before priority)
+        var insertIndex: Int
+        if let metadataIndex = stackView.arrangedSubviews.firstIndex(where: { $0 === metadataRow }) {
+            insertIndex = metadataIndex + 1
+        } else {
+            insertIndex = min(3, stackView.arrangedSubviews.count)
         }
+        stackView.insertArrangedSubview(newPillBar, at: insertIndex)
 
         // Select the specified project
         if let pillBarComponent = newPillBar.subviews.first as? PillButtonBar,
            let projectIndex = samplePillBarItems.firstIndex(where: { $0.title == projectName }) {
             _ = pillBarComponent.selectItem(atIndex: projectIndex)
             self.currenttProjectForAddTaskView = projectName
-            print("✅ Pre-selected project '\(projectName)' at index \(projectIndex)")
+            logDebug("✅ Pre-selected project '\(projectName)' at index \(projectIndex)")
         }
     }
 
@@ -735,7 +779,6 @@ extension AddTaskViewController {
 
         // Check if project already exists (avoid duplicates)
         if samplePillBarItems.contains(where: { $0.title == project.name }) {
-            print("⚠️ Project '\(project.name)' already in pill bar, just selecting it")
             self.currenttProjectForAddTaskView = project.name
             updatePillBarUI(selectProject: project.name)
             return
@@ -754,11 +797,11 @@ extension AddTaskViewController {
                 }
             }
             samplePillBarItems.insert(newProjectItem, at: insertPosition)
-            print("✅ Added project '\(project.name)' to pill bar at index \(insertPosition)")
+            logDebug("✅ Added project '\(project.name)' to pill bar at index \(insertPosition)")
         } else {
             // No Inbox found, append to end
             samplePillBarItems.append(newProjectItem)
-            print("✅ Added project '\(project.name)' to end of pill bar")
+            logDebug("✅ Added project '\(project.name)' to end of pill bar")
         }
 
         // Update current selection and UI
@@ -788,6 +831,60 @@ extension AddTaskViewController {
         let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+}
+
+// MARK: - AddTaskMetadataRowDelegate
+
+extension AddTaskViewController: AddTaskMetadataRowDelegate {
+    func metadataRow(_ row: AddTaskMetadataRowView, didSelectDate date: Date) {
+        dateForAddTaskView = date
+        // Sync FSCalendar selection
+        calendar?.select(date, scrollToDate: true)
+        // Update nav title
+        title = todoTimeUtils.getFormattedDate(date)
+    }
+
+    func metadataRow(_ row: AddTaskMetadataRowView, didSetReminder time: Date?) {
+        alertReminderTime = time
+    }
+
+    func metadataRow(_ row: AddTaskMetadataRowView, didToggleEvening isEvening: Bool) {
+        isThisEveningTask = isEvening
+    }
+}
+
+// MARK: - AddTaskPriorityPickerDelegate
+
+extension AddTaskViewController: AddTaskPriorityPickerDelegate {
+    func priorityPicker(_ picker: AddTaskPriorityPickerView, didSelect priority: TaskPriority) {
+        currentTaskPriority = priority
+    }
+}
+
+// MARK: - InlineProjectCreatorDelegate
+
+extension AddTaskViewController: InlineProjectCreatorDelegate {
+    func inlineProjectCreator(_ creator: AddTaskInlineProjectCreatorView, didCreate projectName: String) {
+        // Validate reserved name
+        if projectName.lowercased() == "inbox" {
+            creator.showValidationError()
+            return
+        }
+
+        // Check for duplicates
+        if samplePillBarItems.contains(where: { $0.title.lowercased() == projectName.lowercased() }) {
+            creator.showValidationError()
+            return
+        }
+
+        // Create project using existing Clean Architecture flow
+        createNewProject(name: projectName, description: nil)
+        creator.hide(success: true)
+    }
+
+    func inlineProjectCreatorDidCancel(_ creator: AddTaskInlineProjectCreatorView) {
+        creator.hide()
     }
 }
 

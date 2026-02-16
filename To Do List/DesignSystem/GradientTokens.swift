@@ -15,7 +15,8 @@ public struct TaskerHeaderGradient {
     /// Call again in `viewDidLayoutSubviews` so the layers resize correctly.
     public static func apply(to layer: CALayer, bounds: CGRect, traits: UITraitCollection) {
         let colors = TaskerThemeManager.shared.currentTheme.tokens.color
-        let accent = colors.accentPrimary.resolvedColor(with: traits)
+        let primary = colors.accentPrimary.resolvedColor(with: traits)
+        let secondary = colors.accentSecondary.resolvedColor(with: traits)
 
         removeLayers(from: layer)
 
@@ -25,13 +26,12 @@ public struct TaskerHeaderGradient {
         let gradientLayer = CAGradientLayer()
         gradientLayer.name = "taskerHeaderGradient"
         gradientLayer.frame = bounds
-        gradientLayer.colors = gradientColors(from: accent, traits: traits)
+        gradientLayer.colors = gradientColors(primary: primary, secondary: secondary, traits: traits)
         gradientLayer.locations = [0.0, 0.35, 0.7, 1.0]
         gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
         gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
         // Keep all header treatment layers behind subviews/content layers.
         // Insert at the bottom in declared order: gradient -> scrim -> bottomFade -> noise.
-        layer.insertSublayer(gradientLayer, at: 0)
 
         let scrimLayer = CAGradientLayer()
         scrimLayer.name = "taskerHeaderScrim"
@@ -40,7 +40,6 @@ public struct TaskerHeaderGradient {
         scrimLayer.locations = [0.0, 0.5, 1.0]
         scrimLayer.startPoint = CGPoint(x: 0.5, y: 0)
         scrimLayer.endPoint = CGPoint(x: 0.5, y: 1)
-        layer.insertSublayer(scrimLayer, at: 1)
 
         let bottomFade = CAGradientLayer()
         bottomFade.name = "taskerHeaderBottomFade"
@@ -49,17 +48,49 @@ public struct TaskerHeaderGradient {
         bottomFade.locations = [0.0, 0.72, 1.0]
         bottomFade.startPoint = CGPoint(x: 0.5, y: 0)
         bottomFade.endPoint = CGPoint(x: 0.5, y: 1)
-        layer.insertSublayer(bottomFade, at: 2)
+
+        // Radial highlight at top-center for depth
+        let radialHighlight = CAGradientLayer()
+        radialHighlight.name = "taskerHeaderRadialHighlight"
+        radialHighlight.type = .radial
+        radialHighlight.frame = bounds
+        let isDark = traits.userInterfaceStyle == .dark
+        let highlightAlpha: CGFloat = isDark ? 0.08 : 0.12
+        radialHighlight.colors = [
+            UIColor.white.withAlphaComponent(highlightAlpha).cgColor,
+            UIColor.white.withAlphaComponent(0.0).cgColor
+        ]
+        radialHighlight.startPoint = CGPoint(x: 0.5, y: 0)
+        radialHighlight.endPoint = CGPoint(x: 0.5, y: 1.0)
 
         let noiseLayer = CALayer()
         noiseLayer.name = "taskerHeaderNoise"
         noiseLayer.frame = bounds
         noiseLayer.contents = noiseImage(size: CGSize(width: 64, height: 64))?.cgImage
         noiseLayer.contentsGravity = .resizeAspectFill
-        let isDark = traits.userInterfaceStyle == .dark
-        noiseLayer.opacity = isDark ? 0.02 : 0.015
+        noiseLayer.opacity = isDark ? 0.025 : 0.02
         noiseLayer.compositingFilter = "softLightBlendMode"
-        layer.insertSublayer(noiseLayer, at: 3)
+
+        // Wrap all sublayers in a container with rounded bottom corners
+        let container = CALayer()
+        container.name = "taskerHeaderGradientContainer"
+        container.frame = bounds
+        container.addSublayer(gradientLayer)
+        container.addSublayer(scrimLayer)
+        container.addSublayer(bottomFade)
+        container.addSublayer(radialHighlight)
+        container.addSublayer(noiseLayer)
+
+        let maskPath = UIBezierPath(
+            roundedRect: bounds,
+            byRoundingCorners: [.bottomLeft, .bottomRight],
+            cornerRadii: CGSize(width: 24, height: 24)
+        )
+        let maskLayer = CAShapeLayer()
+        maskLayer.path = maskPath.cgPath
+        container.mask = maskLayer
+
+        layer.insertSublayer(container, at: 0)
     }
 
     /// Backward-compatible convenience overload.
@@ -69,30 +100,47 @@ public struct TaskerHeaderGradient {
 
     /// Remove all header gradient sublayers (useful before re-applying on theme change).
     public static func removeLayers(from layer: CALayer) {
-        let names = ["taskerHeaderGradient", "taskerHeaderScrim", "taskerHeaderBottomFade", "taskerHeaderNoise"]
-        layer.sublayers?.removeAll(where: { names.contains($0.name ?? "") })
+        layer.sublayers?.removeAll(where: { $0.name == "taskerHeaderGradientContainer" })
     }
 
     // MARK: - Gradient Color Generation
 
-    /// Build 4-stop gradient colors from the accent, adapting to light/dark mode.
-    private static func gradientColors(from accent: UIColor, traits: UITraitCollection) -> [CGColor] {
+    /// Build 4-stop dual-tone gradient blending primary → secondary, adapting to light/dark mode.
+    /// Creates a "gem catching light" effect with richer color dimension than monochromatic shading.
+    private static func gradientColors(primary: UIColor, secondary: UIColor, traits: UITraitCollection) -> [CGColor] {
         let isDark = traits.userInterfaceStyle == .dark
         if isDark {
+            // Dark mode: deep primary shades at top → secondary tones emerging at bottom
             return [
-                shade(accent, by: 0.72).cgColor,
-                shade(accent, by: 0.54).cgColor,
-                shade(accent, by: 0.36).cgColor,
-                shade(accent, by: 0.20).cgColor
+                shade(primary, by: 0.68).cgColor,
+                shade(primary, by: 0.48).cgColor,
+                shade(blendColors(primary, secondary, ratio: 0.5), by: 0.30).cgColor,
+                shade(secondary, by: 0.20).cgColor
             ]
         } else {
+            // Light mode: primary at top → blending through to secondary
             return [
-                accent.cgColor,
-                shade(accent, by: 0.08).cgColor,
-                shade(accent, by: 0.16).cgColor,
-                shade(accent, by: 0.24).cgColor
+                primary.cgColor,
+                shade(primary, by: 0.06).cgColor,
+                blendColors(primary, secondary, ratio: 0.5).cgColor,
+                shade(secondary, by: 0.10).cgColor
             ]
         }
+    }
+
+    /// Blend two colors by a ratio (0.0 = first color, 1.0 = second color).
+    private static func blendColors(_ c1: UIColor, _ c2: UIColor, ratio: CGFloat) -> UIColor {
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        c1.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        c2.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        let inv = 1.0 - ratio
+        return UIColor(
+            red: r1 * inv + r2 * ratio,
+            green: g1 * inv + g2 * ratio,
+            blue: b1 * inv + b2 * ratio,
+            alpha: a1 * inv + a2 * ratio
+        )
     }
 
     /// Premium shade function:

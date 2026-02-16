@@ -209,14 +209,14 @@ struct ProjectManagementView: View {
         newProject.createdDate = Date()
         newProject.modifiedDate = Date()
 
-        print("🆕 Creating project '\(name)' with UUID: \(generatedUUID.uuidString)")
+        logDebug("🆕 Creating project '\(name)' with UUID: \(generatedUUID.uuidString)")
 
         do {
             try context.save()
             loadProjects() // Refresh the list
             return true
         } catch {
-            print("❌ Failed to create project: \(error)")
+            logError(" Failed to create project: \(error)")
             return false
         }
     }
@@ -243,7 +243,7 @@ struct ProjectManagementView: View {
             loadProjects() // Refresh the list
             return true
         } catch {
-            print("❌ Failed to update project: \(error)")
+            logError(" Failed to update project: \(error)")
             return false
         }
     }
@@ -270,7 +270,7 @@ struct ProjectManagementView: View {
             loadProjects() // Refresh the list
             return true
         } catch {
-            print("❌ Failed to delete project: \(error)")
+            logError(" Failed to delete project: \(error)")
             return false
         }
     }

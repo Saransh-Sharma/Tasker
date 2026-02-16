@@ -40,10 +40,14 @@ public final class DataMigrationService {
 
         do {
             let count = try context.count(for: request)
-            print("🔍 Legacy projects without UUIDs: \(count)")
+            logDebug("🔍 Legacy projects without UUIDs: \(count)")
             return count > 0
         } catch {
-            print("Error checking legacy projects: \(error)")
+            logError(
+                event: "migration_legacy_project_check_failed",
+                message: "Failed to check legacy projects without UUIDs",
+                fields: ["error": error.localizedDescription]
+            )
             return true // Assume migration needed if check fails
         }
     }
@@ -57,10 +61,14 @@ public final class DataMigrationService {
 
         do {
             let count = try context.count(for: request)
-            print("🔍 Legacy tasks without UUIDs: \(count)")
+            logDebug("🔍 Legacy tasks without UUIDs: \(count)")
             return count > 0
         } catch {
-            print("Error checking legacy tasks: \(error)")
+            logError(
+                event: "migration_legacy_task_check_failed",
+                message: "Failed to check legacy tasks without UUIDs",
+                fields: ["error": error.localizedDescription]
+            )
             return true // Assume migration needed if check fails
         }
     }
@@ -72,9 +80,9 @@ public final class DataMigrationService {
         let hasLegacyTasks = hasLegacyTasksWithoutUUIDs()
 
         guard hasLegacyProjects || hasLegacyTasks else {
-            print("✅ No legacy data found - direct check passed")
-            print("   Legacy projects without UUIDs: \(hasLegacyProjects)")
-            print("   Legacy tasks without UUIDs: \(hasLegacyTasks)")
+            logDebug("✅ No legacy data found - direct check passed")
+            logDebug("   Legacy projects without UUIDs: \(hasLegacyProjects)")
+            logDebug("   Legacy tasks without UUIDs: \(hasLegacyTasks)")
 
             let report = MigrationReport(
                 tasksProcessed: 0,
@@ -93,15 +101,18 @@ public final class DataMigrationService {
         }
 
         // Force migration regardless of MigrationManager state
-        print("🚨 EMERGENCY: Forcing UUID assignment - found legacy data")
-        print("   Legacy projects without UUIDs: \(hasLegacyProjects)")
-        print("   Legacy tasks without UUIDs: \(hasLegacyTasks)")
+        logWarning(
+            event: "migration_legacy_data_detected",
+            message: "Legacy data detected; forcing UUID migration"
+        )
+        logDebug("   Legacy projects without UUIDs: \(hasLegacyProjects)")
+        logDebug("   Legacy tasks without UUIDs: \(hasLegacyTasks)")
 
         let versionBefore = migrationManager.currentVersion()
         let plan = migrationManager.generateMigrationPlan()
 
-        print("🔄 Starting UUID migration...")
-        print(plan.description)
+        logDebug("🔄 Starting UUID migration...")
+        logDebug(plan.description)
 
         let startTime = Date()
 
@@ -129,28 +140,17 @@ public final class DataMigrationService {
                     versionAfter: self.migrationManager.currentVersion()
                 )
 
-                print("✅ Migration completed successfully in \(String(format: "%.2f", duration))s")
-                print(report.description)
+                logDebug("✅ Migration completed successfully in \(String(format: "%.2f", duration))s")
+                logDebug(report.description)
 
                 completion(.success(report))
 
             case .failure(let error):
-                print("❌ Migration failed: \(error)")
-                let duration = Date().timeIntervalSince(startTime)
-
-                let report = MigrationReport(
-                    tasksProcessed: 0,
-                    projectsProcessed: 0,
-                    tasksAssignedToInbox: 0,
-                    tasksMigrated: 0,
-                    projectsCreated: 0,
-                    inboxCreated: false,
-                    errors: [error.localizedDescription],
-                    duration: duration,
-                    versionBefore: versionBefore,
-                    versionAfter: self.migrationManager.currentVersion()
+                logError(
+                    event: "migration_execution_failed",
+                    message: "UUID migration failed",
+                    fields: ["error": error.localizedDescription]
                 )
-
                 completion(.failure(error))
             }
         }
@@ -199,7 +199,11 @@ public final class DataMigrationService {
                 completion(false)
 
             } catch {
-                print("Error checking migration status: \(error)")
+                logError(
+                    event: "migration_status_check_failed",
+                    message: "Failed to check migration status",
+                    fields: ["error": error.localizedDescription]
+                )
                 // If we can't check, assume migration is needed to be safe
                 completion(true)
             }
@@ -269,8 +273,6 @@ public final class DataMigrationService {
     /// 🔥 CRITICAL: Ensure all new projects created going forward will always have UUIDs
     /// This should be called after app setup to verify UUID assignment is working
     public func verifyNewProjectCreation(completion: @escaping (Result<Bool, Error>) -> Void) {
-        let context = persistentContainer.viewContext
-
         // Test project creation to ensure UUID assignment works
         let backgroundContext = persistentContainer.newBackgroundContext()
         backgroundContext.perform {
@@ -295,7 +297,7 @@ public final class DataMigrationService {
                 if let fetchedProject = fetchedProjects.first,
                    let fetchedUUID = fetchedProject.projectID,
                    fetchedUUID == testUUID {
-                    print("✅ New project creation verification PASSED - UUIDs are being assigned correctly")
+                    logDebug("✅ New project creation verification PASSED - UUIDs are being assigned correctly")
 
                     // Clean up test project
                     backgroundContext.delete(fetchedProject)
@@ -305,14 +307,21 @@ public final class DataMigrationService {
                         completion(.success(true))
                     }
                 } else {
-                    print("❌ New project creation verification FAILED - UUIDs not being assigned properly")
+                    logError(
+                        event: "migration_new_project_uuid_verification_failed",
+                        message: "New project creation verification failed"
+                    )
                     DispatchQueue.main.async {
                         completion(.success(false))
                     }
                 }
 
             } catch {
-                print("❌ New project creation verification ERROR: \(error)")
+                logError(
+                    event: "migration_new_project_uuid_verification_error",
+                    message: "New project creation verification errored",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }

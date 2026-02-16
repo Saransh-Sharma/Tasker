@@ -60,23 +60,23 @@ extension NTask {
         }
     }
     
-    /// Returns true if this task has highest priority (P0)
+    /// Returns true if this task has maximum priority.
     var isHighestPriority: Bool {
-        return self.taskPriority == 1
+        return self.taskPriority == TaskPriority.max.rawValue
     }
     
-    /// Returns true if this task has high priority (P1)
+    /// Returns true if this task has high priority.
     var isHighPriority: Bool {
-        return self.taskPriority == 2
+        return self.taskPriority == TaskPriority.high.rawValue
     }
     
-    /// Returns true if this task has medium priority (P2)
+    /// Returns true if this task has low priority (legacy medium alias).
     var isMediumPriority: Bool {
-        return self.taskPriority == 3
+        return self.taskPriority == TaskPriority.low.rawValue
     }
     
-    /// Returns true if this task has low priority (P3)
+    /// Returns true if this task has no priority (legacy low alias).
     var isLowPriority: Bool {
-        return self.taskPriority == 4
+        return self.taskPriority == TaskPriority.none.rawValue
     }
 }

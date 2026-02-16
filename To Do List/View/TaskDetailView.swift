@@ -19,7 +19,7 @@ class TaskDetailView: UIView {
         dp.datePickerMode = .dateAndTime
         return dp
     }()
-    private let priorityControl: UISegmentedControl = UISegmentedControl(items: ["Low","Medium","High"])
+    private let priorityControl: UISegmentedControl = UISegmentedControl(items: TaskPriority.uiOrder.map { $0.displayName })
     private let projectDropdownField: UITextField = {
         let tf = UITextField()
         let picker = UIPickerView()
@@ -67,7 +67,7 @@ class TaskDetailView: UIView {
         ])
 
         // Configure fields
-        priorityControl.selectedSegmentIndex = 1
+        priorityControl.selectedSegmentIndex = TaskPriority.low.segmentIndex()
 
         // Add to stack
         [titleField,
@@ -88,8 +88,10 @@ class TaskDetailView: UIView {
 
         // You may want to parse `dueDate` string into a Date
 
-        if let idx = ["Low","Medium","High"].firstIndex(of: priority) {
-            priorityControl.selectedSegmentIndex = idx
+        if let parsed = TaskPriority.uiOrder.first(where: { $0.displayName.caseInsensitiveCompare(priority) == .orderedSame }) {
+            priorityControl.selectedSegmentIndex = parsed.segmentIndex()
+        } else {
+            priorityControl.selectedSegmentIndex = TaskPriority.low.segmentIndex()
         }
     }
 }

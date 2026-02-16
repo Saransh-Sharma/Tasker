@@ -206,7 +206,7 @@ struct HabitRowView_Previews: PreviewProvider {
                     streakHistory: [true, true, true, true, true, false, false]
                 ),
                 isCompleted: false
-            ) { print("Tapped") }
+            ) { logDebug("Tapped") }
 
             HabitRowView(
                 habit: HabitRowDisplayData(
@@ -219,7 +219,7 @@ struct HabitRowView_Previews: PreviewProvider {
                     streakHistory: Array(repeating: true, count: 14)
                 ),
                 isCompleted: true
-            ) { print("Tapped") }
+            ) { logDebug("Tapped") }
         }
         .padding()
     }

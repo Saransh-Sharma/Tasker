@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SwiftUI
 import FluentUI
 import SemiModalViewController
 import MaterialComponents.MaterialTextControls_FilledTextFields
@@ -37,13 +38,6 @@ class FluentUIToDoTableViewController: UITableViewController {
     private var toDoData: [(String, [NTask])] = []
     private var selectedDate: Date = Date.today()
     
-    // Modal form elements - stored as instance variables for reliability
-    private var currentModalTaskNameTextField: MDCFilledTextField?
-    private var currentModalDescriptionTextField: MDCFilledTextField?
-    private var currentModalProjectChipGroup: TaskerProjectChipGroupView?
-    private var currentModalPrioritySegmentedControl: SegmentedControl?
-    private var currentModalTask: NTask?
-    private var currentModalIndexPath: IndexPath?
     private var themeColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
     
     // MARK: - Initialization
@@ -98,7 +92,7 @@ class FluentUIToDoTableViewController: UITableViewController {
     }
     
     private func setupToDoData(for date: Date) {
-        print("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
+        logDebug("\n=== SETTING UP FLUENT UI SAMPLE TABLE VIEW FOR DATE: \(date) ===")
 
         // TODO: Use repository once it has getTasksForDate method
         // For now, use direct CoreData access
@@ -116,22 +110,22 @@ class FluentUIToDoTableViewController: UITableViewController {
             do {
                 let allTasksForDate = try context.fetch(request)
                 DispatchQueue.main.async { [weak self] in
-                    print("📅 Found \(allTasksForDate.count) total tasks for \(date)")
-                    print("🔍 [TABLE VIEW] Fetched tasks breakdown:")
+                    logDebug("📅 Found \(allTasksForDate.count) total tasks for \(date)")
+                    logDebug("🔍 [TABLE VIEW] Fetched tasks breakdown:")
                     for (index, task) in allTasksForDate.enumerated() {
-                        print("  Task \(index + 1): '\(task.name ?? "NO NAME")' | dueDate: \(task.dueDate ?? NSDate()) | isComplete: \(task.isComplete)")
+                        logDebug("  Task \(index + 1): '\(task.name ?? "NO NAME")' | dueDate: \(task.dueDate ?? NSDate()) | isComplete: \(task.isComplete)")
                     }
 
                     self?.processTasksForDisplay(allTasksForDate, date: date)
                 }
             } catch {
-                print("❌ Error fetching tasks: \(error)")
+                logError(" Error fetching tasks: \(error)")
                 DispatchQueue.main.async { [weak self] in
                     self?.processTasksForDisplay([], date: date)
                 }
             }
         } else {
-            print("❌ No context available")
+            logError(" No context available")
             processTasksForDisplay([], date: date)
         }
     }
@@ -177,7 +171,7 @@ class FluentUIToDoTableViewController: UITableViewController {
         if let inboxTasks = tasksByProject[inboxProjectName], !inboxTasks.isEmpty {
             let sortedInboxTasks = createSortedTasks(from: inboxTasks)
             sections.append(("📥 Inbox", sortedInboxTasks))
-            print("FluentUI SampleTableView: Added Inbox section with \(sortedInboxTasks.count) tasks")
+            logDebug("FluentUI SampleTableView: Added Inbox section with \(sortedInboxTasks.count) tasks")
         }
         
         // Then add other project sections
@@ -186,7 +180,7 @@ class FluentUIToDoTableViewController: UITableViewController {
             let displayName = "📁 \(projectName.capitalized)"
             let sortedProjectTasks = createSortedTasks(from: projectTasks)
             sections.append((displayName, sortedProjectTasks))
-            print("FluentUI SampleTableView: Added \(displayName) section with \(sortedProjectTasks.count) tasks")
+            logDebug("FluentUI SampleTableView: Added \(displayName) section with \(sortedProjectTasks.count) tasks")
         }
         
         // If no tasks, show a placeholder with empty task array
@@ -194,11 +188,11 @@ class FluentUIToDoTableViewController: UITableViewController {
             sections.append(("📅 No Tasks for \(formatDate(date))", []))
         }
         
-        print("\nFluentUI SampleTableView sections summary:")
+        logDebug("\nFluentUI SampleTableView sections summary:")
         for (index, section) in sections.enumerated() {
-            print("Section \(index): '\(section.0)' with \(section.1.count) tasks")
+            logDebug("Section \(index): '\(section.0)' with \(section.1.count) tasks")
         }
-        print("=== END FLUENT UI SAMPLE TABLE VIEW SETUP ===")
+        logDebug("=== END FLUENT UI SAMPLE TABLE VIEW SETUP ===")
         
         // Update data and reload table view atomically on main thread
         DispatchQueue.main.async {
@@ -240,6 +234,20 @@ class FluentUIToDoTableViewController: UITableViewController {
             let ordinalDay = formatDayWithOrdinalSuffix(day)
             
             title = "\(weekday), \(ordinalDay)"
+        }
+    }
+
+    private func saveContext() {
+        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+            return
+        }
+
+        guard context.hasChanges else { return }
+
+        do {
+            try context.save()
+        } catch {
+            logError("Error saving Core Data context: \(error)")
         }
     }
     
@@ -291,7 +299,7 @@ class FluentUIToDoTableViewController: UITableViewController {
                         }
                     }
                 } catch {
-                    print("❌ Error fetching all tasks: \(error)")
+                    logError(" Error fetching all tasks: \(error)")
                 }
             }
             
@@ -314,12 +322,11 @@ class FluentUIToDoTableViewController: UITableViewController {
     }
     
     private func getPriorityIcon(for priority: Int) -> String {
-        switch priority {
-        case 1: return "🔴" // P0 - Highest
-        case 2: return "🟠" // P1 - High
-        case 3: return "🟡" // P2 - Medium
-        case 4: return "🟢" // P3 - Low
-        default: return "⚪" // Unknown
+        switch TaskPriority(rawValue: Int32(priority)) {
+        case .max: return "🔴"
+        case .high: return "🟠"
+        case .low: return "🟢"
+        case .none: return "⚪"
         }
     }
     
@@ -443,10 +450,22 @@ class FluentUIToDoTableViewController: UITableViewController {
     }
     
     private func updateCheckBoxAppearance(_ checkBox: UIButton, isComplete: Bool) {
-        UIView.animate(withDuration: 0.7) {
-            checkBox.backgroundColor = isComplete ? UIColor.clear : UIColor.clear
-            let checkmarkImage = UIImage(systemName: "checkmark")
-            checkBox.setImage(isComplete ? checkmarkImage : nil, for: .normal)
+        if isComplete {
+            // Bounce + checkmark draw animation + haptic
+            TaskerFeedback.success()
+            checkBox.transform = CGAffineTransform(scaleX: 0.7, y: 0.7)
+            UIView.taskerSpringAnimate(TaskerAnimation.uiBouncy) {
+                checkBox.transform = .identity
+                checkBox.backgroundColor = UIColor.clear
+                let checkmarkImage = UIImage(systemName: "checkmark")
+                checkBox.setImage(checkmarkImage, for: .normal)
+            }
+        } else {
+            TaskerFeedback.selection()
+            UIView.taskerSpringAnimate(TaskerAnimation.uiSnappy) {
+                checkBox.backgroundColor = UIColor.clear
+                checkBox.setImage(nil, for: .normal)
+            }
         }
     }
 }
@@ -651,7 +670,15 @@ extension FluentUIToDoTableViewController {
         // Set accessibility identifier for testing
         cell.accessibilityIdentifier = "home.taskCell.\(indexPath.section).\(indexPath.row)"
 
-        
+        // Staggered fade-in from bottom
+        cell.alpha = 0
+        cell.transform = CGAffineTransform(translationX: 0, y: 10)
+        let delay = Double(indexPath.row) * TaskerAnimation.staggerInterval
+        UIView.taskerSpringAnimate(TaskerAnimation.uiGentle, delay: delay) {
+            cell.alpha = 1
+            cell.transform = .identity
+        }
+
         return cell
     }
 }
@@ -796,7 +823,7 @@ extension FluentUIToDoTableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        print("🔵 SEMI-MODAL APPROACH: FluentUIToDoTableViewController didSelectRowAt called")
+        logDebug("🔵 SEMI-MODAL APPROACH: FluentUIToDoTableViewController didSelectRowAt called")
         
         let sectionData = toDoData[indexPath.section]
         
@@ -805,320 +832,47 @@ extension FluentUIToDoTableViewController {
         
         let task = sectionData.1[indexPath.row]
         
-        print("🔵 SEMI-MODAL: About to present semi-modal for task: \(task.name ?? "Unknown")")
+        logDebug("🔵 SEMI-MODAL: About to present semi-modal for task: \(task.name ?? "Unknown")")
         
         // Create and present SemiModalView with task details
         presentTaskDetailSemiModal(for: task, at: indexPath)
     }
     
-    // MARK: - Modal Presentation
-    
+    // MARK: - Task Detail Sheet Presentation
+
     private func presentTaskDetailSemiModal(for task: NTask, at indexPath: IndexPath) {
-        print("[DEBUG] === Starting presentTaskDetailSemiModal ===")
-        print("[DEBUG] Task: \(task.name ?? "Unknown")")
-        print("[DEBUG] IndexPath: section=\(indexPath.section), row=\(indexPath.row)")
-        print("[DEBUG] Calculated tag: \(indexPath.section * 1000 + indexPath.row)")
-        
-        // Create a modal view controller
-        let modalViewController = UIViewController()
-        modalViewController.modalPresentationStyle = .pageSheet
-        modalViewController.modalTransitionStyle = .coverVertical
-        print("[DEBUG] Created modalViewController: \(modalViewController)")
-        
-        // Create a container view for the modal content
-        let modalView = UIView()
-        modalView.backgroundColor = themeColors.bgCanvas
-        modalView.translatesAutoresizingMaskIntoConstraints = false
-        modalViewController.view.addSubview(modalView)
-        print("[DEBUG] Created modalView: \(modalView)")
-        print("[DEBUG] Added modalView to modalViewController.view")
-        
-        // Create scroll view for content
-        let scrollView = UIScrollView()
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        modalView.addSubview(scrollView)
-        
-        // Create main content stack view
-        let mainStackView = UIStackView()
-        mainStackView.axis = .vertical
-        mainStackView.spacing = 0
-        mainStackView.distribution = .fill
-        mainStackView.alignment = .fill
-        mainStackView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(mainStackView)
-        
-        // Create text fields stack view with 30pt spacing
-        let textFieldsStackView = UIStackView()
-        textFieldsStackView.axis = .vertical
-        textFieldsStackView.spacing = 30
-        textFieldsStackView.distribution = .fill
-        textFieldsStackView.alignment = .fill
-        textFieldsStackView.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Create bottom elements stack view with 20pt spacing
-        let bottomElementsStackView = UIStackView()
-        bottomElementsStackView.axis = .vertical
-        bottomElementsStackView.spacing = 20
-        bottomElementsStackView.distribution = .fill
-        bottomElementsStackView.alignment = .fill
-        bottomElementsStackView.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Add drag indicator
-        let dragIndicator = UIView()
-        dragIndicator.backgroundColor = themeColors.divider
-        dragIndicator.layer.cornerRadius = 2
-        dragIndicator.translatesAutoresizingMaskIntoConstraints = false
-        modalView.addSubview(dragIndicator)
-        
-        // Task name text field (Material Design)
-        let taskNameTextField = MDCFilledTextField()
-        taskNameTextField.label.text = "Task"
-        taskNameTextField.leadingAssistiveLabel.text = "Edit task"
-        taskNameTextField.text = task.name
-        taskNameTextField.clearButtonMode = .whileEditing
-        taskNameTextField.backgroundColor = .clear
-        taskNameTextField.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Description text field (Material Design)
-        let descriptionTextField = MDCFilledTextField()
-        descriptionTextField.label.text = "Description (optional)"
-        descriptionTextField.leadingAssistiveLabel.text = "Add task details"
-        descriptionTextField.text = task.taskDetails ?? ""
-        descriptionTextField.placeholder = "Enter task description..."
-        descriptionTextField.clearButtonMode = .whileEditing
-        descriptionTextField.backgroundColor = .clear
-        descriptionTextField.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Project chip group
-        let projectChipGroup = createProjectChipGroup(selectedProject: task.project ?? "Inbox")
-        projectChipGroup.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Priority selector (Segmented Control)
-        let priorityItems = ["None", "Low", "High", "Highest"]
-        let prioritySegmentedControl = SegmentedControl(items: priorityItems.map { SegmentItem(title: $0) })
-        
-        // Set selected priority based on task priority
-        let priorityIndex: Int
-        switch Int(task.taskPriority) {
-        case 4: priorityIndex = 0 // None
-        case 3: priorityIndex = 1 // Low
-        case 2: priorityIndex = 2 // High
-        case 1: priorityIndex = 3 // Highest
-        default: priorityIndex = 1 // Default to Low
+        let detailView = TaskDetailSheetView(
+            task: task,
+            projectNames: buildProjectChipData(),
+            onSave: { [weak self] in
+                guard let self else { return }
+                self.setupToDoData(for: self.selectedDate)
+                self.delegate?.fluentToDoTableViewControllerDidUpdateTask(self, task: task)
+            },
+            onToggleComplete: { [weak self] in
+                guard let self else { return }
+                try? task.managedObjectContext?.save()
+                self.delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
+                self.setupToDoData(for: self.selectedDate)
+            },
+            onDismiss: nil,
+            onDelete: nil
+        )
+
+        let hostingController = UIHostingController(rootView: detailView)
+        hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        hostingController.modalPresentationStyle = UIModalPresentationStyle.pageSheet
+
+        if let sheet = hostingController.sheetPresentationController {
+            sheet.detents = [UISheetPresentationController.Detent.medium(), UISheetPresentationController.Detent.large()]
+            sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
         }
-        prioritySegmentedControl.selectedSegmentIndex = priorityIndex
-        prioritySegmentedControl.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Action buttons container
-        let buttonStackView = UIStackView()
-        buttonStackView.axis = .horizontal
-        buttonStackView.distribution = .fillEqually
-        buttonStackView.spacing = 12
-        buttonStackView.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Save button
-        let saveButton = UIButton(type: .system)
-        saveButton.setTitle("Save Changes", for: .normal)
-        saveButton.backgroundColor = themeColors.accentPrimary
-        saveButton.setTitleColor(themeColors.accentOnPrimary, for: .normal)
-        saveButton.layer.cornerRadius = 8
-        saveButton.titleLabel?.font = UIFont.tasker.font(for: .bodyEmphasis)
-        saveButton.addTarget(self, action: #selector(saveTaskChanges(_:)), for: .touchUpInside)
-        saveButton.tag = indexPath.section * 1000 + indexPath.row
-        
-        // Complete/Incomplete button
-        let toggleButton = UIButton(type: .system)
-        toggleButton.setTitle(task.isComplete ? "Mark Incomplete" : "Mark Complete", for: .normal)
-        toggleButton.backgroundColor = task.isComplete ? themeColors.statusWarning : themeColors.statusSuccess
-        toggleButton.setTitleColor(themeColors.accentOnPrimary, for: .normal)
-        toggleButton.layer.cornerRadius = 8
-        toggleButton.titleLabel?.font = UIFont.tasker.font(for: .bodyEmphasis)
-        toggleButton.addTarget(self, action: #selector(toggleTaskCompletion(_:)), for: .touchUpInside)
-        toggleButton.tag = indexPath.section * 1000 + indexPath.row
-        
-        // Cancel button
-        let cancelButton = UIButton(type: .system)
-        cancelButton.setTitle("Cancel", for: .normal)
-        cancelButton.backgroundColor = themeColors.surfaceTertiary
-        cancelButton.setTitleColor(themeColors.textPrimary, for: .normal)
-        cancelButton.layer.cornerRadius = 8
-        cancelButton.titleLabel?.font = UIFont.tasker.font(for: .bodyEmphasis)
-        cancelButton.addTarget(self, action: #selector(closeSemiModal), for: .touchUpInside)
-        
-        // Add buttons to button stack
-        buttonStackView.addArrangedSubview(saveButton)
-        buttonStackView.addArrangedSubview(toggleButton)
-        
-        // Add text fields to text fields stack view
-        textFieldsStackView.addArrangedSubview(taskNameTextField)
-        textFieldsStackView.addArrangedSubview(descriptionTextField)
-        
-        // Add remaining elements to bottom elements stack view
-        bottomElementsStackView.addArrangedSubview(projectChipGroup)
-        bottomElementsStackView.addArrangedSubview(prioritySegmentedControl)
-        bottomElementsStackView.addArrangedSubview(buttonStackView)
-        bottomElementsStackView.addArrangedSubview(cancelButton)
-        
-        // Add both stack views to main stack view with custom spacing
-        mainStackView.addArrangedSubview(textFieldsStackView)
-        mainStackView.setCustomSpacing(30, after: textFieldsStackView)
-        mainStackView.addArrangedSubview(bottomElementsStackView)
-        
-        // Set up constraints
-        NSLayoutConstraint.activate([
-            // Drag indicator
-            dragIndicator.topAnchor.constraint(equalTo: modalView.topAnchor, constant: 8),
-            dragIndicator.centerXAnchor.constraint(equalTo: modalView.centerXAnchor),
-            dragIndicator.widthAnchor.constraint(equalToConstant: 36),
-            dragIndicator.heightAnchor.constraint(equalToConstant: 4),
-            
-            // Scroll view
-            scrollView.topAnchor.constraint(equalTo: dragIndicator.bottomAnchor, constant: 20),
-            scrollView.leadingAnchor.constraint(equalTo: modalView.leadingAnchor, constant: 20),
-            scrollView.trailingAnchor.constraint(equalTo: modalView.trailingAnchor, constant: -20),
-            scrollView.bottomAnchor.constraint(equalTo: modalView.bottomAnchor, constant: -20),
-            
-            // Main stack view
-            mainStackView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            mainStackView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            mainStackView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            mainStackView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            mainStackView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-            
-            // Text field heights
-            taskNameTextField.heightAnchor.constraint(equalToConstant: 56),
-            descriptionTextField.heightAnchor.constraint(equalToConstant: 56),
-            
-            // Priority segmented control height
-            prioritySegmentedControl.heightAnchor.constraint(equalToConstant: 44),
-            
-            // Button heights
-            saveButton.heightAnchor.constraint(equalToConstant: 44),
-            toggleButton.heightAnchor.constraint(equalToConstant: 44),
-            cancelButton.heightAnchor.constraint(equalToConstant: 44)
-        ])
-        
-        // Store references for button actions
-        modalView.tag = indexPath.section * 1000 + indexPath.row
-        print("[DEBUG] Set modalView.tag to: \(modalView.tag)")
-        
-        // Store form elements as instance variables for reliable access
-        self.currentModalTaskNameTextField = taskNameTextField
-        self.currentModalDescriptionTextField = descriptionTextField
-        self.currentModalProjectChipGroup = projectChipGroup
-        self.currentModalPrioritySegmentedControl = prioritySegmentedControl
-        self.currentModalTask = task
-        self.currentModalIndexPath = indexPath
-        print("[DEBUG] Stored form elements as instance variables:")
-        print("[DEBUG] - taskNameTextField: \(taskNameTextField)")
-        print("[DEBUG] - task: \(task.name ?? "nil")")
-        print("[DEBUG] - indexPath: \(indexPath)")
-        print("[DEBUG] - descriptionTextField: \(descriptionTextField)")
-        print("[DEBUG] - projectChipGroup: \(projectChipGroup)")
-        print("[DEBUG] - prioritySegmentedControl: \(prioritySegmentedControl)")
-        
-        // Set up modal view constraints
-        NSLayoutConstraint.activate([
-            modalView.topAnchor.constraint(equalTo: modalViewController.view.safeAreaLayoutGuide.topAnchor),
-            modalView.leadingAnchor.constraint(equalTo: modalViewController.view.leadingAnchor),
-            modalView.trailingAnchor.constraint(equalTo: modalViewController.view.trailingAnchor),
-            modalView.bottomAnchor.constraint(equalTo: modalViewController.view.bottomAnchor)
-        ])
-        
-        // Store the modal view controller for later access
-        objc_setAssociatedObject(modalView, "modalViewController", modalViewController, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        
-        // Present the modal
-        present(modalViewController, animated: true) {
-            print("Task detail modal presented")
-        }
+
+        present(hostingController, animated: true)
     }
-    
-    @objc private func toggleTaskCompletion(_ sender: UIButton) {
-        let tag = sender.tag
-        let sectionIndex = tag / 1000
-        let rowIndex = tag % 1000
-        
-        guard sectionIndex < toDoData.count,
-              rowIndex < toDoData[sectionIndex].1.count else { return }
-        
-        let task = toDoData[sectionIndex].1[rowIndex]
-        
-        // Toggle task completion
-        task.isComplete.toggle()
-        task.dateCompleted = task.isComplete ? Date() as NSDate : nil
-        saveContext()
-        
-        // Notify delegate of task completion change
-        delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
-        
-        // Refresh data and UI
-        setupToDoData(for: selectedDate)
-        clearModalReferences()
-        dismiss(animated: true)
-    }
-    
-    @objc private func saveTaskChanges(_ sender: UIButton) {
-        print("[DEBUG] === Starting saveTaskChanges ===")
-        
-        // Use instance variables instead of associated objects for reliability
-        guard let taskNameTextField = currentModalTaskNameTextField,
-              let descriptionTextField = currentModalDescriptionTextField,
-              let prioritySegmentedControl = currentModalPrioritySegmentedControl,
-              let projectChipGroup = currentModalProjectChipGroup,
-              let task = currentModalTask else {
-            print("[DEBUG] Could not find form elements - instance variables are nil")
-            return
-        }
-        
-        print("[DEBUG] All form elements found successfully from instance variables!")
-        print("[DEBUG] Task: \(task.name ?? "Unknown")")
-        
-        // Update task with new values
-        if let newName = taskNameTextField.text, !newName.isEmpty {
-            task.name = newName
-        }
-        
-        task.taskDetails = descriptionTextField.text
-        
-        // Update project based on selected chip
-        task.project = projectChipGroup.selectedTitle
-        
-        // Update priority based on segmented control selection
-        switch prioritySegmentedControl.selectedSegmentIndex {
-        case 0: task.taskPriority = 4 // None
-        case 1: task.taskPriority = 3 // Low
-        case 2: task.taskPriority = 2 // High
-        case 3: task.taskPriority = 1 // Highest
-        default: task.taskPriority = 3 // Default to Low
-        }
-        
-        // Save changes
-        do {
-            try task.managedObjectContext?.save()
-            setupToDoData(for: selectedDate)
-            clearModalReferences()
-            dismiss(animated: true)
-        } catch {
-            print("Error saving task changes: \(error)")
-        }
-    }
-    
-    @objc private func closeSemiModal() {
-        clearModalReferences()
-        dismiss(animated: true)
-    }
-    
-    private func clearModalReferences() {
-        currentModalTaskNameTextField = nil
-        currentModalDescriptionTextField = nil
-        currentModalProjectChipGroup = nil
-        currentModalPrioritySegmentedControl = nil
-        currentModalTask = nil
-        currentModalIndexPath = nil
-        print("[DEBUG] Cleared modal instance variables")
-    }
-    
+
+
     // MARK: - Project Chip Helper Methods
 
     private func createProjectChipGroup(selectedProject: String) -> TaskerProjectChipGroupView {
@@ -1146,7 +900,7 @@ extension FluentUIToDoTableViewController {
                     }
                 }
             } catch {
-                print("❌ Error fetching projects: \(error)")
+                logError(" Error fetching projects: \(error)")
             }
         }
 
@@ -1171,17 +925,17 @@ extension FluentUIToDoTableViewController {
     private func markTaskComplete(_ task: NTask) {
         task.isComplete = true
         task.dateCompleted = Date() as NSDate  // Set completion date for scoring
-        print("🎯 Task completed: '\(task.name ?? "Unknown")' at \(Date())")
+        logDebug("🎯 Task completed: '\(task.name ?? "Unknown")' at \(Date())")
         saveTask(task)
         delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
         
         // Notify that charts should be refreshed
         NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
-        print("📡 FluentUI: Posted TaskCompletionChanged notification")
+        logDebug("📡 FluentUI: Posted TaskCompletionChanged notification")
         
         // DIRECT CALL: Refresh charts immediately (more reliable than notification)
         if let homeVC = delegate as? HomeViewController {
-            print("🔄 FluentUI: Calling HomeViewController chart refresh directly")
+            logDebug("🔄 FluentUI: Calling HomeViewController chart refresh directly")
             homeVC.refreshChartsAfterTaskCompletion()
         }
     }
@@ -1189,17 +943,17 @@ extension FluentUIToDoTableViewController {
     private func markTaskIncomplete(_ task: NTask) {
         task.isComplete = false
         task.dateCompleted = nil  // Clear completion date when marking incomplete
-        print("↩️ Task marked incomplete: '\(task.name ?? "Unknown")'")
+        logDebug("↩️ Task marked incomplete: '\(task.name ?? "Unknown")'")
         saveTask(task)
         delegate?.fluentToDoTableViewControllerDidCompleteTask(self, task: task)
         
         // Notify that charts should be refreshed
         NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
-        print("📡 FluentUI: Posted TaskCompletionChanged notification")
+        logDebug("📡 FluentUI: Posted TaskCompletionChanged notification")
         
         // DIRECT CALL: Refresh charts immediately (more reliable than notification)
         if let homeVC = delegate as? HomeViewController {
-            print("🔄 FluentUI: Calling HomeViewController chart refresh directly")
+            logDebug("🔄 FluentUI: Calling HomeViewController chart refresh directly")
             homeVC.refreshChartsAfterTaskCompletion()
         }
     }
@@ -1207,7 +961,7 @@ extension FluentUIToDoTableViewController {
     private func deleteTask(_ task: NTask) {
         // Delete the task from Core Data context
         guard let context = task.managedObjectContext else {
-            print("Error: Task has no managed object context")
+            logError("Error: Task has no managed object context")
             return
         }
         
@@ -1225,7 +979,7 @@ extension FluentUIToDoTableViewController {
             // since the task no longer exists in the data source
             
         } catch {
-            print("Error deleting task: \(error)")
+            logError("Error deleting task: \(error)")
             // Show error alert
             let alert = UIAlertController(
                 title: "Error",
@@ -1252,7 +1006,7 @@ extension FluentUIToDoTableViewController {
             // Refresh the data and reload the specific cell
             setupToDoData(for: selectedDate)
         } catch {
-            print("Error saving task changes: \(error)")
+            logError("Error saving task changes: \(error)")
             // Show error alert
             let alert = UIAlertController(
                 title: "Error",
@@ -1270,7 +1024,7 @@ extension FluentUIToDoTableViewController {
             // Refresh the data
             setupToDoData(for: selectedDate)
         } catch {
-            print("Error saving task: \(error)")
+            logError("Error saving task: \(error)")
             // Show error alert
             let alert = UIAlertController(
                 title: "Error",
@@ -1341,10 +1095,11 @@ extension FluentUIToDoTableViewController {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
+        let taskName = task.name ?? "Untitled Task"
         
         let alert = UIAlertController(
             title: "Task Rescheduled",
-            message: "'\(task.name)' has been rescheduled to \(formatter.string(from: date))",
+            message: "'\(taskName)' has been rescheduled to \(formatter.string(from: date))",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -1416,7 +1171,7 @@ class RescheduleViewController: UIViewController {
         
         // Task name label
         let taskLabel = UILabel()
-        taskLabel.text = "Reschedule '\(task.name)'"
+        taskLabel.text = "Reschedule '\(task.name ?? "Untitled Task")'"
         taskLabel.font = .systemFont(ofSize: 18, weight: .medium)
         taskLabel.textAlignment = .center
         taskLabel.numberOfLines = 0

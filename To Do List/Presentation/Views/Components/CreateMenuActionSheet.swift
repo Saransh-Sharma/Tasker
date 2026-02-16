@@ -308,10 +308,10 @@ struct CreateMenuActionSheet_Previews: PreviewProvider {
             // Action sheet overlay
             CreateMenuActionSheet(
                 onActionSelected: { action in
-                    print("Selected: \(action.title)")
+                    logDebug("Selected: \(action.title)")
                 },
                 onDismiss: {
-                    print("Dismissed")
+                    logDebug("Dismissed")
                 }
             )
         }

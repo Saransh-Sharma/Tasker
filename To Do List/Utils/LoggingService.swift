@@ -8,26 +8,25 @@ public enum LogLevel: Int {
     case warning = 2
     case error = 3
     case fatal = 4
-    
+
     /// Convert LogLevel to OSLogType for system logging
     var osLogType: OSLogType {
         switch self {
-        case .debug:    return .debug
-        case .info:     return .info
-        case .warning:  return .default
-        case .error:    return .error
-        case .fatal:    return .fault
+        case .debug: return .debug
+        case .info: return .info
+        case .warning: return .default
+        case .error: return .error
+        case .fatal: return .fault
         }
     }
-    
-    /// Emoji prefix for log messages to improve readability
-    var emoji: String {
+
+    var label: String {
         switch self {
-        case .debug:    return "🔍"
-        case .info:     return "ℹ️"
-        case .warning:  return "⚠️"
-        case .error:    return "❌"
-        case .fatal:    return "🔥"
+        case .debug: return "DEBUG"
+        case .info: return "INFO"
+        case .warning: return "WARN"
+        case .error: return "ERROR"
+        case .fatal: return "FATAL"
         }
     }
 }
@@ -35,162 +34,166 @@ public enum LogLevel: Int {
 /// Logging service for consistent application-wide logging
 final class LoggingService {
     // MARK: - Properties
-    
+
     /// Singleton instance for global access
     static let shared = LoggingService()
-    
+
     /// The minimum log level to display
-    private(set) var minimumLogLevel: LogLevel = .debug
-    
-    /// Whether to include timestamps in log messages
-    private(set) var includeTimestamps: Bool = true
-    
-    /// Whether to include the calling file name and line number
-    private(set) var includeSourceInfo: Bool = true
-    
+    private(set) var minimumLogLevel: LogLevel = .warning
+
     /// Whether to log to the console
     private(set) var logToConsole: Bool = true
-    
+
     /// Whether to log to a file
     private(set) var logToFile: Bool = false
-    
+
     /// URL of the log file, if file logging is enabled
     private(set) var logFileURL: URL?
-    
+
     /// System logger object
     private let osLog: OSLog
-    
+
+    /// Timestamp formatter (UTC, fixed precision for stable logs)
+    private static let timestampFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
     // MARK: - Initialization
-    
+
     private init() {
         self.osLog = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "com.tasker", category: "general")
-        
-        #if DEBUG
-        self.minimumLogLevel = .debug
-        #else
-        self.minimumLogLevel = .warning // Reduce log level in release to minimize warnings
-        #endif
-        
+        self.minimumLogLevel = .warning
+        configureFromLaunchArguments(ProcessInfo.processInfo.arguments)
         setupLogFile()
     }
-    
+
     // MARK: - Configuration
-    
+
     /// Set the minimum log level to display
     /// - Parameter level: The minimum log level
     func setMinimumLogLevel(_ level: LogLevel) {
         self.minimumLogLevel = level
     }
-    
-    /// Enable or disable timestamp inclusion in logs
-    /// - Parameter enabled: Whether to include timestamps
-    func setTimestampLogging(_ enabled: Bool) {
-        self.includeTimestamps = enabled
+
+    /// Configure runtime log verbosity from process arguments.
+    /// Currently supports `-TASKER_VERBOSE_LOGS` for debug-level verbosity.
+    func configureFromLaunchArguments(_ arguments: [String]) {
+        if arguments.contains("-TASKER_VERBOSE_LOGS") {
+            minimumLogLevel = .debug
+        }
     }
-    
-    /// Enable or disable source information (file name, line number) in logs
-    /// - Parameter enabled: Whether to include source information
-    func setSourceInfoLogging(_ enabled: Bool) {
-        self.includeSourceInfo = enabled
-    }
-    
+
     /// Configure file logging
     /// - Parameters:
     ///   - enabled: Whether to log to a file
     ///   - fileURL: Optional custom file URL; if nil, uses default location
     func configureFileLogging(enabled: Bool, fileURL: URL? = nil) {
         self.logToFile = enabled
-        
+
         if let customURL = fileURL {
             self.logFileURL = customURL
         } else if enabled && self.logFileURL == nil {
             setupLogFile()
         }
     }
-    
-    // MARK: - Logging Methods
-    
-    /// Log a message at debug level
-    /// - Parameters:
-    ///   - message: The message to log
-    ///   - file: The file where the log was called (auto-filled)
-    ///   - function: The function where the log was called (auto-filled)
-    ///   - line: The line where the log was called (auto-filled)
+
+    // MARK: - Structured API
+
+    /// Standardized event log API.
+    /// Format: `ts=<ISO8601UTC> lvl=<LEVEL> cmp=<Component> evt=<event_name> msg="<message>" key=value ...`
+    func log(
+        level: LogLevel,
+        component: String? = nil,
+        event: String,
+        message: String,
+        fields: [String: String] = [:],
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line
+    ) {
+        guard level.rawValue >= minimumLogLevel.rawValue else { return }
+
+        let cmp = component ?? Self.componentName(from: file)
+        let ts = Self.timestampFormatter.string(from: Date())
+
+        var chunks: [String] = [
+            "ts=\(ts)",
+            "lvl=\(level.label)",
+            "cmp=\(Self.formatFieldValue(cmp))",
+            "evt=\(Self.formatFieldValue(Self.sanitizeEvent(event)))",
+            "msg=\(Self.formatMessage(message))"
+        ]
+
+        for key in fields.keys.sorted() {
+            guard !key.isEmpty else { continue }
+            chunks.append("\(Self.sanitizeFieldKey(key))=\(Self.formatFieldValue(fields[key] ?? ""))")
+        }
+
+        let formattedMessage = chunks.joined(separator: " ")
+
+        if logToConsole {
+            os_log("%{public}@", log: osLog, type: level.osLogType, formattedMessage)
+        }
+
+        if logToFile, let fileURL = logFileURL {
+            writeToLogFile(formattedMessage, fileURL: fileURL)
+        }
+
+        _ = function
+        _ = line
+    }
+
+    // MARK: - Legacy Compatibility Methods
+
     func debug(
         _ message: String,
         file: String = #file,
         function: String = #function,
         line: Int = #line
     ) {
-        log(message, level: .debug, file: file, function: function, line: line)
+        log(level: .debug, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
     }
-    
-    /// Log a message at info level
-    /// - Parameters:
-    ///   - message: The message to log
-    ///   - file: The file where the log was called (auto-filled)
-    ///   - function: The function where the log was called (auto-filled)
-    ///   - line: The line where the log was called (auto-filled)
+
     func info(
         _ message: String,
         file: String = #file,
         function: String = #function,
         line: Int = #line
     ) {
-        log(message, level: .info, file: file, function: function, line: line)
+        log(level: .info, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
     }
-    
-    /// Log a message at warning level
-    /// - Parameters:
-    ///   - message: The message to log
-    ///   - file: The file where the log was called (auto-filled)
-    ///   - function: The function where the log was called (auto-filled)
-    ///   - line: The line where the log was called (auto-filled)
+
     func warning(
         _ message: String,
         file: String = #file,
         function: String = #function,
         line: Int = #line
     ) {
-        log(message, level: .warning, file: file, function: function, line: line)
+        log(level: .warning, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
     }
-    
-    /// Log a message at error level
-    /// - Parameters:
-    ///   - message: The message to log
-    ///   - file: The file where the log was called (auto-filled)
-    ///   - function: The function where the log was called (auto-filled)
-    ///   - line: The line where the log was called (auto-filled)
+
     func error(
         _ message: String,
         file: String = #file,
         function: String = #function,
         line: Int = #line
     ) {
-        log(message, level: .error, file: file, function: function, line: line)
+        log(level: .error, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
     }
-    
-    /// Log a message at fatal level
-    /// - Parameters:
-    ///   - message: The message to log
-    ///   - file: The file where the log was called (auto-filled)
-    ///   - function: The function where the log was called (auto-filled)
-    ///   - line: The line where the log was called (auto-filled)
+
     func fatal(
         _ message: String,
         file: String = #file,
         function: String = #function,
         line: Int = #line
     ) {
-        log(message, level: .fatal, file: file, function: function, line: line)
+        log(level: .fatal, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
     }
-    
-    /// Log an error object, extracting the localized description
-    /// - Parameters:
-    ///   - error: The error to log
-    ///   - file: The file where the log was called (auto-filled)
-    ///   - function: The function where the log was called (auto-filled)
-    ///   - line: The line where the log was called (auto-filled)
+
+    /// Log an error object, extracting structured metadata.
     func log(
         error: Error,
         file: String = #file,
@@ -198,75 +201,88 @@ final class LoggingService {
         line: Int = #line
     ) {
         let nsError = error as NSError
-        let message = """
-        Error: \(nsError.localizedDescription)
-        Domain: \(nsError.domain)
-        Code: \(nsError.code)
-        \(nsError.userInfo)
-        """
-        log(message, level: .error, file: file, function: function, line: line)
+        log(
+            level: .error,
+            event: "legacy_error",
+            message: Self.singleLine(nsError.localizedDescription),
+            fields: [
+                "domain": nsError.domain,
+                "code": String(nsError.code)
+            ],
+            file: file,
+            function: function,
+            line: line
+        )
     }
-    
-    // MARK: - Private Methods
-    
-    /// Core logging method that handles all log output
-    /// - Parameters:
-    ///   - message: The message to log
-    ///   - level: The log level
-    ///   - file: The file where the log was called
-    ///   - function: The function where the log was called
-    ///   - line: The line where the log was called
-    private func log(
-        _ message: String,
-        level: LogLevel,
-        file: String,
-        function: String,
-        line: Int
-    ) {
-        guard level.rawValue >= minimumLogLevel.rawValue else { return }
-        
-        let fileName = (file as NSString).lastPathComponent
-        var components = [String]()
-        
-        // Add timestamp if configured
-        if includeTimestamps {
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
-            components.append("[\(dateFormatter.string(from: Date()))]")
-        }
-        
-        // Add log level with emoji
-        components.append(level.emoji + " [\(String(describing: level).uppercased())]")
-        
-        // Add source info if configured
-        if includeSourceInfo {
-            components.append("[\(fileName):\(line) \(function)]")
-        }
-        
-        // Add message
-        components.append(message)
-        
-        let formattedMessage = components.joined(separator: " ")
-        
-        // Log to console if configured
-        if logToConsole {
-            os_log("%{public}@", log: osLog, type: level.osLogType, formattedMessage)
-        }
-        
-        // Log to file if configured and possible
-        if logToFile, let fileURL = logFileURL {
-            writeToLogFile(formattedMessage, fileURL: fileURL)
-        }
+
+    // MARK: - Helpers
+
+    private static func componentName(from file: String) -> String {
+        let name = URL(fileURLWithPath: file).deletingPathExtension().lastPathComponent
+        return name.isEmpty ? "UnknownComponent" : name
     }
-    
+
+    private static func sanitizeEvent(_ event: String) -> String {
+        let trimmed = event.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "legacy_message" }
+
+        // Convert to snake_case-ish: alnum preserved, everything else collapsed to underscores.
+        var output = ""
+        var previousWasUnderscore = false
+        for scalar in trimmed.unicodeScalars {
+            if CharacterSet.alphanumerics.contains(scalar) {
+                output.append(Character(scalar).lowercased())
+                previousWasUnderscore = false
+            } else if !previousWasUnderscore {
+                output.append("_")
+                previousWasUnderscore = true
+            }
+        }
+
+        return output.trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+            .isEmpty ? "legacy_message" : output.trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+    }
+
+    private static func sanitizeFieldKey(_ key: String) -> String {
+        let sanitized = sanitizeEvent(key)
+        return sanitized.isEmpty ? "field" : sanitized
+    }
+
+    private static func singleLine(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func formatMessage(_ value: String) -> String {
+        let escaped = singleLine(value)
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
+    }
+
+    private static func formatFieldValue(_ value: String) -> String {
+        let normalized = singleLine(value)
+        let safePattern = "^[A-Za-z0-9._:/-]+$"
+        if normalized.range(of: safePattern, options: .regularExpression) != nil {
+            return normalized
+        }
+
+        let escaped = normalized
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
+    }
+
     /// Set up the log file
     private func setupLogFile() {
         guard logFileURL == nil else { return }
-        
+
         let fileManager = FileManager.default
         let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
         let logsDirectory = documentsDirectory.appendingPathComponent("Logs")
-        
+
         // Create logs directory if it doesn't exist
         if !fileManager.fileExists(atPath: logsDirectory.path) {
             do {
@@ -276,23 +292,20 @@ final class LoggingService {
                 return
             }
         }
-        
+
         // Create log file name with date
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let today = dateFormatter.string(from: Date())
-        
+
         logFileURL = logsDirectory.appendingPathComponent("tasker_\(today).log")
     }
-    
+
     /// Write a log message to the log file
-    /// - Parameters:
-    ///   - message: The message to write
-    ///   - fileURL: The URL of the log file
     private func writeToLogFile(_ message: String, fileURL: URL) {
         let fullMessage = message + "\n"
         guard let data = fullMessage.data(using: .utf8) else { return }
-        
+
         // Append to log file or create it if it doesn't exist
         if FileManager.default.fileExists(atPath: fileURL.path) {
             do {
@@ -312,12 +325,6 @@ final class LoggingService {
 
 // MARK: - Global Convenience Functions
 
-/// Log a message at debug level
-/// - Parameters:
-///   - message: The message to log
-///   - file: The file where the log was called (auto-filled)
-///   - function: The function where the log was called (auto-filled)
-///   - line: The line where the log was called (auto-filled)
 public func logDebug(
     _ message: String,
     file: String = #file,
@@ -327,12 +334,19 @@ public func logDebug(
     LoggingService.shared.debug(message, file: file, function: function, line: line)
 }
 
-/// Log a message at info level
-/// - Parameters:
-///   - message: The message to log
-///   - file: The file where the log was called (auto-filled)
-///   - function: The function where the log was called (auto-filled)
-///   - line: The line where the log was called (auto-filled)
+public func logDebug(
+    _ items: Any...,
+    separator: String = " ",
+    terminator: String = "\n",
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    let message = items.map { String(describing: $0) }.joined(separator: separator)
+    let suffix = terminator == "\n" ? "" : terminator
+    LoggingService.shared.debug(message + suffix, file: file, function: function, line: line)
+}
+
 public func logInfo(
     _ message: String,
     file: String = #file,
@@ -342,12 +356,19 @@ public func logInfo(
     LoggingService.shared.info(message, file: file, function: function, line: line)
 }
 
-/// Log a message at warning level
-/// - Parameters:
-///   - message: The message to log
-///   - file: The file where the log was called (auto-filled)
-///   - function: The function where the log was called (auto-filled)
-///   - line: The line where the log was called (auto-filled)
+public func logInfo(
+    _ items: Any...,
+    separator: String = " ",
+    terminator: String = "\n",
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    let message = items.map { String(describing: $0) }.joined(separator: separator)
+    let suffix = terminator == "\n" ? "" : terminator
+    LoggingService.shared.info(message + suffix, file: file, function: function, line: line)
+}
+
 public func logWarning(
     _ message: String,
     file: String = #file,
@@ -357,12 +378,19 @@ public func logWarning(
     LoggingService.shared.warning(message, file: file, function: function, line: line)
 }
 
-/// Log a message at error level
-/// - Parameters:
-///   - message: The message to log
-///   - file: The file where the log was called (auto-filled)
-///   - function: The function where the log was called (auto-filled)
-///   - line: The line where the log was called (auto-filled)
+public func logWarning(
+    _ items: Any...,
+    separator: String = " ",
+    terminator: String = "\n",
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    let message = items.map { String(describing: $0) }.joined(separator: separator)
+    let suffix = terminator == "\n" ? "" : terminator
+    LoggingService.shared.warning(message + suffix, file: file, function: function, line: line)
+}
+
 public func logError(
     _ message: String,
     file: String = #file,
@@ -372,12 +400,19 @@ public func logError(
     LoggingService.shared.error(message, file: file, function: function, line: line)
 }
 
-/// Log a message at fatal level
-/// - Parameters:
-///   - message: The message to log
-///   - file: The file where the log was called (auto-filled)
-///   - function: The function where the log was called (auto-filled)
-///   - line: The line where the log was called (auto-filled)
+public func logError(
+    _ items: Any...,
+    separator: String = " ",
+    terminator: String = "\n",
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    let message = items.map { String(describing: $0) }.joined(separator: separator)
+    let suffix = terminator == "\n" ? "" : terminator
+    LoggingService.shared.error(message + suffix, file: file, function: function, line: line)
+}
+
 public func logFatal(
     _ message: String,
     file: String = #file,
@@ -387,12 +422,19 @@ public func logFatal(
     LoggingService.shared.fatal(message, file: file, function: function, line: line)
 }
 
-/// Log an Error object
-/// - Parameters:
-///   - error: The error to log
-///   - file: The file where the log was called (auto-filled)
-///   - function: The function where the log was called (auto-filled)
-///   - line: The line where the log was called (auto-filled)
+public func logFatal(
+    _ items: Any...,
+    separator: String = " ",
+    terminator: String = "\n",
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    let message = items.map { String(describing: $0) }.joined(separator: separator)
+    let suffix = terminator == "\n" ? "" : terminator
+    LoggingService.shared.fatal(message + suffix, file: file, function: function, line: line)
+}
+
 public func logError(
     _ error: Error,
     file: String = #file,
@@ -400,4 +442,67 @@ public func logError(
     line: Int = #line
 ) {
     LoggingService.shared.log(error: error, file: file, function: function, line: line)
+}
+
+public func logWarning(
+    event: String,
+    message: String,
+    component: String? = nil,
+    fields: [String: String] = [:],
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    LoggingService.shared.log(
+        level: .warning,
+        component: component,
+        event: event,
+        message: message,
+        fields: fields,
+        file: file,
+        function: function,
+        line: line
+    )
+}
+
+public func logError(
+    event: String,
+    message: String,
+    component: String? = nil,
+    fields: [String: String] = [:],
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    LoggingService.shared.log(
+        level: .error,
+        component: component,
+        event: event,
+        message: message,
+        fields: fields,
+        file: file,
+        function: function,
+        line: line
+    )
+}
+
+public func logFatal(
+    event: String,
+    message: String,
+    component: String? = nil,
+    fields: [String: String] = [:],
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    LoggingService.shared.log(
+        level: .fatal,
+        component: component,
+        event: event,
+        message: message,
+        fields: fields,
+        file: file,
+        function: function,
+        line: line
+    )
 }

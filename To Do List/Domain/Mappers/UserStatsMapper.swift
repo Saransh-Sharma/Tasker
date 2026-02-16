@@ -88,7 +88,7 @@ public class UserStatsMapper {
                 return existing
             }
         } catch {
-            print("Error fetching user stats: \(error)")
+            logError("Error fetching user stats: \(error)")
         }
 
         // Create new stats

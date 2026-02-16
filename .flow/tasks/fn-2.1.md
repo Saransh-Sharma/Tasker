@@ -1,25 +1,19 @@
-# fn-2.1 Fix tasker-loop-help.md See Also links
+# fn-2.1 Implement home focus cockpit, dense rows, and completed behavior
 
 ## Description
-TBD
-
+Umbrella tracker for the full Focus + Streak Cockpit redesign. Direct implementation work is split across child tasks for execution order and reviewability:
+- fn-2.2 UI foundation and ViewModel contracts
+- fn-2.3 interactions/polish/analytics
+- fn-2.4 tests and regression verification
 ## Acceptance
-- [ ] Remove "Tasker Architecture Guide" / CLAUDE.md entry from See Also
-- [ ] Change taskerctl link from ../../taskerctl to ../../../../taskerctl
-- [ ] Change Core Data Model link from ../../TaskModel.xcdatamodeld/ to ../../../../To Do List/TaskModel.xcdatamodeld/
-
-
+- [ ] fn-2.2 is completed and merged.
+- [ ] fn-2.3 is completed and merged.
+- [ ] fn-2.4 is completed and merged.
+- [ ] Epic acceptance in `.flow/specs/fn-2.md` is satisfied end-to-end.
 ## Done summary
-- Removed non-existent "Tasker Architecture Guide" / CLAUDE.md entry from See Also section
-- Updated taskerctl link from ../../taskerctl to ../../../../taskerctl
-- Updated Core Data Model link from ../../TaskModel.xcdatamodeld/ to ../../../../To Do List/TaskModel.xcdatamodeld/
-
-**Why:**
-- Links were pointing to incorrect relative paths due to file location in deep skill directory
-
-**Verification:**
-- Manually verified file content and link paths
+Blocked:
+Execution has been split into dependent child tasks (fn-2.2, fn-2.3, fn-2.4). Use this umbrella task only for roll-up completion after all child tasks are done.
 ## Evidence
-- Commits: 2c21187b2810b7bb5e4bc058712f22892bcf11e4
+- Commits:
 - Tests:
 - PRs:

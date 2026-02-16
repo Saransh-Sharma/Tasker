@@ -19,11 +19,28 @@ class HomePage {
         return app.otherElements[AccessibilityIdentifiers.Home.view]
     }
 
+    var foredropSurface: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.foredropSurface]
+    }
+
     var addTaskButton: XCUIElement {
         return app.buttons[AccessibilityIdentifiers.Home.addTaskButton]
     }
 
+    var bottomBar: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.bottomBar]
+    }
+
+    var chartsButton: XCUIElement {
+        return app.buttons[AccessibilityIdentifiers.Home.bottomBarCharts]
+    }
+
     var settingsButton: XCUIElement {
+        let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.settingsButton]
+        if byIdentifier.exists {
+            return byIdentifier
+        }
+
         // Fallback to finding by predicate if accessibility identifier not set
         let predicate = NSPredicate(format: "label CONTAINS[c] 'Settings' OR label CONTAINS[c] 'gear' OR identifier CONTAINS[c] 'settings'")
         let settingsButtons = app.buttons.containing(predicate)
@@ -47,12 +64,51 @@ class HomePage {
         return app.buttons[AccessibilityIdentifiers.Home.searchButton]
     }
 
+    var chatButton: XCUIElement {
+        return app.buttons[AccessibilityIdentifiers.Home.chatButton]
+    }
+
     var inboxButton: XCUIElement {
         return app.buttons[AccessibilityIdentifiers.Home.inboxButton]
     }
 
     var projectFilterButton: XCUIElement {
-        return app.buttons[AccessibilityIdentifiers.Home.projectFilterButton]
+        let quickMenu = app.buttons[AccessibilityIdentifiers.Home.quickFilterMenuButton]
+        if quickMenu.exists {
+            return quickMenu
+        }
+
+        let legacyProjectFilter = app.buttons["home.projectFilterButton"]
+        if legacyProjectFilter.exists {
+            return legacyProjectFilter
+        }
+
+        let navMenuButton = app.buttons["home.focus.menu.button.nav"]
+        if navMenuButton.exists {
+            return navMenuButton
+        }
+
+        return app.buttons["home.focus.filterButton.nav"]
+    }
+
+    var quickFilterMenuContainer: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.quickFilterMenuContainer]
+    }
+
+    var quickFilterAdvancedButton: XCUIElement {
+        return app.buttons[AccessibilityIdentifiers.Home.quickFilterMenuAdvancedButton]
+    }
+
+    var focusStrip: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.focusStrip]
+    }
+
+    var focusDropZone: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.focusDropZone]
+    }
+
+    var listDropZone: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.listDropZone]
     }
 
     var morningTasksList: XCUIElement {
@@ -77,6 +133,41 @@ class HomePage {
 
     var chartView: XCUIElement {
         return app.otherElements[AccessibilityIdentifiers.Home.chartView]
+    }
+
+    var navXpPieChart: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.navXpPieChart]
+    }
+
+    var navXpPieChartButton: XCUIElement {
+        let byButtonQuery = app.buttons["home.navXpPieChart.button"]
+        if byButtonQuery.exists {
+            return byButtonQuery
+        }
+        let byOtherElementsQuery = app.otherElements["home.navXpPieChart.button"]
+        if byOtherElementsQuery.exists {
+            return byOtherElementsQuery
+        }
+        return app.otherElements["home.navXpPieChart.container"]
+    }
+
+    var taskListScrollView: XCUIElement {
+        let identifiedScrollView = app.scrollViews[AccessibilityIdentifiers.Home.taskListScrollView]
+        if identifiedScrollView.exists {
+            return identifiedScrollView
+        }
+
+        let fallbackOtherElement = app.otherElements[AccessibilityIdentifiers.Home.taskListScrollView]
+        if fallbackOtherElement.exists {
+            return fallbackOtherElement
+        }
+
+        let firstScrollView = app.scrollViews.firstMatch
+        if firstScrollView.exists {
+            return firstScrollView
+        }
+
+        return app.tables.firstMatch
     }
 
     // MARK: - Initialization
@@ -106,9 +197,26 @@ class HomePage {
         searchButton.tap()
     }
 
+    /// Tap charts button
+    func tapCharts() {
+        chartsButton.tap()
+    }
+
+    /// Tap chat button
+    func tapChat() {
+        chatButton.tap()
+    }
+
     /// Tap inbox button
     func tapInbox() {
         inboxButton.tap()
+    }
+
+    /// Tap floating nav XP pie chart.
+    func tapNavXpPieChart() {
+        let chart = navXpPieChart
+        XCTAssertTrue(chart.waitForExistence(timeout: 5), "Navigation XP pie chart should exist before tapping")
+        chart.tap()
     }
 
     /// Tap project filter button
@@ -160,6 +268,73 @@ class HomePage {
         return app.buttons[identifier]
     }
 
+    /// Get SwiftUI task row by title using stable row accessibility identifiers.
+    func taskRow(containingTitle title: String) -> XCUIElement {
+        let predicate = NSPredicate(
+            format: "identifier BEGINSWITH 'home.taskRow.' AND label CONTAINS[c] %@",
+            title
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
+    }
+
+    func focusTaskCard(containingTitle title: String) -> XCUIElement {
+        let predicate = NSPredicate(
+            format: "identifier BEGINSWITH 'home.focus.task.' AND label CONTAINS[c] %@",
+            title
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
+    }
+
+    @discardableResult
+    func dragTaskToFocus(title: String, duration: TimeInterval = 0.8) -> Bool {
+        let row = taskRow(containingTitle: title)
+        guard row.waitForExistence(timeout: 4), focusDropZone.waitForExistence(timeout: 4) else {
+            return false
+        }
+        row.press(forDuration: duration, thenDragTo: focusDropZone)
+        return true
+    }
+
+    @discardableResult
+    func dragFocusTaskToList(title: String, duration: TimeInterval = 0.8) -> Bool {
+        let card = focusTaskCard(containingTitle: title)
+        guard card.waitForExistence(timeout: 4), listDropZone.waitForExistence(timeout: 4) else {
+            return false
+        }
+        card.press(forDuration: duration, thenDragTo: listDropZone)
+        return true
+    }
+
+    /// Get SwiftUI task checkbox by title using stable checkbox accessibility identifiers.
+    func taskCheckbox(containingTitle title: String) -> XCUIElement {
+        let row = taskRow(containingTitle: title)
+        let checkboxPredicate = NSPredicate(format: "identifier BEGINSWITH 'home.taskCheckbox.'")
+        let checkboxInRow = row.buttons.matching(checkboxPredicate).firstMatch
+        if checkboxInRow.exists {
+            return checkboxInRow
+        }
+        return app.buttons.matching(checkboxPredicate).firstMatch
+    }
+
+    /// Read row state accessibility value ("open" / "done") for a task title.
+    func taskRowStateValue(containingTitle title: String) -> String? {
+        taskRow(containingTitle: title).value as? String
+    }
+
+    /// Wait for a task row state value ("open" / "done") for a given title.
+    func waitForTaskRowState(_ expectedState: String, title: String, timeout: TimeInterval) -> Bool {
+        let predicate = NSPredicate { _, _ in
+            guard let value = self.taskRowStateValue(containingTitle: title) else {
+                return false
+            }
+            return value.caseInsensitiveCompare(expectedState) == .orderedSame
+        }
+
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+        return result == .completed
+    }
+
     /// Complete task at index by tapping checkbox
     func completeTask(at index: Int) {
         let checkbox = taskCheckbox(at: index)
@@ -208,6 +383,19 @@ class HomePage {
         let tabBar = app.tabBars.firstMatch
 
         return navBar.waitForExistence(timeout: timeout) || tabBar.waitForExistence(timeout: timeout)
+    }
+
+    @discardableResult
+    func verifyBottomBarExists(timeout: TimeInterval = 5) -> Bool {
+        bottomBar.waitForExistence(timeout: timeout)
+    }
+
+    @discardableResult
+    func waitForBottomBarState(_ expectedState: String, timeout: TimeInterval = 3) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", expectedState)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: bottomBar)
+        let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
+        return result == .completed
     }
 
     /// Verify task exists with title
@@ -296,6 +484,118 @@ class HomePage {
     /// Verify chart is visible
     func verifyChartIsVisible() -> Bool {
         return chartView.exists
+    }
+
+    /// Verify floating nav XP pie chart is visible.
+    func verifyNavXpPieChartIsVisible(timeout: TimeInterval = 5) -> Bool {
+        navXpPieChart.waitForExistence(timeout: timeout)
+    }
+
+    /// Verify floating nav XP pie chart is hidden.
+    func verifyNavXpPieChartIsHidden(timeout: TimeInterval = 2) -> Bool {
+        !navXpPieChart.waitForExistence(timeout: timeout)
+    }
+
+    /// Verify floating nav XP pie chart can be interacted with.
+    @discardableResult
+    func verifyNavXpPieChartIsHittable(file: StaticString = #file, line: UInt = #line) -> Bool {
+        let isHittable = navXpPieChart.isHittable
+        if !isHittable {
+            XCTFail("Navigation XP pie chart should be hittable", file: file, line: line)
+        }
+        return isHittable
+    }
+
+    /// Verify floating nav XP pie chart size is approximately expected.
+    @discardableResult
+    func verifyNavXpPieChartSize(
+        expected: CGFloat = 136,
+        tolerance: CGFloat = 10,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        let frame = navXpPieChart.frame
+        let widthMatches = abs(frame.width - expected) <= tolerance
+        let heightMatches = abs(frame.height - expected) <= tolerance
+        let matches = widthMatches && heightMatches
+
+        if !matches {
+            XCTFail(
+                "Expected nav XP pie chart size near \(expected)x\(expected), got \(frame.width)x\(frame.height)",
+                file: file,
+                line: line
+            )
+        }
+
+        return matches
+    }
+
+    /// Verify floating nav XP pie chart frame is fully within the visible app window.
+    @discardableResult
+    func verifyNavXpPieChartIsFullyVisibleInWindow(file: StaticString = #file, line: UInt = #line) -> Bool {
+        let chartFrame = navXpPieChart.frame
+        let window = app.windows.firstMatch
+        let windowFrame = window.frame
+
+        let isFullyVisible = windowFrame.contains(chartFrame)
+        if !isFullyVisible {
+            XCTFail(
+                "Expected nav XP pie chart frame \(chartFrame) to be fully inside window frame \(windowFrame)",
+                file: file,
+                line: line
+            )
+        }
+        return isFullyVisible
+    }
+
+    /// Verify nav pie chart is horizontally aligned with settings button and positioned above it.
+    @discardableResult
+    func verifyNavXpPieChartAlignedWithSettingsButton(
+        horizontalTolerance: CGFloat = 16,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        let chartExists = navXpPieChart.waitForExistence(timeout: 5)
+        let settingsExists = settingsButton.waitForExistence(timeout: 5)
+        guard chartExists, settingsExists else {
+            XCTFail("Expected nav pie chart and settings button to exist for alignment check", file: file, line: line)
+            return false
+        }
+
+        let chartFrame = navXpPieChart.frame
+        let settingsFrame = settingsButton.frame
+        let isHorizontallyAligned = abs(chartFrame.midX - settingsFrame.midX) <= horizontalTolerance
+        let isAboveSettings = chartFrame.midY < settingsFrame.midY
+        let isAligned = isHorizontallyAligned && isAboveSettings
+
+        if !isAligned {
+            XCTFail(
+                "Expected nav pie chart aligned above settings. chart=\(chartFrame), settings=\(settingsFrame), tolerance=\(horizontalTolerance)",
+                file: file,
+                line: line
+            )
+        }
+        return isAligned
+    }
+
+    /// Verify nav XP pie chart button/container is absent.
+    @discardableResult
+    func verifyNavXpPieChartButtonIsAbsent(file: StaticString = #file, line: UInt = #line) -> Bool {
+        let isAbsent = !navXpPieChartButton.exists
+        if !isAbsent {
+            XCTFail("Navigation XP pie chart button should be absent", file: file, line: line)
+        }
+        return isAbsent
+    }
+
+    /// Verify nav XP pie chart button/container is present.
+    @discardableResult
+    func verifyNavXpPieChartButtonIsPresent(timeout: TimeInterval = 3, file: StaticString = #file, line: UInt = #line) -> Bool {
+        let isPresent = navXpPieChartButton.waitForExistence(timeout: timeout)
+        if !isPresent {
+            XCTFail("Navigation XP pie chart button should be present", file: file, line: line)
+        }
+        return isPresent
     }
 
     /// Verify empty state (no tasks)

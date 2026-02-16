@@ -62,7 +62,7 @@ public final class PresentationDependencyContainer {
         cacheService: CacheServiceProtocol?,
         useCaseCoordinator: UseCaseCoordinator
     ) {
-        print("🔧 PresentationDependencyContainer: Starting configuration (Clean Architecture)...")
+        logDebug("🔧 PresentationDependencyContainer: Starting configuration (Clean Architecture)...")
 
         self.taskRepository = taskRepository
         self.projectRepository = projectRepository
@@ -73,7 +73,7 @@ public final class PresentationDependencyContainer {
         setupUseCases()
 
         self.isConfigured = true
-        print("✅ PresentationDependencyContainer: Configuration completed (Clean Architecture)")
+        logDebug("✅ PresentationDependencyContainer: Configuration completed (Clean Architecture)")
     }
 
     /// Configure using EnhancedDependencyContainer (convenience method)
@@ -91,7 +91,7 @@ public final class PresentationDependencyContainer {
     /// Legacy configuration method for backward compatibility with AppDelegate
     /// This configures both State and Presentation layers in one call
     @objc public func configure(with container: NSPersistentContainer) {
-        print("🔧 PresentationDependencyContainer: Legacy configuration with NSPersistentContainer...")
+        logDebug("🔧 PresentationDependencyContainer: Legacy configuration with NSPersistentContainer...")
 
         // First configure the State layer (EnhancedDependencyContainer)
         EnhancedDependencyContainer.shared.configure(with: container)
@@ -99,7 +99,7 @@ public final class PresentationDependencyContainer {
         // Then configure this container from the State layer
         configureFromStateLayer()
 
-        print("✅ PresentationDependencyContainer: Legacy configuration completed")
+        logDebug("✅ PresentationDependencyContainer: Legacy configuration completed")
     }
 
     // MARK: - Setup Methods
@@ -232,24 +232,24 @@ public final class PresentationDependencyContainer {
     public func inject(into viewController: UIViewController) {
         assertConfigured()
         let vcType = String(describing: type(of: viewController))
-        print("💉 PresentationDependencyContainer: Injecting into \(vcType)")
+        logDebug("💉 PresentationDependencyContainer: Injecting into \(vcType)")
 
         // Check for specific view controller types and inject ViewModels
         switch viewController {
         case let homeVC as HomeViewControllerProtocol:
             homeVC.viewModel = makeHomeViewModel()
-            print("✅ Injected HomeViewModel")
+            logDebug("✅ Injected HomeViewModel")
 
         case let addTaskVC as AddTaskViewControllerProtocol:
             addTaskVC.viewModel = makeNewAddTaskViewModel()
-            print("✅ Injected AddTaskViewModel")
+            logDebug("✅ Injected AddTaskViewModel")
 
         case let projectVC as ProjectManagementViewControllerProtocol:
             projectVC.viewModel = makeProjectManagementViewModel()
-            print("✅ Injected ProjectManagementViewModel")
+            logDebug("✅ Injected ProjectManagementViewModel")
 
         default:
-            print("ℹ️ No specific injection for \(vcType)")
+            logDebug("ℹ️ No specific injection for \(vcType)")
         }
 
         // Inject into child view controllers

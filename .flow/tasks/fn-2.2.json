@@ -1,21 +1,27 @@
 {
   "assignee": "saransh1337@gmail.com",
   "claim_note": "",
-  "claimed_at": "2026-01-17T12:52:07.780709Z",
-  "created_at": "2026-01-17T12:50:21.483596Z",
+  "claimed_at": "2026-02-13T16:35:55.023399Z",
+  "created_at": "2026-02-13T16:35:20.208353Z",
   "depends_on": [],
   "epic": "fn-2",
   "evidence": {
-    "commits": [
-      "67183078d88b3a5506bd6d20af9f384b9fed45e8"
+    "commits": [],
+    "notes": [
+      "Foundation changes delivered in HomeViewModel, HomeForedropView, TaskRowView, TaskListView, TaskSectionView, and CompletionCheckbox."
     ],
-    "prs": [],
-    "tests": []
+    "tests": [
+      {
+        "details": "Workspace/project dependency environment has external module resolution issues (Firebase/FluentUI/etc.) unrelated to the edited Home files in this run.",
+        "name": "xcodebuild -project Tasker.xcodeproj -scheme 'To Do List' -configuration Debug -sdk iphonesimulator build CODE_SIGNING_ALLOWED=NO",
+        "result": "failed"
+      }
+    ]
   },
   "id": "fn-2.2",
-  "priority": null,
+  "priority": 1,
   "spec_path": ".flow/tasks/fn-2.2.md",
   "status": "done",
-  "title": "Fix remove_presentation_vm.rb hardcoded filter",
-  "updated_at": "2026-01-17T12:53:09.188877Z"
+  "title": "UI foundation: cockpit, focus strip, compact list, and VM contracts",
+  "updated_at": "2026-02-13T16:51:32.135797Z"
 }

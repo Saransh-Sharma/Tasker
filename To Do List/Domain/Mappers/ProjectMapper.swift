@@ -23,7 +23,7 @@ public class ProjectMapper {
         }
 
         // Check if this is the Inbox project
-        let isInbox = entity.isDefault ?? (id == ProjectConstants.inboxProjectID)
+        let isInbox = entity.isDefault || (id == ProjectConstants.inboxProjectID)
 
         return Project(
             id: id,
@@ -101,7 +101,7 @@ public class ProjectMapper {
             let projects = try context.fetch(request)
             return projects.first
         } catch {
-            print("Error fetching project by ID: \(error)")
+            logError("Error fetching project by ID: \(error)")
             return nil
         }
     }

@@ -19,6 +19,7 @@ public final class UseCaseCoordinator {
     public let deleteTask: DeleteTaskUseCase
     public let rescheduleTask: RescheduleTaskUseCase
     public let getTasks: GetTasksUseCase
+    public let getHomeFilteredTasks: GetHomeFilteredTasksUseCase
 
     // New Task Use Cases (Phase 3)
     public let filterTasks: FilterTasksUseCase
@@ -82,6 +83,10 @@ public final class UseCaseCoordinator {
         self.getTasks = GetTasksUseCase(
             taskRepository: taskRepository,
             cacheService: cacheService
+        )
+
+        self.getHomeFilteredTasks = GetHomeFilteredTasksUseCase(
+            taskRepository: taskRepository
         )
         
         // New Task Use Cases (Phase 3)

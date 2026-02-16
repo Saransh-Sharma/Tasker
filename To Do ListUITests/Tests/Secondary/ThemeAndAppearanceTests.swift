@@ -32,11 +32,8 @@ class ThemeAndAppearanceTests: BaseUITest {
         let addButton = homePage.addTaskButton
         XCTAssertTrue(addButton.exists, "Floating action button should exist")
 
-        // Check for bottom app bar (Fluent style)
-        let bottomBar = app.toolbars.firstMatch
-        if bottomBar.exists {
-            print("✅ Bottom app bar (FluentUI) rendered")
-        }
+        // Check for bottom app bar (glass style)
+        XCTAssertTrue(homePage.verifyBottomBarExists(), "Home bottom bar should exist")
 
         // Check for task cells with Fluent styling
         let taskCells = app.tables.cells

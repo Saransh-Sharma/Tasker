@@ -21,18 +21,23 @@ public struct StatsView: View {
             VStack(spacing: 20) {
                 // XP Ring Section
                 xpSection
+                    .staggeredAppearance(index: 0)
 
                 // Streak Cards Section
                 streakCardsSection
+                    .staggeredAppearance(index: 1)
 
                 // Weekly Chart Section
                 weeklyChartSection
+                    .staggeredAppearance(index: 2)
 
                 // Heatmap Section
                 heatmapSection
+                    .staggeredAppearance(index: 3)
 
                 // Performance & Insights Section
                 performanceInsightsSection
+                    .staggeredAppearance(index: 4)
             }
             .padding()
             .padding(.bottom, TaskerTheme.Spacing.tabBarHeight)  // Extra padding for tab bar
@@ -75,6 +80,7 @@ public struct StatsView: View {
         .padding()
         .background(TaskerTheme.Colors.cardBackground)
         .cornerRadius(TaskerTheme.CornerRadius.card)
+        .scaleOnPress()
     }
 
     private var completionPercentage: Int {

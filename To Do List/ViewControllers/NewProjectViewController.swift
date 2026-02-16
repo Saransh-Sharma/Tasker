@@ -332,10 +332,10 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         let oldText = textField.text!
-        print("old text is: \(oldText)")
+        logDebug("old text is: \(oldText)")
         let stringRange = Range(range, in:oldText)!
         let newText = oldText.replacingCharacters(in: stringRange, with: string)
-        print("new text is: \(newText)")
+        logDebug("new text is: \(newText)")
         
         
         if textField.tag == 0 {
@@ -345,10 +345,10 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
         }
         
         if newText.isEmpty {
-            print("EMPTY")
+            logDebug("EMPTY")
             button.isEnabled = false
         } else {
-            print("NOT EMPTY")
+            logDebug("NOT EMPTY")
             button.isEnabled = true
             
         }
@@ -375,7 +375,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
             // Create project using Clean Architecture
             guard let taskRepo = DependencyContainer.shared.taskRepository as? TaskRepositoryProtocol,
                   let container = DependencyContainer.shared.persistentContainer else {
-                print("❌ Failed to get dependencies")
+                logError(" Failed to get dependencies")
                 HUD.shared.showFailure(from: self, with: "Failed to create project")
                 return
             }
@@ -397,9 +397,9 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
                 description: currentDescriptionInTexField.isEmpty ? nil : currentDescriptionInTexField
             )
 
-            print("🆕 [NEW PROJECT] Creating new project...")
-            print("   Name: '\(currentProjectInTexField)'")
-            print("   Description: '\(currentDescriptionInTexField.isEmpty ? "none" : currentDescriptionInTexField)'")
+            logDebug("🆕 [NEW PROJECT] Creating new project...")
+            logDebug("   Name: '\(currentProjectInTexField)'")
+            logDebug("   Description: '\(currentDescriptionInTexField.isEmpty ? "none" : currentDescriptionInTexField)'")
 
             useCaseCoordinator.manageProjects.createProject(request: projectRequest) { [weak self] result in
                 DispatchQueue.main.async {
@@ -407,17 +407,17 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
 
                     switch result {
                     case .success(let project):
-                        print("✅ [NEW PROJECT] Successfully created project!")
-                        print("   Project Name: '\(project.name)'")
-                        print("   Project UUID: \(project.id.uuidString)'")
-                        print("🆕 [NEW PROJECT] ==================")
+                        logDebug("✅ [NEW PROJECT] Successfully created project!")
+                        logDebug("   Project Name: '\(project.name)'")
+                        logDebug("   Project UUID: \(project.id.uuidString)'")
+                        logDebug("🆕 [NEW PROJECT] ==================")
                         HUD.shared.showSuccess(from: self, with: "Project created\n\(project.name)")
 
                         // Navigate to add task screen
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
                             guard let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as? AddTaskViewController else {
-                                print("❌ Failed to cast view controller to AddTaskViewController")
+                                logError(" Failed to cast view controller to AddTaskViewController")
                                 HUD.shared.showFailure(from: self, with: "Failed to open Add Task screen")
                                 return
                             }
@@ -425,12 +425,12 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
                             DependencyContainer.shared.inject(into: newViewController)
                             newViewController.modalPresentationStyle = .fullScreen
                             self.present(newViewController, animated: true, completion: { () in
-                                print("SUCCESS - Navigated to Add Task")
+                                logDebug("SUCCESS - Navigated to Add Task")
                             })
                         }
 
                     case .failure(let error):
-                        print("❌ Failed to create project: \(error)")
+                        logError(" Failed to create project: \(error)")
                         HUD.shared.showFailure(from: self, with: "Failed to create project")
                     }
                 }

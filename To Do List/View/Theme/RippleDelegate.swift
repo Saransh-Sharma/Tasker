@@ -33,14 +33,14 @@ class DateViewRippleDelegate: NSObject, MDCRippleTouchControllerDelegate {
     func rippleTouchController(_ rippleTouchController: MDCRippleTouchController,
                                insert rippleView: MDCRippleView,
                                into view: UIView) {
-        print("ripple checkpoint A1")
+        logDebug("ripple checkpoint A1")
         view.insertSubview(rippleView, at: 0)
     }
     
     func rippleTouchController(_ rippleTouchController: MDCRippleTouchController,
                                didProcessRippleView rippleView: MDCRippleView,
                                atTouchLocation location: CGPoint) {
-        print("Did process ripple view!")
+        logDebug("Did process ripple view!")
     }
     
     

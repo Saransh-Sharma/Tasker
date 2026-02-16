@@ -160,8 +160,8 @@ public final class TaskGameificationUseCase {
     
     private func calculateMultipliers(for task: Task) -> MultiplierBreakdown {
         var timelyBonus: Double = 1.0
-        var streakBonus: Double = 1.0
-        var contextBonus: Double = 1.0
+        let streakBonus: Double = 1.0
+        let contextBonus: Double = 1.0
         
         // Timely completion bonus
         if let dueDate = task.dueDate {

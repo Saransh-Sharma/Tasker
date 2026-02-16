@@ -1,4 +1,5 @@
 platform :ios, '16.0'
+inhibit_all_warnings!
 
 target 'Tasker' do
   use_frameworks!
@@ -37,12 +38,36 @@ end          # ← closes the outer 'Tasker' block
 
 # Runs after pods project is generated
 post_install do |installer|
+  warning_phase_names = [
+    'Create Symlinks to Header Folders',
+    '[CP-User] Optimize resource bundle'
+  ]
+  toolchain_swift_path = '${TOOLCHAIN_DIR}/usr/lib/swift/${PLATFORM_NAME}'
+
   installer.pods_project.targets.each do |t|
     t.build_configurations.each do |c|
       c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+      c.build_settings['SWIFT_SUPPRESS_WARNINGS'] = 'YES'
+      c.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+      c.build_settings['TOOLCHAIN_DIR'] = '$(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain'
+
+      ldflags = Array(c.build_settings['OTHER_LDFLAGS']).flatten.compact.map(&:to_s).uniq
+      c.build_settings['OTHER_LDFLAGS'] = ldflags unless ldflags.empty?
+
+      search_paths = Array(c.build_settings['LIBRARY_SEARCH_PATHS']).flatten.compact.map(&:to_s)
+      filtered_paths = search_paths.reject { |path| path.include?(toolchain_swift_path) }.uniq
+      c.build_settings['LIBRARY_SEARCH_PATHS'] = filtered_paths unless filtered_paths.empty?
+
       # Fix for MicrosoftFluentUI Objective-C selector conflicts
       c.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
-      c.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FLUENTUI_NAVIGATION_SUBTITLE_FIX=1'
+      unless c.build_settings['GCC_PREPROCESSOR_DEFINITIONS'].include?('FLUENTUI_NAVIGATION_SUBTITLE_FIX=1')
+        c.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FLUENTUI_NAVIGATION_SUBTITLE_FIX=1'
+      end
+    end
+
+    t.shell_script_build_phases.each do |phase|
+      next unless warning_phase_names.include?(phase.name)
+      phase.always_out_of_date = '1'
     end
   end
   
@@ -51,7 +76,16 @@ post_install do |installer|
   if fluentui_target
     fluentui_target.build_configurations.each do |config|
       config.build_settings['OTHER_SWIFT_FLAGS'] ||= ['$(inherited)']
-      config.build_settings['OTHER_SWIFT_FLAGS'] << '-DFLUENTUI_DISABLE_SUBTITLE_EXTENSION'
+      unless config.build_settings['OTHER_SWIFT_FLAGS'].include?('-DFLUENTUI_DISABLE_SUBTITLE_EXTENSION')
+        config.build_settings['OTHER_SWIFT_FLAGS'] << '-DFLUENTUI_DISABLE_SUBTITLE_EXTENSION'
+      end
     end
+  end
+
+  support_files_pattern = File.join(installer.sandbox.root.to_s, 'Target Support Files', '**', '*.xcconfig')
+  Dir.glob(support_files_pattern).each do |xcconfig_path|
+    content = File.read(xcconfig_path)
+    updated = content.gsub(/ ?"\$\{TOOLCHAIN_DIR\}\/usr\/lib\/swift\/\$\{PLATFORM_NAME\}"/, '')
+    File.write(xcconfig_path, updated) if updated != content
   end
 end

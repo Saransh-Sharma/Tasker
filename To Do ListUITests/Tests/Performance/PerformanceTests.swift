@@ -58,8 +58,8 @@ class PerformanceTests: BaseUITest {
         print("📊 Total tasks for scroll test: \(taskCount)")
 
         // WHEN: User scrolls through the list
-        let tableView = app.tables.firstMatch
-        XCTAssertTrue(tableView.exists, "Table view should exist")
+        let taskListScrollView = homePage.taskListScrollView
+        XCTAssertTrue(taskListScrollView.exists, "Task list scroll view should exist")
 
         // Measure scrolling performance
         PerformanceMetrics.measureAndAssert(
@@ -69,12 +69,12 @@ class PerformanceTests: BaseUITest {
         ) {
             // Scroll through entire list
             for _ in 0..<10 {
-                tableView.swipeUp()
+                taskListScrollView.swipeUp()
             }
 
             // Scroll back up
             for _ in 0..<10 {
-                tableView.swipeDown()
+                taskListScrollView.swipeDown()
             }
         }
 
@@ -197,13 +197,13 @@ class PerformanceTests: BaseUITest {
         waitForAnimations(duration: 2.0)
 
         // WHEN: User scrolls and interacts with many tasks
-        let tableView = app.tables.firstMatch
+        let taskListScrollView = homePage.taskListScrollView
 
         // Measure memory
         measure(metrics: [XCTMemoryMetric()]) {
             // Scroll through all tasks
             for _ in 0..<15 {
-                tableView.swipeUp()
+                taskListScrollView.swipeUp()
             }
 
             // Complete some tasks
@@ -213,7 +213,7 @@ class PerformanceTests: BaseUITest {
 
             // Scroll back
             for _ in 0..<15 {
-                tableView.swipeDown()
+                taskListScrollView.swipeDown()
             }
         }
 

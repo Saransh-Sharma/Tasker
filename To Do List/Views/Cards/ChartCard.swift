@@ -10,6 +10,7 @@ import SwiftUI
 import CoreData
 import DGCharts
 import UIKit
+import Combine
 
 // MARK: - Chart Card
 struct ChartCard: View {
@@ -71,11 +72,14 @@ struct ChartCard: View {
         .onAppear {
             loadChartData()
         }
-        .onChange(of: referenceDate) { _ in
+        .onChange(of: referenceDate) { _, _ in
             loadChartData()
         }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("TaskCompletionChanged"))) { _ in
-            print("📡 ChartCard: Received TaskCompletionChanged - reloading chart data")
+        .onReceive(
+            NotificationCenter.default.publisher(for: .homeTaskMutation)
+                .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
+        ) { _ in
+            logDebug("📡 ChartCard: Received HomeTaskMutationEvent - reloading chart data")
             loadChartData()
         }
     }
@@ -93,11 +97,11 @@ struct ChartCard: View {
             let newData = chartService.generateLineChartData(for: referenceDate)
             DispatchQueue.main.async {
                 self.chartData = newData
-                withAnimation(.easeInOut(duration: 0.3)) {
+                withAnimation(TaskerAnimation.gentle) {
                     self.isLoading = false
                 }
                 #if DEBUG
-                print("📊 SwiftUI Chart Card loaded \(newData.count) data points")
+                logDebug("📊 SwiftUI Chart Card loaded \(newData.count) data points")
                 #endif
             }
         }
@@ -227,7 +231,7 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         }
         
         // Log chart update for debugging
-        print("Chart updated with \(data.count) data points, max score: \(dynamicMaximum)")
+        logDebug("Chart updated with \(data.count) data points, max score: \(dynamicMaximum)")
     }
 }
 

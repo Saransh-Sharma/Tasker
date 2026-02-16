@@ -44,13 +44,13 @@ public struct TaskPriorityConfig {
             return TaskPriorityConfig.scoreForPriority(self)
         }
 
-        /// Hex color string for UI representation (platform-agnostic)
+        /// Hex color string for UI representation ("Four Jewels" — maximally distinct)
         public var colorHex: String {
             switch self {
-            case .none: return "#8E8E93"  // systemGray
-            case .low: return "#007AFF"   // systemBlue
-            case .high: return "#FF9500"  // systemOrange
-            case .max: return "#FF3B30"   // systemRed
+            case .none: return "#B09080"  // Antique Bronze
+            case .low: return "#38C8A8"   // Jade Teal
+            case .high: return "#7C68D8"  // Imperial Violet
+            case .max: return "#E05058"   // Scarlet Garnet
             }
         }
 
@@ -72,7 +72,6 @@ public struct TaskPriorityConfig {
             case 3: self = .high
             case 4: self = .max
             default:
-                print("⚠️ Invalid priority rawValue: \(rawValue), defaulting to .none")
                 self = .none // Default fallback
             }
         }
@@ -112,7 +111,6 @@ public struct TaskPriorityConfig {
         if isValidPriority(rawValue) {
             return rawValue
         }
-        print("⚠️ Normalizing invalid priority \(rawValue) to .none (1)")
         return Priority.none.rawValue
     }
     

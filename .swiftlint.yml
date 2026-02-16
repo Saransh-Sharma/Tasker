@@ -31,3 +31,12 @@ custom_rules:
       - "To Do List/View/LiquidGlass/LGBaseView.swift"
     message: "Use token elevation APIs (`applyTaskerElevation` / `.taskerElevation`) instead of ad-hoc shadows."
     severity: error
+
+  no_direct_print:
+    name: "No Direct Print"
+    regex: "\\b(?:Swift\\.)?print\\s*\\("
+    included: "To Do List/.*\\.swift"
+    excluded:
+      - "To Do List/.*Tests?/.*\\.swift"
+    message: "Use LoggingService (`logWarning/logError/logFatal` or structured `log(...event...)`) instead of print()."
+    severity: error

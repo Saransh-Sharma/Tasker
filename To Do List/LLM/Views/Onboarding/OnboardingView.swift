@@ -5,169 +5,126 @@
 
 import SwiftUI
 
+// MARK: - Feature Row Component
+
+private struct EvaFeatureRow: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let index: Int
+
+    var body: some View {
+        HStack(spacing: TaskerTheme.Spacing.lg) {
+            ZStack {
+                Circle()
+                    .fill(Color.tasker(.accentWash))
+                    .frame(width: 44, height: 44)
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color.tasker(.accentPrimary))
+            }
+
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                Text(title)
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker(.textPrimary))
+                Text(subtitle)
+                    .font(.tasker(.callout))
+                    .foregroundColor(Color.tasker(.textSecondary))
+            }
+        }
+        .staggeredAppearance(index: index)
+    }
+}
+
+// MARK: - Onboarding View
+
 struct OnboardingView: View {
     @Binding var showOnboarding: Bool
-    
+
+    private let features: [(icon: String, title: String, subtitle: String)] = [
+        ("bolt.fill", "fast", "optimized for apple silicon"),
+        ("checkmark.shield.fill", "offline", "runs locally on your device"),
+        ("lightbulb.fill", "insightful", "smart productivity suggestions"),
+        ("brain.head.profile", "context-aware", "adapts to your current projects"),
+        ("battery.100.bolt", "battery-light", "tiny power footprint"),
+        ("list.bullet.rectangle.fill", "smart recap", "daily / weekly digests")
+    ]
+
     var body: some View {
         NavigationStack {
             VStack {
                 Spacer()
 
-                VStack(spacing: 4) {
-                    Image(systemName: "bubble.left.and.text.bubble.right")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 40, height: 40)
-                        .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
+                // Hero section
+                VStack(spacing: TaskerTheme.Spacing.sm) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.tasker(.accentWash))
+                            .frame(width: 88, height: 88)
+                        Circle()
+                            .fill(Color.tasker(.accentMuted))
+                            .frame(width: 72, height: 72)
+                        Image(systemName: "bubble.left.and.text.bubble.right")
+                            .font(.system(size: 32, weight: .medium))
+                            .foregroundColor(Color.tasker(.accentPrimary))
+                            .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
+                    }
 
-                    VStack(spacing: 4) {
+                    VStack(spacing: TaskerTheme.Spacing.xs) {
                         Text("I am Eva !")
-                            .font(.tasker(.title1))
-                            .fontWeight(.semibold)
+                            .font(.tasker(.display))
+                            .foregroundColor(Color.tasker(.textPrimary))
                         Text("your personal AI assistant")
                             .font(.tasker(.callout))
-                            .fontWeight(.semibold).foregroundStyle(.secondary)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Color.tasker(.textSecondary))
                             .multilineTextAlignment(.center)
-//                        Text("chat about your tasks, projects, and more with me")
-//                            .foregroundStyle(.secondary)
-//                            .multilineTextAlignment(.center)
                     }
                 }
-                
+
                 Spacer()
-                                
-                VStack(alignment: .leading, spacing: 16) {
-                    Label {
-                        VStack(alignment: .leading) {
-                            Text("fast")
-                                .font(.tasker(.headline))
-                            Text("optimized for apple silicon")
-                                .font(.tasker(.callout))
-                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                        }
-                    } icon: {
-                        Image(systemName: "message")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                            .padding(.trailing, 8)
-                    }
-                    
-                    Label {
-                        VStack(alignment: .leading) {
-                            Text("offline")
-                                .font(.tasker(.headline))
-                            Text("runs locally on your device")
-                                .font(.tasker(.callout))
-                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                        }
-                    } icon: {
-                        Image(systemName: "checkmark.shield")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                            .padding(.trailing, 8)
-                    }
 
-                    // Insightful
-                    Label {
-                        VStack(alignment: .leading) {
-                            Text("insightful")
-                                .font(.tasker(.headline))
-                            Text("smart productivity suggestions")
-                                .font(.tasker(.callout))
-                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                        }
-                    } icon: {
-                        Image(systemName: "lightbulb")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                            .padding(.trailing, 8)
-                    }
-
-                    // Context-Aware
-                    Label {
-                        VStack(alignment: .leading) {
-                            Text("context-aware")
-                                .font(.tasker(.headline))
-                            Text("adapts to your current projects")
-                                .font(.tasker(.callout))
-                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                        }
-                    } icon: {
-                        Image(systemName: "brain.head.profile")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                            .padding(.trailing, 8)
-                    }
-
-                    // Battery-Light
-                    Label {
-                        VStack(alignment: .leading) {
-                            Text("battery-light")
-                                .font(.tasker(.headline))
-                            Text("tiny power footprint")
-                                .font(.tasker(.callout))
-                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                        }
-                    } icon: {
-                        Image(systemName: "battery.100.bolt")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                            .padding(.trailing, 8)
-                    }
-
-                    // Smart Recap
-                    Label {
-                        VStack(alignment: .leading) {
-                            Text("smart recap")
-                                .font(.tasker(.headline))
-                            Text("daily / weekly digests")
-                                .font(.tasker(.callout))
-                                .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                        }
-                    } icon: {
-                        Image(systemName: "list.bullet.rectangle")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 24, height: 24)
-                            .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.textSecondary))
-                            .padding(.trailing, 8)
+                // Feature list
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xl) {
+                    ForEach(Array(features.enumerated()), id: \.element.title) { index, feature in
+                        EvaFeatureRow(
+                            icon: feature.icon,
+                            title: feature.title,
+                            subtitle: feature.subtitle,
+                            index: index
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
-                
+                .padding(.horizontal, TaskerTheme.Spacing.xxl)
+
                 Spacer()
-                
+
+                // CTA button
                 NavigationLink(destination: OnboardingInstallModelView(showOnboarding: $showOnboarding)) {
                     Text("get started")
                         #if os(iOS) || os(visionOS)
-                        .font(.tasker(.headline))
+                        .font(.tasker(.button))
+                        .foregroundColor(Color.tasker(.accentOnPrimary))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        #endif
-                        #if os(iOS)
-                        .foregroundStyle(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.accentOnPrimary))
+                        .frame(height: 48)
+                        .background(Color.tasker(.accentPrimary))
+                        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.pill, style: .continuous))
                         #endif
                 }
+                #if os(macOS)
                 .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .padding(.horizontal)
+                #endif
+                .scaleOnPress()
+                .padding(.horizontal, TaskerTheme.Spacing.xl)
             }
             .padding()
+            .background(Color.tasker(.bgCanvas))
             .navigationTitle("welcome")
             .toolbar(.hidden)
         }
-        .tint(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.accentPrimary))
+        .tint(Color.tasker(.accentPrimary))
         #if os(macOS)
         .frame(width: 420, height: 520)
         #endif

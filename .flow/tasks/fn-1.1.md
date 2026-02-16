@@ -1,44 +1,42 @@
-# fn-1.1 Update CLAUDE.md migration status and LLM references
+# fn-1.1 Prune verbose logs and migrate retained logs
 
 ## Description
-Update CLAUDE.md with accurate migration status and LLM references.
+TBD
 
-## Changes:
-1. Header stats: "189 files" → "730 files", "60% migrated" → "~70% migrated"
-2. Add Migration Breakdown table (NEW):
-   | Layer | Files | Compliance | Issues |
-   |-------|-------|------------|--------|
-   | Domain | 30 | 80% | Mappers have CoreData import |
-   | UseCases | 28 | 96% | Excellent |
-   | State | 9 | 85% | DI has UIKit import |
-   | Presentation | 4 | 95% | ViewModels clean |
-   | ViewControllers | 47 | 42% | 23 files with NSFetchRequest |
-   | **Overall** | **118** | **~70%** | |
-
-3. File Map: Add LLM/ folder with Models/, Views/, Controllers/
-4. Note inline repositories as obsolete (State/Presentation confirmed in Xcode target)
-5. Update tech stack: iOS 16.0+, Swift 5+
-
-## Keep concise (~450 lines) across all sections:
-- Architecture rules (brief)
-- 5 Critical Patterns (reference)
-- Workflow templates (reference)
-- File map (key files, line numbers)
 ## Acceptance
-- [ ] CLAUDE.md header shows "730 files, ~70% migrated"
-- [ ] Migration breakdown table added with all 5 layers
-- [ ] File map includes LLM/ folder
-- [ ] Inline repos noted as obsolete
-- [ ] Tech stack updated (iOS 16+, Swift 5+)
-- [ ] File size ~450 lines
+- [ ] Direct `print` usage in app Swift sources reduced to zero or allowlist-only
+- [ ] High-noise chart/radar/startup logs removed or downgraded below warning
+- [ ] Retained actionable logs use standardized key-value format
+- [ ] Firebase logger level reduced
+- [ ] Core Data transformable class metadata warnings fixed
+
+
 ## Done summary
-- Header updated: "189 files" → "730 files", "60% migrated" → "~70% migrated"
-- Added Migration Status table with all 5 layers (Domain, UseCases, State, Presentation, ViewControllers)
-- Added compliance % and key issues for each layer
-- Added LLM/ folder to File Map with Models/, Views/, Controllers/
-- Noted inline repositories as obsolete (State/Presentation confirmed in Xcode target)
-- File size: 458 lines (within ~450 line target)
+Completed app-wide runtime log pruning and retained-log migration for critical paths:
+- Removed/neutralized high-volume startup and chart/radar telemetry chatter.
+- Refactored priority hotspots to keep only actionable warnings/errors:
+  - `To Do List/Services/ChartDataService.swift`
+  - `To Do List/Services/ProjectSelectionService.swift`
+  - `To Do List/Views/Cards/RadarChartCard.swift`
+  - `To Do List/ViewControllers/AddTaskViewController.swift`
+  - `To Do List/ViewControllers/AddTaskViewController+Foredrop.swift`
+  - `To Do List/Repositories/CoreDataTaskRepository.swift`
+  - `To Do List/State/Repositories/CoreDataTaskRepository+Domain.swift`
+  - `To Do List/View/TaskDetailSheetView.swift`
+  - `To Do List/Data/Services/InboxProjectInitializer.swift`
+  - `To Do List/Data/Migration/DataMigrationService.swift`
+- Rewrote retained warning/error logs in these flows to structured event calls (`event/message/fields`) and removed message-style warning calls from production code.
+- Removed noisy runtime categories from code paths (`HOME_DI`, `HOME_DATA`, `HOME_UI_MODE`, `[RADAR]`).
+- Added local+CI print guardrails and policy docs as part of the same remediation stream.
+
+Verification performed:
+- `./scripts/check-no-print-logs.sh` passes.
+- `rg -n "\\blogWarning\\(\\s*\"" "To Do List" -g '*.swift'` returns no matches (no message-style warning logs).
+- `rg -n "HOME_DI|HOME_DATA|HOME_UI_MODE|\\[RADAR\\]" "To Do List" -g '*.swift'` returns no matches.
+- `rg -n "customClassName=\"\\[(UUID|String)\\]\"" "To Do List/TaskModel.xcdatamodeld/TaskModel.xcdatamodel/contents"` returns no matches.
+
+Build verification is pending manual run by user.
 ## Evidence
-- Commits: 95cc0c02b5dd348c7d53fd6c6bff9d81004035f6
-- Tests: wc -l CLAUDE.md # 458 lines
+- Commits:
+- Tests:
 - PRs:

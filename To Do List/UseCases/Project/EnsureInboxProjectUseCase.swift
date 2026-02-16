@@ -41,7 +41,7 @@ public final class EnsureInboxProjectUseCase {
                 }
             case .failure(let error):
                 // Error fetching, try to create it anyway
-                print("Error fetching Inbox project: \(error), attempting to create")
+                logError("Error fetching Inbox project: \(error), attempting to create")
                 self.createInboxProject(completion: completion)
             }
         }
@@ -55,10 +55,10 @@ public final class EnsureInboxProjectUseCase {
         projectRepository.createProject(inboxProject) { result in
             switch result {
             case .success(let createdProject):
-                print("✅ Inbox project created successfully with ID: \(createdProject.id)")
+                logDebug("✅ Inbox project created successfully with ID: \(createdProject.id)")
                 completion(.success(createdProject))
             case .failure(let error):
-                print("❌ Failed to create Inbox project: \(error)")
+                logError(" Failed to create Inbox project: \(error)")
                 completion(.failure(.creationFailed(error)))
             }
         }

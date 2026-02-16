@@ -469,15 +469,15 @@ class TaskCell: UITableViewCell {
         
         detailsLabel.text = details.joined(separator: " • ")
         
-        // Set priority color based on the Int32 raw value
-        switch task.taskPriority {
-        case 2: // TaskPriority.high.rawValue
+        // Set priority color based on canonical TaskPriority mapping
+        switch TaskPriority(rawValue: task.taskPriority) {
+        case .max:
             priorityIndicator.backgroundColor = .systemRed
-        case 3: // TaskPriority.high.rawValue
+        case .high:
             priorityIndicator.backgroundColor = .systemOrange
-        case 4: // TaskPriority.low.rawValue
+        case .low:
             priorityIndicator.backgroundColor = .systemBlue
-        default:
+        case .none:
             priorityIndicator.backgroundColor = .systemGray
         }
     }

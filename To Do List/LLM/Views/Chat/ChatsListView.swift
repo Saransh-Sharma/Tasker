@@ -22,58 +22,78 @@ struct ChatsListView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                List(selection: $selection) {
-                    #if os(macOS)
-                    Section {} // adds some space below the search bar on mac
-                    #endif
-                    ForEach(filteredThreads, id: \.id) { thread in
-                        VStack(alignment: .leading) {
-                            ZStack {
-                                if let firstMessage = thread.sortedMessages.first {
-                                    Text(firstMessage.content)
-                                        .lineLimit(1)
-                                } else {
-                                    Text("untitled")
-                                }
-                            }
-                            .foregroundStyle(.primary)
-                            .font(.tasker(.headline))
+                Color.tasker(.bgCanvas)
+                    .ignoresSafeArea()
 
-                            Text("\(thread.timestamp.formatted())")
-                                .foregroundStyle(.secondary)
-                                .font(.tasker(.callout))
-                        }
+                if filteredThreads.isEmpty {
+                    emptyState
+                } else {
+                    List(selection: $selection) {
                         #if os(macOS)
-                            .swipeActions {
-                                Button("Delete") {
-                                    deleteThread(thread)
-                                }
-                                .tint(.tasker(.statusDanger))
-                            }
-                            .contextMenu {
-                                Button {
-                                    deleteThread(thread)
-                                } label: {
-                                    Text("delete")
-                                }
-                            }
+                        Section {} // adds some space below the search bar on mac
                         #endif
-                            .tag(thread)
+                        ForEach(Array(filteredThreads.enumerated()), id: \.element.id) { index, thread in
+                            HStack(spacing: TaskerTheme.Spacing.md) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.tasker(.accentWash))
+                                        .frame(width: 40, height: 40)
+                                    Image(systemName: "bubble.left.fill")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(Color.tasker(.accentPrimary))
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    if let firstMessage = thread.sortedMessages.first {
+                                        Text(firstMessage.content)
+                                            .lineLimit(1)
+                                            .font(.tasker(.bodyEmphasis))
+                                            .foregroundColor(Color.tasker(.textPrimary))
+                                    } else {
+                                        Text("untitled")
+                                            .font(.tasker(.bodyEmphasis))
+                                            .foregroundColor(Color.tasker(.textPrimary))
+                                    }
+
+                                    Text(thread.timestamp.formatted())
+                                        .font(.tasker(.caption1))
+                                        .foregroundColor(Color.tasker(.textTertiary))
+                                }
+
+                                Spacer()
+                            }
+                            .padding(.vertical, TaskerTheme.Spacing.xs)
+                            .staggeredAppearance(index: index)
+                            #if os(macOS)
+                                .swipeActions {
+                                    Button("Delete") {
+                                        deleteThread(thread)
+                                    }
+                                    .tint(Color.tasker(.statusDanger))
+                                }
+                                .contextMenu {
+                                    Button {
+                                        deleteThread(thread)
+                                    } label: {
+                                        Text("delete")
+                                    }
+                                }
+                            #endif
+                                .tag(thread)
+                                .listRowBackground(Color.tasker(.bgElevated))
+                        }
+                        .onDelete(perform: deleteThreads)
                     }
-                    .onDelete(perform: deleteThreads)
-                }
-                .onChange(of: selection) {
-                    setCurrentThread(selection)
-                }
-                #if os(iOS)
-                .listStyle(.insetGrouped)
-                #elseif os(macOS) || os(visionOS)
-                .listStyle(.sidebar)
-                #endif
-                if filteredThreads.count == 0 {
-                    ContentUnavailableView {
-                        Label(threads.count == 0 ? "no chats yet" : "no results", systemImage: "message")
+                    .onChange(of: selection) {
+                        setCurrentThread(selection)
                     }
+                    .scrollContentBackground(.hidden)
+                    .background(Color.tasker(.bgCanvas))
+                    #if os(iOS)
+                    .listStyle(.plain)
+                    #elseif os(macOS) || os(visionOS)
+                    .listStyle(.sidebar)
+                    #endif
                 }
             }
             .navigationTitle("chats")
@@ -103,6 +123,7 @@ struct ChatsListView: View {
                             requestReviewIfAppropriate()
                         }) {
                             Image(systemName: "plus")
+                                .foregroundColor(Color.tasker(.accentPrimary))
                         }
                         .keyboardShortcut("N", modifiers: [.command])
                         #if os(visionOS)
@@ -126,9 +147,30 @@ struct ChatsListView: View {
                     #endif
                 }
         }
-        #if !os(visionOS)
-        .tint(Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.accentPrimary))
-        #endif
+        .tint(Color.tasker(.accentPrimary))
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: TaskerTheme.Spacing.lg) {
+            ZStack {
+                Circle()
+                    .fill(Color.tasker(.accentWash))
+                    .frame(width: 80, height: 80)
+                Image(systemName: "message")
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundColor(Color.tasker(.accentPrimary))
+            }
+
+            VStack(spacing: TaskerTheme.Spacing.xs) {
+                Text(threads.isEmpty ? "no chats yet" : "no results")
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker(.textPrimary))
+                Text(threads.isEmpty ? "start a conversation with Eva" : "try a different search term")
+                    .font(.tasker(.callout))
+                    .foregroundColor(Color.tasker(.textSecondary))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     var filteredThreads: [Thread] {

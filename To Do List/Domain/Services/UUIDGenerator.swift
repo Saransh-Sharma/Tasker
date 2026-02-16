@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import CommonCrypto
+import CryptoKit
 
 /// Protocol for UUID generation
 public protocol UUIDGeneratorProtocol {
@@ -38,13 +38,9 @@ public final class UUIDGenerator: UUIDGeneratorProtocol {
     // MARK: - Private Helpers
 
     /// Generate MD5 hash from string and convert to UUID bytes
+    /// Uses CryptoKit's `Insecure.MD5` to preserve deterministic output.
     private func md5(string: String) -> uuid_t {
-        let data = Data(string.utf8)
-        var digest = [UInt8](repeating: 0, count: Int(CC_MD5_DIGEST_LENGTH))
-
-        data.withUnsafeBytes { buffer in
-            _ = CC_MD5(buffer.baseAddress, CC_LONG(data.count), &digest)
-        }
+        let digest = Array(Insecure.MD5.hash(data: Data(string.utf8)))
 
         return (
             digest[0], digest[1], digest[2], digest[3],

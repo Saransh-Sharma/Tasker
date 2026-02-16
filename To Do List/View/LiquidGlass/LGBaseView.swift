@@ -34,8 +34,13 @@ class LGBaseView: UIView {
     var borderWidth: CGFloat = 0.5 {
         didSet { updateBorder() }
     }
-    
-    var borderColor: UIColor = .white.withAlphaComponent(0.2) {
+
+    var borderColor: UIColor = UIColor { traits in
+        if traits.userInterfaceStyle == .dark {
+            return UIColor.white.withAlphaComponent(0.10)
+        }
+        return UIColor.white.withAlphaComponent(0.25)
+    } {
         didSet { updateBorder() }
     }
 
@@ -66,11 +71,11 @@ class LGBaseView: UIView {
         blurEffectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         insertSubview(blurEffectView, at: 0)
         
-        // Gradient overlay
+        // Gradient overlay — subtler for premium feel
         let glassTint = TaskerThemeManager.shared.currentTheme.tokens.color.overlayGlassTint
         gradientLayer.colors = [
-            glassTint.withAlphaComponent(0.35).cgColor,
-            glassTint.withAlphaComponent(0.12).cgColor
+            glassTint.withAlphaComponent(0.28).cgColor,
+            glassTint.withAlphaComponent(0.08).cgColor
         ]
         gradientLayer.locations = [0.0, 1.0]
         gradientLayer.startPoint = CGPoint(x: 0, y: 0)
@@ -137,9 +142,9 @@ class LGBaseView: UIView {
     
     func animateGlassAppearance(duration: TimeInterval = 0.3) {
         alpha = 0
-        transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
-        
-        UIView.animate(withDuration: duration, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5, options: .curveEaseOut) {
+        transform = CGAffineTransform(scaleX: 0.96, y: 0.96)
+
+        UIView.taskerSpringAnimate(TaskerAnimation.uiGentle) {
             self.alpha = self.glassOpacity
             self.transform = .identity
         }

@@ -1,0 +1,19 @@
+{
+  "checks": [
+    {
+      "command": "./scripts/check-no-print-logs.sh",
+      "result": "passed"
+    },
+    {
+      "command": "rg -n '\\b(Swift\\.)?print\\(' 'To Do List' -g '*.swift'",
+      "result": "no matches"
+    },
+    {
+      "command": "rg -n 'HOME_DI|HOME_DATA|HOME_UI_MODE|\\[RADAR\\]' 'To Do List' -g '*.swift'",
+      "result": "no matches"
+    }
+  ],
+  "notes": [
+    "Unrestricted xcodebuild could not be executed in the sandbox; user will run manual build verification."
+  ]
+}

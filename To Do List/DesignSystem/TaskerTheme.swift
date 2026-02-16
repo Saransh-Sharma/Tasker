@@ -10,10 +10,12 @@ public struct TaskerThemeSwatch {
 public struct TaskerAccentTheme {
     public let name: String
     public let accentBaseHex: String
+    public let secondaryBaseHex: String
 
-    public init(name: String, accentBaseHex: String) {
+    public init(name: String, accentBaseHex: String, secondaryBaseHex: String) {
         self.name = name
         self.accentBaseHex = accentBaseHex
+        self.secondaryBaseHex = secondaryBaseHex
     }
 }
 
@@ -60,15 +62,15 @@ public struct TaskerTheme: Equatable {
     public static let userDefaultsKey = "selectedThemeIndex"
 
     public static let accentThemes: [TaskerAccentTheme] = [
-        TaskerAccentTheme(name: "Default", accentBaseHex: "#F08A2B"),
-        TaskerAccentTheme(name: "Red Blossom", accentBaseHex: "#E84444"),
-        TaskerAccentTheme(name: "Cloud", accentBaseHex: "#D1E9F6"),
-        TaskerAccentTheme(name: "Periwinkle", accentBaseHex: "#8EA6E9"),
-        TaskerAccentTheme(name: "Light Green", accentBaseHex: "#AFF8A2"),
-        TaskerAccentTheme(name: "Mustard", accentBaseHex: "#F9D749"),
-        TaskerAccentTheme(name: "Baby Blue", accentBaseHex: "#97CDE8"),
-        TaskerAccentTheme(name: "Coral", accentBaseHex: "#EE7470"),
-        TaskerAccentTheme(name: "Plum", accentBaseHex: "#D4A4DA")
+        TaskerAccentTheme(name: "Royal Gold",  accentBaseHex: "#C49832", secondaryBaseHex: "#E8C868"),
+        TaskerAccentTheme(name: "Ruby",        accentBaseHex: "#C94444", secondaryBaseHex: "#E86868"),
+        TaskerAccentTheme(name: "Ice Crystal", accentBaseHex: "#78ACCA", secondaryBaseHex: "#A8D0EE"),
+        TaskerAccentTheme(name: "Sapphire",    accentBaseHex: "#5580C0", secondaryBaseHex: "#88B5E8"),
+        TaskerAccentTheme(name: "Emerald",     accentBaseHex: "#38A868", secondaryBaseHex: "#60D090"),
+        TaskerAccentTheme(name: "Topaz",       accentBaseHex: "#D0A830", secondaryBaseHex: "#F0D060"),
+        TaskerAccentTheme(name: "Aquamarine",  accentBaseHex: "#40A8C0", secondaryBaseHex: "#68CCE0"),
+        TaskerAccentTheme(name: "Rose Quartz", accentBaseHex: "#D05A78", secondaryBaseHex: "#E8A0B8"),
+        TaskerAccentTheme(name: "Amethyst",    accentBaseHex: "#A868C0", secondaryBaseHex: "#CC9EE0")
     ]
 
     static let legacyThemeCount = 28
@@ -85,6 +87,7 @@ public struct TaskerTheme: Equatable {
     public let index: Int
     public let accentTheme: TaskerAccentTheme
     public let accentRamp: TaskerAccentRamp
+    public let secondaryRamp: TaskerAccentRamp
     public let tokens: TaskerTokens
 
     public init(index: Int) {
@@ -92,12 +95,15 @@ public struct TaskerTheme: Equatable {
         self.index = clampedIndex
         self.accentTheme = TaskerTheme.accentThemes[clampedIndex]
 
-        let baseColor = UIColor(taskerHex: accentTheme.accentBaseHex)
-        let ramp = TaskerAccentRamp(base: baseColor)
-        self.accentRamp = ramp
+        let primaryBase = UIColor(taskerHex: accentTheme.accentBaseHex)
+        let secondaryBase = UIColor(taskerHex: accentTheme.secondaryBaseHex)
+        let primaryRamp = TaskerAccentRamp(base: primaryBase)
+        let secondaryRamp = TaskerAccentRamp(base: secondaryBase)
+        self.accentRamp = primaryRamp
+        self.secondaryRamp = secondaryRamp
 
         self.tokens = TaskerTokens(
-            color: TaskerColorTokens.make(accentRamp: ramp),
+            color: TaskerColorTokens.make(accentRamp: primaryRamp, secondaryRamp: secondaryRamp),
             typography: TaskerTypographyTokens.makeDefault(),
             spacing: TaskerSpacingTokens.default,
             elevation: TaskerElevationTokens.default,
@@ -151,7 +157,7 @@ public final class TaskerThemeManager: ObservableObject {
             return TaskerThemeSwatch(
                 index: index,
                 primary: theme.tokens.color.accentPrimary,
-                secondary: theme.tokens.color.accentMuted
+                secondary: theme.tokens.color.accentSecondary
             )
         }
     }

@@ -158,11 +158,11 @@ public enum TaskRepeatPattern: Codable, Equatable {
             guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: date) else { return nil }
             return calendar.date(bySetting: .day, value: day, of: nextMonth)
             
-        case .onWeekday(let weekOfMonth, let dayOfWeek):
+        case .onWeekday(_, _):
             // Complex calculation for nth weekday of month
             return nil // Simplified for now
             
-        case .lastWeekday(let dayOfWeek):
+        case .lastWeekday(_):
             // Complex calculation for last weekday of month
             return nil // Simplified for now
         }
@@ -179,7 +179,7 @@ public enum TaskRepeatPattern: Codable, Equatable {
             components.day = day
             return calendar.date(from: components)
             
-        case .onWeekday(let month, let weekOfMonth, let dayOfWeek):
+        case .onWeekday(_, _, _):
             // Complex calculation for nth weekday of specific month
             return nil // Simplified for now
         }

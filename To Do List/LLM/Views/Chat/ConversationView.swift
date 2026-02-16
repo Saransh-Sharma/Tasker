@@ -20,10 +20,39 @@ extension TimeInterval {
     }
 }
 
+// MARK: - Typing Indicator
+
+struct TypingIndicator: View {
+    @State private var animating = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<3) { i in
+                Circle()
+                    .fill(Color.tasker(.accentPrimary))
+                    .frame(width: 6, height: 6)
+                    .scaleEffect(animating ? 1.0 : 0.5)
+                    .opacity(animating ? 1.0 : 0.3)
+                    .animation(
+                        Animation.easeInOut(duration: 0.6)
+                            .repeatForever(autoreverses: true)
+                            .delay(Double(i) * 0.2),
+                        value: animating
+                    )
+            }
+        }
+        .padding(.top, TaskerTheme.Spacing.xs)
+        .onAppear { animating = true }
+    }
+}
+
+// MARK: - MessageView
+
 struct MessageView: View {
     @Environment(LLMEvaluator.self) var llm
     @State private var collapsed = true
     let message: Message
+    var isLiveOutput: Bool = false
 
     var isThinking: Bool {
         !message.content.contains("</think>")
@@ -31,11 +60,9 @@ struct MessageView: View {
 
     func processThinkingContent(_ content: String) -> (String?, String?) {
         guard let startRange = content.range(of: "<think>") else {
-            // No <think> tag, return entire content as the second part
             return (nil, content.trimmingCharacters(in: .whitespacesAndNewlines))
         }
         guard let endRange = content.range(of: "</think>") else {
-            // No </think> tag, return content after <think> without the tag
             let thinking = String(content[startRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
             return (thinking, nil)
         }
@@ -62,20 +89,26 @@ struct MessageView: View {
     }
 
     var thinkingLabel: some View {
-        HStack {
+        HStack(spacing: TaskerTheme.Spacing.sm) {
             Button {
                 collapsed.toggle()
             } label: {
                 Image(systemName: collapsed ? "chevron.right" : "chevron.down")
                     .font(.tasker(.caption2))
                     .fontWeight(.medium)
+                    .foregroundColor(Color.tasker(.textTertiary))
             }
 
             Text("\(isThinking ? "thinking..." : "thought for") \(time)")
+                .font(.tasker(.caption1))
                 .italic()
+                .foregroundColor(Color.tasker(.textTertiary))
         }
+        .padding(.horizontal, TaskerTheme.Spacing.md)
+        .padding(.vertical, TaskerTheme.Spacing.xs)
+        .background(Color.tasker(.surfaceSecondary))
+        .clipShape(Capsule())
         .buttonStyle(.borderless)
-        .foregroundStyle(.secondary)
     }
 
     var body: some View {
@@ -84,21 +117,21 @@ struct MessageView: View {
 
             if message.role == .assistant {
                 let (thinking, afterThink) = processThinkingContent(message.content)
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
                     if let thinking {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
                             thinkingLabel
                             if !collapsed {
                                 if !thinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                    HStack(spacing: 12) {
+                                    HStack(spacing: TaskerTheme.Spacing.md) {
                                         Capsule()
                                             .frame(width: 2)
                                             .padding(.vertical, 1)
-                                            .foregroundStyle(.fill)
+                                            .foregroundStyle(Color.tasker(.accentMuted))
                                         Markdown(thinking)
                                             .textSelection(.enabled)
                                             .markdownTextStyle {
-                                                ForegroundColor(.secondary)
+                                                ForegroundColor(Color.tasker(.textSecondary))
                                             }
                                     }
                                     .padding(.leading, 5)
@@ -117,24 +150,38 @@ struct MessageView: View {
                     if let afterThink {
                         Markdown(afterThink)
                             .textSelection(.enabled)
+                            .markdownTextStyle {
+                                ForegroundColor(Color.tasker(.textPrimary))
+                            }
+                    }
+
+                    if isLiveOutput && llm.running {
+                        TypingIndicator()
                     }
                 }
+                .padding(TaskerTheme.Spacing.lg)
+                .background(Color.tasker(.surfacePrimary))
+                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
+                .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.lg)
                 .padding(.trailing, 48)
             } else {
                 Markdown(message.content)
                     .textSelection(.enabled)
+                    .markdownTextStyle {
+                        ForegroundColor(Color.tasker(.accentOnPrimary))
+                    }
                 #if os(iOS) || os(visionOS)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, TaskerTheme.Spacing.lg)
+                    .padding(.vertical, TaskerTheme.Spacing.md)
                 #else
-                    .padding(.horizontal, 16 * 2 / 3)
+                    .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                 #endif
-                    .background(platformBackgroundColor)
+                    .background(Color.tasker(.accentPrimary))
                 #if os(iOS) || os(visionOS)
-                    .mask(RoundedRectangle(cornerRadius: 24))
+                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.lg, style: .continuous))
                 #elseif os(macOS)
-                    .mask(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
                 #endif
                     .padding(.leading, 48)
             }
@@ -157,16 +204,6 @@ struct MessageView: View {
             }
         }
     }
-
-    let platformBackgroundColor: Color = {
-        #if os(iOS)
-        return Color(UIColor.secondarySystemBackground)
-        #elseif os(visionOS)
-        return Color(UIColor.separator)
-        #elseif os(macOS)
-        return Color(NSColor.secondarySystemFill)
-        #endif
-    }()
 }
 
 struct ConversationView: View {
@@ -182,21 +219,23 @@ struct ConversationView: View {
         ScrollViewReader { scrollView in
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(thread.sortedMessages) { message in
+                    ForEach(Array(thread.sortedMessages.enumerated()), id: \.element.id) { index, message in
                         MessageView(message: message)
-                            .padding()
+                            .padding(.horizontal, TaskerTheme.Spacing.lg)
+                            .padding(.vertical, TaskerTheme.Spacing.sm)
+                            .staggeredAppearance(index: index)
                             .id(message.id.uuidString)
                     }
 
                     if llm.running && !llm.output.isEmpty && thread.id == generatingThreadID {
                         VStack {
-                            MessageView(message: Message(role: .assistant, content: llm.output + " 🌕"))
+                            MessageView(message: Message(role: .assistant, content: llm.output), isLiveOutput: true)
                         }
-                        .padding()
+                        .padding(.horizontal, TaskerTheme.Spacing.lg)
+                        .padding(.vertical, TaskerTheme.Spacing.sm)
                         .id("output")
                         .onAppear {
-                            print("output appeared")
-                            scrollInterrupted = false // reset interruption when a new output begins
+                            scrollInterrupted = false
                         }
                     }
 
@@ -207,9 +246,9 @@ struct ConversationView: View {
                 }
                 .scrollTargetLayout()
             }
+            .background(Color.tasker(.bgCanvas))
             .scrollPosition(id: $scrollID, anchor: .bottom)
             .onChange(of: llm.output) { _, _ in
-                // auto scroll to bottom
                 if !scrollInterrupted {
                     scrollView.scrollTo("bottom")
                 }
@@ -219,7 +258,6 @@ struct ConversationView: View {
                 }
             }
             .onChange(of: scrollID) { _, _ in
-                // interrupt auto scroll to bottom if user scrolls away
                 if llm.running {
                     scrollInterrupted = true
                 }

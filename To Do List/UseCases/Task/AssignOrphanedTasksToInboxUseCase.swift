@@ -122,7 +122,7 @@ public final class AssignOrphanedTasksToInboxUseCase {
         ) { result in
             switch result {
             case .success:
-                print("✅ Assigned \(orphanedCount) orphaned tasks to Inbox")
+                logDebug("✅ Assigned \(orphanedCount) orphaned tasks to Inbox")
                 let report = OrphanedTasksReport(
                     orphanedTasksFound: orphanedCount,
                     tasksAssignedToInbox: orphanedCount,
@@ -131,7 +131,7 @@ public final class AssignOrphanedTasksToInboxUseCase {
                 completion(.success(report))
 
             case .failure(let error):
-                print("❌ Failed to assign orphaned tasks: \(error)")
+                logError(" Failed to assign orphaned tasks: \(error)")
                 let report = OrphanedTasksReport(
                     orphanedTasksFound: orphanedCount,
                     tasksAssignedToInbox: 0,

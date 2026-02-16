@@ -30,40 +30,40 @@ public final class GetTasksUseCase {
     
     /// Get tasks for today's schedule
     public func getTodayTasks(completion: @escaping (Result<TodayTasksResult, GetTasksError>) -> Void) {
-        print("🔍 [USE CASE] getTodayTasks called")
+        logDebug("🔍 [USE CASE] getTodayTasks called")
 
         // Check cache first
         if let cached = cacheService?.getCachedTasks(forDate: Date()) {
-            print("🔍 [USE CASE] Using cached tasks: \(cached.count) tasks")
+            logDebug("🔍 [USE CASE] Using cached tasks: \(cached.count) tasks")
             let result = categorizeTodayTasks(cached)
             completion(.success(result))
             return
         }
 
-        print("🔍 [USE CASE] No cache, fetching from repository")
+        logDebug("🔍 [USE CASE] No cache, fetching from repository")
 
         // Fetch from repository
         taskRepository.fetchTodayTasks { [weak self] result in
             switch result {
             case .success(let tasks):
-                print("🔍 [USE CASE] Repository returned \(tasks.count) tasks")
+                logDebug("🔍 [USE CASE] Repository returned \(tasks.count) tasks")
 
                 // Cache the results
                 self?.cacheService?.cacheTasks(tasks, forDate: Date())
 
                 // Categorize and return
                 let categorized = self?.categorizeTodayTasks(tasks) ?? TodayTasksResult()
-                print("🔍 [USE CASE] Categorized tasks:")
-                print("🔍 [USE CASE]   - Morning: \(categorized.morningTasks.count)")
-                print("🔍 [USE CASE]   - Evening: \(categorized.eveningTasks.count)")
-                print("🔍 [USE CASE]   - Overdue: \(categorized.overdueTasks.count)")
-                print("🔍 [USE CASE]   - Completed: \(categorized.completedTasks.count)")
-                print("🔍 [USE CASE]   - Total: \(categorized.totalCount)")
+                logDebug("🔍 [USE CASE] Categorized tasks:")
+                logDebug("🔍 [USE CASE]   - Morning: \(categorized.morningTasks.count)")
+                logDebug("🔍 [USE CASE]   - Evening: \(categorized.eveningTasks.count)")
+                logDebug("🔍 [USE CASE]   - Overdue: \(categorized.overdueTasks.count)")
+                logDebug("🔍 [USE CASE]   - Completed: \(categorized.completedTasks.count)")
+                logDebug("🔍 [USE CASE]   - Total: \(categorized.totalCount)")
 
                 completion(.success(categorized))
 
             case .failure(let error):
-                print("❌ [USE CASE] Repository error: \(error)")
+                logError(" [USE CASE] Repository error: \(error)")
                 completion(.failure(.repositoryError(error)))
             }
         }
@@ -255,9 +255,9 @@ public final class GetTasksUseCase {
         let now = Date()
         let startOfDay = Calendar.current.startOfDay(for: now)
 
-        print("🔍 [USE CASE - CATEGORIZE] Categorizing \(tasks.count) tasks")
-        print("🔍 [USE CASE - CATEGORIZE] Current time: \(now)")
-        print("🔍 [USE CASE - CATEGORIZE] Start of day: \(startOfDay)")
+        logDebug("🔍 [USE CASE - CATEGORIZE] Categorizing \(tasks.count) tasks")
+        logDebug("🔍 [USE CASE - CATEGORIZE] Current time: \(now)")
+        logDebug("🔍 [USE CASE - CATEGORIZE] Start of day: \(startOfDay)")
 
         var morningTasks: [Task] = []
         var eveningTasks: [Task] = []
@@ -265,34 +265,34 @@ public final class GetTasksUseCase {
         var completedTasks: [Task] = []
 
         for (index, task) in tasks.enumerated() {
-            print("🔍 [USE CASE - CATEGORIZE] Task \(index + 1): '\(task.name)'")
-            print("   - isComplete: \(task.isComplete)")
-            print("   - dueDate: \(task.dueDate?.description ?? "NIL")")
-            print("   - type: \(task.type)")
-            print("   - isOverdue: \(task.isOverdue)")
+            logDebug("🔍 [USE CASE - CATEGORIZE] Task \(index + 1): '\(task.name)'")
+            logDebug("   - isComplete: \(task.isComplete)")
+            logDebug("   - dueDate: \(task.dueDate?.description ?? "NIL")")
+            logDebug("   - type: \(task.type)")
+            logDebug("   - isOverdue: \(task.isOverdue)")
 
             if task.isComplete {
-                print("   ➡️ CATEGORIZED AS: COMPLETED")
+                logDebug("   ➡️ CATEGORIZED AS: COMPLETED")
                 completedTasks.append(task)
             } else if let dueDate = task.dueDate, dueDate < startOfDay {
-                print("   ➡️ CATEGORIZED AS: OVERDUE (dueDate \(dueDate) < startOfDay \(startOfDay))")
+                logDebug("   ➡️ CATEGORIZED AS: OVERDUE (dueDate \(dueDate) < startOfDay \(startOfDay))")
                 overdueTasks.append(task)
             } else if task.type == .morning {
-                print("   ➡️ CATEGORIZED AS: MORNING")
+                logDebug("   ➡️ CATEGORIZED AS: MORNING")
                 morningTasks.append(task)
             } else if task.type == .evening {
-                print("   ➡️ CATEGORIZED AS: EVENING")
+                logDebug("   ➡️ CATEGORIZED AS: EVENING")
                 eveningTasks.append(task)
             } else {
-                print("   ⚠️ NOT CATEGORIZED! type: \(task.type)")
+                logDebug("   ⚠️ NOT CATEGORIZED! type: \(task.type)")
             }
         }
 
-        print("🔍 [USE CASE - CATEGORIZE] Final counts:")
-        print("   - Morning: \(morningTasks.count)")
-        print("   - Evening: \(eveningTasks.count)")
-        print("   - Overdue: \(overdueTasks.count)")
-        print("   - Completed: \(completedTasks.count)")
+        logDebug("🔍 [USE CASE - CATEGORIZE] Final counts:")
+        logDebug("   - Morning: \(morningTasks.count)")
+        logDebug("   - Evening: \(eveningTasks.count)")
+        logDebug("   - Overdue: \(overdueTasks.count)")
+        logDebug("   - Completed: \(completedTasks.count)")
 
         return TodayTasksResult(
             morningTasks: morningTasks.sorted { ($0.priority.rawValue, $0.dueDate ?? Date()) < ($1.priority.rawValue, $1.dueDate ?? Date()) },

@@ -16,6 +16,7 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
     
     func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
         viewContext.perform {
+            self.viewContext.refreshAllObjects()
             let request: NSFetchRequest<NTask> = NTask.fetchRequest()
             request.sortDescriptors = [
                 NSSortDescriptor(key: "taskPriority", ascending: true),
@@ -61,14 +62,8 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
     }
     
     func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        let now = Date()
-        let startOfToday = now.startOfDay
+        let startOfToday = Date().startOfDay
         let endOfToday = Calendar.current.date(byAdding: .day, value: 1, to: startOfToday)!
-
-        print("🔍 [REPO] fetchTodayTasks called")
-        print("🔍 [REPO] Current time: \(now)")
-        print("🔍 [REPO] Start of today: \(startOfToday)")
-        print("🔍 [REPO] End of today: \(endOfToday)")
 
         // Include tasks due today OR overdue incomplete tasks
         // (dueDate >= startOfToday AND dueDate < endOfToday) OR (dueDate < startOfToday AND isComplete == NO)
@@ -87,8 +82,6 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
             orPredicateWithSubpredicates: [todayPredicate, overduePredicate]
         )
 
-        print("🔍 [REPO] Combined predicate: \(combinedPredicate)")
-
         viewContext.perform {
             let request: NSFetchRequest<NTask> = NTask.fetchRequest()
             request.predicate = combinedPredicate
@@ -99,24 +92,15 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
 
             do {
                 let entities = try self.viewContext.fetch(request)
-                print("🔍 [REPO] Fetched \(entities.count) entities from Core Data")
-
-                // Log details of each entity
-                for (index, entity) in entities.enumerated() {
-                    print("🔍 [REPO] Task \(index + 1): '\(entity.name ?? "NO NAME")' | dueDate: \(entity.dueDate ?? NSDate()) | isComplete: \(entity.isComplete)")
-                }
-
                 let tasks = entities.map { TaskMapper.toDomain(from: $0) }
-                print("🔍 [REPO] Mapped to \(tasks.count) domain tasks")
-
-                // Log details of each task
-                for (index, task) in tasks.enumerated() {
-                    print("🔍 [REPO] Domain Task \(index + 1): '\(task.name)' | dueDate: \(task.dueDate?.description ?? "NIL") | isComplete: \(task.isComplete) | isOverdue: \(task.isOverdue)")
-                }
 
                 DispatchQueue.main.async { completion(.success(tasks)) }
             } catch {
-                print("❌ [REPO] Error fetching tasks: \(error)")
+                logError(
+                    event: "task_repository_today_fetch_failed",
+                    message: "Failed to fetch today tasks",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
@@ -238,6 +222,7 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
     
     func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) {
         viewContext.perform {
+            self.viewContext.refreshAllObjects()
             if let entity = TaskMapper.findEntity(byId: id, in: self.viewContext) {
                 let task = TaskMapper.toDomain(from: entity)
                 DispatchQueue.main.async { completion(.success(task)) }
@@ -325,13 +310,12 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
             
             do {
                 try self.backgroundContext.save()
+                self.viewContext.performAndWait {
+                    self.viewContext.refreshAllObjects()
+                }
                 let updatedTask = TaskMapper.toDomain(from: entity)
                 
-                // Post notification for charts refresh
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
-                    completion(.success(updatedTask))
-                }
+                DispatchQueue.main.async { completion(.success(updatedTask)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
@@ -352,13 +336,12 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
             
             do {
                 try self.backgroundContext.save()
+                self.viewContext.performAndWait {
+                    self.viewContext.refreshAllObjects()
+                }
                 let updatedTask = TaskMapper.toDomain(from: entity)
                 
-                // Post notification for charts refresh
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
-                    completion(.success(updatedTask))
-                }
+                DispatchQueue.main.async { completion(.success(updatedTask)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }

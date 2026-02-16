@@ -57,6 +57,6 @@ struct PromptMiddleware {
             }
         }
         if tasks.isEmpty { return "(no tasks)" }
-        return tasks.map { "• \($0.name)" }.joined(separator: "\n")
+        return tasks.map { "• \($0.name ?? "Untitled Task")" }.joined(separator: "\n")
     }
 }

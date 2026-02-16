@@ -52,7 +52,7 @@ public final class EnhancedDependencyContainer {
     
     /// Configure the container with Core Data
     func configure(with container: NSPersistentContainer) {
-        print("🔧 EnhancedDependencyContainer: Starting configuration...")
+        logDebug("🔧 EnhancedDependencyContainer: Starting configuration...")
         
         self.persistentContainer = container
         
@@ -89,7 +89,7 @@ public final class EnhancedDependencyContainer {
             cacheService: cacheService
         )
 
-        print("✅ EnhancedDependencyContainer: Configuration completed")
+        logDebug("✅ EnhancedDependencyContainer: Configuration completed")
     }
     
     // MARK: - Dependency Injection
@@ -97,12 +97,12 @@ public final class EnhancedDependencyContainer {
     /// Inject dependencies into a view controller
     func inject(into viewController: UIViewController) {
         let vcType = String(describing: type(of: viewController))
-        print("💉 EnhancedDependencyContainer: Injecting into \(vcType)")
+        logDebug("💉 EnhancedDependencyContainer: Injecting into \(vcType)")
         
         // Legacy injection for TaskRepository
         if let dependentVC = viewController as? TaskRepositoryDependent {
             dependentVC.taskRepository = legacyTaskRepository
-            print("✅ Injected legacy TaskRepository")
+            logDebug("✅ Injected legacy TaskRepository")
         }
         
         // Clean Architecture injection
@@ -110,7 +110,7 @@ public final class EnhancedDependencyContainer {
             cleanVC.taskRepository = taskRepository
             cleanVC.projectRepository = projectRepository
             cleanVC.cacheService = cacheService
-            print("✅ Injected Clean Architecture dependencies")
+            logDebug("✅ Injected Clean Architecture dependencies")
         }
         
         // Inject into child view controllers

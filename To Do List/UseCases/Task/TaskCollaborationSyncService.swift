@@ -58,7 +58,7 @@ public class TaskCollaborationSyncService {
     private func establishSyncConnection(for taskId: UUID) {
         // Implementation for starting real-time sync
         // This would integrate with WebSocket or similar real-time service
-        print("🔄 Starting real-time sync for task: \(taskId)")
+        logDebug("🔄 Starting real-time sync for task: \(taskId)")
         
         // In a real implementation, this would:
         // 1. Establish WebSocket connection
@@ -69,7 +69,7 @@ public class TaskCollaborationSyncService {
     
     private func closeSyncConnection(for taskId: UUID) {
         // Implementation for stopping real-time sync
-        print("⏹️ Stopping real-time sync for task: \(taskId)")
+        logDebug("⏹️ Stopping real-time sync for task: \(taskId)")
         
         // In a real implementation, this would:
         // 1. Close WebSocket connection
@@ -107,7 +107,7 @@ public class TaskCollaborationSyncService {
     }
     
     private func handleTaskUpdate(_ event: SyncEvent) {
-        print("📝 Task updated: \(event.taskId)")
+        logDebug("📝 Task updated: \(event.taskId)")
         // Notify UI about task changes
         NotificationCenter.default.post(
             name: .taskUpdatedRemotely,
@@ -117,7 +117,7 @@ public class TaskCollaborationSyncService {
     }
     
     private func handleCommentAdded(_ event: SyncEvent) {
-        print("💬 Comment added to task: \(event.taskId)")
+        logDebug("💬 Comment added to task: \(event.taskId)")
         // Notify UI about new comment
         NotificationCenter.default.post(
             name: .commentAddedRemotely,
@@ -127,7 +127,7 @@ public class TaskCollaborationSyncService {
     }
     
     private func handleUserJoined(_ event: SyncEvent) {
-        print("👋 User joined collaboration: \(event.taskId)")
+        logDebug("👋 User joined collaboration: \(event.taskId)")
         // Update collaboration UI
         NotificationCenter.default.post(
             name: .userJoinedCollaboration,
@@ -137,7 +137,7 @@ public class TaskCollaborationSyncService {
     }
     
     private func handleUserLeft(_ event: SyncEvent) {
-        print("👋 User left collaboration: \(event.taskId)")
+        logDebug("👋 User left collaboration: \(event.taskId)")
         // Update collaboration UI
         NotificationCenter.default.post(
             name: .userLeftCollaboration,

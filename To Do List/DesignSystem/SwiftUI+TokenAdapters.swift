@@ -24,9 +24,18 @@ public struct TaskerSwiftUIColorTokens {
     public let accentOnPrimary: Color
     public let accentRing: Color
 
+    public let accentSecondary: Color
+    public let accentSecondaryMuted: Color
+    public let accentSecondaryWash: Color
+
     public let statusSuccess: Color
     public let statusWarning: Color
     public let statusDanger: Color
+
+    public let priorityMax: Color
+    public let priorityHigh: Color
+    public let priorityLow: Color
+    public let priorityNone: Color
 
     public init(_ ui: TaskerColorTokens) {
         self.bgCanvas = Color(uiColor: ui.bgCanvas)
@@ -48,9 +57,16 @@ public struct TaskerSwiftUIColorTokens {
         self.accentWash = Color(uiColor: ui.accentWash)
         self.accentOnPrimary = Color(uiColor: ui.accentOnPrimary)
         self.accentRing = Color(uiColor: ui.accentRing)
+        self.accentSecondary = Color(uiColor: ui.accentSecondary)
+        self.accentSecondaryMuted = Color(uiColor: ui.accentSecondaryMuted)
+        self.accentSecondaryWash = Color(uiColor: ui.accentSecondaryWash)
         self.statusSuccess = Color(uiColor: ui.statusSuccess)
         self.statusWarning = Color(uiColor: ui.statusWarning)
         self.statusDanger = Color(uiColor: ui.statusDanger)
+        self.priorityMax = Color(uiColor: ui.priorityMax)
+        self.priorityHigh = Color(uiColor: ui.priorityHigh)
+        self.priorityLow = Color(uiColor: ui.priorityLow)
+        self.priorityNone = Color(uiColor: ui.priorityNone)
     }
 }
 

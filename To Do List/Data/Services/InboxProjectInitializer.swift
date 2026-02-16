@@ -170,7 +170,7 @@ public final class InboxProjectInitializer {
 
                 let tasksNeedingMigration = try self.backgroundContext.fetch(taskFetchRequest)
 
-                print("🔄 Found \(tasksNeedingMigration.count) tasks needing project UUID migration")
+                logDebug("🔄 Found \(tasksNeedingMigration.count) tasks needing project UUID migration")
 
                 // Build a cache of project names → project UUIDs for efficiency
                 let allProjectsRequest = Projects.fetchRequest()
@@ -201,11 +201,9 @@ public final class InboxProjectInitializer {
                     if let projectID = projectCache[normalizedName] {
                         task.projectID = projectID
                         tasksMigrated += 1
-                        print("  ✅ Linked task '\(task.name ?? "Unknown")' to project UUID")
+                        logDebug("  ✅ Linked task '\(task.name ?? "Unknown")' to project UUID")
                     } else {
-                        // Project doesn't exist in Projects entity - need to create it
-                        print("  ⚠️ Creating missing project: '\(projectName)'")
-
+                        // Project doesn't exist in Projects entity - create it for data integrity.
                         let newProject = Projects(context: self.backgroundContext)
                         let newProjectID = UUID()
                         newProject.projectID = newProjectID
@@ -235,7 +233,7 @@ public final class InboxProjectInitializer {
                 // Save all changes
                 if tasksMigrated > 0 || tasksWithMissingProject > 0 || projectsCreated > 0 {
                     try self.backgroundContext.save()
-                    print("✅ Migration saved: \(tasksMigrated) tasks migrated, \(projectsCreated) projects created")
+                    logDebug("✅ Migration saved: \(tasksMigrated) tasks migrated, \(projectsCreated) projects created")
                 }
 
                 let report = MigrationReferenceReport(
@@ -246,7 +244,11 @@ public final class InboxProjectInitializer {
 
                 completion(.success(report))
             } catch {
-                print("❌ Migration failed: \(error)")
+                logError(
+                    event: "migration_reference_update_failed",
+                    message: "Task-project reference migration failed",
+                    fields: ["error": error.localizedDescription]
+                )
                 completion(.failure(error))
             }
         }
@@ -353,7 +355,7 @@ public final class InboxProjectInitializer {
 
             switch cleanupResult {
             case .success(let cleanupReport):
-                print("🧹 Cleanup completed: \(cleanupReport.description)")
+                logDebug("🧹 Cleanup completed: \(cleanupReport.description)")
 
                 // Then proceed with regular initialization
                 self.ensureInboxExists { result in
@@ -405,7 +407,11 @@ public final class InboxProjectInitializer {
                     }
                 }
             case .failure(let error):
-                print("❌ Cleanup failed: \(error)")
+                logError(
+                    event: "migration_cleanup_failed",
+                    message: "Duplicate cleanup failed before initialization",
+                    fields: ["error": error.localizedDescription]
+                )
                 // Continue with initialization even if cleanup fails
                 self.ensureInboxExists { result in
                     switch result {
@@ -467,27 +473,37 @@ public final class InboxProjectInitializer {
                 request.predicate = NSPredicate(format: "projectID == nil")
 
                 let projectsWithoutUUIDs = try self.backgroundContext.fetch(request)
-                print("🚨 EMERGENCY: Found \(projectsWithoutUUIDs.count) projects without UUIDs")
+                if !projectsWithoutUUIDs.isEmpty {
+                    logWarning(
+                        event: "emergency_projects_missing_uuid",
+                        message: "Projects missing UUIDs detected during emergency assignment",
+                        fields: ["count": String(projectsWithoutUUIDs.count)]
+                    )
+                }
 
                 var updatedCount = 0
 
                 for project in projectsWithoutUUIDs {
                     let generatedUUID = UUID()
                     project.projectID = generatedUUID
-                    print("  ✅ Assigned UUID \(generatedUUID) to project: \(project.projectName ?? "Unknown")")
+                    logDebug("  ✅ Assigned UUID \(generatedUUID) to project: \(project.projectName ?? "Unknown")")
                     updatedCount += 1
                 }
 
                 if updatedCount > 0 {
                     try self.backgroundContext.save()
-                    print("💾 Saved \(updatedCount) projects with new UUIDs")
+                    logDebug("💾 Saved \(updatedCount) projects with new UUIDs")
                 } else {
-                    print("✅ All projects already have UUIDs")
+                    logDebug("✅ All projects already have UUIDs")
                 }
 
                 completion(.success(updatedCount))
             } catch {
-                print("❌ Emergency UUID assignment failed: \(error)")
+                logError(
+                    event: "emergency_project_uuid_assignment_failed",
+                    message: "Emergency UUID assignment failed",
+                    fields: ["error": error.localizedDescription]
+                )
                 completion(.failure(error))
             }
         }
@@ -505,7 +521,13 @@ public final class InboxProjectInitializer {
                 request.predicate = NSPredicate(format: "projectID == nil AND project != nil")
 
                 let tasksNeedingUpdate = try self.backgroundContext.fetch(request)
-                print("🚨 EMERGENCY: Found \(tasksNeedingUpdate.count) tasks needing UUID references")
+                if !tasksNeedingUpdate.isEmpty {
+                    logWarning(
+                        event: "emergency_tasks_missing_project_uuid",
+                        message: "Tasks missing project UUID references detected",
+                        fields: ["count": String(tasksNeedingUpdate.count)]
+                    )
+                }
 
                 // Get all projects with UUIDs for lookup
                 let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
@@ -528,26 +550,30 @@ public final class InboxProjectInitializer {
                     if let projectUUID = projectLookup[projectName] {
                         task.projectID = projectUUID
                         updatedTasks += 1
-                        print("  ✅ Updated task '\(task.name ?? "Unknown")' to reference UUID")
+                        logDebug("  ✅ Updated task '\(task.name ?? "Unknown")' to reference UUID")
                     } else {
                         // Assign to Inbox if project not found
                         task.projectID = ProjectConstants.inboxProjectID
                         task.project = ProjectConstants.inboxProjectName
                         updatedTasks += 1
-                        print("  📥 Assigned task '\(task.name ?? "Unknown")' to Inbox")
+                        logDebug("  📥 Assigned task '\(task.name ?? "Unknown")' to Inbox")
                     }
                 }
 
                 if updatedTasks > 0 {
                     try self.backgroundContext.save()
-                    print("💾 Saved \(updatedTasks) updated task references")
+                    logDebug("💾 Saved \(updatedTasks) updated task references")
                 } else {
-                    print("✅ All task references already updated")
+                    logDebug("✅ All task references already updated")
                 }
 
                 completion(.success(updatedTasks))
             } catch {
-                print("❌ Emergency task reference update failed: \(error)")
+                logError(
+                    event: "emergency_task_reference_update_failed",
+                    message: "Emergency task reference update failed",
+                    fields: ["error": error.localizedDescription]
+                )
                 completion(.failure(error))
             }
         }
@@ -570,7 +596,7 @@ public final class InboxProjectInitializer {
                 let projectNames = allTasks.compactMap { $0.project }
                 let uniqueProjectNames = Array(Set(projectNames))
 
-                print("📊 Found \(uniqueProjectNames.count) unique project names in tasks")
+                logDebug("📊 Found \(uniqueProjectNames.count) unique project names in tasks")
 
                 // 2. For each unique project name, ensure a Projects entity exists
                 for projectName in uniqueProjectNames {
@@ -599,7 +625,7 @@ public final class InboxProjectInitializer {
                         }
 
                         entitiesCreated += 1
-                        print("  ✅ Created Projects entity for: '\(normalizedName)'")
+                        logDebug("  ✅ Created Projects entity for: '\(normalizedName)'")
                     } else {
                         existingEntities += 1
                     }
@@ -608,7 +634,7 @@ public final class InboxProjectInitializer {
                 // 3. Save all changes
                 if entitiesCreated > 0 {
                     try self.backgroundContext.save()
-                    print("💾 Saved \(entitiesCreated) new Projects entities")
+                    logDebug("💾 Saved \(entitiesCreated) new Projects entities")
                 }
 
                 let report = ProjectEntityReport(
@@ -619,7 +645,11 @@ public final class InboxProjectInitializer {
 
                 completion(.success(report))
             } catch {
-                print("❌ Failed to ensure project entities: \(error)")
+                logError(
+                    event: "project_entity_ensure_failed",
+                    message: "Failed to ensure project entities",
+                    fields: ["error": error.localizedDescription]
+                )
                 completion(.failure(error))
             }
         }

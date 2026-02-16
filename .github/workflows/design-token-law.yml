@@ -19,6 +19,9 @@ jobs:
       - name: Run token-law grep guardrails
         run: bash scripts/token-law-guardrails.sh
 
+      - name: Enforce no direct print logging
+        run: bash scripts/check-no-print-logs.sh
+
       - name: Run SwiftLint token rules
         uses: norio-nomura/action-swiftlint@3.2.1
         with:

@@ -44,24 +44,28 @@ final class CoreDataTaskRepository: TaskRepository {
                 let data = results.map { TaskData(managedObject: $0) }
                 DispatchQueue.main.async { completion(data) }
             } catch {
-                print("❌ Task fetch error: \(error)")
+                logError(
+                    event: "task_repository_fetch_failed",
+                    message: "Task fetch failed",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async { completion([]) }
             }
         }
     }
     
     func fetchTask(by taskID: NSManagedObjectID, completion: @escaping (Result<NTask, Error>) -> Void) {
-        backgroundContext.perform {
+        viewContext.perform {
             do {
-                let task = try self.backgroundContext.existingObject(with: taskID) as? NTask
+                let task = try self.viewContext.existingObject(with: taskID) as? NTask
                 if let task = task {
-                    DispatchQueue.main.async { completion(.success(task)) }
+                    completion(.success(task))
                 } else {
                     let error = NSError(domain: "TaskRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Task not found"])
-                    DispatchQueue.main.async { completion(.failure(error)) }
+                    completion(.failure(error))
                 }
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                completion(.failure(error))
             }
         }
     }
@@ -69,27 +73,57 @@ final class CoreDataTaskRepository: TaskRepository {
     func addTask(data: TaskData, completion: ((Result<NTask, Error>) -> Void)?) {
         backgroundContext.perform {
             let managed = NTask(context: self.backgroundContext)
+            managed.taskID = UUID()
             managed.name = data.name
             managed.taskDetails = data.details
             managed.taskType = data.type
             managed.taskPriority = data.priorityRawValue
             managed.dueDate = data.dueDate as NSDate
-            managed.project = data.project
             managed.isComplete = data.isComplete
             managed.dateAdded = data.dateAdded as NSDate
             managed.dateCompleted = data.dateCompleted as NSDate?
-            
+            managed.alertReminderTime = data.alertReminderTime as NSDate?
+
+            let requestedProjectName = data.project.trimmingCharacters(in: .whitespacesAndNewlines)
+            let effectiveProjectName = requestedProjectName.isEmpty ? ProjectConstants.inboxProjectName : requestedProjectName
+
+            let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+            projectRequest.fetchLimit = 1
+            projectRequest.predicate = NSPredicate(format: "projectName ==[c] %@", effectiveProjectName)
+
+            if let matchedProject = try? self.backgroundContext.fetch(projectRequest).first,
+               let matchedProjectID = matchedProject.projectID {
+                managed.projectID = matchedProjectID
+                managed.project = matchedProject.projectName ?? effectiveProjectName
+            } else {
+                managed.projectID = ProjectConstants.inboxProjectID
+                managed.project = ProjectConstants.inboxProjectName
+            }
+
             do {
                 try self.backgroundContext.save()
-                // Get the object in the main context for the delegate
-                guard let mainContextTask = self.viewContext.object(with: managed.objectID) as? NTask else {
-                    let error = NSError(domain: "CoreDataTaskRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve saved task in main context"])
-                    DispatchQueue.main.async { completion?(.failure(error)) }
-                    return
+                let savedTaskID = managed.objectID
+                
+                // Access viewContext only on its own queue (main queue context).
+                self.viewContext.perform {
+                    do {
+                        guard let mainContextTask = try self.viewContext.existingObject(with: savedTaskID) as? NTask else {
+                            let error = NSError(domain: "CoreDataTaskRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve saved task in main context"])
+                            completion?(.failure(error))
+                            return
+                        }
+                        NotificationCenter.default.post(name: NSNotification.Name("TaskCreated"), object: mainContextTask)
+                        completion?(.success(mainContextTask))
+                    } catch {
+                        completion?(.failure(error))
+                    }
                 }
-                DispatchQueue.main.async { completion?(.success(mainContextTask)) }
             } catch {
-                print("❌ Task add error: \(error)")
+                logError(
+                    event: "task_repository_add_failed",
+                    message: "Task creation failed",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async { completion?(.failure(error)) }
             }
         }
@@ -104,18 +138,20 @@ final class CoreDataTaskRepository: TaskRepository {
                 
                 task.isComplete.toggle()
                 task.dateCompleted = task.isComplete ? Date() as NSDate : nil
-                print("🎯 CoreDataTaskRepository: Task '\(task.name ?? "Unknown")' completion toggled to \(task.isComplete)")
                 
                 try self.backgroundContext.save()
                 
                 // Notify that charts should be refreshed
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
-                    print("📡 CoreDataTaskRepository: Posted TaskCompletionChanged notification")
                     completion?(.success(()))
                 }
             } catch {
-                print("❌ Task toggle complete error: \(error)")
+                logError(
+                    event: "task_repository_toggle_failed",
+                    message: "Task completion toggle failed",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async { completion?(.failure(error)) }
             }
         }
@@ -130,7 +166,11 @@ final class CoreDataTaskRepository: TaskRepository {
                 try self.backgroundContext.save()
                 DispatchQueue.main.async { completion?(.success(())) }
             } catch {
-                print("❌ Task delete error: \(error)")
+                logError(
+                    event: "task_repository_delete_failed",
+                    message: "Task deletion failed",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async { completion?(.failure(error)) }
             }
         }
@@ -148,7 +188,11 @@ final class CoreDataTaskRepository: TaskRepository {
                 try self.backgroundContext.save()
                 DispatchQueue.main.async { completion?(.success(())) }
             } catch {
-                print("❌ Task reschedule error: \(error)")
+                logError(
+                    event: "task_repository_reschedule_failed",
+                    message: "Task reschedule failed",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async { completion?(.failure(error)) }
             }
         }
@@ -324,13 +368,20 @@ final class CoreDataTaskRepository: TaskRepository {
                     }
                 } else {
                     // Fallback: Project not found or no UUID, return empty
-                    print("⚠️ Project '\(projectName)' not found or missing UUID")
+                    logWarning(
+                        event: "task_repository_project_lookup_missing_uuid",
+                        message: "Project lookup missing UUID in legacy path"
+                    )
                     DispatchQueue.main.async {
                         completion([])
                     }
                 }
             } catch {
-                print("❌ Error looking up project by name: \(error)")
+                logError(
+                    event: "task_repository_project_lookup_failed",
+                    message: "Failed to look up project by name",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async {
                     completion([])
                 }
@@ -390,13 +441,20 @@ final class CoreDataTaskRepository: TaskRepository {
                         self.getTasksForProjectOpen(projectID: projectID, date: date, completion: completion)
                     }
                 } else {
-                    print("⚠️ Project '\(projectName)' not found or missing UUID")
+                    logWarning(
+                        event: "task_repository_project_lookup_missing_uuid",
+                        message: "Project lookup missing UUID in legacy path"
+                    )
                     DispatchQueue.main.async {
                         completion([])
                     }
                 }
             } catch {
-                print("❌ Error looking up project by name: \(error)")
+                logError(
+                    event: "task_repository_project_lookup_failed",
+                    message: "Failed to look up project by name",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async {
                     completion([])
                 }
@@ -479,7 +537,11 @@ final class CoreDataTaskRepository: TaskRepository {
                 try self.backgroundContext.save()
                 DispatchQueue.main.async { completion?(.success(())) }
             } catch {
-                print("❌ Task update error: \(error)")
+                logError(
+                    event: "task_repository_update_failed",
+                    message: "Task update failed",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async { completion?(.failure(error)) }
             }
         }
@@ -516,7 +578,11 @@ final class CoreDataTaskRepository: TaskRepository {
                 try self.backgroundContext.save()
                 DispatchQueue.main.async { completion?(.success(())) }
             } catch {
-                print("❌ Task save error: \(error)")
+                logError(
+                    event: "task_repository_save_failed",
+                    message: "Task save failed",
+                    fields: ["error": error.localizedDescription]
+                )
                 DispatchQueue.main.async { completion?(.failure(error)) }
             }
         }

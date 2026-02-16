@@ -1,21 +1,16 @@
 {
-  "assignee": "saransh1337@gmail.com",
+  "assignee": null,
   "claim_note": "",
-  "claimed_at": "2026-01-17T12:58:33.075148Z",
-  "created_at": "2026-01-17T12:50:26.531228Z",
-  "depends_on": [],
+  "claimed_at": null,
+  "created_at": "2026-02-13T17:40:28.445164Z",
+  "depends_on": [
+    "fn-2.5"
+  ],
   "epic": "fn-2",
-  "evidence": {
-    "commits": [
-      "9a22b2782b5873a6292eb61199f65ee97f41418e"
-    ],
-    "prs": [],
-    "tests": []
-  },
   "id": "fn-2.6",
   "priority": null,
   "spec_path": ".flow/tasks/fn-2.6.md",
-  "status": "done",
-  "title": "Fix HomeViewController+Helpers async callback bug",
-  "updated_at": "2026-01-17T12:59:38.559032Z"
+  "status": "todo",
+  "title": "Focus drag/drop interactions and state",
+  "updated_at": "2026-02-13T17:40:28.445266Z"
 }

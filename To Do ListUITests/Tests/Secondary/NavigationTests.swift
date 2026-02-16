@@ -133,6 +133,43 @@ class NavigationTests: BaseUITest {
         takeScreenshot(named: "modal_dismissal_add_task")
     }
 
+    func testHomeBottomBarActions() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
+        XCTAssertTrue(homePage.verifyBottomBarExists(), "Home bottom bar should exist")
+
+        homePage.tapCharts()
+        waitForAnimations(duration: 0.4)
+
+        homePage.tapSearch()
+        let searchView = app.otherElements[AccessibilityIdentifiers.Search.view]
+        XCTAssertTrue(searchView.waitForExistence(timeout: 3), "Search view should be displayed")
+        if app.buttons["Cancel"].firstMatch.exists {
+            app.buttons["Cancel"].firstMatch.tap()
+        } else {
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+        }
+
+        homePage.tapChat()
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 3), "Chat screen should present")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        let addTaskPage = homePage.tapAddTask()
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(), "Add task should be displayed from bottom bar")
+        addTaskPage.tapCancel()
+    }
+
+    func testHomeBottomBarMinimizeOnScroll() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
+        XCTAssertTrue(homePage.verifyBottomBarExists(), "Home bottom bar should exist")
+
+        homePage.taskListScrollView.swipeUp()
+        homePage.taskListScrollView.swipeUp()
+        XCTAssertTrue(homePage.waitForBottomBarState("minimized"), "Bottom bar should minimize after downward scroll")
+
+        homePage.taskListScrollView.swipeDown()
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded"), "Bottom bar should expand after upward scroll")
+    }
+
     // MARK: - Bonus: Navigation Stack - Settings → Projects → Back
 
     func testNavigationStack_SettingsProjectsBack() throws {

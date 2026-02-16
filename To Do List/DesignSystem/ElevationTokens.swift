@@ -37,44 +37,44 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
         ),
         e1: TaskerElevationStyle(
             shadowOffsetY: 2,
-            shadowBlur: 10,
-            shadowOpacity: 0.10,
+            shadowBlur: 12,
+            shadowOpacity: 0.08,
             shadowColor: UIColor { traits in
                 if traits.userInterfaceStyle == .dark {
-                    return UIColor.black.withAlphaComponent(0.45)
+                    return UIColor(red: 0.06, green: 0.05, blue: 0.04, alpha: 0.50)
                 }
-                return UIColor.black.withAlphaComponent(0.18)
+                return UIColor(red: 0.10, green: 0.09, blue: 0.08, alpha: 0.14)
             },
             borderWidth: 1,
-            borderColor: UIColor.taskerDynamic(lightHex: "#E4E7ED", darkHex: "#323847"),
+            borderColor: UIColor.taskerDynamic(lightHex: "#E8E2DA", darkHex: "#363230"),
             blurStyle: .systemUltraThinMaterial
         ),
         e2: TaskerElevationStyle(
             shadowOffsetY: 6,
-            shadowBlur: 20,
-            shadowOpacity: 0.14,
+            shadowBlur: 28,
+            shadowOpacity: 0.10,
             shadowColor: UIColor { traits in
                 if traits.userInterfaceStyle == .dark {
-                    return UIColor.black.withAlphaComponent(0.55)
+                    return UIColor(red: 0.06, green: 0.05, blue: 0.04, alpha: 0.58)
                 }
-                return UIColor.black.withAlphaComponent(0.22)
+                return UIColor(red: 0.10, green: 0.09, blue: 0.08, alpha: 0.18)
             },
             borderWidth: 0.5,
-            borderColor: UIColor.taskerDynamic(lightHex: "#E4E7ED", darkHex: "#2A2F3A"),
+            borderColor: UIColor.taskerDynamic(lightHex: "#E8E2DA", darkHex: "#363230"),
             blurStyle: .systemThinMaterial
         ),
         e3: TaskerElevationStyle(
             shadowOffsetY: 12,
-            shadowBlur: 40,
-            shadowOpacity: 0.18,
+            shadowBlur: 48,
+            shadowOpacity: 0.14,
             shadowColor: UIColor { traits in
                 if traits.userInterfaceStyle == .dark {
-                    return UIColor.black.withAlphaComponent(0.62)
+                    return UIColor(red: 0.06, green: 0.05, blue: 0.04, alpha: 0.65)
                 }
-                return UIColor.black.withAlphaComponent(0.30)
+                return UIColor(red: 0.10, green: 0.09, blue: 0.08, alpha: 0.24)
             },
             borderWidth: 1,
-            borderColor: UIColor.taskerDynamic(lightHex: "#D7DBE3", darkHex: "#323847"),
+            borderColor: UIColor.taskerDynamic(lightHex: "#D4CCC2", darkHex: "#443F3A"),
             blurStyle: .systemMaterial
         )
     )

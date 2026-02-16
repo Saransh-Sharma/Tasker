@@ -38,7 +38,6 @@ public final class TaskRecommendationUseCase {
         completion: @escaping (Result<TaskRecommendations, RecommendationError>) -> Void
     ) {
         // Check cache first
-        let cacheKey = "recommendations_\(context.cacheKey)"
         // Note: Cache disabled due to Task not conforming to Codable
         // if let cached = cacheService?.get(TaskRecommendations.self, forKey: cacheKey) {
         //     completion(.success(cached))
@@ -335,13 +334,6 @@ public final class TaskRecommendationUseCase {
         // Find tasks in same category
         let similarByCategory = allTasks.filter { 
             $0.category == completedTask.category && 
-            $0.id != completedTask.id &&
-            !$0.isComplete
-        }
-        
-        // Find tasks in same project
-        let similarByProject = allTasks.filter {
-            $0.project == completedTask.project &&
             $0.id != completedTask.id &&
             !$0.isComplete
         }

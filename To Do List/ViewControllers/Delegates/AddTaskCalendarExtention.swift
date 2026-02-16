@@ -78,10 +78,11 @@ extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCal
     
     //MARK: Cal changes VIEW + SCORE on date change
     func calendar(_ calendar: FSCalendar, didSelect date: Date, at monthPosition: FSCalendarMonthPosition) {
-        print("You selected Date: \(date.stringIn(dateStyle: .full, timeStyle: .none))")
+        logDebug("You selected Date: \(date.formatted(date: .complete, time: .omitted))")
         
         dateForAddTaskView = date
-        
+        metadataRow.updateDate(date)
+
         let paragraphStyle = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
         paragraphStyle.lineBreakMode = .byTruncatingTail
         paragraphStyle.alignment = .center
