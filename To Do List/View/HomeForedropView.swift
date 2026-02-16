@@ -56,6 +56,7 @@ struct HomeBackdropForedropRootView: View {
     @State private var xpBurstValue = 0
     @State private var bottomBarState = HomeBottomBarState()
     @State private var lastTaskListOffset: CGFloat = 0
+    @State private var showAddTaskSheet = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
@@ -186,6 +187,11 @@ struct HomeBackdropForedropRootView: View {
         .onReceive(viewModel.$dailyScore.receive(on: RunLoop.main)) { newScore in
             handleDailyScoreUpdate(newScore)
         }
+        .sheet(isPresented: $showAddTaskSheet) {
+            AddTaskSheetView.make()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private func backdropLayer(geometry: GeometryProxy) -> some View {
@@ -265,7 +271,7 @@ struct HomeBackdropForedropRootView: View {
                 NextActionModule(
                     openTaskCount: viewModel.todayOpenTaskCount,
                     focusPinnedCount: viewModel.pinnedFocusTaskIDs.count,
-                    onAddTask: onAddTask
+                    onAddTask: { showAddTaskSheet = true }
                 )
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, spacing.s16)
@@ -303,7 +309,7 @@ struct HomeBackdropForedropRootView: View {
                         ]
                     )
                 },
-                onEmptyStateAction: onAddTask,
+                onEmptyStateAction: { showAddTaskSheet = true },
                 onTaskDragStarted: { task in
                     trackTaskDragStarted(task, source: "task_list")
                 },
@@ -572,7 +578,7 @@ struct HomeBackdropForedropRootView: View {
                 onOpenChat()
             },
             onCreate: {
-                onAddTask()
+                showAddTaskSheet = true
             }
         )
         .padding(.horizontal, spacing.s16)
