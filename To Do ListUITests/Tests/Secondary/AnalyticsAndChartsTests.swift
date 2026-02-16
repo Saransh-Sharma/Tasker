@@ -428,8 +428,13 @@ class AnalyticsAndChartsTests: BaseUITest {
         let fullRevealMinY = homePage.foredropSurface.frame.minY
         XCTAssertGreaterThan(
             fullRevealMinY,
-            collapsedMinY + 120,
+            collapsedMinY + 220,
             "Foredrop should move down substantially when fully revealing analytics"
+        )
+        XCTAssertGreaterThan(
+            fullRevealMinY,
+            homePage.view.frame.height * 0.70,
+            "Foredrop full reveal should reach a low enough position across screen sizes"
         )
 
         XCTAssertTrue(homePage.foredropCollapseHint.isHittable, "Collapse hint should be tappable")

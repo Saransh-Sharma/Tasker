@@ -27,30 +27,39 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         )
     }
 
-    func testFullRevealOffsetIncludesAnalyticsSectionHeightAndPadding() {
+    func testFullRevealOffsetEnforcesMinimumAnalyticsPeekFloorWhenSectionIsSmall() {
         let metrics = HomeForedropLayoutMetrics(
             calendarExpandedHeight: 12,
             analyticsSectionHeight: 280,
-            geometryHeight: 900
+            geometryHeight: 1000
         )
 
         let expectedMid = HomeForedropLayoutMetrics.midRevealBaseOffset + 12
-        let expectedFull = expectedMid + 280 + HomeForedropLayoutMetrics.extraFullRevealPadding
-        let legacyFull = 380 + 12
+        let expectedFull = expectedMid + HomeForedropLayoutMetrics.minimumAnalyticsPeekAtFullReveal
 
         XCTAssertEqual(metrics.offset(for: .fullReveal), expectedFull, accuracy: 0.001)
-        XCTAssertGreaterThan(metrics.offset(for: .fullReveal), CGFloat(legacyFull))
     }
 
     func testFullRevealOffsetIsCappedByMinimumVisibleForedropHeight() {
         let metrics = HomeForedropLayoutMetrics(
             calendarExpandedHeight: 12,
-            analyticsSectionHeight: 520,
+            analyticsSectionHeight: 900,
             geometryHeight: 500
         )
 
         let expectedCapped = 500 - HomeForedropLayoutMetrics.minimumVisibleForedropHeight
         XCTAssertEqual(metrics.offset(for: .fullReveal), expectedCapped, accuracy: 0.001)
+    }
+
+    func testFullRevealOffsetIsMateriallyDeeperThanLegacyOnStandardHeightDevice() {
+        let metrics = HomeForedropLayoutMetrics(
+            calendarExpandedHeight: 0,
+            analyticsSectionHeight: 300,
+            geometryHeight: 844
+        )
+
+        let legacyFull: CGFloat = 380
+        XCTAssertGreaterThan(metrics.offset(for: .fullReveal), legacyFull + 220)
     }
 
     func testFullRevealNeverFallsAboveMidRevealWhenScreenIsVeryShort() {
