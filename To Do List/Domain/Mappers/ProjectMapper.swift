@@ -17,13 +17,10 @@ public class ProjectMapper {
     /// - Parameter entity: The Core Data Projects entity
     /// - Returns: The domain Project model
     public static func toDomain(from entity: Projects) -> Project {
-        // projectID MUST exist - migration should have ensured this
-        guard let id = entity.projectID else {
-            fatalError("⚠️ Projects entity missing projectID! Entity: \(entity.projectName ?? "unknown"). Run migration to fix.")
-        }
+        let id = entity.projectID ?? entity.id ?? ProjectConstants.inboxProjectID
 
         // Check if this is the Inbox project
-        let isInbox = entity.isDefault || (id == ProjectConstants.inboxProjectID)
+        let isInbox = entity.isDefault || entity.isInbox || (id == ProjectConstants.inboxProjectID)
 
         return Project(
             id: id,
@@ -66,12 +63,17 @@ public class ProjectMapper {
     ///   - project: The domain Project model
     public static func updateEntity(_ entity: Projects, from project: Project) {
         entity.projectID = project.id
+        entity.id = project.id
+        entity.name = project.name
         entity.projectName = project.name
         entity.projectDescription = project.projectDescription
         entity.projecDescription = project.projectDescription // Legacy field, keep in sync
         entity.createdDate = project.createdDate
         entity.modifiedDate = Date() // Always update modified date
+        entity.createdAt = entity.createdAt ?? project.createdDate
+        entity.updatedAt = Date()
         entity.isDefault = project.isDefault
+        entity.isInbox = project.isDefault || project.id == ProjectConstants.inboxProjectID
 
         // Enhanced properties
         entity.color = project.color.rawValue
