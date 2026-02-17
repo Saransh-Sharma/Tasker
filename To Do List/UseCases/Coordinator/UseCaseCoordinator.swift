@@ -63,6 +63,7 @@ public final class UseCaseCoordinator {
     public let createTask: CreateTaskUseCase
     public let completeTask: CompleteTaskUseCase
     public let deleteTask: DeleteTaskUseCase
+    public let updateTask: UpdateTaskUseCase
     public let rescheduleTask: RescheduleTaskUseCase
     public let getTasks: GetTasksUseCase
     public let getHomeFilteredTasks: GetHomeFilteredTasksUseCase
@@ -136,6 +137,12 @@ public final class UseCaseCoordinator {
             taskRepository: taskRepository,
             notificationService: notificationService,
             analyticsService: nil
+        )
+
+        self.updateTask = UpdateTaskUseCase(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            notificationService: notificationService
         )
 
         self.rescheduleTask = RescheduleTaskUseCase(
