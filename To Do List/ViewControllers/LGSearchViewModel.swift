@@ -23,6 +23,7 @@ class LGSearchViewModel {
     private var lastQuery: String = ""
 
     var searchResults: [Task] = []
+    private(set) var projects: [Project] = []
     var filteredProjects: Set<String> = []
     var filteredPriorities: Set<Int32> = []
 
@@ -49,6 +50,17 @@ class LGSearchViewModel {
 
     func searchAll() {
         search(query: lastQuery)
+    }
+
+    func loadProjects(completion: (() -> Void)? = nil) {
+        useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
+            DispatchQueue.main.async {
+                if case .success(let projectsWithStats) = result {
+                    self?.projects = projectsWithStats.map(\.project)
+                }
+                completion?()
+            }
+        }
     }
 
     func setStatusFilter(_ filter: StatusFilterType) {
@@ -110,6 +122,28 @@ class LGSearchViewModel {
                     )
                 }
                 completion((try? result.get()) != nil)
+            }
+        }
+    }
+
+    func updateTask(
+        taskID: UUID,
+        request: UpdateTaskRequest,
+        completion: @escaping (Result<Task, Error>) -> Void
+    ) {
+        useCaseCoordinator.updateTask.execute(taskId: taskID, request: request) { result in
+            DispatchQueue.main.async {
+                if case .failure(let error) = result {
+                    logError(
+                        event: "search_update_task_failed",
+                        message: "Failed to update task from search detail sheet",
+                        fields: [
+                            "task_id": taskID.uuidString,
+                            "error": error.localizedDescription
+                        ]
+                    )
+                }
+                completion(result.mapError { $0 as Error })
             }
         }
     }

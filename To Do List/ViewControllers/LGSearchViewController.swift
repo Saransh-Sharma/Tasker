@@ -268,6 +268,7 @@ class LGSearchViewController: UIViewController {
         }
 
         viewModel = LGSearchViewModel(useCaseCoordinator: coordinator)
+        viewModel.loadProjects()
         viewModel.onResultsUpdated = { [weak self] tasks in
             self?.tasks = tasks
             self?.updateResults()
@@ -818,16 +819,103 @@ class LGSearchViewController: UIViewController {
 
     private func presentTaskDetailSheet(for task: Task) {
         logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.id.uuidString)")
-        let detailView = LGTaskDetailSheetView(
+        let detailView = TaskDetailSheetView(
             task: task,
-            onToggleComplete: { [weak self] in
-                self?.toggleCompletion(for: task)
+            projects: viewModel.projects,
+            onUpdate: { [weak self] request, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 0,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.updateTask(taskID: task.id, request: request) { result in
+                    if case .success = result {
+                        self.refreshAfterTaskDetailMutation(reason: "update")
+                    }
+                    completion(result)
+                }
             },
-            onDelete: { [weak self] in
-                self?.deleteTask(task)
+            onSetCompletion: { [weak self] isComplete, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.setTaskCompletion(taskID: task.id, to: isComplete) { success in
+                    guard success else {
+                        completion(.failure(NSError(
+                            domain: "LGSearchViewController",
+                            code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "Failed to update completion state"]
+                        )))
+                        return
+                    }
+                    self.refreshAfterTaskDetailMutation(reason: "toggle")
+                    if let updated = self.tasks.first(where: { $0.id == task.id }) {
+                        completion(.success(updated))
+                    } else {
+                        var fallback = task
+                        fallback.isComplete = isComplete
+                        fallback.dateCompleted = isComplete ? Date() : nil
+                        completion(.success(fallback))
+                    }
+                }
             },
-            onReschedule: { [weak self] date in
-                self?.rescheduleTask(task, to: date)
+            onDelete: { [weak self] completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 2,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.deleteTask(taskID: task.id) { success in
+                    guard success else {
+                        completion(.failure(NSError(
+                            domain: "LGSearchViewController",
+                            code: 2,
+                            userInfo: [NSLocalizedDescriptionKey: "Failed to delete task"]
+                        )))
+                        return
+                    }
+                    self.refreshAfterTaskDetailMutation(reason: "delete")
+                    completion(.success(()))
+                }
+            },
+            onReschedule: { [weak self] date, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 3,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.rescheduleTask(taskID: task.id, to: date) { success in
+                    guard success else {
+                        completion(.failure(NSError(
+                            domain: "LGSearchViewController",
+                            code: 3,
+                            userInfo: [NSLocalizedDescriptionKey: "Failed to reschedule task"]
+                        )))
+                        return
+                    }
+                    self.refreshAfterTaskDetailMutation(reason: "reschedule")
+                    if let updated = self.tasks.first(where: { $0.id == task.id }) {
+                        completion(.success(updated))
+                    } else {
+                        var fallback = task
+                        fallback.dueDate = date
+                        completion(.success(fallback))
+                    }
+                }
             }
         )
 
@@ -876,69 +964,6 @@ class LGSearchViewController: UIViewController {
     
     deinit {
         NotificationCenter.default.removeObserver(self)
-    }
-}
-
-private struct LGTaskDetailSheetView: View {
-    let task: Task
-    let onToggleComplete: () -> Void
-    let onDelete: () -> Void
-    let onReschedule: (Date) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedDate: Date
-
-    init(
-        task: Task,
-        onToggleComplete: @escaping () -> Void,
-        onDelete: @escaping () -> Void,
-        onReschedule: @escaping (Date) -> Void
-    ) {
-        self.task = task
-        self.onToggleComplete = onToggleComplete
-        self.onDelete = onDelete
-        self.onReschedule = onReschedule
-        _selectedDate = State(initialValue: task.dueDate ?? Date())
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Task") {
-                    Text(task.name)
-                    if let details = task.details, details.isEmpty == false {
-                        Text(details).foregroundStyle(.secondary)
-                    }
-                    Text(task.project ?? ProjectConstants.inboxProjectName)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Schedule") {
-                    DatePicker("Due Date", selection: $selectedDate, displayedComponents: [.date, .hourAndMinute])
-                    Button("Apply Reschedule") {
-                        onReschedule(selectedDate)
-                    }
-                }
-
-                Section("Actions") {
-                    Button(task.isComplete ? "Mark Incomplete" : "Mark Complete") {
-                        onToggleComplete()
-                        dismiss()
-                    }
-
-                    Button("Delete Task", role: .destructive) {
-                        onDelete()
-                    }
-                }
-            }
-            .navigationTitle("Task")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                }
-            }
-        }
     }
 }
 
