@@ -245,7 +245,6 @@
         <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="occurrenceRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Occurrence" inverseName="reminders" inverseEntity="Occurrence"/>
         <relationship name="triggers" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ReminderTrigger" inverseName="reminderRef" inverseEntity="ReminderTrigger"/>
-        <relationship name="deliveries" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ReminderDelivery" inverseName="reminderRef" inverseEntity="ReminderDelivery"/>
     </entity>
 
     <entity name="ReminderTrigger" representedClassName="ReminderTrigger" syncable="YES">
@@ -257,7 +256,6 @@
         <attribute name="locationPayloadData" optional="YES" attributeType="Binary"/>
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="reminderRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Reminder" inverseName="triggers" inverseEntity="Reminder"/>
-        <relationship name="deliveries" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ReminderDelivery" inverseName="triggerRef" inverseEntity="ReminderDelivery"/>
     </entity>
 
     <entity name="ReminderDelivery" representedClassName="ReminderDelivery" syncable="NO">
@@ -271,8 +269,6 @@
         <attribute name="snoozedUntil" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="errorCode" optional="YES" attributeType="String"/>
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
-        <relationship name="reminderRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Reminder" inverseName="deliveries" inverseEntity="Reminder"/>
-        <relationship name="triggerRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ReminderTrigger" inverseName="deliveries" inverseEntity="ReminderTrigger"/>
     </entity>
 
     <entity name="GamificationProfile" representedClassName="GamificationProfile" syncable="YES">
