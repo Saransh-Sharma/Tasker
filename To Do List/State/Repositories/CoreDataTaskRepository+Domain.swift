@@ -107,20 +107,18 @@ extension CoreDataTaskRepository: TaskRepositoryProtocol {
     }
     
     func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) {
-        let predicate = NSPredicate(format: "project ==[c] %@", project)
-        
         viewContext.perform {
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-            request.predicate = predicate
-            request.sortDescriptors = [
-                NSSortDescriptor(key: "dueDate", ascending: true),
-                NSSortDescriptor(key: "taskPriority", ascending: true)
-            ]
-            
+            let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+            projectRequest.predicate = NSPredicate(format: "projectName ==[c] %@", project)
+            projectRequest.fetchLimit = 1
+
             do {
-                let entities = try self.viewContext.fetch(request)
-                let tasks = entities.map { TaskMapper.toDomain(from: $0) }
-                DispatchQueue.main.async { completion(.success(tasks)) }
+                guard let projectEntity = try self.viewContext.fetch(projectRequest).first,
+                      let projectID = projectEntity.projectID else {
+                    DispatchQueue.main.async { completion(.success([])) }
+                    return
+                }
+                self.fetchTasks(forProjectID: projectID, completion: completion)
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }

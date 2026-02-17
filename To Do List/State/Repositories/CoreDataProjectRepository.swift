@@ -9,15 +9,12 @@ import Foundation
 import CoreData
 
 /// Core Data implementation of the ProjectRepositoryProtocol
-/// Note: Currently works with string-based project names as Projects entity doesn't exist yet
 public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Properties
     
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
-    private let defaultProjectName = "Inbox"
-    
     // MARK: - Initialization
 
     public init(container: NSPersistentContainer) {
@@ -207,10 +204,10 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                     return
                 }
                 
-                // Update all tasks with the old project name to the new name
+                // Update project and associated task display names by project UUID.
                 self?.backgroundContext.perform {
                     let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-                    request.predicate = NSPredicate(format: "project ==[c] %@", project.name)
+                    request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
                     
                     do {
                         let tasks = try self?.backgroundContext.fetch(request) ?? []
@@ -253,16 +250,8 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                 }
                 
                 self?.backgroundContext.perform {
-                    // CRITICAL FIX: Use UUID-based queries to find ALL tasks for this project
-                    // Query by BOTH projectID AND legacy project string for complete coverage
-                    let uuidPredicate = NSPredicate(format: "projectID == %@", id as CVarArg)
-                    let stringPredicate = NSPredicate(format: "project ==[c] %@", project.name)
-                    let combinedPredicate = NSCompoundPredicate(
-                        orPredicateWithSubpredicates: [uuidPredicate, stringPredicate]
-                    )
-
                     let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-                    request.predicate = combinedPredicate
+                    request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
 
                     do {
                         let tasks = try self?.backgroundContext.fetch(request) ?? []
@@ -274,13 +263,13 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                             tasks.forEach { self?.backgroundContext.delete($0) }
                             logDebug("  ❌ Deleted \(tasks.count) tasks")
                         } else {
-                            // CRITICAL FIX: Move tasks to Inbox using BOTH UUID and string (for sync)
+                            // Move tasks to Inbox.
                             let inboxID = ProjectConstants.inboxProjectID
                             let inboxName = ProjectConstants.inboxProjectName
 
                             tasks.forEach { task in
                                 task.projectID = inboxID
-                                task.project = inboxName  // Keep string in sync for legacy support
+                                task.project = inboxName
                             }
                             logDebug("  ✅ Reassigned \(tasks.count) tasks to Inbox")
                         }
@@ -326,33 +315,20 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     }
     
     public func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchProject(withId: projectId) { [weak self] result in
-            switch result {
-            case .success(let project):
-                guard let project = project else {
-                    completion(.success([]))
-                    return
-                }
-                
-                self?.viewContext.perform {
-                    let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-                    request.predicate = NSPredicate(format: "project ==[c] %@", project.name)
-                    request.sortDescriptors = [
-                        NSSortDescriptor(key: "dueDate", ascending: true),
-                        NSSortDescriptor(key: "taskPriority", ascending: true)
-                    ]
-                    
-                    do {
-                        let entities = try self?.viewContext.fetch(request) ?? []
-                        let tasks = entities.map { TaskMapper.toDomain(from: $0) }
-                        DispatchQueue.main.async { completion(.success(tasks)) }
-                    } catch {
-                        DispatchQueue.main.async { completion(.failure(error)) }
-                    }
-                }
-                
-            case .failure(let error):
-                completion(.failure(error))
+        viewContext.perform {
+            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            request.predicate = NSPredicate(format: "projectID == %@", projectId as CVarArg)
+            request.sortDescriptors = [
+                NSSortDescriptor(key: "dueDate", ascending: true),
+                NSSortDescriptor(key: "taskPriority", ascending: true)
+            ]
+
+            do {
+                let entities = try self.viewContext.fetch(request)
+                let tasks = entities.map { TaskDefinitionMapper.toDomain(from: $0) }
+                DispatchQueue.main.async { completion(.success(tasks)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
     }
@@ -380,11 +356,14 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         
                         self?.backgroundContext.perform {
                             let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-                            request.predicate = NSPredicate(format: "project ==[c] %@", sourceProject.name)
+                            request.predicate = NSPredicate(format: "projectID == %@", sourceProjectId as CVarArg)
                             
                             do {
                                 let tasks = try self?.backgroundContext.fetch(request) ?? []
-                                tasks.forEach { $0.project = targetProject.name }
+                                tasks.forEach {
+                                    $0.projectID = targetProjectId
+                                    $0.project = targetProject.name
+                                }
                                 
                                 try self?.backgroundContext.save()
                                 DispatchQueue.main.async { completion(.success(())) }
