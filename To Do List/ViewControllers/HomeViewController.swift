@@ -298,17 +298,52 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol {
     }
 
     private func presentTaskDetailView(for task: DomainTask) {
-        let detailView = HomeTaskDetailSheetView(
+        let detailView = TaskDetailSheetView(
             task: task,
-            onToggleComplete: { [weak self] in
-                self?.viewModel?.toggleTaskCompletion(task)
+            projects: viewModel?.projects ?? [],
+            onUpdate: { [weak self] request, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.updateTask(taskID: task.id, request: request, completion: completion)
             },
-            onDelete: { [weak self] in
-                self?.viewModel?.deleteTask(task)
-                self?.presentedViewController?.dismiss(animated: true)
+            onSetCompletion: { [weak self] isComplete, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 2,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.setTaskCompletion(taskID: task.id, to: isComplete, completion: completion)
             },
-            onReschedule: { [weak self] date in
-                self?.viewModel?.rescheduleTask(task, to: date)
+            onDelete: { [weak self] completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 3,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.deleteTask(taskID: task.id, completion: completion)
+            },
+            onReschedule: { [weak self] date, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 4,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.rescheduleTask(taskID: task.id, to: date, completion: completion)
             }
         )
 
@@ -723,70 +758,6 @@ private final class RescheduleViewController: UIViewController {
     @objc private func saveTapped() {
         onDateSelected(datePicker.date)
         dismiss(animated: true)
-    }
-}
-
-private struct HomeTaskDetailSheetView: View {
-    let task: DomainTask
-    let onToggleComplete: () -> Void
-    let onDelete: () -> Void
-    let onReschedule: (Date) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedDate: Date
-
-    init(
-        task: DomainTask,
-        onToggleComplete: @escaping () -> Void,
-        onDelete: @escaping () -> Void,
-        onReschedule: @escaping (Date) -> Void
-    ) {
-        self.task = task
-        self.onToggleComplete = onToggleComplete
-        self.onDelete = onDelete
-        self.onReschedule = onReschedule
-        _selectedDate = State(initialValue: task.dueDate ?? Date())
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Task") {
-                    Text(task.name)
-                    if let details = task.details, details.isEmpty == false {
-                        Text(details).foregroundStyle(.secondary)
-                    }
-                    Text(task.project ?? ProjectConstants.inboxProjectName)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Schedule") {
-                    DatePicker("Due Date", selection: $selectedDate, displayedComponents: [.date, .hourAndMinute])
-                    Button("Apply Reschedule") {
-                        onReschedule(selectedDate)
-                    }
-                }
-
-                Section("Actions") {
-                    Button(task.isComplete ? "Mark Incomplete" : "Mark Complete") {
-                        onToggleComplete()
-                        dismiss()
-                    }
-                    .tint(.blue)
-
-                    Button("Delete Task", role: .destructive) {
-                        onDelete()
-                    }
-                }
-            }
-            .navigationTitle("Task")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                }
-            }
-        }
     }
 }
 
