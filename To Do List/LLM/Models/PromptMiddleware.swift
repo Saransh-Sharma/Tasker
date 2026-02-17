@@ -5,8 +5,6 @@
 //
 
 import Foundation
-import CoreData
-import UIKit
 
 // Enum describing the task time range requested by the user
 public enum TaskRange: String {
@@ -27,21 +25,20 @@ struct PromptMiddleware {
     /// Build a bullet list of open tasks filtered by date range and optional project.
     /// - Parameters:
     ///   - range: Time window to filter tasks.
-    ///   - project: Optional project to scope tasks.
+    ///   - projectName: Optional project name to scope tasks.
     /// - Returns: String summary, one task per line or "(no tasks)".
-    static func buildTasksSummary(range: TaskRange, project: Projects? = nil) -> String {
-        // Use direct Core Data access instead of TaskManager
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        let allTasks = (try? context?.fetch(request)) ?? []
+    static func buildTasksSummary(range: TaskRange, projectName: String? = nil) -> String {
+        let allTasks = fetchAllTasksSync()
+        let targetProject = projectName?.lowercased()
         let tasks = allTasks.filter { task in
             guard !task.isComplete else { return false }
             // project filter
-            if let project, let projName = task.project?.lowercased() {
-                if projName != project.projectName?.lowercased() { return false }
+            if let targetProject {
+                let projName = task.project?.lowercased() ?? ""
+                if projName != targetProject { return false }
             }
             // date range filter
-            guard let due = task.dueDate as Date? else { return false }
+            guard let due = task.dueDate else { return false }
             let cal = Calendar.current
             switch range {
             case .all:
@@ -57,6 +54,22 @@ struct PromptMiddleware {
             }
         }
         if tasks.isEmpty { return "(no tasks)" }
-        return tasks.map { "• \($0.name ?? "Untitled Task")" }.joined(separator: "\n")
+        return tasks.map { "• \($0.name)" }.joined(separator: "\n")
+    }
+
+    private static func fetchAllTasksSync() -> [Task] {
+        guard let repository = LLMContextRepositoryProvider.taskRepository else {
+            return []
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        var fetched: [Task] = []
+        repository.fetchAllTasks { result in
+            if case .success(let tasks) = result {
+                fetched = tasks
+            }
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + .seconds(3))
+        return fetched
     }
 }
