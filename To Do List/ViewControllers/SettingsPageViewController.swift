@@ -8,7 +8,6 @@
 
 import UIKit
 import SwiftUI
-import CoreData
 import Combine
 
 // Data structures for settings table view
@@ -163,9 +162,11 @@ class SettingsPageViewController: UIViewController {
     }
     
     private func navigateToProjectManagement() {
-        // Create ProjectManagementViewController directly
-        let projectVC = ProjectManagementViewControllerEmbedded()
-        self.navigationController?.pushViewController(projectVC, animated: true)
+        let viewModel = PresentationDependencyContainer.shared.makeProjectManagementViewModel()
+        let view = SettingsProjectManagementV2View(viewModel: viewModel)
+        let controller = UIHostingController(rootView: view)
+        controller.title = "Projects"
+        navigationController?.pushViewController(controller, animated: true)
     }
     
     private func showNotImplementedAlert() {
@@ -283,254 +284,86 @@ extension SettingsPageViewController: UITableViewDelegate {
     }
 }
 
-// MARK: - Embedded Project Management
+private struct SettingsProjectManagementV2View: View {
+    @ObservedObject var viewModel: ProjectManagementViewModel
+    @State private var showingCreateDialog = false
+    @State private var newProjectName = ""
+    @State private var newProjectDescription = ""
 
-class ProjectManagementViewControllerEmbedded: UIViewController {
-    // MARK: - Properties
-    var projectsTableView: UITableView!
-    var projects: [Projects] = []
-    
-    // Managers - removed, using Clean Architecture now
-    
-    // UI Elements
-    var emptyStateLabel: UILabel?
-    
-    // MARK: - Helper Methods
-    private func saveContext() -> Bool {
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            return false
-        }
-        
-        if context.hasChanges {
-            do {
-                try context.save()
-                return true
-            } catch {
-                logError("Error saving context: \(error)")
-                return false
-            }
-        }
-        return true
-    }
-    
-    // MARK: - Lifecycle Methods
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        // Set accessibility identifier for the main view
-        view.accessibilityIdentifier = "projectManagement.view"
-
-        // Setup navigation
-        self.title = "Projects"
-        let addButton = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addProjectTapped))
-        addButton.accessibilityIdentifier = "projectManagement.addButton"
-        self.navigationItem.rightBarButtonItem = addButton
-        
-        // Setup table view
-        setupTableView()
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        // Data refresh handled by Core Data
-        loadProjects()
-    }
-    
-    // MARK: - UI Setup
-    private func setupTableView() {
-        projectsTableView = UITableView(frame: view.bounds, style: .insetGrouped)
-        projectsTableView.delegate = self
-        projectsTableView.dataSource = self
-        projectsTableView.register(UITableViewCell.self, forCellReuseIdentifier: "projectCell")
-        projectsTableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        
-        view.addSubview(projectsTableView)
-    }
-    
-    private func updateEmptyStateVisibility() {
-        // Only consider the project count minus the default "Inbox" project
-        let customProjectCount = projects.count - 1
-        
-        if customProjectCount <= 0 {
-            // Show empty state if no custom projects
-            if emptyStateLabel == nil {
-                emptyStateLabel = UILabel()
-                emptyStateLabel!.text = "Tap '+' to add your first project"
-                emptyStateLabel!.textAlignment = .center
-                emptyStateLabel!.textColor = .gray
-                emptyStateLabel!.font = UIFont.tasker.body
-                emptyStateLabel!.translatesAutoresizingMaskIntoConstraints = false
-                view.addSubview(emptyStateLabel!)
-                
-                NSLayoutConstraint.activate([
-                    emptyStateLabel!.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                    emptyStateLabel!.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-                    emptyStateLabel!.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-                    emptyStateLabel!.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
-                ])
-            }
-            emptyStateLabel!.isHidden = false
-        } else {
-            // Hide empty state if there are projects
-            emptyStateLabel?.isHidden = true
-        }
-    }
-    
-    // MARK: - Data Management
-    private func loadProjects() {
-        // Load projects from Core Data
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        let fetchedProjects = (try? context?.fetch(request)) ?? []
-
-        // Deduplicate projects by name (case-insensitive)
-        var uniqueProjects: [Projects] = []
-        var seenNames: Set<String> = []
-
-        for project in fetchedProjects {
-            let name = project.projectName?.lowercased() ?? ""
-            if !seenNames.contains(name) {
-                uniqueProjects.append(project)
-                seenNames.insert(name)
-            }
-        }
-
-        // Sort: Inbox first, then alphabetically
-        projects = uniqueProjects.sorted { (p1, p2) -> Bool in
-            let name1 = p1.projectName?.lowercased() ?? ""
-            let name2 = p2.projectName?.lowercased() ?? ""
-
-            // Inbox should always be first
-            if name1 == ProjectConstants.inboxProjectName.lowercased() {
-                return true
-            }
-            if name2 == ProjectConstants.inboxProjectName.lowercased() {
-                return false
-            }
-
-            // Otherwise, sort alphabetically
-            return name1 < name2
-        }
-
-        projectsTableView.reloadData()
-        updateEmptyStateVisibility()
-    }
-    
-    // MARK: - Actions
-    @objc func addProjectTapped() {
-        presentProjectAlert(title: "New Project", project: nil)
-    }
-    
-    private func editProject(_ project: Projects) {
-        presentProjectAlert(title: "Edit Project", project: project)
-    }
-    
-    private func presentProjectAlert(title: String, project: Projects?) {
-        let alertController = UIAlertController(title: title, message: nil, preferredStyle: .alert)
-        
-        alertController.addTextField { textField in
-            textField.placeholder = "Project Name"
-            textField.text = project?.projectName
-        }
-        
-        alertController.addTextField { textField in
-            textField.placeholder = "Project Description (Optional)"
-            textField.text = project?.projecDescription
-        }
-        
-        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
-        
-        let saveAction = UIAlertAction(title: "Save", style: .default) { [weak self] _ in
-            guard let self = self,
-                  let nameTextField = alertController.textFields?[0],
-                  let descriptionTextField = alertController.textFields?[1],
-                  let projectName = nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !projectName.isEmpty else {
-                self?.showError(message: "Project name cannot be empty")
-                return
-            }
-            
-            let projectDescription = descriptionTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            
-            // Different handling for new vs existing project
-            if let existingProject = project {
-                // Update existing project
-                // Update existing project
-                existingProject.projectName = projectName
-                existingProject.projecDescription = projectDescription
-                let success = self.saveContext()
-                if success {
-                    self.showSuccess(message: "Project updated")
-                    self.loadProjects()
-                } else {
-                    self.showError(message: "Failed to update project. Name may already be in use or cannot be 'Inbox'.")
-                }
-            } else {
-                // Create new project
-                guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-                    self.showError(message: "Failed to access database")
-                    return
-                }
-
-                // CRITICAL FIX: Check for existing project (case-insensitive) before creating
-                let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-                request.predicate = NSPredicate(format: "projectName ==[c] %@", projectName)
-                request.fetchLimit = 1
-
-                do {
-                    let existingProjects = try context.fetch(request)
-
-                    if let existingProject = existingProjects.first {
-                        // Project already exists - ensure it has UUID and use it
-                        if existingProject.projectID == nil {
-                            existingProject.projectID = UUID()
-                            logDebug("✅ Assigned UUID to existing project: \(projectName)")
-                            try context.save()
-                        }
-                        self.showError(message: "Project '\(projectName)' already exists")
-                        return
+    var body: some View {
+        List {
+            ForEach(viewModel.filteredProjects, id: \.project.id) { entry in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(entry.project.name)
+                        .font(.headline)
+                    if let description = entry.project.projectDescription, description.isEmpty == false {
+                        Text(description)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
-
-                    // Create new project with UUID
-                    let newProject = Projects(context: context)
-                    let generatedUUID = UUID()
-                    newProject.projectID = generatedUUID  // ✅ FIX: Add UUID assignment
-                    newProject.projectName = projectName
-                    newProject.projecDescription = projectDescription
-                    newProject.createdDate = Date()
-                    newProject.modifiedDate = Date()
-
-                    logDebug("🆕 Creating project '\(projectName)' with UUID: \(generatedUUID.uuidString)")
-
-                    try context.save()
-                    self.showSuccess(message: "Project created")
-                    self.loadProjects()
-                } catch {
-                    logError(" Failed to create project: \(error)")
-                    self.showError(message: "Failed to create project: \(error.localizedDescription)")
+                    Text("\(entry.taskCount) tasks")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onDelete(perform: deleteProjects)
+        }
+        .overlay {
+            if viewModel.filteredProjects.filter({ $0.project.id != ProjectConstants.inboxProjectID }).isEmpty {
+                ContentUnavailableView(
+                    "No Custom Projects",
+                    systemImage: "folder.badge.plus",
+                    description: Text("Tap + to create your first custom project")
+                )
+            }
+        }
+        .navigationTitle("Projects")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingCreateDialog = true
+                } label: {
+                    Image(systemName: "plus")
                 }
             }
         }
-        
-        alertController.addAction(cancelAction)
-        alertController.addAction(saveAction)
-        
-        present(alertController, animated: true)
+        .alert("New Project", isPresented: $showingCreateDialog) {
+            TextField("Project Name", text: $newProjectName)
+            TextField("Description (Optional)", text: $newProjectDescription)
+            Button("Cancel", role: .cancel) {
+                resetDraft()
+            }
+            Button("Create") {
+                let trimmedName = newProjectName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard trimmedName.isEmpty == false else { return }
+                viewModel.createProject(name: trimmedName, description: normalizedDescription())
+                resetDraft()
+            }
+        } message: {
+            Text("Create a new project under your life areas.")
+        }
+        .task {
+            viewModel.loadProjects()
+        }
     }
-    
-    
 
-    // MARK: - Utility Methods
-    private func showSuccess(message: String) {
-        let alert = UIAlertController(title: "Success", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+    private func deleteProjects(at offsets: IndexSet) {
+        for index in offsets {
+            guard viewModel.filteredProjects.indices.contains(index) else { continue }
+            let entry = viewModel.filteredProjects[index]
+            guard entry.project.id != ProjectConstants.inboxProjectID else { continue }
+            viewModel.deleteProject(entry, strategy: .moveToInbox)
+        }
     }
-    
-    private func showError(message: String) {
-        let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+
+    private func normalizedDescription() -> String? {
+        let trimmed = newProjectDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func resetDraft() {
+        newProjectName = ""
+        newProjectDescription = ""
     }
 }
 
@@ -557,113 +390,5 @@ extension SettingsPageViewController {
         view.backgroundColor = colors.bgCanvas
         settingsTableView.backgroundColor = colors.bgCanvas
         settingsTableView.reloadData()
-    }
-}
-
-// MARK: - ProjectManagementViewControllerEmbedded TableView DataSource
-extension ProjectManagementViewControllerEmbedded: UITableViewDataSource {
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return projects.count
-    }
-    
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        // Use the subtitle style to show project description
-        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "projectCell")
-        let project = projects[indexPath.row]
-        
-        // Configure cell
-        cell.textLabel?.text = project.projectName
-        cell.detailTextLabel?.text = project.projecDescription
-        
-        // Special styling for default "Inbox" project
-        if project.projectName?.lowercased() == "inbox" {
-            cell.textLabel?.textColor = .gray
-            cell.accessoryType = .none
-            cell.selectionStyle = .none
-        } else {
-            cell.textLabel?.textColor = .label
-            cell.accessoryType = .disclosureIndicator
-            cell.selectionStyle = .default
-        }
-        
-        return cell
-    }
-}
-
-// MARK: - ProjectManagementViewControllerEmbedded TableView Delegate
-extension ProjectManagementViewControllerEmbedded: UITableViewDelegate {
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-        
-        let project = projects[indexPath.row]
-        
-        // Don't allow editing the default Inbox project
-        if project.projectName?.lowercased() == "inbox" {
-            return
-        }
-        
-        // Allow editing of other projects
-        editProject(project)
-    }
-    
-    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let project = projects[indexPath.row]
-        
-        // Don't allow deleting the default Inbox project
-        if project.projectName?.lowercased() == "inbox" {
-            return nil
-        }
-        
-        // Create delete action for non-Inbox projects
-        let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] (action: UIContextualAction, view: UIView, completionHandler: @escaping (Bool) -> Void) in
-            guard let self = self else {
-                completionHandler(false)
-                return
-            }
-            
-            let alert = UIAlertController(
-                title: "Delete Project",
-                message: "Delete '\(project.projectName ?? "")' project? Tasks will be moved to 'Inbox'.",
-                preferredStyle: .alert
-            )
-            
-            let cancelAction = UIAlertAction(title: "Cancel", style: .cancel) { _ in
-                completionHandler(false)
-            }
-            
-            let confirmAction = UIAlertAction(title: "Delete", style: .destructive) { _ in
-                // Delete project and move tasks to Inbox
-                let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-                
-                // Move all tasks from this project to Inbox
-                let taskRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
-                taskRequest.predicate = NSPredicate(format: "project == %@", project.projectName ?? "")
-                if let tasks = try? context?.fetch(taskRequest) {
-                    for task in tasks {
-                        task.project = "Inbox"
-                    }
-                }
-                
-                // Delete the project
-                context?.delete(project)
-                let success = self.saveContext()
-                if success {
-                    self.showSuccess(message: "Project deleted and tasks moved to Inbox")
-                    // Data refresh handled by Core Data
-                    self.loadProjects()
-                    completionHandler(true)
-                } else {
-                    self.showError(message: "Failed to delete project")
-                    completionHandler(false)
-                }
-            }
-            
-            alert.addAction(cancelAction)
-            alert.addAction(confirmAction)
-            
-            self.present(alert, animated: true)
-        }
-        
-        return UISwipeActionsConfiguration(actions: [deleteAction])
     }
 }

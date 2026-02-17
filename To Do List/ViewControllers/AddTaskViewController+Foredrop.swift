@@ -62,125 +62,33 @@ extension AddTaskViewController {
         logDebug("📝 AddTask: Task name: '\(currentTaskInMaterialTextBox)'")
         logDebug("📅 AddTask: Due date: \(dateForAddTaskView)")
         logDebug("📁 AddTask: Project: '\(currenttProjectForAddTaskView)'")
-        // TODO: Re-enable when ViewModel is available
-        // CHECK CLEAN ARCHITECTURE FIRST
-        // if let viewModel = viewModel {
-        //     logDebug("✅ AddTask: Using Clean Architecture with ViewModel")
-        //     createTaskUsingViewModel(viewModel)
-        // } else {
-            createTaskUsingRepository()
-        // }
+        createTaskUsingViewModel()
     }
     
     // MARK: - Clean Architecture Task Creation
 
-    /// Create task using Clean Architecture ViewModel
-    /// TODO: Re-enable when ViewModel is available
-    // private func createTaskUsingViewModel(_ viewModel: AddTaskViewModel) {
-    //     logDebug("🏗️ AddTask: Creating task via ViewModel (Clean Architecture)")
-    //
-    //     // TODO: The ViewModel API has changed - this needs to be refactored to use the new API
-    //     // For now, using legacy repository to avoid breaking the flow
-    //
-    //     /* New API expects:
-    //     viewModel.taskName = currentTaskInMaterialTextBox
-    //     viewModel.taskDetails = currentTaskDescription
-    //     viewModel.selectedType = isThisEveningTask ? .evening : .morning
-    //     viewModel.selectedPriority = currentTaskPriority
-    //     viewModel.dueDate = dateForAddTaskView
-    //     viewModel.selectedProject = currenttProjectForAddTaskView.isEmpty ? "Inbox" : currenttProjectForAddTaskView
-    //     viewModel.createTask()
-    //
-    //     // Then subscribe to @Published properties for result
-    //     viewModel.$isTaskCreated.sink { isCreated in
-    //         if isCreated {
-    //             // Handle success
-    //         }
-    //     }
-    //     viewModel.$errorMessage.sink { error in
-    //         if let error = error {
-    //             // Handle error
-    //         }
-    //     }
-    //     */
-    //
-    //     // For now, fall back to legacy repository path
-    //     let request = CreateTaskRequest(
-    //         name: currentTaskInMaterialTextBox,
-    //         details: currentTaskDescription.isEmpty ? nil : currentTaskDescription,
-    //         type: isThisEveningTask ? .evening : .morning,
-    //         priority: currentTaskPriority,
-    //         dueDate: dateForAddTaskView,
-    //         project: currenttProjectForAddTaskView.isEmpty ? "Inbox" : currenttProjectForAddTaskView
-    //     )
-    //
-    //     // TODO: Use legacy repository until ViewModel integration is complete
-    //     // The TaskRepository API doesn't match - needs migration
-    // }
-    
-    /// Legacy task creation using repository (fallback)
-    private func createTaskUsingRepository() {
-        logDebug("🔧 AddTask: Using legacy repository method")
-        // CRITICAL: Check taskRepository state before using it
-        logDebug("🔍 AddTask: Checking taskRepository state...")
-        if taskRepository == nil {
-            logError(
-                event: "add_task_repository_missing",
-                message: "Task repository missing before task creation"
-            )
-            logDebug("📊 AddTask: View controller type: \(String(describing: type(of: self)))")
-            logDebug("🏗️ AddTask: Attempting to get repository from DependencyContainer...")
-            
-            // Fallback: try to get repository from dependency container
-            if let fallbackRepository = DependencyContainer.shared.taskRepository {
-                taskRepository = fallbackRepository
-            } else {
-                logFatal(
-                    event: "add_task_repository_unavailable",
-                    message: "No repository available for task creation"
-                )
-                showLegacyError("Unable to save task. Please try again.")
-                return
-            }
-        } else {
-            logDebug("✅ AddTask: taskRepository is properly initialized")
-            logDebug("📊 AddTask: Repository type: \(String(describing: type(of: taskRepository)))")
+    private func createTaskUsingViewModel() {
+        guard let viewModel else {
+            showCleanArchitectureError("Task service unavailable")
+            return
         }
-        
-        // Continue with legacy task creation...
-        let taskType: Int32 = isThisEveningTask ? 2 : 1
-        logDebug("🌅 AddTask: Task type: \(taskType)")
-        
-        let taskData = TaskData(
-            name: currentTaskInMaterialTextBox,
-            details: currentTaskDescription.isEmpty ? nil : currentTaskDescription,
-            type: taskType,
-            priorityRawValue: Int32(currentTaskPriority.rawValue),
-            dueDate: dateForAddTaskView,
-            project: currenttProjectForAddTaskView,
-            alertReminderTime: alertReminderTime
-        )
-        logDebug("📦 AddTask: TaskData created successfully")
-        
-        taskRepository.addTask(data: taskData) { [weak self] (result: Result<NTask, Error>) in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let createdTask):
-                    logDebug("✅ AddTask: Legacy task created successfully!")
-                    self?.dismiss(animated: true) {
-                        self?.delegate?.didAddTask(createdTask)
-                    }
-                    
-                case .failure(let error):
-                    logError(
-                        event: "add_task_legacy_create_failed",
-                        message: "Legacy task creation failed",
-                        fields: ["error": error.localizedDescription]
-                    )
-                    self?.showLegacyError("Failed to create task: \(error.localizedDescription)")
-                }
-            }
+
+        let selectedProjectName = currenttProjectForAddTaskView.isEmpty
+            ? ProjectConstants.inboxProjectName
+            : currenttProjectForAddTaskView
+
+        viewModel.taskName = currentTaskInMaterialTextBox
+        viewModel.taskDetails = currentTaskDescription
+        viewModel.selectedType = isThisEveningTask ? .evening : .morning
+        viewModel.selectedPriority = currentTaskPriority
+        viewModel.dueDate = dateForAddTaskView
+        viewModel.selectedProject = selectedProjectName
+        viewModel.hasReminder = alertReminderTime != nil
+        if let alertReminderTime {
+            viewModel.reminderTime = alertReminderTime
         }
+
+        viewModel.createTask()
     }
     
     // MARK: - Helper Methods

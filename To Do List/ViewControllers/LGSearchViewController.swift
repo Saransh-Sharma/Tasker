@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import CoreData
 import SwiftUI
 
 // MARK: - LGFilterButton
@@ -117,7 +116,7 @@ class LGSearchViewController: UIViewController {
     // MARK: - Properties
 
     private var viewModel: LGSearchViewModel!
-    private var tasks: [NTask] = []
+    private var tasks: [Task] = []
 
     // Theme
     private var todoColors: TaskerColorTokens {
@@ -260,12 +259,15 @@ class LGSearchViewController: UIViewController {
     // MARK: - Setup
 
     private func setupViewModel() {
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            logError(" Failed to get Core Data context")
+        guard let coordinator = EnhancedDependencyContainer.shared.useCaseCoordinator else {
+            logError(
+                event: "search_view_model_setup_failed",
+                message: "UseCaseCoordinator unavailable during search setup"
+            )
             return
         }
 
-        viewModel = LGSearchViewModel(context: context)
+        viewModel = LGSearchViewModel(useCaseCoordinator: coordinator)
         viewModel.onResultsUpdated = { [weak self] tasks in
             self?.tasks = tasks
             self?.updateResults()
@@ -622,6 +624,7 @@ class LGSearchViewController: UIViewController {
     private func applyFiltersAndSearch() {
         // Clear existing filters
         viewModel.clearFilters()
+        var selectedStatusFilter: StatusFilterType = .all
 
         // Apply selected filters
         filterStackView.arrangedSubviews.forEach { view in
@@ -634,10 +637,20 @@ class LGSearchViewController: UIViewController {
                         viewModel.toggleProjectFilter(project)
                     }
                 case .status(let statusType):
-                    // Handle status filters in ViewModel
-                    applyStatusFilter(statusType)
+                    selectedStatusFilter = statusType
                 }
             }
+        }
+
+        switch selectedStatusFilter {
+        case .all:
+            viewModel.setStatusFilter(.all)
+        case .today:
+            viewModel.setStatusFilter(.today)
+        case .overdue:
+            viewModel.setStatusFilter(.overdue)
+        case .completed:
+            viewModel.setStatusFilter(.completed)
         }
 
         // Re-run search
@@ -650,37 +663,28 @@ class LGSearchViewController: UIViewController {
     }
 
     private func applyStatusFilter(_ statusType: StatusFilterType) {
-        // This would extend the ViewModel to handle status filters
-        // For now, we'll implement basic filtering logic here
         switch statusType {
         case .all:
-            // No additional filtering needed
-            break
+            viewModel.setStatusFilter(.all)
         case .today:
-            // Filter for today's tasks
-            filterTasksForToday()
+            viewModel.setStatusFilter(.today)
         case .overdue:
-            // Filter for overdue tasks
-            filterTasksForOverdue()
+            viewModel.setStatusFilter(.overdue)
         case .completed:
-            // Filter for completed tasks
-            filterTasksForCompleted()
+            viewModel.setStatusFilter(.completed)
         }
     }
 
     private func filterTasksForToday() {
-        // Implementation would go here - temporarily using existing search
-        viewModel.searchAll()
+        applyStatusFilter(.today)
     }
 
     private func filterTasksForOverdue() {
-        // Implementation would go here - temporarily using existing search
-        viewModel.searchAll()
+        applyStatusFilter(.overdue)
     }
 
     private func filterTasksForCompleted() {
-        // Implementation would go here - temporarily using existing search
-        viewModel.searchAll()
+        applyStatusFilter(.completed)
     }
     
     @objc private func keyboardWillShow(_ notification: Notification) {
@@ -748,6 +752,9 @@ class LGSearchViewController: UIViewController {
                 card.onTap = { [weak self] task in
                     self?.showTaskDetail(task)
                 }
+                card.onToggleComplete = { [weak self] task in
+                    self?.toggleCompletion(for: task)
+                }
 
                 contentStackView.addArrangedSubview(card)
 
@@ -805,42 +812,22 @@ class LGSearchViewController: UIViewController {
         }
     }
 
-    private func showTaskDetail(_ task: NTask) {
+    private func showTaskDetail(_ task: Task) {
         presentTaskDetailSheet(for: task)
     }
 
-    private func presentTaskDetailSheet(for task: NTask) {
-        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.taskID?.uuidString ?? "nil")")
-        let detailView = TaskDetailSheetView(
+    private func presentTaskDetailSheet(for task: Task) {
+        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.id.uuidString)")
+        let detailView = LGTaskDetailSheetView(
             task: task,
-            projectNames: buildProjectChipData(),
-            onSave: { [weak self] in
-                self?.refreshAfterTaskDetailMutation(reason: "save")
-            },
             onToggleComplete: { [weak self] in
-                self?.refreshAfterTaskDetailMutation(reason: "toggle")
+                self?.toggleCompletion(for: task)
             },
-            onDismiss: nil,
             onDelete: { [weak self] in
-                guard let self else { return }
-                task.managedObjectContext?.delete(task)
-                do {
-                    try task.managedObjectContext?.save()
-                    logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=delete taskID=\(task.taskID?.uuidString ?? "nil")")
-                } catch {
-                    logError(
-                        event: "search_task_delete_failed",
-                        message: "Failed to delete task from search detail sheet",
-                        fields: [
-                            "task_id": task.taskID?.uuidString ?? "nil",
-                            "error": error.localizedDescription
-                        ]
-                    )
-                }
-
-                self.presentedViewController?.dismiss(animated: true) { [weak self] in
-                    self?.refreshAfterTaskDetailMutation(reason: "delete")
-                }
+                self?.deleteTask(task)
+            },
+            onReschedule: { [weak self] date in
+                self?.rescheduleTask(task, to: date)
             }
         )
 
@@ -856,7 +843,7 @@ class LGSearchViewController: UIViewController {
         present(hostingController, animated: true)
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
-        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.taskID?.uuidString ?? "nil")")
+        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.id.uuidString)")
     }
 
     private func refreshAfterTaskDetailMutation(reason: String) {
@@ -864,34 +851,94 @@ class LGSearchViewController: UIViewController {
         logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=refresh reason=\(reason)")
     }
 
-    private func buildProjectChipData() -> [String] {
-        var projectNames: [String] = []
-        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
-            if let projects = try? context.fetch(request) {
-                projectNames = projects.compactMap { $0.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
+    private func toggleCompletion(for task: Task) {
+        viewModel.setTaskCompletion(taskID: task.id, to: !task.isComplete) { [weak self] success in
+            guard success else { return }
+            self?.refreshAfterTaskDetailMutation(reason: "toggle")
+        }
+    }
+
+    private func deleteTask(_ task: Task) {
+        viewModel.deleteTask(taskID: task.id) { [weak self] success in
+            guard success else { return }
+            self?.presentedViewController?.dismiss(animated: true) { [weak self] in
+                self?.refreshAfterTaskDetailMutation(reason: "delete")
             }
         }
+    }
 
-        let inboxTitle = ProjectConstants.inboxProjectName
-        projectNames.removeAll { $0.caseInsensitiveCompare(inboxTitle) == .orderedSame }
-        projectNames.insert(inboxTitle, at: 0)
-
-        var deduped: [String] = []
-        var seen = Set<String>()
-        for name in projectNames {
-            let key = name.lowercased()
-            guard !seen.contains(key) else { continue }
-            seen.insert(key)
-            deduped.append(name)
+    private func rescheduleTask(_ task: Task, to date: Date) {
+        viewModel.rescheduleTask(taskID: task.id, to: date) { [weak self] success in
+            guard success else { return }
+            self?.refreshAfterTaskDetailMutation(reason: "reschedule")
         }
-        return deduped
     }
     
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+}
+
+private struct LGTaskDetailSheetView: View {
+    let task: Task
+    let onToggleComplete: () -> Void
+    let onDelete: () -> Void
+    let onReschedule: (Date) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedDate: Date
+
+    init(
+        task: Task,
+        onToggleComplete: @escaping () -> Void,
+        onDelete: @escaping () -> Void,
+        onReschedule: @escaping (Date) -> Void
+    ) {
+        self.task = task
+        self.onToggleComplete = onToggleComplete
+        self.onDelete = onDelete
+        self.onReschedule = onReschedule
+        _selectedDate = State(initialValue: task.dueDate ?? Date())
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Task") {
+                    Text(task.name)
+                    if let details = task.details, details.isEmpty == false {
+                        Text(details).foregroundStyle(.secondary)
+                    }
+                    Text(task.project ?? ProjectConstants.inboxProjectName)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Schedule") {
+                    DatePicker("Due Date", selection: $selectedDate, displayedComponents: [.date, .hourAndMinute])
+                    Button("Apply Reschedule") {
+                        onReschedule(selectedDate)
+                    }
+                }
+
+                Section("Actions") {
+                    Button(task.isComplete ? "Mark Incomplete" : "Mark Complete") {
+                        onToggleComplete()
+                        dismiss()
+                    }
+
+                    Button("Delete Task", role: .destructive) {
+                        onDelete()
+                    }
+                }
+            }
+            .navigationTitle("Task")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                }
+            }
+        }
     }
 }
 

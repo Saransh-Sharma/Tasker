@@ -9,24 +9,16 @@
 import Foundation
 import UIKit
 import FSCalendar
-import CoreData  // TODO: Migrate away from NSFetchRequest to use repository pattern
 
 extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCalendarDelegateAppearance {
     
     func calendar(_ calendar: FSCalendar, subtitleFor date: Date) -> String? {
-        
-        // Get tasks from Core Data directly
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        let startOfDay = Calendar.current.startOfDay(for: date)
-        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)!
-        request.predicate = NSPredicate(format: "dueDate >= %@ AND dueDate < %@", startOfDay as NSDate, endOfDay as NSDate)
-        let allTasks = (try? context?.fetch(request)) ?? []
-        
-        if(allTasks.count == 0) {
+        let dayKey = Calendar.current.startOfDay(for: date)
+        let count = calendarTaskCountByDay[dayKey, default: 0]
+        if count == 0 {
             return "-"
         } else {
-            return "\(allTasks.count) tasks"
+            return "\(count) tasks"
         }
     }
     
@@ -73,7 +65,8 @@ extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCal
 
         self.calendar = calendar
         self.calendar.accessibilityIdentifier = "addTask.dueDatePicker"
-        self.calendar.scope = FSCalendarScope.week        
+        self.calendar.scope = FSCalendarScope.week
+        preloadCalendarTaskCounts()
     }
     
     //MARK: Cal changes VIEW + SCORE on date change
@@ -89,6 +82,37 @@ extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCal
         
         
     }
-    
-    
+
+    func calendarCurrentPageDidChange(_ calendar: FSCalendar) {
+        preloadCalendarTaskCounts(anchorDate: calendar.currentPage)
+    }
+
+    private func preloadCalendarTaskCounts(anchorDate: Date = Date()) {
+        guard let repository = EnhancedDependencyContainer.shared.taskRepository else {
+            return
+        }
+        let cal = Calendar.current
+        guard
+            let windowStart = cal.date(byAdding: .day, value: -30, to: anchorDate),
+            let windowEnd = cal.date(byAdding: .day, value: 60, to: anchorDate)
+        else {
+            return
+        }
+
+        repository.fetchTasks(from: windowStart, to: windowEnd) { [weak self] result in
+            guard let self else { return }
+            let tasks = (try? result.get()) ?? []
+
+            let counts = tasks.reduce(into: [Date: Int]()) { grouped, task in
+                guard let dueDate = task.dueDate else { return }
+                let dayKey = cal.startOfDay(for: dueDate)
+                grouped[dayKey, default: 0] += 1
+            }
+
+            DispatchQueue.main.async {
+                self.calendarTaskCountByDay = counts
+                self.calendar.reloadData()
+            }
+        }
+    }
 }
