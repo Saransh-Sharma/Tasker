@@ -195,7 +195,11 @@ public final class PresentationDependencyContainer {
         let viewModel = AddTaskViewModel(
             createTaskUseCase: createTaskUseCase,
             manageProjectsUseCase: manageProjectsUseCase,
-            rescheduleTaskUseCase: rescheduleTaskUseCase
+            rescheduleTaskUseCase: rescheduleTaskUseCase,
+            createTaskDefinitionUseCase: useCaseCoordinator.createTaskDefinition,
+            manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
+            manageSectionsUseCase: useCaseCoordinator.manageSections,
+            manageTagsUseCase: useCaseCoordinator.manageTags
         )
         _addTaskViewModel = viewModel
         return viewModel
@@ -222,7 +226,11 @@ public final class PresentationDependencyContainer {
         return AddTaskViewModel(
             createTaskUseCase: createTaskUseCase,
             manageProjectsUseCase: manageProjectsUseCase,
-            rescheduleTaskUseCase: rescheduleTaskUseCase
+            rescheduleTaskUseCase: rescheduleTaskUseCase,
+            createTaskDefinitionUseCase: useCaseCoordinator.createTaskDefinition,
+            manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
+            manageSectionsUseCase: useCaseCoordinator.manageSections,
+            manageTagsUseCase: useCaseCoordinator.manageTags
         )
     }
 

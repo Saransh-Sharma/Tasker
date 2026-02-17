@@ -214,6 +214,28 @@ public final class HomeViewModel: ObservableObject {
 
     /// Create a new task.
     public func createTask(request: CreateTaskRequest) {
+        if let createTaskDefinition = useCaseCoordinator.createTaskDefinition {
+            let taskProjectID = request.projectID ?? ProjectConstants.inboxProjectID
+            createTaskDefinition.execute(
+                title: request.name,
+                projectID: taskProjectID,
+                dueDate: request.dueDate,
+                details: request.details
+            ) { [weak self] result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        self?.invalidateTaskCaches()
+                        self?.reloadCurrentModeTasks()
+                        self?.requestChartRefresh(reason: .created)
+                    case .failure(let error):
+                        self?.errorMessage = error.localizedDescription
+                    }
+                }
+            }
+            return
+        }
+
         useCaseCoordinator.createTask.execute(request: request) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {

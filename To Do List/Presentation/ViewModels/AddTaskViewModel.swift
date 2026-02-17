@@ -15,6 +15,9 @@ public final class AddTaskViewModel: ObservableObject {
     // MARK: - Published Properties (Observable State)
     
     @Published public private(set) var projects: [Project] = []
+    @Published public private(set) var lifeAreas: [LifeArea] = []
+    @Published public private(set) var sections: [TaskerProjectSection] = []
+    @Published public private(set) var tags: [TagDefinition] = []
     @Published public private(set) var isLoading: Bool = false
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var isTaskCreated: Bool = false
@@ -26,6 +29,9 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var selectedPriority: TaskPriority = .low
     @Published public var selectedType: TaskType = .morning
     @Published public var selectedProject: String = "Inbox"
+    @Published public var selectedLifeAreaID: UUID?
+    @Published public var selectedSectionID: UUID?
+    @Published public var selectedTagIDs: Set<UUID> = []
     @Published public var dueDate: Date = Date()
     @Published public var hasReminder: Bool = false
     @Published public var reminderTime: Date = Date()
@@ -35,6 +41,10 @@ public final class AddTaskViewModel: ObservableObject {
     private let createTaskUseCase: CreateTaskUseCase
     private let manageProjectsUseCase: ManageProjectsUseCase
     private let rescheduleTaskUseCase: RescheduleTaskUseCase
+    private let createTaskDefinitionUseCase: CreateTaskDefinitionUseCase?
+    private let manageLifeAreasUseCase: ManageLifeAreasUseCase?
+    private let manageSectionsUseCase: ManageSectionsUseCase?
+    private let manageTagsUseCase: ManageTagsUseCase?
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Initialization
@@ -42,14 +52,24 @@ public final class AddTaskViewModel: ObservableObject {
     public init(
         createTaskUseCase: CreateTaskUseCase,
         manageProjectsUseCase: ManageProjectsUseCase,
-        rescheduleTaskUseCase: RescheduleTaskUseCase
+        rescheduleTaskUseCase: RescheduleTaskUseCase,
+        createTaskDefinitionUseCase: CreateTaskDefinitionUseCase? = nil,
+        manageLifeAreasUseCase: ManageLifeAreasUseCase? = nil,
+        manageSectionsUseCase: ManageSectionsUseCase? = nil,
+        manageTagsUseCase: ManageTagsUseCase? = nil
     ) {
         self.createTaskUseCase = createTaskUseCase
         self.manageProjectsUseCase = manageProjectsUseCase
         self.rescheduleTaskUseCase = rescheduleTaskUseCase
-        
+        self.createTaskDefinitionUseCase = createTaskDefinitionUseCase
+        self.manageLifeAreasUseCase = manageLifeAreasUseCase
+        self.manageSectionsUseCase = manageSectionsUseCase
+        self.manageTagsUseCase = manageTagsUseCase
+
         setupValidation()
         loadProjects()
+        loadLifeAreas()
+        loadTags()
     }
     
     // MARK: - Public Methods
@@ -64,7 +84,27 @@ public final class AddTaskViewModel: ObservableObject {
         errorMessage = nil
         
         // Resolve projectID from selectedProject name
-        let projectID = projects.first(where: { $0.name == selectedProject })?.id
+        let projectID = projects.first(where: { $0.name == selectedProject })?.id ?? ProjectConstants.inboxProjectID
+
+        if let createTaskDefinitionUseCase {
+            createTaskDefinitionUseCase.execute(
+                title: taskName,
+                projectID: projectID,
+                dueDate: dueDate,
+                details: taskDetails.isEmpty ? nil : taskDetails
+            ) { [weak self] result in
+                DispatchQueue.main.async {
+                    self?.isLoading = false
+                    switch result {
+                    case .success:
+                        self?.isTaskCreated = true
+                    case .failure(let error):
+                        self?.errorMessage = error.localizedDescription
+                    }
+                }
+            }
+            return
+        }
 
         let request = CreateTaskRequest(
             name: taskName,
@@ -99,6 +139,14 @@ public final class AddTaskViewModel: ObservableObject {
                 switch result {
                 case .success(let projectsWithStats):
                     self?.projects = projectsWithStats.map { $0.project }
+                    if self?.selectedProject == "Inbox",
+                       let inbox = self?.projects.first(where: { $0.id == ProjectConstants.inboxProjectID }) {
+                        self?.selectedProject = inbox.name
+                    }
+                    if let strongSelf = self,
+                       let selectedProjectID = strongSelf.projects.first(where: { $0.name == strongSelf.selectedProject })?.id {
+                        strongSelf.loadSections(projectID: selectedProjectID)
+                    }
                     
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -152,6 +200,9 @@ public final class AddTaskViewModel: ObservableObject {
         selectedPriority = .low
         selectedType = .morning
         selectedProject = "Inbox"
+        selectedLifeAreaID = nil
+        selectedSectionID = nil
+        selectedTagIDs = []
         dueDate = Date()
         hasReminder = false
         reminderTime = Date()
@@ -194,6 +245,65 @@ public final class AddTaskViewModel: ObservableObject {
                 self?.validateInput()
             }
             .store(in: &cancellables)
+
+        $selectedProject
+            .removeDuplicates()
+            .sink { [weak self] projectName in
+                guard let self else { return }
+                guard let projectID = self.projects.first(where: { $0.name == projectName })?.id else {
+                    self.sections = []
+                    self.selectedSectionID = nil
+                    return
+                }
+                self.loadSections(projectID: projectID)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func loadLifeAreas() {
+        manageLifeAreasUseCase?.list { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let areas):
+                    self?.lifeAreas = areas.filter { !$0.isArchived }
+                    if self?.selectedLifeAreaID == nil {
+                        self?.selectedLifeAreaID = self?.lifeAreas.first?.id
+                    }
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func loadSections(projectID: UUID) {
+        manageSectionsUseCase?.list(projectID: projectID) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let sections):
+                    self?.sections = sections.sorted(by: { $0.sortOrder < $1.sortOrder })
+                    if let selected = self?.selectedSectionID,
+                       sections.contains(where: { $0.id == selected }) == false {
+                        self?.selectedSectionID = nil
+                    }
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func loadTags() {
+        manageTagsUseCase?.list { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let tags):
+                    self?.tags = tags.sorted(by: { $0.sortOrder < $1.sortOrder })
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                }
+            }
+        }
     }
 }
 
@@ -231,6 +341,9 @@ extension AddTaskViewModel {
             isTaskCreated: isTaskCreated,
             validationErrors: validationErrors,
             projects: projects,
+            lifeAreas: lifeAreas,
+            sections: sections,
+            tags: tags,
             canSubmit: validationErrors.isEmpty && !taskName.isEmpty
         )
     }
@@ -243,5 +356,8 @@ public struct AddTaskViewState {
     public let isTaskCreated: Bool
     public let validationErrors: [ValidationError]
     public let projects: [Project]
+    public let lifeAreas: [LifeArea]
+    public let sections: [TaskerProjectSection]
+    public let tags: [TagDefinition]
     public let canSubmit: Bool
 }
