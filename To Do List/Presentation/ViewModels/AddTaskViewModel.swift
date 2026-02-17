@@ -138,7 +138,19 @@ public final class AddTaskViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let projectsWithStats):
-                    self?.projects = projectsWithStats.map { $0.project }
+                    let mappedProjects = projectsWithStats.map { $0.project }
+                    let dedupedProjects = self?.dedupeProjects(mappedProjects) ?? mappedProjects
+                    if dedupedProjects.count != mappedProjects.count {
+                        logWarning(
+                            event: "add_task_projects_deduped",
+                            message: "Duplicate project IDs detected in AddTaskViewModel; using deduped project list",
+                            fields: [
+                                "before_count": String(mappedProjects.count),
+                                "after_count": String(dedupedProjects.count)
+                            ]
+                        )
+                    }
+                    self?.projects = dedupedProjects
                     if self?.selectedProject == "Inbox",
                        let inbox = self?.projects.first(where: { $0.id == ProjectConstants.inboxProjectID }) {
                         self?.selectedProject = inbox.name
@@ -258,6 +270,28 @@ public final class AddTaskViewModel: ObservableObject {
                 self.loadSections(projectID: projectID)
             }
             .store(in: &cancellables)
+    }
+
+    private func dedupeProjects(_ projects: [Project]) -> [Project] {
+        var byID: [UUID: Project] = [:]
+        for project in projects {
+            if let existing = byID[project.id] {
+                let keepIncoming =
+                    (project.isDefault && !existing.isDefault) ||
+                    (project.isInbox && !existing.isInbox)
+                if keepIncoming {
+                    byID[project.id] = project
+                }
+            } else {
+                byID[project.id] = project
+            }
+        }
+        return Array(byID.values).sorted { lhs, rhs in
+            if lhs.isDefault != rhs.isDefault {
+                return lhs.isDefault
+            }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
     }
 
     private func loadLifeAreas() {

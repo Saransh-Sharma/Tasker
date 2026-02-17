@@ -682,6 +682,7 @@ public final class HomeViewModel: ObservableObject {
 
     private func setupBindings() {
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
+            .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.invalidateTaskCaches()
                 self?.reloadCurrentModeTasks()
@@ -690,6 +691,7 @@ public final class HomeViewModel: ObservableObject {
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskUpdated"))
+            .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.invalidateTaskCaches()
                 self?.reloadCurrentModeTasks()
@@ -698,6 +700,7 @@ public final class HomeViewModel: ObservableObject {
             .store(in: &cancellables)
 
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskDeleted"))
+            .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.invalidateTaskCaches()
                 self?.reloadCurrentModeTasks()
