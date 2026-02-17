@@ -165,51 +165,25 @@ public final class HomeViewModel: ObservableObject {
 
     /// Toggle task completion.
     public func toggleTaskCompletion(_ task: Task) {
-        let requestedCompletion = !task.isComplete
-        logDebug(
-            "HOME_ROW_STATE vm.toggle_input id=\(task.id.uuidString) name=\(task.name) " +
-            "isComplete=\(task.isComplete) requested=\(requestedCompletion)"
-        )
-        useCaseCoordinator.completeTask.setCompletion(
-            taskId: task.id,
-            to: requestedCompletion,
+        setTaskCompletion(
+            taskID: task.id,
+            to: !task.isComplete,
             taskSnapshot: task
-        ) { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let completionResult):
-                    self?.completionOverrides[completionResult.task.id] = completionResult.task.isComplete
-                    self?.suppressCompletionReloadUntil = Date().addingTimeInterval(self?.completionReloadSuppressionSeconds ?? 0.35)
-                    logDebug(
-                        "HOME_ROW_STATE vm.toggle_result id=\(completionResult.task.id.uuidString) " +
-                        "requested=\(requestedCompletion) input=\(task.isComplete) " +
-                        "result=\(completionResult.task.isComplete) override_set=true"
-                    )
-                    self?.applyCompletionResultLocally(completionResult.task)
-                    let stateMatchesRequest = completionResult.task.isComplete == requestedCompletion
-                    if stateMatchesRequest {
-                        self?.dailyScore += completionResult.scoreEarned
-                        self?.refreshProgressState()
-                    } else {
-                        logDebug(
-                            "HOME_ROW_STATE vm.toggle_mismatch id=\(completionResult.task.id.uuidString) " +
-                            "requested=\(requestedCompletion) result=\(completionResult.task.isComplete) " +
-                            "forcing_analytics_reload=true"
-                        )
-                    }
-                    self?.loadDailyAnalytics()
-                    self?.invalidateTaskCaches()
-                    self?.reloadCurrentModeTasks()
-                    self?.requestChartRefresh(
-                        reason: completionResult.task.isComplete ? .completed : .reopened
-                    )
-                    self?.trackFirstCompletionLatencyIfNeeded()
+        ) { _ in }
+    }
 
-                case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
-                }
-            }
-        }
+    /// Deterministically sets completion to a desired value.
+    public func setTaskCompletion(
+        taskID: UUID,
+        to desiredCompletion: Bool,
+        completion: @escaping (Result<Task, Error>) -> Void
+    ) {
+        setTaskCompletion(
+            taskID: taskID,
+            to: desiredCompletion,
+            taskSnapshot: currentTaskSnapshot(for: taskID),
+            completion: completion
+        )
     }
 
     /// Create a new task.
@@ -253,17 +227,26 @@ public final class HomeViewModel: ObservableObject {
 
     /// Delete a task.
     public func deleteTask(_ task: Task) {
-        useCaseCoordinator.deleteTask.execute(taskId: task.id) { [weak self] result in
+        deleteTask(taskID: task.id) { _ in }
+    }
+
+    public func deleteTask(
+        taskID: UUID,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        useCaseCoordinator.deleteTask.execute(taskId: taskID) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    self?.removePinnedFocusTaskID(task.id)
+                    self?.removePinnedFocusTaskID(taskID)
                     self?.invalidateTaskCaches()
                     self?.reloadCurrentModeTasks()
                     self?.requestChartRefresh(reason: .deleted)
+                    completion(.success(()))
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
+                    completion(.failure(error))
                 }
             }
         }
@@ -271,16 +254,48 @@ public final class HomeViewModel: ObservableObject {
 
     /// Reschedule a task.
     public func rescheduleTask(_ task: Task, to newDate: Date) {
-        useCaseCoordinator.rescheduleTask.execute(taskId: task.id, newDate: newDate) { [weak self] result in
+        rescheduleTask(taskID: task.id, to: newDate) { _ in }
+    }
+
+    public func rescheduleTask(
+        taskID: UUID,
+        to newDate: Date,
+        completion: @escaping (Result<Task, Error>) -> Void
+    ) {
+        useCaseCoordinator.rescheduleTask.execute(taskId: taskID, newDate: newDate) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
-                case .success:
+                case .success(let task):
                     self?.invalidateTaskCaches()
                     self?.reloadCurrentModeTasks()
                     self?.requestChartRefresh(reason: .rescheduled)
+                    completion(.success(task))
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    public func updateTask(
+        taskID: UUID,
+        request: UpdateTaskRequest,
+        completion: @escaping (Result<Task, Error>) -> Void
+    ) {
+        useCaseCoordinator.updateTask.execute(taskId: taskID, request: request) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let task):
+                    self?.invalidateTaskCaches()
+                    self?.reloadCurrentModeTasks()
+                    self?.requestChartRefresh(reason: self?.mutationReason(for: request) ?? .updated)
+                    completion(.success(task))
+
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    completion(.failure(error))
                 }
             }
         }
@@ -738,6 +753,76 @@ public final class HomeViewModel: ObservableObject {
                 self.handleExternalMutation(reason: reason, repostEvent: false)
             }
             .store(in: &cancellables)
+    }
+
+    private func setTaskCompletion(
+        taskID: UUID,
+        to requestedCompletion: Bool,
+        taskSnapshot: Task?,
+        completion: @escaping (Result<Task, Error>) -> Void
+    ) {
+        logDebug(
+            "HOME_ROW_STATE vm.toggle_input id=\(taskID.uuidString) " +
+            "isComplete=\(String(describing: taskSnapshot?.isComplete)) requested=\(requestedCompletion)"
+        )
+        useCaseCoordinator.completeTask.setCompletion(
+            taskId: taskID,
+            to: requestedCompletion,
+            taskSnapshot: taskSnapshot
+        ) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let completionResult):
+                    self?.completionOverrides[completionResult.task.id] = completionResult.task.isComplete
+                    self?.suppressCompletionReloadUntil = Date().addingTimeInterval(self?.completionReloadSuppressionSeconds ?? 0.35)
+                    self?.applyCompletionResultLocally(completionResult.task)
+                    let stateMatchesRequest = completionResult.task.isComplete == requestedCompletion
+                    if stateMatchesRequest {
+                        self?.dailyScore += completionResult.scoreEarned
+                        self?.refreshProgressState()
+                    } else {
+                        logDebug(
+                            "HOME_ROW_STATE vm.toggle_mismatch id=\(completionResult.task.id.uuidString) " +
+                            "requested=\(requestedCompletion) result=\(completionResult.task.isComplete) " +
+                            "forcing_analytics_reload=true"
+                        )
+                    }
+                    self?.loadDailyAnalytics()
+                    self?.invalidateTaskCaches()
+                    self?.reloadCurrentModeTasks()
+                    self?.requestChartRefresh(
+                        reason: completionResult.task.isComplete ? .completed : .reopened
+                    )
+                    self?.trackFirstCompletionLatencyIfNeeded()
+                    completion(.success(completionResult.task))
+
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    private func currentTaskSnapshot(for id: UUID) -> Task? {
+        let candidates = morningTasks + eveningTasks + overdueTasks + dailyCompletedTasks + upcomingTasks + completedTasks + doneTimelineTasks
+        return candidates.first(where: { $0.id == id })
+    }
+
+    private func mutationReason(for request: UpdateTaskRequest) -> HomeTaskMutationEvent {
+        if request.projectID != nil || request.projectName != nil {
+            return .projectChanged
+        }
+        if request.priority != nil {
+            return .priorityChanged
+        }
+        if request.type != nil {
+            return .typeChanged
+        }
+        if request.dueDate != nil {
+            return .dueDateChanged
+        }
+        return .updated
     }
 
     private func loadInitialData() {
