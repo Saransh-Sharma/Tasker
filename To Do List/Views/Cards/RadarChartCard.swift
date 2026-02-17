@@ -7,7 +7,6 @@
 //
 
 import SwiftUI
-import CoreData
 import DGCharts
 import UIKit
 import Combine
@@ -24,8 +23,6 @@ struct RadarChartCard: View {
     @State private var isLoading = true
     @State private var hasCustomProjects = true
     @State private var hasCompletedTasks = true
-    @State private var showProjectSelection = false
-    @State private var selectedProjectIDs: [UUID]? = nil
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
@@ -53,23 +50,6 @@ struct RadarChartCard: View {
                                 .foregroundColor(.tasker(.textSecondary))
                                 .dynamicTypeSize(.large...(.accessibility3))
                         }
-                    }
-
-                    Spacer()
-
-                    if hasCustomProjects {
-                        Button(action: {
-                            showProjectSelection = true
-                        }) {
-                            Image(systemName: "slider.horizontal.3")
-                                .font(.tasker(.buttonSmall))
-                                .foregroundColor(.tasker(.accentPrimary))
-                                .padding(spacing.s8)
-                                .background(Color.tasker.accentMuted)
-                                .cornerRadius(corner.r1)
-                        }
-                        .accessibilityLabel("Select projects")
-                        .accessibilityHint("Choose which projects to display on the radar chart")
                     }
                 }
                 .accessibilityElement(children: .contain)
@@ -117,33 +97,8 @@ struct RadarChartCard: View {
                 }
             }
         }
-        .sheet(isPresented: $showProjectSelection) {
-            ProjectSelectionSheet(
-                selectedProjectIDs: selectedProjectIDs ?? [],
-                onSave: { pinnedProjectIDs in
-                    selectedProjectIDs = pinnedProjectIDs
-
-                    // Persist pinned projects using ProjectSelectionService
-                    if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
-                        let service = ProjectSelectionService(context: context)
-                        do {
-                            try service.setPinnedProjectIDs(pinnedProjectIDs)
-                        } catch {
-                            logWarning(
-                                event: "radar_pinned_projects_save_failed",
-                                message: "Failed to save pinned projects",
-                                fields: ["error": error.localizedDescription]
-                            )
-                        }
-                    }
-
-                    // Reload chart with new pinned projects
-                    loadChartData()
-                }
-            )
-        }
         .onAppear {
-            loadPinnedProjects()
+            loadChartData()
         }
         .onChange(of: referenceDate) { _, _ in
             loadChartData()
@@ -206,88 +161,109 @@ struct RadarChartCard: View {
 
     // MARK: - Data Loading
 
-    /// Load pinned projects from ProjectSelectionService
-    /// Called once on appear to initialize selectedProjectIDs
-    private func loadPinnedProjects() {
-
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-            logWarning(
-                event: "radar_app_delegate_unavailable",
-                message: "App delegate unavailable while loading pinned projects"
-            )
-            loadChartData()
-            return
-        }
-
-        let context = appDelegate.persistentContainer.viewContext
-        let service = ProjectSelectionService(context: context)
-
-        service.getPinnedProjectIDs { [self] pinnedIDs in
-            DispatchQueue.main.async {
-                self.selectedProjectIDs = pinnedIDs
-                self.loadChartData()
-            }
-        }
-    }
-
     private func loadChartData() {
         isLoading = true
-
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-            logWarning(
-                event: "radar_app_delegate_unavailable",
-                message: "App delegate unavailable while loading radar chart"
-            )
+        guard let taskRepository = EnhancedDependencyContainer.shared.taskRepository else {
             isLoading = false
             return
         }
 
-        let context = appDelegate.persistentContainer.viewContext
+        guard let projectRepository = EnhancedDependencyContainer.shared.projectRepository else {
+            isLoading = false
+            return
+        }
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.firstWeekday = 1
 
-        // Execute on main context directly (SwiftUI is already on main thread)
-        let chartService = ChartDataService(context: context)
-
-        // Generate radar chart data ONLY for selected/pinned projects
-        let result = chartService.generateRadarChartData(
-            for: referenceDate,
-            selectedProjectIDs: selectedProjectIDs
-        )
-
-
-        self.chartData = result.entries
-        self.chartLabels = result.labels
-
-        // Determine empty states
-
-        let checkResult = self.checkHasCustomProjects(context: context)
-
-        self.hasCustomProjects = !result.labels.isEmpty || checkResult
-
-        self.hasCompletedTasks = !result.entries.isEmpty && result.entries.contains(where: { $0.value > 0 })
-
-        if !self.hasCustomProjects {
-        } else if !self.hasCompletedTasks {
-        } else {
+        let currentReferenceDate = referenceDate ?? Date.today()
+        let week = calendar.daysWithSameWeekOfYear(as: currentReferenceDate)
+        guard let startOfWeek = week.first?.startOfDay,
+              let endOfWeek = week.last?.endOfDay else {
+            isLoading = false
+            return
         }
 
-        withAnimation(TaskerAnimation.gentle) {
-            self.isLoading = false
+        projectRepository.fetchCustomProjects { projectResult in
+            switch projectResult {
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    logWarning(
+                        event: "radar_project_fetch_failed",
+                        message: "Failed to fetch projects for radar chart",
+                        fields: ["error": error.localizedDescription]
+                    )
+                    self.chartData = []
+                    self.chartLabels = []
+                    self.hasCustomProjects = false
+                    self.hasCompletedTasks = false
+                    self.isLoading = false
+                }
+            case .success(let projects):
+                let customProjects = projects.filter { !$0.isArchived && !$0.isInbox }
+                guard customProjects.isEmpty == false else {
+                    DispatchQueue.main.async {
+                        self.chartData = []
+                        self.chartLabels = []
+                        self.hasCustomProjects = false
+                        self.hasCompletedTasks = false
+                        withAnimation(TaskerAnimation.gentle) {
+                            self.isLoading = false
+                        }
+                    }
+                    return
+                }
+
+                taskRepository.fetchAllTasks { taskResult in
+                    DispatchQueue.main.async {
+                        switch taskResult {
+                        case .failure(let error):
+                            logWarning(
+                                event: "radar_task_fetch_failed",
+                                message: "Failed to fetch tasks for radar chart",
+                                fields: ["error": error.localizedDescription]
+                            )
+                            self.chartData = []
+                            self.chartLabels = []
+                            self.hasCustomProjects = true
+                            self.hasCompletedTasks = false
+                            self.isLoading = false
+                        case .success(let tasks):
+                            var scoreByProjectID: [UUID: Int] = [:]
+                            let customProjectIDs = Set(customProjects.map(\.id))
+
+                            for task in tasks where task.isComplete {
+                                guard customProjectIDs.contains(task.projectID) else { continue }
+                                guard let completedAt = task.dateCompleted else { continue }
+                                guard completedAt >= startOfWeek && completedAt <= endOfWeek else { continue }
+                                scoreByProjectID[task.projectID, default: 0] += task.priority.scorePoints
+                            }
+
+                            let sortedProjects = customProjects
+                                .sorted { lhs, rhs in
+                                    let lhsScore = scoreByProjectID[lhs.id, default: 0]
+                                    let rhsScore = scoreByProjectID[rhs.id, default: 0]
+                                    if lhsScore == rhsScore {
+                                        return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+                                    }
+                                    return lhsScore > rhsScore
+                                }
+                                .prefix(5)
+
+                            self.chartLabels = sortedProjects.map(\.name)
+                            self.chartData = sortedProjects.map { project in
+                                RadarChartDataEntry(value: Double(scoreByProjectID[project.id, default: 0]))
+                            }
+                            self.hasCustomProjects = true
+                            self.hasCompletedTasks = self.chartData.contains(where: { $0.value > 0 })
+
+                            withAnimation(TaskerAnimation.gentle) {
+                                self.isLoading = false
+                            }
+                        }
+                    }
+                }
+            }
         }
-
-    }
-
-    private func checkHasCustomProjects(context: NSManagedObjectContext) -> Bool {
-
-        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        request.predicate = NSPredicate(
-            format: "projectID != %@",
-            ProjectConstants.inboxProjectID as CVarArg
-        )
-        request.fetchLimit = 1
-
-        let count = (try? context.count(for: request)) ?? 0
-
-        return count > 0
     }
 }
 
@@ -360,15 +336,6 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
     }
 
     private func updateChartData(_ chartView: RadarChartView) {
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            logWarning(
-                event: "radar_context_unavailable",
-                message: "App delegate unavailable while updating radar chart render data"
-            )
-            chartView.data = nil
-            return
-        }
-
         let normalizedPayload = normalizedRenderPayload()
         guard !normalizedPayload.entries.isEmpty else {
             chartView.data = nil
@@ -378,11 +345,9 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
         let colors = themeTokens.color
 
-        // Use ChartDataService for consistent styling
-        let chartService = ChartDataService(context: context)
-
         // Calculate dynamic maximum
-        let dynamicMaximum = chartService.calculateRadarChartMaximum(for: normalizedPayload.entries)
+        let maxValue = normalizedPayload.entries.map(\.value).max() ?? 0
+        let dynamicMaximum = max(ceil(maxValue / 5) * 5, 5)
         chartView.yAxis.axisMaximum = dynamicMaximum
 
         // Rebuild renderer to prevent stale accessibility label caches inside DGCharts.
@@ -396,11 +361,17 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         chartView.xAxis.valueFormatter = RadarXAxisFormatter(labels: normalizedPayload.labels)
 
         // Create data set
-        let dataSet = chartService.createRadarChartDataSet(
-            with: normalizedPayload.entries,
-            colors: colors,
-            typography: themeTokens.typography
-        )
+        let dataSet = RadarChartDataSet(entries: normalizedPayload.entries, label: "Project Scores")
+        dataSet.setColor(colors.accentPrimary)
+        dataSet.fillColor = colors.accentMuted
+        dataSet.drawFilledEnabled = true
+        dataSet.fillAlpha = 0.3
+        dataSet.lineWidth = 4.0
+        dataSet.drawHighlightCircleEnabled = true
+        dataSet.setDrawHighlightIndicators(false)
+        dataSet.valueFont = themeTokens.typography.font(for: .caption1)
+        dataSet.valueTextColor = colors.textSecondary
+        dataSet.drawValuesEnabled = true
 
         // Create chart data
         let radarData = RadarChartData(dataSet: dataSet)

@@ -7,7 +7,6 @@
 //
 
 import SwiftUI
-import CoreData
 
 // MARK: - Project Selection Sheet
 
@@ -250,88 +249,55 @@ struct ProjectSelectionSheet: View {
 
         logDebug("📋 [ProjectSelectionSheet] Loading projects...")
 
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+        guard
+            let projectRepository = EnhancedDependencyContainer.shared.projectRepository,
+            let taskRepository = EnhancedDependencyContainer.shared.taskRepository
+        else {
             logWarning(
-                event: "project_selection_context_unavailable",
-                message: "Project selection context unavailable"
+                event: "project_selection_dependencies_missing",
+                message: "Project/task repositories unavailable for project selection"
             )
             isLoading = false
             return
         }
 
-        context.perform {
-            // Fetch ALL projects (including those with nil projectID for legacy compatibility)
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            // Don't filter by UUID - fetch everything
-            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
-
-            let allProjects = (try? context.fetch(request)) ?? []
-            logDebug("📋 [ProjectSelectionSheet] Fetched \(allProjects.count) total projects from database")
-
-            // Filter out Inbox by NAME (not UUID) and projects with nil names
-            // This handles both migrated (UUID-based) and legacy (string-based) data
-            let customProjects = allProjects.filter { project in
-                guard let name = project.projectName else { return false }
-                let isInbox = name.lowercased() == "inbox"
-                if !isInbox {
-                    logDebug("   ✅ Including project: '\(name)' (UUID: \(project.projectID?.uuidString ?? "nil"))")
+        projectRepository.fetchCustomProjects { projectResult in
+            switch projectResult {
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    logError("❌ [ProjectSelectionSheet] Failed to load projects: \(error.localizedDescription)")
+                    self.availableProjects = []
+                    withAnimation {
+                        self.isLoading = false
+                    }
                 }
-                return !isInbox
-            }
+            case .success(let projects):
+                taskRepository.fetchAllTasks { taskResult in
+                    let allTasks = (try? taskResult.get()) ?? []
+                    let taskCountsByProject = allTasks.reduce(into: [UUID: Int]()) { counts, task in
+                        counts[task.projectID, default: 0] += 1
+                    }
 
-            logDebug("📋 [ProjectSelectionSheet] After filtering Inbox: \(customProjects.count) custom projects")
+                    let infos = projects
+                        .filter { $0.id != ProjectConstants.inboxProjectID }
+                        .map { project in
+                            ProjectInfo(
+                                id: project.id,
+                                name: project.name,
+                                taskCount: taskCountsByProject[project.id, default: 0]
+                            )
+                        }
+                        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
 
-            // Convert to ProjectInfo with fallback logic for legacy data
-            let projectInfos = customProjects.compactMap { project -> ProjectInfo? in
-                guard let name = project.projectName else { return nil }
-
-                // Use projectID if available, otherwise generate temporary UUID from name
-                // This ensures we can track selections even for legacy projects
-                let projectId = project.projectID ?? UUID()
-
-                // Calculate task count using BOTH projectID and legacy project string
-                // Try UUID-based query first, then fall back to string-based
-                var taskCount = 0
-
-                if let uuid = project.projectID {
-                    // Try UUID-based query for migrated data
-                    let uuidRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
-                    uuidRequest.predicate = NSPredicate(
-                        format: "projectID == %@",
-                        uuid as CVarArg
-                    )
-                    taskCount = (try? context.count(for: uuidRequest)) ?? 0
-                    logDebug("      UUID-based count for '\(name)': \(taskCount)")
+                    DispatchQueue.main.async {
+                        self.availableProjects = infos
+                        self.pinnedProjects = self.pinnedProjects.intersection(Set(infos.map(\.id)))
+                        withAnimation {
+                            self.isLoading = false
+                        }
+                        logDebug("✅ [ProjectSelectionSheet] Loaded \(infos.count) projects")
+                    }
                 }
-
-                // Fall back to string-based query for legacy data
-                if taskCount == 0 {
-                    let stringRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
-                    stringRequest.predicate = NSPredicate(
-                        format: "project == %@",
-                        name
-                    )
-                    taskCount = (try? context.count(for: stringRequest)) ?? 0
-                    logDebug("      String-based count for '\(name)': \(taskCount)")
-                }
-
-                logDebug("   📊 Project '\(name)': \(taskCount) tasks")
-
-                return ProjectInfo(
-                    id: projectId,
-                    name: name,
-                    taskCount: taskCount
-                )
-            }
-
-            logDebug("📋 [ProjectSelectionSheet] Final result: \(projectInfos.count) projects to display")
-
-            DispatchQueue.main.async {
-                self.availableProjects = projectInfos
-                withAnimation {
-                    self.isLoading = false
-                }
-                logDebug("✅ [ProjectSelectionSheet] Projects loaded successfully")
             }
         }
     }

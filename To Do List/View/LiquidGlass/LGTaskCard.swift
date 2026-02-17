@@ -6,17 +6,17 @@
 //
 
 import UIKit
-import CoreData
 
 class LGTaskCard: LGBaseView {
 
     // MARK: - Properties
 
-    var task: NTask? {
+    var task: Task? {
         didSet { updateUI() }
     }
 
-    var onTap: ((NTask) -> Void)?
+    var onTap: ((Task) -> Void)?
+    var onToggleComplete: ((Task) -> Void)?
 
     // Theme support
     private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
@@ -129,7 +129,7 @@ class LGTaskCard: LGBaseView {
         guard let task = task else { return }
 
         // Title
-        titleLabel.text = task.name ?? "Untitled Task"
+        titleLabel.text = task.name
         titleLabel.textColor = todoColors.textPrimary
 
         // Checkbox
@@ -140,7 +140,7 @@ class LGTaskCard: LGBaseView {
         checkboxButton.tintColor = todoColors.textPrimary
 
         // Details (due date)
-        if let dueDate = task.dueDate as Date? {
+        if let dueDate = task.dueDate {
             let formatter = DateFormatter()
             formatter.dateStyle = .medium
             detailsLabel.text = "Due: \(formatter.string(from: dueDate))"
@@ -150,8 +150,7 @@ class LGTaskCard: LGBaseView {
         detailsLabel.textColor = todoColors.textPrimary.withAlphaComponent(0.7)
 
         // Priority indicator - using TaskPriorityConfig for consistency
-        let priority = TaskPriorityConfig.Priority(rawValue: task.taskPriority)
-        priorityIndicator.backgroundColor = priority.color
+        priorityIndicator.backgroundColor = task.priority.color
 
         // Project
         projectLabel.text = task.project ?? "Inbox"
@@ -160,13 +159,13 @@ class LGTaskCard: LGBaseView {
         // Strike through if completed
         if task.isComplete {
             titleLabel.attributedText = NSAttributedString(
-                string: task.name ?? "Untitled Task",
+                string: task.name,
                 attributes: [.strikethroughStyle: NSUnderlineStyle.single.rawValue]
             )
             titleLabel.alpha = 0.6
         } else {
             titleLabel.attributedText = nil
-            titleLabel.text = task.name ?? "Untitled Task"
+            titleLabel.text = task.name
             titleLabel.alpha = 1.0
         }
 
@@ -178,23 +177,10 @@ class LGTaskCard: LGBaseView {
     // MARK: - Actions
     
     @objc private func checkboxTapped() {
-        guard let task = task else { return }
-        
-        // Toggle completion
+        guard var task else { return }
         task.isComplete.toggle()
-        
-        // Save context
-        if let context = task.managedObjectContext, context.hasChanges {
-            try? context.save()
-        }
-        
-        // Animate
-        UIView.animate(withDuration: 0.3) {
-            self.updateUI()
-        }
-        
-        // Post notification
-        NotificationCenter.default.post(name: NSNotification.Name("TaskCompletionChanged"), object: nil)
+        self.task = task
+        onToggleComplete?(task)
     }
     
     @objc private func cardTapped() {

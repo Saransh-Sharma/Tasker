@@ -7,7 +7,6 @@
 //
 
 import SwiftUI
-import CoreData
 import DGCharts
 import UIKit
 import Combine
@@ -86,23 +85,56 @@ struct ChartCard: View {
     
     private func loadChartData() {
         isLoading = true
-        // Generate chart data using injected context
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
+        guard let repository = EnhancedDependencyContainer.shared.taskRepository else {
             isLoading = false
             return
         }
-        
-        context.perform {
-            let chartService = ChartDataService(context: context)
-            let newData = chartService.generateLineChartData(for: referenceDate)
+
+        var calendar = Calendar.autoupdatingCurrent
+        calendar.firstWeekday = 1
+
+        let currentReferenceDate = referenceDate ?? Date.today()
+        let week = calendar.daysWithSameWeekOfYear(as: currentReferenceDate)
+        guard let weekStart = week.first?.startOfDay,
+              let weekEnd = week.last?.endOfDay else {
+            isLoading = false
+            return
+        }
+
+        repository.fetchTasks(from: weekStart, to: weekEnd) { result in
             DispatchQueue.main.async {
-                self.chartData = newData
-                withAnimation(TaskerAnimation.gentle) {
+                switch result {
+                case .success(let tasks):
+                    let today = Date.today().startOfDay
+                    var dayScores: [Date: Int] = [:]
+                    for task in tasks where task.isComplete {
+                        guard let completedDay = task.dateCompleted?.startOfDay else { continue }
+                        dayScores[completedDay, default: 0] += task.priority.scorePoints
+                    }
+
+                    let entries = week.enumerated().map { index, day in
+                        let score: Int
+                        if day.startOfDay > today {
+                            score = 0
+                        } else {
+                            score = max(0, dayScores[day.startOfDay] ?? 0)
+                        }
+                        return ChartDataEntry(x: Double(index), y: Double(score))
+                    }
+
+                    self.chartData = entries
+                    withAnimation(TaskerAnimation.gentle) {
+                        self.isLoading = false
+                    }
+                case .failure(let error):
+                    logWarning(
+                        event: "chart_card_fetch_failed",
+                        message: "Failed to fetch weekly tasks for chart card",
+                        fields: ["error": error.localizedDescription]
+                    )
+                    self.chartData = []
                     self.isLoading = false
                 }
-                #if DEBUG
-                logDebug("📊 SwiftUI Chart Card loaded \(newData.count) data points")
-                #endif
             }
         }
     }
@@ -200,21 +232,41 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         
         let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
         let colors = themeTokens.color
-        
-        // Use ChartDataService with dependency injection
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let chartService = ChartDataService(context: context!)
-        
+
         // Calculate dynamic maximum for better scaling
-        let dynamicMaximum = chartService.calculateDynamicMaximum(for: data)
+        let maxScore = data.map(\.y).max() ?? 0
+        let dynamicMaximum = max(maxScore * 1.2, 10)
         chartView.leftAxis.axisMaximum = dynamicMaximum
         
         // Create and configure data set
-        let dataSet = chartService.createLineChartDataSet(
-            with: data,
-            colors: colors,
-            typography: themeTokens.typography
-        )
+        let dataSet = LineChartDataSet(entries: data, label: "Daily Score")
+        dataSet.mode = .linear
+        dataSet.drawCirclesEnabled = true
+        dataSet.lineWidth = 3.5
+        dataSet.circleRadius = 6
+        dataSet.setCircleColor(colors.accentPrimary)
+        dataSet.setColor(colors.chartPrimary)
+        dataSet.drawCircleHoleEnabled = true
+        dataSet.circleHoleRadius = 3
+        dataSet.circleHoleColor = colors.surfacePrimary
+        dataSet.valueFont = themeTokens.typography.font(for: .caption2)
+        dataSet.valueTextColor = colors.textTertiary
+
+        let gradientColors = [
+            colors.chartPrimary.withAlphaComponent(0.35).cgColor,
+            colors.chartPrimary.withAlphaComponent(0.18).cgColor,
+            colors.chartPrimary.withAlphaComponent(0.0).cgColor
+        ]
+        let gradient = CGGradient(colorsSpace: nil, colors: gradientColors as CFArray, locations: [0.0, 0.5, 1.0])!
+        dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
+        dataSet.drawFilledEnabled = true
+        dataSet.fillAlpha = 0.5
+        dataSet.lineDashLengths = nil
+        dataSet.highlightEnabled = true
+        dataSet.highlightColor = colors.accentPrimary
+        dataSet.highlightLineWidth = 2
+        dataSet.drawHorizontalHighlightIndicatorEnabled = false
+        dataSet.drawVerticalHighlightIndicatorEnabled = true
         
         // Create chart data and apply to chart
         let chartData = LineChartData(dataSet: dataSet)
