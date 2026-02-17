@@ -366,6 +366,10 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
         repository.ensureInboxProject(completion: completion)
     }
+
+    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+        repository.repairProjectIdentityCollisions(completion: completion)
+    }
     
     func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
         cache.clearAll()

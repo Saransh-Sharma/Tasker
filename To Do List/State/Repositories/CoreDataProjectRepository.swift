@@ -46,7 +46,11 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     public func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
+            request.predicate = NSPredicate(
+                format: "projectID == %@ OR id == %@",
+                id as CVarArg,
+                id as CVarArg
+            )
             request.fetchLimit = 1
 
             do {
@@ -83,12 +87,13 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     public func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID != %@", ProjectConstants.inboxProjectID as CVarArg)
             request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
 
             do {
                 let entities = try self.viewContext.fetch(request)
-                let projects = ProjectMapper.toDomainArray(from: entities)
+                let projects = ProjectMapper
+                    .toDomainArray(from: entities)
+                    .filter { !$0.isDefault && !$0.isInbox }
                 DispatchQueue.main.async { completion(.success(projects)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
@@ -132,21 +137,38 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     }
     
     public func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
-        // Check if Inbox Projects entity exists
         viewContext.perform {
             let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID == %@", ProjectConstants.inboxProjectID as CVarArg)
-            request.fetchLimit = 1
+            request.predicate = self.inboxCandidatePredicate()
 
             do {
                 let existingProjects = try self.viewContext.fetch(request)
 
+                if existingProjects.count > 1 {
+                    self.repairProjectIdentityCollisions { repairResult in
+                        switch repairResult {
+                        case .success:
+                            self.fetchProject(withId: ProjectConstants.inboxProjectID) { fetchResult in
+                                switch fetchResult {
+                                case .success(let project):
+                                    DispatchQueue.main.async {
+                                        completion(.success(project ?? Project.createInbox()))
+                                    }
+                                case .failure(let error):
+                                    DispatchQueue.main.async { completion(.failure(error)) }
+                                }
+                            }
+                        case .failure(let error):
+                            DispatchQueue.main.async { completion(.failure(error)) }
+                        }
+                    }
+                    return
+                }
+
                 if let existingProject = existingProjects.first {
-                    // Inbox already exists
                     let inboxProject = ProjectMapper.toDomain(from: existingProject)
                     DispatchQueue.main.async { completion(.success(inboxProject)) }
                 } else {
-                    // Create Inbox Projects entity
                     self.backgroundContext.perform {
                         let inboxProject = Project.createInbox()
                         _ = ProjectMapper.toEntity(from: inboxProject, in: self.backgroundContext)
@@ -161,6 +183,71 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         }
                     }
                 }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    public func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+        backgroundContext.perform {
+            do {
+                let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+                projectRequest.returnsObjectsAsFaults = false
+                var projects = try self.backgroundContext.fetch(projectRequest)
+                let scannedCount = projects.count
+
+                var merged = 0
+                var deleted = 0
+                var warnings: [String] = []
+
+                for project in projects {
+                    self.normalizeProjectIdentity(project)
+                }
+
+                var inboxCandidates = projects.filter { self.isInboxCandidate($0) }
+                var canonicalInbox: Projects
+                if let selected = self.selectCanonicalInbox(from: inboxCandidates) {
+                    canonicalInbox = selected
+                } else {
+                    canonicalInbox = ProjectMapper.toEntity(from: Project.createInbox(), in: self.backgroundContext)
+                    projects.append(canonicalInbox)
+                    warnings.append("Inbox was missing and has been recreated during repair")
+                }
+
+                self.normalizeAsCanonicalInbox(canonicalInbox)
+
+                for duplicate in inboxCandidates where duplicate.objectID != canonicalInbox.objectID {
+                    self.repointTasks(from: duplicate, to: canonicalInbox)
+                    self.backgroundContext.delete(duplicate)
+                    merged += 1
+                    deleted += 1
+                }
+
+                projects = projects.filter { !$0.isDeleted }
+                let groups = Dictionary(grouping: projects) { self.effectiveProjectID(for: $0) }
+
+                for (projectID, group) in groups where group.count > 1 {
+                    let canonical = self.selectCanonicalProject(from: group, targetID: projectID)
+                    for duplicate in group where duplicate.objectID != canonical.objectID {
+                        self.repointTasks(from: duplicate, to: canonical)
+                        self.backgroundContext.delete(duplicate)
+                        merged += 1
+                        deleted += 1
+                    }
+                }
+
+                try self.backgroundContext.save()
+
+                inboxCandidates = [canonicalInbox] + inboxCandidates.filter { !$0.isDeleted && $0.objectID != canonicalInbox.objectID }
+                let report = ProjectRepairReport(
+                    scanned: scannedCount,
+                    merged: merged,
+                    deleted: deleted,
+                    inboxCandidates: inboxCandidates.count,
+                    warnings: warnings
+                )
+                DispatchQueue.main.async { completion(.success(report)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
@@ -411,5 +498,161 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
+    }
+
+    private func normalizeProjectIdentity(_ entity: Projects) {
+        if entity.projectID == nil, let id = entity.id {
+            entity.projectID = id
+        } else if entity.id == nil, let projectID = entity.projectID {
+            entity.id = projectID
+        } else if entity.id == nil, entity.projectID == nil {
+            let derivedID: UUID
+            if isInboxCandidate(entity) {
+                derivedID = ProjectConstants.inboxProjectID
+            } else {
+                derivedID = Self.stableUUID(from: entity.objectID.uriRepresentation().absoluteString)
+            }
+            entity.projectID = derivedID
+            entity.id = derivedID
+        }
+    }
+
+    private func normalizeAsCanonicalInbox(_ entity: Projects) {
+        entity.projectID = ProjectConstants.inboxProjectID
+        entity.id = ProjectConstants.inboxProjectID
+        entity.isInbox = true
+        entity.isDefault = true
+        entity.projectName = ProjectConstants.inboxProjectName
+        entity.name = ProjectConstants.inboxProjectName
+        entity.projectDescription = ProjectConstants.inboxProjectDescription
+        entity.projecDescription = ProjectConstants.inboxProjectDescription
+    }
+
+    private func repointTasks(from source: Projects, to target: Projects) {
+        let sourceIDs = Set([source.projectID, source.id].compactMap { $0 })
+        let sourceNames = Set([source.projectName, source.name].compactMap { normalizedName($0) })
+        let targetID = effectiveProjectID(for: target)
+        let targetName = normalizedName(target.projectName) ?? normalizedName(target.name) ?? ProjectConstants.inboxProjectName
+
+        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        var predicates: [NSPredicate] = []
+
+        if sourceIDs.isEmpty == false {
+            predicates.append(NSPredicate(format: "projectID IN %@", Array(sourceIDs)))
+        }
+        for sourceName in sourceNames {
+            predicates.append(NSPredicate(format: "project ==[c] %@", sourceName))
+        }
+        guard predicates.isEmpty == false else {
+            return
+        }
+
+        request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: predicates)
+        do {
+            let tasks = try backgroundContext.fetch(request)
+            for task in tasks {
+                task.projectID = targetID
+                task.project = targetName
+            }
+        } catch {
+            logWarning("Project identity repair could not repoint tasks: \(error.localizedDescription)")
+        }
+    }
+
+    private func selectCanonicalInbox(from candidates: [Projects]) -> Projects? {
+        candidates.sorted { lhs, rhs in
+            let lhsRank = inboxCanonicalRank(lhs)
+            let rhsRank = inboxCanonicalRank(rhs)
+            if lhsRank != rhsRank {
+                return lhsRank < rhsRank
+            }
+            return createdDate(lhs) < createdDate(rhs)
+        }.first
+    }
+
+    private func selectCanonicalProject(from candidates: [Projects], targetID: UUID) -> Projects {
+        if targetID == ProjectConstants.inboxProjectID, let inbox = selectCanonicalInbox(from: candidates) {
+            return inbox
+        }
+        return candidates.min(by: { createdDate($0) < createdDate($1) }) ?? candidates[0]
+    }
+
+    private func inboxCanonicalRank(_ entity: Projects) -> Int {
+        let projectID = entity.projectID
+        let id = entity.id
+        if projectID == ProjectConstants.inboxProjectID && id == ProjectConstants.inboxProjectID {
+            return 0
+        }
+        if projectID == ProjectConstants.inboxProjectID || id == ProjectConstants.inboxProjectID {
+            return 1
+        }
+        return 2
+    }
+
+    private func createdDate(_ entity: Projects) -> Date {
+        entity.createdDate ?? entity.createdAt ?? .distantFuture
+    }
+
+    private func isInboxCandidate(_ entity: Projects) -> Bool {
+        if entity.projectID == ProjectConstants.inboxProjectID || entity.id == ProjectConstants.inboxProjectID {
+            return true
+        }
+        if entity.isInbox || entity.isDefault {
+            return true
+        }
+        let candidates = [entity.projectName, entity.name]
+        return candidates.contains(where: { normalizedName($0)?.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame })
+    }
+
+    private func effectiveProjectID(for entity: Projects) -> UUID {
+        if let projectID = entity.projectID {
+            return projectID
+        }
+        if let id = entity.id {
+            return id
+        }
+        return Self.stableUUID(from: entity.objectID.uriRepresentation().absoluteString)
+    }
+
+    private func normalizedName(_ name: String?) -> String? {
+        guard let name else { return nil }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func inboxCandidatePredicate() -> NSPredicate {
+        NSCompoundPredicate(orPredicateWithSubpredicates: [
+            NSPredicate(format: "projectID == %@", ProjectConstants.inboxProjectID as CVarArg),
+            NSPredicate(format: "id == %@", ProjectConstants.inboxProjectID as CVarArg),
+            NSPredicate(format: "isInbox == YES"),
+            NSPredicate(format: "isDefault == YES"),
+            NSPredicate(format: "projectName ==[c] %@", ProjectConstants.inboxProjectName),
+            NSPredicate(format: "name ==[c] %@", ProjectConstants.inboxProjectName)
+        ])
+    }
+
+    private static func stableUUID(from string: String) -> UUID {
+        var hash = UInt64(1469598103934665603)
+        let prime: UInt64 = 1099511628211
+        for byte in string.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* prime
+        }
+
+        var bytes = [UInt8](repeating: 0, count: 16)
+        for index in 0..<16 {
+            bytes[index] = UInt8((hash >> ((index % 8) * 8)) & 0xff)
+            hash = hash &* prime ^ UInt64(index)
+        }
+        bytes[6] = (bytes[6] & 0x0F) | 0x40 // version 4 style bits
+        bytes[8] = (bytes[8] & 0x3F) | 0x80 // variant bits
+
+        let uuidTuple = (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        )
+        return UUID(uuid: uuidTuple)
     }
 }
