@@ -79,7 +79,7 @@ public final class AddTaskViewModel: ObservableObject {
         guard validateInput() else {
             return
         }
-        
+
         isLoading = true
         errorMessage = nil
         
