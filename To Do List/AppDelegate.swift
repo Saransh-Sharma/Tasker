@@ -27,7 +27,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private let occurrenceRefreshTaskIdentifier = "com.tasker.refresh.occurrences"
     private let expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"]
-    private let v2StoreEpoch = 1
+    private let v2StoreEpoch = 2
 
     private(set) static var persistentBootstrapFailureMessage: String?
     static var isPersistentStoreReady: Bool {
@@ -168,14 +168,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
         case .failed(let message):
             AppDelegate.persistentBootstrapFailureMessage = message
-            logWarning(
-                event: "persistent_store_bootstrap_fallback",
-                message: "Using in-memory fallback container because persistent bootstrap failed",
-                fields: ["reason": message]
+            logError(
+                event: "persistent_store_bootstrap_failed",
+                message: "Persistent store bootstrap failed; running without initialized persistence",
+                fields: [
+                    "reason": message,
+                    "retry_attempted": "true"
+                ]
             )
-            let fallbackContainer = makeInMemoryFallbackPersistentContainer()
-            persistentContainer = fallbackContainer
-            setupCleanArchitecture()
+            persistentContainer = nil
         }
         
         return true
@@ -388,40 +389,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return container
     }
 
-    private func makeInMemoryFallbackPersistentContainer() -> NSPersistentCloudKitContainer {
-        let container = NSPersistentCloudKitContainer(name: "TaskModelV2")
-
-        let cloudDescription = NSPersistentStoreDescription()
-        cloudDescription.type = NSInMemoryStoreType
-        cloudDescription.configuration = "CloudSync"
-        cloudDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-        cloudDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-
-        let localDescription = NSPersistentStoreDescription()
-        localDescription.type = NSInMemoryStoreType
-        localDescription.configuration = "LocalOnly"
-        localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-        localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-
-        container.persistentStoreDescriptions = [cloudDescription, localDescription]
-        let report = loadPersistentStoresAndReport(container: container, phase: "fallback_inmemory")
-        if report.errors.isEmpty == false || hasExpectedConfigurations(report) == false {
-            logError(
-                event: "persistent_store_fallback_failed",
-                message: "In-memory fallback persistent store failed to load expected configurations",
-                fields: [
-                    "loaded_configurations": report.loadedConfigurations.sorted().joined(separator: ","),
-                    "expected_configurations": expectedStoreConfigurations.sorted().joined(separator: ","),
-                    "errors": report.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
-                ]
-            )
-        }
-
-        container.viewContext.automaticallyMergesChangesFromParent = true
-        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
-        return container
-    }
-
     private func bootstrapV2PersistentContainer() -> PersistentBootstrapState {
         let initialContainer = makeV2PersistentContainer()
         let initialReport = loadPersistentStoresAndReport(container: initialContainer, phase: "initial")
@@ -450,6 +417,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 ]
             )
 
+            unloadPersistentStores(initialContainer)
             wipeV2StoreFiles()
             let recoveryContainer = makeV2PersistentContainer()
             let recoveryReport = loadPersistentStoresAndReport(container: recoveryContainer, phase: "recovery")
@@ -548,6 +516,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         expectedStoreConfigurations.isSubset(of: report.loadedConfigurations)
     }
 
+    private func unloadPersistentStores(_ container: NSPersistentCloudKitContainer) {
+        let coordinator = container.persistentStoreCoordinator
+        for store in coordinator.persistentStores {
+            do {
+                try coordinator.remove(store)
+            } catch {
+                let nsError = error as NSError
+                logWarning(
+                    event: "persistent_store_unload_failed",
+                    message: "Failed to unload persistent store before wipe",
+                    fields: [
+                        "domain": nsError.domain,
+                        "code": String(nsError.code),
+                        "error": nsError.localizedDescription,
+                        "url": store.url?.absoluteString ?? "unknown",
+                        "configuration": store.configurationName ?? "unknown"
+                    ]
+                )
+            }
+        }
+    }
+
     private func isIncompatibleStoreError(_ error: NSError) -> Bool {
         let code = error.code
         let incompatibleCodes: Set<Int> = [
@@ -555,7 +545,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             NSPersistentStoreTypeMismatchError,
             NSPersistentStoreIncompatibleSchemaError,
             NSPersistentStoreOpenError,
-            NSPersistentStoreIncompatibleVersionHashError
+            NSPersistentStoreIncompatibleVersionHashError,
+            134000,
+            134010,
+            134020,
+            134060,
+            134080,
+            134081,
+            134100
         ]
 
         if error.domain == NSCocoaErrorDomain, incompatibleCodes.contains(code) {
@@ -638,7 +635,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 }
 
                 let inboxRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
-                inboxRequest.predicate = NSPredicate(format: "projectID == %@", ProjectConstants.inboxProjectID as CVarArg)
+                inboxRequest.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+                    NSPredicate(format: "projectID == %@", ProjectConstants.inboxProjectID as CVarArg),
+                    NSPredicate(format: "id == %@", ProjectConstants.inboxProjectID as CVarArg),
+                    NSPredicate(format: "isInbox == YES"),
+                    NSPredicate(format: "isDefault == YES"),
+                    NSPredicate(format: "projectName ==[c] %@", ProjectConstants.inboxProjectName),
+                    NSPredicate(format: "name ==[c] %@", ProjectConstants.inboxProjectName)
+                ])
                 inboxRequest.fetchLimit = 1
                 let inbox = try context.fetch(inboxRequest).first ?? NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
                 inbox.setValue(ProjectConstants.inboxProjectID, forKey: "id")
@@ -764,11 +768,38 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // Seed clean-start V2 defaults.
         ensureV2Defaults()
+        repairProjectIdentityIfNeeded()
 
         // Configure LLM access through repositories (no direct Core Data context pulls).
         LLMContextRepositoryProvider.configure(
             taskRepository: EnhancedDependencyContainer.shared.taskRepository,
             projectRepository: EnhancedDependencyContainer.shared.projectRepository
         )
+    }
+
+    private func repairProjectIdentityIfNeeded() {
+        let manageProjects = EnhancedDependencyContainer.shared.useCaseCoordinator.manageProjects
+        manageProjects.repairProjectIdentityCollisions { result in
+            switch result {
+            case .success(let report):
+                logWarning(
+                    event: "project_identity_repair",
+                    message: "Project identity repair completed",
+                    fields: [
+                        "scanned": String(report.scanned),
+                        "merged": String(report.merged),
+                        "deleted": String(report.deleted),
+                        "inbox_candidates": String(report.inboxCandidates),
+                        "warnings_count": String(report.warnings.count)
+                    ]
+                )
+            case .failure(let error):
+                logError(
+                    event: "project_identity_repair_failed",
+                    message: "Project identity repair failed",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+        }
     }
 }
