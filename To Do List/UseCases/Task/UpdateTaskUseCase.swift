@@ -158,10 +158,11 @@ public final class UpdateTaskUseCase {
         if let dueDate = request.dueDate {
             // Business rule: If changing to a past date, set to today minimum
             let today = Calendar.current.startOfDay(for: Date())
-            task.dueDate = dueDate < today ? today : dueDate
+            let resolvedDueDate = dueDate < today ? today : dueDate
+            task.dueDate = resolvedDueDate
             
-            // Auto-adjust task type based on new date
-            if let newType = determineTaskType(for: dueDate) {
+            // Auto-adjust task type based on new date only when type was not explicitly provided.
+            if request.type == nil, let newType = determineTaskType(for: resolvedDueDate) {
                 task.type = newType
                 task.isEveningTask = (newType == .evening)
             }
@@ -171,29 +172,78 @@ public final class UpdateTaskUseCase {
             task.alertReminderTime = reminderTime
         }
         
-        // Handle project change
-        if let projectName = request.projectName {
-            var updatedTask = task
-            // Verify project exists
-            projectRepository.fetchProject(withName: projectName) { result in
+        // Handle project change.
+        let normalizedProjectName: String? = {
+            guard let projectName = request.projectName?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+                  projectName.isEmpty == false else {
+                return nil
+            }
+            return projectName
+        }()
+
+        guard request.projectID != nil || normalizedProjectName != nil else {
+            completion(.success(task))
+            return
+        }
+
+        var updatedTask = task
+
+        func applyFallbackProject() {
+            updatedTask.projectID = ProjectConstants.inboxProjectID
+            updatedTask.project = ProjectConstants.inboxProjectName
+        }
+
+        if let requestedProjectID = request.projectID {
+            projectRepository.fetchProject(withId: requestedProjectID) { result in
                 switch result {
                 case .success(let project):
-                    if project != nil {
-                        updatedTask.project = projectName
+                    if let project {
+                        updatedTask.projectID = project.id
+                        updatedTask.project = project.name
+                    } else if let normalizedProjectName {
+                        // Preserve name intent if caller passed one, but keep a valid identity.
+                        updatedTask.projectID = ProjectConstants.inboxProjectID
+                        updatedTask.project = normalizedProjectName
                     } else {
-                        // Project doesn't exist, keep current or use Inbox
-                        updatedTask.project = updatedTask.project ?? "Inbox"
+                        applyFallbackProject()
                     }
                     completion(.success(updatedTask))
-                    
+
                 case .failure:
-                    // On error, keep current project
+                    if let normalizedProjectName {
+                        updatedTask.projectID = ProjectConstants.inboxProjectID
+                        updatedTask.project = normalizedProjectName
+                    } else {
+                        applyFallbackProject()
+                    }
                     completion(.success(updatedTask))
                 }
             }
-        } else {
-            completion(.success(task))
+            return
         }
+
+        if let normalizedProjectName {
+            projectRepository.fetchProject(withName: normalizedProjectName) { result in
+                switch result {
+                case .success(let project):
+                    if let project {
+                        updatedTask.projectID = project.id
+                        updatedTask.project = project.name
+                    } else {
+                        applyFallbackProject()
+                    }
+                    completion(.success(updatedTask))
+
+                case .failure:
+                    applyFallbackProject()
+                    completion(.success(updatedTask))
+                }
+            }
+            return
+        }
+
+        completion(.success(updatedTask))
     }
     
     private func determineTaskType(for date: Date) -> TaskType? {
@@ -239,6 +289,7 @@ public struct UpdateTaskRequest {
     public let type: TaskType?
     public let priority: TaskPriority?
     public let dueDate: Date?
+    public let projectID: UUID?
     public let projectName: String?
     public let alertReminderTime: Date?
     
@@ -248,6 +299,7 @@ public struct UpdateTaskRequest {
         type: TaskType? = nil,
         priority: TaskPriority? = nil,
         dueDate: Date? = nil,
+        projectID: UUID? = nil,
         projectName: String? = nil,
         alertReminderTime: Date? = nil
     ) {
@@ -256,6 +308,7 @@ public struct UpdateTaskRequest {
         self.type = type
         self.priority = priority
         self.dueDate = dueDate
+        self.projectID = projectID
         self.projectName = projectName
         self.alertReminderTime = alertReminderTime
     }
