@@ -13,20 +13,31 @@ import CoreData
 extension Projects {
 
     @nonobjc public class func fetchRequest() -> NSFetchRequest<Projects> {
-        return NSFetchRequest<Projects>(entityName: "Projects")
+        return NSFetchRequest<Projects>(entityName: "Project")
     }
+
+    // V2 identifiers
+    @NSManaged public var id: UUID?
+    @NSManaged public var lifeAreaID: UUID?
 
     // Core properties
     @NSManaged public var projectID: UUID?
     @NSManaged public var projectName: String?
+    @NSManaged public var name: String?
     @NSManaged public var projecDescription: String?
     @NSManaged public var projectDescription: String?
 
     // Metadata
     @NSManaged public var createdDate: Date?
     @NSManaged public var modifiedDate: Date?
+    @NSManaged public var createdAt: Date?
+    @NSManaged public var updatedAt: Date?
+    @NSManaged public var updatedByDeviceID: String?
+    @NSManaged public var version: Int32
     @NSManaged public var isDefault: Bool
     @NSManaged public var isArchived: Bool
+    @NSManaged public var isInbox: Bool
+    @NSManaged public var isFavorite: Bool
 
     // Visual properties
     @NSManaged public var color: String?
@@ -35,7 +46,9 @@ extension Projects {
     // Organizational properties
     @NSManaged public var status: String?
     @NSManaged public var priority: Int32
+    @NSManaged public var sortOrder: Int32
     @NSManaged public var tags: NSObject?
+    @NSManaged public var settingsData: Data?
 
     // Dates and metrics
     @NSManaged public var dueDate: Date?
