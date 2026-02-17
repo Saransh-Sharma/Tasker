@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24299" systemVersion="25A354" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="YES" userDefinedModelVersionIdentifier="">
+    <entity name="LifeArea" representedClassName="LifeArea" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="color" optional="YES" attributeType="String"/>
+        <attribute name="icon" optional="YES" attributeType="String"/>
+        <attribute name="sortOrder" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="isArchived" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedByDeviceID" optional="YES" attributeType="String"/>
+        <attribute name="version" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
+        <relationship name="projects" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Project" inverseName="lifeAreaRef" inverseEntity="Project"/>
+        <relationship name="habits" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="HabitDefinition" inverseName="lifeAreaRef" inverseEntity="HabitDefinition"/>
+        <fetchIndex name="byLifeAreaID"><fetchIndexElement property="id" type="Binary" order="ascending"/></fetchIndex>
+    </entity>
+
+    <entity name="Project" representedClassName="Projects" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="lifeAreaID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="projectName" optional="YES" attributeType="String"/>
+        <attribute name="projectDescription" optional="YES" attributeType="String"/>
+        <attribute name="projecDescription" optional="YES" attributeType="String"/>
+        <attribute name="status" optional="YES" attributeType="String"/>
+        <attribute name="priority" optional="YES" attributeType="Integer 32" defaultValueString="2" usesScalarValueType="YES"/>
+        <attribute name="color" optional="YES" attributeType="String"/>
+        <attribute name="icon" optional="YES" attributeType="String"/>
+        <attribute name="isInbox" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="isArchived" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="isFavorite" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="isDefault" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="sortOrder" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="dueDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="settingsData" optional="YES" attributeType="Binary"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedByDeviceID" optional="YES" attributeType="String"/>
+        <attribute name="version" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="createdDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="modifiedDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="parentProjectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="subprojectIDs" optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromDataTransformer" customClassName="NSArray"/>
+        <attribute name="tags" optional="YES" attributeType="Transformable" valueTransformerName="NSSecureUnarchiveFromDataTransformer" customClassName="NSArray"/>
+        <attribute name="templateID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="estimatedTaskCount" optional="YES" attributeType="Integer 32" usesScalarValueType="YES"/>
+        <relationship name="lifeAreaRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="LifeArea" inverseName="projects" inverseEntity="LifeArea"/>
+        <relationship name="sections" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ProjectSection" inverseName="projectRef" inverseEntity="ProjectSection"/>
+        <relationship name="tasks" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskDefinition" inverseName="projectRef" inverseEntity="TaskDefinition"/>
+        <relationship name="habits" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="HabitDefinition" inverseName="projectRef" inverseEntity="HabitDefinition"/>
+        <relationship name="externalContainerMaps" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ExternalContainerMap" inverseName="projectRef" inverseEntity="ExternalContainerMap"/>
+        <fetchIndex name="byProjectID"><fetchIndexElement property="projectID" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byProjectName"><fetchIndexElement property="projectName" type="Binary" order="ascending"/></fetchIndex>
+    </entity>
+
+    <entity name="ProjectSection" representedClassName="ProjectSection" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="sortOrder" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="isCollapsed" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="projectRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Project" inverseName="sections" inverseEntity="Project"/>
+        <relationship name="tasks" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="sectionRef" inverseEntity="TaskDefinition"/>
+    </entity>
+
+    <entity name="Tag" representedClassName="Tag" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="color" optional="YES" attributeType="String"/>
+        <attribute name="icon" optional="YES" attributeType="String"/>
+        <attribute name="sortOrder" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="taskLinks" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskTagLink" inverseName="tagRef" inverseEntity="TaskTagLink"/>
+    </entity>
+
+    <entity name="TaskDefinition" representedClassName="NTask" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="taskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="sectionID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="parentTaskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="habitDefinitionID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="name" optional="YES" attributeType="String" spotlightIndexingEnabled="YES"/>
+        <attribute name="notes" optional="YES" attributeType="String"/>
+        <attribute name="taskDetails" optional="YES" attributeType="String"/>
+        <attribute name="status" optional="YES" attributeType="String"/>
+        <attribute name="priority" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="taskPriority" optional="YES" attributeType="Integer 32" defaultValueString="3" usesScalarValueType="YES"/>
+        <attribute name="energy" optional="YES" attributeType="String"/>
+        <attribute name="category" optional="YES" attributeType="String"/>
+        <attribute name="context" optional="YES" attributeType="String"/>
+        <attribute name="estimatedDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="actualDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
+        <attribute name="source" optional="YES" attributeType="String"/>
+        <attribute name="createdBy" optional="YES" attributeType="String"/>
+        <attribute name="sortOrder" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="dueDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dateCompleted" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dateAdded" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedByDeviceID" optional="YES" attributeType="String"/>
+        <attribute name="version" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="isComplete" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="project" optional="YES" attributeType="String"/>
+        <attribute name="taskType" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="isEveningTask" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="alertReminderTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="projectRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Project" inverseName="tasks" inverseEntity="Project"/>
+        <relationship name="sectionRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ProjectSection" inverseName="tasks" inverseEntity="ProjectSection"/>
+        <relationship name="parentTaskRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="childTasks" inverseEntity="TaskDefinition"/>
+        <relationship name="childTasks" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskDefinition" inverseName="parentTaskRef" inverseEntity="TaskDefinition"/>
+        <relationship name="habitDefinitionRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="HabitDefinition" inverseName="generatedTasks" inverseEntity="HabitDefinition"/>
+        <relationship name="dependencies" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskDependency" inverseName="taskRef" inverseEntity="TaskDependency"/>
+        <relationship name="dependedBy" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskDependency" inverseName="dependsOnTaskRef" inverseEntity="TaskDependency"/>
+        <relationship name="tagLinks" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskTagLink" inverseName="taskRef" inverseEntity="TaskTagLink"/>
+        <fetchIndex name="byTaskID"><fetchIndexElement property="taskID" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byProjectID"><fetchIndexElement property="projectID" type="Binary" order="ascending"/></fetchIndex>
+    </entity>
+
+    <entity name="TaskDependency" representedClassName="TaskDependency" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="taskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="dependsOnTaskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="kind" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="taskRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="dependencies" inverseEntity="TaskDefinition"/>
+        <relationship name="dependsOnTaskRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="dependedBy" inverseEntity="TaskDefinition"/>
+    </entity>
+
+    <entity name="TaskTagLink" representedClassName="TaskTagLink" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="taskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="tagID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="taskRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="tagLinks" inverseEntity="TaskDefinition"/>
+        <relationship name="tagRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Tag" inverseName="taskLinks" inverseEntity="Tag"/>
+    </entity>
+
+    <entity name="HabitDefinition" representedClassName="HabitDefinition" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="lifeAreaID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="habitType" optional="YES" attributeType="String"/>
+        <attribute name="targetConfigData" optional="YES" attributeType="Binary"/>
+        <attribute name="metricConfigData" optional="YES" attributeType="Binary"/>
+        <attribute name="isPaused" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="lastGeneratedDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="streakCurrent" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="streakBest" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="lifeAreaRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="LifeArea" inverseName="habits" inverseEntity="LifeArea"/>
+        <relationship name="projectRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Project" inverseName="habits" inverseEntity="Project"/>
+        <relationship name="generatedTasks" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="habitDefinitionRef" inverseEntity="TaskDefinition"/>
+    </entity>
+
+    <entity name="ScheduleTemplate" representedClassName="ScheduleTemplate" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="sourceType" optional="YES" attributeType="String"/>
+        <attribute name="sourceID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="timezoneID" optional="YES" attributeType="String"/>
+        <attribute name="temporalReference" optional="YES" attributeType="String" defaultValueString="anchored"/>
+        <attribute name="anchorAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="windowStart" optional="YES" attributeType="String"/>
+        <attribute name="windowEnd" optional="YES" attributeType="String"/>
+        <attribute name="isActive" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="rules" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ScheduleRule" inverseName="templateRef" inverseEntity="ScheduleRule"/>
+        <relationship name="exceptions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ScheduleException" inverseName="templateRef" inverseEntity="ScheduleException"/>
+        <relationship name="occurrences" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Occurrence" inverseName="templateRef" inverseEntity="Occurrence"/>
+    </entity>
+
+    <entity name="ScheduleRule" representedClassName="ScheduleRule" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="scheduleTemplateID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="ruleType" optional="YES" attributeType="String"/>
+        <attribute name="interval" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="byDayMask" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="byMonthDay" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="byHour" optional="YES" attributeType="Integer 32" defaultValueString="-1" usesScalarValueType="YES"/>
+        <attribute name="byMinute" optional="YES" attributeType="Integer 32" defaultValueString="-1" usesScalarValueType="YES"/>
+        <attribute name="rawRuleData" optional="YES" attributeType="Binary"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="templateRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ScheduleTemplate" inverseName="rules" inverseEntity="ScheduleTemplate"/>
+    </entity>
+
+    <entity name="ScheduleException" representedClassName="ScheduleException" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="scheduleTemplateID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="occurrenceKey" optional="YES" attributeType="String"/>
+        <attribute name="action" optional="YES" attributeType="String"/>
+        <attribute name="movedToAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="payloadData" optional="YES" attributeType="Binary"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="templateRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ScheduleTemplate" inverseName="exceptions" inverseEntity="ScheduleTemplate"/>
+    </entity>
+
+    <entity name="Occurrence" representedClassName="Occurrence" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="occurrenceKey" optional="YES" attributeType="String"/>
+        <attribute name="scheduleTemplateID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="sourceType" optional="YES" attributeType="String"/>
+        <attribute name="sourceID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="scheduledAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="dueAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="state" optional="YES" attributeType="String" defaultValueString="pending"/>
+        <attribute name="isGenerated" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="generationWindow" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="templateRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ScheduleTemplate" inverseName="occurrences" inverseEntity="ScheduleTemplate"/>
+        <relationship name="resolutions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="OccurrenceResolution" inverseName="occurrenceRef" inverseEntity="OccurrenceResolution"/>
+        <relationship name="reminders" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Reminder" inverseName="occurrenceRef" inverseEntity="Reminder"/>
+        <fetchIndex name="byOccurrenceKey"><fetchIndexElement property="occurrenceKey" type="Binary" order="ascending"/></fetchIndex>
+    </entity>
+
+    <entity name="OccurrenceResolution" representedClassName="OccurrenceResolution" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="occurrenceID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="resolutionType" optional="YES" attributeType="String"/>
+        <attribute name="resolvedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="actor" optional="YES" attributeType="String"/>
+        <attribute name="reason" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="occurrenceRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Occurrence" inverseName="resolutions" inverseEntity="Occurrence"/>
+    </entity>
+
+    <entity name="Reminder" representedClassName="Reminder" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="sourceType" optional="YES" attributeType="String"/>
+        <attribute name="sourceID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="occurrenceID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="policy" optional="YES" attributeType="String"/>
+        <attribute name="channelMask" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="isEnabled" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="occurrenceRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Occurrence" inverseName="reminders" inverseEntity="Occurrence"/>
+        <relationship name="triggers" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ReminderTrigger" inverseName="reminderRef" inverseEntity="ReminderTrigger"/>
+        <relationship name="deliveries" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ReminderDelivery" inverseName="reminderRef" inverseEntity="ReminderDelivery"/>
+    </entity>
+
+    <entity name="ReminderTrigger" representedClassName="ReminderTrigger" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="reminderID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="triggerType" optional="YES" attributeType="String"/>
+        <attribute name="fireAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="offsetSeconds" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="locationPayloadData" optional="YES" attributeType="Binary"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="reminderRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Reminder" inverseName="triggers" inverseEntity="Reminder"/>
+        <relationship name="deliveries" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ReminderDelivery" inverseName="triggerRef" inverseEntity="ReminderDelivery"/>
+    </entity>
+
+    <entity name="ReminderDelivery" representedClassName="ReminderDelivery" syncable="NO">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="reminderID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="triggerID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="status" optional="YES" attributeType="String"/>
+        <attribute name="scheduledAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="sentAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="ackAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="snoozedUntil" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="errorCode" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="reminderRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Reminder" inverseName="deliveries" inverseEntity="Reminder"/>
+        <relationship name="triggerRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="ReminderTrigger" inverseName="deliveries" inverseEntity="ReminderTrigger"/>
+    </entity>
+
+    <entity name="GamificationProfile" representedClassName="GamificationProfile" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="xpTotal" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="level" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
+        <attribute name="currentStreak" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="bestStreak" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="lastActiveDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+
+    <entity name="XPEvent" representedClassName="XPEvent" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="occurrenceID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="taskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="delta" optional="YES" attributeType="Integer 32" usesScalarValueType="YES"/>
+        <attribute name="reason" optional="YES" attributeType="String"/>
+        <attribute name="idempotencyKey" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="achievementUnlocks" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="AchievementUnlock" inverseName="sourceEventRef" inverseEntity="AchievementUnlock"/>
+        <fetchIndex name="byIdempotencyKey"><fetchIndexElement property="idempotencyKey" type="Binary" order="ascending"/></fetchIndex>
+    </entity>
+
+    <entity name="AchievementUnlock" representedClassName="AchievementUnlock" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="achievementKey" optional="YES" attributeType="String"/>
+        <attribute name="unlockedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="sourceEventID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <relationship name="sourceEventRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="XPEvent" inverseName="achievementUnlocks" inverseEntity="XPEvent"/>
+    </entity>
+
+    <entity name="ExternalContainerMap" representedClassName="ExternalContainerMap" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="provider" optional="YES" attributeType="String"/>
+        <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="externalContainerID" optional="YES" attributeType="String"/>
+        <attribute name="syncEnabled" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="lastSyncAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="projectRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Project" inverseName="externalContainerMaps" inverseEntity="Project"/>
+    </entity>
+
+    <entity name="ExternalItemMap" representedClassName="ExternalItemMap" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="provider" optional="YES" attributeType="String"/>
+        <attribute name="localEntityType" optional="YES" attributeType="String"/>
+        <attribute name="localEntityID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="externalItemID" optional="YES" attributeType="String"/>
+        <attribute name="externalPersistentID" optional="YES" attributeType="String"/>
+        <attribute name="lastSeenExternalModAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="externalPayloadData" optional="YES" attributeType="Binary"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+
+    <entity name="Tombstone" representedClassName="Tombstone" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="entityType" optional="YES" attributeType="String"/>
+        <attribute name="entityID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="deletedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="deletedBy" optional="YES" attributeType="String"/>
+        <attribute name="purgeAfter" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+
+    <entity name="AssistantActionRun" representedClassName="AssistantActionRun" syncable="YES">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="threadID" optional="YES" attributeType="String"/>
+        <attribute name="proposalData" optional="YES" attributeType="Binary"/>
+        <attribute name="status" optional="YES" attributeType="String" defaultValueString="pending"/>
+        <attribute name="confirmedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="appliedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="rejectedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="resultSummary" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+
+    <configuration name="CloudSync">
+        <memberEntity name="LifeArea"/>
+        <memberEntity name="Project"/>
+        <memberEntity name="ProjectSection"/>
+        <memberEntity name="Tag"/>
+        <memberEntity name="TaskDefinition"/>
+        <memberEntity name="TaskDependency"/>
+        <memberEntity name="TaskTagLink"/>
+        <memberEntity name="HabitDefinition"/>
+        <memberEntity name="ScheduleTemplate"/>
+        <memberEntity name="ScheduleRule"/>
+        <memberEntity name="ScheduleException"/>
+        <memberEntity name="Occurrence"/>
+        <memberEntity name="OccurrenceResolution"/>
+        <memberEntity name="Reminder"/>
+        <memberEntity name="ReminderTrigger"/>
+        <memberEntity name="GamificationProfile"/>
+        <memberEntity name="XPEvent"/>
+        <memberEntity name="AchievementUnlock"/>
+        <memberEntity name="ExternalContainerMap"/>
+        <memberEntity name="ExternalItemMap"/>
+        <memberEntity name="Tombstone"/>
+        <memberEntity name="AssistantActionRun"/>
+    </configuration>
+    <configuration name="LocalOnly">
+        <memberEntity name="ReminderDelivery"/>
+    </configuration>
+</model>
