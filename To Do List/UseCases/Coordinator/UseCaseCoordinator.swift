@@ -10,6 +10,52 @@ import Foundation
 /// Coordinates complex business workflows involving multiple use cases
 /// Acts as a facade for the presentation layer
 public final class UseCaseCoordinator {
+
+    public struct V2Dependencies {
+        public let lifeAreaRepository: LifeAreaRepositoryProtocol
+        public let sectionRepository: SectionRepositoryProtocol
+        public let tagRepository: TagRepositoryProtocol
+        public let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
+        public let habitRepository: HabitRepositoryProtocol
+        public let scheduleEngine: SchedulingEngineProtocol
+        public let occurrenceRepository: OccurrenceRepositoryProtocol
+        public let tombstoneRepository: TombstoneRepositoryProtocol
+        public let reminderRepository: ReminderRepositoryProtocol
+        public let gamificationRepository: GamificationRepositoryProtocol
+        public let assistantActionRepository: AssistantActionRepositoryProtocol
+        public let externalSyncRepository: ExternalSyncRepositoryProtocol
+        public let remindersProvider: AppleRemindersProviderProtocol?
+
+        public init(
+            lifeAreaRepository: LifeAreaRepositoryProtocol,
+            sectionRepository: SectionRepositoryProtocol,
+            tagRepository: TagRepositoryProtocol,
+            taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
+            habitRepository: HabitRepositoryProtocol,
+            scheduleEngine: SchedulingEngineProtocol,
+            occurrenceRepository: OccurrenceRepositoryProtocol,
+            tombstoneRepository: TombstoneRepositoryProtocol,
+            reminderRepository: ReminderRepositoryProtocol,
+            gamificationRepository: GamificationRepositoryProtocol,
+            assistantActionRepository: AssistantActionRepositoryProtocol,
+            externalSyncRepository: ExternalSyncRepositoryProtocol,
+            remindersProvider: AppleRemindersProviderProtocol? = nil
+        ) {
+            self.lifeAreaRepository = lifeAreaRepository
+            self.sectionRepository = sectionRepository
+            self.tagRepository = tagRepository
+            self.taskDefinitionRepository = taskDefinitionRepository
+            self.habitRepository = habitRepository
+            self.scheduleEngine = scheduleEngine
+            self.occurrenceRepository = occurrenceRepository
+            self.tombstoneRepository = tombstoneRepository
+            self.reminderRepository = reminderRepository
+            self.gamificationRepository = gamificationRepository
+            self.assistantActionRepository = assistantActionRepository
+            self.externalSyncRepository = externalSyncRepository
+            self.remindersProvider = remindersProvider
+        }
+    }
     
     // MARK: - Use Cases
 
@@ -36,6 +82,22 @@ public final class UseCaseCoordinator {
     // Analytics Use Cases
     public let calculateAnalytics: CalculateAnalyticsUseCase
     public let generateProductivityReport: GenerateProductivityReportUseCase
+
+    // V2 Use Cases
+    public let manageLifeAreas: ManageLifeAreasUseCase?
+    public let manageSections: ManageSectionsUseCase?
+    public let manageTags: ManageTagsUseCase?
+    public let createTaskDefinition: CreateTaskDefinitionUseCase?
+    public let completeTaskDefinition: CompleteTaskDefinitionUseCase?
+    public let manageHabits: ManageHabitsUseCase?
+    public let generateOccurrences: GenerateOccurrencesUseCase?
+    public let resolveOccurrence: ResolveOccurrenceUseCase?
+    public let maintainOccurrences: MaintainOccurrencesUseCase?
+    public let scheduleReminder: ScheduleReminderUseCase?
+    public let recordXP: RecordXPUseCase?
+    public let assistantActionPipeline: AssistantActionPipelineUseCase?
+    public let linkExternalReminders: LinkExternalRemindersUseCase?
+    public let reconcileExternalReminders: ReconcileExternalRemindersUseCase?
     
     // MARK: - Dependencies
 
@@ -49,7 +111,8 @@ public final class UseCaseCoordinator {
         taskRepository: TaskRepositoryProtocol,
         projectRepository: ProjectRepositoryProtocol,
         cacheService: CacheServiceProtocol? = nil,
-        notificationService: NotificationServiceProtocol? = nil
+        notificationService: NotificationServiceProtocol? = nil,
+        v2Dependencies: V2Dependencies? = nil
     ) {
         self.taskRepository = taskRepository
         self.projectRepository = projectRepository
@@ -139,6 +202,56 @@ public final class UseCaseCoordinator {
         self.generateProductivityReport = GenerateProductivityReportUseCase(
             taskRepository: taskRepository
         )
+
+        if let deps = v2Dependencies {
+            let xp = RecordXPUseCase(repository: deps.gamificationRepository)
+            self.manageLifeAreas = ManageLifeAreasUseCase(repository: deps.lifeAreaRepository)
+            self.manageSections = ManageSectionsUseCase(repository: deps.sectionRepository)
+            self.manageTags = ManageTagsUseCase(repository: deps.tagRepository)
+            self.createTaskDefinition = CreateTaskDefinitionUseCase(repository: deps.taskDefinitionRepository)
+            self.completeTaskDefinition = CompleteTaskDefinitionUseCase(repository: deps.taskDefinitionRepository, gamification: xp)
+            self.manageHabits = ManageHabitsUseCase(repository: deps.habitRepository)
+            self.generateOccurrences = GenerateOccurrencesUseCase(engine: deps.scheduleEngine)
+            self.resolveOccurrence = ResolveOccurrenceUseCase(engine: deps.scheduleEngine)
+            self.maintainOccurrences = MaintainOccurrencesUseCase(
+                occurrenceRepository: deps.occurrenceRepository,
+                tombstoneRepository: deps.tombstoneRepository
+            )
+            self.scheduleReminder = ScheduleReminderUseCase(
+                repository: deps.reminderRepository,
+                notificationService: notificationService
+            )
+            self.recordXP = xp
+            self.assistantActionPipeline = AssistantActionPipelineUseCase(
+                repository: deps.assistantActionRepository,
+                taskRepository: deps.taskDefinitionRepository
+            )
+            self.linkExternalReminders = LinkExternalRemindersUseCase(
+                externalRepository: deps.externalSyncRepository,
+                remindersProvider: deps.remindersProvider,
+                taskRepository: deps.taskDefinitionRepository
+            )
+            self.reconcileExternalReminders = ReconcileExternalRemindersUseCase(
+                externalRepository: deps.externalSyncRepository,
+                remindersProvider: deps.remindersProvider,
+                taskRepository: deps.taskDefinitionRepository
+            )
+        } else {
+            self.manageLifeAreas = nil
+            self.manageSections = nil
+            self.manageTags = nil
+            self.createTaskDefinition = nil
+            self.completeTaskDefinition = nil
+            self.manageHabits = nil
+            self.generateOccurrences = nil
+            self.resolveOccurrence = nil
+            self.maintainOccurrences = nil
+            self.scheduleReminder = nil
+            self.recordXP = nil
+            self.assistantActionPipeline = nil
+            self.linkExternalReminders = nil
+            self.reconcileExternalReminders = nil
+        }
     }
     
     // MARK: - Complex Workflows
