@@ -17,14 +17,22 @@ public class ProjectMapper {
     /// - Parameter entity: The Core Data Projects entity
     /// - Returns: The domain Project model
     public static func toDomain(from entity: Projects) -> Project {
-        let id = entity.projectID ?? entity.id ?? ProjectConstants.inboxProjectID
+        let normalizedProjectName = normalizedName(entity.projectName) ?? normalizedName(entity.name)
+        let inboxByName = normalizedProjectName?.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame
+        let inboxByFlag = entity.isDefault || entity.isInbox
+        let inboxLike = inboxByFlag || inboxByName
+        let id = entity.projectID
+            ?? entity.id
+            ?? (inboxLike
+                ? ProjectConstants.inboxProjectID
+                : stableUUID(from: entity.objectID.uriRepresentation().absoluteString))
 
         // Check if this is the Inbox project
-        let isInbox = entity.isDefault || entity.isInbox || (id == ProjectConstants.inboxProjectID)
+        let isInbox = inboxLike || (id == ProjectConstants.inboxProjectID)
 
         return Project(
             id: id,
-            name: entity.projectName ?? "Unnamed Project",
+            name: normalizedProjectName ?? "Unnamed Project",
             projectDescription: entity.projectDescription ?? entity.projecDescription,
             createdDate: entity.createdDate ?? Date(),
             modifiedDate: entity.modifiedDate ?? Date(),
@@ -96,7 +104,11 @@ public class ProjectMapper {
     /// - Returns: The Projects entity if found, nil otherwise
     public static func findEntity(byId id: UUID, in context: NSManagedObjectContext) -> Projects? {
         let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
+        request.predicate = NSPredicate(
+            format: "projectID == %@ OR id == %@",
+            id as CVarArg,
+            id as CVarArg
+        )
         request.fetchLimit = 1
 
         do {
@@ -113,5 +125,36 @@ public class ProjectMapper {
     /// - Returns: Array of domain Project models
     public static func toDomainArray(from entities: [Projects]) -> [Project] {
         return entities.map { toDomain(from: $0) }
+    }
+
+    private static func normalizedName(_ name: String?) -> String? {
+        guard let name else { return nil }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func stableUUID(from string: String) -> UUID {
+        var hash = UInt64(1469598103934665603)
+        let prime: UInt64 = 1099511628211
+        for byte in string.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* prime
+        }
+
+        var bytes = [UInt8](repeating: 0, count: 16)
+        for index in 0..<16 {
+            bytes[index] = UInt8((hash >> ((index % 8) * 8)) & 0xff)
+            hash = hash &* prime ^ UInt64(index)
+        }
+        bytes[6] = (bytes[6] & 0x0F) | 0x40
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+
+        let tuple = (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        )
+        return UUID(uuid: tuple)
     }
 }
