@@ -62,7 +62,7 @@ public final class DeleteTaskUseCase {
                     switch deleteResult {
                     case .success:
                         // Step 5: Post deletion notification
-                        NotificationCenter.default.post(
+                        TaskNotificationDispatcher.postOnMain(
                             name: NSNotification.Name("TaskDeleted"),
                             object: task
                         )
@@ -125,7 +125,7 @@ public final class DeleteTaskUseCase {
             switch result {
             case .success:
                 // Post notification for bulk deletion
-                NotificationCenter.default.post(
+                TaskNotificationDispatcher.postOnMain(
                     name: NSNotification.Name("CompletedTasksDeleted"),
                     object: nil
                 )

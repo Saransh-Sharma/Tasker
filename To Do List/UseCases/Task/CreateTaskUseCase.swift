@@ -180,7 +180,7 @@ public final class CreateTaskUseCase {
                 }
                 
                 // Step 8: Post creation notification
-                NotificationCenter.default.post(
+                TaskNotificationDispatcher.postOnMain(
                     name: NSNotification.Name("TaskCreated"),
                     object: createdTask
                 )

@@ -138,7 +138,7 @@ public final class CompleteTaskUseCase {
                 let streak = self?.calculateStreak(for: updatedTask) ?? 0
                 
                 // Step 7: Post completion notification
-                NotificationCenter.default.post(
+                TaskNotificationDispatcher.postOnMain(
                     name: NSNotification.Name("TaskCompletionChanged"),
                     object: updatedTask
                 )
@@ -180,7 +180,7 @@ public final class CompleteTaskUseCase {
                 )
                 
                 // Step 6: Post completion notification
-                NotificationCenter.default.post(
+                TaskNotificationDispatcher.postOnMain(
                     name: NSNotification.Name("TaskCompletionChanged"),
                     object: updatedTask
                 )
@@ -223,7 +223,7 @@ public final class CompleteTaskUseCase {
                     completionTime: Date()
                 )
 
-                NotificationCenter.default.post(
+                TaskNotificationDispatcher.postOnMain(
                     name: NSNotification.Name("TaskCompletionChanged"),
                     object: updatedTask
                 )
@@ -261,7 +261,7 @@ public final class CompleteTaskUseCase {
                     scoreDeducted: scoreToDeduct
                 )
 
-                NotificationCenter.default.post(
+                TaskNotificationDispatcher.postOnMain(
                     name: NSNotification.Name("TaskCompletionChanged"),
                     object: updatedTask
                 )
@@ -362,4 +362,3 @@ public enum CompleteTaskError: LocalizedError {
         }
     }
 }
-

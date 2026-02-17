@@ -73,7 +73,7 @@ public final class UpdateTaskUseCase {
                                 )
                                 
                                 // Step 6: Post update notification
-                                NotificationCenter.default.post(
+                                TaskNotificationDispatcher.postOnMain(
                                     name: NSNotification.Name("TaskUpdated"),
                                     object: savedTask
                                 )

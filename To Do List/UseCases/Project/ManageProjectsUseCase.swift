@@ -203,10 +203,11 @@ public final class ManageProjectsUseCase {
         projectRepository.fetchAllProjects { [weak self] result in
             switch result {
             case .success(let projects):
+                let dedupedProjects = self?.dedupeProjects(projects) ?? projects
                 var projectsWithStats: [ProjectWithStats] = []
                 let group = DispatchGroup()
                 
-                for project in projects {
+                for project in dedupedProjects {
                     group.enter()
                     self?.projectRepository.getTaskCount(for: project.id) { countResult in
                         if case .success(let count) = countResult {
@@ -231,6 +232,17 @@ public final class ManageProjectsUseCase {
                     completion(.success(projectsWithStats))
                 }
                 
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    public func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, ProjectError>) -> Void) {
+        projectRepository.repairProjectIdentityCollisions { result in
+            switch result {
+            case .success(let report):
+                completion(.success(report))
             case .failure(let error):
                 completion(.failure(.repositoryError(error)))
             }
@@ -331,6 +343,23 @@ public final class ManageProjectsUseCase {
                 completion(.failure(.repositoryError(error)))
             }
         }
+    }
+
+    private func dedupeProjects(_ projects: [Project]) -> [Project] {
+        var byID: [UUID: Project] = [:]
+        for project in projects {
+            if let existing = byID[project.id] {
+                let keepIncoming =
+                    (project.isDefault && !existing.isDefault) ||
+                    (project.isInbox && !existing.isInbox)
+                if keepIncoming {
+                    byID[project.id] = project
+                }
+            } else {
+                byID[project.id] = project
+            }
+        }
+        return Array(byID.values)
     }
 }
 
