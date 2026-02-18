@@ -23,7 +23,7 @@ struct SettingsSection {
     let items: [SettingsItem]
 }
 
-class SettingsPageViewController: UIViewController {
+class SettingsPageViewController: UIViewController, PresentationDependencyContainerAware {
     // Properties
     var settingsTableView: UITableView!
     var sections: [SettingsSection] = [] // Data source for the table
@@ -34,6 +34,7 @@ class SettingsPageViewController: UIViewController {
     private var isDarkMode: Bool = false
     
     private var themeCancellable: AnyCancellable?
+    var presentationDependencyContainer: PresentationDependencyContainer?
     
     // Manager instances - removed, using Clean Architecture now
     
@@ -162,7 +163,11 @@ class SettingsPageViewController: UIViewController {
     }
     
     private func navigateToProjectManagement() {
-        let viewModel = PresentationDependencyContainer.shared.makeProjectManagementViewModel()
+        guard let presentationDependencyContainer else {
+            assertionFailure("SettingsPageViewController requires injected PresentationDependencyContainer")
+            return
+        }
+        let viewModel = presentationDependencyContainer.makeProjectManagementViewModel()
         let view = SettingsProjectManagementV2View(viewModel: viewModel)
         let controller = UIHostingController(rootView: view)
         controller.title = "Projects"

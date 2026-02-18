@@ -88,7 +88,7 @@ extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCal
     }
 
     private func preloadCalendarTaskCounts(anchorDate: Date = Date()) {
-        guard let repository = EnhancedDependencyContainer.shared.taskRepository else {
+        guard let viewModel else {
             return
         }
         let cal = Calendar.current
@@ -99,20 +99,10 @@ extension AddTaskViewController: FSCalendarDataSource, FSCalendarDelegate, FSCal
             return
         }
 
-        repository.fetchTasks(from: windowStart, to: windowEnd) { [weak self] result in
+        viewModel.loadCalendarTaskCounts(windowStart: windowStart, windowEnd: windowEnd) { [weak self] counts in
             guard let self else { return }
-            let tasks = (try? result.get()) ?? []
-
-            let counts = tasks.reduce(into: [Date: Int]()) { grouped, task in
-                guard let dueDate = task.dueDate else { return }
-                let dayKey = cal.startOfDay(for: dueDate)
-                grouped[dayKey, default: 0] += 1
-            }
-
-            DispatchQueue.main.async {
-                self.calendarTaskCountByDay = counts
-                self.calendar.reloadData()
-            }
+            self.calendarTaskCountByDay = counts
+            self.calendar.reloadData()
         }
     }
 }

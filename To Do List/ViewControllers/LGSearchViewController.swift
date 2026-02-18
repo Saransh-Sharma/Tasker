@@ -111,11 +111,13 @@ class LGFilterButton: LGBaseView {
 
 // MARK: - LGSearchViewController
 
-class LGSearchViewController: UIViewController {
+class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, PresentationDependencyContainerAware {
 
     // MARK: - Properties
 
     private var viewModel: LGSearchViewModel!
+    var useCaseCoordinator: UseCaseCoordinator!
+    var presentationDependencyContainer: PresentationDependencyContainer?
     private var tasks: [Task] = []
 
     // Theme
@@ -231,6 +233,12 @@ class LGSearchViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        guard useCaseCoordinator != nil else {
+            fatalError("LGSearchViewController requires injected UseCaseCoordinator")
+        }
+        guard presentationDependencyContainer != nil else {
+            fatalError("LGSearchViewController requires injected PresentationDependencyContainer")
+        }
         setupViewModel()
         setupBackdropForedropArchitecture()
         setupNavigationBar()
@@ -259,15 +267,7 @@ class LGSearchViewController: UIViewController {
     // MARK: - Setup
 
     private func setupViewModel() {
-        guard let coordinator = EnhancedDependencyContainer.shared.useCaseCoordinator else {
-            logError(
-                event: "search_view_model_setup_failed",
-                message: "UseCaseCoordinator unavailable during search setup"
-            )
-            return
-        }
-
-        viewModel = LGSearchViewModel(useCaseCoordinator: coordinator)
+        viewModel = LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
         viewModel.loadProjects()
         viewModel.onResultsUpdated = { [weak self] tasks in
             self?.tasks = tasks

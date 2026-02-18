@@ -11,11 +11,14 @@ import Combine
 import DGCharts
 import FluentUI
 
-final class HomeViewController: UIViewController, HomeViewControllerProtocol {
+final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware {
 
     // MARK: - Dependencies
 
     var viewModel: HomeViewModel!
+    var chartCardViewModel: ChartCardViewModel!
+    var radarChartCardViewModel: RadarChartCardViewModel!
+    var presentationDependencyContainer: PresentationDependencyContainer?
 
     // MARK: - UI
 
@@ -86,14 +89,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol {
     // MARK: - Setup
 
     private func injectDependenciesIfNeeded() {
-        if viewModel == nil {
-            PresentationDependencyContainer.shared.inject(into: self)
+        guard viewModel != nil else {
+            fatalError("HomeViewController requires injected HomeViewModel")
         }
-
-        if viewModel == nil {
-            viewModel = HomeViewModel(
-                useCaseCoordinator: EnhancedDependencyContainer.shared.useCaseCoordinator
-            )
+        guard chartCardViewModel != nil else {
+            fatalError("HomeViewController requires injected ChartCardViewModel")
+        }
+        guard radarChartCardViewModel != nil else {
+            fatalError("HomeViewController requires injected RadarChartCardViewModel")
+        }
+        guard presentationDependencyContainer != nil else {
+            fatalError("HomeViewController requires injected PresentationDependencyContainer")
         }
     }
 
@@ -168,6 +174,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol {
 
         let root = HomeBackdropForedropRootView(
             viewModel: viewModel,
+            chartCardViewModel: chartCardViewModel,
+            radarChartCardViewModel: radarChartCardViewModel,
             onTaskTap: { [weak self] task in
                 self?.handleTaskTap(task)
             },
@@ -191,6 +199,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol {
             },
             onOpenChat: { [weak self] in
                 self?.chatButtonTapped()
+            },
+            onOpenProjectCreator: { [weak self] in
+                self?.openProjectCreator()
             },
             onOpenSettings: { [weak self] in
                 self?.onMenuButtonTapped()
@@ -241,6 +252,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol {
 
     @objc func onMenuButtonTapped() {
         let settingsVC = SettingsPageViewController()
+        settingsVC.presentationDependencyContainer = presentationDependencyContainer
         let navController = UINavigationController(rootViewController: settingsVC)
         navController.navigationBar.prefersLargeTitles = false
 
@@ -255,16 +267,33 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol {
     @objc func AddTaskAction() {
         let addTaskVC = AddTaskViewController()
         addTaskVC.delegate = self
-
-        PresentationDependencyContainer.shared.inject(into: addTaskVC)
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+        presentationDependencyContainer.inject(into: addTaskVC)
 
         let navController = UINavigationController(rootViewController: addTaskVC)
         navController.modalPresentationStyle = .fullScreen
         present(navController, animated: true)
     }
 
+    @objc private func openProjectCreator() {
+        let controller = NewProjectViewController()
+        let navController = UINavigationController(rootViewController: controller)
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+        presentationDependencyContainer.inject(into: controller)
+        navController.modalPresentationStyle = .fullScreen
+        present(navController, animated: true)
+    }
+
     @objc func searchButtonTapped() {
         let searchVC = LGSearchViewController()
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+        presentationDependencyContainer.inject(into: searchVC)
         searchVC.modalPresentationStyle = .fullScreen
         searchVC.modalTransitionStyle = .crossDissolve
         present(searchVC, animated: true)

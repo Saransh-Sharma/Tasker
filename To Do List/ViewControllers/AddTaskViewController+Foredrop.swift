@@ -88,6 +88,11 @@ extension AddTaskViewController {
             viewModel.reminderTime = alertReminderTime
         }
 
+        // Parent relationship and dependency links are independent; avoid self-conflicting metadata choices.
+        if let selectedParentTaskID = viewModel.selectedParentTaskID {
+            viewModel.selectedDependencyTaskIDs.remove(selectedParentTaskID)
+        }
+
         viewModel.createTask()
     }
     

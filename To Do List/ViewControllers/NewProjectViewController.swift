@@ -16,7 +16,7 @@ extension String {
     }
 }
 
-class NewProjectViewController: UIViewController, UITextFieldDelegate {
+class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCoordinatorInjectable, PresentationDependencyContainerAware {
     
     //    var peoplePickers: [PeoplePicker] = []
     private var todoColors: TaskerColorTokens {
@@ -39,9 +39,17 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
     
     
     let addProjectContainer: UIStackView = createVerticalContainer()
+    var useCaseCoordinator: UseCaseCoordinator!
+    var presentationDependencyContainer: PresentationDependencyContainer?
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        guard useCaseCoordinator != nil else {
+            fatalError("NewProjectViewController requires injected UseCaseCoordinator")
+        }
+        guard presentationDependencyContainer != nil else {
+            fatalError("NewProjectViewController requires injected PresentationDependencyContainer")
+        }
         
         //        view.backgroundColor = .green
         
@@ -123,11 +131,6 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
 
             // Create project using V2 coordinator
-            guard let useCaseCoordinator = EnhancedDependencyContainer.shared.useCaseCoordinator else {
-                HUD.shared.showFailure(from: self, with: "Failed to create project")
-                return
-            }
-
             // Trim and normalize project name
             currentProjectInTexField = currentProjectInTexField.trimmingLeadingAndTrailingSpaces()
 
@@ -161,8 +164,11 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
                                 HUD.shared.showFailure(from: self, with: "Failed to open Add Task screen")
                                 return
                             }
+                            guard let presentationDependencyContainer = self.presentationDependencyContainer else {
+                                fatalError("NewProjectViewController missing PresentationDependencyContainer")
+                            }
                             // Inject V2 presentation dependencies
-                            PresentationDependencyContainer.shared.inject(into: newViewController)
+                            presentationDependencyContainer.inject(into: newViewController)
                             newViewController.modalPresentationStyle = .fullScreen
                             self.present(newViewController, animated: true, completion: { () in
                                 logDebug("SUCCESS - Navigated to Add Task")
@@ -293,3 +299,4 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate {
     
     
 }
+    var useCaseCoordinator: UseCaseCoordinator!
