@@ -32,12 +32,17 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var selectedLifeAreaID: UUID?
     @Published public var selectedSectionID: UUID?
     @Published public var selectedTagIDs: Set<UUID> = []
+    @Published public var selectedParentTaskID: UUID?
+    @Published public var selectedDependencyTaskIDs: Set<UUID> = []
     @Published public var dueDate: Date = Date()
     @Published public var hasReminder: Bool = false
     @Published public var reminderTime: Date = Date()
+    @Published public private(set) var availableParentTasks: [Task] = []
+    @Published public private(set) var availableDependencyTasks: [Task] = []
     
     // MARK: - Dependencies
     
+    private let taskRepository: TaskRepositoryProtocol
     private let createTaskUseCase: CreateTaskUseCase
     private let manageProjectsUseCase: ManageProjectsUseCase
     private let rescheduleTaskUseCase: RescheduleTaskUseCase
@@ -50,6 +55,7 @@ public final class AddTaskViewModel: ObservableObject {
     // MARK: - Initialization
     
     public init(
+        taskRepository: TaskRepositoryProtocol,
         createTaskUseCase: CreateTaskUseCase,
         manageProjectsUseCase: ManageProjectsUseCase,
         rescheduleTaskUseCase: RescheduleTaskUseCase,
@@ -58,6 +64,7 @@ public final class AddTaskViewModel: ObservableObject {
         manageSectionsUseCase: ManageSectionsUseCase? = nil,
         manageTagsUseCase: ManageTagsUseCase? = nil
     ) {
+        self.taskRepository = taskRepository
         self.createTaskUseCase = createTaskUseCase
         self.manageProjectsUseCase = manageProjectsUseCase
         self.rescheduleTaskUseCase = rescheduleTaskUseCase
@@ -87,11 +94,34 @@ public final class AddTaskViewModel: ObservableObject {
         let projectID = projects.first(where: { $0.name == selectedProject })?.id ?? ProjectConstants.inboxProjectID
 
         if let createTaskDefinitionUseCase {
-            createTaskDefinitionUseCase.execute(
+            let resolvedTagIDs = selectedTagIDs.isEmpty ? parseImplicitTagIDs(from: taskName) : selectedTagIDs
+            let definitionRequest = CreateTaskDefinitionRequest(
                 title: taskName,
+                details: taskDetails.isEmpty ? nil : taskDetails,
                 projectID: projectID,
+                projectName: selectedProject,
+                lifeAreaID: selectedLifeAreaID,
+                sectionID: selectedSectionID,
                 dueDate: dueDate,
-                details: taskDetails.isEmpty ? nil : taskDetails
+                parentTaskID: selectedParentTaskID,
+                tagIDs: Array(resolvedTagIDs),
+                dependencies: selectedDependencyTaskIDs.map { dependsOnTaskID in
+                    TaskDependencyLinkDefinition(
+                        taskID: UUID(), // replaced in use case with created task ID
+                        dependsOnTaskID: dependsOnTaskID,
+                        kind: .related
+                    )
+                },
+                priority: selectedPriority,
+                type: selectedType,
+                energy: .medium,
+                category: .general,
+                context: .anywhere,
+                isEveningTask: selectedType == .evening,
+                alertReminderTime: hasReminder ? reminderTime : nil
+            )
+            createTaskDefinitionUseCase.execute(
+                request: definitionRequest
             ) { [weak self] result in
                 DispatchQueue.main.async {
                     self?.isLoading = false
@@ -131,6 +161,19 @@ public final class AddTaskViewModel: ObservableObject {
             }
         }
     }
+
+    private func parseImplicitTagIDs(from title: String) -> Set<UUID> {
+        let tokens = title
+            .split(whereSeparator: \.isWhitespace)
+            .map(String.init)
+            .filter { $0.hasPrefix("#") && $0.count > 1 }
+            .map { String($0.dropFirst()).lowercased() }
+        guard tokens.isEmpty == false else { return [] }
+        let tokenSet = Set(tokens)
+        return Set(tags.compactMap { tag in
+            tokenSet.contains(tag.name.lowercased()) ? tag.id : nil
+        })
+    }
     
     /// Load available projects
     public func loadProjects() {
@@ -158,6 +201,12 @@ public final class AddTaskViewModel: ObservableObject {
                     if let strongSelf = self,
                        let selectedProjectID = strongSelf.projects.first(where: { $0.name == strongSelf.selectedProject })?.id {
                         strongSelf.loadSections(projectID: selectedProjectID)
+                        strongSelf.loadTaskMetadataOptions(projectID: selectedProjectID)
+                    } else {
+                        self?.availableParentTasks = []
+                        self?.availableDependencyTasks = []
+                        self?.selectedParentTaskID = nil
+                        self?.selectedDependencyTaskIDs = []
                     }
                     
                 case .failure(let error):
@@ -215,6 +264,8 @@ public final class AddTaskViewModel: ObservableObject {
         selectedLifeAreaID = nil
         selectedSectionID = nil
         selectedTagIDs = []
+        selectedParentTaskID = nil
+        selectedDependencyTaskIDs = []
         dueDate = Date()
         hasReminder = false
         reminderTime = Date()
@@ -265,9 +316,22 @@ public final class AddTaskViewModel: ObservableObject {
                 guard let projectID = self.projects.first(where: { $0.name == projectName })?.id else {
                     self.sections = []
                     self.selectedSectionID = nil
+                    self.availableParentTasks = []
+                    self.availableDependencyTasks = []
+                    self.selectedParentTaskID = nil
+                    self.selectedDependencyTaskIDs = []
                     return
                 }
                 self.loadSections(projectID: projectID)
+                self.loadTaskMetadataOptions(projectID: projectID)
+            }
+            .store(in: &cancellables)
+
+        $selectedParentTaskID
+            .removeDuplicates { $0 == $1 }
+            .sink { [weak self] selectedParentTaskID in
+                guard let selectedParentTaskID else { return }
+                self?.selectedDependencyTaskIDs.remove(selectedParentTaskID)
             }
             .store(in: &cancellables)
     }
@@ -320,6 +384,9 @@ public final class AddTaskViewModel: ObservableObject {
                        sections.contains(where: { $0.id == selected }) == false {
                         self?.selectedSectionID = nil
                     }
+                    if self?.selectedSectionID == nil {
+                        self?.selectedSectionID = self?.sections.first?.id
+                    }
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                 }
@@ -336,6 +403,59 @@ public final class AddTaskViewModel: ObservableObject {
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                 }
+            }
+        }
+    }
+
+    private func loadTaskMetadataOptions(projectID: UUID) {
+        taskRepository.fetchTasks(forProjectID: projectID) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success(let tasks):
+                    let activeTasks = tasks
+                        .filter { !$0.isComplete }
+                        .sorted { lhs, rhs in
+                            let lhsDate = lhs.dueDate ?? .distantFuture
+                            let rhsDate = rhs.dueDate ?? .distantFuture
+                            if lhsDate == rhsDate {
+                                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+                            }
+                            return lhsDate < rhsDate
+                        }
+                    self.availableParentTasks = activeTasks
+                    self.availableDependencyTasks = activeTasks
+
+                    let validIDs = Set(activeTasks.map(\.id))
+                    if let selectedParentTaskID = self.selectedParentTaskID, !validIDs.contains(selectedParentTaskID) {
+                        self.selectedParentTaskID = nil
+                    }
+                    self.selectedDependencyTaskIDs = self.selectedDependencyTaskIDs.intersection(validIDs)
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                    self.availableParentTasks = []
+                    self.availableDependencyTasks = []
+                    self.selectedParentTaskID = nil
+                    self.selectedDependencyTaskIDs = []
+                }
+            }
+        }
+    }
+
+    public func loadCalendarTaskCounts(
+        windowStart: Date,
+        windowEnd: Date,
+        completion: @escaping ([Date: Int]) -> Void
+    ) {
+        taskRepository.fetchTasks(from: windowStart, to: windowEnd) { result in
+            let tasks = (try? result.get()) ?? []
+            let calendar = Calendar.current
+            let counts = tasks.reduce(into: [Date: Int]()) { grouped, task in
+                guard let dueDate = task.dueDate else { return }
+                grouped[calendar.startOfDay(for: dueDate), default: 0] += 1
+            }
+            DispatchQueue.main.async {
+                completion(counts)
             }
         }
     }
