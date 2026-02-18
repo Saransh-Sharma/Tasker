@@ -11,6 +11,7 @@ public protocol SchedulingEngineProtocol {
     func resolveOccurrence(
         id: UUID,
         resolution: OccurrenceResolutionType,
+        actor: OccurrenceActor,
         completion: @escaping (Result<Void, Error>) -> Void
     )
 

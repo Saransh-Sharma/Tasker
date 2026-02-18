@@ -21,10 +21,43 @@ public protocol TagRepositoryProtocol {
 }
 
 public protocol TaskDefinitionRepositoryProtocol {
-    func fetchAll(completion: @escaping (Result<[Task], Error>) -> Void)
-    func create(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void)
-    func update(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void)
+    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void)
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void)
+    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void)
+    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void)
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void)
+    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void)
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void)
+    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void)
     func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void)
+}
+
+public extension TaskDefinitionRepositoryProtocol {
+    func create(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
+        create(TaskDefinition(legacyTask: task)) { result in
+            completion(result.map { $0.toLegacyTask() })
+        }
+    }
+
+    func update(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
+        update(TaskDefinition(legacyTask: task)) { result in
+            completion(result.map { $0.toLegacyTask() })
+        }
+    }
+}
+
+public protocol TaskTagLinkRepositoryProtocol {
+    func fetchTagIDs(taskID: UUID, completion: @escaping (Result<[UUID], Error>) -> Void)
+    func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping (Result<Void, Error>) -> Void)
+}
+
+public protocol TaskDependencyRepositoryProtocol {
+    func fetchDependencies(taskID: UUID, completion: @escaping (Result<[TaskDependencyLinkDefinition], Error>) -> Void)
+    func replaceDependencies(
+        taskID: UUID,
+        dependencies: [TaskDependencyLinkDefinition],
+        completion: @escaping (Result<Void, Error>) -> Void
+    )
 }
 
 public protocol HabitRepositoryProtocol {
@@ -46,6 +79,7 @@ public protocol OccurrenceRepositoryProtocol {
     func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void)
     func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void)
     func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void)
+    func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void)
 }
 
 public protocol ReminderRepositoryProtocol {
@@ -76,8 +110,32 @@ public protocol AssistantActionRepositoryProtocol {
 public protocol ExternalSyncRepositoryProtocol {
     func fetchContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void)
     func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping (Result<Void, Error>) -> Void)
+    func fetchContainerMapping(
+        provider: String,
+        projectID: UUID,
+        completion: @escaping (Result<ExternalContainerMapDefinition?, Error>) -> Void
+    )
+    func upsertContainerMapping(
+        provider: String,
+        projectID: UUID,
+        mutate: @escaping (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition,
+        completion: @escaping (Result<ExternalContainerMapDefinition, Error>) -> Void
+    )
     func fetchItemMappings(completion: @escaping (Result<[ExternalItemMapDefinition], Error>) -> Void)
     func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping (Result<Void, Error>) -> Void)
+    func upsertItemMappingByLocalKey(
+        provider: String,
+        localEntityType: String,
+        localEntityID: UUID,
+        mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
+        completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void
+    )
+    func upsertItemMappingByExternalKey(
+        provider: String,
+        externalItemID: String,
+        mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
+        completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void
+    )
     func fetchItemMapping(provider: String, localEntityType: String, localEntityID: UUID, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void)
     func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void)
 }
@@ -85,4 +143,5 @@ public protocol ExternalSyncRepositoryProtocol {
 public protocol TombstoneRepositoryProtocol {
     func create(_ tombstone: TombstoneDefinition, completion: @escaping (Result<Void, Error>) -> Void)
     func fetchExpired(before date: Date, completion: @escaping (Result<[TombstoneDefinition], Error>) -> Void)
+    func delete(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void)
 }
