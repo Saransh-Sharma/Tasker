@@ -25,24 +25,49 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         
         // Create window programmatically to use FluentUI NavigationController
         window = UIWindow(windowScene: windowScene)
-        
-        // Load HomeViewController from storyboard
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as! HomeViewController
-        
-        // Inject dependencies using typed APIs (no reflection).
-        PresentationDependencyContainer.shared.inject(into: homeViewController)
-        
-        // Embed in FluentUI NavigationController
-        let navigationController = NavigationController(rootViewController: homeViewController)
 
-        // Set FluentUI custom navigation bar color to match app's primary color immediately on launch
-        let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
-        homeViewController.navigationItem.fluentConfiguration.customNavigationBarColor = themeColors.accentPrimary
-        homeViewController.navigationItem.fluentConfiguration.navigationBarStyle = .custom
+        let appDelegate = UIApplication.shared.delegate as? AppDelegate
+        let rootMode = appDelegate?.makeLaunchRootMode() ?? .bootstrapFailure(
+            message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker storage is unavailable. Please relaunch the app."
+        )
 
-        // Set as root view controller
-        window?.rootViewController = navigationController
+        switch rootMode {
+        case .home:
+            // Load HomeViewController from storyboard
+            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+            guard let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController else {
+                showBootstrapFailureRoot(message: "Tasker could not load the home screen.")
+                return
+            }
+
+            // Inject dependencies safely. If setup failed, fall back to a non-crashing bootstrap failure root.
+            guard PresentationDependencyContainer.shared.tryInject(into: homeViewController) else {
+                showBootstrapFailureRoot(
+                    message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker could not initialize dependencies."
+                )
+                return
+            }
+
+            // Embed in FluentUI NavigationController
+            let navigationController = NavigationController(rootViewController: homeViewController)
+
+            // Set FluentUI custom navigation bar color to match app's primary color immediately on launch
+            let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
+            homeViewController.navigationItem.fluentConfiguration.customNavigationBarColor = themeColors.accentPrimary
+            homeViewController.navigationItem.fluentConfiguration.navigationBarStyle = .custom
+
+            // Set as root view controller
+            window?.rootViewController = navigationController
+            window?.makeKeyAndVisible()
+
+        case .bootstrapFailure(let message):
+            showBootstrapFailureRoot(message: message)
+        }
+    }
+
+    private func showBootstrapFailureRoot(message: String) {
+        let failureViewController = BootstrapFailureViewController(message: message)
+        window?.rootViewController = failureViewController
         window?.makeKeyAndVisible()
     }
 

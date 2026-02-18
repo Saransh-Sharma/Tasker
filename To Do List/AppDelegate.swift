@@ -17,6 +17,11 @@ enum PersistentBootstrapState {
     case failed(String)
 }
 
+enum LaunchRootMode: Equatable {
+    case home
+    case bootstrapFailure(message: String)
+}
+
 struct PersistentStoreLoadReport {
     let loadedConfigurations: Set<String>
     let errors: [NSError]
@@ -187,6 +192,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             return
         }
         scheduleOccurrenceRefresh()
+    }
+
+    func makeLaunchRootMode(state overrideState: PersistentBootstrapState? = nil) -> LaunchRootMode {
+        let state = overrideState ?? persistentBootstrapState
+        switch state {
+        case .ready:
+            return .home
+        case .failed(let message):
+            return .bootstrapFailure(message: message)
+        }
     }
 
     // MARK: - UI Testing Helpers
@@ -666,6 +681,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 inbox.setValue(Date(), forKey: "modifiedDate")
                 inbox.setValue(Date(), forKey: "updatedAt")
 
+                try backfillTaskLifeAreaIDsIfNeeded(in: context)
+
                 if context.hasChanges {
                     try context.save()
                 }
@@ -676,6 +693,54 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                     fields: ["error": error.localizedDescription]
                 )
             }
+        }
+    }
+
+    private func backfillTaskLifeAreaIDsIfNeeded(in context: NSManagedObjectContext) throws {
+        guard
+            let taskEntity = NSEntityDescription.entity(forEntityName: "TaskDefinition", in: context),
+            taskEntity.attributesByName["lifeAreaID"] != nil
+        else {
+            return
+        }
+
+        let projectRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
+        let projects = try context.fetch(projectRequest)
+        var lifeAreaByProjectID: [UUID: UUID] = [:]
+        for project in projects {
+            let projectID = (project.value(forKey: "projectID") as? UUID) ?? (project.value(forKey: "id") as? UUID)
+            let lifeAreaID = project.value(forKey: "lifeAreaID") as? UUID
+            if let projectID, let lifeAreaID {
+                lifeAreaByProjectID[projectID] = lifeAreaID
+            }
+        }
+
+        guard lifeAreaByProjectID.isEmpty == false else {
+            return
+        }
+
+        let taskRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+        taskRequest.predicate = NSPredicate(format: "lifeAreaID == nil")
+        let tasks = try context.fetch(taskRequest)
+
+        var updated = 0
+        for task in tasks {
+            guard
+                let projectID = task.value(forKey: "projectID") as? UUID,
+                let lifeAreaID = lifeAreaByProjectID[projectID]
+            else {
+                continue
+            }
+            task.setValue(lifeAreaID, forKey: "lifeAreaID")
+            updated += 1
+        }
+
+        if updated > 0 {
+            logWarning(
+                event: "task_life_area_backfill_applied",
+                message: "Backfilled TaskDefinition.lifeAreaID from project linkage",
+                fields: ["updated_count": String(updated)]
+            )
         }
     }
 
@@ -713,7 +778,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
 
         guard
-            let generateUseCase = EnhancedDependencyContainer.shared.useCaseCoordinator.generateOccurrences
+            let generateUseCase = PresentationDependencyContainer.shared.coordinator.generateOccurrences
         else {
             task.setTaskCompleted(success: true)
             return
@@ -722,11 +787,27 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         generateUseCase.execute(daysAhead: 14) { result in
             switch result {
             case .success:
-                if let maintain = EnhancedDependencyContainer.shared.useCaseCoordinator.maintainOccurrences {
+                if let maintain = PresentationDependencyContainer.shared.coordinator.maintainOccurrences {
                     maintain.execute { maintainResult in
                         switch maintainResult {
                         case .success:
-                            task.setTaskCompleted(success: true)
+                            if let purge = PresentationDependencyContainer.shared.coordinator.purgeExpiredTombstones {
+                                purge.execute { purgeResult in
+                                    switch purgeResult {
+                                    case .success:
+                                        task.setTaskCompleted(success: true)
+                                    case .failure(let error):
+                                        logWarning(
+                                            event: "bg_tombstone_purge_failed",
+                                            message: "Tombstone purge failed in background refresh",
+                                            fields: ["error": error.localizedDescription]
+                                        )
+                                        task.setTaskCompleted(success: false)
+                                    }
+                                }
+                            } else {
+                                task.setTaskCompleted(success: true)
+                            }
                         case .failure(let error):
                             logWarning(
                                 event: "bg_maintenance_failed",
@@ -737,7 +818,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                         }
                     }
                 } else {
-                    task.setTaskCompleted(success: true)
+                    if let purge = PresentationDependencyContainer.shared.coordinator.purgeExpiredTombstones {
+                        purge.execute { purgeResult in
+                            switch purgeResult {
+                            case .success:
+                                task.setTaskCompleted(success: true)
+                            case .failure(let error):
+                                logWarning(
+                                    event: "bg_tombstone_purge_failed_no_maintenance",
+                                    message: "Tombstone purge failed without occurrence maintenance",
+                                    fields: ["error": error.localizedDescription]
+                                )
+                                task.setTaskCompleted(success: false)
+                            }
+                        }
+                    } else {
+                        task.setTaskCompleted(success: true)
+                    }
                 }
             case .failure(let error):
                 logWarning(
@@ -763,8 +860,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             return
         }
 
-        // Configure presentation container with typed API (no reflection).
-        PresentationDependencyContainer.shared.configure(with: persistentContainer)
+        // Freeze runtime composition to AppDelegate -> PresentationDependencyContainer -> UseCaseCoordinator.
+        let stateContainer = EnhancedDependencyContainer.shared
+        stateContainer.configure(with: persistentContainer)
+        PresentationDependencyContainer.shared.configure(
+            taskRepository: stateContainer.taskRepository,
+            projectRepository: stateContainer.projectRepository,
+            cacheService: stateContainer.cacheService,
+            useCaseCoordinator: stateContainer.useCaseCoordinator
+        )
 
         // Seed clean-start V2 defaults.
         ensureV2Defaults()
@@ -772,13 +876,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // Configure LLM access through repositories (no direct Core Data context pulls).
         LLMContextRepositoryProvider.configure(
-            taskRepository: EnhancedDependencyContainer.shared.taskRepository,
-            projectRepository: EnhancedDependencyContainer.shared.projectRepository
+            taskRepository: stateContainer.taskRepository,
+            projectRepository: stateContainer.projectRepository
         )
     }
 
     private func repairProjectIdentityIfNeeded() {
-        let manageProjects = EnhancedDependencyContainer.shared.useCaseCoordinator.manageProjects
+        let manageProjects = PresentationDependencyContainer.shared.coordinator.manageProjects
         manageProjects.repairProjectIdentityCollisions { result in
             switch result {
             case .success(let report):
