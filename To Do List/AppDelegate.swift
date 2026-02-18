@@ -31,6 +31,7 @@ struct PersistentStoreLoadReport {
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private let occurrenceRefreshTaskIdentifier = "com.tasker.refresh.occurrences"
+    private let remindersRefreshTaskIdentifier = "com.tasker.refresh.reminders"
     private let expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"]
     private let v2StoreEpoch = 2
 
@@ -130,13 +131,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             persistentContainer = container
             AppDelegate.persistentBootstrapFailureMessage = nil
 
+            let didConfigureRuntime = setupCleanArchitecture()
+            guard didConfigureRuntime else {
+                break
+            }
+
             if V2FeatureFlags.v2Enabled {
-                // Setup Clean Architecture - replaces all singleton initialization
-                setupCleanArchitecture()
                 registerBackgroundTasks()
                 scheduleOccurrenceRefresh()
-            } else {
-                setupCleanArchitecture()
+                if V2FeatureFlags.remindersBackgroundRefreshEnabled {
+                    scheduleRemindersRefresh()
+                }
             }
 
             // 2) Observe remote-change notifications so your viewContext merges them
@@ -192,6 +197,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             return
         }
         scheduleOccurrenceRefresh()
+        if V2FeatureFlags.remindersBackgroundRefreshEnabled {
+            scheduleRemindersRefresh()
+        }
     }
 
     func makeLaunchRootMode(state overrideState: PersistentBootstrapState? = nil) -> LaunchRootMode {
@@ -755,6 +763,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
             self?.handleOccurrenceRefresh(task: refreshTask)
         }
+
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: remindersRefreshTaskIdentifier,
+            using: nil
+        ) { [weak self] task in
+            guard let refreshTask = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self?.handleRemindersRefresh(task: refreshTask)
+        }
     }
 
     private func scheduleOccurrenceRefresh() {
@@ -766,6 +785,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             logWarning(
                 event: "bg_refresh_schedule_failed",
                 message: "Failed to schedule V2 occurrence refresh task",
+                fields: ["error": error.localizedDescription]
+            )
+        }
+    }
+
+    private func scheduleRemindersRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: remindersRefreshTaskIdentifier)
+        request.earliestBeginDate = Calendar.current.date(byAdding: .hour, value: 6, to: Date())
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            logWarning(
+                event: "bg_reminders_schedule_failed",
+                message: "Failed to schedule reminders background refresh task",
                 fields: ["error": error.localizedDescription]
             )
         }
@@ -847,28 +880,182 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    private func handleRemindersRefresh(task: BGAppRefreshTask) {
+        scheduleRemindersRefresh()
+        task.expirationHandler = {
+            task.setTaskCompleted(success: false)
+        }
+
+        guard V2FeatureFlags.remindersSyncEnabled, V2FeatureFlags.remindersBackgroundRefreshEnabled else {
+            task.setTaskCompleted(success: true)
+            return
+        }
+
+        guard
+            let reconcileUseCase = PresentationDependencyContainer.shared.coordinator.reconcileExternalReminders,
+            let externalRepository = EnhancedDependencyContainer.shared.externalSyncRepository
+        else {
+            logWarning(
+                event: "bg_reminders_missing_dependencies",
+                message: "Skipping reminders refresh because V2 sync dependencies are unavailable",
+                fields: [:]
+            )
+            task.setTaskCompleted(success: false)
+            return
+        }
+
+        externalRepository.fetchContainerMappings { result in
+            switch result {
+            case .failure(let error):
+                logWarning(
+                    event: "bg_reminders_fetch_mappings_failed",
+                    message: "Failed to load external container mappings for reminders refresh",
+                    fields: ["error": error.localizedDescription]
+                )
+                task.setTaskCompleted(success: false)
+            case .success(let mappings):
+                let syncedMappings = mappings.filter { $0.provider == "apple_reminders" && $0.syncEnabled }
+                guard syncedMappings.isEmpty == false else {
+                    task.setTaskCompleted(success: true)
+                    return
+                }
+
+                self.processReminderReconcileQueue(
+                    mappings: syncedMappings,
+                    index: 0,
+                    reconcileUseCase: reconcileUseCase,
+                    externalRepository: externalRepository,
+                    failureCount: 0
+                ) { failureCount in
+                    task.setTaskCompleted(success: failureCount == 0)
+                }
+            }
+        }
+    }
+
+    private func processReminderReconcileQueue(
+        mappings: [ExternalContainerMapDefinition],
+        index: Int,
+        reconcileUseCase: ReconcileExternalRemindersUseCase,
+        externalRepository: ExternalSyncRepositoryProtocol,
+        failureCount: Int,
+        completion: @escaping (Int) -> Void
+    ) {
+        guard index < mappings.count else {
+            completion(failureCount)
+            return
+        }
+
+        let mapping = mappings[index]
+        var didFinish = false
+        let timeoutItem = DispatchWorkItem { [weak self] in
+            guard didFinish == false else { return }
+            didFinish = true
+            logWarning(
+                event: "bg_reminders_project_timeout",
+                message: "Project reconcile timed out in background reminders refresh",
+                fields: [
+                    "project_id": mapping.projectID.uuidString,
+                    "external_container_id": mapping.externalContainerID
+                ]
+            )
+            self?.processReminderReconcileQueue(
+                mappings: mappings,
+                index: index + 1,
+                reconcileUseCase: reconcileUseCase,
+                externalRepository: externalRepository,
+                failureCount: failureCount + 1,
+                completion: completion
+            )
+        }
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 55, execute: timeoutItem)
+
+        reconcileUseCase.reconcileProject(projectID: mapping.projectID) { [weak self] result in
+            guard didFinish == false else { return }
+            didFinish = true
+            timeoutItem.cancel()
+
+            switch result {
+            case .success:
+                externalRepository.upsertContainerMapping(
+                    provider: mapping.provider,
+                    projectID: mapping.projectID
+                ) { existing in
+                    var resolved = existing ?? mapping
+                    resolved.lastSyncAt = Date()
+                    resolved.syncEnabled = true
+                    return resolved
+                } completion: { _ in
+                    self?.processReminderReconcileQueue(
+                        mappings: mappings,
+                        index: index + 1,
+                        reconcileUseCase: reconcileUseCase,
+                        externalRepository: externalRepository,
+                        failureCount: failureCount,
+                        completion: completion
+                    )
+                }
+            case .failure(let error):
+                logWarning(
+                    event: "bg_reminders_project_failed",
+                    message: "Project reconcile failed in background reminders refresh",
+                    fields: [
+                        "project_id": mapping.projectID.uuidString,
+                        "external_container_id": mapping.externalContainerID,
+                        "error": error.localizedDescription
+                    ]
+                )
+                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2) {
+                    self?.processReminderReconcileQueue(
+                        mappings: mappings,
+                        index: index + 1,
+                        reconcileUseCase: reconcileUseCase,
+                        externalRepository: externalRepository,
+                        failureCount: failureCount + 1,
+                        completion: completion
+                    )
+                }
+            }
+        }
+    }
+
     // MARK: - Clean Architecture Setup
 
     /// Setup Clean Architecture with modern components only
-    func setupCleanArchitecture() {
+    @discardableResult
+    func setupCleanArchitecture() -> Bool {
         guard let persistentContainer else {
             logError(
                 event: "setup_clean_architecture_skipped",
                 message: "Skipping dependency configuration because persistent container is unavailable",
                 fields: ["reason": "persistent_container_nil"]
             )
-            return
+            return false
         }
 
         // Freeze runtime composition to AppDelegate -> PresentationDependencyContainer -> UseCaseCoordinator.
         let stateContainer = EnhancedDependencyContainer.shared
         stateContainer.configure(with: persistentContainer)
+
+        do {
+            try stateContainer.assertV2RuntimeReady()
+        } catch {
+            return failClosedV2Runtime(reason: error.localizedDescription)
+        }
+
         PresentationDependencyContainer.shared.configure(
             taskRepository: stateContainer.taskRepository,
+            taskReadModelRepository: stateContainer.taskReadModelRepository,
             projectRepository: stateContainer.projectRepository,
             cacheService: stateContainer.cacheService,
             useCaseCoordinator: stateContainer.useCaseCoordinator
         )
+
+        do {
+            try PresentationDependencyContainer.shared.assertV2RuntimeReady()
+        } catch {
+            return failClosedV2Runtime(reason: error.localizedDescription)
+        }
 
         // Seed clean-start V2 defaults.
         ensureV2Defaults()
@@ -879,6 +1066,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             taskRepository: stateContainer.taskRepository,
             projectRepository: stateContainer.projectRepository
         )
+        return true
+    }
+
+    private func failClosedV2Runtime(reason: String) -> Bool {
+        let failureMessage = "Tasker failed to initialize required V2 runtime dependencies."
+        persistentBootstrapState = .failed(failureMessage)
+        AppDelegate.persistentBootstrapFailureMessage = failureMessage
+        logError(
+            event: "v2_runtime_not_ready",
+            message: "Failing closed because required V2 runtime dependencies are missing",
+            fields: ["reason": reason]
+        )
+        return false
     }
 
     private func repairProjectIdentityIfNeeded() {
