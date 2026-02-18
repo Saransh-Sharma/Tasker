@@ -64,13 +64,18 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         }
     }
 
-    public func resolveOccurrence(id: UUID, resolution: OccurrenceResolutionType, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func resolveOccurrence(
+        id: UUID,
+        resolution: OccurrenceResolutionType,
+        actor: OccurrenceActor,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
         let resolutionRecord = OccurrenceResolutionDefinition(
             id: UUID(),
             occurrenceID: id,
             resolutionType: resolution,
             resolvedAt: Date(),
-            actor: "user",
+            actor: actor.rawValue,
             reason: nil,
             createdAt: Date()
         )
@@ -84,34 +89,11 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
             case .failure(let error):
                 completion(.failure(error))
             case .success(let existing):
-                let unresolved = existing.filter { $0.scheduleTemplateID == templateID && $0.state == .pending }
-                let group = DispatchGroup()
-                var firstError: Error?
+                let unresolvedFutureIDs = existing
+                    .filter { $0.scheduleTemplateID == templateID && $0.state == .pending }
+                    .map(\.id)
 
-                for occurrence in unresolved {
-                    let resolution = OccurrenceResolutionDefinition(
-                        id: UUID(),
-                        occurrenceID: occurrence.id,
-                        resolutionType: .deferred,
-                        resolvedAt: Date(),
-                        actor: "system",
-                        reason: "Schedule rebuilt from effective date",
-                        createdAt: Date()
-                    )
-                    group.enter()
-                    self.occurrenceRepository.resolve(resolution) { resolveResult in
-                        if case .failure(let error) = resolveResult {
-                            firstError = firstError ?? error
-                        }
-                        group.leave()
-                    }
-                }
-
-                group.notify(queue: .global()) {
-                    if let firstError {
-                        completion(.failure(firstError))
-                        return
-                    }
+                let regenerate: () -> Void = {
                     self.generateOccurrences(windowStart: effectiveFrom, windowEnd: rebuildEnd, sourceFilter: nil) { generateResult in
                         switch generateResult {
                         case .success:
@@ -119,6 +101,20 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
                         case .failure(let error):
                             completion(.failure(error))
                         }
+                    }
+                }
+
+                guard unresolvedFutureIDs.isEmpty == false else {
+                    regenerate()
+                    return
+                }
+
+                self.occurrenceRepository.deleteOccurrences(ids: unresolvedFutureIDs) { deleteResult in
+                    switch deleteResult {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success:
+                        regenerate()
                     }
                 }
             }
@@ -224,12 +220,17 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
                     guard let scheduledAt = scheduledDate(for: cursor, template: template, rule: rule, calendar: calendar) else {
                         continue
                     }
-                    let key = occurrenceKey(templateID: template.id, scheduledAt: scheduledAt, calendar: calendar)
+                    let key = occurrenceKey(
+                        templateID: template.id,
+                        scheduledAt: scheduledAt,
+                        sourceID: template.sourceID
+                    )
                     let dueAt = dueDate(for: cursor, template: template, defaultDate: scheduledAt, calendar: calendar)
                     let final = apply(
                         exception: exceptionsByKey[key],
                         template: template,
                         scheduledAt: scheduledAt,
+                        sourceID: template.sourceID,
                         dueAt: dueAt,
                         calendar: calendar,
                         windowStart: windowStart,
@@ -342,12 +343,15 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         }
     }
 
-    private func occurrenceKey(templateID: UUID, scheduledAt: Date, calendar: Calendar) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
-        return "\(templateID.uuidString)_\(formatter.string(from: scheduledAt))"
+    private func occurrenceKey(
+        templateID: UUID,
+        scheduledAt: Date,
+        sourceID: UUID
+    ) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return "\(templateID.uuidString)|\(formatter.string(from: scheduledAt))|\(sourceID.uuidString)"
     }
 
     private static func defaultRule(templateID: UUID) -> ScheduleRuleDefinition {
@@ -399,10 +403,21 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
     }
 
     private static func occurrenceDate(from key: String) -> Date? {
-        guard let dateComponent = key.split(separator: "_").last else { return nil }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
-        return formatter.date(from: String(dateComponent))
+        let segments = key.split(separator: "|")
+        if segments.count >= 3 {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
+            if let parsed = formatter.date(from: String(segments[1])) {
+                return parsed
+            }
+        }
+
+        // Backward compatibility for older key format: <template>_<yyyy-MM-dd'T'HH:mm>
+        guard let legacyDateComponent = key.split(separator: "_").last else { return nil }
+        let legacyFormatter = DateFormatter()
+        legacyFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        legacyFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return legacyFormatter.date(from: String(legacyDateComponent))
     }
 
     private static func dayKey(for date: Date) -> String {
@@ -432,6 +447,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         exception: ScheduleExceptionDefinition?,
         template: ScheduleTemplateDefinition,
         scheduledAt: Date,
+        sourceID: UUID,
         dueAt: Date?,
         calendar: Calendar,
         windowStart: Date,
@@ -439,7 +455,11 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
     ) -> (key: String, scheduledAt: Date, dueAt: Date?)? {
         guard let exception else {
             return (
-                key: occurrenceKey(templateID: template.id, scheduledAt: scheduledAt, calendar: calendar),
+                key: occurrenceKey(
+                    templateID: template.id,
+                    scheduledAt: scheduledAt,
+                    sourceID: sourceID
+                ),
                 scheduledAt: scheduledAt,
                 dueAt: dueAt
             )
@@ -457,13 +477,21 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
                 defaultDate: movedAt,
                 calendar: calendar
             )
-            let key = occurrenceKey(templateID: template.id, scheduledAt: movedAt, calendar: calendar)
+            let key = occurrenceKey(
+                templateID: template.id,
+                scheduledAt: movedAt,
+                sourceID: sourceID
+            )
             return (key: key, scheduledAt: movedAt, dueAt: movedDueAt)
         case .modify:
             let modifiedScheduledAt = dateFromPayload(field: "scheduledAt", data: exception.payloadData) ?? scheduledAt
             guard modifiedScheduledAt >= windowStart, modifiedScheduledAt <= windowEnd else { return nil }
             let modifiedDueAt = dateFromPayload(field: "dueAt", data: exception.payloadData) ?? dueAt
-            let key = occurrenceKey(templateID: template.id, scheduledAt: modifiedScheduledAt, calendar: calendar)
+            let key = occurrenceKey(
+                templateID: template.id,
+                scheduledAt: modifiedScheduledAt,
+                sourceID: sourceID
+            )
             return (key: key, scheduledAt: modifiedScheduledAt, dueAt: modifiedDueAt)
         }
     }
