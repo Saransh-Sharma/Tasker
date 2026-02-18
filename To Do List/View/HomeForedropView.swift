@@ -119,6 +119,8 @@ private extension ForedropAnchor {
 
 struct HomeBackdropForedropRootView: View {
     @ObservedObject var viewModel: HomeViewModel
+    @ObservedObject var chartCardViewModel: ChartCardViewModel
+    @ObservedObject var radarChartCardViewModel: RadarChartCardViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let onTaskTap: (DomainTask) -> Void
@@ -129,6 +131,7 @@ struct HomeBackdropForedropRootView: View {
     let onAddTask: () -> Void
     let onOpenSearch: () -> Void
     let onOpenChat: () -> Void
+    let onOpenProjectCreator: () -> Void
     let onOpenSettings: () -> Void
     let onSettingsButtonFrameChange: (CGRect) -> Void
 
@@ -143,7 +146,6 @@ struct HomeBackdropForedropRootView: View {
     @State private var xpBurstValue = 0
     @State private var bottomBarState = HomeBottomBarState()
     @State private var lastTaskListOffset: CGFloat = 0
-    @State private var showAddTaskSheet = false
     @State private var foredropHintOffset: CGFloat = 0
     @State private var hintAnimationTask: _Concurrency.Task<Void, Never>?
     @State private var lastHintTriggerAt: Date?
@@ -303,11 +305,6 @@ struct HomeBackdropForedropRootView: View {
         .onReceive(viewModel.$dailyScore.receive(on: RunLoop.main)) { newScore in
             handleDailyScoreUpdate(newScore)
         }
-        .sheet(isPresented: $showAddTaskSheet) {
-            AddTaskSheetView.make()
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-        }
     }
 
     private func triggerForedropHintIfEligible(now: Date = Date()) {
@@ -417,7 +414,12 @@ struct HomeBackdropForedropRootView: View {
                                 .font(.tasker(.headline))
                                 .foregroundColor(Color.tasker.textPrimary)
 
-                            ChartCardsScrollView(referenceDate: viewModel.selectedDate)
+                            ChartCardsScrollView(
+                                referenceDate: viewModel.selectedDate,
+                                onCreateProject: onOpenProjectCreator,
+                                chartViewModel: chartCardViewModel,
+                                radarViewModel: radarChartCardViewModel
+                            )
                                 .frame(height: chartCardsViewportHeight(for: geometry))
                         }
                         .background(
@@ -461,7 +463,7 @@ struct HomeBackdropForedropRootView: View {
                 NextActionModule(
                     openTaskCount: viewModel.todayOpenTaskCount,
                     focusPinnedCount: viewModel.pinnedFocusTaskIDs.count,
-                    onAddTask: { showAddTaskSheet = true }
+                    onAddTask: { onAddTask() }
                 )
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, spacing.s16)
@@ -499,7 +501,7 @@ struct HomeBackdropForedropRootView: View {
                         ]
                     )
                 },
-                onEmptyStateAction: { showAddTaskSheet = true },
+                onEmptyStateAction: { onAddTask() },
                 onTaskDragStarted: { task in
                     trackTaskDragStarted(task, source: "task_list")
                 },
@@ -777,7 +779,7 @@ struct HomeBackdropForedropRootView: View {
                 onOpenChat()
             },
             onCreate: {
-                showAddTaskSheet = true
+                onAddTask()
             }
         )
         .padding(.horizontal, spacing.s16)

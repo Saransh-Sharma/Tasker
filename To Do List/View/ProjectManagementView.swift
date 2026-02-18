@@ -6,7 +6,7 @@ struct ProjectManagementView: View {
     @State private var newProjectName = ""
     @State private var newProjectDescription = ""
 
-    init(viewModel: ProjectManagementViewModel = PresentationDependencyContainer.shared.makeProjectManagementViewModel()) {
+    init(viewModel: ProjectManagementViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
     }
 
@@ -89,8 +89,6 @@ struct ProjectManagementView: View {
 
 struct ProjectManagementView_Previews: PreviewProvider {
     static var previews: some View {
-        NavigationView {
-            ProjectManagementView()
-        }
+        Text("ProjectManagementView preview requires an injected ProjectManagementViewModel.")
     }
 }

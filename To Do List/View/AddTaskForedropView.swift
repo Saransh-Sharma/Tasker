@@ -175,20 +175,3 @@ struct AddTaskForedropView: View {
         )
     }
 }
-
-// MARK: - Preview
-
-#if DEBUG
-struct AddTaskForedropView_Previews: PreviewProvider {
-    @StateObject static var viewModel = PresentationDependencyContainer.shared.makeAddTaskViewModel()
-
-    static var previews: some View {
-        AddTaskForedropView(
-            viewModel: viewModel,
-            onCancel: {},
-            onCreate: {}
-        )
-        .previewLayout(.fixed(width: 375, height: 700))
-    }
-}
-#endif

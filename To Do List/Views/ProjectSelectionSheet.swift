@@ -15,20 +15,27 @@ struct ProjectSelectionSheet: View {
 
     let selectedProjectIDs: [UUID]
     let onSave: ([UUID]) -> Void
+    let onCreateProject: () -> Void
+    @StateObject private var viewModel: ProjectSelectionViewModel
 
     @State private var currentSelection: Set<UUID>
     @State private var pinnedProjects: Set<UUID> // Track pinned state separately
-    @State private var availableProjects: [ProjectInfo] = []
-    @State private var isLoading = true
     private var colors: TaskerSwiftUIColorTokens { Color.tasker }
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     private let maxSelections = 5
 
-    init(selectedProjectIDs: [UUID], onSave: @escaping ([UUID]) -> Void) {
+    init(
+        selectedProjectIDs: [UUID],
+        onSave: @escaping ([UUID]) -> Void,
+        onCreateProject: @escaping () -> Void = {},
+        viewModel: ProjectSelectionViewModel
+    ) {
         self.selectedProjectIDs = selectedProjectIDs
         self.onSave = onSave
+        self.onCreateProject = onCreateProject
+        _viewModel = StateObject(wrappedValue: viewModel)
         _currentSelection = State(initialValue: Set(selectedProjectIDs))
         _pinnedProjects = State(initialValue: Set(selectedProjectIDs)) // Initially, pinned = selected
     }
@@ -36,10 +43,10 @@ struct ProjectSelectionSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                if isLoading {
+                if viewModel.isLoading {
                     ProgressView("Loading projects...")
                         .scaleEffect(1.2)
-                } else if availableProjects.isEmpty {
+                } else if viewModel.availableProjects.isEmpty {
                     emptyStateView
                 } else {
                     projectListView
@@ -93,7 +100,7 @@ struct ProjectSelectionSheet: View {
 
     // Sorted projects: pinned first, then alphabetically
     private var sortedProjects: [ProjectInfo] {
-        availableProjects.sorted { p1, p2 in
+        viewModel.availableProjects.sorted { p1, p2 in
             let p1Pinned = pinnedProjects.contains(p1.id)
             let p2Pinned = pinnedProjects.contains(p2.id)
 
@@ -109,12 +116,12 @@ struct ProjectSelectionSheet: View {
 
     // 🔥 NEW: Count of valid pinned projects (that actually exist in available projects)
     private var validPinnedCount: Int {
-        return availableProjects.filter { pinnedProjects.contains($0.id) }.count
+        return viewModel.availableProjects.filter { pinnedProjects.contains($0.id) }.count
     }
 
     // 🔥 NEW: Check if we have stale pins (pinned UUIDs that don't match available projects)
     private var hasStalePins: Bool {
-        let availableUUIDs = Set(availableProjects.map { $0.id })
+        let availableUUIDs = Set(viewModel.availableProjects.map { $0.id })
         let pinnedUUIDs = Set(pinnedProjects)
         return !pinnedUUIDs.isSubset(of: availableUUIDs)
     }
@@ -192,8 +199,7 @@ struct ProjectSelectionSheet: View {
 
             Button(action: {
                 dismiss()
-                // Notify to show project management
-                NotificationCenter.default.post(name: Notification.Name("ShowProjectManagement"), object: nil)
+                onCreateProject()
             }) {
                 Text("Create Project")
                     .font(.tasker(.bodyEmphasis))
@@ -228,7 +234,7 @@ struct ProjectSelectionSheet: View {
     private func saveSelection() {
         // 🔥 NEW: Automatically filter out stale pins before saving
         let validPinnedProjects = pinnedProjects.filter { pinnedUUID in
-            return availableProjects.contains { $0.id == pinnedUUID }
+            return viewModel.availableProjects.contains { $0.id == pinnedUUID }
         }
 
         let pinnedArray = Array(validPinnedProjects)
@@ -245,60 +251,10 @@ struct ProjectSelectionSheet: View {
     }
 
     private func loadProjects() {
-        isLoading = true
-
         logDebug("📋 [ProjectSelectionSheet] Loading projects...")
-
-        guard
-            let projectRepository = EnhancedDependencyContainer.shared.projectRepository,
-            let taskRepository = EnhancedDependencyContainer.shared.taskRepository
-        else {
-            logWarning(
-                event: "project_selection_dependencies_missing",
-                message: "Project/task repositories unavailable for project selection"
-            )
-            isLoading = false
-            return
-        }
-
-        projectRepository.fetchCustomProjects { projectResult in
-            switch projectResult {
-            case .failure(let error):
-                DispatchQueue.main.async {
-                    logError("❌ [ProjectSelectionSheet] Failed to load projects: \(error.localizedDescription)")
-                    self.availableProjects = []
-                    withAnimation {
-                        self.isLoading = false
-                    }
-                }
-            case .success(let projects):
-                taskRepository.fetchAllTasks { taskResult in
-                    let allTasks = (try? taskResult.get()) ?? []
-                    let taskCountsByProject = allTasks.reduce(into: [UUID: Int]()) { counts, task in
-                        counts[task.projectID, default: 0] += 1
-                    }
-
-                    let infos = projects
-                        .filter { $0.id != ProjectConstants.inboxProjectID }
-                        .map { project in
-                            ProjectInfo(
-                                id: project.id,
-                                name: project.name,
-                                taskCount: taskCountsByProject[project.id, default: 0]
-                            )
-                        }
-                        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-
-                    DispatchQueue.main.async {
-                        self.availableProjects = infos
-                        self.pinnedProjects = self.pinnedProjects.intersection(Set(infos.map(\.id)))
-                        withAnimation {
-                            self.isLoading = false
-                        }
-                        logDebug("✅ [ProjectSelectionSheet] Loaded \(infos.count) projects")
-                    }
-                }
-            }
+        viewModel.load { infos in
+            self.pinnedProjects = self.pinnedProjects.intersection(Set(infos.map(\.id)))
+            logDebug("✅ [ProjectSelectionSheet] Loaded \(infos.count) projects")
         }
     }
 }
@@ -373,6 +329,59 @@ struct ProjectInfo: Identifiable {
 
 struct ProjectSelectionSheet_Previews: PreviewProvider {
     static var previews: some View {
-        ProjectSelectionSheet(selectedProjectIDs: []) { _ in }
+        let taskRepository = PreviewProjectSelectionTaskRepository()
+        let projectRepository = PreviewProjectSelectionProjectRepository()
+        let viewModel = ProjectSelectionViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        ProjectSelectionSheet(selectedProjectIDs: [], onSave: { _ in }, viewModel: viewModel)
     }
+}
+
+private final class PreviewProjectSelectionTaskRepository: TaskRepositoryProtocol {
+    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
+    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
+    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+}
+
+private final class PreviewProjectSelectionProjectRepository: ProjectRepositoryProtocol {
+    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+        completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
+    }
+    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
+    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
 }

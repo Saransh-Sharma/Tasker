@@ -9,7 +9,6 @@
 import SwiftUI
 import DGCharts
 import UIKit
-import Combine
 
 // MARK: - Radar Chart Card
 
@@ -17,19 +16,23 @@ struct RadarChartCard: View {
     let title: String
     let subtitle: String?
     let referenceDate: Date?
-
-    @State private var chartData: [RadarChartDataEntry] = []
-    @State private var chartLabels: [String] = []
-    @State private var isLoading = true
-    @State private var hasCustomProjects = true
-    @State private var hasCompletedTasks = true
+    let onCreateProject: () -> Void
+    @StateObject private var viewModel: RadarChartCardViewModel
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
-    init(title: String = "Project Breakdown", subtitle: String? = "Weekly scores by project", referenceDate: Date? = nil) {
+    init(
+        title: String = "Project Breakdown",
+        subtitle: String? = "Weekly scores by project",
+        referenceDate: Date? = nil,
+        onCreateProject: @escaping () -> Void,
+        viewModel: RadarChartCardViewModel
+    ) {
         self.title = title
         self.subtitle = subtitle
         self.referenceDate = referenceDate
+        self.onCreateProject = onCreateProject
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
 
     var body: some View {
@@ -55,7 +58,7 @@ struct RadarChartCard: View {
                 .accessibilityElement(children: .contain)
 
                 ZStack {
-                    if isLoading {
+                    if viewModel.isLoading {
                         RoundedRectangle(cornerRadius: corner.input)
                             .fill(Color.tasker.surfaceSecondary)
                             .frame(height: 350)
@@ -63,17 +66,15 @@ struct RadarChartCard: View {
                                 ProgressView()
                                     .scaleEffect(1.2)
                             )
-                    } else if !hasCustomProjects {
+                    } else if !viewModel.hasCustomProjects {
                         emptyStateView(
                             icon: "folder.badge.plus",
                             title: "No Custom Projects",
                             message: "Create custom projects to see your score breakdown",
                             actionTitle: "Create Project",
-                            action: {
-                                NotificationCenter.default.post(name: Notification.Name("ShowProjectManagement"), object: nil)
-                            }
+                            action: onCreateProject
                         )
-                    } else if !hasCompletedTasks {
+                    } else if !viewModel.hasCompletedTasks {
                         emptyStateView(
                             icon: "checkmark.circle",
                             title: "Complete Tasks",
@@ -83,8 +84,8 @@ struct RadarChartCard: View {
                         )
                     } else {
                         RadarChartViewRepresentable(
-                            data: chartData,
-                            labels: chartLabels,
+                            data: viewModel.chartData,
+                            labels: viewModel.chartLabels,
                             referenceDate: referenceDate
                         )
                         .frame(height: 350)
@@ -98,16 +99,16 @@ struct RadarChartCard: View {
             }
         }
         .onAppear {
-            loadChartData()
+            viewModel.load(referenceDate: referenceDate)
         }
         .onChange(of: referenceDate) { _, _ in
-            loadChartData()
+            viewModel.load(referenceDate: referenceDate)
         }
         .onReceive(
             NotificationCenter.default.publisher(for: .homeTaskMutation)
                 .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
         ) { _ in
-            loadChartData()
+            viewModel.load(referenceDate: referenceDate)
         }
     }
 
@@ -159,112 +160,6 @@ struct RadarChartCard: View {
         )
     }
 
-    // MARK: - Data Loading
-
-    private func loadChartData() {
-        isLoading = true
-        guard let taskRepository = EnhancedDependencyContainer.shared.taskRepository else {
-            isLoading = false
-            return
-        }
-
-        guard let projectRepository = EnhancedDependencyContainer.shared.projectRepository else {
-            isLoading = false
-            return
-        }
-        var calendar = Calendar.autoupdatingCurrent
-        calendar.firstWeekday = 1
-
-        let currentReferenceDate = referenceDate ?? Date.today()
-        let week = calendar.daysWithSameWeekOfYear(as: currentReferenceDate)
-        guard let startOfWeek = week.first?.startOfDay,
-              let endOfWeek = week.last?.endOfDay else {
-            isLoading = false
-            return
-        }
-
-        projectRepository.fetchCustomProjects { projectResult in
-            switch projectResult {
-            case .failure(let error):
-                DispatchQueue.main.async {
-                    logWarning(
-                        event: "radar_project_fetch_failed",
-                        message: "Failed to fetch projects for radar chart",
-                        fields: ["error": error.localizedDescription]
-                    )
-                    self.chartData = []
-                    self.chartLabels = []
-                    self.hasCustomProjects = false
-                    self.hasCompletedTasks = false
-                    self.isLoading = false
-                }
-            case .success(let projects):
-                let customProjects = projects.filter { !$0.isArchived && !$0.isInbox }
-                guard customProjects.isEmpty == false else {
-                    DispatchQueue.main.async {
-                        self.chartData = []
-                        self.chartLabels = []
-                        self.hasCustomProjects = false
-                        self.hasCompletedTasks = false
-                        withAnimation(TaskerAnimation.gentle) {
-                            self.isLoading = false
-                        }
-                    }
-                    return
-                }
-
-                taskRepository.fetchAllTasks { taskResult in
-                    DispatchQueue.main.async {
-                        switch taskResult {
-                        case .failure(let error):
-                            logWarning(
-                                event: "radar_task_fetch_failed",
-                                message: "Failed to fetch tasks for radar chart",
-                                fields: ["error": error.localizedDescription]
-                            )
-                            self.chartData = []
-                            self.chartLabels = []
-                            self.hasCustomProjects = true
-                            self.hasCompletedTasks = false
-                            self.isLoading = false
-                        case .success(let tasks):
-                            var scoreByProjectID: [UUID: Int] = [:]
-                            let customProjectIDs = Set(customProjects.map(\.id))
-
-                            for task in tasks where task.isComplete {
-                                guard customProjectIDs.contains(task.projectID) else { continue }
-                                guard let completedAt = task.dateCompleted else { continue }
-                                guard completedAt >= startOfWeek && completedAt <= endOfWeek else { continue }
-                                scoreByProjectID[task.projectID, default: 0] += task.priority.scorePoints
-                            }
-
-                            let sortedProjects = customProjects
-                                .sorted { lhs, rhs in
-                                    let lhsScore = scoreByProjectID[lhs.id, default: 0]
-                                    let rhsScore = scoreByProjectID[rhs.id, default: 0]
-                                    if lhsScore == rhsScore {
-                                        return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-                                    }
-                                    return lhsScore > rhsScore
-                                }
-                                .prefix(5)
-
-                            self.chartLabels = sortedProjects.map(\.name)
-                            self.chartData = sortedProjects.map { project in
-                                RadarChartDataEntry(value: Double(scoreByProjectID[project.id, default: 0]))
-                            }
-                            self.hasCustomProjects = true
-                            self.hasCompletedTasks = self.chartData.contains(where: { $0.value > 0 })
-
-                            withAnimation(TaskerAnimation.gentle) {
-                                self.isLoading = false
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Radar Chart View Representable
@@ -431,16 +326,74 @@ class RadarXAxisFormatter: AxisValueFormatter {
 
 struct RadarChartCard_Previews: PreviewProvider {
     static var previews: some View {
+        let previewTaskRepository = PreviewRadarTaskRepository()
+        let previewProjectRepository = PreviewRadarProjectRepository()
+        let viewModel = RadarChartCardViewModel(
+            taskRepository: previewTaskRepository,
+            projectRepository: previewProjectRepository
+        )
         VStack(spacing: 20) {
-            RadarChartCard()
+            RadarChartCard(
+                onCreateProject: {},
+                viewModel: viewModel
+            )
 
             RadarChartCard(
                 title: "Custom Radar",
-                subtitle: "Custom subtitle"
+                subtitle: "Custom subtitle",
+                onCreateProject: {},
+                viewModel: viewModel
             )
         }
         .padding()
         .background(Color(.systemGroupedBackground))
         .previewLayout(.sizeThatFits)
     }
+}
+
+private final class PreviewRadarTaskRepository: TaskRepositoryProtocol {
+    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
+    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
+    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+}
+
+private final class PreviewRadarProjectRepository: ProjectRepositoryProtocol {
+    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+        completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
+    }
+    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
+    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
 }

@@ -3,6 +3,7 @@ import FluentUI
 
 struct SettingsView: View {
     private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
+    private let projectManagementDestination: AnyView
 
     @Environment(\.presentationMode) var presentationMode // To dismiss the view later
     // State to track the current mode, initialized based on system's current style
@@ -17,11 +18,21 @@ struct SettingsView: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "N/A"
     }
 
+    init(
+        projectManagementDestination: AnyView = AnyView(
+            Text("Project management requires injected dependencies.")
+                .foregroundColor(.secondary)
+                .padding()
+        )
+    ) {
+        self.projectManagementDestination = projectManagementDestination
+    }
+
     var body: some View {
         NavigationView {
             Form { // Using Form for grouped table view style
                 Section(header: Text("Projects").foregroundColor(Color(uiColor: todoColors.accentPrimary))) {
-                    NavigationLink(destination: ProjectManagementView()) { // NEW
+                    NavigationLink(destination: projectManagementDestination) {
                         Text("Manage Projects") // Standard text color
                     }
                 }

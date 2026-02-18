@@ -28,6 +28,7 @@ private enum TaskDetailAutosaveState: Equatable {
         }
     }
 
+    @MainActor
     var color: Color {
         switch self {
         case .idle:

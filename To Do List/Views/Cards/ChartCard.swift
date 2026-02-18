@@ -9,22 +9,26 @@
 import SwiftUI
 import DGCharts
 import UIKit
-import Combine
 
 // MARK: - Chart Card
 struct ChartCard: View {
     let title: String
     let subtitle: String?
     let referenceDate: Date?
-    @State private var chartData: [ChartDataEntry] = []
-    @State private var isLoading = true
+    @StateObject private var viewModel: ChartCardViewModel
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
     
-    init(title: String = "Weekly Progress", subtitle: String? = "Task completion scores", referenceDate: Date? = nil) {
+    init(
+        title: String = "Weekly Progress",
+        subtitle: String? = "Task completion scores",
+        referenceDate: Date? = nil,
+        viewModel: ChartCardViewModel
+    ) {
         self.title = title
         self.subtitle = subtitle
         self.referenceDate = referenceDate
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
     
     public var body: some View {
@@ -48,7 +52,7 @@ struct ChartCard: View {
                 .accessibilityElement(children: .combine)
 
                 ZStack {
-                    if isLoading {
+                    if viewModel.isLoading {
                         RoundedRectangle(cornerRadius: corner.input)
                             .fill(Color.tasker.surfaceSecondary)
                             .frame(height: 200)
@@ -57,7 +61,7 @@ struct ChartCard: View {
                                     .scaleEffect(1.2)
                             )
                     } else {
-                        LineChartViewRepresentable(data: chartData, referenceDate: referenceDate)
+                        LineChartViewRepresentable(data: viewModel.chartData, referenceDate: referenceDate)
                             .frame(height: 200)
                             .background(
                                 RoundedRectangle(cornerRadius: corner.input)
@@ -69,73 +73,17 @@ struct ChartCard: View {
             }
         }
         .onAppear {
-            loadChartData()
+            viewModel.load(referenceDate: referenceDate)
         }
         .onChange(of: referenceDate) { _, _ in
-            loadChartData()
+            viewModel.load(referenceDate: referenceDate)
         }
         .onReceive(
             NotificationCenter.default.publisher(for: .homeTaskMutation)
                 .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
         ) { _ in
             logDebug("📡 ChartCard: Received HomeTaskMutationEvent - reloading chart data")
-            loadChartData()
-        }
-    }
-    
-    private func loadChartData() {
-        isLoading = true
-        guard let repository = EnhancedDependencyContainer.shared.taskRepository else {
-            isLoading = false
-            return
-        }
-
-        var calendar = Calendar.autoupdatingCurrent
-        calendar.firstWeekday = 1
-
-        let currentReferenceDate = referenceDate ?? Date.today()
-        let week = calendar.daysWithSameWeekOfYear(as: currentReferenceDate)
-        guard let weekStart = week.first?.startOfDay,
-              let weekEnd = week.last?.endOfDay else {
-            isLoading = false
-            return
-        }
-
-        repository.fetchTasks(from: weekStart, to: weekEnd) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let tasks):
-                    let today = Date.today().startOfDay
-                    var dayScores: [Date: Int] = [:]
-                    for task in tasks where task.isComplete {
-                        guard let completedDay = task.dateCompleted?.startOfDay else { continue }
-                        dayScores[completedDay, default: 0] += task.priority.scorePoints
-                    }
-
-                    let entries = week.enumerated().map { index, day in
-                        let score: Int
-                        if day.startOfDay > today {
-                            score = 0
-                        } else {
-                            score = max(0, dayScores[day.startOfDay] ?? 0)
-                        }
-                        return ChartDataEntry(x: Double(index), y: Double(score))
-                    }
-
-                    self.chartData = entries
-                    withAnimation(TaskerAnimation.gentle) {
-                        self.isLoading = false
-                    }
-                case .failure(let error):
-                    logWarning(
-                        event: "chart_card_fetch_failed",
-                        message: "Failed to fetch weekly tasks for chart card",
-                        fields: ["error": error.localizedDescription]
-                    )
-                    self.chartData = []
-                    self.isLoading = false
-                }
-            }
+            viewModel.load(referenceDate: referenceDate)
         }
     }
 
@@ -290,16 +238,19 @@ struct LineChartViewRepresentable: UIViewRepresentable {
 // MARK: - Task Progress Card
 public struct TaskProgressCard: View {
     let referenceDate: Date?
+    let viewModel: ChartCardViewModel
     
-    public init(referenceDate: Date? = nil) {
+    init(referenceDate: Date? = nil, viewModel: ChartCardViewModel) {
         self.referenceDate = referenceDate
+        self.viewModel = viewModel
     }
     
     public var body: some View {
         ChartCard(
             title: "Weekly Progress",
             subtitle: "Task completion scores",
-            referenceDate: referenceDate
+            referenceDate: referenceDate,
+            viewModel: viewModel
         )
     }
 }
@@ -307,16 +258,46 @@ public struct TaskProgressCard: View {
 // MARK: - Preview
 struct ChartCard_Previews: PreviewProvider {
     static var previews: some View {
+        let previewRepository = PreviewTaskRepository()
+        let viewModel = ChartCardViewModel(taskRepository: previewRepository)
         VStack(spacing: 20) {
-            TaskProgressCard()
+            TaskProgressCard(viewModel: viewModel)
             
             ChartCard(
                 title: "Custom Chart",
-                subtitle: "Custom subtitle"
+                subtitle: "Custom subtitle",
+                viewModel: viewModel
             )
         }
         .padding()
         .background(Color(.systemGroupedBackground))
         .previewLayout(.sizeThatFits)
     }
+}
+
+private final class PreviewTaskRepository: TaskRepositoryProtocol {
+    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
+    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
+    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
+    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
 }

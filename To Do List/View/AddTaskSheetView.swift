@@ -50,26 +50,3 @@ public struct AddTaskSheetView: View {
         }
     }
 }
-
-// MARK: - Convenience Initializer
-
-public extension AddTaskSheetView {
-    /// Creates AddTaskSheetView with default ViewModel from dependency container
-    static func make() -> AddTaskSheetView {
-        AddTaskSheetView(
-            viewModel: PresentationDependencyContainer.shared.makeNewAddTaskViewModel()
-        )
-    }
-}
-
-// MARK: - Preview
-
-#if DEBUG
-struct AddTaskSheetView_Previews: PreviewProvider {
-    static var previews: some View {
-        AddTaskSheetView.make()
-            .previewLayout(.device)
-            .preferredColorScheme(.dark)
-    }
-}
-#endif
