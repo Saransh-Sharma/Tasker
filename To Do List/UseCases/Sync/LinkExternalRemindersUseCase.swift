@@ -105,6 +105,7 @@ public final class LinkExternalRemindersUseCase {
                         externalPersistentID: item.externalPersistentID,
                         lastSeenExternalModAt: item.externalModifiedAt,
                         externalPayloadData: item.externalPayloadData,
+                        syncStateData: self.initialSyncStateData(for: item),
                         createdAt: Date()
                     )
                     group.enter()
@@ -317,5 +318,19 @@ public final class LinkExternalRemindersUseCase {
             code: 403,
             userInfo: [NSLocalizedDescriptionKey: "Apple Reminders sync is disabled by feature flag"]
         )
+    }
+
+    private func initialSyncStateData(for item: ImportedReminderItem) -> Data? {
+        let modifiedAt = item.externalModifiedAt ?? Date()
+        let clock = SyncClock(
+            physicalMillis: Int64(modifiedAt.timeIntervalSince1970 * 1_000),
+            logicalCounter: 0,
+            nodeID: "remote.apple_reminders"
+        )
+        var mergeState = ReminderMergeState(lastWriteClock: clock)
+        for field in ReminderScalarField.allCases {
+            mergeState.fieldClocks[field] = clock
+        }
+        return mergeState.encodedData()
     }
 }

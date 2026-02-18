@@ -51,15 +51,22 @@ public final class ReconcileExternalRemindersUseCase {
     private let externalRepository: ExternalSyncRepositoryProtocol
     private let remindersProvider: AppleRemindersProviderProtocol?
     private let taskRepository: TaskDefinitionRepositoryProtocol?
+    private let nodeID: String
+    private let mergeEngine: ReminderMergeEngine
 
     public init(
         externalRepository: ExternalSyncRepositoryProtocol,
         remindersProvider: AppleRemindersProviderProtocol? = nil,
-        taskRepository: TaskDefinitionRepositoryProtocol? = nil
+        taskRepository: TaskDefinitionRepositoryProtocol? = nil,
+        nodeID: String = ReconcileExternalRemindersUseCase.defaultNodeID(),
+        mergeEngine: ReminderMergeEngine = ReminderMergeEngine()
     ) {
         self.externalRepository = externalRepository
         self.remindersProvider = remindersProvider
         self.taskRepository = taskRepository
+        let normalizedNodeID = nodeID.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.nodeID = normalizedNodeID.isEmpty ? ReconcileExternalRemindersUseCase.defaultNodeID() : normalizedNodeID
+        self.mergeEngine = mergeEngine
     }
 
     public func execute(completion: @escaping (Result<Int, Error>) -> Void) {
@@ -132,6 +139,7 @@ public final class ReconcileExternalRemindersUseCase {
                         externalPersistentID: snapshot.externalPersistentID,
                         lastSeenExternalModAt: snapshot.externalModifiedAt,
                         externalPayloadData: snapshot.externalPayloadData ?? existing?.externalPayloadData,
+                        syncStateData: existing?.syncStateData ?? ReminderMergeState().encodedData(),
                         createdAt: existing?.createdAt ?? Date()
                     )
 
@@ -264,6 +272,7 @@ public final class ReconcileExternalRemindersUseCase {
         var taskByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
         var mappingByLocalID = Dictionary(uniqueKeysWithValues: itemMappings.map { ($0.localEntityID, $0) })
         var mappingByExternalID = Dictionary(uniqueKeysWithValues: itemMappings.map { ($0.externalItemID, $0) })
+        let externalByID = Dictionary(uniqueKeysWithValues: externalReminders.map { ($0.itemID, $0) })
         var seenLocalIDs = Set<UUID>()
 
         let group = DispatchGroup()
@@ -273,78 +282,186 @@ public final class ReconcileExternalRemindersUseCase {
         for external in externalReminders {
             if let mapping = mappingByExternalID[external.itemID] {
                 seenLocalIDs.insert(mapping.localEntityID)
-                guard var localTask = taskByID[mapping.localEntityID], mapping.localEntityType == "task" else {
+                guard mapping.localEntityType == "task" else {
                     continue
                 }
 
-                let remoteModified = external.lastModifiedAt ?? .distantPast
-                let mappedModified = mapping.lastSeenExternalModAt ?? .distantPast
-                let localModified = localModificationDate(task: localTask)
+                let existingEnvelope = mergeEngine.decodeEnvelope(data: mapping.externalPayloadData)
+                let priorKnown = existingEnvelope?.known
+                let remoteKnown = knownFields(from: external)
+                let remoteClock = remoteSyncClock(for: external, provider: mapping.provider)
 
-                if remoteModified > max(mappedModified, localModified) {
-                    localTask.name = external.title
-                    localTask.details = external.notes
-                    localTask.dueDate = external.dueDate
-                    localTask.isComplete = external.isCompleted
-                    localTask.dateCompleted = external.completionDate
-                    localTask.priority = priorityFromEventKit(external.priority)
-                    localTask.updatedAt = Date()
-
+                guard let localTask = taskByID[mapping.localEntityID] else {
                     group.enter()
-                    taskRepository.update(localTask) { updateResult in
-                        switch updateResult {
-                        case .failure(let error):
+                    remindersProvider.deleteReminder(itemID: external.itemID) { deleteResult in
+                        if case .failure(let error) = deleteResult {
                             lock.lock()
                             firstError = firstError ?? error
                             lock.unlock()
+                        }
+                        var updated = mapping
+                        var state = ReminderMergeState.decode(from: mapping.syncStateData)
+                        state.tombstoneClock = self.maxClock(state.tombstoneClock, remoteClock)
+                        state.lastWriteClock = self.maxClock(state.lastWriteClock, remoteClock)
+                        updated.syncStateData = state.encodedData()
+                        self.externalRepository.saveItemMapping(updated) { saveResult in
+                            lock.lock()
+                            if case .failure(let error) = saveResult {
+                                firstError = firstError ?? error
+                            } else {
+                                mappingByLocalID[mapping.localEntityID] = updated
+                            }
+                            lock.unlock()
                             group.leave()
-                        case .success(let updated):
-                            taskByID[updated.id] = updated
-                            var updatedMap = mapping
-                            updatedMap.lastSeenExternalModAt = external.lastModifiedAt
-                            updatedMap.externalPayloadData = external.payloadData
+                        }
+                    }
+                    continue
+                }
+
+                let localKnown = knownFields(
+                    from: localTask,
+                    fallbackURL: priorKnown?.urlString,
+                    alarmDates: priorKnown?.alarmDates ?? []
+                )
+                let mergeResult = mergeEngine.merge(
+                    input: ReminderMergeEngine.MergeInput(
+                        nodeID: nodeID,
+                        provider: mapping.provider,
+                        localObservedAt: localModificationDate(task: localTask),
+                        remoteClock: remoteClock,
+                        state: ReminderMergeState.decode(from: mapping.syncStateData),
+                        previousKnown: priorKnown,
+                        localKnown: localKnown,
+                        remoteKnown: remoteKnown,
+                        hasRemoteItem: true,
+                        lastSeenRemoteModification: external.lastModifiedAt
+                    )
+                )
+
+                var updatedMap = mapping
+                updatedMap.syncStateData = mergeResult.state.encodedData()
+                updatedMap.lastSeenExternalModAt = external.lastModifiedAt
+
+                switch mergeResult.tombstoneDecision {
+                case .applyDelete:
+                    group.enter()
+                    taskRepository.delete(id: localTask.id) { deleteLocalResult in
+                        if case .failure(let error) = deleteLocalResult {
+                            lock.lock()
+                            firstError = firstError ?? error
+                            lock.unlock()
+                        }
+                        remindersProvider.deleteReminder(itemID: external.itemID) { deleteRemoteResult in
+                            if case .failure(let error) = deleteRemoteResult {
+                                lock.lock()
+                                firstError = firstError ?? error
+                                lock.unlock()
+                            }
                             self.externalRepository.saveItemMapping(updatedMap) { saveResult in
                                 lock.lock()
                                 if case .failure(let error) = saveResult {
                                     firstError = firstError ?? error
-                                } else {
-                                    summary.pulledFromExternal += 1
-                                    mappingByLocalID[updated.id] = updatedMap
-                                    mappingByExternalID[updatedMap.externalItemID] = updatedMap
                                 }
+                                taskByID.removeValue(forKey: localTask.id)
+                                mappingByLocalID[localTask.id] = updatedMap
                                 lock.unlock()
                                 group.leave()
                             }
                         }
                     }
-                } else if localModified > max(remoteModified, mappedModified) {
+
+                case .keep, .resurrect:
+                    var mergedTask = localTask
+                    applyKnownFields(mergeResult.known, to: &mergedTask)
+                    mergedTask.updatedAt = Date()
+
+                    let shouldUpdateLocal = localKnown != mergeResult.known
+                    let shouldUpdateRemote = remoteKnown != mergeResult.known
+                    let remoteEnvelope = mergeEngine.decodeEnvelope(data: external.payloadData)
+                    let payloadData = mergeEngine.encodeEnvelope(
+                        known: mergeResult.known,
+                        preferredPassthroughData: remoteEnvelope?.passthroughData
+                            ?? (remoteEnvelope == nil ? external.payloadData : nil),
+                        fallbackPassthroughData: existingEnvelope?.passthroughData
+                            ?? (existingEnvelope == nil ? mapping.externalPayloadData : nil)
+                    )
+
                     group.enter()
-                    let localSnapshot = snapshot(from: localTask, listID: listID, existingExternalID: external.itemID)
-                    remindersProvider.upsertReminder(listID: listID, snapshot: localSnapshot) { upsertResult in
-                        switch upsertResult {
-                        case .failure(let error):
+
+                    let persistMapAfterUpdate: (_ remoteSnapshot: AppleReminderItemSnapshot?) -> Void = { remoteSnapshot in
+                        updatedMap.externalPayloadData = remoteSnapshot.map {
+                            self.payloadDataForPersistedRemote(
+                                remote: $0,
+                                fallbackPayloadData: payloadData
+                            )
+                        } ?? payloadData
+                        if let remoteSnapshot {
+                            updatedMap.externalItemID = remoteSnapshot.itemID
+                            updatedMap.lastSeenExternalModAt = remoteSnapshot.lastModifiedAt
+                        }
+                        self.externalRepository.saveItemMapping(updatedMap) { saveResult in
                             lock.lock()
-                            firstError = firstError ?? error
+                            if case .failure(let error) = saveResult {
+                                firstError = firstError ?? error
+                            } else {
+                                mappingByLocalID[mergedTask.id] = updatedMap
+                                mappingByExternalID[updatedMap.externalItemID] = updatedMap
+                            }
                             lock.unlock()
                             group.leave()
-                        case .success(let persistedRemote):
-                            var updatedMap = mapping
-                            updatedMap.externalItemID = persistedRemote.itemID
-                            updatedMap.lastSeenExternalModAt = persistedRemote.lastModifiedAt
-                            updatedMap.externalPayloadData = persistedRemote.payloadData
-                            self.externalRepository.saveItemMapping(updatedMap) { saveResult in
+                        }
+                    }
+
+                    let updateRemoteIfNeeded: () -> Void = {
+                        guard shouldUpdateRemote else {
+                            persistMapAfterUpdate(nil)
+                            return
+                        }
+                        let mergedSnapshot = self.snapshot(
+                            from: mergedTask,
+                            listID: listID,
+                            existingExternalID: external.itemID,
+                            payloadData: payloadData,
+                            alarmDates: mergeResult.known.alarmDates,
+                            overrideURL: mergeResult.known.urlString
+                        )
+                        remindersProvider.upsertReminder(listID: listID, snapshot: mergedSnapshot) { upsertResult in
+                            switch upsertResult {
+                            case .failure(let error):
                                 lock.lock()
-                                if case .failure(let error) = saveResult {
-                                    firstError = firstError ?? error
-                                } else {
-                                    summary.pushedToExternal += 1
-                                    mappingByLocalID[localTask.id] = updatedMap
-                                    mappingByExternalID[updatedMap.externalItemID] = updatedMap
-                                }
+                                firstError = firstError ?? error
                                 lock.unlock()
-                                group.leave()
+                                persistMapAfterUpdate(nil)
+                            case .success(let persistedRemote):
+                                lock.lock()
+                                summary.pushedToExternal += 1
+                                lock.unlock()
+                                persistMapAfterUpdate(persistedRemote)
                             }
                         }
+                    }
+
+                    if shouldUpdateLocal {
+                        taskRepository.update(mergedTask) { updateResult in
+                            switch updateResult {
+                            case .failure(let error):
+                                lock.lock()
+                                firstError = firstError ?? error
+                                lock.unlock()
+                                group.leave()
+                            case .success(let updated):
+                                taskByID[updated.id] = updated
+                                if remoteKnown != mergeResult.known {
+                                    lock.lock()
+                                    summary.pulledFromExternal += 1
+                                    lock.unlock()
+                                }
+                                mergedTask = updated
+                                updateRemoteIfNeeded()
+                            }
+                        }
+                    } else {
+                        updateRemoteIfNeeded()
                     }
                 }
             } else {
@@ -359,7 +476,8 @@ public final class ReconcileExternalRemindersUseCase {
                         externalItemID: external.itemID,
                         externalPersistentID: nil,
                         lastSeenExternalModAt: external.lastModifiedAt,
-                        externalPayloadData: external.payloadData,
+                        externalPayloadData: payloadDataForPersistedRemote(remote: external, fallbackPayloadData: external.payloadData),
+                        syncStateData: initialMergeStateForRemote(external).encodedData(),
                         createdAt: Date()
                     )
                     group.enter()
@@ -406,7 +524,8 @@ public final class ReconcileExternalRemindersUseCase {
                                 externalItemID: external.itemID,
                                 externalPersistentID: nil,
                                 lastSeenExternalModAt: external.lastModifiedAt,
-                                externalPayloadData: external.payloadData,
+                                externalPayloadData: self.payloadDataForPersistedRemote(remote: external, fallbackPayloadData: external.payloadData),
+                                syncStateData: self.initialMergeStateForRemote(external).encodedData(),
                                 createdAt: Date()
                             )
                             self.externalRepository.saveItemMapping(newMap) { saveResult in
@@ -427,10 +546,168 @@ public final class ReconcileExternalRemindersUseCase {
             }
         }
 
+        // Remote delete/tombstone handling for mapped items that disappeared remotely.
+        for mapping in mappingByLocalID.values where externalByID[mapping.externalItemID] == nil {
+            guard mapping.localEntityType == "task" else { continue }
+            let existingEnvelope = mergeEngine.decodeEnvelope(data: mapping.externalPayloadData)
+            let remoteClock = remoteSyncClock(for: mapping, provider: mapping.provider)
+            let localTask = taskByID[mapping.localEntityID]
+            let priorKnown = existingEnvelope?.known
+            let localKnown: ReminderMergeEnvelope.KnownFields
+            if let localTask {
+                localKnown = knownFields(
+                    from: localTask,
+                    fallbackURL: existingEnvelope?.known.urlString,
+                    alarmDates: existingEnvelope?.known.alarmDates ?? []
+                )
+            } else if let priorKnown {
+                // Local deletion should not synthesize a new local write for every scalar field.
+                localKnown = priorKnown
+            } else {
+                localKnown = knownFields(
+                    from: nil,
+                    fallbackURL: existingEnvelope?.known.urlString,
+                    alarmDates: existingEnvelope?.known.alarmDates ?? []
+                )
+            }
+
+            let mergeResult = mergeEngine.merge(
+                input: ReminderMergeEngine.MergeInput(
+                    nodeID: nodeID,
+                    provider: mapping.provider,
+                    localObservedAt: localTask.map { self.localModificationDate(task: $0) } ?? Date(),
+                    remoteClock: remoteClock,
+                    state: ReminderMergeState.decode(from: mapping.syncStateData),
+                    previousKnown: priorKnown,
+                    localKnown: localKnown,
+                    remoteKnown: priorKnown ?? localKnown,
+                    hasRemoteItem: false,
+                    lastSeenRemoteModification: mapping.lastSeenExternalModAt
+                )
+            )
+
+            var updatedMap = mapping
+            updatedMap.syncStateData = mergeResult.state.encodedData()
+
+            switch mergeResult.tombstoneDecision {
+            case .applyDelete:
+                guard let localTask else {
+                    group.enter()
+                    self.externalRepository.saveItemMapping(updatedMap) { saveResult in
+                        lock.lock()
+                        if case .failure(let error) = saveResult {
+                            firstError = firstError ?? error
+                        }
+                        lock.unlock()
+                        group.leave()
+                    }
+                    continue
+                }
+                group.enter()
+                taskRepository.delete(id: localTask.id) { deleteResult in
+                    if case .failure(let error) = deleteResult {
+                        lock.lock()
+                        firstError = firstError ?? error
+                        lock.unlock()
+                    }
+                    self.externalRepository.saveItemMapping(updatedMap) { saveResult in
+                        lock.lock()
+                        if case .failure(let error) = saveResult {
+                            firstError = firstError ?? error
+                        } else {
+                            taskByID.removeValue(forKey: localTask.id)
+                        }
+                        lock.unlock()
+                        group.leave()
+                    }
+                }
+
+            case .resurrect:
+                guard let localTask else {
+                    group.enter()
+                    self.externalRepository.saveItemMapping(updatedMap) { saveResult in
+                        lock.lock()
+                        if case .failure(let error) = saveResult {
+                            firstError = firstError ?? error
+                        }
+                        lock.unlock()
+                        group.leave()
+                    }
+                    continue
+                }
+                group.enter()
+                let payloadData = payloadDataForLocalTask(
+                    task: localTask,
+                    alarmDates: mergeResult.known.alarmDates,
+                    existingPayloadData: mapping.externalPayloadData,
+                    overrideURL: mergeResult.known.urlString
+                )
+                let localSnapshot = snapshot(
+                    from: localTask,
+                    listID: listID,
+                    existingExternalID: "",
+                    payloadData: payloadData,
+                    alarmDates: mergeResult.known.alarmDates,
+                    overrideURL: mergeResult.known.urlString
+                )
+                remindersProvider.upsertReminder(listID: listID, snapshot: localSnapshot) { upsertResult in
+                    switch upsertResult {
+                    case .failure(let error):
+                        lock.lock()
+                        firstError = firstError ?? error
+                        lock.unlock()
+                        group.leave()
+                    case .success(let remote):
+                        updatedMap.externalItemID = remote.itemID
+                        updatedMap.lastSeenExternalModAt = remote.lastModifiedAt
+                        updatedMap.externalPayloadData = self.payloadDataForPersistedRemote(
+                            remote: remote,
+                            fallbackPayloadData: localSnapshot.payloadData
+                        )
+                        self.externalRepository.saveItemMapping(updatedMap) { saveResult in
+                            lock.lock()
+                            if case .failure(let error) = saveResult {
+                                firstError = firstError ?? error
+                            } else {
+                                summary.pushedToExternal += 1
+                                mappingByExternalID[updatedMap.externalItemID] = updatedMap
+                            }
+                            lock.unlock()
+                            group.leave()
+                        }
+                    }
+                }
+
+            case .keep:
+                group.enter()
+                self.externalRepository.saveItemMapping(updatedMap) { saveResult in
+                    lock.lock()
+                    if case .failure(let error) = saveResult {
+                        firstError = firstError ?? error
+                    }
+                    lock.unlock()
+                    group.leave()
+                }
+            }
+        }
+
         // Push local tasks that are still unmapped.
         for task in taskByID.values where mappingByLocalID[task.id] == nil && !seenLocalIDs.contains(task.id) {
             group.enter()
-            let localSnapshot = snapshot(from: task, listID: listID, existingExternalID: "")
+            let payloadData = payloadDataForLocalTask(
+                task: task,
+                alarmDates: [],
+                existingPayloadData: nil,
+                overrideURL: nil
+            )
+            let localSnapshot = snapshot(
+                from: task,
+                listID: listID,
+                existingExternalID: "",
+                payloadData: payloadData,
+                alarmDates: [],
+                overrideURL: nil
+            )
             remindersProvider.upsertReminder(listID: listID, snapshot: localSnapshot) { upsertResult in
                 switch upsertResult {
                 case .failure(let error):
@@ -447,7 +724,8 @@ public final class ReconcileExternalRemindersUseCase {
                         externalItemID: remote.itemID,
                         externalPersistentID: nil,
                         lastSeenExternalModAt: remote.lastModifiedAt,
-                        externalPayloadData: remote.payloadData,
+                        externalPayloadData: self.payloadDataForPersistedRemote(remote: remote, fallbackPayloadData: localSnapshot.payloadData),
+                        syncStateData: self.initialMergeStateForLocal(task).encodedData(),
                         createdAt: Date()
                     )
                     self.externalRepository.saveItemMapping(mapping) { saveResult in
@@ -513,8 +791,142 @@ public final class ReconcileExternalRemindersUseCase {
             .max() ?? task.updatedAt
     }
 
-    private func snapshot(from task: TaskDefinition, listID: String, existingExternalID: String) -> AppleReminderItemSnapshot {
-        AppleReminderItemSnapshot(
+    private func localSyncClock(task: TaskDefinition, base: SyncClock?) -> SyncClock {
+        let observedMillis = Int64(localModificationDate(task: task).timeIntervalSince1970 * 1_000)
+        return SyncClock.next(nodeID: nodeID, base: base, observedMillis: observedMillis)
+    }
+
+    private func remoteSyncClock(for reminder: AppleReminderItemSnapshot, provider: String) -> SyncClock {
+        let modifiedAt = reminder.lastModifiedAt ?? Date()
+        let millis = Int64(modifiedAt.timeIntervalSince1970 * 1_000)
+        return SyncClock(
+            physicalMillis: millis,
+            logicalCounter: 0,
+            nodeID: "remote.\(provider)"
+        )
+    }
+
+    private func remoteSyncClock(for mapping: ExternalItemMapDefinition, provider: String) -> SyncClock {
+        let modifiedAt = mapping.lastSeenExternalModAt ?? Date()
+        let millis = Int64(modifiedAt.timeIntervalSince1970 * 1_000)
+        return SyncClock(
+            physicalMillis: millis,
+            logicalCounter: 0,
+            nodeID: "remote.\(provider)"
+        )
+    }
+
+    private func markAllScalarClocks(state: inout ReminderMergeState, clock: SyncClock) {
+        for field in ReminderScalarField.allCases {
+            state.fieldClocks[field] = clock
+        }
+    }
+
+    private func maxClock(_ lhs: SyncClock?, _ rhs: SyncClock?) -> SyncClock {
+        switch (lhs, rhs) {
+        case let (lhs?, rhs?):
+            return lhs > rhs ? lhs : rhs
+        case let (lhs?, nil):
+            return lhs
+        case let (nil, rhs?):
+            return rhs
+        case (nil, nil):
+            return SyncClock(physicalMillis: 0, logicalCounter: 0, nodeID: nodeID)
+        }
+    }
+
+    private func decodeMergeEnvelope(data: Data?) -> ReminderMergeEnvelope? {
+        mergeEngine.decodeEnvelope(data: data)
+    }
+
+    private func encodedMergeEnvelope(
+        known: ReminderMergeEnvelope.KnownFields,
+        preferredPassthroughData: Data?,
+        fallbackPassthroughData: Data?
+    ) -> Data? {
+        mergeEngine.encodeEnvelope(
+            known: known,
+            preferredPassthroughData: preferredPassthroughData,
+            fallbackPassthroughData: fallbackPassthroughData
+        )
+    }
+
+    private func payloadDataForLocalTask(
+        task: TaskDefinition,
+        alarmDates: [Date],
+        existingPayloadData: Data?,
+        overrideURL: String?
+    ) -> Data? {
+        let existingEnvelope = decodeMergeEnvelope(data: existingPayloadData)
+        let known = ReminderMergeEnvelope.KnownFields(
+            title: task.name,
+            notes: task.details,
+            dueDate: task.dueDate,
+            completionDate: task.dateCompleted,
+            isCompleted: task.isComplete,
+            priority: eventKitPriority(from: task.priority),
+            urlString: overrideURL ?? existingEnvelope?.known.urlString,
+            alarmDates: alarmDates
+        )
+        return encodedMergeEnvelope(
+            known: known,
+            preferredPassthroughData: existingEnvelope?.passthroughData,
+            fallbackPassthroughData: existingEnvelope == nil ? existingPayloadData : nil
+        )
+    }
+
+    private func payloadDataForPersistedRemote(
+        remote: AppleReminderItemSnapshot,
+        fallbackPayloadData: Data?
+    ) -> Data? {
+        let remoteEnvelope = decodeMergeEnvelope(data: remote.payloadData)
+        let fallbackEnvelope = decodeMergeEnvelope(data: fallbackPayloadData)
+        let known = ReminderMergeEnvelope.KnownFields(
+            title: remote.title,
+            notes: remote.notes,
+            dueDate: remote.dueDate,
+            completionDate: remote.completionDate,
+            isCompleted: remote.isCompleted,
+            priority: remote.priority,
+            urlString: remote.urlString ?? remoteEnvelope?.known.urlString ?? fallbackEnvelope?.known.urlString,
+            alarmDates: remote.alarmDates
+        )
+        return encodedMergeEnvelope(
+            known: known,
+            preferredPassthroughData: remoteEnvelope?.passthroughData
+                ?? (remoteEnvelope == nil ? remote.payloadData : nil),
+            fallbackPassthroughData: fallbackEnvelope?.passthroughData
+                ?? (fallbackEnvelope == nil ? fallbackPayloadData : nil)
+        )
+    }
+
+    private func initialMergeStateForRemote(_ remote: AppleReminderItemSnapshot) -> ReminderMergeState {
+        let clock = remoteSyncClock(for: remote, provider: "apple_reminders")
+        var state = ReminderMergeState(lastWriteClock: clock)
+        markAllScalarClocks(state: &state, clock: clock)
+        for key in remote.alarmDates.map(ReminderMergeEngine.alarmDateKey) {
+            state.alarmAddSet[key] = clock
+        }
+        return state
+    }
+
+    private func initialMergeStateForLocal(_ task: TaskDefinition) -> ReminderMergeState {
+        let clock = localSyncClock(task: task, base: nil)
+        var state = ReminderMergeState(lastWriteClock: clock)
+        markAllScalarClocks(state: &state, clock: clock)
+        return state
+    }
+
+    private func snapshot(
+        from task: TaskDefinition,
+        listID: String,
+        existingExternalID: String,
+        payloadData: Data?,
+        alarmDates: [Date],
+        overrideURL: String?
+    ) -> AppleReminderItemSnapshot {
+        let payloadEnvelope = decodeMergeEnvelope(data: payloadData)
+        return AppleReminderItemSnapshot(
             itemID: existingExternalID,
             calendarID: listID,
             title: task.name,
@@ -523,11 +935,73 @@ public final class ReconcileExternalRemindersUseCase {
             completionDate: task.dateCompleted,
             isCompleted: task.isComplete,
             priority: eventKitPriority(from: task.priority),
-            urlString: nil,
-            alarmDates: [],
+            urlString: overrideURL ?? payloadEnvelope?.known.urlString,
+            alarmDates: alarmDates,
             lastModifiedAt: nil,
-            payloadData: nil
+            payloadData: payloadData
         )
+    }
+
+    private func knownFields(
+        from task: TaskDefinition?,
+        fallbackURL: String?,
+        alarmDates: [Date]
+    ) -> ReminderMergeEnvelope.KnownFields {
+        guard let task else {
+            return ReminderMergeEnvelope.KnownFields(
+                title: "",
+                notes: nil,
+                dueDate: nil,
+                completionDate: nil,
+                isCompleted: false,
+                priority: 0,
+                urlString: fallbackURL,
+                alarmDates: alarmDates
+            )
+        }
+        return ReminderMergeEnvelope.KnownFields(
+            title: task.name,
+            notes: task.details,
+            dueDate: task.dueDate,
+            completionDate: task.dateCompleted,
+            isCompleted: task.isComplete,
+            priority: eventKitPriority(from: task.priority),
+            urlString: fallbackURL,
+            alarmDates: alarmDates
+        )
+    }
+
+    private func knownFields(from reminder: AppleReminderItemSnapshot) -> ReminderMergeEnvelope.KnownFields {
+        ReminderMergeEnvelope.KnownFields(
+            title: reminder.title,
+            notes: reminder.notes,
+            dueDate: reminder.dueDate,
+            completionDate: reminder.completionDate,
+            isCompleted: reminder.isCompleted,
+            priority: reminder.priority,
+            urlString: reminder.urlString,
+            alarmDates: reminder.alarmDates
+        )
+    }
+
+    private func applyKnownFields(_ known: ReminderMergeEnvelope.KnownFields, to task: inout TaskDefinition) {
+        task.name = known.title
+        task.details = known.notes
+        task.dueDate = known.dueDate
+        task.isComplete = known.isCompleted
+        task.dateCompleted = known.completionDate
+        task.priority = priorityFromEventKit(known.priority)
+    }
+
+    public static func defaultNodeID() -> String {
+        let defaults = UserDefaults.standard
+        let key = "tasker.sync.node_id"
+        if let existing = defaults.string(forKey: key), existing.isEmpty == false {
+            return existing
+        }
+        let generated = UUID().uuidString.lowercased()
+        defaults.set(generated, forKey: key)
+        return generated
     }
 
     private func priorityFromEventKit(_ raw: Int) -> TaskPriority {
