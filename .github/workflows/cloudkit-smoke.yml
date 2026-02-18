@@ -1,0 +1,49 @@
+name: CloudKit Two-Device Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      evidence_path:
+        description: "Path to smoke evidence markdown file"
+        required: true
+        default: "docs/cloudkit-smoke-evidence/latest.md"
+  push:
+    branches:
+      - "release/**"
+  pull_request:
+    branches:
+      - "release/**"
+
+jobs:
+  smoke-evidence:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve evidence path
+        id: path
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "value=${{ github.event.inputs.evidence_path }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=docs/cloudkit-smoke-evidence/latest.md" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate runbook exists
+        run: |
+          set -euo pipefail
+          test -f "docs/cloudkit-two-device-smoke.md"
+
+      - name: Validate smoke evidence
+        run: |
+          set -euo pipefail
+          EVIDENCE="${{ steps.path.outputs.value }}"
+          bash scripts/validate_cloudkit_smoke_evidence.sh "$EVIDENCE"
+
+      - name: Upload smoke evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudkit-smoke-evidence
+          path: ${{ steps.path.outputs.value }}
