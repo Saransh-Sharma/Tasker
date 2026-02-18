@@ -202,10 +202,7 @@ Let Claude attempt the same task multiple times. Each iteration builds on previo
 ├── .claude-skill/
 │   └── skill.json              # Skill metadata
 ├── README.md                   # This file
-├── commands/
-│   ├── start-tasker-loop.md    # Start loop command
-│   ├── cancel-tasker-loop.md   # Cancel command
-│   └── tasker-loop-help.md     # Full documentation
+├── commands/                   # Command docs consolidated into this README
 ├── hooks/
 │   ├── hooks.json              # Hook configuration
 │   └── stop-hook.sh            # Stop hook logic
