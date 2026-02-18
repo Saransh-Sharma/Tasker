@@ -628,17 +628,35 @@ public struct TaskDefinitionQuery: Codable, Equatable, Hashable {
     public var sectionID: UUID?
     public var parentTaskID: UUID?
     public var includeCompleted: Bool
+    public var dueDateStart: Date?
+    public var dueDateEnd: Date?
+    public var updatedAfter: Date?
+    public var searchText: String?
+    public var limit: Int?
+    public var offset: Int?
 
     public init(
         projectID: UUID? = nil,
         sectionID: UUID? = nil,
         parentTaskID: UUID? = nil,
-        includeCompleted: Bool = true
+        includeCompleted: Bool = true,
+        dueDateStart: Date? = nil,
+        dueDateEnd: Date? = nil,
+        updatedAfter: Date? = nil,
+        searchText: String? = nil,
+        limit: Int? = nil,
+        offset: Int? = nil
     ) {
         self.projectID = projectID
         self.sectionID = sectionID
         self.parentTaskID = parentTaskID
         self.includeCompleted = includeCompleted
+        self.dueDateStart = dueDateStart
+        self.dueDateEnd = dueDateEnd
+        self.updatedAfter = updatedAfter
+        self.searchText = searchText
+        self.limit = limit
+        self.offset = offset
     }
 }
 
