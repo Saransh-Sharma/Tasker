@@ -14,15 +14,18 @@ public final class GetTasksUseCase {
     // MARK: - Dependencies
     
     private let taskRepository: TaskRepositoryProtocol
+    private let readModelRepository: TaskReadModelRepositoryProtocol?
     private let cacheService: CacheServiceProtocol?
     
     // MARK: - Initialization
     
     public init(
         taskRepository: TaskRepositoryProtocol,
+        readModelRepository: TaskReadModelRepositoryProtocol? = nil,
         cacheService: CacheServiceProtocol? = nil
     ) {
         self.taskRepository = taskRepository
+        self.readModelRepository = readModelRepository
         self.cacheService = cacheService
     }
     
@@ -239,7 +242,24 @@ public final class GetTasksUseCase {
         
         switch scope {
         case .all:
-            taskRepository.fetchAllTasks(completion: fetchCompletion)
+            guard let readModel = readModelRepository else {
+                completion(.failure(.repositoryError(NSError(
+                    domain: "GetTasksUseCase",
+                    code: 503,
+                    userInfo: [NSLocalizedDescriptionKey: "Task read-model repository is not configured"]
+                ))))
+                return
+            }
+            readModel.searchTasks(
+                query: TaskSearchQuery(
+                    text: query,
+                    includeCompleted: true,
+                    limit: 5_000,
+                    offset: 0
+                )
+            ) { result in
+                fetchCompletion(result.map(\.tasks))
+            }
         case .today:
             taskRepository.fetchTodayTasks(completion: fetchCompletion)
         case .upcoming:

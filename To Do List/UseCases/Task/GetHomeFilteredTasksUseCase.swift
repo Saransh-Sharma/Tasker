@@ -27,10 +27,13 @@ public enum GetHomeFilteredTasksError: LocalizedError {
 
 public final class GetHomeFilteredTasksUseCase {
 
-    private let taskRepository: TaskRepositoryProtocol
+    private let readModelRepository: TaskReadModelRepositoryProtocol?
 
-    public init(taskRepository: TaskRepositoryProtocol) {
-        self.taskRepository = taskRepository
+    public init(
+        taskRepository _: TaskRepositoryProtocol,
+        readModelRepository: TaskReadModelRepositoryProtocol? = nil
+    ) {
+        self.readModelRepository = readModelRepository
     }
 
     public func execute(
@@ -38,7 +41,30 @@ public final class GetHomeFilteredTasksUseCase {
         scope: HomeListScope,
         completion: @escaping (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
     ) {
-        taskRepository.fetchAllTasks { [weak self] result in
+        guard let readModel = readModelRepository else {
+            completion(.failure(.repositoryError(NSError(
+                domain: "GetHomeFilteredTasksUseCase",
+                code: 503,
+                userInfo: [NSLocalizedDescriptionKey: "Task read-model repository is not configured"]
+            ))))
+            return
+        }
+
+        let loadTasks: (@escaping (Result<[Task], Error>) -> Void) -> Void = { handler in
+            let narrowedProjectID = state.selectedProjectIDs.count == 1 ? state.selectedProjectIDs.first : nil
+            let query = TaskReadQuery(
+                projectID: narrowedProjectID,
+                includeCompleted: true,
+                sortBy: .dueDateAscending,
+                limit: 2_000,
+                offset: 0
+            )
+            readModel.fetchTasks(query: query) { result in
+                handler(result.map(\.tasks))
+            }
+        }
+
+        loadTasks { [weak self] result in
             guard let self else { return }
 
             switch result {

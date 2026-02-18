@@ -22,15 +22,18 @@ public final class SearchTasksUseCase {
     // MARK: - Dependencies
     
     private let taskRepository: TaskRepositoryProtocol
+    private let readModelRepository: TaskReadModelRepositoryProtocol?
     private let cacheService: CacheServiceProtocol?
     
     // MARK: - Initialization
     
     public init(
         taskRepository: TaskRepositoryProtocol,
+        readModelRepository: TaskReadModelRepositoryProtocol? = nil,
         cacheService: CacheServiceProtocol? = nil
     ) {
         self.taskRepository = taskRepository
+        self.readModelRepository = readModelRepository
         self.cacheService = cacheService
     }
     
@@ -254,8 +257,28 @@ public final class SearchTasksUseCase {
             completion(.success([]))
             return
         }
-        
-        taskRepository.fetchAllTasks { result in
+
+        guard let readModel = readModelRepository else {
+            completion(.failure(.repositoryError(NSError(
+                domain: "SearchTasksUseCase",
+                code: 503,
+                userInfo: [NSLocalizedDescriptionKey: "Task read-model repository is not configured"]
+            ))))
+            return
+        }
+
+        let loadTasks: (@escaping (Result<[Task], Error>) -> Void) -> Void = { handler in
+            readModel.fetchTasks(
+                query: TaskReadQuery(
+                    includeCompleted: true,
+                    sortBy: .updatedAtDescending,
+                    limit: 5_000,
+                    offset: 0
+                )
+            ) { handler($0.map(\.tasks)) }
+        }
+
+        loadTasks { result in
             switch result {
             case .success(let tasks):
                 var suggestions: [SearchSuggestion] = []
@@ -320,9 +343,66 @@ public final class SearchTasksUseCase {
         for scope: TaskSearchScope,
         completion: @escaping (Result<[Task], Error>) -> Void
     ) {
+        if let readModel = readModelRepository {
+            switch scope {
+            case TaskSearchScope.all:
+                readModel.fetchTasks(
+                    query: TaskReadQuery(
+                        includeCompleted: true,
+                        sortBy: .dueDateAscending,
+                        limit: 5_000,
+                        offset: 0
+                    )
+                ) { completion($0.map(\.tasks)) }
+                return
+            case TaskSearchScope.dateRange(let start, let end):
+                readModel.fetchTasks(
+                    query: TaskReadQuery(
+                        includeCompleted: true,
+                        dueDateStart: start,
+                        dueDateEnd: end,
+                        sortBy: .dueDateAscending,
+                        limit: 5_000,
+                        offset: 0
+                    )
+                ) { completion($0.map(\.tasks)) }
+                return
+            case TaskSearchScope.completed:
+                readModel.fetchTasks(
+                    query: TaskReadQuery(
+                        includeCompleted: true,
+                        sortBy: .updatedAtDescending,
+                        limit: 5_000,
+                        offset: 0
+                    )
+                ) { result in
+                    completion(result.map { $0.tasks.filter(\.isComplete) })
+                }
+                return
+            default:
+                break
+            }
+        } else {
+            switch scope {
+            case TaskSearchScope.all, TaskSearchScope.dateRange, TaskSearchScope.completed:
+                completion(.failure(NSError(
+                    domain: "SearchTasksUseCase",
+                    code: 503,
+                    userInfo: [NSLocalizedDescriptionKey: "Task read-model repository is not configured"]
+                )))
+                return
+            default:
+                break
+            }
+        }
+
         switch scope {
         case TaskSearchScope.all:
-            taskRepository.fetchAllTasks(completion: completion)
+            completion(.failure(NSError(
+                domain: "SearchTasksUseCase",
+                code: 503,
+                userInfo: [NSLocalizedDescriptionKey: "Task read-model repository is required for full-scope search"]
+            )))
         case TaskSearchScope.today:
             taskRepository.fetchTodayTasks(completion: completion)
         case TaskSearchScope.upcoming:
