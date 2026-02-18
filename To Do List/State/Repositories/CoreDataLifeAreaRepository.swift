@@ -17,7 +17,10 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
                     entityName: LifeAreaMapper.entityName,
-                    sort: [NSSortDescriptor(key: "sortOrder", ascending: true)]
+                    sort: [
+                        NSSortDescriptor(key: "sortOrder", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
                 completion(.success(objects.map(LifeAreaMapper.toDomain)))
             } catch {
@@ -29,6 +32,8 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
     public func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(area.id, field: "lifeArea.id")
+                _ = try V2CoreDataRepositorySupport.requireNonEmpty(area.name, field: "lifeArea.name")
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: LifeAreaMapper.entityName,
@@ -50,6 +55,7 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
     public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(id, field: "lifeArea.id")
                 if let object = try V2CoreDataRepositorySupport.fetchObject(
                     in: self.backgroundContext,
                     entityName: LifeAreaMapper.entityName,

@@ -14,11 +14,15 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol {
     public func fetchSections(projectID: UUID, completion: @escaping (Result<[TaskerProjectSection], Error>) -> Void) {
         viewContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(projectID, field: "section.projectID")
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
                     entityName: SectionMapper.entityName,
                     predicate: NSPredicate(format: "projectID == %@", projectID as CVarArg),
-                    sort: [NSSortDescriptor(key: "sortOrder", ascending: true)]
+                    sort: [
+                        NSSortDescriptor(key: "sortOrder", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
                 completion(.success(objects.map(SectionMapper.toDomain)))
             } catch {
@@ -30,6 +34,9 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol {
     public func create(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(section.id, field: "section.id")
+                _ = try V2CoreDataRepositorySupport.requireID(section.projectID, field: "section.projectID")
+                _ = try V2CoreDataRepositorySupport.requireNonEmpty(section.name, field: "section.name")
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: SectionMapper.entityName,
@@ -51,6 +58,7 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol {
     public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(id, field: "section.id")
                 if let object = try V2CoreDataRepositorySupport.fetchObject(
                     in: self.backgroundContext,
                     entityName: SectionMapper.entityName,

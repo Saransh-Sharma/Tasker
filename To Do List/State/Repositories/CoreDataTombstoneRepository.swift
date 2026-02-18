@@ -13,6 +13,9 @@ public final class CoreDataTombstoneRepository: TombstoneRepositoryProtocol {
     public func create(_ tombstone: TombstoneDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(tombstone.id, field: "tombstone.id")
+                _ = try V2CoreDataRepositorySupport.requireID(tombstone.entityID, field: "tombstone.entityID")
+                _ = try V2CoreDataRepositorySupport.requireNonEmpty(tombstone.entityType, field: "tombstone.entityType")
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: TombstoneMapper.entityName,
@@ -33,9 +36,35 @@ public final class CoreDataTombstoneRepository: TombstoneRepositoryProtocol {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
                     entityName: TombstoneMapper.entityName,
-                    predicate: NSPredicate(format: "purgeAfter <= %@", date as NSDate)
+                    predicate: NSPredicate(format: "purgeAfter <= %@", date as NSDate),
+                    sort: [
+                        NSSortDescriptor(key: "purgeAfter", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
                 completion(.success(objects.map(TombstoneMapper.toDomain)))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func delete(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+        backgroundContext.perform {
+            do {
+                for id in ids {
+                    _ = try V2CoreDataRepositorySupport.requireID(id, field: "tombstone.id")
+                    if let object = try V2CoreDataRepositorySupport.fetchObject(
+                        in: self.backgroundContext,
+                        entityName: TombstoneMapper.entityName,
+                        predicate: NSPredicate(format: "id == %@", id as CVarArg),
+                        sort: [NSSortDescriptor(key: "id", ascending: true)]
+                    ) {
+                        self.backgroundContext.delete(object)
+                    }
+                }
+                try self.backgroundContext.save()
+                completion(.success(()))
             } catch {
                 completion(.failure(error))
             }

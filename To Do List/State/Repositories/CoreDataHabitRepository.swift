@@ -17,7 +17,10 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
                     entityName: HabitDefinitionMapper.entityName,
-                    sort: [NSSortDescriptor(key: "createdAt", ascending: true)]
+                    sort: [
+                        NSSortDescriptor(key: "createdAt", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
                 completion(.success(objects.map(HabitDefinitionMapper.toDomain)))
             } catch {
@@ -29,6 +32,15 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
     public func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(habit.id, field: "habit.id")
+                _ = try V2CoreDataRepositorySupport.requireNonEmpty(habit.title, field: "habit.title")
+                _ = try V2CoreDataRepositorySupport.requireNonEmpty(habit.habitType, field: "habit.habitType")
+                if let lifeAreaID = habit.lifeAreaID {
+                    _ = try V2CoreDataRepositorySupport.requireID(lifeAreaID, field: "habit.lifeAreaID")
+                }
+                if let projectID = habit.projectID {
+                    _ = try V2CoreDataRepositorySupport.requireID(projectID, field: "habit.projectID")
+                }
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: HabitDefinitionMapper.entityName,
@@ -50,6 +62,7 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
     public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(id, field: "habit.id")
                 if let object = try V2CoreDataRepositorySupport.fetchObject(
                     in: self.backgroundContext,
                     entityName: HabitDefinitionMapper.entityName,

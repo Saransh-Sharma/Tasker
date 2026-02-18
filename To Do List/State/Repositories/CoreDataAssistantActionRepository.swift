@@ -21,6 +21,7 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
     public func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
         viewContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(id, field: "assistantActionRun.id")
                 guard let object = try V2CoreDataRepositorySupport.fetchObject(
                     in: self.viewContext,
                     entityName: "AssistantActionRun",
@@ -39,6 +40,13 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
     private func persist(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(run.id, field: "assistantActionRun.id")
+                if let threadID = run.threadID {
+                    _ = try V2CoreDataRepositorySupport.requireNonEmpty(
+                        threadID,
+                        field: "assistantActionRun.threadID"
+                    )
+                }
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: "AssistantActionRun",

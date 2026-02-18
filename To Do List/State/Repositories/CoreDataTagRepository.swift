@@ -16,10 +16,23 @@ public final class CoreDataTagRepository: TagRepositoryProtocol {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
-                    entityName: TagMapper.entityName,
-                    sort: [NSSortDescriptor(key: "sortOrder", ascending: true)]
+                    entityName: "Tag",
+                    sort: [
+                        NSSortDescriptor(key: "sortOrder", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
-                completion(.success(objects.map(TagMapper.toDomain)))
+                let mapped = objects.map { object in
+                    TagDefinition(
+                        id: object.value(forKey: "id") as? UUID ?? UUID(),
+                        name: object.value(forKey: "name") as? String ?? "Tag",
+                        color: object.value(forKey: "color") as? String,
+                        icon: object.value(forKey: "icon") as? String,
+                        sortOrder: Int(object.value(forKey: "sortOrder") as? Int32 ?? 0),
+                        createdAt: object.value(forKey: "createdAt") as? Date ?? Date()
+                    )
+                }
+                completion(.success(mapped))
             } catch {
                 completion(.failure(error))
             }
@@ -29,25 +42,59 @@ public final class CoreDataTagRepository: TagRepositoryProtocol {
     public func create(_ tag: TagDefinition, completion: @escaping (Result<TagDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
-                let normalized = tag.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                let existing = try V2CoreDataRepositorySupport.fetchObject(
+                _ = try V2CoreDataRepositorySupport.requireID(tag.id, field: "tag.id")
+                let normalized = try V2CoreDataRepositorySupport.requireNonEmpty(tag.name, field: "tag.name")
+                let existing = try V2CoreDataRepositorySupport.canonicalObject(
                     in: self.backgroundContext,
-                    entityName: TagMapper.entityName,
-                    predicate: NSPredicate(format: "name =[c] %@", normalized)
+                    entityName: "Tag",
+                    predicate: NSPredicate(format: "name =[c] %@", normalized),
+                    sort: [NSSortDescriptor(key: "id", ascending: true)]
                 )
-                let object: NSManagedObject
                 if let existing {
-                    object = existing
+                    if (existing.value(forKey: "color") as? String)?.isEmpty != false {
+                        existing.setValue(tag.color, forKey: "color")
+                    }
+                    if (existing.value(forKey: "icon") as? String)?.isEmpty != false {
+                        existing.setValue(tag.icon, forKey: "icon")
+                    }
+                    if (existing.value(forKey: "sortOrder") as? Int32 ?? 0) == 0 {
+                        existing.setValue(Int32(tag.sortOrder), forKey: "sortOrder")
+                    }
+                    if existing.value(forKey: "createdAt") == nil {
+                        existing.setValue(tag.createdAt, forKey: "createdAt")
+                    }
+                    try self.backgroundContext.save()
+                    let mapped = TagDefinition(
+                        id: existing.value(forKey: "id") as? UUID ?? tag.id,
+                        name: existing.value(forKey: "name") as? String ?? normalized,
+                        color: existing.value(forKey: "color") as? String,
+                        icon: existing.value(forKey: "icon") as? String,
+                        sortOrder: Int(existing.value(forKey: "sortOrder") as? Int32 ?? 0),
+                        createdAt: existing.value(forKey: "createdAt") as? Date ?? tag.createdAt
+                    )
+                    completion(.success(mapped))
                 } else {
-                    object = try V2CoreDataRepositorySupport.upsertByID(
+                    let object = try V2CoreDataRepositorySupport.upsertByID(
                         in: self.backgroundContext,
-                        entityName: TagMapper.entityName,
+                        entityName: "Tag",
                         id: tag.id
                     )
+                    object.setValue(tag.id, forKey: "id")
+                    object.setValue(normalized, forKey: "name")
+                    object.setValue(tag.color, forKey: "color")
+                    object.setValue(tag.icon, forKey: "icon")
+                    object.setValue(Int32(tag.sortOrder), forKey: "sortOrder")
+                    object.setValue(tag.createdAt, forKey: "createdAt")
+                    try self.backgroundContext.save()
+                    completion(.success(TagDefinition(
+                        id: tag.id,
+                        name: normalized,
+                        color: tag.color,
+                        icon: tag.icon,
+                        sortOrder: tag.sortOrder,
+                        createdAt: tag.createdAt
+                    )))
                 }
-                _ = TagMapper.apply(tag, to: object)
-                try self.backgroundContext.save()
-                completion(.success(TagMapper.toDomain(from: object)))
             } catch {
                 completion(.failure(error))
             }
@@ -57,9 +104,10 @@ public final class CoreDataTagRepository: TagRepositoryProtocol {
     public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(id, field: "tag.id")
                 if let object = try V2CoreDataRepositorySupport.fetchObject(
                     in: self.backgroundContext,
-                    entityName: TagMapper.entityName,
+                    entityName: "Tag",
                     predicate: NSPredicate(format: "id == %@", id as CVarArg)
                 ) {
                     self.backgroundContext.delete(object)

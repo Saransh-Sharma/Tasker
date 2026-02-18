@@ -13,7 +13,14 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     public func fetchReminders(completion: @escaping (Result<[ReminderDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
-                let objects = try V2CoreDataRepositorySupport.fetchObjects(in: self.viewContext, entityName: "Reminder")
+                let objects = try V2CoreDataRepositorySupport.fetchObjects(
+                    in: self.viewContext,
+                    entityName: "Reminder",
+                    sort: [
+                        NSSortDescriptor(key: "createdAt", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
+                )
                 let reminders = objects.map(Self.mapReminder)
                 completion(.success(reminders))
             } catch {
@@ -25,6 +32,12 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     public func saveReminder(_ reminder: ReminderDefinition, completion: @escaping (Result<ReminderDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(reminder.id, field: "reminder.id")
+                _ = try V2CoreDataRepositorySupport.requireID(reminder.sourceID, field: "reminder.sourceID")
+                if let occurrenceID = reminder.occurrenceID {
+                    _ = try V2CoreDataRepositorySupport.requireID(occurrenceID, field: "reminder.occurrenceID")
+                }
+                _ = try V2CoreDataRepositorySupport.requireNonEmpty(reminder.policy, field: "reminder.policy")
                 let object = try V2CoreDataRepositorySupport.upsertByID(in: self.backgroundContext, entityName: "Reminder", id: reminder.id)
                 object.setValue(reminder.id, forKey: "id")
                 object.setValue(reminder.sourceType.rawValue, forKey: "sourceType")
@@ -46,11 +59,15 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     public func fetchTriggers(reminderID: UUID, completion: @escaping (Result<[ReminderTriggerDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(reminderID, field: "reminderTrigger.reminderID")
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
                     entityName: "ReminderTrigger",
                     predicate: NSPredicate(format: "reminderID == %@", reminderID as CVarArg),
-                    sort: [NSSortDescriptor(key: "createdAt", ascending: true)]
+                    sort: [
+                        NSSortDescriptor(key: "createdAt", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
                 completion(.success(objects.map(Self.mapTrigger)))
             } catch {
@@ -62,6 +79,8 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     public func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping (Result<ReminderTriggerDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(trigger.id, field: "reminderTrigger.id")
+                _ = try V2CoreDataRepositorySupport.requireID(trigger.reminderID, field: "reminderTrigger.reminderID")
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: "ReminderTrigger",
@@ -85,11 +104,15 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     public func fetchDeliveries(reminderID: UUID, completion: @escaping (Result<[ReminderDeliveryDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(reminderID, field: "reminderDelivery.reminderID")
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
                     entityName: "ReminderDelivery",
                     predicate: NSPredicate(format: "reminderID == %@", reminderID as CVarArg),
-                    sort: [NSSortDescriptor(key: "createdAt", ascending: true)]
+                    sort: [
+                        NSSortDescriptor(key: "createdAt", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
                 completion(.success(objects.map(Self.mapDelivery)))
             } catch {
@@ -109,6 +132,10 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     private func persistDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(delivery.id, field: "reminderDelivery.id")
+                _ = try V2CoreDataRepositorySupport.requireID(delivery.reminderID, field: "reminderDelivery.reminderID")
+                _ = try V2CoreDataRepositorySupport.requireID(delivery.triggerID, field: "reminderDelivery.triggerID")
+                _ = try V2CoreDataRepositorySupport.requireNonEmpty(delivery.status, field: "reminderDelivery.status")
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: "ReminderDelivery",

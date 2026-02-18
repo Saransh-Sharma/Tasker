@@ -15,7 +15,11 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
             do {
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
-                    entityName: "ScheduleTemplate"
+                    entityName: "ScheduleTemplate",
+                    sort: [
+                        NSSortDescriptor(key: "createdAt", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
                 let mapped = objects.map { object in
                     ScheduleTemplateDefinition(
@@ -42,10 +46,15 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     public func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(templateID, field: "scheduleRule.scheduleTemplateID")
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
                     entityName: "ScheduleRule",
-                    predicate: NSPredicate(format: "scheduleTemplateID == %@", templateID as CVarArg)
+                    predicate: NSPredicate(format: "scheduleTemplateID == %@", templateID as CVarArg),
+                    sort: [
+                        NSSortDescriptor(key: "createdAt", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
                 let mapped = objects.map { object in
                     ScheduleRuleDefinition(
@@ -71,6 +80,8 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     public func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(template.id, field: "scheduleTemplate.id")
+                _ = try V2CoreDataRepositorySupport.requireID(template.sourceID, field: "scheduleTemplate.sourceID")
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: "ScheduleTemplate",
@@ -98,11 +109,15 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     public func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(templateID, field: "scheduleException.scheduleTemplateID")
                 let objects = try V2CoreDataRepositorySupport.fetchObjects(
                     in: self.viewContext,
                     entityName: "ScheduleException",
                     predicate: NSPredicate(format: "scheduleTemplateID == %@", templateID as CVarArg),
-                    sort: [NSSortDescriptor(key: "createdAt", ascending: true)]
+                    sort: [
+                        NSSortDescriptor(key: "createdAt", ascending: true),
+                        NSSortDescriptor(key: "id", ascending: true)
+                    ]
                 )
                 let mapped = objects.map { object in
                     ScheduleExceptionDefinition(
@@ -125,6 +140,15 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     public func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(exception.id, field: "scheduleException.id")
+                _ = try V2CoreDataRepositorySupport.requireID(
+                    exception.scheduleTemplateID,
+                    field: "scheduleException.scheduleTemplateID"
+                )
+                _ = try V2CoreDataRepositorySupport.requireNonEmpty(
+                    exception.occurrenceKey,
+                    field: "scheduleException.occurrenceKey"
+                )
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: "ScheduleException",

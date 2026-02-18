@@ -13,12 +13,13 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
     public func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
         viewContext.perform {
             do {
-                let object = try V2CoreDataRepositorySupport.fetchObject(
+                let canonical = try V2CoreDataRepositorySupport.canonicalObject(
                     in: self.viewContext,
                     entityName: "GamificationProfile",
-                    predicate: NSPredicate(value: true)
+                    predicate: NSPredicate(value: true),
+                    sort: [NSSortDescriptor(key: "id", ascending: true)]
                 )
-                guard let object else {
+                guard let object = canonical else {
                     completion(.success(nil))
                     return
                 }
@@ -41,6 +42,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
     public func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
+                _ = try V2CoreDataRepositorySupport.requireID(profile.id, field: "gamificationProfile.id")
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: "GamificationProfile",
@@ -90,12 +92,21 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
     public func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
-                let existing = try V2CoreDataRepositorySupport.fetchObject(
+                _ = try V2CoreDataRepositorySupport.requireID(event.id, field: "xpEvent.id")
+                let normalizedIdempotencyKey = try V2CoreDataRepositorySupport.requireNonEmpty(
+                    event.idempotencyKey,
+                    field: "xpEvent.idempotencyKey"
+                )
+                let existing = try V2CoreDataRepositorySupport.canonicalObject(
                     in: self.backgroundContext,
                     entityName: "XPEvent",
-                    predicate: NSPredicate(format: "idempotencyKey == %@", event.idempotencyKey)
+                    predicate: NSPredicate(format: "idempotencyKey == %@", normalizedIdempotencyKey),
+                    sort: [NSSortDescriptor(key: "id", ascending: true)]
                 )
                 if existing != nil {
+                    if self.backgroundContext.hasChanges {
+                        try self.backgroundContext.save()
+                    }
                     completion(.success(()))
                     return
                 }
@@ -109,7 +120,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                 object.setValue(event.taskID, forKey: "taskID")
                 object.setValue(Int32(event.delta), forKey: "delta")
                 object.setValue(event.reason, forKey: "reason")
-                object.setValue(event.idempotencyKey, forKey: "idempotencyKey")
+                object.setValue(normalizedIdempotencyKey, forKey: "idempotencyKey")
                 object.setValue(event.createdAt, forKey: "createdAt")
                 try self.backgroundContext.save()
                 completion(.success(()))
@@ -145,12 +156,21 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
     public func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
-                let existing = try V2CoreDataRepositorySupport.fetchObject(
+                _ = try V2CoreDataRepositorySupport.requireID(unlock.id, field: "achievementUnlock.id")
+                let normalizedAchievementKey = try V2CoreDataRepositorySupport.requireNonEmpty(
+                    unlock.achievementKey,
+                    field: "achievementUnlock.achievementKey"
+                )
+                let existing = try V2CoreDataRepositorySupport.canonicalObject(
                     in: self.backgroundContext,
                     entityName: "AchievementUnlock",
-                    predicate: NSPredicate(format: "achievementKey == %@", unlock.achievementKey)
+                    predicate: NSPredicate(format: "achievementKey == %@", normalizedAchievementKey),
+                    sort: [NSSortDescriptor(key: "id", ascending: true)]
                 )
                 guard existing == nil else {
+                    if self.backgroundContext.hasChanges {
+                        try self.backgroundContext.save()
+                    }
                     completion(.success(()))
                     return
                 }
@@ -160,7 +180,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     id: unlock.id
                 )
                 object.setValue(unlock.id, forKey: "id")
-                object.setValue(unlock.achievementKey, forKey: "achievementKey")
+                object.setValue(normalizedAchievementKey, forKey: "achievementKey")
                 object.setValue(unlock.unlockedAt, forKey: "unlockedAt")
                 object.setValue(unlock.sourceEventID, forKey: "sourceEventID")
                 try self.backgroundContext.save()
