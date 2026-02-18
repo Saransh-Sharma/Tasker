@@ -6,12 +6,15 @@ public final class ProjectSelectionViewModel: ObservableObject {
     @Published var availableProjects: [ProjectInfo] = []
     @Published var isLoading = true
 
-    private let taskRepository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
+    private let readModelRepository: TaskReadModelRepositoryProtocol?
 
-    init(taskRepository: TaskRepositoryProtocol, projectRepository: ProjectRepositoryProtocol) {
-        self.taskRepository = taskRepository
+    init(
+        projectRepository: ProjectRepositoryProtocol,
+        readModelRepository: TaskReadModelRepositoryProtocol? = nil
+    ) {
         self.projectRepository = projectRepository
+        self.readModelRepository = readModelRepository
     }
 
     func load(completion: @escaping ([ProjectInfo]) -> Void) {
@@ -29,12 +32,20 @@ public final class ProjectSelectionViewModel: ObservableObject {
                     completion([])
                 }
             case .success(let projects):
-                self.taskRepository.fetchAllTasks { taskResult in
-                    let allTasks = (try? taskResult.get()) ?? []
-                    let taskCountsByProject = allTasks.reduce(into: [UUID: Int]()) { counts, task in
-                        counts[task.projectID, default: 0] += 1
+                guard let readModel = self.readModelRepository else {
+                    DispatchQueue.main.async {
+                        logError("❌ [ProjectSelectionSheet] Task read-model repository is not configured")
+                        self.availableProjects = []
+                        withAnimation {
+                            self.isLoading = false
+                        }
+                        completion([])
                     }
+                    return
+                }
 
+                readModel.fetchProjectTaskCounts(includeCompleted: true) { countResult in
+                    let taskCountsByProject = (try? countResult.get()) ?? [:]
                     let infos = projects
                         .filter { $0.id != ProjectConstants.inboxProjectID }
                         .map { project in

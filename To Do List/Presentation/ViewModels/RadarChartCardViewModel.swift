@@ -10,12 +10,15 @@ public final class RadarChartCardViewModel: ObservableObject {
     @Published var hasCustomProjects = true
     @Published var hasCompletedTasks = true
 
-    private let taskRepository: TaskRepositoryProtocol
     private let projectRepository: ProjectRepositoryProtocol
+    private let readModelRepository: TaskReadModelRepositoryProtocol?
 
-    init(taskRepository: TaskRepositoryProtocol, projectRepository: ProjectRepositoryProtocol) {
-        self.taskRepository = taskRepository
+    init(
+        projectRepository: ProjectRepositoryProtocol,
+        readModelRepository: TaskReadModelRepositoryProtocol? = nil
+    ) {
         self.projectRepository = projectRepository
+        self.readModelRepository = readModelRepository
     }
 
     func load(referenceDate: Date?) {
@@ -63,7 +66,22 @@ public final class RadarChartCardViewModel: ObservableObject {
                     return
                 }
 
-                self.taskRepository.fetchAllTasks { taskResult in
+                guard let readModel = self.readModelRepository else {
+                    DispatchQueue.main.async {
+                        logWarning(
+                            event: "radar_read_model_missing",
+                            message: "Task read-model repository is not configured for radar chart"
+                        )
+                        self.chartData = []
+                        self.chartLabels = []
+                        self.hasCustomProjects = true
+                        self.hasCompletedTasks = false
+                        self.isLoading = false
+                    }
+                    return
+                }
+
+                readModel.fetchProjectCompletionScoreTotals(from: startOfWeek, to: endOfWeek) { taskResult in
                     DispatchQueue.main.async {
                         switch taskResult {
                         case .failure(let error):
@@ -77,16 +95,8 @@ public final class RadarChartCardViewModel: ObservableObject {
                             self.hasCustomProjects = true
                             self.hasCompletedTasks = false
                             self.isLoading = false
-                        case .success(let tasks):
-                            var scoreByProjectID: [UUID: Int] = [:]
+                        case .success(let scoreByProjectID):
                             let customProjectIDs = Set(customProjects.map(\.id))
-
-                            for task in tasks where task.isComplete {
-                                guard customProjectIDs.contains(task.projectID) else { continue }
-                                guard let completedAt = task.dateCompleted else { continue }
-                                guard completedAt >= startOfWeek && completedAt <= endOfWeek else { continue }
-                                scoreByProjectID[task.projectID, default: 0] += task.priority.scorePoints
-                            }
 
                             let sortedProjects = customProjects
                                 .sorted { lhs, rhs in

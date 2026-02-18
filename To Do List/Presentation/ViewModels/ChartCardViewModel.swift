@@ -7,14 +7,25 @@ public final class ChartCardViewModel: ObservableObject {
     @Published var chartData: [ChartDataEntry] = []
     @Published var isLoading = true
 
-    private let taskRepository: TaskRepositoryProtocol
+    private let readModelRepository: TaskReadModelRepositoryProtocol?
 
-    init(taskRepository: TaskRepositoryProtocol) {
-        self.taskRepository = taskRepository
+    init(
+        readModelRepository: TaskReadModelRepositoryProtocol? = nil
+    ) {
+        self.readModelRepository = readModelRepository
     }
 
     func load(referenceDate: Date?) {
         isLoading = true
+        guard let readModel = readModelRepository else {
+            logWarning(
+                event: "chart_card_read_model_missing",
+                message: "Task read-model repository is not configured for chart card"
+            )
+            chartData = []
+            isLoading = false
+            return
+        }
 
         var calendar = Calendar.autoupdatingCurrent
         calendar.firstWeekday = 1
@@ -27,7 +38,20 @@ public final class ChartCardViewModel: ObservableObject {
             return
         }
 
-        taskRepository.fetchTasks(from: weekStart, to: weekEnd) { [weak self] result in
+        let loadTasks: (@escaping (Result<[Task], Error>) -> Void) -> Void = { handler in
+            readModel.fetchTasks(
+                query: TaskReadQuery(
+                    includeCompleted: true,
+                    dueDateStart: weekStart,
+                    dueDateEnd: weekEnd,
+                    sortBy: .dueDateAscending,
+                    limit: 2_000,
+                    offset: 0
+                )
+            ) { handler($0.map(\.tasks)) }
+        }
+
+        loadTasks { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
                 switch result {
