@@ -1,0 +1,61 @@
+# V2 E-H Release Gate Checklist
+
+Release tag promotion is blocked until every gate below is green.
+
+## Required Gates
+1. `iOS CI` workflow is green:
+- legacy runtime guardrails pass
+- V2 fail-closed guardrails pass
+- `TaskerTests` pass
+- benchmark artifact generated
+- balanced SLO thresholds pass (`p95` Home/Project <= 250ms, `p95` Search <= 300ms, `p99` <= 600ms)
+
+2. `CloudKit Two-Device Smoke` workflow is green for release branch:
+- runbook file present at `docs/cloudkit-two-device-smoke.md`
+- evidence file exists at `docs/cloudkit-smoke-evidence/latest.md`
+- evidence includes Test Matrix, Device A timeline, Device B timeline, and final result
+
+3. Flow-Next tooling gate passes:
+- `.flow/bin/flowctl` exists and executable
+- `scripts/verify_flowctl.sh` passes in CI and local bootstrap
+- CI must use official binary install (`FLOWCTL_DOWNLOAD_URL`) with checksum (`FLOWCTL_DOWNLOAD_SHA256`)
+- shim is forbidden in CI
+
+4. Runtime safety gate passes:
+- V2 create/sync/assistant paths fail closed when dependencies are missing
+- no production compile path to legacy `DependencyContainer.shared` runtime
+
+5. Kill-switch regression tests pass:
+- `v2Enabled`
+- reminders sync
+- assistant apply
+- assistant undo
+- reminders background refresh behavior
+
+## Workflow-to-Gate Traceability
+
+| Gate | Workflow | Script/Check Surface |
+| --- | --- | --- |
+| iOS runtime guardrails | `.github/workflows/ios.yml` (`guardrails`) | `scripts/validate_legacy_runtime_guardrails.sh`, runtime grep checks |
+| iOS unit tests | `.github/workflows/ios.yml` (`unit-tests`) | `xcodebuild ... -only-testing:TaskerTests` |
+| Performance gate | `.github/workflows/ios.yml` (`perf-gate`) | `scripts/perf_seed_v2.swift`, in-workflow SLO assertions |
+| CloudKit smoke docs/evidence gate | `.github/workflows/cloudkit-smoke.yml` | `scripts/validate_cloudkit_smoke_evidence.sh` + runbook existence |
+| Token/logging UI guardrails (supporting quality gate) | `.github/workflows/design-token-law.yml` | `scripts/token-law-guardrails.sh`, `scripts/check-no-print-logs.sh` |
+| flowctl tooling gate | `.github/workflows/ios.yml` (`guardrails`) | `scripts/install_flowctl.sh`, `scripts/verify_flowctl.sh` |
+
+## Release Evidence Bundle
+For each release candidate, attach:
+1. CI run URL for `iOS CI`
+2. CI run URL for `CloudKit Two-Device Smoke`
+3. benchmark artifact `build/benchmarks/v2_readmodel.json`
+4. smoke evidence markdown path and commit SHA
+
+## Block Criteria
+1. Any red gate above blocks release.
+2. Any missing evidence artifact blocks release.
+3. Any unresolved P0/P1 issue from E-H test matrix blocks release.
+
+## Related Docs
+- CloudKit smoke runbook: `docs/cloudkit-two-device-smoke.md`
+- Latest smoke evidence pointer: `docs/cloudkit-smoke-evidence/latest.md`
+- CI guardrail inventory: `docs/operations/ci-release-and-guardrails.md`
