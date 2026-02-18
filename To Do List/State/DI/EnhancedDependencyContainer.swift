@@ -25,6 +25,8 @@ public final class EnhancedDependencyContainer {
     public private(set) var taskRepository: TaskRepositoryProtocol!
     public private(set) var projectRepository: ProjectRepositoryProtocol!
     public private(set) var taskDefinitionRepository: TaskDefinitionRepositoryProtocol?
+    public private(set) var taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
+    public private(set) var taskDependencyRepository: TaskDependencyRepositoryProtocol?
     public private(set) var lifeAreaRepository: LifeAreaRepositoryProtocol?
     public private(set) var sectionRepository: SectionRepositoryProtocol?
     public private(set) var tagRepository: TagRepositoryProtocol?
@@ -65,9 +67,13 @@ public final class EnhancedDependencyContainer {
         
         // Initialize repositories
         let taskDefinitionRepository = CoreDataTaskDefinitionRepository(container: container)
+        let taskTagLinkRepository = CoreDataTaskTagLinkRepository(container: container)
+        let taskDependencyRepository = CoreDataTaskDependencyRepository(container: container)
         self.taskRepository = V2TaskRepositoryAdapter(taskDefinitionRepository: taskDefinitionRepository)
         self.projectRepository = CoreDataProjectRepository(container: container)
         self.taskDefinitionRepository = taskDefinitionRepository
+        self.taskTagLinkRepository = taskTagLinkRepository
+        self.taskDependencyRepository = taskDependencyRepository
         self.lifeAreaRepository = CoreDataLifeAreaRepository(container: container)
         self.sectionRepository = CoreDataSectionRepository(container: container)
         self.tagRepository = CoreDataTagRepository(container: container)
@@ -105,6 +111,8 @@ public final class EnhancedDependencyContainer {
                 sectionRepository: sectionRepository,
                 tagRepository: tagRepository,
                 taskDefinitionRepository: taskDefinitionRepository,
+                taskTagLinkRepository: taskTagLinkRepository,
+                taskDependencyRepository: taskDependencyRepository,
                 habitRepository: habitRepository,
                 scheduleEngine: schedulingEngine,
                 occurrenceRepository: occurrenceRepository,

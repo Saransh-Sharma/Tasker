@@ -43,10 +43,17 @@ public final class PresentationDependencyContainer {
     private var _homeViewModel: HomeViewModel?
     private var _addTaskViewModel: AddTaskViewModel?
     private var _projectManagementViewModel: ProjectManagementViewModel?
+    private var _chartCardViewModel: ChartCardViewModel?
+    private var _radarChartCardViewModel: RadarChartCardViewModel?
+    private var _projectSelectionViewModel: ProjectSelectionViewModel?
 
     // MARK: - Configuration State
 
     private var isConfigured = false
+
+    public var isConfiguredForRuntime: Bool {
+        isConfigured
+    }
 
     // MARK: - Initialization
 
@@ -193,6 +200,7 @@ public final class PresentationDependencyContainer {
         }
 
         let viewModel = AddTaskViewModel(
+            taskRepository: taskRepository,
             createTaskUseCase: createTaskUseCase,
             manageProjectsUseCase: manageProjectsUseCase,
             rescheduleTaskUseCase: rescheduleTaskUseCase,
@@ -220,10 +228,50 @@ public final class PresentationDependencyContainer {
         return viewModel
     }
 
+    public func makeChartCardViewModel() -> ChartCardViewModel {
+        assertConfigured()
+        if let existing = _chartCardViewModel {
+            return existing
+        }
+
+        let viewModel = ChartCardViewModel(taskRepository: taskRepository)
+        _chartCardViewModel = viewModel
+        return viewModel
+    }
+
+    public func makeRadarChartCardViewModel() -> RadarChartCardViewModel {
+        assertConfigured()
+        if let existing = _radarChartCardViewModel {
+            return existing
+        }
+
+        let viewModel = RadarChartCardViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        _radarChartCardViewModel = viewModel
+        return viewModel
+    }
+
+    public func makeProjectSelectionViewModel() -> ProjectSelectionViewModel {
+        assertConfigured()
+        if let existing = _projectSelectionViewModel {
+            return existing
+        }
+
+        let viewModel = ProjectSelectionViewModel(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        _projectSelectionViewModel = viewModel
+        return viewModel
+    }
+
     /// Create a fresh AddTaskViewModel (for modal presentations)
     public func makeNewAddTaskViewModel() -> AddTaskViewModel {
         assertConfigured()
         return AddTaskViewModel(
+            taskRepository: taskRepository,
             createTaskUseCase: createTaskUseCase,
             manageProjectsUseCase: manageProjectsUseCase,
             rescheduleTaskUseCase: rescheduleTaskUseCase,
@@ -242,10 +290,18 @@ public final class PresentationDependencyContainer {
         let vcType = String(describing: type(of: viewController))
         logDebug("💉 PresentationDependencyContainer: Injecting into \(vcType)")
 
+        if let containerAware = viewController as? PresentationDependencyContainerAware {
+            containerAware.presentationDependencyContainer = self
+        }
+
         // Check for specific view controller types and inject ViewModels
         switch viewController {
         case let homeVC as HomeViewControllerProtocol:
             homeVC.viewModel = makeHomeViewModel()
+            if let analyticsInjectable = viewController as? HomeAnalyticsViewModelsInjectable {
+                analyticsInjectable.chartCardViewModel = makeChartCardViewModel()
+                analyticsInjectable.radarChartCardViewModel = makeRadarChartCardViewModel()
+            }
             logDebug("✅ Injected HomeViewModel")
 
         case let addTaskVC as AddTaskViewControllerProtocol:
@@ -256,6 +312,10 @@ public final class PresentationDependencyContainer {
             projectVC.viewModel = makeProjectManagementViewModel()
             logDebug("✅ Injected ProjectManagementViewModel")
 
+        case let coordinatorInjectable as UseCaseCoordinatorInjectable:
+            coordinatorInjectable.useCaseCoordinator = useCaseCoordinator
+            logDebug("✅ Injected UseCaseCoordinator")
+
         default:
             logDebug("ℹ️ No specific injection for \(vcType)")
         }
@@ -264,6 +324,23 @@ public final class PresentationDependencyContainer {
         for child in viewController.children {
             inject(into: child)
         }
+    }
+
+    /// Attempts dependency injection without crashing when the container is not configured.
+    /// Returns true when injection succeeded.
+    @discardableResult
+    public func tryInject(into viewController: UIViewController) -> Bool {
+        guard isConfigured else {
+            let vcType = String(describing: type(of: viewController))
+            logWarning(
+                event: "presentation_injection_skipped_unconfigured",
+                message: "Skipping dependency injection because presentation container is not configured",
+                fields: ["view_controller": vcType]
+            )
+            return false
+        }
+        inject(into: viewController)
+        return true
     }
 
     // MARK: - Direct Access (for migration)
@@ -282,6 +359,11 @@ public protocol HomeViewControllerProtocol: AnyObject {
     var viewModel: HomeViewModel! { get set }
 }
 
+public protocol HomeAnalyticsViewModelsInjectable: AnyObject {
+    var chartCardViewModel: ChartCardViewModel! { get set }
+    var radarChartCardViewModel: RadarChartCardViewModel! { get set }
+}
+
 /// Protocol for AddTaskViewController to receive ViewModel
 /// Note: viewModel is optional because the ViewModel path may be disabled
 public protocol AddTaskViewControllerProtocol: AnyObject {
@@ -291,4 +373,12 @@ public protocol AddTaskViewControllerProtocol: AnyObject {
 /// Protocol for ProjectManagementViewController to receive ViewModel
 public protocol ProjectManagementViewControllerProtocol: AnyObject {
     var viewModel: ProjectManagementViewModel! { get set }
+}
+
+public protocol PresentationDependencyContainerAware: AnyObject {
+    var presentationDependencyContainer: PresentationDependencyContainer? { get set }
+}
+
+public protocol UseCaseCoordinatorInjectable: AnyObject {
+    var useCaseCoordinator: UseCaseCoordinator! { get set }
 }
