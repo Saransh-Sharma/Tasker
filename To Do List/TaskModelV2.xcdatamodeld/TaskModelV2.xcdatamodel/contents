@@ -122,6 +122,13 @@
         <relationship name="tagLinks" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskTagLink" inverseName="taskRef" inverseEntity="TaskTagLink"/>
         <fetchIndex name="byTaskID"><fetchIndexElement property="taskID" type="Binary" order="ascending"/></fetchIndex>
         <fetchIndex name="byProjectID"><fetchIndexElement property="projectID" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byProjectCompletionDueDate">
+            <fetchIndexElement property="projectID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="isComplete" type="Binary" order="ascending"/>
+            <fetchIndexElement property="dueDate" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byParentTaskID"><fetchIndexElement property="parentTaskID" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byUpdatedAt"><fetchIndexElement property="updatedAt" type="Binary" order="ascending"/></fetchIndex>
     </entity>
 
     <entity name="TaskDependency" representedClassName="TaskDependency" syncable="YES">
@@ -132,6 +139,11 @@
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="taskRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="dependencies" inverseEntity="TaskDefinition"/>
         <relationship name="dependsOnTaskRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="dependedBy" inverseEntity="TaskDefinition"/>
+        <fetchIndex name="byTaskDependsKind">
+            <fetchIndexElement property="taskID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="dependsOnTaskID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="kind" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
 
     <entity name="TaskTagLink" representedClassName="TaskTagLink" syncable="YES">
@@ -141,6 +153,10 @@
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="taskRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="tagLinks" inverseEntity="TaskDefinition"/>
         <relationship name="tagRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Tag" inverseName="taskLinks" inverseEntity="Tag"/>
+        <fetchIndex name="byTaskTagPair">
+            <fetchIndexElement property="taskID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="tagID" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
 
     <entity name="HabitDefinition" representedClassName="HabitDefinition" syncable="YES">
@@ -221,6 +237,11 @@
         <relationship name="resolutions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="OccurrenceResolution" inverseName="occurrenceRef" inverseEntity="OccurrenceResolution"/>
         <relationship name="reminders" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Reminder" inverseName="occurrenceRef" inverseEntity="Reminder"/>
         <fetchIndex name="byOccurrenceKey"><fetchIndexElement property="occurrenceKey" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byTemplateScheduledState">
+            <fetchIndexElement property="scheduleTemplateID" type="Binary" order="ascending"/>
+            <fetchIndexElement property="scheduledAt" type="Binary" order="ascending"/>
+            <fetchIndexElement property="state" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
 
     <entity name="OccurrenceResolution" representedClassName="OccurrenceResolution" syncable="YES">
@@ -311,6 +332,10 @@
         <attribute name="lastSyncAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="projectRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Project" inverseName="externalContainerMaps" inverseEntity="Project"/>
+        <fetchIndex name="byProviderProject">
+            <fetchIndexElement property="provider" type="Binary" order="ascending"/>
+            <fetchIndexElement property="projectID" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
 
     <entity name="ExternalItemMap" representedClassName="ExternalItemMap" syncable="YES">
@@ -322,7 +347,17 @@
         <attribute name="externalPersistentID" optional="YES" attributeType="String"/>
         <attribute name="lastSeenExternalModAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="externalPayloadData" optional="YES" attributeType="Binary"/>
+        <attribute name="syncStateData" optional="YES" attributeType="Binary"/>
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <fetchIndex name="byProviderLocalKey">
+            <fetchIndexElement property="provider" type="Binary" order="ascending"/>
+            <fetchIndexElement property="localEntityType" type="Binary" order="ascending"/>
+            <fetchIndexElement property="localEntityID" type="Binary" order="ascending"/>
+        </fetchIndex>
+        <fetchIndex name="byProviderExternalKey">
+            <fetchIndexElement property="provider" type="Binary" order="ascending"/>
+            <fetchIndexElement property="externalItemID" type="Binary" order="ascending"/>
+        </fetchIndex>
     </entity>
 
     <entity name="Tombstone" representedClassName="Tombstone" syncable="YES">
@@ -343,6 +378,10 @@
         <attribute name="appliedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="rejectedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="resultSummary" optional="YES" attributeType="String"/>
+        <attribute name="executionTraceData" optional="YES" attributeType="Binary"/>
+        <attribute name="rollbackStatus" optional="YES" attributeType="String"/>
+        <attribute name="rollbackVerifiedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="lastErrorCode" optional="YES" attributeType="String"/>
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
     </entity>
 
