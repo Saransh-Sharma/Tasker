@@ -23,6 +23,7 @@ public final class PresentationDependencyContainer {
     // MARK: - Injected Dependencies (from State layer)
 
     private var taskRepository: (any TaskRepositoryProtocol)!
+    private var taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private var projectRepository: (any ProjectRepositoryProtocol)!
     private var cacheService: CacheServiceProtocol!
     private var useCaseCoordinator: UseCaseCoordinator!
@@ -50,6 +51,8 @@ public final class PresentationDependencyContainer {
     // MARK: - Configuration State
 
     private var isConfigured = false
+    public private(set) var v2RuntimeReady = false
+    public private(set) var v2RuntimeFailureReason: String?
 
     public var isConfiguredForRuntime: Bool {
         isConfigured
@@ -65,6 +68,7 @@ public final class PresentationDependencyContainer {
     /// This is the preferred configuration method that maintains clean architecture
     public func configure(
         taskRepository: TaskRepositoryProtocol,
+        taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         projectRepository: ProjectRepositoryProtocol,
         cacheService: CacheServiceProtocol?,
         useCaseCoordinator: UseCaseCoordinator
@@ -72,12 +76,14 @@ public final class PresentationDependencyContainer {
         logDebug("🔧 PresentationDependencyContainer: Starting configuration (Clean Architecture)...")
 
         self.taskRepository = taskRepository
+        self.taskReadModelRepository = taskReadModelRepository
         self.projectRepository = projectRepository
         self.cacheService = cacheService ?? InMemoryCacheService()
         self.useCaseCoordinator = useCaseCoordinator
 
         // Initialize use cases from injected dependencies
         setupUseCases()
+        evaluateV2RuntimeReadiness()
 
         self.isConfigured = true
         logDebug("✅ PresentationDependencyContainer: Configuration completed (Clean Architecture)")
@@ -89,6 +95,7 @@ public final class PresentationDependencyContainer {
         let stateContainer = EnhancedDependencyContainer.shared
         configure(
             taskRepository: stateContainer.taskRepository,
+            taskReadModelRepository: stateContainer.taskReadModelRepository,
             projectRepository: stateContainer.projectRepository,
             cacheService: stateContainer.cacheService,
             useCaseCoordinator: stateContainer.useCaseCoordinator
@@ -123,6 +130,46 @@ public final class PresentationDependencyContainer {
                 """
             )
         }
+    }
+
+    public func assertV2RuntimeReady() throws {
+        guard v2RuntimeReady else {
+            throw NSError(
+                domain: "PresentationDependencyContainer",
+                code: 503,
+                userInfo: [
+                    NSLocalizedDescriptionKey: v2RuntimeFailureReason
+                    ?? "V2 runtime is not fully wired in presentation container"
+                ]
+            )
+        }
+    }
+
+    private func evaluateV2RuntimeReadiness() {
+        guard V2FeatureFlags.v2Enabled else {
+            v2RuntimeReady = true
+            v2RuntimeFailureReason = nil
+            return
+        }
+
+        var missing: [String] = []
+        if useCaseCoordinator.createTaskDefinition == nil { missing.append("createTaskDefinitionUseCase") }
+        if useCaseCoordinator.reconcileExternalReminders == nil { missing.append("reconcileExternalRemindersUseCase") }
+        if useCaseCoordinator.assistantActionPipeline == nil { missing.append("assistantActionPipelineUseCase") }
+
+        if missing.isEmpty {
+            v2RuntimeReady = true
+            v2RuntimeFailureReason = nil
+            return
+        }
+
+        v2RuntimeReady = false
+        v2RuntimeFailureReason = "Missing required V2 presentation dependencies: \(missing.joined(separator: ", "))"
+        logError(
+            event: "v2_runtime_not_ready",
+            message: "Presentation dependency container failed V2 runtime readiness checks",
+            fields: ["missing": missing.joined(separator: ",")]
+        )
     }
 
     private func setupUseCases() {
@@ -161,6 +208,7 @@ public final class PresentationDependencyContainer {
 
         self.getTasksUseCase = GetTasksUseCase(
             taskRepository: taskRepository,
+            readModelRepository: taskReadModelRepository,
             cacheService: cacheService
         )
 
@@ -234,7 +282,9 @@ public final class PresentationDependencyContainer {
             return existing
         }
 
-        let viewModel = ChartCardViewModel(taskRepository: taskRepository)
+        let viewModel = ChartCardViewModel(
+            readModelRepository: taskReadModelRepository
+        )
         _chartCardViewModel = viewModel
         return viewModel
     }
@@ -246,8 +296,8 @@ public final class PresentationDependencyContainer {
         }
 
         let viewModel = RadarChartCardViewModel(
-            taskRepository: taskRepository,
-            projectRepository: projectRepository
+            projectRepository: projectRepository,
+            readModelRepository: taskReadModelRepository
         )
         _radarChartCardViewModel = viewModel
         return viewModel
@@ -260,8 +310,8 @@ public final class PresentationDependencyContainer {
         }
 
         let viewModel = ProjectSelectionViewModel(
-            taskRepository: taskRepository,
-            projectRepository: projectRepository
+            projectRepository: projectRepository,
+            readModelRepository: taskReadModelRepository
         )
         _projectSelectionViewModel = viewModel
         return viewModel

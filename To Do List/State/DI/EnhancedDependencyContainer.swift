@@ -25,6 +25,7 @@ public final class EnhancedDependencyContainer {
     public private(set) var taskRepository: TaskRepositoryProtocol!
     public private(set) var projectRepository: ProjectRepositoryProtocol!
     public private(set) var taskDefinitionRepository: TaskDefinitionRepositoryProtocol?
+    public private(set) var taskReadModelRepository: TaskReadModelRepositoryProtocol?
     public private(set) var taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
     public private(set) var taskDependencyRepository: TaskDependencyRepositoryProtocol?
     public private(set) var lifeAreaRepository: LifeAreaRepositoryProtocol?
@@ -40,8 +41,10 @@ public final class EnhancedDependencyContainer {
     public private(set) var tombstoneRepository: TombstoneRepositoryProtocol?
 
     // MARK: - Use Cases
-
+    
     public private(set) var useCaseCoordinator: UseCaseCoordinator!
+    public private(set) var v2RuntimeReady: Bool = false
+    public private(set) var v2RuntimeFailureReason: String?
 
     // MARK: - Services
     
@@ -59,19 +62,23 @@ public final class EnhancedDependencyContainer {
     /// Configure the container with Core Data
     func configure(with container: NSPersistentContainer) {
         logDebug("🔧 EnhancedDependencyContainer: Starting configuration...")
-        
+
         self.persistentContainer = container
+        self.v2RuntimeReady = false
+        self.v2RuntimeFailureReason = nil
         
         // Initialize cache service
         self.cacheService = InMemoryCacheService()
         
         // Initialize repositories
         let taskDefinitionRepository = CoreDataTaskDefinitionRepository(container: container)
+        let taskReadModelRepository = CoreDataTaskReadModelRepository(container: container)
         let taskTagLinkRepository = CoreDataTaskTagLinkRepository(container: container)
         let taskDependencyRepository = CoreDataTaskDependencyRepository(container: container)
         self.taskRepository = V2TaskRepositoryAdapter(taskDefinitionRepository: taskDefinitionRepository)
         self.projectRepository = CoreDataProjectRepository(container: container)
         self.taskDefinitionRepository = taskDefinitionRepository
+        self.taskReadModelRepository = taskReadModelRepository
         self.taskTagLinkRepository = taskTagLinkRepository
         self.taskDependencyRepository = taskDependencyRepository
         self.lifeAreaRepository = CoreDataLifeAreaRepository(container: container)
@@ -128,13 +135,61 @@ public final class EnhancedDependencyContainer {
         // Initialize UseCaseCoordinator
         self.useCaseCoordinator = UseCaseCoordinator(
             taskRepository: taskRepository,
+            taskReadModelRepository: taskReadModelRepository,
             projectRepository: projectRepository,
             cacheService: cacheService,
             notificationService: notificationService,
             v2Dependencies: v2Dependencies
         )
 
+        evaluateV2RuntimeReadiness()
+
         logDebug("✅ EnhancedDependencyContainer: Configuration completed")
+    }
+
+    public func assertV2RuntimeReady() throws {
+        guard v2RuntimeReady else {
+            throw NSError(
+                domain: "EnhancedDependencyContainer",
+                code: 503,
+                userInfo: [
+                    NSLocalizedDescriptionKey: v2RuntimeFailureReason
+                    ?? "V2 runtime dependencies are not fully configured"
+                ]
+            )
+        }
+    }
+
+    private func evaluateV2RuntimeReadiness() {
+        guard V2FeatureFlags.v2Enabled else {
+            v2RuntimeReady = true
+            v2RuntimeFailureReason = nil
+            return
+        }
+
+        var missing: [String] = []
+        if taskDefinitionRepository == nil { missing.append("taskDefinitionRepository") }
+        if externalSyncRepository == nil { missing.append("externalSyncRepository") }
+        if assistantActionRepository == nil { missing.append("assistantActionRepository") }
+        if useCaseCoordinator.createTaskDefinition == nil { missing.append("createTaskDefinitionUseCase") }
+        if useCaseCoordinator.reconcileExternalReminders == nil { missing.append("reconcileExternalRemindersUseCase") }
+        if useCaseCoordinator.assistantActionPipeline == nil { missing.append("assistantActionPipelineUseCase") }
+
+        if missing.isEmpty {
+            v2RuntimeReady = true
+            v2RuntimeFailureReason = nil
+            return
+        }
+
+        v2RuntimeReady = false
+        v2RuntimeFailureReason = "Missing required V2 runtime dependencies: \(missing.joined(separator: ", "))"
+        logError(
+            event: "v2_runtime_not_ready",
+            message: "Enhanced dependency container failed V2 runtime readiness checks",
+            fields: [
+                "missing": missing.joined(separator: ",")
+            ]
+        )
     }
     
     // MARK: - Dependency Injection
