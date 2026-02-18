@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "--version" ]]; then
+  echo "flowctl shim 0.1.0"
+  exit 0
+fi
+echo "flowctl shim: set FLOWCTL_DOWNLOAD_URL and rerun scripts/install_flowctl.sh to install the official binary"
+exit 0
