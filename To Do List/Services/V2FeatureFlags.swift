@@ -22,4 +22,9 @@ public enum V2FeatureFlags {
         get { defaults.object(forKey: "feature.assistant.undo") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.assistant.undo") }
     }
+
+    public static var remindersBackgroundRefreshEnabled: Bool {
+        get { defaults.object(forKey: "feature.reminders.background_refresh") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.reminders.background_refresh") }
+    }
 }
