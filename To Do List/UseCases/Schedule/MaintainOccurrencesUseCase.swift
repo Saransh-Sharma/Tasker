@@ -32,6 +32,15 @@ public final class MaintainOccurrencesUseCase {
 
                 let group = DispatchGroup()
                 var firstError: Error?
+                let lock = NSLock()
+
+                func captureError(_ error: Error) {
+                    lock.lock()
+                    if firstError == nil {
+                        firstError = error
+                    }
+                    lock.unlock()
+                }
 
                 for occurrence in staleUnresolved {
                     let resolution = OccurrenceResolutionDefinition(
@@ -46,7 +55,7 @@ public final class MaintainOccurrencesUseCase {
                     group.enter()
                     self.occurrenceRepository.resolve(resolution) { result in
                         if case .failure(let error) = result {
-                            firstError = firstError ?? error
+                            captureError(error)
                         }
                         group.leave()
                     }
@@ -63,7 +72,7 @@ public final class MaintainOccurrencesUseCase {
                     group.enter()
                     self.tombstoneRepository.create(tombstone) { result in
                         if case .failure(let error) = result {
-                            firstError = firstError ?? error
+                            captureError(error)
                         }
                         group.leave()
                     }
@@ -72,12 +81,45 @@ public final class MaintainOccurrencesUseCase {
                 group.notify(queue: .main) {
                     if let firstError {
                         completion(.failure(firstError))
-                    } else {
+                        return
+                    }
+
+                    let purgeIDs = resolvedForPurge.map(\.id)
+                    guard purgeIDs.isEmpty == false else {
                         completion(.success(()))
+                        return
+                    }
+
+                    self.occurrenceRepository.deleteOccurrences(ids: purgeIDs) { deleteResult in
+                        completion(deleteResult)
                     }
                 }
             case .failure(let error):
                 completion(.failure(error))
+            }
+        }
+    }
+}
+
+public final class PurgeExpiredTombstonesUseCase {
+    private let tombstoneRepository: TombstoneRepositoryProtocol
+
+    public init(tombstoneRepository: TombstoneRepositoryProtocol) {
+        self.tombstoneRepository = tombstoneRepository
+    }
+
+    public func execute(referenceDate: Date = Date(), completion: @escaping (Result<Void, Error>) -> Void) {
+        tombstoneRepository.fetchExpired(before: referenceDate) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let expired):
+                let ids = expired.map(\.id)
+                guard ids.isEmpty == false else {
+                    completion(.success(()))
+                    return
+                }
+                self.tombstoneRepository.delete(ids: ids, completion: completion)
             }
         }
     }

@@ -16,6 +16,8 @@ public final class UseCaseCoordinator {
         public let sectionRepository: SectionRepositoryProtocol
         public let tagRepository: TagRepositoryProtocol
         public let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
+        public let taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
+        public let taskDependencyRepository: TaskDependencyRepositoryProtocol?
         public let habitRepository: HabitRepositoryProtocol
         public let scheduleEngine: SchedulingEngineProtocol
         public let occurrenceRepository: OccurrenceRepositoryProtocol
@@ -31,6 +33,8 @@ public final class UseCaseCoordinator {
             sectionRepository: SectionRepositoryProtocol,
             tagRepository: TagRepositoryProtocol,
             taskDefinitionRepository: TaskDefinitionRepositoryProtocol,
+            taskTagLinkRepository: TaskTagLinkRepositoryProtocol? = nil,
+            taskDependencyRepository: TaskDependencyRepositoryProtocol? = nil,
             habitRepository: HabitRepositoryProtocol,
             scheduleEngine: SchedulingEngineProtocol,
             occurrenceRepository: OccurrenceRepositoryProtocol,
@@ -45,6 +49,8 @@ public final class UseCaseCoordinator {
             self.sectionRepository = sectionRepository
             self.tagRepository = tagRepository
             self.taskDefinitionRepository = taskDefinitionRepository
+            self.taskTagLinkRepository = taskTagLinkRepository
+            self.taskDependencyRepository = taskDependencyRepository
             self.habitRepository = habitRepository
             self.scheduleEngine = scheduleEngine
             self.occurrenceRepository = occurrenceRepository
@@ -89,11 +95,13 @@ public final class UseCaseCoordinator {
     public let manageSections: ManageSectionsUseCase?
     public let manageTags: ManageTagsUseCase?
     public let createTaskDefinition: CreateTaskDefinitionUseCase?
+    public let getTaskChildren: GetTaskChildrenUseCase?
     public let completeTaskDefinition: CompleteTaskDefinitionUseCase?
     public let manageHabits: ManageHabitsUseCase?
     public let generateOccurrences: GenerateOccurrencesUseCase?
     public let resolveOccurrence: ResolveOccurrenceUseCase?
     public let maintainOccurrences: MaintainOccurrencesUseCase?
+    public let purgeExpiredTombstones: PurgeExpiredTombstonesUseCase?
     public let scheduleReminder: ScheduleReminderUseCase?
     public let recordXP: RecordXPUseCase?
     public let assistantActionPipeline: AssistantActionPipelineUseCase?
@@ -215,13 +223,21 @@ public final class UseCaseCoordinator {
             self.manageLifeAreas = ManageLifeAreasUseCase(repository: deps.lifeAreaRepository)
             self.manageSections = ManageSectionsUseCase(repository: deps.sectionRepository)
             self.manageTags = ManageTagsUseCase(repository: deps.tagRepository)
-            self.createTaskDefinition = CreateTaskDefinitionUseCase(repository: deps.taskDefinitionRepository)
+            self.createTaskDefinition = CreateTaskDefinitionUseCase(
+                repository: deps.taskDefinitionRepository,
+                taskTagLinkRepository: deps.taskTagLinkRepository,
+                taskDependencyRepository: deps.taskDependencyRepository
+            )
+            self.getTaskChildren = GetTaskChildrenUseCase(repository: deps.taskDefinitionRepository)
             self.completeTaskDefinition = CompleteTaskDefinitionUseCase(repository: deps.taskDefinitionRepository, gamification: xp)
             self.manageHabits = ManageHabitsUseCase(repository: deps.habitRepository)
             self.generateOccurrences = GenerateOccurrencesUseCase(engine: deps.scheduleEngine)
             self.resolveOccurrence = ResolveOccurrenceUseCase(engine: deps.scheduleEngine)
             self.maintainOccurrences = MaintainOccurrencesUseCase(
                 occurrenceRepository: deps.occurrenceRepository,
+                tombstoneRepository: deps.tombstoneRepository
+            )
+            self.purgeExpiredTombstones = PurgeExpiredTombstonesUseCase(
                 tombstoneRepository: deps.tombstoneRepository
             )
             self.scheduleReminder = ScheduleReminderUseCase(
@@ -248,11 +264,13 @@ public final class UseCaseCoordinator {
             self.manageSections = nil
             self.manageTags = nil
             self.createTaskDefinition = nil
+            self.getTaskChildren = nil
             self.completeTaskDefinition = nil
             self.manageHabits = nil
             self.generateOccurrences = nil
             self.resolveOccurrence = nil
             self.maintainOccurrences = nil
+            self.purgeExpiredTombstones = nil
             self.scheduleReminder = nil
             self.recordXP = nil
             self.assistantActionPipeline = nil

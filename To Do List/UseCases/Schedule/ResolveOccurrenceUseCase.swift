@@ -7,7 +7,12 @@ public final class ResolveOccurrenceUseCase {
         self.engine = engine
     }
 
-    public func execute(id: UUID, resolution: OccurrenceResolutionType, completion: @escaping (Result<Void, Error>) -> Void) {
-        engine.resolveOccurrence(id: id, resolution: resolution, completion: completion)
+    public func execute(
+        id: UUID,
+        resolution: OccurrenceResolutionType,
+        actor: OccurrenceActor = .user,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        engine.resolveOccurrence(id: id, resolution: resolution, actor: actor, completion: completion)
     }
 }

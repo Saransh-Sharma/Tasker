@@ -310,13 +310,18 @@ public final class AssistantActionPipelineUseCase {
 
     private func apply(
         command: AssistantCommand,
-        taskMap: inout [UUID: Task]
+        taskMap: inout [UUID: TaskDefinition]
     ) -> Result<AssistantCommand, Error> {
         switch command {
         case .createTask(let projectID, let title):
-            let task = Task(projectID: projectID, name: title, dueDate: nil, project: ProjectConstants.inboxProjectName)
+            let task = TaskDefinition(
+                projectID: projectID,
+                projectName: ProjectConstants.inboxProjectName,
+                title: title,
+                dueDate: nil
+            )
             let semaphore = DispatchSemaphore(value: 0)
-            var createdTask: Task?
+            var createdTask: TaskDefinition?
             var taskError: Error?
             taskRepository.create(task) { result in
                 switch result {
@@ -347,12 +352,12 @@ public final class AssistantActionPipelineUseCase {
                 )
                 return .failure(error)
             }
-            let task = Task(
+            let task = TaskDefinition(
                 id: taskID,
                 projectID: projectID,
-                name: title,
+                projectName: ProjectConstants.inboxProjectName,
+                title: title,
                 dueDate: dueDate,
-                project: ProjectConstants.inboxProjectName,
                 isComplete: isComplete,
                 dateAdded: Date(),
                 dateCompleted: dateCompleted
@@ -413,6 +418,7 @@ public final class AssistantActionPipelineUseCase {
             if let dueDate {
                 task.dueDate = dueDate
             }
+            task.updatedAt = Date()
             let semaphore = DispatchSemaphore(value: 0)
             var taskError: Error?
             taskRepository.update(task) { result in
@@ -436,6 +442,7 @@ public final class AssistantActionPipelineUseCase {
             let inverse = AssistantCommand.setTaskCompletion(taskID: taskID, isComplete: task.isComplete, dateCompleted: task.dateCompleted)
             task.isComplete = isComplete
             task.dateCompleted = dateCompleted
+            task.updatedAt = Date()
             let semaphore = DispatchSemaphore(value: 0)
             var taskError: Error?
             taskRepository.update(task) { result in
@@ -459,6 +466,7 @@ public final class AssistantActionPipelineUseCase {
             let inverse = AssistantCommand.setTaskCompletion(taskID: taskID, isComplete: task.isComplete, dateCompleted: task.dateCompleted)
             task.isComplete = true
             task.dateCompleted = Date()
+            task.updatedAt = Date()
             let semaphore = DispatchSemaphore(value: 0)
             var taskError: Error?
             taskRepository.update(task) { result in
@@ -481,6 +489,7 @@ public final class AssistantActionPipelineUseCase {
             }
             let inverse = AssistantCommand.moveTask(taskID: taskID, targetProjectID: task.projectID)
             task.projectID = targetProjectID
+            task.updatedAt = Date()
             let semaphore = DispatchSemaphore(value: 0)
             var taskError: Error?
             taskRepository.update(task) { result in

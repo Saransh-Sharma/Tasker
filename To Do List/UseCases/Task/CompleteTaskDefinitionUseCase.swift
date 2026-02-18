@@ -9,7 +9,7 @@ public final class CompleteTaskDefinitionUseCase {
         self.gamification = gamification
     }
 
-    public func execute(taskID: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
+    public func execute(taskID: UUID, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
         repository.fetchAll { result in
             switch result {
             case .success(let tasks):
@@ -19,6 +19,7 @@ public final class CompleteTaskDefinitionUseCase {
                 }
                 task.isComplete = true
                 task.dateCompleted = Date()
+                task.updatedAt = Date()
                 self.repository.update(task) { updateResult in
                     if case .success = updateResult {
                         self.gamification?.recordTaskCompletion(taskID: taskID) { _ in }

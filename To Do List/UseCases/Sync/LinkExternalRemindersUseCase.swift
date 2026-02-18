@@ -245,12 +245,12 @@ public final class LinkExternalRemindersUseCase {
                     }
 
                     group.enter()
-                    let importedTask = Task(
+                    let importedTask = TaskDefinition(
                         projectID: projectID,
-                        name: snapshot.title,
+                        projectName: ProjectConstants.inboxProjectName,
+                        title: snapshot.title,
                         details: snapshot.notes,
                         dueDate: snapshot.dueDate,
-                        project: ProjectConstants.inboxProjectName,
                         isComplete: snapshot.isCompleted,
                         dateAdded: Date(),
                         dateCompleted: snapshot.completionDate
@@ -288,7 +288,10 @@ public final class LinkExternalRemindersUseCase {
         }
     }
 
-    private func matchExistingTask(snapshot: AppleReminderItemSnapshot, tasks: [Task]) -> Task? {
+    private func matchExistingTask(
+        snapshot: AppleReminderItemSnapshot,
+        tasks: [TaskDefinition]
+    ) -> TaskDefinition? {
         let normalizedTitle = normalize(snapshot.title)
         let dueDate = snapshot.dueDate
         return tasks.first { task in

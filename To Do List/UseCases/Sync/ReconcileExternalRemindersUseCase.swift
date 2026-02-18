@@ -255,7 +255,7 @@ public final class ReconcileExternalRemindersUseCase {
         listID: String,
         externalReminders: [AppleReminderItemSnapshot],
         itemMappings: [ExternalItemMapDefinition],
-        tasks: [Task],
+        tasks: [TaskDefinition],
         remindersProvider: AppleRemindersProviderProtocol,
         taskRepository: TaskDefinitionRepositoryProtocol,
         completion: @escaping (Result<ReconcileSummary, Error>) -> Void
@@ -288,6 +288,7 @@ public final class ReconcileExternalRemindersUseCase {
                     localTask.isComplete = external.isCompleted
                     localTask.dateCompleted = external.completionDate
                     localTask.priority = priorityFromEventKit(external.priority)
+                    localTask.updatedAt = Date()
 
                     group.enter()
                     taskRepository.update(localTask) { updateResult in
@@ -376,13 +377,13 @@ public final class ReconcileExternalRemindersUseCase {
                     }
                 } else {
                     group.enter()
-                    let task = Task(
+                    let task = TaskDefinition(
                         projectID: projectID,
-                        name: external.title,
+                        projectName: ProjectConstants.inboxProjectName,
+                        title: external.title,
                         details: external.notes,
                         priority: priorityFromEventKit(external.priority),
                         dueDate: external.dueDate,
-                        project: ProjectConstants.inboxProjectName,
                         isComplete: external.isCompleted,
                         dateAdded: Date(),
                         dateCompleted: external.completionDate
@@ -491,7 +492,7 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
-    private func matchTask(external: AppleReminderItemSnapshot, tasks: [Task]) -> Task? {
+    private func matchTask(external: AppleReminderItemSnapshot, tasks: [TaskDefinition]) -> TaskDefinition? {
         let normalized = normalize(external.title)
         return tasks.first { task in
             guard normalize(task.name) == normalized else { return false }
@@ -506,13 +507,13 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
-    private func localModificationDate(task: Task) -> Date {
-        [task.dateCompleted, task.dueDate, task.dateAdded]
+    private func localModificationDate(task: TaskDefinition) -> Date {
+        [task.updatedAt, task.dateCompleted, task.dueDate, task.dateAdded]
             .compactMap { $0 }
-            .max() ?? task.dateAdded
+            .max() ?? task.updatedAt
     }
 
-    private func snapshot(from task: Task, listID: String, existingExternalID: String) -> AppleReminderItemSnapshot {
+    private func snapshot(from task: TaskDefinition, listID: String, existingExternalID: String) -> AppleReminderItemSnapshot {
         AppleReminderItemSnapshot(
             itemID: existingExternalID,
             calendarID: listID,

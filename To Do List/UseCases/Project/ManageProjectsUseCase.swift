@@ -69,8 +69,7 @@ public final class ManageProjectsUseCase {
                 self?.projectRepository.createProject(project) { result in
                     switch result {
                     case .success(let createdProject):
-                        // Post notification
-                        NotificationCenter.default.post(
+                        TaskNotificationDispatcher.postOnMain(
                             name: NSNotification.Name("ProjectCreated"),
                             object: createdProject
                         )
@@ -178,8 +177,7 @@ public final class ManageProjectsUseCase {
                 self?.projectRepository.deleteProject(withId: projectId, deleteTasks: deleteTasks) { result in
                     switch result {
                     case .success:
-                        // Post notification
-                        NotificationCenter.default.post(
+                        TaskNotificationDispatcher.postOnMain(
                             name: NSNotification.Name("ProjectDeleted"),
                             object: project
                         )
@@ -332,8 +330,7 @@ public final class ManageProjectsUseCase {
         projectRepository.updateProject(project) { result in
             switch result {
             case .success(let updatedProject):
-                // Post notification
-                NotificationCenter.default.post(
+                TaskNotificationDispatcher.postOnMain(
                     name: NSNotification.Name("ProjectUpdated"),
                     object: updatedProject
                 )

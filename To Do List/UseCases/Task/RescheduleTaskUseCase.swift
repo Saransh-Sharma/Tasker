@@ -175,8 +175,7 @@ public final class RescheduleTaskUseCase {
                     }
                 }
                 
-                // Post notification
-                NotificationCenter.default.post(
+                TaskNotificationDispatcher.postOnMain(
                     name: NSNotification.Name("TaskRescheduled"),
                     object: rescheduledTask
                 )

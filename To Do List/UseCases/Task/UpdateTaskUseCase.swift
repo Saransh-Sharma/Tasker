@@ -45,13 +45,13 @@ public final class UpdateTaskUseCase {
         taskRepository.fetchTask(withId: taskId) { [weak self] result in
             switch result {
             case .success(let task):
-                guard var task = task else {
+                guard let task = task else {
                     completion(.failure(.taskNotFound))
                     return
                 }
                 
                 // Step 2: Apply updates
-                self?.applyUpdates(to: &task, from: request) { updateResult in
+                self?.applyUpdates(to: task, from: request) { updateResult in
                     switch updateResult {
                     case .success(let updatedTask):
                         // Step 3: Validate the updated task
@@ -67,10 +67,7 @@ public final class UpdateTaskUseCase {
                             switch saveResult {
                             case .success(let savedTask):
                                 // Step 5: Update notifications if needed
-                                self?.updateNotifications(
-                                    oldTask: task,
-                                    newTask: savedTask
-                                )
+                                self?.updateNotifications(oldTask: task, newTask: savedTask)
                                 
                                 // Step 6: Post update notification
                                 TaskNotificationDispatcher.postOnMain(
@@ -133,10 +130,11 @@ public final class UpdateTaskUseCase {
     // MARK: - Private Methods
     
     private func applyUpdates(
-        to task: inout Task,
+        to task: Task,
         from request: UpdateTaskRequest,
         completion: @escaping (Result<Task, UpdateTaskError>) -> Void
     ) {
+        var task = task
         // Update basic properties
         if let name = request.name {
             task.name = name
