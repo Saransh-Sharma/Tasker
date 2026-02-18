@@ -235,6 +235,413 @@ public struct Task: Codable {
     }
 }
 
+public struct TaskDefinition: Codable, Equatable, Hashable {
+    public let id: UUID
+    public var projectID: UUID
+    public var projectName: String?
+    public var lifeAreaID: UUID?
+    public var sectionID: UUID?
+    public var parentTaskID: UUID?
+    public var title: String
+    public var details: String?
+    public var priority: TaskPriority
+    public var type: TaskType
+    public var energy: TaskEnergy
+    public var category: TaskCategory
+    public var context: TaskContext
+    public var dueDate: Date?
+    public var isComplete: Bool
+    public var dateAdded: Date
+    public var dateCompleted: Date?
+    public var isEveningTask: Bool
+    public var alertReminderTime: Date?
+    public var tagIDs: [UUID]
+    public var dependencies: [TaskDependencyLinkDefinition]
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    // Backward-compatible aliases used by legacy flows while V2 adoption completes.
+    public var name: String {
+        get { title }
+        set { title = newValue }
+    }
+
+    public var project: String? {
+        get { projectName }
+        set { projectName = newValue }
+    }
+
+    public init(
+        id: UUID = UUID(),
+        projectID: UUID = ProjectConstants.inboxProjectID,
+        projectName: String? = ProjectConstants.inboxProjectName,
+        lifeAreaID: UUID? = nil,
+        sectionID: UUID? = nil,
+        parentTaskID: UUID? = nil,
+        title: String,
+        details: String? = nil,
+        priority: TaskPriority = .low,
+        type: TaskType = .morning,
+        energy: TaskEnergy = .medium,
+        category: TaskCategory = .general,
+        context: TaskContext = .anywhere,
+        dueDate: Date? = nil,
+        isComplete: Bool = false,
+        dateAdded: Date = Date(),
+        dateCompleted: Date? = nil,
+        isEveningTask: Bool = false,
+        alertReminderTime: Date? = nil,
+        tagIDs: [UUID] = [],
+        dependencies: [TaskDependencyLinkDefinition] = [],
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.projectID = projectID
+        self.projectName = projectName
+        self.lifeAreaID = lifeAreaID
+        self.sectionID = sectionID
+        self.parentTaskID = parentTaskID
+        self.title = title
+        self.details = details
+        self.priority = priority
+        self.type = type
+        self.energy = energy
+        self.category = category
+        self.context = context
+        self.dueDate = dueDate
+        self.isComplete = isComplete
+        self.dateAdded = dateAdded
+        self.dateCompleted = dateCompleted
+        self.isEveningTask = isEveningTask
+        self.alertReminderTime = alertReminderTime
+        self.tagIDs = tagIDs
+        self.dependencies = dependencies
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    public init(
+        legacyTask: Task,
+        lifeAreaID: UUID? = nil,
+        sectionID: UUID? = nil,
+        parentTaskID: UUID? = nil,
+        tagIDs: [UUID] = [],
+        dependencies: [TaskDependencyLinkDefinition] = []
+    ) {
+        let mappedTagIDs = tagIDs.isEmpty
+            ? legacyTask.tags.compactMap(UUID.init(uuidString:))
+            : tagIDs
+        let mappedDependencies = dependencies.isEmpty
+            ? legacyTask.dependencies.map {
+                TaskDependencyLinkDefinition(
+                    taskID: legacyTask.id,
+                    dependsOnTaskID: $0,
+                    kind: .related,
+                    createdAt: legacyTask.dateAdded
+                )
+            }
+            : dependencies
+        self.init(
+            id: legacyTask.id,
+            projectID: legacyTask.projectID,
+            projectName: legacyTask.project,
+            lifeAreaID: lifeAreaID,
+            sectionID: sectionID,
+            parentTaskID: parentTaskID,
+            title: legacyTask.name,
+            details: legacyTask.details,
+            priority: legacyTask.priority,
+            type: legacyTask.type,
+            energy: legacyTask.energy,
+            category: legacyTask.category,
+            context: legacyTask.context,
+            dueDate: legacyTask.dueDate,
+            isComplete: legacyTask.isComplete,
+            dateAdded: legacyTask.dateAdded,
+            dateCompleted: legacyTask.dateCompleted,
+            isEveningTask: legacyTask.isEveningTask,
+            alertReminderTime: legacyTask.alertReminderTime,
+            tagIDs: mappedTagIDs,
+            dependencies: mappedDependencies,
+            createdAt: legacyTask.dateAdded,
+            updatedAt: legacyTask.dateCompleted ?? legacyTask.dateAdded
+        )
+    }
+
+    public func toLegacyTask() -> Task {
+        Task(
+            id: id,
+            projectID: projectID,
+            name: title,
+            details: details,
+            type: type,
+            priority: priority,
+            dueDate: dueDate,
+            project: projectName,
+            isComplete: isComplete,
+            dateAdded: dateAdded,
+            dateCompleted: dateCompleted,
+            isEveningTask: isEveningTask,
+            alertReminderTime: alertReminderTime,
+            tags: tagIDs.map(\.uuidString),
+            dependencies: dependencies.map(\.dependsOnTaskID),
+            subtasks: [],
+            category: category,
+            energy: energy,
+            context: context
+        )
+    }
+}
+
+public enum TaskDependencyKind: String, Codable, CaseIterable {
+    case blocks
+    case related
+}
+
+public struct TaskDependencyLinkDefinition: Codable, Equatable, Hashable {
+    public let id: UUID
+    public var taskID: UUID
+    public var dependsOnTaskID: UUID
+    public var kind: TaskDependencyKind
+    public var createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        taskID: UUID,
+        dependsOnTaskID: UUID,
+        kind: TaskDependencyKind,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.taskID = taskID
+        self.dependsOnTaskID = dependsOnTaskID
+        self.kind = kind
+        self.createdAt = createdAt
+    }
+}
+
+public struct TaskTagLinkDefinition: Codable, Equatable, Hashable {
+    public let id: UUID
+    public var taskID: UUID
+    public var tagID: UUID
+    public var createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        taskID: UUID,
+        tagID: UUID,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.taskID = taskID
+        self.tagID = tagID
+        self.createdAt = createdAt
+    }
+}
+
+public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
+    public let id: UUID
+    public var title: String
+    public var details: String?
+    public var projectID: UUID
+    public var projectName: String?
+    public var lifeAreaID: UUID?
+    public var sectionID: UUID?
+    public var dueDate: Date?
+    public var parentTaskID: UUID?
+    public var tagIDs: [UUID]
+    public var dependencies: [TaskDependencyLinkDefinition]
+    public var priority: TaskPriority
+    public var type: TaskType
+    public var energy: TaskEnergy
+    public var category: TaskCategory
+    public var context: TaskContext
+    public var isEveningTask: Bool
+    public var alertReminderTime: Date?
+    public var createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        details: String? = nil,
+        projectID: UUID,
+        projectName: String? = nil,
+        lifeAreaID: UUID? = nil,
+        sectionID: UUID? = nil,
+        dueDate: Date? = nil,
+        parentTaskID: UUID? = nil,
+        tagIDs: [UUID] = [],
+        dependencies: [TaskDependencyLinkDefinition] = [],
+        priority: TaskPriority = .low,
+        type: TaskType = .morning,
+        energy: TaskEnergy = .medium,
+        category: TaskCategory = .general,
+        context: TaskContext = .anywhere,
+        isEveningTask: Bool = false,
+        alertReminderTime: Date? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.title = title
+        self.details = details
+        self.projectID = projectID
+        self.projectName = projectName
+        self.lifeAreaID = lifeAreaID
+        self.sectionID = sectionID
+        self.dueDate = dueDate
+        self.parentTaskID = parentTaskID
+        self.tagIDs = tagIDs
+        self.dependencies = dependencies
+        self.priority = priority
+        self.type = type
+        self.energy = energy
+        self.category = category
+        self.context = context
+        self.isEveningTask = isEveningTask
+        self.alertReminderTime = alertReminderTime
+        self.createdAt = createdAt
+    }
+
+    public func toLegacyTask(projectName: String?) -> Task {
+        Task(
+            id: id,
+            projectID: projectID,
+            name: title,
+            details: details,
+            type: type,
+            priority: priority,
+            dueDate: dueDate,
+            project: projectName ?? ProjectConstants.inboxProjectName,
+            isComplete: false,
+            dateAdded: createdAt,
+            dateCompleted: nil,
+            isEveningTask: isEveningTask,
+            alertReminderTime: alertReminderTime,
+            tags: tagIDs.map(\.uuidString),
+            dependencies: dependencies.map(\.dependsOnTaskID),
+            subtasks: [],
+            category: category,
+            energy: energy,
+            context: context
+        )
+    }
+
+    public func toTaskDefinition(projectName: String?) -> TaskDefinition {
+        TaskDefinition(
+            id: id,
+            projectID: projectID,
+            projectName: projectName ?? self.projectName ?? ProjectConstants.inboxProjectName,
+            lifeAreaID: lifeAreaID,
+            sectionID: sectionID,
+            parentTaskID: parentTaskID,
+            title: title,
+            details: details,
+            priority: priority,
+            type: type,
+            energy: energy,
+            category: category,
+            context: context,
+            dueDate: dueDate,
+            isComplete: false,
+            dateAdded: createdAt,
+            dateCompleted: nil,
+            isEveningTask: isEveningTask,
+            alertReminderTime: alertReminderTime,
+            tagIDs: tagIDs,
+            dependencies: dependencies,
+            createdAt: createdAt,
+            updatedAt: createdAt
+        )
+    }
+}
+
+public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
+    public let id: UUID
+    public var title: String?
+    public var details: String?
+    public var projectID: UUID?
+    public var lifeAreaID: UUID?
+    public var sectionID: UUID?
+    public var dueDate: Date?
+    public var parentTaskID: UUID?
+    public var clearParentTaskLink: Bool
+    public var tagIDs: [UUID]?
+    public var dependencies: [TaskDependencyLinkDefinition]?
+    public var priority: TaskPriority?
+    public var type: TaskType?
+    public var energy: TaskEnergy?
+    public var category: TaskCategory?
+    public var context: TaskContext?
+    public var isComplete: Bool?
+    public var dateCompleted: Date?
+    public var alertReminderTime: Date?
+    public var updatedAt: Date
+
+    public init(
+        id: UUID,
+        title: String? = nil,
+        details: String? = nil,
+        projectID: UUID? = nil,
+        lifeAreaID: UUID? = nil,
+        sectionID: UUID? = nil,
+        dueDate: Date? = nil,
+        parentTaskID: UUID? = nil,
+        clearParentTaskLink: Bool = false,
+        tagIDs: [UUID]? = nil,
+        dependencies: [TaskDependencyLinkDefinition]? = nil,
+        priority: TaskPriority? = nil,
+        type: TaskType? = nil,
+        energy: TaskEnergy? = nil,
+        category: TaskCategory? = nil,
+        context: TaskContext? = nil,
+        isComplete: Bool? = nil,
+        dateCompleted: Date? = nil,
+        alertReminderTime: Date? = nil,
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.title = title
+        self.details = details
+        self.projectID = projectID
+        self.lifeAreaID = lifeAreaID
+        self.sectionID = sectionID
+        self.dueDate = dueDate
+        self.parentTaskID = parentTaskID
+        self.clearParentTaskLink = clearParentTaskLink
+        self.tagIDs = tagIDs
+        self.dependencies = dependencies
+        self.priority = priority
+        self.type = type
+        self.energy = energy
+        self.category = category
+        self.context = context
+        self.isComplete = isComplete
+        self.dateCompleted = dateCompleted
+        self.alertReminderTime = alertReminderTime
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct TaskDefinitionQuery: Codable, Equatable, Hashable {
+    public var projectID: UUID?
+    public var sectionID: UUID?
+    public var parentTaskID: UUID?
+    public var includeCompleted: Bool
+
+    public init(
+        projectID: UUID? = nil,
+        sectionID: UUID? = nil,
+        parentTaskID: UUID? = nil,
+        includeCompleted: Bool = true
+    ) {
+        self.projectID = projectID
+        self.sectionID = sectionID
+        self.parentTaskID = parentTaskID
+        self.includeCompleted = includeCompleted
+    }
+}
+
 // MARK: - Validation Errors
 
 public enum TaskValidationError: LocalizedError {

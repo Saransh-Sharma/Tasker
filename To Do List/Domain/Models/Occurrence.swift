@@ -14,6 +14,12 @@ public enum OccurrenceResolutionType: String, Codable {
     case deferred
 }
 
+public enum OccurrenceActor: String, Codable {
+    case user
+    case system
+    case assistant
+}
+
 public struct OccurrenceDefinition: Codable, Equatable, Hashable {
     public let id: UUID
     public var occurrenceKey: String
