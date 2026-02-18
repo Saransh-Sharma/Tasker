@@ -326,11 +326,11 @@ class RadarXAxisFormatter: AxisValueFormatter {
 
 struct RadarChartCard_Previews: PreviewProvider {
     static var previews: some View {
-        let previewTaskRepository = PreviewRadarTaskRepository()
+        let previewReadModel = PreviewRadarReadModelRepository()
         let previewProjectRepository = PreviewRadarProjectRepository()
         let viewModel = RadarChartCardViewModel(
-            taskRepository: previewTaskRepository,
-            projectRepository: previewProjectRepository
+            projectRepository: previewProjectRepository,
+            readModelRepository: previewReadModel
         )
         VStack(spacing: 20) {
             RadarChartCard(
@@ -351,31 +351,29 @@ struct RadarChartCard_Previews: PreviewProvider {
     }
 }
 
-private final class PreviewRadarTaskRepository: TaskRepositoryProtocol {
-    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) { completion(.success(nil)) }
-    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
-    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) { completion(.success(task)) }
-    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
-    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
-    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
-    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
-    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
-    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
+private final class PreviewRadarReadModelRepository: TaskReadModelRepositoryProtocol {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+        completion(.success(TaskSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+        completion(.success(TaskSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func fetchProjectTaskCounts(
+        includeCompleted: Bool,
+        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
+    }
+
+    func fetchProjectCompletionScoreTotals(
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
+    }
 }
 
 private final class PreviewRadarProjectRepository: ProjectRepositoryProtocol {
