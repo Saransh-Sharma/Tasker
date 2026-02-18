@@ -4,17 +4,8 @@ import Foundation
 import EventKit
 
 public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtocol {
-    private struct ReminderPayload: Codable, Equatable, Hashable {
-        var title: String
-        var notes: String?
-        var dueDate: Date?
-        var completionDate: Date?
-        var priority: Int
-        var urlString: String?
-        var alarmDates: [Date]
-    }
-
     private let store: EKEventStore
+    private let mergeEngine = ReminderMergeEngine()
 
     public init(store: EKEventStore = EKEventStore()) {
         self.store = store
@@ -78,30 +69,47 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
             targetReminder.calendar = calendar
         }
 
-        targetReminder.title = snapshot.title
-        targetReminder.notes = snapshot.notes
-        targetReminder.priority = snapshot.priority
-        targetReminder.url = snapshot.urlString.flatMap(URL.init(string:))
-        targetReminder.calendar = calendar
-        targetReminder.dueDateComponents = snapshot.dueDate.map { Calendar.current.dateComponents(in: TimeZone.current, from: $0) }
+        let payloadEnvelope = decodeMergeEnvelope(snapshot.payloadData)
+        let mergedKnownFields = ReminderMergeEnvelope.KnownFields(
+            title: snapshot.title,
+            notes: snapshot.notes,
+            dueDate: snapshot.dueDate,
+            completionDate: snapshot.completionDate,
+            isCompleted: snapshot.isCompleted,
+            priority: snapshot.priority,
+            urlString: snapshot.urlString ?? payloadEnvelope?.known.urlString,
+            alarmDates: snapshot.alarmDates.isEmpty ? (payloadEnvelope?.known.alarmDates ?? []) : snapshot.alarmDates
+        )
 
-        if snapshot.isCompleted {
+        targetReminder.title = mergedKnownFields.title
+        targetReminder.notes = mergedKnownFields.notes
+        targetReminder.priority = mergedKnownFields.priority
+        targetReminder.url = mergedKnownFields.urlString.flatMap(URL.init(string:))
+        targetReminder.calendar = calendar
+        targetReminder.dueDateComponents = mergedKnownFields.dueDate.map {
+            Calendar.current.dateComponents(in: TimeZone.current, from: $0)
+        }
+
+        if mergedKnownFields.isCompleted {
             targetReminder.isCompleted = true
-            targetReminder.completionDate = snapshot.completionDate ?? Date()
+            targetReminder.completionDate = mergedKnownFields.completionDate ?? Date()
         } else {
             targetReminder.isCompleted = false
             targetReminder.completionDate = nil
         }
 
-        if snapshot.alarmDates.isEmpty {
+        if mergedKnownFields.alarmDates.isEmpty {
             targetReminder.alarms = nil
         } else {
-            targetReminder.alarms = snapshot.alarmDates.map(EKAlarm.init(absoluteDate:))
+            targetReminder.alarms = mergedKnownFields.alarmDates.map(EKAlarm.init(absoluteDate:))
         }
 
         do {
             try store.save(targetReminder, commit: true)
-            completion(.success(map(reminder: targetReminder)))
+            completion(.success(map(
+                reminder: targetReminder,
+                passthroughData: payloadEnvelope?.passthroughData
+            )))
         } catch {
             completion(.failure(error))
         }
@@ -129,18 +137,22 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
         store.calendarItem(withIdentifier: itemID) as? EKReminder
     }
 
-    private func map(reminder: EKReminder) -> AppleReminderItemSnapshot {
+    private func map(reminder: EKReminder, passthroughData: Data? = nil) -> AppleReminderItemSnapshot {
         let alarmDates = (reminder.alarms ?? []).compactMap { $0.absoluteDate }
-        let payload = ReminderPayload(
+        let known = ReminderMergeEnvelope.KnownFields(
             title: reminder.title,
             notes: reminder.notes,
             dueDate: reminder.dueDateComponents?.date,
             completionDate: reminder.completionDate,
+            isCompleted: reminder.isCompleted,
             priority: reminder.priority,
             urlString: reminder.url?.absoluteString,
             alarmDates: alarmDates
         )
-        let payloadData = try? JSONEncoder().encode(payload)
+        let payloadData = encodeMergeEnvelope(
+            known: known,
+            passthroughData: passthroughData
+        )
         return AppleReminderItemSnapshot(
             itemID: reminder.calendarItemIdentifier,
             calendarID: reminder.calendar.calendarIdentifier,
@@ -154,6 +166,21 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
             alarmDates: alarmDates,
             lastModifiedAt: reminder.lastModifiedDate,
             payloadData: payloadData
+        )
+    }
+
+    private func decodeMergeEnvelope(_ data: Data?) -> ReminderMergeEnvelope? {
+        mergeEngine.decodeEnvelope(data: data)
+    }
+
+    private func encodeMergeEnvelope(
+        known: ReminderMergeEnvelope.KnownFields,
+        passthroughData: Data?
+    ) -> Data? {
+        mergeEngine.encodeEnvelope(
+            known: known,
+            preferredPassthroughData: passthroughData,
+            fallbackPassthroughData: nil
         )
     }
 }

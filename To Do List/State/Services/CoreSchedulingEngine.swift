@@ -122,17 +122,22 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
     }
 
     public func applyScheduleException(templateID: UUID, occurrenceKey: String, action: ScheduleExceptionAction, completion: @escaping (Result<Void, Error>) -> Void) {
+        let normalizedOccurrenceKey = OccurrenceKeyCodec.canonicalize(
+            occurrenceKey,
+            fallbackTemplateID: templateID,
+            fallbackSourceID: nil
+        ) ?? occurrenceKey
         let exception = ScheduleExceptionDefinition(
             id: UUID(),
             scheduleTemplateID: templateID,
-            occurrenceKey: occurrenceKey,
+            occurrenceKey: normalizedOccurrenceKey,
             action: action,
             movedToAt: nil,
             payloadData: nil,
             createdAt: Date()
         )
         let effectiveDate: Date
-        if let parsed = Self.occurrenceDate(from: occurrenceKey) {
+        if let parsed = Self.occurrenceDate(from: normalizedOccurrenceKey) {
             effectiveDate = parsed
         } else {
             effectiveDate = Date()
@@ -348,10 +353,11 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         scheduledAt: Date,
         sourceID: UUID
     ) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        return "\(templateID.uuidString)|\(formatter.string(from: scheduledAt))|\(sourceID.uuidString)"
+        OccurrenceKeyCodec.encode(
+            scheduleTemplateID: templateID,
+            scheduledAt: scheduledAt,
+            sourceID: sourceID
+        )
     }
 
     private static func defaultRule(templateID: UUID) -> ScheduleRuleDefinition {
@@ -403,21 +409,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
     }
 
     private static func occurrenceDate(from key: String) -> Date? {
-        let segments = key.split(separator: "|")
-        if segments.count >= 3 {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
-            if let parsed = formatter.date(from: String(segments[1])) {
-                return parsed
-            }
-        }
-
-        // Backward compatibility for older key format: <template>_<yyyy-MM-dd'T'HH:mm>
-        guard let legacyDateComponent = key.split(separator: "_").last else { return nil }
-        let legacyFormatter = DateFormatter()
-        legacyFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
-        legacyFormatter.timeZone = TimeZone(secondsFromGMT: 0)
-        return legacyFormatter.date(from: String(legacyDateComponent))
+        OccurrenceKeyCodec.parse(key)?.scheduledAt
     }
 
     private static func dayKey(for date: Date) -> String {
