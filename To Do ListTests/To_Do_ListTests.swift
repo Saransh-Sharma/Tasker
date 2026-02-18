@@ -142,6 +142,14 @@ class To_Do_ListTests: XCTestCase {
 }
 
 final class ArchitectureBoundaryTests: XCTestCase {
+    private static let legacySingletonRegex = try! NSRegularExpression(
+        pattern: "(^|[^A-Za-z0-9_])DependencyContainer\\.shared\\b"
+    )
+
+    private static let legacyScreenRegex = try! NSRegularExpression(
+        pattern: "\\bNAddTaskScreen\\b"
+    )
+
     func testViewLayerDoesNotUseSingletonDependencyContainers() throws {
         let directories = [
             "To Do List/View",
@@ -200,10 +208,53 @@ final class ArchitectureBoundaryTests: XCTestCase {
         }
     }
 
-    func testLegacyStoryboardRouteUsesUnreachableIdentifier() throws {
+    func testMainStoryboardDoesNotContainLegacyAddTaskScene() throws {
         let storyboard = try loadWorkspaceFile("To Do List/Storyboards/Base.lproj/Main.storyboard")
         XCTAssertFalse(storyboard.contains("storyboardIdentifier=\"addTask\""))
-        XCTAssertTrue(storyboard.contains("storyboardIdentifier=\"addTaskLegacy_unreachable\""))
+        XCTAssertFalse(storyboard.contains("addTaskLegacy_unreachable"))
+        XCTAssertFalse(storyboard.contains("customClass=\"NAddTaskScreen\""))
+    }
+
+    func testProjectBuildGraphExcludesLegacyAddTaskRuntimeSources() throws {
+        let projectFile = try loadWorkspaceFile("Tasker.xcodeproj/project.pbxproj")
+        XCTAssertFalse(projectFile.contains("/* NAddTaskScreen.swift in Sources */"))
+        XCTAssertFalse(projectFile.contains("/* DependencyContainer.swift in Sources */"))
+        XCTAssertFalse(projectFile.contains("/* AddTaskLegacyStubs.swift in Sources */"))
+    }
+
+    func testPrimaryRuntimeFilesDoNotReferenceLegacyDependencyContainerSingleton() throws {
+        let runtimeFiles = [
+            "To Do List/AppDelegate.swift",
+            "To Do List/SceneDelegate.swift",
+            "To Do List/Presentation/DI/PresentationDependencyContainer.swift",
+            "To Do List/State/DI/EnhancedDependencyContainer.swift",
+            "To Do List/UseCases/Coordinator/UseCaseCoordinator.swift"
+        ]
+
+        for relativePath in runtimeFiles {
+            let content = try loadWorkspaceFile(relativePath)
+            XCTAssertFalse(
+                Self.matches(Self.legacySingletonRegex, in: content),
+                "Primary runtime file must not reference legacy DependencyContainer singleton: \(relativePath)"
+            )
+            XCTAssertFalse(
+                Self.matches(Self.legacyScreenRegex, in: content),
+                "Primary runtime file must not reference legacy NAddTaskScreen route: \(relativePath)"
+            )
+        }
+    }
+
+    func testLegacySingletonRegexDoesNotFalseMatchV2Singletons() {
+        XCTAssertTrue(Self.matches(Self.legacySingletonRegex, in: "DependencyContainer.shared.inject(into: vc)"))
+        XCTAssertFalse(Self.matches(Self.legacySingletonRegex, in: "PresentationDependencyContainer.shared.configureFromStateLayer()"))
+        XCTAssertFalse(Self.matches(Self.legacySingletonRegex, in: "EnhancedDependencyContainer.shared.configure(with: container)"))
+        XCTAssertTrue(Self.matches(Self.legacyScreenRegex, in: "NAddTaskScreen()"))
+    }
+
+    func testLegacyGuardrailValidationScriptExistsAndIsExecutable() {
+        let scriptURL = workspaceRootURL().appendingPathComponent("scripts/validate_legacy_runtime_guardrails.sh")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: scriptURL.path))
+        XCTAssertTrue(FileManager.default.isExecutableFile(atPath: scriptURL.path))
     }
 
     func testProjectAndRescheduleUseCasesDoNotPostNotificationCenterDirectly() throws {
@@ -290,6 +341,11 @@ final class ArchitectureBoundaryTests: XCTestCase {
     private func workspaceRootURL() -> URL {
         let testsFilePath = URL(fileURLWithPath: #filePath)
         return testsFilePath.deletingLastPathComponent().deletingLastPathComponent()
+    }
+
+    private static func matches(_ regex: NSRegularExpression, in content: String) -> Bool {
+        let range = NSRange(content.startIndex..<content.endIndex, in: content)
+        return regex.firstMatch(in: content, range: range) != nil
     }
 }
 
@@ -614,11 +670,217 @@ final class DeterministicFetchTests: XCTestCase {
     }
 }
 
-private final class MockTaskRepository: TaskRepositoryProtocol {
+final class OccurrenceKeyCodecTests: XCTestCase {
+    func testCanonicalRoundTrip() {
+        let templateID = UUID()
+        let sourceID = UUID()
+        let scheduledAt = Date(timeIntervalSince1970: 1_705_000_000)
+        let encoded = OccurrenceKeyCodec.encode(
+            scheduleTemplateID: templateID,
+            scheduledAt: scheduledAt,
+            sourceID: sourceID
+        )
+        let parsed = OccurrenceKeyCodec.parse(encoded)
+        XCTAssertEqual(parsed?.scheduleTemplateID, templateID)
+        XCTAssertEqual(parsed?.sourceID, sourceID)
+        XCTAssertEqual(parsed?.scheduledAt.timeIntervalSince1970, scheduledAt.timeIntervalSince1970, accuracy: 1)
+        XCTAssertEqual(parsed?.isCanonical, true)
+    }
+
+    func testLegacyKeyParsesAndCanonicalizesWithFallbackSource() {
+        let templateID = UUID()
+        let sourceID = UUID()
+        let legacy = "\(templateID.uuidString)_2026-01-02T09:30"
+        let canonical = OccurrenceKeyCodec.canonicalize(
+            legacy,
+            fallbackTemplateID: templateID,
+            fallbackSourceID: sourceID
+        )
+        XCTAssertNotNil(canonical)
+        XCTAssertTrue(canonical?.contains(sourceID.uuidString) ?? false)
+    }
+
+    func testMalformedKeyRejected() {
+        XCTAssertNil(OccurrenceKeyCodec.parse("not-a-valid-key"))
+        XCTAssertNil(
+            OccurrenceKeyCodec.canonicalize(
+                "bad-key",
+                fallbackTemplateID: UUID(),
+                fallbackSourceID: UUID()
+            )
+        )
+    }
+}
+
+final class FeatureFlagKillSwitchTests: XCTestCase {
+    private var originalV2Enabled = true
+    private var originalRemindersSyncEnabled = true
+    private var originalAssistantApplyEnabled = true
+    private var originalAssistantUndoEnabled = true
+    private var originalRemindersBackgroundRefreshEnabled = true
+
+    override func setUp() {
+        super.setUp()
+        originalV2Enabled = V2FeatureFlags.v2Enabled
+        originalRemindersSyncEnabled = V2FeatureFlags.remindersSyncEnabled
+        originalAssistantApplyEnabled = V2FeatureFlags.assistantApplyEnabled
+        originalAssistantUndoEnabled = V2FeatureFlags.assistantUndoEnabled
+        originalRemindersBackgroundRefreshEnabled = V2FeatureFlags.remindersBackgroundRefreshEnabled
+    }
+
+    override func tearDown() {
+        V2FeatureFlags.v2Enabled = originalV2Enabled
+        V2FeatureFlags.remindersSyncEnabled = originalRemindersSyncEnabled
+        V2FeatureFlags.assistantApplyEnabled = originalAssistantApplyEnabled
+        V2FeatureFlags.assistantUndoEnabled = originalAssistantUndoEnabled
+        V2FeatureFlags.remindersBackgroundRefreshEnabled = originalRemindersBackgroundRefreshEnabled
+        super.tearDown()
+    }
+
+    func testReconcileExternalRemindersFailsClosedWhenSyncFlagDisabled() {
+        V2FeatureFlags.v2Enabled = true
+        V2FeatureFlags.remindersSyncEnabled = false
+
+        let useCase = ReconcileExternalRemindersUseCase(
+            externalRepository: NoopExternalSyncRepository()
+        )
+
+        let expectation = expectation(description: "reconcile-disabled")
+        useCase.execute { result in
+            if case .failure = result {
+                expectation.fulfill()
+            }
+        }
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testAssistantApplyFailsClosedWhenApplyFlagDisabled() {
+        V2FeatureFlags.v2Enabled = true
+        V2FeatureFlags.assistantApplyEnabled = false
+
+        let useCase = AssistantActionPipelineUseCase(
+            repository: NoopAssistantActionRepository(),
+            taskRepository: NoopTaskDefinitionRepository()
+        )
+        let expectation = expectation(description: "assistant-apply-disabled")
+        useCase.applyConfirmedRun(id: UUID()) { result in
+            if case .failure = result {
+                expectation.fulfill()
+            }
+        }
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testAssistantUndoFailsClosedWhenUndoFlagDisabled() {
+        V2FeatureFlags.v2Enabled = true
+        V2FeatureFlags.assistantUndoEnabled = false
+
+        let useCase = AssistantActionPipelineUseCase(
+            repository: NoopAssistantActionRepository(),
+            taskRepository: NoopTaskDefinitionRepository()
+        )
+        let expectation = expectation(description: "assistant-undo-disabled")
+        useCase.undoAppliedRun(id: UUID()) { result in
+            if case .failure = result {
+                expectation.fulfill()
+            }
+        }
+        waitForExpectations(timeout: 1.0)
+    }
+
+    func testBackgroundRefreshFlagCanFailClosed() throws {
+        V2FeatureFlags.remindersBackgroundRefreshEnabled = false
+        XCTAssertFalse(V2FeatureFlags.remindersBackgroundRefreshEnabled)
+
+        let appDelegateSource = try loadWorkspaceFile("To Do List/AppDelegate.swift")
+        XCTAssertTrue(
+            appDelegateSource.contains("V2FeatureFlags.remindersBackgroundRefreshEnabled"),
+            "AppDelegate must gate reminders refresh with remindersBackgroundRefreshEnabled"
+        )
+    }
+
+    private func loadWorkspaceFile(_ relativePath: String) throws -> String {
+        let testsFilePath = URL(fileURLWithPath: #filePath)
+        let workspaceRoot = testsFilePath.deletingLastPathComponent().deletingLastPathComponent()
+        let targetURL = workspaceRoot.appendingPathComponent(relativePath)
+        return try String(contentsOf: targetURL, encoding: .utf8)
+    }
+}
+
+private final class NoopAssistantActionRepository: AssistantActionRepositoryProtocol {
+    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+        completion(.success(run))
+    }
+
+    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+        completion(.success(run))
+    }
+
+    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
+        completion(.success(nil))
+    }
+}
+
+private final class NoopTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
+    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        completion(.success(TaskDefinition(
+            id: request.id,
+            projectID: request.projectID,
+            projectName: request.projectName ?? ProjectConstants.inboxProjectName,
+            title: request.title,
+            details: request.details,
+            lifeAreaID: request.lifeAreaID,
+            sectionID: request.sectionID,
+            parentTaskID: request.parentTaskID,
+            priority: request.priority,
+            type: request.type,
+            energy: request.energy,
+            category: request.category,
+            context: request.context,
+            dueDate: request.dueDate,
+            isComplete: false,
+            dateAdded: request.createdAt,
+            isEveningTask: request.isEveningTask,
+            alertReminderTime: request.alertReminderTime,
+            tagIDs: request.tagIDs,
+            dependencies: request.dependencies,
+            createdAt: request.createdAt,
+            updatedAt: request.createdAt
+        )))
+    }
+    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        completion(.failure(NSError(domain: "NoopTaskDefinitionRepository", code: 1)))
+    }
+    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
+private final class NoopExternalSyncRepository: ExternalSyncRepositoryProtocol {
+    func fetchContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchContainerMapping(provider: String, projectID: UUID, completion: @escaping (Result<ExternalContainerMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func upsertContainerMapping(provider: String, projectID: UUID, mutate: @escaping (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition, completion: @escaping (Result<ExternalContainerMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func fetchItemMappings(completion: @escaping (Result<[ExternalItemMapDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func upsertItemMappingByLocalKey(provider: String, localEntityType: String, localEntityID: UUID, mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func upsertItemMappingByExternalKey(provider: String, externalItemID: String, mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition, completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void) { completion(.success(mutate(nil))) }
+    func fetchItemMapping(provider: String, localEntityType: String, localEntityID: UUID, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
+}
+
+private final class MockTaskRepository: TaskRepositoryProtocol, TaskReadModelRepositoryProtocol {
     private var storedTask: Task
     private let lock = NSLock()
 
     var currentTask: Task { readStoredTask() }
+    private(set) var fetchAllTasksCallCount = 0
+    private(set) var readModelFetchCallCount = 0
+    private(set) var readModelSearchCallCount = 0
 
     init(seed: Task) {
         self.storedTask = seed
@@ -637,7 +899,80 @@ private final class MockTaskRepository: TaskRepositoryProtocol {
     }
 
     func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
+        fetchAllTasksCallCount += 1
         completion(.success([readStoredTask()]))
+    }
+
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+        readModelFetchCallCount += 1
+        let base = [readStoredTask()].filter { task in
+            if let projectID = query.projectID, task.projectID != projectID { return false }
+            if query.includeCompleted == false, task.isComplete { return false }
+            if let start = query.dueDateStart, let dueDate = task.dueDate, dueDate < start { return false }
+            if let end = query.dueDateEnd, let dueDate = task.dueDate, dueDate > end { return false }
+            return true
+        }
+        let start = min(query.offset, base.count)
+        let end = min(start + query.limit, base.count)
+        let slice = Array(base[start..<end])
+        completion(.success(TaskSliceResult(
+            tasks: slice,
+            totalCount: base.count,
+            limit: query.limit,
+            offset: query.offset
+        )))
+    }
+
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+        readModelSearchCallCount += 1
+        let normalized = query.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let base = [readStoredTask()].filter { task in
+            if let projectID = query.projectID, task.projectID != projectID { return false }
+            if query.includeCompleted == false, task.isComplete { return false }
+            if normalized.isEmpty { return true }
+            let nameMatch = task.name.lowercased().contains(normalized)
+            let detailMatch = task.details?.lowercased().contains(normalized) ?? false
+            return nameMatch || detailMatch
+        }
+        let start = min(query.offset, base.count)
+        let end = min(start + query.limit, base.count)
+        let slice = Array(base[start..<end])
+        completion(.success(TaskSliceResult(
+            tasks: slice,
+            totalCount: base.count,
+            limit: query.limit,
+            offset: query.offset
+        )))
+    }
+
+    func fetchProjectTaskCounts(
+        includeCompleted: Bool,
+        completion: @escaping (Result<[UUID : Int], Error>) -> Void
+    ) {
+        let task = readStoredTask()
+        if includeCompleted || task.isComplete == false {
+            completion(.success([task.projectID: 1]))
+        } else {
+            completion(.success([:]))
+        }
+    }
+
+    func fetchProjectCompletionScoreTotals(
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping (Result<[UUID : Int], Error>) -> Void
+    ) {
+        let task = readStoredTask()
+        guard
+            task.isComplete,
+            let completedAt = task.dateCompleted,
+            completedAt >= startDate,
+            completedAt <= endDate
+        else {
+            completion(.success([:]))
+            return
+        }
+        completion(.success([task.projectID: task.priority.scorePoints]))
     }
 
     func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
@@ -1863,6 +2198,1154 @@ private final class InMemoryTombstoneRepository: TombstoneRepositoryProtocol {
         tombstones.removeAll { ids.contains($0.id) }
         completion(.success(()))
     }
+}
+
+final class ReconcileExternalRemindersConflictTests: XCTestCase {
+    private var originalV2Enabled = true
+    private var originalRemindersSyncEnabled = true
+
+    override func setUp() {
+        super.setUp()
+        originalV2Enabled = V2FeatureFlags.v2Enabled
+        originalRemindersSyncEnabled = V2FeatureFlags.remindersSyncEnabled
+        V2FeatureFlags.v2Enabled = true
+        V2FeatureFlags.remindersSyncEnabled = true
+    }
+
+    override func tearDown() {
+        V2FeatureFlags.v2Enabled = originalV2Enabled
+        V2FeatureFlags.remindersSyncEnabled = originalRemindersSyncEnabled
+        super.tearDown()
+    }
+
+    func testEqualTimestampConflictDeterministicallyPullsWhenRemoteClockWinsNodeTie() throws {
+        let fixedDate = Date(timeIntervalSince1970: 1_705_000_000)
+        let projectID = UUID()
+        let taskID = UUID()
+        let listID = "list-a"
+        let externalID = "ext-a"
+
+        let taskRepository = InMemoryTaskDefinitionRepository(seed: [
+            TaskDefinition(
+                id: taskID,
+                projectID: projectID,
+                projectName: "Inbox",
+                title: "Local Title",
+                dueDate: fixedDate,
+                isComplete: false,
+                dateAdded: fixedDate,
+                createdAt: fixedDate,
+                updatedAt: fixedDate
+            )
+        ])
+        let externalRepository = InMemoryExternalSyncRepository()
+        externalRepository.containerMappings = [
+            ExternalContainerMapDefinition(
+                id: UUID(),
+                provider: "apple_reminders",
+                projectID: projectID,
+                externalContainerID: listID,
+                syncEnabled: true,
+                lastSyncAt: nil,
+                createdAt: fixedDate
+            )
+        ]
+        externalRepository.itemMappings = [
+            ExternalItemMapDefinition(
+                id: UUID(),
+                provider: "apple_reminders",
+                localEntityType: "task",
+                localEntityID: taskID,
+                externalItemID: externalID,
+                externalPersistentID: nil,
+                lastSeenExternalModAt: fixedDate,
+                externalPayloadData: nil,
+                syncStateData: ReminderMergeState().encodedData(),
+                createdAt: fixedDate
+            )
+        ]
+
+        let provider = InMemoryAppleRemindersProvider()
+        provider.remindersByListID[listID] = [
+            AppleReminderItemSnapshot(
+                itemID: externalID,
+                calendarID: listID,
+                title: "Remote Title",
+                notes: "remote",
+                dueDate: fixedDate,
+                completionDate: nil,
+                isCompleted: false,
+                priority: 5,
+                urlString: nil,
+                alarmDates: [],
+                lastModifiedAt: fixedDate
+            )
+        ]
+
+        let useCase = ReconcileExternalRemindersUseCase(
+            externalRepository: externalRepository,
+            remindersProvider: provider,
+            taskRepository: taskRepository,
+            nodeID: "aaa-local-node"
+        )
+
+        let summary = try awaitResult { completion in
+            useCase.reconcileProject(projectID: projectID, completion: completion)
+        }
+
+        XCTAssertEqual(summary.pulledFromExternal, 1)
+        XCTAssertEqual(summary.pushedToExternal, 0)
+        XCTAssertEqual(provider.upsertedSnapshots.count, 0)
+
+        let updatedTask = try awaitResult { completion in
+            taskRepository.fetchTaskDefinition(id: taskID, completion: completion)
+        }
+        XCTAssertEqual(updatedTask?.name, "Remote Title")
+        XCTAssertEqual(updatedTask?.details, "remote")
+    }
+
+    func testNewerTombstoneSuppressesBothPullAndPush() throws {
+        let baseDate = Date(timeIntervalSince1970: 1_705_100_000)
+        let tombstone = SyncClock(
+            physicalMillis: Int64(baseDate.timeIntervalSince1970 * 1_000) + 10_000,
+            logicalCounter: 0,
+            nodeID: "remote.apple_reminders"
+        )
+        let projectID = UUID()
+        let taskID = UUID()
+        let listID = "list-b"
+        let externalID = "ext-b"
+
+        let taskRepository = InMemoryTaskDefinitionRepository(seed: [
+            TaskDefinition(
+                id: taskID,
+                projectID: projectID,
+                projectName: "Inbox",
+                title: "Local Tombstoned",
+                dueDate: nil,
+                isComplete: false,
+                dateAdded: baseDate,
+                createdAt: baseDate,
+                updatedAt: baseDate
+            )
+        ])
+
+        var state = ReminderMergeState()
+        state.tombstoneClock = tombstone
+
+        let externalRepository = InMemoryExternalSyncRepository()
+        externalRepository.containerMappings = [
+            ExternalContainerMapDefinition(
+                id: UUID(),
+                provider: "apple_reminders",
+                projectID: projectID,
+                externalContainerID: listID,
+                syncEnabled: true,
+                lastSyncAt: nil,
+                createdAt: baseDate
+            )
+        ]
+        externalRepository.itemMappings = [
+            ExternalItemMapDefinition(
+                id: UUID(),
+                provider: "apple_reminders",
+                localEntityType: "task",
+                localEntityID: taskID,
+                externalItemID: externalID,
+                externalPersistentID: nil,
+                lastSeenExternalModAt: baseDate,
+                externalPayloadData: nil,
+                syncStateData: state.encodedData(),
+                createdAt: baseDate
+            )
+        ]
+
+        let provider = InMemoryAppleRemindersProvider()
+        provider.remindersByListID[listID] = [
+            AppleReminderItemSnapshot(
+                itemID: externalID,
+                calendarID: listID,
+                title: "Remote Tombstoned",
+                notes: nil,
+                dueDate: nil,
+                completionDate: nil,
+                isCompleted: false,
+                priority: 0,
+                urlString: nil,
+                alarmDates: [],
+                lastModifiedAt: baseDate
+            )
+        ]
+
+        let useCase = ReconcileExternalRemindersUseCase(
+            externalRepository: externalRepository,
+            remindersProvider: provider,
+            taskRepository: taskRepository,
+            nodeID: "zzz-local-node"
+        )
+
+        let summary = try awaitResult { completion in
+            useCase.reconcileProject(projectID: projectID, completion: completion)
+        }
+
+        XCTAssertEqual(summary.pulledFromExternal, 0)
+        XCTAssertEqual(summary.pushedToExternal, 0)
+        XCTAssertEqual(provider.upsertedSnapshots.count, 0)
+    }
+
+    func testNewerLocalUpdateResurrectsAfterOlderTombstone() throws {
+        let oldDate = Date(timeIntervalSince1970: 1_705_200_000)
+        let newDate = oldDate.addingTimeInterval(3_600)
+        let tombstone = SyncClock(
+            physicalMillis: Int64(oldDate.timeIntervalSince1970 * 1_000),
+            logicalCounter: 0,
+            nodeID: "remote.apple_reminders"
+        )
+
+        let projectID = UUID()
+        let taskID = UUID()
+        let listID = "list-c"
+        let externalID = "ext-c"
+
+        let taskRepository = InMemoryTaskDefinitionRepository(seed: [
+            TaskDefinition(
+                id: taskID,
+                projectID: projectID,
+                projectName: "Inbox",
+                title: "Locally Resurrected",
+                dueDate: newDate,
+                isComplete: false,
+                dateAdded: oldDate,
+                createdAt: oldDate,
+                updatedAt: newDate
+            )
+        ])
+
+        var state = ReminderMergeState()
+        state.tombstoneClock = tombstone
+        state.lastWriteClock = tombstone
+
+        let externalRepository = InMemoryExternalSyncRepository()
+        externalRepository.containerMappings = [
+            ExternalContainerMapDefinition(
+                id: UUID(),
+                provider: "apple_reminders",
+                projectID: projectID,
+                externalContainerID: listID,
+                syncEnabled: true,
+                lastSyncAt: nil,
+                createdAt: oldDate
+            )
+        ]
+        externalRepository.itemMappings = [
+            ExternalItemMapDefinition(
+                id: UUID(),
+                provider: "apple_reminders",
+                localEntityType: "task",
+                localEntityID: taskID,
+                externalItemID: externalID,
+                externalPersistentID: nil,
+                lastSeenExternalModAt: oldDate,
+                externalPayloadData: nil,
+                syncStateData: state.encodedData(),
+                createdAt: oldDate
+            )
+        ]
+
+        let provider = InMemoryAppleRemindersProvider()
+        provider.remindersByListID[listID] = [
+            AppleReminderItemSnapshot(
+                itemID: externalID,
+                calendarID: listID,
+                title: "Old Remote Value",
+                notes: nil,
+                dueDate: oldDate,
+                completionDate: nil,
+                isCompleted: false,
+                priority: 0,
+                urlString: nil,
+                alarmDates: [],
+                lastModifiedAt: oldDate
+            )
+        ]
+
+        let useCase = ReconcileExternalRemindersUseCase(
+            externalRepository: externalRepository,
+            remindersProvider: provider,
+            taskRepository: taskRepository,
+            nodeID: "zzz-local-node"
+        )
+
+        let summary = try awaitResult { completion in
+            useCase.reconcileProject(projectID: projectID, completion: completion)
+        }
+
+        XCTAssertEqual(summary.pushedToExternal, 1)
+        XCTAssertEqual(provider.upsertedSnapshots.count, 1)
+
+        let updatedMap = try awaitResult { completion in
+            externalRepository.fetchItemMapping(
+                provider: "apple_reminders",
+                localEntityType: "task",
+                localEntityID: taskID,
+                completion: completion
+            )
+        }
+        let updatedState = ReminderMergeState.decode(from: updatedMap?.syncStateData)
+        XCTAssertNil(updatedState.tombstoneClock, "Successful resurrection must clear obsolete tombstone clock")
+    }
+
+    func testMappedMissingRemoteWithDeletedLocalCreatesTombstone() throws {
+        let oldDate = Date(timeIntervalSince1970: 1_705_260_000)
+        let projectID = UUID()
+        let taskID = UUID()
+        let listID = "list-missing-remote"
+        let externalID = "ext-missing-remote"
+
+        let taskRepository = InMemoryTaskDefinitionRepository(seed: [])
+        let externalRepository = InMemoryExternalSyncRepository()
+        externalRepository.containerMappings = [
+            ExternalContainerMapDefinition(
+                id: UUID(),
+                provider: "apple_reminders",
+                projectID: projectID,
+                externalContainerID: listID,
+                syncEnabled: true,
+                lastSyncAt: nil,
+                createdAt: oldDate
+            )
+        ]
+
+        let envelope = ReminderMergeEnvelope(
+            known: ReminderMergeEnvelope.KnownFields(
+                title: "Previously Synced",
+                notes: "legacy",
+                dueDate: oldDate,
+                completionDate: nil,
+                isCompleted: false,
+                priority: 5,
+                urlString: nil,
+                alarmDates: []
+            ),
+            passthroughData: Data("legacy-passthrough".utf8)
+        )
+
+        externalRepository.itemMappings = [
+            ExternalItemMapDefinition(
+                id: UUID(),
+                provider: "apple_reminders",
+                localEntityType: "task",
+                localEntityID: taskID,
+                externalItemID: externalID,
+                externalPersistentID: nil,
+                lastSeenExternalModAt: oldDate,
+                externalPayloadData: try JSONEncoder().encode(envelope),
+                syncStateData: ReminderMergeState().encodedData(),
+                createdAt: oldDate
+            )
+        ]
+
+        let provider = InMemoryAppleRemindersProvider()
+        provider.remindersByListID[listID] = []
+
+        let useCase = ReconcileExternalRemindersUseCase(
+            externalRepository: externalRepository,
+            remindersProvider: provider,
+            taskRepository: taskRepository,
+            nodeID: "local-node"
+        )
+
+        let summary = try awaitResult { completion in
+            useCase.reconcileProject(projectID: projectID, completion: completion)
+        }
+
+        XCTAssertEqual(summary.pushedToExternal, 0)
+        XCTAssertEqual(summary.pulledFromExternal, 0)
+
+        let updatedMap = try awaitResult { completion in
+            externalRepository.fetchItemMapping(
+                provider: "apple_reminders",
+                localEntityType: "task",
+                localEntityID: taskID,
+                completion: completion
+            )
+        }
+        let state = ReminderMergeState.decode(from: updatedMap?.syncStateData)
+        XCTAssertNotNil(state.tombstoneClock, "Missing remote + missing local must persist a tombstone decision")
+    }
+}
+
+final class ReminderPayloadRoundTripTests: XCTestCase {
+    private var originalV2Enabled = true
+    private var originalRemindersSyncEnabled = true
+
+    override func setUp() {
+        super.setUp()
+        originalV2Enabled = V2FeatureFlags.v2Enabled
+        originalRemindersSyncEnabled = V2FeatureFlags.remindersSyncEnabled
+        V2FeatureFlags.v2Enabled = true
+        V2FeatureFlags.remindersSyncEnabled = true
+    }
+
+    override func tearDown() {
+        V2FeatureFlags.v2Enabled = originalV2Enabled
+        V2FeatureFlags.remindersSyncEnabled = originalRemindersSyncEnabled
+        super.tearDown()
+    }
+
+    func testLegacyPayloadDecodePreservesRawBytesAsPassthrough() {
+        let legacyPayload = Data(#"{"title":"Legacy Reminder","notes":"n","unsupported":{"alpha":1}}"#.utf8)
+        let mergeEngine = ReminderMergeEngine()
+        let decoded = mergeEngine.decodeEnvelope(data: legacyPayload)
+
+        XCTAssertEqual(decoded?.known.title, "Legacy Reminder")
+        XCTAssertEqual(decoded?.passthroughData, legacyPayload)
+    }
+
+    func testUnsupportedPayloadBytesArePreservedAcrossPush() throws {
+        let baseDate = Date(timeIntervalSince1970: 1_705_300_000)
+        let passthrough = Data("opaque-payload".utf8)
+        let originalEnvelope = ReminderMergeEnvelope(
+            known: ReminderMergeEnvelope.KnownFields(
+                title: "Old",
+                notes: "old-note",
+                dueDate: baseDate,
+                completionDate: nil,
+                isCompleted: false,
+                priority: 5,
+                urlString: "https://example.com",
+                alarmDates: []
+            ),
+            passthroughData: passthrough
+        )
+        let originalPayload = try JSONEncoder().encode(originalEnvelope)
+
+        let projectID = UUID()
+        let taskID = UUID()
+        let listID = "list-roundtrip"
+        let externalID = "ext-roundtrip"
+
+        let taskRepository = InMemoryTaskDefinitionRepository(seed: [
+            TaskDefinition(
+                id: taskID,
+                projectID: projectID,
+                projectName: "Inbox",
+                title: "Local New Title",
+                details: "Local New Notes",
+                dueDate: baseDate.addingTimeInterval(86_400),
+                isComplete: false,
+                dateAdded: baseDate,
+                createdAt: baseDate,
+                updatedAt: baseDate.addingTimeInterval(120)
+            )
+        ])
+
+        let externalRepository = InMemoryExternalSyncRepository()
+        externalRepository.containerMappings = [
+            ExternalContainerMapDefinition(
+                id: UUID(),
+                provider: "apple_reminders",
+                projectID: projectID,
+                externalContainerID: listID,
+                syncEnabled: true,
+                lastSyncAt: nil,
+                createdAt: baseDate
+            )
+        ]
+        externalRepository.itemMappings = [
+            ExternalItemMapDefinition(
+                id: UUID(),
+                provider: "apple_reminders",
+                localEntityType: "task",
+                localEntityID: taskID,
+                externalItemID: externalID,
+                externalPersistentID: nil,
+                lastSeenExternalModAt: baseDate,
+                externalPayloadData: originalPayload,
+                syncStateData: ReminderMergeState().encodedData(),
+                createdAt: baseDate
+            )
+        ]
+
+        let provider = InMemoryAppleRemindersProvider()
+        provider.remindersByListID[listID] = [
+            AppleReminderItemSnapshot(
+                itemID: externalID,
+                calendarID: listID,
+                title: "Older Remote Title",
+                notes: nil,
+                dueDate: baseDate,
+                completionDate: nil,
+                isCompleted: false,
+                priority: 5,
+                urlString: nil,
+                alarmDates: [],
+                lastModifiedAt: baseDate
+            )
+        ]
+
+        let useCase = ReconcileExternalRemindersUseCase(
+            externalRepository: externalRepository,
+            remindersProvider: provider,
+            taskRepository: taskRepository,
+            nodeID: "zzz-local-node"
+        )
+
+        let summary = try awaitResult { completion in
+            useCase.reconcileProject(projectID: projectID, completion: completion)
+        }
+        XCTAssertEqual(summary.pushedToExternal, 1)
+
+        let pushedPayload = try XCTUnwrap(provider.upsertedSnapshots.first?.payloadData)
+        let pushedEnvelope = try JSONDecoder().decode(ReminderMergeEnvelope.self, from: pushedPayload)
+        XCTAssertEqual(pushedEnvelope.passthroughData, passthrough)
+        XCTAssertEqual(pushedEnvelope.known.title, "Local New Title")
+
+        let savedMap = try awaitResult { completion in
+            externalRepository.fetchItemMapping(
+                provider: "apple_reminders",
+                localEntityType: "task",
+                localEntityID: taskID,
+                completion: completion
+            )
+        }
+        let savedPayload = try XCTUnwrap(savedMap?.externalPayloadData)
+        let savedEnvelope = try JSONDecoder().decode(ReminderMergeEnvelope.self, from: savedPayload)
+        XCTAssertEqual(savedEnvelope.passthroughData, passthrough)
+        XCTAssertEqual(savedEnvelope.known.title, "Local New Title")
+    }
+}
+
+final class SyncClockDeterminismTests: XCTestCase {
+    func testLogicalCounterBreaksPhysicalTimestampTie() {
+        let lhs = SyncClock(physicalMillis: 1_000, logicalCounter: 1, nodeID: "node-a")
+        let rhs = SyncClock(physicalMillis: 1_000, logicalCounter: 2, nodeID: "node-a")
+        XCTAssertTrue(rhs > lhs)
+    }
+
+    func testNodeIDBreaksFullClockTieDeterministically() {
+        let lhs = SyncClock(physicalMillis: 1_000, logicalCounter: 0, nodeID: "node-a")
+        let rhs = SyncClock(physicalMillis: 1_000, logicalCounter: 0, nodeID: "node-b")
+        XCTAssertTrue(lhs < rhs)
+        XCTAssertTrue(rhs > lhs)
+    }
+}
+
+final class AssistantPipelineTransactionalTests: XCTestCase {
+    private var originalV2Enabled = true
+    private var originalAssistantApplyEnabled = true
+    private var originalAssistantUndoEnabled = true
+
+    override func setUp() {
+        super.setUp()
+        originalV2Enabled = V2FeatureFlags.v2Enabled
+        originalAssistantApplyEnabled = V2FeatureFlags.assistantApplyEnabled
+        originalAssistantUndoEnabled = V2FeatureFlags.assistantUndoEnabled
+        V2FeatureFlags.v2Enabled = true
+        V2FeatureFlags.assistantApplyEnabled = true
+        V2FeatureFlags.assistantUndoEnabled = true
+    }
+
+    override func tearDown() {
+        V2FeatureFlags.v2Enabled = originalV2Enabled
+        V2FeatureFlags.assistantApplyEnabled = originalAssistantApplyEnabled
+        V2FeatureFlags.assistantUndoEnabled = originalAssistantUndoEnabled
+        super.tearDown()
+    }
+
+    func testPartialApplyFailureRollsBackAndPersistsVerifiedRollbackOutcome() throws {
+        let taskID = UUID()
+        let projectID = UUID()
+        let initialTask = TaskDefinition(
+            id: taskID,
+            projectID: projectID,
+            projectName: "Inbox",
+            title: "Before Apply",
+            dueDate: nil,
+            isComplete: false,
+            dateAdded: Date(),
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        let taskRepository = InMemoryTaskDefinitionRepository(seed: [initialTask])
+        taskRepository.failUpdateOnCall = 2
+        let actionRepository = InMemoryAssistantActionRepository()
+        let useCase = AssistantActionPipelineUseCase(
+            repository: actionRepository,
+            taskRepository: taskRepository
+        )
+
+        let runID = UUID()
+        let envelope = AssistantCommandEnvelope(
+            schemaVersion: 1,
+            commands: [
+                .updateTask(taskID: taskID, title: "Step 1", dueDate: nil),
+                .updateTask(taskID: taskID, title: "Step 2", dueDate: nil)
+            ]
+        )
+        let run = AssistantActionRunDefinition(
+            id: runID,
+            threadID: "thread",
+            proposalData: try JSONEncoder().encode(envelope),
+            status: .confirmed,
+            confirmedAt: Date(),
+            createdAt: Date()
+        )
+        _ = try awaitResult { completion in
+            actionRepository.createRun(run, completion: completion)
+        }
+
+        let applyExpectation = expectation(description: "apply-fails")
+        useCase.applyConfirmedRun(id: runID) { result in
+            if case .failure = result {
+                applyExpectation.fulfill()
+            } else {
+                XCTFail("Expected apply to fail")
+            }
+        }
+        waitForExpectations(timeout: 2.0)
+
+        let persistedRun = try awaitResult { completion in
+            actionRepository.fetchRun(id: runID, completion: completion)
+        }
+        XCTAssertEqual(persistedRun?.status, .failed)
+        XCTAssertEqual(persistedRun?.rollbackStatus, .verified)
+        XCTAssertNotNil(persistedRun?.rollbackVerifiedAt)
+        XCTAssertNotNil(persistedRun?.executionTraceData)
+        XCTAssertEqual(persistedRun?.lastErrorCode, "assistant_apply_failed")
+
+        let finalTask = try awaitResult { completion in
+            taskRepository.fetchTaskDefinition(id: taskID, completion: completion)
+        }
+        XCTAssertEqual(finalTask?.name, "Before Apply", "Rollback must restore pre-apply state")
+    }
+
+    func testSuccessfulApplyGeneratesDeterministicUndoPlan() throws {
+        let taskID = UUID()
+        let projectID = UUID()
+        let initialTask = TaskDefinition(
+            id: taskID,
+            projectID: projectID,
+            projectName: "Inbox",
+            title: "Before Undo",
+            dueDate: nil,
+            isComplete: false,
+            dateAdded: Date(),
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        let taskRepository = InMemoryTaskDefinitionRepository(seed: [initialTask])
+        let actionRepository = InMemoryAssistantActionRepository()
+        let useCase = AssistantActionPipelineUseCase(
+            repository: actionRepository,
+            taskRepository: taskRepository
+        )
+
+        let runID = UUID()
+        let envelope = AssistantCommandEnvelope(
+            schemaVersion: 1,
+            commands: [
+                .updateTask(taskID: taskID, title: "After Undo", dueDate: nil)
+            ]
+        )
+        let run = AssistantActionRunDefinition(
+            id: runID,
+            threadID: "thread",
+            proposalData: try JSONEncoder().encode(envelope),
+            status: .confirmed,
+            confirmedAt: Date(),
+            createdAt: Date()
+        )
+        _ = try awaitResult { completion in
+            actionRepository.createRun(run, completion: completion)
+        }
+
+        _ = try awaitResult { completion in
+            useCase.applyConfirmedRun(id: runID, completion: completion)
+        }
+
+        let appliedRun = try awaitResult { completion in
+            actionRepository.fetchRun(id: runID, completion: completion)
+        }
+        XCTAssertEqual(appliedRun?.status, .applied)
+        let appliedData = try XCTUnwrap(appliedRun?.proposalData)
+        let appliedEnvelope = try JSONDecoder().decode(AssistantCommandEnvelope.self, from: appliedData)
+        XCTAssertEqual(appliedEnvelope.undoCommands?.count, 1)
+
+        _ = try awaitResult { completion in
+            useCase.undoAppliedRun(id: runID, completion: completion)
+        }
+
+        let undoneRun = try awaitResult { completion in
+            actionRepository.fetchRun(id: runID, completion: completion)
+        }
+        XCTAssertEqual(undoneRun?.status, .confirmed)
+
+        let taskAfterUndo = try awaitResult { completion in
+            taskRepository.fetchTaskDefinition(id: taskID, completion: completion)
+        }
+        XCTAssertEqual(taskAfterUndo?.name, "Before Undo")
+    }
+}
+
+final class AssistantUndoWindowTests: XCTestCase {
+    private var originalV2Enabled = true
+    private var originalAssistantUndoEnabled = true
+
+    override func setUp() {
+        super.setUp()
+        originalV2Enabled = V2FeatureFlags.v2Enabled
+        originalAssistantUndoEnabled = V2FeatureFlags.assistantUndoEnabled
+        V2FeatureFlags.v2Enabled = true
+        V2FeatureFlags.assistantUndoEnabled = true
+    }
+
+    override func tearDown() {
+        V2FeatureFlags.v2Enabled = originalV2Enabled
+        V2FeatureFlags.assistantUndoEnabled = originalAssistantUndoEnabled
+        super.tearDown()
+    }
+
+    func testUndoWindowExpirationIsDeterministic() throws {
+        let taskRepository = InMemoryTaskDefinitionRepository(seed: [])
+        let actionRepository = InMemoryAssistantActionRepository()
+        let useCase = AssistantActionPipelineUseCase(
+            repository: actionRepository,
+            taskRepository: taskRepository
+        )
+
+        let runID = UUID()
+        let envelope = AssistantCommandEnvelope(
+            schemaVersion: 1,
+            commands: [.createTask(projectID: UUID(), title: "Expired")],
+            undoCommands: [.deleteTask(taskID: UUID())]
+        )
+        let staleRun = AssistantActionRunDefinition(
+            id: runID,
+            threadID: "thread",
+            proposalData: try JSONEncoder().encode(envelope),
+            status: .applied,
+            confirmedAt: Date().addingTimeInterval(-4_000),
+            appliedAt: Date().addingTimeInterval(-4_000),
+            createdAt: Date().addingTimeInterval(-4_000)
+        )
+        _ = try awaitResult { completion in
+            actionRepository.createRun(staleRun, completion: completion)
+        }
+
+        let expectation = expectation(description: "undo-expired")
+        useCase.undoAppliedRun(id: runID) { result in
+            switch result {
+            case .failure(let error as NSError):
+                XCTAssertEqual(error.code, 410)
+                expectation.fulfill()
+            default:
+                XCTFail("Expected undo window expiration failure")
+            }
+        }
+        waitForExpectations(timeout: 2.0)
+    }
+}
+
+final class ReadModelQueryPathTests: XCTestCase {
+    func testHomeAndSearchUseCasesPreferReadModelQueriesOverFetchAll() {
+        let inbox = Project.createInbox()
+        let task = Task(
+            id: UUID(),
+            projectID: inbox.id,
+            name: "ReadModel Task",
+            details: "searchable",
+            type: .morning,
+            priority: .low,
+            dueDate: Date(),
+            project: inbox.name
+        )
+        let repository = MockTaskRepository(seed: task)
+
+        let homeUseCase = GetHomeFilteredTasksUseCase(
+            taskRepository: repository,
+            readModelRepository: repository
+        )
+        let homeExpectation = expectation(description: "home-read-model")
+        homeUseCase.execute(state: .default, scope: .today) { result in
+            if case .failure(let error) = result {
+                XCTFail("Unexpected home failure: \(error)")
+            }
+            homeExpectation.fulfill()
+        }
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repository.readModelFetchCallCount, 1)
+        XCTAssertEqual(repository.fetchAllTasksCallCount, 0)
+
+        let getTasksUseCase = GetTasksUseCase(
+            taskRepository: repository,
+            readModelRepository: repository
+        )
+        let searchExpectation = expectation(description: "search-read-model")
+        getTasksUseCase.searchTasks(query: "ReadModel", scope: .all) { result in
+            if case .failure(let error) = result {
+                XCTFail("Unexpected search failure: \(error)")
+            }
+            searchExpectation.fulfill()
+        }
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repository.readModelSearchCallCount, 1)
+        XCTAssertEqual(repository.fetchAllTasksCallCount, 0)
+    }
+}
+
+final class V2PerformanceGateTests: XCTestCase {
+    private struct PerfSnapshot: Decodable {
+        struct Percentiles: Decodable {
+            let p95_ms: Double
+            let p99_ms: Double
+        }
+        struct Metrics: Decodable {
+            let home: Percentiles
+            let project: Percentiles
+            let search: Percentiles
+        }
+        let metrics: Metrics
+    }
+
+    func testPerfSeedHarnessProducesBalancedProfileSnapshot() throws {
+        let root = workspaceRootURLForTests()
+        let outputURL = root.appendingPathComponent("build/benchmarks/v2_readmodel.test.json")
+        let command = [
+            "swift",
+            "scripts/perf_seed_v2.swift",
+            "--tasks", "2000",
+            "--occurrences", "20000",
+            "--iterations", "60",
+            "--output", outputURL.path
+        ].joined(separator: " ")
+
+        let status = try runShellCommand(command, in: root)
+        XCTAssertEqual(status, 0, "Benchmark harness command failed")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path))
+
+        let data = try Data(contentsOf: outputURL)
+        let snapshot = try JSONDecoder().decode(PerfSnapshot.self, from: data)
+        XCTAssertLessThanOrEqual(snapshot.metrics.home.p95_ms, 250)
+        XCTAssertLessThanOrEqual(snapshot.metrics.project.p95_ms, 250)
+        XCTAssertLessThanOrEqual(snapshot.metrics.search.p95_ms, 300)
+        XCTAssertLessThanOrEqual(snapshot.metrics.home.p99_ms, 600)
+        XCTAssertLessThanOrEqual(snapshot.metrics.project.p99_ms, 600)
+        XCTAssertLessThanOrEqual(snapshot.metrics.search.p99_ms, 600)
+    }
+}
+
+final class FlowctlToolingTests: XCTestCase {
+    func testFlowctlInstallAndVerifyScriptsSucceed() throws {
+        let root = workspaceRootURLForTests()
+        XCTAssertEqual(try runShellCommand("FLOWCTL_ALLOW_SHIM=1 bash scripts/install_flowctl.sh", in: root), 0)
+        XCTAssertEqual(try runShellCommand("FLOWCTL_ALLOW_SHIM=1 bash scripts/verify_flowctl.sh", in: root), 0)
+        let flowctlPath = root.appendingPathComponent(".flow/bin/flowctl").path
+        XCTAssertTrue(FileManager.default.fileExists(atPath: flowctlPath))
+        XCTAssertTrue(FileManager.default.isExecutableFile(atPath: flowctlPath))
+    }
+}
+
+final class AssistantPipelineImplementationTests: XCTestCase {
+    func testPipelineImplementationContainsNoSemaphoreWaits() throws {
+        let root = workspaceRootURLForTests()
+        let sourceURL = root.appendingPathComponent("To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+        XCTAssertFalse(source.contains("DispatchSemaphore"))
+        XCTAssertFalse(source.contains(".wait(timeout:"))
+    }
+}
+
+private final class InMemoryAssistantActionRepository: AssistantActionRepositoryProtocol {
+    private var byID: [UUID: AssistantActionRunDefinition] = [:]
+
+    func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+        byID[run.id] = run
+        completion(.success(run))
+    }
+
+    func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
+        byID[run.id] = run
+        completion(.success(run))
+    }
+
+    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
+        completion(.success(byID[id]))
+    }
+}
+
+private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
+    private(set) var byID: [UUID: TaskDefinition]
+    private(set) var updateCallCount = 0
+    var failUpdateOnCall: Int?
+
+    init(seed: [TaskDefinition]) {
+        byID = Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
+    }
+
+    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        completion(.success(Array(byID.values)))
+    }
+
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        let filtered = Array(byID.values).filter { task in
+            guard let query else { return true }
+            if let projectID = query.projectID, task.projectID != projectID { return false }
+            if query.includeCompleted == false, task.isComplete { return false }
+            if let parentTaskID = query.parentTaskID, task.parentTaskID != parentTaskID { return false }
+            if let start = query.dueDateStart, let due = task.dueDate, due < start { return false }
+            if let end = query.dueDateEnd, let due = task.dueDate, due > end { return false }
+            if let searchText = query.searchText?.lowercased(), searchText.isEmpty == false {
+                let nameMatch = task.name.lowercased().contains(searchText)
+                let detailMatch = task.details?.lowercased().contains(searchText) ?? false
+                if !nameMatch && !detailMatch { return false }
+            }
+            return true
+        }
+        completion(.success(filtered))
+    }
+
+    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
+        completion(.success(byID[id]))
+    }
+
+    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        byID[task.id] = task
+        completion(.success(task))
+    }
+
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        let task = TaskDefinition(
+            id: request.id,
+            projectID: request.projectID,
+            projectName: request.projectName ?? ProjectConstants.inboxProjectName,
+            lifeAreaID: request.lifeAreaID,
+            sectionID: request.sectionID,
+            parentTaskID: request.parentTaskID,
+            title: request.title,
+            details: request.details,
+            priority: request.priority,
+            type: request.type,
+            energy: request.energy,
+            category: request.category,
+            context: request.context,
+            dueDate: request.dueDate,
+            isComplete: false,
+            dateAdded: request.createdAt,
+            isEveningTask: request.isEveningTask,
+            alertReminderTime: request.alertReminderTime,
+            tagIDs: request.tagIDs,
+            dependencies: request.dependencies,
+            createdAt: request.createdAt,
+            updatedAt: request.createdAt
+        )
+        byID[task.id] = task
+        completion(.success(task))
+    }
+
+    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        updateCallCount += 1
+        if failUpdateOnCall == updateCallCount {
+            completion(.failure(NSError(domain: "InMemoryTaskDefinitionRepository", code: 500, userInfo: [NSLocalizedDescriptionKey: "Injected update failure"])))
+            return
+        }
+        byID[task.id] = task
+        completion(.success(task))
+    }
+
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        guard var current = byID[request.id] else {
+            completion(.failure(NSError(domain: "InMemoryTaskDefinitionRepository", code: 404)))
+            return
+        }
+        if let title = request.title { current.name = title }
+        if let details = request.details { current.details = details }
+        if let projectID = request.projectID { current.projectID = projectID }
+        if let dueDate = request.dueDate { current.dueDate = dueDate }
+        if let isComplete = request.isComplete { current.isComplete = isComplete }
+        if request.dateCompleted != nil || request.isComplete == false { current.dateCompleted = request.dateCompleted }
+        current.updatedAt = Date()
+        byID[current.id] = current
+        completion(.success(current))
+    }
+
+    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
+        completion(.success(Array(byID.values.filter { $0.parentTaskID == parentTaskID })))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        byID.removeValue(forKey: id)
+        completion(.success(()))
+    }
+}
+
+private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtocol {
+    var containerMappings: [ExternalContainerMapDefinition] = []
+    var itemMappings: [ExternalItemMapDefinition] = []
+
+    func fetchContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) {
+        completion(.success(containerMappings))
+    }
+
+    func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        if let index = containerMappings.firstIndex(where: { $0.id == mapping.id }) {
+            containerMappings[index] = mapping
+        } else if let index = containerMappings.firstIndex(where: {
+            $0.provider == mapping.provider && $0.projectID == mapping.projectID
+        }) {
+            containerMappings[index] = mapping
+        } else {
+            containerMappings.append(mapping)
+        }
+        completion(.success(()))
+    }
+
+    func fetchContainerMapping(
+        provider: String,
+        projectID: UUID,
+        completion: @escaping (Result<ExternalContainerMapDefinition?, Error>) -> Void
+    ) {
+        completion(.success(containerMappings.first { $0.provider == provider && $0.projectID == projectID }))
+    }
+
+    func upsertContainerMapping(
+        provider: String,
+        projectID: UUID,
+        mutate: @escaping (ExternalContainerMapDefinition?) -> ExternalContainerMapDefinition,
+        completion: @escaping (Result<ExternalContainerMapDefinition, Error>) -> Void
+    ) {
+        let existing = containerMappings.first { $0.provider == provider && $0.projectID == projectID }
+        let mutated = mutate(existing)
+        saveContainerMapping(mutated) { _ in
+            completion(.success(mutated))
+        }
+    }
+
+    func fetchItemMappings(completion: @escaping (Result<[ExternalItemMapDefinition], Error>) -> Void) {
+        completion(.success(itemMappings))
+    }
+
+    func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        if let index = itemMappings.firstIndex(where: { $0.id == mapping.id }) {
+            itemMappings[index] = mapping
+        } else if let index = itemMappings.firstIndex(where: {
+            $0.provider == mapping.provider &&
+            $0.localEntityType == mapping.localEntityType &&
+            $0.localEntityID == mapping.localEntityID
+        }) {
+            itemMappings[index] = mapping
+        } else if let index = itemMappings.firstIndex(where: {
+            $0.provider == mapping.provider && $0.externalItemID == mapping.externalItemID
+        }) {
+            itemMappings[index] = mapping
+        } else {
+            itemMappings.append(mapping)
+        }
+        completion(.success(()))
+    }
+
+    func upsertItemMappingByLocalKey(
+        provider: String,
+        localEntityType: String,
+        localEntityID: UUID,
+        mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
+        completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void
+    ) {
+        let existing = itemMappings.first {
+            $0.provider == provider && $0.localEntityType == localEntityType && $0.localEntityID == localEntityID
+        }
+        let mutated = mutate(existing)
+        saveItemMapping(mutated) { _ in
+            completion(.success(mutated))
+        }
+    }
+
+    func upsertItemMappingByExternalKey(
+        provider: String,
+        externalItemID: String,
+        mutate: @escaping (ExternalItemMapDefinition?) -> ExternalItemMapDefinition,
+        completion: @escaping (Result<ExternalItemMapDefinition, Error>) -> Void
+    ) {
+        let existing = itemMappings.first { $0.provider == provider && $0.externalItemID == externalItemID }
+        let mutated = mutate(existing)
+        saveItemMapping(mutated) { _ in
+            completion(.success(mutated))
+        }
+    }
+
+    func fetchItemMapping(
+        provider: String,
+        localEntityType: String,
+        localEntityID: UUID,
+        completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void
+    ) {
+        completion(.success(itemMappings.first {
+            $0.provider == provider && $0.localEntityType == localEntityType && $0.localEntityID == localEntityID
+        }))
+    }
+
+    func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) {
+        completion(.success(itemMappings.first { $0.provider == provider && $0.externalItemID == externalItemID }))
+    }
+}
+
+private final class InMemoryAppleRemindersProvider: AppleRemindersProviderProtocol {
+    var requestAccessGranted = true
+    var lists: [AppleReminderListSnapshot] = []
+    var remindersByListID: [String: [AppleReminderItemSnapshot]] = [:]
+    var upsertedSnapshots: [AppleReminderItemSnapshot] = []
+
+    func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
+        completion(.success(requestAccessGranted))
+    }
+
+    func fetchLists(completion: @escaping (Result<[AppleReminderListSnapshot], Error>) -> Void) {
+        completion(.success(lists))
+    }
+
+    func fetchReminders(listID: String, completion: @escaping (Result<[AppleReminderItemSnapshot], Error>) -> Void) {
+        completion(.success(remindersByListID[listID] ?? []))
+    }
+
+    func upsertReminder(
+        listID: String,
+        snapshot: AppleReminderItemSnapshot,
+        completion: @escaping (Result<AppleReminderItemSnapshot, Error>) -> Void
+    ) {
+        upsertedSnapshots.append(snapshot)
+        var persisted = snapshot
+        persisted.lastModifiedAt = snapshot.lastModifiedAt ?? Date()
+        var existing = remindersByListID[listID] ?? []
+        if let index = existing.firstIndex(where: { $0.itemID == snapshot.itemID }) {
+            existing[index] = persisted
+        } else {
+            existing.append(persisted)
+        }
+        remindersByListID[listID] = existing
+        completion(.success(persisted))
+    }
+
+    func deleteReminder(itemID: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        for key in remindersByListID.keys {
+            remindersByListID[key]?.removeAll(where: { $0.itemID == itemID })
+        }
+        completion(.success(()))
+    }
+}
+
+private func workspaceRootURLForTests() -> URL {
+    URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+}
+
+@discardableResult
+private func runShellCommand(_ command: String, in directory: URL) throws -> Int32 {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+    process.arguments = ["-lc", command]
+    process.currentDirectoryURL = directory
+    try process.run()
+    process.waitUntilExit()
+    return process.terminationStatus
 }
 
 private extension XCTestCase {
