@@ -1,6 +1,6 @@
 import XCTest
 import UIKit
-@testable import Tasker
+@testable import To_Do_List
 
 final class ColorTokenGenerationTests: XCTestCase {
     func testDefaultAccentMatchesSpec() {
@@ -31,7 +31,7 @@ final class ColorTokenGenerationTests: XCTestCase {
 
     func testThemePaletteReducedToNineUniqueBases() {
         XCTAssertEqual(TaskerTheme.accentThemes.count, 9)
-        let uniqueBases = Set(TaskerTheme.accentThemes.map(\.accentBaseHex.uppercased()))
+        let uniqueBases = Set(TaskerTheme.accentThemes.map { $0.accentBaseHex.uppercased() })
         XCTAssertEqual(uniqueBases.count, 9)
     }
 

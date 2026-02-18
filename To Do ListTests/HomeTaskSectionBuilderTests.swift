@@ -1,6 +1,127 @@
 import XCTest
 @testable import To_Do_List
 
+private enum HomeRowDestinationSection {
+    case morning
+    case evening
+    case overdue
+}
+
+private enum HomeRowStateCanonicalizer {
+    struct CanonicalizedSections {
+        let morning: [DomainTask]
+        let evening: [DomainTask]
+        let overdue: [DomainTask]
+    }
+
+    private static let noOverride: (UUID) -> Bool? = { _ in nil }
+
+    static func deduplicate(
+        tasks: [DomainTask],
+        completionOverrideForID: @escaping (UUID) -> Bool?,
+        logConflicts: Bool
+    ) -> [DomainTask] {
+        var orderedIDs: [UUID] = []
+        var byID: [UUID: DomainTask] = [:]
+
+        for task in tasks {
+            if byID[task.id] == nil {
+                orderedIDs.append(task.id)
+                byID[task.id] = task
+                continue
+            }
+
+            guard var existing = byID[task.id] else { continue }
+            let override = completionOverrideForID(task.id)
+            let existingEffective = override ?? existing.isComplete
+            let incomingEffective = override ?? task.isComplete
+
+            if incomingEffective != existingEffective {
+                if incomingEffective == (override ?? incomingEffective) {
+                    existing = task
+                } else if logConflicts {
+                    print("HomeRowStateCanonicalizer conflict for task \(task.id)")
+                }
+            } else if override != nil, task.isComplete == override {
+                existing = task
+            }
+
+            if let override {
+                existing.isComplete = override
+                if override == false {
+                    existing.dateCompleted = nil
+                } else if existing.dateCompleted == nil {
+                    existing.dateCompleted = Date()
+                }
+            }
+
+            byID[task.id] = existing
+        }
+
+        return orderedIDs.compactMap { byID[$0] }
+    }
+
+    static func tasksEligibleForCompletedMerge(
+        from tasks: [DomainTask],
+        completionOverrideForID: ((UUID) -> Bool?)?
+    ) -> [DomainTask] {
+        let override = completionOverrideForID ?? noOverride
+        return tasks.filter { task in
+            let effective = override(task.id) ?? task.isComplete
+            return effective
+        }
+    }
+
+    static func sortSectionTasksForDisplay(_ tasks: [DomainTask]) -> [DomainTask] {
+        tasks
+            .enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.isComplete != rhs.element.isComplete {
+                    return lhs.element.isComplete == false
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
+    }
+
+    static func canonicalizeMergedSections(
+        morning: [DomainTask],
+        evening: [DomainTask],
+        overdue: [DomainTask],
+        completionOverrideForID: ((UUID) -> Bool?)?,
+        destinationForTaskID: (UUID) -> HomeRowDestinationSection
+    ) -> CanonicalizedSections {
+        let override = completionOverrideForID ?? noOverride
+        let deduped = deduplicate(
+            tasks: morning + evening + overdue,
+            completionOverrideForID: override,
+            logConflicts: false
+        )
+        let ordered = sortSectionTasksForDisplay(deduped)
+
+        var morningRows: [DomainTask] = []
+        var eveningRows: [DomainTask] = []
+        var overdueRows: [DomainTask] = []
+
+        for task in ordered {
+            switch destinationForTaskID(task.id) {
+            case .morning:
+                morningRows.append(task)
+            case .evening:
+                eveningRows.append(task)
+            case .overdue:
+                overdueRows.append(task)
+            }
+        }
+
+        return CanonicalizedSections(
+            morning: morningRows,
+            evening: eveningRows,
+            overdue: overdueRows
+        )
+    }
+}
+
 final class HomeTaskSectionBuilderTests: XCTestCase {
 
     func testPrioritizeOverdueBuildsInboxThenGroupedOverdueThenCustomWithoutDuplication() {
@@ -377,11 +498,11 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             id: id,
             projectID: project.id,
             name: name,
-            dueDate: dueDate,
-            isComplete: isComplete,
             priority: priority,
-            dateCompleted: dateCompleted,
-            project: project.name
+            dueDate: dueDate,
+            project: project.name,
+            isComplete: isComplete,
+            dateCompleted: dateCompleted
         )
     }
 }

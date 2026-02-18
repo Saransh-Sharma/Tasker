@@ -471,6 +471,16 @@ private final class HomeViewModelMockProjectRepository: ProjectRepositoryProtoco
         }
     }
 
+    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+        completion(.success(ProjectRepairReport(
+            scanned: projects.count,
+            merged: 0,
+            deleted: 0,
+            inboxCandidates: projects.filter { $0.isInbox }.count,
+            warnings: []
+        )))
+    }
+
     func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
         if let index = projects.firstIndex(where: { $0.id == project.id }) {
             projects[index] = project
