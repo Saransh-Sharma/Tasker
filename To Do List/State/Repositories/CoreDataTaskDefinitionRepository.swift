@@ -33,6 +33,26 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
                     if query.includeCompleted == false {
                         predicates.append(NSPredicate(format: "isComplete == NO"))
                     }
+                    if let dueDateStart = query.dueDateStart {
+                        predicates.append(NSPredicate(format: "dueDate >= %@", dueDateStart as CVarArg))
+                    }
+                    if let dueDateEnd = query.dueDateEnd {
+                        predicates.append(NSPredicate(format: "dueDate <= %@", dueDateEnd as CVarArg))
+                    }
+                    if let updatedAfter = query.updatedAfter {
+                        predicates.append(NSPredicate(format: "updatedAt >= %@", updatedAfter as CVarArg))
+                    }
+                    if let searchText = query.searchText?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       searchText.isEmpty == false {
+                        predicates.append(
+                            NSCompoundPredicate(orPredicateWithSubpredicates: [
+                                NSPredicate(format: "name CONTAINS[cd] %@", searchText),
+                                NSPredicate(format: "title CONTAINS[cd] %@", searchText),
+                                NSPredicate(format: "notes CONTAINS[cd] %@", searchText),
+                                NSPredicate(format: "taskDetails CONTAINS[cd] %@", searchText)
+                            ])
+                        )
+                    }
                 }
                 if predicates.isEmpty == false {
                     request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
@@ -44,6 +64,14 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
                     NSSortDescriptor(key: "taskID", ascending: true),
                     NSSortDescriptor(key: "id", ascending: true)
                 ]
+                if let query {
+                    if let limit = query.limit, limit > 0 {
+                        request.fetchLimit = limit
+                    }
+                    if let offset = query.offset, offset >= 0 {
+                        request.fetchOffset = offset
+                    }
+                }
                 let entities = try self.viewContext.fetch(request)
                 completion(.success(try Self.mapTaskDefinitions(entities, context: self.viewContext)))
             } catch {
@@ -227,7 +255,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         }
     }
 
-    private static func mapTaskDefinition(_ entity: NSManagedObject) -> TaskDefinition {
+    static func mapTaskDefinition(_ entity: NSManagedObject) -> TaskDefinition {
         let taskID = attributeValue("taskID", from: entity) ?? attributeValue("id", from: entity) ?? UUID()
         let projectID = attributeValue("projectID", from: entity) ?? ProjectConstants.inboxProjectID
         let title = attributeValue("title", from: entity)
@@ -268,7 +296,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         )
     }
 
-    private static func mapTaskDefinitions(
+    static func mapTaskDefinitions(
         _ entities: [NSManagedObject],
         context: NSManagedObjectContext
     ) throws -> [TaskDefinition] {
@@ -289,7 +317,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         }
     }
 
-    private static func hydrateTagIDsByTaskID(
+    fileprivate static func hydrateTagIDsByTaskID(
         taskIDs: [UUID],
         context: NSManagedObjectContext
     ) throws -> [UUID: [UUID]] {
@@ -328,7 +356,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         return grouped
     }
 
-    private static func hydrateDependenciesByTaskID(
+    fileprivate static func hydrateDependenciesByTaskID(
         taskIDs: [UUID],
         context: NSManagedObjectContext
     ) throws -> [UUID: [TaskDependencyLinkDefinition]] {
@@ -466,7 +494,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         setAttribute("updatedAt", value: request.updatedAt, on: entity)
     }
 
-    private static func attributeValue<T>(_ key: String, from entity: NSManagedObject) -> T? {
+    fileprivate static func attributeValue<T>(_ key: String, from entity: NSManagedObject) -> T? {
         guard entity.entity.attributesByName[key] != nil else { return nil }
         return entity.value(forKey: key) as? T
     }
@@ -684,6 +712,57 @@ final class V2TaskRepositoryAdapter: TaskRepositoryProtocol {
         }
     }
 
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+        let definitionQuery = TaskDefinitionQuery(
+            projectID: query.projectID,
+            includeCompleted: query.includeCompleted,
+            dueDateStart: query.dueDateStart,
+            dueDateEnd: query.dueDateEnd,
+            updatedAfter: query.updatedAfter,
+            limit: query.limit,
+            offset: query.offset
+        )
+        taskDefinitionRepository.fetchAll(query: definitionQuery) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let definitions):
+                let mapped = definitions.map { $0.toLegacyTask() }
+                let sorted = self.sort(tasks: mapped, by: query.sortBy)
+                completion(.success(TaskSliceResult(
+                    tasks: sorted,
+                    totalCount: sorted.count + query.offset,
+                    limit: query.limit,
+                    offset: query.offset
+                )))
+            }
+        }
+    }
+
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+        let definitionQuery = TaskDefinitionQuery(
+            projectID: query.projectID,
+            includeCompleted: query.includeCompleted,
+            searchText: query.text,
+            limit: query.limit,
+            offset: query.offset
+        )
+        taskDefinitionRepository.fetchAll(query: definitionQuery) { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let definitions):
+                let mapped = definitions.map { $0.toLegacyTask() }
+                completion(.success(TaskSliceResult(
+                    tasks: mapped,
+                    totalCount: mapped.count + query.offset,
+                    limit: query.limit,
+                    offset: query.offset
+                )))
+            }
+        }
+    }
+
     func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
         fetchAllTasks { result in
             completion(result.map { tasks in
@@ -892,6 +971,27 @@ final class V2TaskRepositoryAdapter: TaskRepositoryProtocol {
 
     func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
         fetchTasks(forProjectID: ProjectConstants.inboxProjectID, completion: completion)
+    }
+
+    private func sort(tasks: [Task], by sort: TaskReadSort) -> [Task] {
+        switch sort {
+        case .dueDateAscending:
+            return tasks.sorted {
+                ($0.dueDate ?? Date.distantFuture, $0.id.uuidString) <
+                ($1.dueDate ?? Date.distantFuture, $1.id.uuidString)
+            }
+        case .dueDateDescending:
+            return tasks.sorted {
+                ($0.dueDate ?? Date.distantPast, $0.id.uuidString) >
+                ($1.dueDate ?? Date.distantPast, $1.id.uuidString)
+            }
+        case .updatedAtDescending:
+            return tasks.sorted {
+                let lhs = [$0.dateCompleted, $0.dueDate, $0.dateAdded].compactMap { $0 }.max() ?? Date.distantPast
+                let rhs = [$1.dateCompleted, $1.dueDate, $1.dateAdded].compactMap { $0 }.max() ?? Date.distantPast
+                return (lhs, $0.id.uuidString) > (rhs, $1.id.uuidString)
+            }
+        }
     }
 
     private func mutateTask(

@@ -180,9 +180,10 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
         scheduledAt: Date,
         sourceID: UUID
     ) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        return "\(scheduleTemplateID.uuidString)|\(formatter.string(from: scheduledAt))|\(sourceID.uuidString)"
+        OccurrenceKeyCodec.encode(
+            scheduleTemplateID: scheduleTemplateID,
+            scheduledAt: scheduledAt,
+            sourceID: sourceID
+        )
     }
 }

@@ -60,6 +60,10 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
                 object.setValue(run.appliedAt, forKey: "appliedAt")
                 object.setValue(run.rejectedAt, forKey: "rejectedAt")
                 object.setValue(run.resultSummary, forKey: "resultSummary")
+                object.setValue(run.executionTraceData, forKey: "executionTraceData")
+                object.setValue(run.rollbackStatus?.rawValue, forKey: "rollbackStatus")
+                object.setValue(run.rollbackVerifiedAt, forKey: "rollbackVerifiedAt")
+                object.setValue(run.lastErrorCode, forKey: "lastErrorCode")
                 object.setValue(run.createdAt, forKey: "createdAt")
                 try self.backgroundContext.save()
                 completion(.success(run))
@@ -79,6 +83,10 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
             appliedAt: object.value(forKey: "appliedAt") as? Date,
             rejectedAt: object.value(forKey: "rejectedAt") as? Date,
             resultSummary: object.value(forKey: "resultSummary") as? String,
+            executionTraceData: object.value(forKey: "executionTraceData") as? Data,
+            rollbackStatus: AssistantRollbackStatus(rawValue: object.value(forKey: "rollbackStatus") as? String ?? ""),
+            rollbackVerifiedAt: object.value(forKey: "rollbackVerifiedAt") as? Date,
+            lastErrorCode: object.value(forKey: "lastErrorCode") as? String,
             createdAt: object.value(forKey: "createdAt") as? Date ?? Date()
         )
     }

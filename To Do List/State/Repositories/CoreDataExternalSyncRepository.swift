@@ -208,6 +208,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
                     externalPersistentID: proposed.externalPersistentID,
                     lastSeenExternalModAt: proposed.lastSeenExternalModAt,
                     externalPayloadData: proposed.externalPayloadData,
+                    syncStateData: proposed.syncStateData,
                     createdAt: resolvedCreatedAt
                 )
 
@@ -290,6 +291,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
                     externalPersistentID: proposed.externalPersistentID,
                     lastSeenExternalModAt: proposed.lastSeenExternalModAt,
                     externalPayloadData: proposed.externalPayloadData,
+                    syncStateData: proposed.syncStateData,
                     createdAt: resolvedCreatedAt
                 )
 
@@ -393,6 +395,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
             externalPersistentID: object.value(forKey: "externalPersistentID") as? String,
             lastSeenExternalModAt: object.value(forKey: "lastSeenExternalModAt") as? Date,
             externalPayloadData: object.value(forKey: "externalPayloadData") as? Data,
+            syncStateData: (object.value(forKey: "syncStateData") as? Data) ?? ReminderMergeState().encodedData(),
             createdAt: object.value(forKey: "createdAt") as? Date ?? Date()
         )
     }
@@ -416,6 +419,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         object.setValue(mapping.externalPersistentID, forKey: "externalPersistentID")
         object.setValue(mapping.lastSeenExternalModAt, forKey: "lastSeenExternalModAt")
         object.setValue(mapping.externalPayloadData, forKey: "externalPayloadData")
+        object.setValue(mapping.syncStateData ?? ReminderMergeState().encodedData(), forKey: "syncStateData")
         object.setValue(mapping.createdAt, forKey: "createdAt")
     }
 }

@@ -120,10 +120,19 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
                     ]
                 )
                 let mapped = objects.map { object in
-                    ScheduleExceptionDefinition(
+                    let resolvedTemplateID = object.value(forKey: "scheduleTemplateID") as? UUID ?? templateID
+                    let templateRef = object.value(forKey: "templateRef") as? NSManagedObject
+                    let templateSourceID = templateRef?.value(forKey: "sourceID") as? UUID
+                    let rawOccurrenceKey = object.value(forKey: "occurrenceKey") as? String ?? ""
+                    let canonicalOccurrenceKey = OccurrenceKeyCodec.canonicalize(
+                        rawOccurrenceKey,
+                        fallbackTemplateID: resolvedTemplateID,
+                        fallbackSourceID: templateSourceID
+                    ) ?? rawOccurrenceKey
+                    return ScheduleExceptionDefinition(
                         id: object.value(forKey: "id") as? UUID ?? UUID(),
-                        scheduleTemplateID: object.value(forKey: "scheduleTemplateID") as? UUID ?? templateID,
-                        occurrenceKey: object.value(forKey: "occurrenceKey") as? String ?? "",
+                        scheduleTemplateID: resolvedTemplateID,
+                        occurrenceKey: canonicalOccurrenceKey,
                         action: ScheduleExceptionAction(rawValue: object.value(forKey: "action") as? String ?? "skip") ?? .skip,
                         movedToAt: object.value(forKey: "movedToAt") as? Date,
                         payloadData: object.value(forKey: "payloadData") as? Data,
@@ -149,6 +158,24 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
                     exception.occurrenceKey,
                     field: "scheduleException.occurrenceKey"
                 )
+                let templateObject = try V2CoreDataRepositorySupport.fetchObject(
+                    in: self.backgroundContext,
+                    entityName: "ScheduleTemplate",
+                    predicate: NSPredicate(format: "id == %@", exception.scheduleTemplateID as CVarArg),
+                    sort: [NSSortDescriptor(key: "id", ascending: true)]
+                )
+                let templateSourceID = templateObject?.value(forKey: "sourceID") as? UUID
+                guard let canonicalOccurrenceKey = OccurrenceKeyCodec.canonicalize(
+                    exception.occurrenceKey,
+                    fallbackTemplateID: exception.scheduleTemplateID,
+                    fallbackSourceID: templateSourceID
+                ) else {
+                    throw NSError(
+                        domain: "CoreDataScheduleRepository",
+                        code: 422,
+                        userInfo: [NSLocalizedDescriptionKey: "Malformed occurrenceKey; expected canonical key with templateID, scheduledAt, and sourceID"]
+                    )
+                }
                 let object = try V2CoreDataRepositorySupport.upsertByID(
                     in: self.backgroundContext,
                     entityName: "ScheduleException",
@@ -156,13 +183,15 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
                 )
                 object.setValue(exception.id, forKey: "id")
                 object.setValue(exception.scheduleTemplateID, forKey: "scheduleTemplateID")
-                object.setValue(exception.occurrenceKey, forKey: "occurrenceKey")
+                object.setValue(canonicalOccurrenceKey, forKey: "occurrenceKey")
                 object.setValue(exception.action.rawValue, forKey: "action")
                 object.setValue(exception.movedToAt, forKey: "movedToAt")
                 object.setValue(exception.payloadData, forKey: "payloadData")
                 object.setValue(exception.createdAt, forKey: "createdAt")
                 try self.backgroundContext.save()
-                completion(.success(exception))
+                var normalized = exception
+                normalized.occurrenceKey = canonicalOccurrenceKey
+                completion(.success(normalized))
             } catch {
                 completion(.failure(error))
             }
