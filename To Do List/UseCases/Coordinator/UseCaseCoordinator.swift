@@ -118,6 +118,7 @@ public final class UseCaseCoordinator {
     
     public init(
         taskRepository: TaskRepositoryProtocol,
+        taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         projectRepository: ProjectRepositoryProtocol,
         cacheService: CacheServiceProtocol? = nil,
         notificationService: NotificationServiceProtocol? = nil,
@@ -160,11 +161,13 @@ public final class UseCaseCoordinator {
 
         self.getTasks = GetTasksUseCase(
             taskRepository: taskRepository,
+            readModelRepository: taskReadModelRepository,
             cacheService: cacheService
         )
 
         self.getHomeFilteredTasks = GetHomeFilteredTasksUseCase(
-            taskRepository: taskRepository
+            taskRepository: taskRepository,
+            readModelRepository: taskReadModelRepository
         )
         
         // New Task Use Cases (Phase 3)
@@ -175,6 +178,7 @@ public final class UseCaseCoordinator {
         
         self.searchTasks = SearchTasksUseCase(
             taskRepository: taskRepository,
+            readModelRepository: taskReadModelRepository,
             cacheService: cacheService
         )
         
@@ -245,9 +249,11 @@ public final class UseCaseCoordinator {
                 notificationService: notificationService
             )
             self.recordXP = xp
+            let assistantCommandExecutor = AssistantCommandExecutor()
             self.assistantActionPipeline = AssistantActionPipelineUseCase(
                 repository: deps.assistantActionRepository,
-                taskRepository: deps.taskDefinitionRepository
+                taskRepository: deps.taskDefinitionRepository,
+                commandExecutor: assistantCommandExecutor
             )
             self.linkExternalReminders = LinkExternalRemindersUseCase(
                 externalRepository: deps.externalSyncRepository,
