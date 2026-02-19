@@ -144,24 +144,24 @@ public final class InMemoryCacheService: CacheServiceProtocol {
     
     // MARK: - Task-specific Caching
     
-    public func cacheTasks(_ tasks: [DomainTask], forDate date: Date) {
+    public func cacheTasks(_ tasks: [TaskDefinition], forDate date: Date) {
         let key = "tasks_\(date.cacheKey)"
         set(tasks, forKey: key, expiration: .minutes(15))
     }
 
-    public func getCachedTasks(forDate date: Date) -> [DomainTask]? {
+    public func getCachedTasks(forDate date: Date) -> [TaskDefinition]? {
         let key = "tasks_\(date.cacheKey)"
-        return get([DomainTask].self, forKey: key)
+        return get([TaskDefinition].self, forKey: key)
     }
 
-    public func cacheTasks(_ tasks: [DomainTask], forProjectID projectID: UUID) {
+    public func cacheTasks(_ tasks: [TaskDefinition], forProjectID projectID: UUID) {
         let key = "tasks_project_\(projectID.uuidString.lowercased())"
         set(tasks, forKey: key, expiration: .minutes(10))
     }
 
-    public func getCachedTasks(forProjectID projectID: UUID) -> [DomainTask]? {
+    public func getCachedTasks(forProjectID projectID: UUID) -> [TaskDefinition]? {
         let key = "tasks_project_\(projectID.uuidString.lowercased())"
-        return get([DomainTask].self, forKey: key)
+        return get([TaskDefinition].self, forKey: key)
     }
     
     // MARK: - Project-specific Caching

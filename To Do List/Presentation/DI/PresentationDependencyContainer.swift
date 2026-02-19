@@ -37,8 +37,8 @@ public final class PresentationDependencyContainer {
     // MARK: - Configuration State
 
     private var isConfigured = false
-    public private(set) var v2RuntimeReady = false
-    public private(set) var v2RuntimeFailureReason: String?
+    public private(set) var v3RuntimeReady = false
+    public private(set) var v3RuntimeFailureReason: String?
 
     public var isConfiguredForRuntime: Bool {
         isConfigured
@@ -63,7 +63,7 @@ public final class PresentationDependencyContainer {
         self.projectRepository = projectRepository
         self.useCaseCoordinator = useCaseCoordinator
 
-        evaluateV2RuntimeReadiness()
+        evaluateV3RuntimeReadiness()
 
         self.isConfigured = true
         logDebug("✅ PresentationDependencyContainer: Configuration completed (Clean Architecture)")
@@ -96,22 +96,35 @@ public final class PresentationDependencyContainer {
         }
     }
 
-    public func assertV2RuntimeReady() throws {
-        guard v2RuntimeReady else {
+    public func assertV3RuntimeReady() throws {
+        guard v3RuntimeReady else {
             throw NSError(
                 domain: "PresentationDependencyContainer",
                 code: 503,
                 userInfo: [
-                    NSLocalizedDescriptionKey: v2RuntimeFailureReason
-                    ?? "V2 runtime is not fully wired in presentation container"
+                    NSLocalizedDescriptionKey: v3RuntimeFailureReason
+                    ?? "V3 runtime is not fully wired in presentation container"
                 ]
             )
         }
     }
 
-    private func evaluateV2RuntimeReadiness() {
-        v2RuntimeReady = true
-        v2RuntimeFailureReason = nil
+    private func evaluateV3RuntimeReadiness() {
+        var missingDependencies: [String] = []
+        if taskReadModelRepository == nil {
+            missingDependencies.append("taskReadModelRepository")
+        }
+        if projectRepository == nil {
+            missingDependencies.append("projectRepository")
+        }
+        if useCaseCoordinator == nil {
+            missingDependencies.append("useCaseCoordinator")
+        }
+
+        v3RuntimeReady = missingDependencies.isEmpty
+        v3RuntimeFailureReason = v3RuntimeReady
+            ? nil
+            : "Presentation dependencies missing: \(missingDependencies.joined(separator: ", "))"
     }
 
     // MARK: - ViewModel Factory Methods

@@ -9,7 +9,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         self.context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
-    public func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+    public func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         context.perform {
             do {
                 let predicate = self.predicate(for: query)
@@ -21,7 +21,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     offset: query.offset
                 )
                 let definitions = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(entities, context: self.context)
-                completion(.success(TaskSliceResult(
+                completion(.success(TaskDefinitionSliceResult(
                     tasks: definitions,
                     totalCount: totalCount,
                     limit: query.limit,
@@ -33,7 +33,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
     }
 
-    public func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+    public func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         context.perform {
             do {
                 let predicate = self.searchPredicate(for: query)
@@ -45,7 +45,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     offset: query.offset
                 )
                 let definitions = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(entities, context: self.context)
-                completion(.success(TaskSliceResult(
+                completion(.success(TaskDefinitionSliceResult(
                     tasks: definitions,
                     totalCount: totalCount,
                     limit: query.limit,

@@ -33,7 +33,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private let occurrenceRefreshTaskIdentifier = "com.tasker.refresh.occurrences"
     private let remindersRefreshTaskIdentifier = "com.tasker.refresh.reminders"
     private let expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"]
-    private let v2StoreEpoch = 3
+    private let v3StoreEpoch = 4
 
     private(set) static var persistentBootstrapFailureMessage: String?
     static var isPersistentStoreReady: Bool {
@@ -122,10 +122,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Register for CloudKit silent pushes
         application.registerForRemoteNotifications()
 
-        // Hard-reset cutover to V2 model/container.
-        performV2BootstrapCutoverIfNeeded()
+        // Hard-reset cutover to V3 model/container.
+        performV3BootstrapCutoverIfNeeded()
 
-        persistentBootstrapState = bootstrapV2PersistentContainer()
+        persistentBootstrapState = bootstrapV3PersistentContainer()
         switch persistentBootstrapState {
         case .ready(let container):
             persistentContainer = container
@@ -345,52 +345,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         )
     }
 
-    // MARK: - V2 Bootstrap
+    // MARK: - V3 Bootstrap
 
-    private func performV2BootstrapCutoverIfNeeded() {
+    private func performV3BootstrapCutoverIfNeeded() {
         let defaults = UserDefaults.standard
         let epochKey = "tasker.v3.store.epoch"
         let appliedEpoch = defaults.integer(forKey: epochKey)
-        guard appliedEpoch != v2StoreEpoch else {
+        guard appliedEpoch != v3StoreEpoch else {
             return
         }
 
-        let storeDir = NSPersistentContainer.defaultDirectoryURL()
-        let fileManager = FileManager.default
-
-        do {
-            let files = try fileManager.contentsOfDirectory(at: storeDir, includingPropertiesForKeys: nil)
-            let legacyFiles = files.filter { url in
-                let name = url.lastPathComponent
-                guard name.contains("TaskModel") else { return false }
-                return name.contains("TaskModelV2") == false
-            }
-
-            for fileURL in legacyFiles {
-                try? fileManager.removeItem(at: fileURL)
-            }
-        } catch {
-            logWarning(
-                event: "v2_cutover_cleanup_failed",
-                message: "Failed to enumerate legacy Core Data stores",
-                fields: ["error": error.localizedDescription]
-            )
-        }
-
-        wipeV2StoreFiles()
+        wipeV3StoreFiles()
         clearLegacyV1PreferenceKeys(defaults: defaults)
     }
 
-    private func markV2BootstrapEpochApplied() {
-        UserDefaults.standard.set(v2StoreEpoch, forKey: "tasker.v3.store.epoch")
+    private func markV3BootstrapEpochApplied() {
+        UserDefaults.standard.set(v3StoreEpoch, forKey: "tasker.v3.store.epoch")
     }
 
-    private func makeV2PersistentContainer() -> NSPersistentCloudKitContainer {
-        let container = NSPersistentCloudKitContainer(name: "TaskModelV2")
+    private func makeV3PersistentContainer() -> NSPersistentCloudKitContainer {
+        let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
 
         let baseURL = NSPersistentContainer.defaultDirectoryURL()
-        let cloudURL = baseURL.appendingPathComponent("TaskModelV2-cloud.sqlite")
-        let localURL = baseURL.appendingPathComponent("TaskModelV2-local.sqlite")
+        let cloudURL = baseURL.appendingPathComponent("TaskModelV3-cloud.sqlite")
+        let localURL = baseURL.appendingPathComponent("TaskModelV3-local.sqlite")
 
         let cloudDescription = NSPersistentStoreDescription(url: cloudURL)
         cloudDescription.configuration = "CloudSync"
@@ -411,13 +389,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return container
     }
 
-    private func bootstrapV2PersistentContainer() -> PersistentBootstrapState {
-        let initialContainer = makeV2PersistentContainer()
+    private func bootstrapV3PersistentContainer() -> PersistentBootstrapState {
+        let initialContainer = makeV3PersistentContainer()
         let initialReport = loadPersistentStoresAndReport(container: initialContainer, phase: "initial")
         let initialHealthy = initialReport.errors.isEmpty && hasExpectedConfigurations(initialReport)
 
         if initialHealthy {
-            markV2BootstrapEpochApplied()
+            markV3BootstrapEpochApplied()
             return .ready(initialContainer)
         }
 
@@ -429,7 +407,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if shouldRetryWithWipe {
             logWarning(
                 event: "persistent_store_bootstrap_retry",
-                message: "Retrying persistent store bootstrap after V2 store wipe",
+                message: "Retrying persistent store bootstrap after V3 store wipe",
                 fields: [
                     "retry_attempted": "true",
                     "retry_reason": hasCompatibilityError ? "compatibility_error" : "missing_configuration",
@@ -440,12 +418,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             )
 
             unloadPersistentStores(initialContainer)
-            wipeV2StoreFiles()
-            let recoveryContainer = makeV2PersistentContainer()
+            wipeV3StoreFiles()
+            let recoveryContainer = makeV3PersistentContainer()
             let recoveryReport = loadPersistentStoresAndReport(container: recoveryContainer, phase: "recovery")
             let recoveryHealthy = recoveryReport.errors.isEmpty && hasExpectedConfigurations(recoveryReport)
             if recoveryHealthy {
-                markV2BootstrapEpochApplied()
+                markV3BootstrapEpochApplied()
                 return .ready(recoveryContainer)
             }
 
@@ -507,7 +485,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 let missingConfigurations = self.expectedStoreConfigurations.subtracting(loadedConfigurations)
                 logError(
                     event: "persistent_store_load_failed",
-                    message: "V2 persistent store failed to load",
+                    message: "V3 persistent store failed to load",
                     fields: [
                         "phase": phase,
                         "url": storeDescription.url?.absoluteString ?? "unknown",
@@ -596,19 +574,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return false
     }
 
-    private func wipeV2StoreFiles() {
+    private func wipeV3StoreFiles() {
         let storeDir = NSPersistentContainer.defaultDirectoryURL()
         let fileManager = FileManager.default
-        let v2StoreFileNames = [
+        let storeFileNames = [
             "TaskModelV2-cloud.sqlite",
             "TaskModelV2-cloud.sqlite-wal",
             "TaskModelV2-cloud.sqlite-shm",
             "TaskModelV2-local.sqlite",
             "TaskModelV2-local.sqlite-wal",
-            "TaskModelV2-local.sqlite-shm"
+            "TaskModelV2-local.sqlite-shm",
+            "TaskModelV3-cloud.sqlite",
+            "TaskModelV3-cloud.sqlite-wal",
+            "TaskModelV3-cloud.sqlite-shm",
+            "TaskModelV3-local.sqlite",
+            "TaskModelV3-local.sqlite-wal",
+            "TaskModelV3-local.sqlite-shm"
         ]
 
-        for fileName in v2StoreFileNames {
+        for fileName in storeFileNames {
             let fileURL = storeDir.appendingPathComponent(fileName)
             guard fileManager.fileExists(atPath: fileURL.path) else {
                 continue
@@ -618,8 +602,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 try fileManager.removeItem(at: fileURL)
             } catch {
                 logWarning(
-                    event: "v2_store_file_delete_failed",
-                    message: "Failed to delete V2 persistent store file",
+                    event: "v3_store_file_delete_failed",
+                    message: "Failed to delete V3 cutover persistent store file",
                     fields: [
                         "file": fileName,
                         "error": error.localizedDescription
@@ -640,7 +624,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
-    private func ensureV2Defaults() {
+    private func ensureV3Defaults() {
         guard let context = persistentContainer?.viewContext else {
             return
         }
@@ -701,8 +685,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 }
             } catch {
                 logError(
-                    event: "v2_default_seed_failed",
-                    message: "Failed to seed V2 default life area/inbox",
+                    event: "v3_default_seed_failed",
+                    message: "Failed to seed V3 default life area/inbox",
                     fields: ["error": error.localizedDescription]
                 )
             }
@@ -789,7 +773,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         } catch {
             logWarning(
                 event: "bg_refresh_schedule_failed",
-                message: "Failed to schedule V2 occurrence refresh task",
+                message: "Failed to schedule V3 occurrence refresh task",
                 fields: ["error": error.localizedDescription]
             )
         }
@@ -874,7 +858,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         guard let externalRepository = EnhancedDependencyContainer.shared.externalSyncRepository else {
             logWarning(
                 event: "bg_reminders_missing_dependencies",
-                message: "Skipping reminders refresh because V2 sync dependencies are unavailable",
+                message: "Skipping reminders refresh because V3 sync dependencies are unavailable",
                 fields: [:]
             )
             task.setTaskCompleted(success: false)
@@ -1015,9 +999,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         stateContainer.configure(with: persistentContainer)
 
         do {
-            try stateContainer.assertV2RuntimeReady()
+            try stateContainer.assertV3RuntimeReady()
         } catch {
-            return failClosedV2Runtime(reason: error.localizedDescription)
+            return failClosedV3Runtime(reason: error.localizedDescription)
         }
 
         PresentationDependencyContainer.shared.configure(
@@ -1027,13 +1011,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         )
 
         do {
-            try PresentationDependencyContainer.shared.assertV2RuntimeReady()
+            try PresentationDependencyContainer.shared.assertV3RuntimeReady()
         } catch {
-            return failClosedV2Runtime(reason: error.localizedDescription)
+            return failClosedV3Runtime(reason: error.localizedDescription)
         }
 
-        // Seed clean-start V2 defaults.
-        ensureV2Defaults()
+        // Seed clean-start V3 defaults.
+        ensureV3Defaults()
         repairProjectIdentityIfNeeded()
 
         // Configure LLM access through repositories (no direct Core Data context pulls).
@@ -1044,13 +1028,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-    private func failClosedV2Runtime(reason: String) -> Bool {
-        let failureMessage = "Tasker failed to initialize required V2 runtime dependencies."
+    private func failClosedV3Runtime(reason: String) -> Bool {
+        let failureMessage = "Tasker failed to initialize required V3 runtime dependencies."
         persistentBootstrapState = .failed(failureMessage)
         AppDelegate.persistentBootstrapFailureMessage = failureMessage
         logError(
-            event: "v2_runtime_not_ready",
-            message: "Failing closed because required V2 runtime dependencies are missing",
+            event: "v3_runtime_not_ready",
+            message: "Failing closed because required V3 runtime dependencies are missing",
             fields: ["reason": reason]
         )
         return false

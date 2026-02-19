@@ -42,8 +42,8 @@ public final class EnhancedDependencyContainer {
     // MARK: - Use Cases
     
     public private(set) var useCaseCoordinator: UseCaseCoordinator!
-    public private(set) var v2RuntimeReady: Bool = false
-    public private(set) var v2RuntimeFailureReason: String?
+    public private(set) var v3RuntimeReady: Bool = false
+    public private(set) var v3RuntimeFailureReason: String?
 
     // MARK: - Services
     
@@ -63,8 +63,8 @@ public final class EnhancedDependencyContainer {
         logDebug("🔧 EnhancedDependencyContainer: Starting configuration...")
 
         self.persistentContainer = container
-        self.v2RuntimeReady = false
-        self.v2RuntimeFailureReason = nil
+        self.v3RuntimeReady = false
+        self.v3RuntimeFailureReason = nil
         
         // Initialize cache service
         self.cacheService = InMemoryCacheService()
@@ -110,10 +110,10 @@ public final class EnhancedDependencyContainer {
               let gamificationRepository,
               let assistantActionRepository,
               let externalSyncRepository else {
-            v2RuntimeReady = false
-            v2RuntimeFailureReason = "Missing required V2 repository dependencies during container configuration"
+            v3RuntimeReady = false
+            v3RuntimeFailureReason = "Missing required V3 repository dependencies during container configuration"
             logError(
-                event: "v2_runtime_not_ready",
+                event: "v3_runtime_not_ready",
                 message: "Enhanced dependency container failed to construct required dependencies"
             )
             return
@@ -146,41 +146,41 @@ public final class EnhancedDependencyContainer {
             v2Dependencies: v2Dependencies
         )
 
-        evaluateV2RuntimeReadiness()
+        evaluateV3RuntimeReadiness()
 
         logDebug("✅ EnhancedDependencyContainer: Configuration completed")
     }
 
-    public func assertV2RuntimeReady() throws {
-        guard v2RuntimeReady else {
+    public func assertV3RuntimeReady() throws {
+        guard v3RuntimeReady else {
             throw NSError(
                 domain: "EnhancedDependencyContainer",
                 code: 503,
                 userInfo: [
-                    NSLocalizedDescriptionKey: v2RuntimeFailureReason
-                    ?? "V2 runtime dependencies are not fully configured"
+                    NSLocalizedDescriptionKey: v3RuntimeFailureReason
+                    ?? "V3 runtime dependencies are not fully configured"
                 ]
             )
         }
     }
 
-    private func evaluateV2RuntimeReadiness() {
+    private func evaluateV3RuntimeReadiness() {
         var missing: [String] = []
         if taskDefinitionRepository == nil { missing.append("taskDefinitionRepository") }
         if externalSyncRepository == nil { missing.append("externalSyncRepository") }
         if assistantActionRepository == nil { missing.append("assistantActionRepository") }
 
         if missing.isEmpty {
-            v2RuntimeReady = true
-            v2RuntimeFailureReason = nil
+            v3RuntimeReady = true
+            v3RuntimeFailureReason = nil
             return
         }
 
-        v2RuntimeReady = false
-        v2RuntimeFailureReason = "Missing required V2 runtime dependencies: \(missing.joined(separator: ", "))"
+        v3RuntimeReady = false
+        v3RuntimeFailureReason = "Missing required V3 runtime dependencies: \(missing.joined(separator: ", "))"
         logError(
-            event: "v2_runtime_not_ready",
-            message: "Enhanced dependency container failed V2 runtime readiness checks",
+            event: "v3_runtime_not_ready",
+            message: "Enhanced dependency container failed V3 runtime readiness checks",
             fields: [
                 "missing": missing.joined(separator: ",")
             ]
