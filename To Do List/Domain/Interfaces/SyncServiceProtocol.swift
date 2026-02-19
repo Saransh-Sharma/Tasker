@@ -30,7 +30,7 @@ public protocol SyncServiceProtocol {
     func stopSync()
     
     /// Sync specific tasks
-    func syncTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void)
+    func syncTasks(_ tasks: [TaskDefinition], completion: @escaping (Result<[TaskDefinition], Error>) -> Void)
     
     /// Sync specific projects
     func syncProjects(_ projects: [Project], completion: @escaping (Result<[Project], Error>) -> Void)
@@ -38,7 +38,7 @@ public protocol SyncServiceProtocol {
     // MARK: - Conflict Resolution
     
     /// Resolve sync conflicts
-    func resolveConflicts(for tasks: [Task], strategy: ConflictResolutionStrategy, completion: @escaping (Result<[Task], Error>) -> Void)
+    func resolveConflicts(for tasks: [TaskDefinition], strategy: ConflictResolutionStrategy, completion: @escaping (Result<[TaskDefinition], Error>) -> Void)
     
     // MARK: - Configuration
     

@@ -79,9 +79,6 @@ public protocol ProjectRepositoryProtocol {
     /// Get the count of tasks in a project
     func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void)
     
-    /// Get all tasks for a project
-    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void)
-    
     /// Move tasks from one project to another
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void)
     

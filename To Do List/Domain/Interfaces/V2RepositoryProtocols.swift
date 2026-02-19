@@ -32,20 +32,6 @@ public protocol TaskDefinitionRepositoryProtocol {
     func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void)
 }
 
-public extension TaskDefinitionRepositoryProtocol {
-    func create(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
-        create(TaskDefinition(legacyTask: task)) { result in
-            completion(result.map { $0.toLegacyTask() })
-        }
-    }
-
-    func update(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
-        update(TaskDefinition(legacyTask: task)) { result in
-            completion(result.map { $0.toLegacyTask() })
-        }
-    }
-}
-
 public protocol TaskTagLinkRepositoryProtocol {
     func fetchTagIDs(taskID: UUID, completion: @escaping (Result<[UUID], Error>) -> Void)
     func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping (Result<Void, Error>) -> Void)

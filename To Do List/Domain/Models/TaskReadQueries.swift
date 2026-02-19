@@ -60,13 +60,13 @@ public struct TaskSearchQuery: Codable, Equatable, Hashable {
 }
 
 public struct TaskSliceResult: Codable, Equatable, Hashable {
-    public var tasks: [Task]
+    public var tasks: [TaskDefinition]
     public var totalCount: Int
     public var limit: Int
     public var offset: Int
 
     public init(
-        tasks: [Task],
+        tasks: [TaskDefinition],
         totalCount: Int,
         limit: Int,
         offset: Int
