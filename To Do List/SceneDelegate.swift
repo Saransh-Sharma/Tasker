@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import FluentUI
 
 // Import Clean Architecture components
 // These types are defined in the Presentation layer
@@ -23,7 +22,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
         guard let windowScene = (scene as? UIWindowScene) else { return }
         
-        // Create window programmatically to use FluentUI NavigationController
+        // Create window programmatically to control root navigation composition
         window = UIWindow(windowScene: windowScene)
 
         let appDelegate = UIApplication.shared.delegate as? AppDelegate
@@ -48,13 +47,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 return
             }
 
-            // Embed in FluentUI NavigationController
-            let navigationController = NavigationController(rootViewController: homeViewController)
-
-            // Set FluentUI custom navigation bar color to match app's primary color immediately on launch
-            let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
-            homeViewController.navigationItem.fluentConfiguration.customNavigationBarColor = themeColors.accentPrimary
-            homeViewController.navigationItem.fluentConfiguration.navigationBarStyle = .custom
+            let navigationController = UINavigationController(rootViewController: homeViewController)
 
             // Set as root view controller
             window?.rootViewController = navigationController

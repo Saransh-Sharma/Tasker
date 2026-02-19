@@ -33,7 +33,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private let occurrenceRefreshTaskIdentifier = "com.tasker.refresh.occurrences"
     private let remindersRefreshTaskIdentifier = "com.tasker.refresh.reminders"
     private let expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"]
-    private let v2StoreEpoch = 2
+    private let v2StoreEpoch = 3
 
     private(set) static var persistentBootstrapFailureMessage: String?
     static var isPersistentStoreReady: Bool {
@@ -136,12 +136,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 break
             }
 
-            if V2FeatureFlags.v2Enabled {
-                registerBackgroundTasks()
-                scheduleOccurrenceRefresh()
-                if V2FeatureFlags.remindersBackgroundRefreshEnabled {
-                    scheduleRemindersRefresh()
-                }
+            registerBackgroundTasks()
+            scheduleOccurrenceRefresh()
+            if V2FeatureFlags.remindersBackgroundRefreshEnabled {
+                scheduleRemindersRefresh()
             }
 
             // 2) Observe remote-change notifications so your viewContext merges them
@@ -351,7 +349,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private func performV2BootstrapCutoverIfNeeded() {
         let defaults = UserDefaults.standard
-        let epochKey = "tasker.v2.store.epoch"
+        let epochKey = "tasker.v3.store.epoch"
         let appliedEpoch = defaults.integer(forKey: epochKey)
         guard appliedEpoch != v2StoreEpoch else {
             return
@@ -380,10 +378,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
 
         wipeV2StoreFiles()
+        clearLegacyV1PreferenceKeys(defaults: defaults)
     }
 
     private func markV2BootstrapEpochApplied() {
-        UserDefaults.standard.set(v2StoreEpoch, forKey: "tasker.v2.store.epoch")
+        UserDefaults.standard.set(v2StoreEpoch, forKey: "tasker.v3.store.epoch")
     }
 
     private func makeV2PersistentContainer() -> NSPersistentCloudKitContainer {
@@ -396,7 +395,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let cloudDescription = NSPersistentStoreDescription(url: cloudURL)
         cloudDescription.configuration = "CloudSync"
         cloudDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-            containerIdentifier: "iCloud.TaskerCloudKitV2"
+            containerIdentifier: "iCloud.TaskerCloudKitV3"
         )
         cloudDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         cloudDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
@@ -630,6 +629,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    private func clearLegacyV1PreferenceKeys(defaults: UserDefaults) {
+        let legacyKeys = [
+            "home.focus.lastFilterState.v1",
+            "home.focus.pinnedTaskIDs.v1",
+            "home.focus.savedViews.v1"
+        ]
+        for key in legacyKeys {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
     private func ensureV2Defaults() {
         guard let context = persistentContainer?.viewContext else {
             return
@@ -659,22 +669,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
                 let inboxRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
                 inboxRequest.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
-                    NSPredicate(format: "projectID == %@", ProjectConstants.inboxProjectID as CVarArg),
                     NSPredicate(format: "id == %@", ProjectConstants.inboxProjectID as CVarArg),
                     NSPredicate(format: "isInbox == YES"),
                     NSPredicate(format: "isDefault == YES"),
-                    NSPredicate(format: "projectName ==[c] %@", ProjectConstants.inboxProjectName),
                     NSPredicate(format: "name ==[c] %@", ProjectConstants.inboxProjectName)
                 ])
                 inboxRequest.fetchLimit = 1
                 let inbox = try context.fetch(inboxRequest).first ?? NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
                 inbox.setValue(ProjectConstants.inboxProjectID, forKey: "id")
-                inbox.setValue(ProjectConstants.inboxProjectID, forKey: "projectID")
                 inbox.setValue(lifeArea.value(forKey: "id") as? UUID, forKey: "lifeAreaID")
                 inbox.setValue(ProjectConstants.inboxProjectName, forKey: "name")
-                inbox.setValue(ProjectConstants.inboxProjectName, forKey: "projectName")
                 inbox.setValue(ProjectConstants.inboxProjectDescription, forKey: "projectDescription")
-                inbox.setValue(ProjectConstants.inboxProjectDescription, forKey: "projecDescription")
                 inbox.setValue(true, forKey: "isInbox")
                 inbox.setValue(true, forKey: "isDefault")
                 inbox.setValue(false, forKey: "isArchived")
@@ -716,7 +721,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let projects = try context.fetch(projectRequest)
         var lifeAreaByProjectID: [UUID: UUID] = [:]
         for project in projects {
-            let projectID = (project.value(forKey: "projectID") as? UUID) ?? (project.value(forKey: "id") as? UUID)
+            let projectID = project.value(forKey: "id") as? UUID
             let lifeAreaID = project.value(forKey: "lifeAreaID") as? UUID
             if let projectID, let lifeAreaID {
                 lifeAreaByProjectID[projectID] = lifeAreaID
@@ -810,63 +815,37 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             task.setTaskCompleted(success: false)
         }
 
-        guard
-            let generateUseCase = PresentationDependencyContainer.shared.coordinator.generateOccurrences
-        else {
-            task.setTaskCompleted(success: true)
-            return
-        }
+        let generateUseCase = PresentationDependencyContainer.shared.coordinator.generateOccurrences
 
         generateUseCase.execute(daysAhead: 14) { result in
             switch result {
             case .success:
-                if let maintain = PresentationDependencyContainer.shared.coordinator.maintainOccurrences {
-                    maintain.execute { maintainResult in
-                        switch maintainResult {
-                        case .success:
-                            if let purge = PresentationDependencyContainer.shared.coordinator.purgeExpiredTombstones {
-                                purge.execute { purgeResult in
-                                    switch purgeResult {
-                                    case .success:
-                                        task.setTaskCompleted(success: true)
-                                    case .failure(let error):
-                                        logWarning(
-                                            event: "bg_tombstone_purge_failed",
-                                            message: "Tombstone purge failed in background refresh",
-                                            fields: ["error": error.localizedDescription]
-                                        )
-                                        task.setTaskCompleted(success: false)
-                                    }
-                                }
-                            } else {
-                                task.setTaskCompleted(success: true)
-                            }
-                        case .failure(let error):
-                            logWarning(
-                                event: "bg_maintenance_failed",
-                                message: "Occurrence maintenance failed in background refresh",
-                                fields: ["error": error.localizedDescription]
-                            )
-                            task.setTaskCompleted(success: false)
-                        }
-                    }
-                } else {
-                    if let purge = PresentationDependencyContainer.shared.coordinator.purgeExpiredTombstones {
+                let maintain = PresentationDependencyContainer.shared.coordinator.maintainOccurrences
+                let purge = PresentationDependencyContainer.shared.coordinator.purgeExpiredTombstones
+
+                maintain.execute { maintainResult in
+                    switch maintainResult {
+                    case .success:
                         purge.execute { purgeResult in
                             switch purgeResult {
                             case .success:
                                 task.setTaskCompleted(success: true)
                             case .failure(let error):
                                 logWarning(
-                                    event: "bg_tombstone_purge_failed_no_maintenance",
-                                    message: "Tombstone purge failed without occurrence maintenance",
+                                    event: "bg_tombstone_purge_failed",
+                                    message: "Tombstone purge failed in background refresh",
                                     fields: ["error": error.localizedDescription]
                                 )
                                 task.setTaskCompleted(success: false)
                             }
                         }
-                    } else {
-                        task.setTaskCompleted(success: true)
+                    case .failure(let error):
+                        logWarning(
+                            event: "bg_maintenance_failed",
+                            message: "Occurrence maintenance failed in background refresh",
+                            fields: ["error": error.localizedDescription]
+                        )
+                        task.setTaskCompleted(success: false)
                     }
                 }
             case .failure(let error):
@@ -891,10 +870,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             return
         }
 
-        guard
-            let reconcileUseCase = PresentationDependencyContainer.shared.coordinator.reconcileExternalReminders,
-            let externalRepository = EnhancedDependencyContainer.shared.externalSyncRepository
-        else {
+        let reconcileUseCase = PresentationDependencyContainer.shared.coordinator.reconcileExternalReminders
+        guard let externalRepository = EnhancedDependencyContainer.shared.externalSyncRepository else {
             logWarning(
                 event: "bg_reminders_missing_dependencies",
                 message: "Skipping reminders refresh because V2 sync dependencies are unavailable",
@@ -1044,10 +1021,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
 
         PresentationDependencyContainer.shared.configure(
-            taskRepository: stateContainer.taskRepository,
             taskReadModelRepository: stateContainer.taskReadModelRepository,
             projectRepository: stateContainer.projectRepository,
-            cacheService: stateContainer.cacheService,
             useCaseCoordinator: stateContainer.useCaseCoordinator
         )
 
@@ -1063,7 +1038,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         // Configure LLM access through repositories (no direct Core Data context pulls).
         LLMContextRepositoryProvider.configure(
-            taskRepository: stateContainer.taskRepository,
+            taskReadModelRepository: stateContainer.taskReadModelRepository,
             projectRepository: stateContainer.projectRepository
         )
         return true
