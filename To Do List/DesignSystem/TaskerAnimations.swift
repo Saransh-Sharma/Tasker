@@ -114,6 +114,36 @@ public extension View {
     func shimmer() -> some View {
         modifier(ShimmerEffect())
     }
+
+    func bellShake(trigger: Binding<Bool>) -> some View {
+        modifier(BellShake(trigger: trigger))
+    }
+}
+
+// MARK: - Bell Shake Modifier
+
+public struct BellShake: ViewModifier {
+    @Binding var trigger: Bool
+    @State private var shaking = false
+
+    public func body(content: Content) -> some View {
+        content
+            .rotationEffect(.degrees(shaking ? 15 : 0))
+            .animation(
+                shaking
+                    ? .spring(response: 0.15, dampingFraction: 0.3).repeatCount(3)
+                    : .default,
+                value: shaking
+            )
+            .onChange(of: trigger) { _, newValue in
+                if newValue {
+                    shaking = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        shaking = false
+                    }
+                }
+            }
+    }
 }
 
 // MARK: - UIKit Spring Helpers
