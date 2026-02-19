@@ -2,7 +2,8 @@
 //  AddTaskForedropView.swift
 //  Tasker
 //
-//  Foredrop container for Add Task form with all input components.
+//  Three-tier form: Primary Capture → Secondary Details → Advanced Planning.
+//  Quick + Expand pattern optimized for ADHD execution.
 //
 
 import SwiftUI
@@ -11,8 +12,12 @@ import SwiftUI
 
 struct AddTaskForedropView: View {
     @ObservedObject var viewModel: AddTaskViewModel
+    let showAddAnother: Bool
+    @Binding var successFlash: Bool
     let onCancel: () -> Void
     let onCreate: () -> Void
+    let onAddAnother: () -> Void
+    let onExpandToLarge: () -> Void
 
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var descriptionFieldFocused: Bool
@@ -22,13 +27,8 @@ struct AddTaskForedropView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Handle bar
-            handleBar
-                .padding(.top, spacing.s8)
-
             // Navigation bar
             AddTaskNavigationBar(
-                title: "New Task",
                 canSave: viewModel.viewState.canSubmit && !viewModel.isLoading
             ) {
                 onCancel()
@@ -36,10 +36,14 @@ struct AddTaskForedropView: View {
                 submitTask()
             }
             .padding(.horizontal, spacing.s16)
+            .padding(.top, spacing.s8)
 
             // Scrollable form content
             ScrollView {
                 VStack(spacing: spacing.s16) {
+
+                    // ─── PRIMARY CAPTURE (always visible) ───
+
                     // Title field
                     AddTaskTitleField(
                         text: $viewModel.taskName,
@@ -48,33 +52,25 @@ struct AddTaskForedropView: View {
                     )
                     .staggeredAppearance(index: 0)
 
-                    // Description field
-                    AddTaskDescriptionField(
-                        text: $viewModel.taskDetails,
-                        isFocused: $descriptionFieldFocused
-                    )
-                    .staggeredAppearance(index: 1)
+                    // Date preset row
+                    AddTaskDatePresetRow(dueDate: $viewModel.dueDate)
+                        .staggeredAppearance(index: 1)
 
-                    // Metadata row
-                    AddTaskMetadataRow(
-                        dueDate: $viewModel.dueDate,
-                        reminderTime: Binding(
-                            get: { viewModel.hasReminder ? viewModel.reminderTime : nil },
-                            set: { newTime in
-                                if let time = newTime {
-                                    viewModel.hasReminder = true
-                                    viewModel.reminderTime = time
-                                } else {
-                                    viewModel.hasReminder = false
-                                }
-                            }
-                        ),
-                        isEvening: Binding(
-                            get: { viewModel.selectedType == .evening },
-                            set: { viewModel.selectedType = $0 ? .evening : .morning }
-                        )
-                    )
+                    // Quick attributes row: Task type chips + Reminder
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: spacing.chipSpacing) {
+                            AddTaskTypeChips(selectedType: $viewModel.selectedType)
+                            AddTaskReminderChip(
+                                hasReminder: $viewModel.hasReminder,
+                                reminderTime: $viewModel.reminderTime
+                            )
+                        }
+                    }
                     .staggeredAppearance(index: 2)
+
+                    // Priority pills
+                    AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
+                        .staggeredAppearance(index: 3)
 
                     // Project bar
                     AddTaskProjectBar(
@@ -84,78 +80,71 @@ struct AddTaskForedropView: View {
                             viewModel.createProject(name: name)
                         }
                     )
-                    .staggeredAppearance(index: 3)
+                    .staggeredAppearance(index: 4)
 
-                    // Priority picker
-                    AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
-                        .staggeredAppearance(index: 4)
+                    // ─── SECONDARY DETAILS (collapsed) ───
 
-                    // XP preview
-                    AddTaskXPPreview(priority: viewModel.selectedPriority)
-                        .staggeredAppearance(index: 5)
+                    AddTaskSecondaryDetailsSection(
+                        viewModel: viewModel,
+                        descriptionFocused: $descriptionFieldFocused,
+                        onExpand: onExpandToLarge
+                    )
+                    .staggeredAppearance(index: 5)
+
+                    // ─── ADVANCED PLANNING (collapsed) ───
+
+                    AddTaskAdvancedPlanningSection(
+                        viewModel: viewModel,
+                        onExpand: onExpandToLarge
+                    )
+                    .staggeredAppearance(index: 6)
+
+                    // ─── FOOTER ───
 
                     // Error message
                     if let error = viewModel.errorMessage {
                         errorMessageView(error)
-                            .staggeredAppearance(index: 6)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .opacity
+                            ))
                     }
+
+                    // XP preview
+                    AddTaskXPPreview(priority: viewModel.selectedPriority)
                 }
                 .padding(.horizontal, spacing.s16)
                 .padding(.top, spacing.s8)
                 .padding(.bottom, spacing.s20)
             }
 
-            // Create button (sticky)
+            // ─── CTA FOOTER (sticky) ───
+
             AddTaskCreateButton(
                 isEnabled: viewModel.viewState.canSubmit,
                 isLoading: viewModel.isLoading,
-                action: submitTask
+                successFlash: successFlash,
+                showAddAnother: showAddAnother,
+                onCreateAction: submitTask,
+                onAddAnotherAction: onAddAnother
             )
             .padding(.horizontal, spacing.s16)
             .padding(.bottom, spacing.s16)
         }
-        .background(
-            UnevenRoundedRectangle(
-                topLeadingRadius: corner.modal,
-                bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0,
-                topTrailingRadius: corner.modal
-            )
-                .fill(Color.tasker.surfacePrimary)
-                .taskerElevation(.e2, cornerRadius: corner.modal, includesBorder: false)
-        )
-        .clipShape(
-            UnevenRoundedRectangle(
-                topLeadingRadius: corner.modal,
-                bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0,
-                topTrailingRadius: corner.modal
-            )
-        )
+        .background(Color.tasker.surfacePrimary)
         .onAppear {
-            // Auto-focus title field
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 titleFieldFocused = true
             }
         }
     }
 
-    // MARK: - Handle Bar
+    // MARK: - Helpers
 
     private func submitTask() {
-        guard viewModel.viewState.canSubmit, !viewModel.isLoading else {
-            return
-        }
+        guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
         onCreate()
     }
-
-    private var handleBar: some View {
-        Capsule()
-            .fill(Color.tasker.textQuaternary.opacity(0.4))
-            .frame(width: 44, height: 5)
-    }
-
-    // MARK: - Error Message
 
     private func errorMessageView(_ message: String) -> some View {
         HStack(spacing: spacing.s8) {
@@ -173,5 +162,36 @@ struct AddTaskForedropView: View {
             RoundedRectangle(cornerRadius: corner.r2)
                 .fill(Color.tasker.statusWarning.opacity(0.12))
         )
+        .animation(TaskerAnimation.bouncy, value: viewModel.errorMessage != nil)
+    }
+}
+
+// MARK: - Task Type Chips
+
+struct AddTaskTypeChips: View {
+    @Binding var selectedType: TaskType
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+
+    private let types: [(type: TaskType, icon: String, label: String)] = [
+        (.morning, "sun.max", "Morning"),
+        (.evening, "moon.stars", "Evening"),
+        (.upcoming, "arrow.right.circle", "Upcoming"),
+    ]
+
+    var body: some View {
+        HStack(spacing: spacing.chipSpacing) {
+            ForEach(types, id: \.type) { item in
+                AddTaskMetadataChip(
+                    icon: item.icon,
+                    text: item.label,
+                    isActive: selectedType == item.type
+                ) {
+                    withAnimation(TaskerAnimation.snappy) {
+                        selectedType = item.type
+                    }
+                }
+            }
+        }
     }
 }

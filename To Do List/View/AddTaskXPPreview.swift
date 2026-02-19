@@ -2,7 +2,8 @@
 //  AddTaskXPPreview.swift
 //  Tasker
 //
-//  Dynamic XP preview badge that shows points based on selected priority.
+//  Dynamic XP preview badge — shows points based on selected priority.
+//  Uses .contentTransition(.numericText()) for rolling counter animation.
 //
 
 import SwiftUI
@@ -29,6 +30,8 @@ struct AddTaskXPPreview: View {
         }
     }
 
+    @State private var pulsing = false
+
     var body: some View {
         HStack {
             Spacer()
@@ -42,6 +45,7 @@ struct AddTaskXPPreview: View {
                     .font(.tasker(.callout))
                     .fontWeight(.medium)
                     .foregroundColor(isHighValue ? Color.tasker.textSecondary : Color.tasker.textTertiary)
+                    .contentTransition(.numericText())
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -51,27 +55,24 @@ struct AddTaskXPPreview: View {
             )
             .overlay(
                 Capsule()
-                    .stroke(isHighValue ? priorityColor.opacity(0.3) : Color.clear, lineWidth: 1)
+                    .stroke(
+                        isHighValue ? priorityColor.opacity(pulsing ? 0.8 : 0.3) : Color.clear,
+                        lineWidth: 1
+                    )
             )
         }
         .animation(TaskerAnimation.quick, value: priority)
-    }
-}
-
-// MARK: - Preview
-
-#if DEBUG
-struct AddTaskXPPreview_Previews: PreviewProvider {
-    static var previews: some View {
-        VStack(spacing: 16) {
-            AddTaskXPPreview(priority: .max)
-            AddTaskXPPreview(priority: .high)
-            AddTaskXPPreview(priority: .low)
-            AddTaskXPPreview(priority: .none)
+        .onChange(of: priority) { _, newPriority in
+            if newPriority == .high || newPriority == .max {
+                withAnimation(TaskerAnimation.gentle) {
+                    pulsing = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                    withAnimation(TaskerAnimation.gentle) {
+                        pulsing = false
+                    }
+                }
+            }
         }
-        .padding()
-        .background(Color.tasker.surfacePrimary)
-        .previewLayout(.sizeThatFits)
     }
 }
-#endif
