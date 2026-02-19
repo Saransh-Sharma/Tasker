@@ -214,6 +214,41 @@ class HomePage {
         )
     }
 
+    private func tapElement(_ element: XCUIElement) {
+        if element.isHittable {
+            element.tap()
+            return
+        }
+        element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+
+    private func firstHittableElement(in query: XCUIElementQuery) -> XCUIElement? {
+        for index in 0..<query.count {
+            let candidate = query.element(boundBy: index)
+            if candidate.exists && candidate.isHittable {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    private func rowMatchesTitle(_ row: XCUIElement, title: String) -> Bool {
+        let normalizedTitle = title
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard normalizedTitle.isEmpty == false else {
+            return false
+        }
+
+        if row.label.lowercased().contains(normalizedTitle) {
+            return true
+        }
+
+        // When accessibility grouping changes, debugDescription still includes
+        // descendant text and remains stable enough for UI test matching.
+        return row.debugDescription.lowercased().contains(normalizedTitle)
+    }
+
     // MARK: - Actions
 
     /// Tap the add task button to open task creation screen
@@ -363,11 +398,12 @@ class HomePage {
 
     /// Get task cell at index
     func taskCell(at index: Int) -> XCUIElement {
-        let tableCell = app.tables.cells.element(boundBy: index)
-        if tableCell.exists {
-            return tableCell
+        let taskRow = taskRowQuery.element(boundBy: index)
+        if taskRow.exists {
+            return taskRow
         }
-        return taskRowQuery.element(boundBy: index)
+
+        return app.tables.cells.element(boundBy: index)
     }
 
     /// Get task checkbox at index
@@ -393,11 +429,48 @@ class HomePage {
 
     /// Get SwiftUI task row by title using stable row accessibility identifiers.
     func taskRow(containingTitle title: String) -> XCUIElement {
-        let predicate = NSPredicate(
-            format: "identifier BEGINSWITH 'home.taskRow.' AND label CONTAINS[c] %@",
-            title
+        let rowsContainingTitle = app.otherElements.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
+        ).containing(.staticText, identifier: title)
+        if let hittableRow = firstHittableElement(in: rowsContainingTitle) {
+            return hittableRow
+        }
+
+        let rowContainingTitle = rowsContainingTitle.firstMatch
+        if rowContainingTitle.exists {
+            return rowContainingTitle
+        }
+
+        let rowsByLabel = taskRowQuery.matching(
+            NSPredicate(format: "label CONTAINS[c] %@", title)
         )
-        return app.descendants(matching: .any).matching(predicate).firstMatch
+        if let hittableRowByLabel = firstHittableElement(in: rowsByLabel) {
+            return hittableRowByLabel
+        }
+
+        let rowByLabel = rowsByLabel.firstMatch
+        if rowByLabel.exists {
+            return rowByLabel
+        }
+
+        let rows = taskRowQuery
+        for index in 0..<rows.count {
+            let row = rows.element(boundBy: index)
+            if rowMatchesTitle(row, title: title) {
+                return row
+            }
+        }
+
+        let fallbackByLabel = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.' AND label CONTAINS[c] %@", title)
+        ).firstMatch
+        if fallbackByLabel.exists {
+            return fallbackByLabel
+        }
+
+        return app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
+        ).firstMatch
     }
 
     func focusTaskCard(containingTitle title: String) -> XCUIElement {
@@ -431,12 +504,70 @@ class HomePage {
     /// Get SwiftUI task checkbox by title using stable checkbox accessibility identifiers.
     func taskCheckbox(containingTitle title: String) -> XCUIElement {
         let row = taskRow(containingTitle: title)
+        if row.exists, row.identifier.hasPrefix("home.taskRow.") {
+            let taskID = String(row.identifier.dropFirst("home.taskRow.".count))
+            let rowScopedCheckboxIdentifier = "home.taskCheckbox.\(taskID)"
+
+            let rowScopedMatches = row.buttons.matching(
+                NSPredicate(format: "identifier == %@", rowScopedCheckboxIdentifier)
+            )
+            if let hittableRowScopedCheckbox = firstHittableElement(in: rowScopedMatches) {
+                return hittableRowScopedCheckbox
+            }
+
+            let rowScopedCheckbox = rowScopedMatches.firstMatch
+            if rowScopedCheckbox.exists {
+                return rowScopedCheckbox
+            }
+
+            let directMatches = app.buttons.matching(
+                NSPredicate(format: "identifier == %@", rowScopedCheckboxIdentifier)
+            )
+            if let hittableDirectCheckbox = firstHittableElement(in: directMatches) {
+                return hittableDirectCheckbox
+            }
+
+            let directCheckbox = directMatches.firstMatch
+            if directCheckbox.exists {
+                return directCheckbox
+            }
+        }
+
+        let checkboxesByLabel = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskCheckbox.' AND label CONTAINS[c] %@", title)
+        )
+        if let hittableCheckboxByLabel = firstHittableElement(in: checkboxesByLabel) {
+            return hittableCheckboxByLabel
+        }
+
+        let checkboxByLabel = checkboxesByLabel.firstMatch
+        if checkboxByLabel.exists {
+            return checkboxByLabel
+        }
         let checkboxPredicate = NSPredicate(format: "identifier BEGINSWITH 'home.taskCheckbox.'")
-        let checkboxInRow = row.buttons.matching(checkboxPredicate).firstMatch
+        let checkboxesInRow = row.buttons.matching(checkboxPredicate)
+        if let hittableCheckboxInRow = firstHittableElement(in: checkboxesInRow) {
+            return hittableCheckboxInRow
+        }
+
+        let checkboxInRow = checkboxesInRow.firstMatch
         if checkboxInRow.exists {
             return checkboxInRow
         }
-        return app.buttons.matching(checkboxPredicate).firstMatch
+
+        let rows = taskRowQuery
+        for index in 0..<rows.count {
+            let candidateRow = rows.element(boundBy: index)
+            guard rowMatchesTitle(candidateRow, title: title) else { continue }
+            let candidateCheckbox = candidateRow.buttons.matching(checkboxPredicate).firstMatch
+            if candidateCheckbox.exists {
+                return candidateCheckbox
+            }
+        }
+
+        return app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskCheckbox.'")
+        ).firstMatch
     }
 
     /// Read row state accessibility value ("open" / "done") for a task title.
@@ -462,7 +593,7 @@ class HomePage {
     func completeTask(at index: Int) {
         let checkbox = taskCheckbox(at: index)
         if checkbox.exists {
-            checkbox.tap()
+            tapElement(checkbox)
             return
         }
 
@@ -473,15 +604,58 @@ class HomePage {
                 NSPredicate(format: "identifier CONTAINS[c] 'checkbox' OR label CONTAINS[c] 'complete'")
             ).firstMatch
             if fallbackCheckbox.exists {
-                fallbackCheckbox.tap()
+                tapElement(fallbackCheckbox)
                 return
             }
+        }
+    }
+
+    /// Complete task by title by tapping checkbox inside the matching row.
+    func completeTask(containingTitle title: String) {
+        let checkbox = taskCheckbox(containingTitle: title)
+        if checkbox.waitForExistence(timeout: 2) {
+            tapElement(checkbox)
+            return
+        }
+
+        let titleElement = app.staticTexts.matching(
+            NSPredicate(format: "label == %@", title)
+        ).firstMatch
+        if titleElement.waitForExistence(timeout: 1.5) {
+            let titleFrame = titleElement.frame
+            let targetX = max(8, titleFrame.minX - 30)
+            let targetY = titleFrame.midY
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+                .withOffset(CGVector(dx: targetX, dy: targetY))
+                .tap()
+            return
+        }
+
+        let row = taskRow(containingTitle: title)
+        let fallbackCheckbox = row.buttons.matching(
+            NSPredicate(
+                format: "identifier BEGINSWITH 'home.taskCheckbox.' OR label CONTAINS[c] 'complete' OR label CONTAINS[c] %@",
+                title
+            )
+        ).firstMatch
+        if fallbackCheckbox.exists {
+            tapElement(fallbackCheckbox)
+            return
+        }
+
+        if row.exists {
+            row.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5)).tap()
         }
     }
 
     /// Uncomplete task at index
     func uncompleteTask(at index: Int) {
         completeTask(at: index) // Same action - toggle
+    }
+
+    /// Uncomplete task by title.
+    func uncompleteTask(containingTitle title: String) {
+        completeTask(containingTitle: title) // Same action - toggle
     }
 
     /// Tap task cell to open detail view
