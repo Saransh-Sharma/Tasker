@@ -451,15 +451,15 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
 
     func testTaskRowDisplayModelBuildsCompactMetadataAndTrailingDue() {
         let due = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) ?? Date()
-        let task = DomainTask(
+        var task = DomainTask(
             projectID: ProjectConstants.inboxProjectID,
-            name: "Metadata task",
+            title: "Metadata task",
             details: "  Add note  ",
-            type: .morning,
             priority: .high,
-            dueDate: due,
-            project: ProjectConstants.inboxProjectName
+            type: .morning,
+            dueDate: due
         )
+        task.projectName = ProjectConstants.inboxProjectName
 
         let model = TaskRowDisplayModel.from(task: task, showTypeBadge: false, now: Date())
 
@@ -472,11 +472,10 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
     func testTaskRowDisplayModelFallsBackToXPWhenNoDueDate() {
         let task = DomainTask(
             projectID: ProjectConstants.inboxProjectID,
-            name: "No due date",
-            type: .morning,
+            title: "No due date",
             priority: .low,
-            dueDate: nil,
-            project: nil
+            type: .morning,
+            dueDate: nil
         )
 
         let model = TaskRowDisplayModel.from(task: task, showTypeBadge: true, now: Date())
@@ -497,10 +496,10 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         DomainTask(
             id: id,
             projectID: project.id,
-            name: name,
+            projectName: project.name,
+            title: name,
             priority: priority,
             dueDate: dueDate,
-            project: project.name,
             isComplete: isComplete,
             dateCompleted: dateCompleted
         )

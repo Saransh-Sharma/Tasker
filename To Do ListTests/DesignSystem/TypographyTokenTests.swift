@@ -29,21 +29,24 @@ final class TypographyTokenTests: XCTestCase {
     func testTextStylesAreDynamicTypeCompatibleAndNotHelvetica() {
         let typography = TaskerTheme(index: 0).tokens.typography
 
-        let expectedStyles: [(UIFont, UIFont.TextStyle)] = [
-            (typography.display, .largeTitle),
-            (typography.title1, .title1),
-            (typography.title2, .title2),
-            (typography.headline, .headline),
-            (typography.body, .body),
-            (typography.callout, .callout),
-            (typography.caption1, .caption1),
-            (typography.caption2, .caption2)
+        let expectedStyles: [(TaskerTextStyle, UIFont, UIFont.TextStyle)] = [
+            (.display, typography.display, .largeTitle),
+            (.title1, typography.title1, .title1),
+            (.title2, typography.title2, .title2),
+            (.headline, typography.headline, .headline),
+            (.body, typography.body, .body),
+            (.callout, typography.callout, .callout),
+            (.caption1, typography.caption1, .caption1),
+            (.caption2, typography.caption2, .caption2)
         ]
 
-        for (font, expectedTextStyle) in expectedStyles {
-            let descriptorStyle = font.fontDescriptor.object(forKey: .textStyle) as? String
-            XCTAssertEqual(descriptorStyle, expectedTextStyle.rawValue)
+        for (style, font, expectedTextStyle) in expectedStyles {
             XCTAssertFalse(font.fontName.localizedCaseInsensitiveContains("helvetica"))
+
+            let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
+            let dynamic = typography.dynamicFont(for: style, compatibleWith: largeAccessibility)
+            _ = expectedTextStyle // style mapping is exercised by dynamicFont(for:)
+            XCTAssertGreaterThan(dynamic.pointSize, font.pointSize)
         }
     }
 

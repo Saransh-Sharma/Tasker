@@ -6,9 +6,9 @@ final class SpacingElevationCornerTests: XCTestCase {
     func testSpacingRecipeValues() {
         let spacing = TaskerTheme(index: 0).tokens.spacing
 
-        XCTAssertEqual(spacing.screenHorizontal, 16)
-        XCTAssertEqual(spacing.cardPadding, 16)
-        XCTAssertEqual(spacing.sectionGap, 24)
+        XCTAssertEqual(spacing.screenHorizontal, 20)
+        XCTAssertEqual(spacing.cardPadding, 20)
+        XCTAssertEqual(spacing.sectionGap, 28)
         XCTAssertEqual(spacing.buttonHeight, 48)
     }
 
@@ -17,8 +17,8 @@ final class SpacingElevationCornerTests: XCTestCase {
 
         XCTAssertEqual(corner.r1, 8)
         XCTAssertEqual(corner.r2, 12)
-        XCTAssertEqual(corner.r3, 16)
-        XCTAssertEqual(corner.r4, 24)
+        XCTAssertEqual(corner.r3, 20)
+        XCTAssertEqual(corner.r4, 28)
         XCTAssertEqual(corner.pill, 999)
     }
 

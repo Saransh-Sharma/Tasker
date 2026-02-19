@@ -4,7 +4,7 @@ import UIKit
 
 final class ColorTokenGenerationTests: XCTestCase {
     func testDefaultAccentMatchesSpec() {
-        XCTAssertEqual(TaskerTheme.accentThemes.first?.accentBaseHex.uppercased(), "#F08A2B")
+        XCTAssertEqual(TaskerTheme.accentThemes.first?.accentBaseHex.uppercased(), "#C49832")
     }
 
     func testNeutralsAreStableAcrossThemes() {
@@ -38,9 +38,9 @@ final class ColorTokenGenerationTests: XCTestCase {
     func testStatusColorsMatchSpec() {
         let colors = TaskerTheme(index: 0).tokens.color
 
-        assertEqualColor(colors.statusSuccess, UIColor(taskerHex: "#34C759"))
-        assertEqualColor(colors.statusWarning, UIColor(taskerHex: "#FF9F0A"))
-        assertEqualColor(colors.statusDanger, UIColor(taskerHex: "#FF3B30"))
+        assertEqualColor(colors.statusSuccess, UIColor(taskerHex: "#38C8A8"))
+        assertEqualColor(colors.statusWarning, UIColor(taskerHex: "#E8A040"))
+        assertEqualColor(colors.statusDanger, UIColor(taskerHex: "#E05058"))
     }
 
     func testAccentRampUsesSpecifiedHSLTransformAndClampRules() {
@@ -156,8 +156,15 @@ final class HeaderGradientTokenTests: XCTestCase {
         let bounds = CGRect(x: 0, y: 0, width: 320, height: 180)
         TaskerHeaderGradient.apply(to: hostLayer, bounds: bounds, traits: UITraitCollection(userInterfaceStyle: .light))
 
-        let names = hostLayer.sublayers?.compactMap(\.name) ?? []
-        XCTAssertEqual(names, ["taskerHeaderGradient", "taskerHeaderScrim", "taskerHeaderBottomFade", "taskerHeaderNoise"])
+        let hostNames = hostLayer.sublayers?.compactMap(\.name) ?? []
+        XCTAssertEqual(hostNames, ["taskerHeaderGradientContainer"])
+
+        let container = hostLayer.sublayers?.first(where: { $0.name == "taskerHeaderGradientContainer" })
+        let layerNames = container?.sublayers?.compactMap(\.name) ?? []
+        XCTAssertEqual(
+            layerNames,
+            ["taskerHeaderGradient", "taskerHeaderScrim", "taskerHeaderBottomFade", "taskerHeaderRadialHighlight", "taskerHeaderNoise"]
+        )
     }
 
     func testHeaderScrimAlphaConstantsMatchSpec() {
@@ -168,7 +175,8 @@ final class HeaderGradientTokenTests: XCTestCase {
             traits: UITraitCollection(userInterfaceStyle: .light)
         )
 
-        guard let lightScrim = lightLayer.sublayers?.first(where: { $0.name == "taskerHeaderScrim" }) as? CAGradientLayer,
+        guard let lightContainer = lightLayer.sublayers?.first(where: { $0.name == "taskerHeaderGradientContainer" }),
+              let lightScrim = lightContainer.sublayers?.first(where: { $0.name == "taskerHeaderScrim" }) as? CAGradientLayer,
               let lightColors = lightScrim.colors as? [CGColor],
               lightColors.count >= 2 else {
             return XCTFail("Missing light scrim colors")
@@ -184,7 +192,8 @@ final class HeaderGradientTokenTests: XCTestCase {
             traits: UITraitCollection(userInterfaceStyle: .dark)
         )
 
-        guard let darkScrim = darkLayer.sublayers?.first(where: { $0.name == "taskerHeaderScrim" }) as? CAGradientLayer,
+        guard let darkContainer = darkLayer.sublayers?.first(where: { $0.name == "taskerHeaderGradientContainer" }),
+              let darkScrim = darkContainer.sublayers?.first(where: { $0.name == "taskerHeaderScrim" }) as? CAGradientLayer,
               let darkColors = darkScrim.colors as? [CGColor],
               darkColors.count >= 2 else {
             return XCTFail("Missing dark scrim colors")
