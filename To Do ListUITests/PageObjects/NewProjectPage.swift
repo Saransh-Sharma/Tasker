@@ -181,7 +181,7 @@ class NewProjectPage {
         app.toolbars.buttons["Done"].tap()
     }
 
-    // MARK: - Complex Actions (Fluent API)
+    // MARK: - Complex Actions
 
     /// Create project with all details
     @discardableResult

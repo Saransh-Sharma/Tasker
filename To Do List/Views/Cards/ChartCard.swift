@@ -7,25 +7,28 @@
 //
 
 import SwiftUI
-import CoreData
 import DGCharts
 import UIKit
-import Combine
 
 // MARK: - Chart Card
 struct ChartCard: View {
     let title: String
     let subtitle: String?
     let referenceDate: Date?
-    @State private var chartData: [ChartDataEntry] = []
-    @State private var isLoading = true
+    @StateObject private var viewModel: ChartCardViewModel
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
     
-    init(title: String = "Weekly Progress", subtitle: String? = "Task completion scores", referenceDate: Date? = nil) {
+    init(
+        title: String = "Weekly Progress",
+        subtitle: String? = "Task completion scores",
+        referenceDate: Date? = nil,
+        viewModel: ChartCardViewModel
+    ) {
         self.title = title
         self.subtitle = subtitle
         self.referenceDate = referenceDate
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
     
     public var body: some View {
@@ -49,7 +52,7 @@ struct ChartCard: View {
                 .accessibilityElement(children: .combine)
 
                 ZStack {
-                    if isLoading {
+                    if viewModel.isLoading {
                         RoundedRectangle(cornerRadius: corner.input)
                             .fill(Color.tasker.surfaceSecondary)
                             .frame(height: 200)
@@ -58,7 +61,7 @@ struct ChartCard: View {
                                     .scaleEffect(1.2)
                             )
                     } else {
-                        LineChartViewRepresentable(data: chartData, referenceDate: referenceDate)
+                        LineChartViewRepresentable(data: viewModel.chartData, referenceDate: referenceDate)
                             .frame(height: 200)
                             .background(
                                 RoundedRectangle(cornerRadius: corner.input)
@@ -70,40 +73,17 @@ struct ChartCard: View {
             }
         }
         .onAppear {
-            loadChartData()
+            viewModel.load(referenceDate: referenceDate)
         }
         .onChange(of: referenceDate) { _, _ in
-            loadChartData()
+            viewModel.load(referenceDate: referenceDate)
         }
         .onReceive(
             NotificationCenter.default.publisher(for: .homeTaskMutation)
                 .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
         ) { _ in
             logDebug("📡 ChartCard: Received HomeTaskMutationEvent - reloading chart data")
-            loadChartData()
-        }
-    }
-    
-    private func loadChartData() {
-        isLoading = true
-        // Generate chart data using injected context
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            isLoading = false
-            return
-        }
-        
-        context.perform {
-            let chartService = ChartDataService(context: context)
-            let newData = chartService.generateLineChartData(for: referenceDate)
-            DispatchQueue.main.async {
-                self.chartData = newData
-                withAnimation(TaskerAnimation.gentle) {
-                    self.isLoading = false
-                }
-                #if DEBUG
-                logDebug("📊 SwiftUI Chart Card loaded \(newData.count) data points")
-                #endif
-            }
+            viewModel.load(referenceDate: referenceDate)
         }
     }
 
@@ -200,21 +180,41 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         
         let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
         let colors = themeTokens.color
-        
-        // Use ChartDataService with dependency injection
-        let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-        let chartService = ChartDataService(context: context!)
-        
+
         // Calculate dynamic maximum for better scaling
-        let dynamicMaximum = chartService.calculateDynamicMaximum(for: data)
+        let maxScore = data.map(\.y).max() ?? 0
+        let dynamicMaximum = max(maxScore * 1.2, 10)
         chartView.leftAxis.axisMaximum = dynamicMaximum
         
         // Create and configure data set
-        let dataSet = chartService.createLineChartDataSet(
-            with: data,
-            colors: colors,
-            typography: themeTokens.typography
-        )
+        let dataSet = LineChartDataSet(entries: data, label: "Daily Score")
+        dataSet.mode = .linear
+        dataSet.drawCirclesEnabled = true
+        dataSet.lineWidth = 3.5
+        dataSet.circleRadius = 6
+        dataSet.setCircleColor(colors.accentPrimary)
+        dataSet.setColor(colors.chartPrimary)
+        dataSet.drawCircleHoleEnabled = true
+        dataSet.circleHoleRadius = 3
+        dataSet.circleHoleColor = colors.surfacePrimary
+        dataSet.valueFont = themeTokens.typography.font(for: .caption2)
+        dataSet.valueTextColor = colors.textTertiary
+
+        let gradientColors = [
+            colors.chartPrimary.withAlphaComponent(0.35).cgColor,
+            colors.chartPrimary.withAlphaComponent(0.18).cgColor,
+            colors.chartPrimary.withAlphaComponent(0.0).cgColor
+        ]
+        let gradient = CGGradient(colorsSpace: nil, colors: gradientColors as CFArray, locations: [0.0, 0.5, 1.0])!
+        dataSet.fill = LinearGradientFill(gradient: gradient, angle: 90)
+        dataSet.drawFilledEnabled = true
+        dataSet.fillAlpha = 0.5
+        dataSet.lineDashLengths = nil
+        dataSet.highlightEnabled = true
+        dataSet.highlightColor = colors.accentPrimary
+        dataSet.highlightLineWidth = 2
+        dataSet.drawHorizontalHighlightIndicatorEnabled = false
+        dataSet.drawVerticalHighlightIndicatorEnabled = true
         
         // Create chart data and apply to chart
         let chartData = LineChartData(dataSet: dataSet)
@@ -238,16 +238,19 @@ struct LineChartViewRepresentable: UIViewRepresentable {
 // MARK: - Task Progress Card
 public struct TaskProgressCard: View {
     let referenceDate: Date?
+    let viewModel: ChartCardViewModel
     
-    public init(referenceDate: Date? = nil) {
+    init(referenceDate: Date? = nil, viewModel: ChartCardViewModel) {
         self.referenceDate = referenceDate
+        self.viewModel = viewModel
     }
     
     public var body: some View {
         ChartCard(
             title: "Weekly Progress",
             subtitle: "Task completion scores",
-            referenceDate: referenceDate
+            referenceDate: referenceDate,
+            viewModel: viewModel
         )
     }
 }
@@ -255,16 +258,44 @@ public struct TaskProgressCard: View {
 // MARK: - Preview
 struct ChartCard_Previews: PreviewProvider {
     static var previews: some View {
+        let previewReadModel = PreviewTaskReadModelRepository()
+        let viewModel = ChartCardViewModel(readModelRepository: previewReadModel)
         VStack(spacing: 20) {
-            TaskProgressCard()
+            TaskProgressCard(viewModel: viewModel)
             
             ChartCard(
                 title: "Custom Chart",
-                subtitle: "Custom subtitle"
+                subtitle: "Custom subtitle",
+                viewModel: viewModel
             )
         }
         .padding()
         .background(Color(.systemGroupedBackground))
         .previewLayout(.sizeThatFits)
+    }
+}
+
+private final class PreviewTaskReadModelRepository: TaskReadModelRepositoryProtocol {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func fetchProjectTaskCounts(
+        includeCompleted: Bool,
+        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
+    }
+
+    func fetchProjectCompletionScoreTotals(
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
     }
 }

@@ -12,16 +12,16 @@ import SwiftUI
 
 struct TaskSectionView: View {
     let project: Project
-    let tasks: [DomainTask]
+    let tasks: [TaskDefinition]
     let isOverdueSection: Bool
     let completedCollapsed: Bool?
     let isTaskDragEnabled: Bool
-    var onTaskTap: ((DomainTask) -> Void)?
-    var onToggleComplete: ((DomainTask) -> Void)?
-    var onDeleteTask: ((DomainTask) -> Void)?
-    var onRescheduleTask: ((DomainTask) -> Void)?
+    var onTaskTap: ((TaskDefinition) -> Void)?
+    var onToggleComplete: ((TaskDefinition) -> Void)?
+    var onDeleteTask: ((TaskDefinition) -> Void)?
+    var onRescheduleTask: ((TaskDefinition) -> Void)?
     var onCompletedCollapsedChange: ((Bool, Int) -> Void)?
-    var onTaskDragStarted: ((DomainTask) -> Void)?
+    var onTaskDragStarted: ((TaskDefinition) -> Void)?
 
     @State private var isExpanded: Bool = true
 
@@ -31,16 +31,16 @@ struct TaskSectionView: View {
 
     init(
         project: Project,
-        tasks: [DomainTask],
+        tasks: [TaskDefinition],
         isOverdueSection: Bool = false,
         completedCollapsed: Bool? = nil,
         isTaskDragEnabled: Bool = false,
-        onTaskTap: ((DomainTask) -> Void)? = nil,
-        onToggleComplete: ((DomainTask) -> Void)? = nil,
-        onDeleteTask: ((DomainTask) -> Void)? = nil,
-        onRescheduleTask: ((DomainTask) -> Void)? = nil,
+        onTaskTap: ((TaskDefinition) -> Void)? = nil,
+        onToggleComplete: ((TaskDefinition) -> Void)? = nil,
+        onDeleteTask: ((TaskDefinition) -> Void)? = nil,
+        onRescheduleTask: ((TaskDefinition) -> Void)? = nil,
         onCompletedCollapsedChange: ((Bool, Int) -> Void)? = nil,
-        onTaskDragStarted: ((DomainTask) -> Void)? = nil
+        onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
     ) {
         self.project = project
         self.tasks = tasks
@@ -162,7 +162,7 @@ struct TaskSectionView: View {
 
     private struct TaskRowRenderItem {
         let index: Int
-        let task: DomainTask
+        let task: TaskDefinition
         let renderKey: String
     }
 
@@ -186,11 +186,11 @@ struct TaskSectionView: View {
         }
     }
 
-    private var openTasks: [DomainTask] {
+    private var openTasks: [TaskDefinition] {
         tasks.filter { !$0.isComplete }
     }
 
-    private var completedTasks: [DomainTask] {
+    private var completedTasks: [TaskDefinition] {
         tasks
             .filter(\.isComplete)
             .sorted { lhs, rhs in
@@ -242,7 +242,7 @@ struct TaskSectionView: View {
         .accessibilityIdentifier("home.completedToggle.\(project.id.uuidString)")
     }
 
-    private func taskRenderKey(for task: DomainTask) -> String {
+    private func taskRenderKey(for task: TaskDefinition) -> String {
         let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
         return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
     }
@@ -287,17 +287,17 @@ struct TaskSectionView_Previews: PreviewProvider {
             TaskSectionView(
                 project: Project.createInbox(),
                 tasks: [
-                    DomainTask(
-                        name: "Overdue report",
-                        type: .morning,
+                    TaskDefinition(
+                         title: "Overdue report",
                         priority: .max,
+                        type: .morning,
                         dueDate: Date().addingTimeInterval(-172800)
                     ),
-                    DomainTask(
-                        name: "Fix critical bug in checkout flow",
+                    TaskDefinition(
+                         title: "Fix critical bug in checkout flow",
                         details: "Users are seeing a blank screen after payment",
-                        type: .morning,
                         priority: .high,
+                        type: .morning,
                         dueDate: Date().addingTimeInterval(-86400)
                     )
                 ],
@@ -308,23 +308,23 @@ struct TaskSectionView_Previews: PreviewProvider {
             TaskSectionView(
                 project: Project.createInbox(),
                 tasks: [
-                    DomainTask(
-                        name: "Morning meditation and journaling",
-                        type: .morning,
+                    TaskDefinition(
+                         title: "Morning meditation and journaling",
                         priority: .low,
-                        dueDate: Date()
-                    ),
-                    DomainTask(
-                        name: "Review pull requests",
-                        details: "Check the API refactor PR from the team",
                         type: .morning,
-                        priority: .high,
                         dueDate: Date()
                     ),
-                    DomainTask(
-                        name: "Evening reading",
-                        type: .evening,
-                        priority: .none
+                    TaskDefinition(
+                         title: "Review pull requests",
+                        details: "Check the API refactor PR from the team",
+                        priority: .high,
+                        type: .morning,
+                        dueDate: Date()
+                    ),
+                    TaskDefinition(
+                         title: "Evening reading",
+                        priority: .none,
+                        type: .evening
                     )
                 ],
                 isTaskDragEnabled: true
@@ -334,11 +334,11 @@ struct TaskSectionView_Previews: PreviewProvider {
             TaskSectionView(
                 project: Project(name: "Side Project", icon: .creative),
                 tasks: [
-                    DomainTask(
-                        name: "Design landing page wireframes",
+                    TaskDefinition(
+                         title: "Design landing page wireframes",
                         details: "Focus on mobile-first layout with clear CTA hierarchy",
-                        type: .morning,
                         priority: .high,
+                        type: .morning,
                         dueDate: Date().addingTimeInterval(86400)
                     )
                 ],

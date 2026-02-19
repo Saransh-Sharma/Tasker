@@ -7,7 +7,6 @@
 //
 
 import SwiftUI
-import CoreData
 
 // MARK: - Project Selection Sheet
 
@@ -16,20 +15,27 @@ struct ProjectSelectionSheet: View {
 
     let selectedProjectIDs: [UUID]
     let onSave: ([UUID]) -> Void
+    let onCreateProject: () -> Void
+    @StateObject private var viewModel: ProjectSelectionViewModel
 
     @State private var currentSelection: Set<UUID>
     @State private var pinnedProjects: Set<UUID> // Track pinned state separately
-    @State private var availableProjects: [ProjectInfo] = []
-    @State private var isLoading = true
     private var colors: TaskerSwiftUIColorTokens { Color.tasker }
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corners: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     private let maxSelections = 5
 
-    init(selectedProjectIDs: [UUID], onSave: @escaping ([UUID]) -> Void) {
+    init(
+        selectedProjectIDs: [UUID],
+        onSave: @escaping ([UUID]) -> Void,
+        onCreateProject: @escaping () -> Void = {},
+        viewModel: ProjectSelectionViewModel
+    ) {
         self.selectedProjectIDs = selectedProjectIDs
         self.onSave = onSave
+        self.onCreateProject = onCreateProject
+        _viewModel = StateObject(wrappedValue: viewModel)
         _currentSelection = State(initialValue: Set(selectedProjectIDs))
         _pinnedProjects = State(initialValue: Set(selectedProjectIDs)) // Initially, pinned = selected
     }
@@ -37,10 +43,10 @@ struct ProjectSelectionSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                if isLoading {
+                if viewModel.isLoading {
                     ProgressView("Loading projects...")
                         .scaleEffect(1.2)
-                } else if availableProjects.isEmpty {
+                } else if viewModel.availableProjects.isEmpty {
                     emptyStateView
                 } else {
                     projectListView
@@ -94,7 +100,7 @@ struct ProjectSelectionSheet: View {
 
     // Sorted projects: pinned first, then alphabetically
     private var sortedProjects: [ProjectInfo] {
-        availableProjects.sorted { p1, p2 in
+        viewModel.availableProjects.sorted { p1, p2 in
             let p1Pinned = pinnedProjects.contains(p1.id)
             let p2Pinned = pinnedProjects.contains(p2.id)
 
@@ -110,12 +116,12 @@ struct ProjectSelectionSheet: View {
 
     // 🔥 NEW: Count of valid pinned projects (that actually exist in available projects)
     private var validPinnedCount: Int {
-        return availableProjects.filter { pinnedProjects.contains($0.id) }.count
+        return viewModel.availableProjects.filter { pinnedProjects.contains($0.id) }.count
     }
 
     // 🔥 NEW: Check if we have stale pins (pinned UUIDs that don't match available projects)
     private var hasStalePins: Bool {
-        let availableUUIDs = Set(availableProjects.map { $0.id })
+        let availableUUIDs = Set(viewModel.availableProjects.map { $0.id })
         let pinnedUUIDs = Set(pinnedProjects)
         return !pinnedUUIDs.isSubset(of: availableUUIDs)
     }
@@ -193,8 +199,7 @@ struct ProjectSelectionSheet: View {
 
             Button(action: {
                 dismiss()
-                // Notify to show project management
-                NotificationCenter.default.post(name: Notification.Name("ShowProjectManagement"), object: nil)
+                onCreateProject()
             }) {
                 Text("Create Project")
                     .font(.tasker(.bodyEmphasis))
@@ -229,7 +234,7 @@ struct ProjectSelectionSheet: View {
     private func saveSelection() {
         // 🔥 NEW: Automatically filter out stale pins before saving
         let validPinnedProjects = pinnedProjects.filter { pinnedUUID in
-            return availableProjects.contains { $0.id == pinnedUUID }
+            return viewModel.availableProjects.contains { $0.id == pinnedUUID }
         }
 
         let pinnedArray = Array(validPinnedProjects)
@@ -246,93 +251,10 @@ struct ProjectSelectionSheet: View {
     }
 
     private func loadProjects() {
-        isLoading = true
-
         logDebug("📋 [ProjectSelectionSheet] Loading projects...")
-
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            logWarning(
-                event: "project_selection_context_unavailable",
-                message: "Project selection context unavailable"
-            )
-            isLoading = false
-            return
-        }
-
-        context.perform {
-            // Fetch ALL projects (including those with nil projectID for legacy compatibility)
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            // Don't filter by UUID - fetch everything
-            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
-
-            let allProjects = (try? context.fetch(request)) ?? []
-            logDebug("📋 [ProjectSelectionSheet] Fetched \(allProjects.count) total projects from database")
-
-            // Filter out Inbox by NAME (not UUID) and projects with nil names
-            // This handles both migrated (UUID-based) and legacy (string-based) data
-            let customProjects = allProjects.filter { project in
-                guard let name = project.projectName else { return false }
-                let isInbox = name.lowercased() == "inbox"
-                if !isInbox {
-                    logDebug("   ✅ Including project: '\(name)' (UUID: \(project.projectID?.uuidString ?? "nil"))")
-                }
-                return !isInbox
-            }
-
-            logDebug("📋 [ProjectSelectionSheet] After filtering Inbox: \(customProjects.count) custom projects")
-
-            // Convert to ProjectInfo with fallback logic for legacy data
-            let projectInfos = customProjects.compactMap { project -> ProjectInfo? in
-                guard let name = project.projectName else { return nil }
-
-                // Use projectID if available, otherwise generate temporary UUID from name
-                // This ensures we can track selections even for legacy projects
-                let projectId = project.projectID ?? UUID()
-
-                // Calculate task count using BOTH projectID and legacy project string
-                // Try UUID-based query first, then fall back to string-based
-                var taskCount = 0
-
-                if let uuid = project.projectID {
-                    // Try UUID-based query for migrated data
-                    let uuidRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
-                    uuidRequest.predicate = NSPredicate(
-                        format: "projectID == %@",
-                        uuid as CVarArg
-                    )
-                    taskCount = (try? context.count(for: uuidRequest)) ?? 0
-                    logDebug("      UUID-based count for '\(name)': \(taskCount)")
-                }
-
-                // Fall back to string-based query for legacy data
-                if taskCount == 0 {
-                    let stringRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
-                    stringRequest.predicate = NSPredicate(
-                        format: "project == %@",
-                        name
-                    )
-                    taskCount = (try? context.count(for: stringRequest)) ?? 0
-                    logDebug("      String-based count for '\(name)': \(taskCount)")
-                }
-
-                logDebug("   📊 Project '\(name)': \(taskCount) tasks")
-
-                return ProjectInfo(
-                    id: projectId,
-                    name: name,
-                    taskCount: taskCount
-                )
-            }
-
-            logDebug("📋 [ProjectSelectionSheet] Final result: \(projectInfos.count) projects to display")
-
-            DispatchQueue.main.async {
-                self.availableProjects = projectInfos
-                withAnimation {
-                    self.isLoading = false
-                }
-                logDebug("✅ [ProjectSelectionSheet] Projects loaded successfully")
-            }
+        viewModel.load { infos in
+            self.pinnedProjects = self.pinnedProjects.intersection(Set(infos.map(\.id)))
+            logDebug("✅ [ProjectSelectionSheet] Loaded \(infos.count) projects")
         }
     }
 }
@@ -407,6 +329,56 @@ struct ProjectInfo: Identifiable {
 
 struct ProjectSelectionSheet_Previews: PreviewProvider {
     static var previews: some View {
-        ProjectSelectionSheet(selectedProjectIDs: []) { _ in }
+        let readModelRepository = PreviewProjectSelectionReadModelRepository()
+        let projectRepository = PreviewProjectSelectionProjectRepository()
+        let viewModel = ProjectSelectionViewModel(
+            projectRepository: projectRepository,
+            readModelRepository: readModelRepository
+        )
+        ProjectSelectionSheet(selectedProjectIDs: [], onSave: { _ in }, viewModel: viewModel)
     }
+}
+
+private final class PreviewProjectSelectionReadModelRepository: TaskReadModelRepositoryProtocol {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func fetchProjectTaskCounts(
+        includeCompleted: Bool,
+        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
+    }
+
+    func fetchProjectCompletionScoreTotals(
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
+    }
+}
+
+private final class PreviewProjectSelectionProjectRepository: ProjectRepositoryProtocol {
+    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+        completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
+    }
+    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
 }

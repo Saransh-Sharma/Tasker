@@ -1,225 +1,213 @@
-# Tasker iOS - Product Requirements Document (PRD)
+# Tasker iOS - Product Requirements Document
 
-**Version:** 3.0
-**Last Updated:** January 13, 2026
-**Platform:** iOS 16.0+
-**Status:** Production (App Store Published)
-**Clean Architecture:** ~70% migrated
+**Version:** 4.1  
+**Last Updated:** February 20, 2026  
+**Platform:** iOS 16.0+  
+**Status:** Active Product Direction
 
----
+## Vision And Positioning
 
-## Executive Summary
+Tasker is a todo and life-management product designed for people who struggle with consistency, attention switching, and execution friction. The product position is practical: help users choose what matters now, start quickly, recover from interruptions, and sustain momentum over time.
 
-Tasker is a gamified iOS task management app that transforms productivity into an engaging experience. Users earn points for completing tasks based on priority (P0=7, P1=4, P2=3, P3=2), track streaks, and sync seamlessly across devices via CloudKit.
+Tasker is not positioned as a clinical treatment product. It is a productivity system designed to support ADHD-relevant day-to-day execution needs with respectful, non-judgmental UX.
 
-### Core Value Proposition
+## Target Users And Jobs-To-Be-Done
 
-- **Smart Prioritization**: Priority-based scoring motivates users to focus on what matters
-- **Gamification**: Points, streaks, and visual progress make productivity rewarding
-- **Reliability**: UUID-based architecture ensures data never gets lost
-- **AI Assistant**: On-device Eva assistant provides task recommendations (Beta)
+### Primary Segment: Adults Managing High Context Load
+- Users balancing work, life admin, habits, and personal projects.
+- Users who repeatedly lose momentum when contexts change.
 
----
+Primary jobs-to-be-done:
+- "Help me decide what to do first without overthinking."
+- "Help me restart quickly after I drop off."
+- "Help me keep my commitments visible without feeling overwhelmed."
 
-## User Personas
+### Secondary Segment: Students And Early-Career Builders
+- Users with variable schedules and frequent deadline clustering.
 
-### 1. Alex - Busy Professional (Primary)
-**Demographics**: 25-45, knowledge worker, uses multiple devices
+Primary jobs-to-be-done:
+- "Help me break down and sequence school/work tasks."
+- "Help me avoid deadline panic from invisible backlog growth."
 
-**Goals**:
-- Manage work tasks across projects
-- Balance work and personal responsibilities
-- Track productivity trends
+### Tertiary Segment: Habit-Oriented Self-Improvers
+- Users focused on repeat behaviors and consistency loops.
 
-**Pain Points**:
-- Overwhelmed by too many tasks
-- Difficulty prioritizing
-- Loses track of deadlines
+Primary jobs-to-be-done:
+- "Help me maintain streak continuity without perfection pressure."
+- "Help me recover quickly from missed days."
 
-**Tasker Solutions**: Priority scoring, project analytics, CloudKit sync, overdue detection
+## ADHD Design Framework
 
-### 2. Sam - Student (Secondary)
-**Demographics**: 18-25, high school/college student
+### 1. Reduce Cognitive Load
+Product intent:
+- Limit simultaneous decisions.
+- Favor clear defaults over setup burden.
+- Keep prioritization visible and lightweight.
 
-**Goals**: Track assignments, build study habits, stay motivated
+Success indicators:
+- Lower abandonment during planning.
+- Higher ratio of started tasks vs created tasks.
 
-**Pain Points**: Procrastination, lack of motivation, forgets tasks
+### 2. Minimize Activation Friction
+Product intent:
+- Make task capture and task-start near-immediate.
+- Reduce taps/time between intent and execution.
 
-**Tasker Solutions**: Habit builder, gamification, visual analytics, reminders
+Success indicators:
+- Faster time-to-first-task per session.
+- Higher same-session completion rate.
 
-### 3. Jordan - Habit Builder (Tertiary)
-**Demographics**: 20-50, focused on self-improvement
+### 3. Preserve Momentum After Interruption
+Product intent:
+- Support return-to-context after distraction or delay.
+- Keep state legible so users can resume without rebuilding mental context.
 
-**Goals**: Build sustainable habits, track consistency, see long-term progress
+Success indicators:
+- Increased re-engagement after inactivity.
+- Reduced carry-over of stale overdue tasks.
 
-**Pain Points**: Difficulty maintaining habits, lacks accountability
+### 4. Reward Meaningful Progress
+Product intent:
+- Reinforce value-driven completion (not only quantity).
+- Encourage consistency while avoiding shame loops.
 
-**Tasker Solutions**: Habit templates, streak tracking, momentum indicators
+Success indicators:
+- Increased completion of high-priority tasks.
+- Higher streak resilience after misses.
 
----
+### 5. Prevent Overwhelm Through Scoped Focus
+Product intent:
+- Narrow visible work to actionable slices.
+- Support quick filtering by context/energy/time.
 
-## Feature Specifications
+Success indicators:
+- Lower backlog anxiety feedback.
+- Higher daily focus-list completion.
 
-### 1. Task Management ✅ Implemented
+## Core Experience Pillars
 
-**Problem**: Users struggle to organize and prioritize tasks effectively.
+### Pillar A: Capture And Clarify
+- Fast task capture with minimal required fields.
+- Optional structure when users have bandwidth (project/section/tag/details).
 
-**User Stories**:
-- Quickly create tasks with title, description, priority, due date
-- Assign tasks to projects for organization
-- Set priorities (P0-P3) to focus on what matters most
+### Pillar B: Focus And Sequence
+- Home views that scope attention to "now" and near-term windows.
+- Practical filtering for context, energy, priority, and due windows.
 
-**Acceptance Criteria**:
-- Task name required (1-200 characters)
-- Priority levels: P0 (Highest), P1 (High), P2 (Medium), P3 (Low)
-- Due date with smart defaults
-- Tasks default to Inbox project if none specified
+### Pillar C: Plan Across Life Areas
+- Organize work by life areas and projects to reduce undifferentiated backlog stress.
+- Preserve clear inbox/default flow when categorization is deferred.
 
-**Success Metrics**:
-- Task creation < 5 seconds
-- 70%+ tasks have priorities assigned
-- <5% tasks in Inbox (users organize)
+### Pillar D: Execute Reliably
+- Ensure reminders and scheduling support execution instead of noise.
+- Provide recoverable behavior when tasks shift, recur, or get deferred.
 
----
+### Pillar E: Reflect And Reinforce
+- Show progress trends and completion quality over time.
+- Use gamification as reinforcement, not coercion.
 
-### 2. Project Organization ✅ Implemented
+### Pillar F: Assist Intentionally
+- Support optional assistant-mediated planning actions.
+- Keep user confirmation and reversibility as core trust mechanics.
 
-**Problem**: Tasks across different areas of life get mixed together.
+## Non-Goals For This PRD Cycle
 
-**User Stories**:
-- Create projects for work, personal, hobbies
-- View tasks filtered by project
-- Track completion rates per project
+- No clinical/diagnostic positioning.
+- No "engagement at all costs" notification strategy.
+- No automation path that bypasses explicit user control for impactful changes.
+- No roadmap commitments to platforms outside iOS in this document.
 
-**Acceptance Criteria**:
-- Custom projects with colors and icons
-- Fixed Inbox project (UUID: `00000000-0000-0000-0000-000000000001`)
-- Project-based filtering and analytics
+## Current Product Constraints (Release 4.1)
 
-**Success Metrics**:
-- 60%+ of tasks belong to named projects
-- Users create 3+ projects on average
-
----
-
-### 3. Gamification & Scoring ✅ Implemented
-
-**Problem**: Task management feels like a chore—users lack motivation.
-
-**User Stories**:
-- Earn points for completing tasks based on priority
-- Track completion streaks
-- View productivity charts and trends
-
-**Scoring System**:
-- P0 (Max): 7 points
-- P1 (High): 4 points
-- P2 (Medium): 3 points
-- P3 (Low): 2 points
-
-**Acceptance Criteria**:
-- Points display immediately after task completion
-- Streak tracking with 30-day history
-- Visual charts showing completion trends
-
-**Success Metrics**:
-- 40%+ of users maintain 7+ day streaks
-- Daily engagement (DAU) increases with gamification
-
----
-
-### 4. CloudKit Sync ✅ Implemented
-
-**Problem**: Users need access to tasks across multiple devices.
-
-**User Stories**:
-- Access tasks on iPhone, iPad, Mac
-- Work offline with automatic sync when connected
-- Never lose data (UUID-based architecture)
-
-**Acceptance Criteria**:
-- Automatic CloudKit synchronization
-- Offline-first architecture
-- Conflict resolution for concurrent edits
-- Private CloudKit database
-
-**Success Metrics**:
-- 60%+ of users sync across 2+ devices
-- <1% sync errors reported
-
----
-
-### 5. AI Assistant (Eva) 🚧 In Development
-
-**Problem**: Users need help organizing tasks and getting recommendations.
-
-**User Stories**:
-- Chat with AI assistant to get task recommendations
-- Receive smart scheduling suggestions
-- Get productivity insights
-
-**Acceptance Criteria**:
-- On-device AI chat interface (privacy-first, no server calls)
-- MLX-based local inference
-- Task understanding and natural language recommendations
-- Calendar integration for smart scheduling
-
-**Technical Approach**:
-- Uses MLX framework for on-device inference
-- 23 Swift files, 10 currently in Xcode target
-- Models/ (data controllers), Views/ (chat), Controllers/ (host)
-
-**Success Metrics** (Beta):
-- Chat responses < 2 seconds
-- 70%+ of recommendations are relevant
-- Privacy: all data stays on-device
-
-**Status**: Beta—core features functional, expanding capabilities
-
----
+- The shipped app runtime is V3-only.
+- Upgrade behavior for in-flight internal builds follows a destructive reset cutover policy.
+- Cloud sync cutover is container-isolation based (no user-visible record-by-record migration promises in this release).
+- Assistant apply/undo remains explicitly gated and must preserve confirmation + undo trust boundaries.
 
 ## Success Metrics
 
-| Metric | Baseline | Target (Q2 2026) |
-|--------|----------|-----------------|
-| Daily Active Users | 1,200 | 5,000 |
-| Task Completion Rate | 45% | 65% |
-| App Store Rating | 4.2 | 4.6 |
-| Retention (D30) | 18% | 28% |
-| Streak Users (7+ days) | 35% | 40% |
+### Activation Metrics
+- New-user first-task creation rate.
+- Time-to-first-completion within onboarding window.
 
----
+### Daily Focus Metrics
+- Daily focused-task completion rate.
+- Same-session create-to-complete conversion.
 
-## Roadmap
+### Carry-Over And Backlog Health
+- Overdue carry-over ratio day over day.
+- Percentage of users with shrinking vs growing stale backlog.
 
-### Completed (v1.0 - v2.0)
-- ✅ Core task management
-- ✅ Project organization
-- ✅ Gamification & scoring
-- ✅ CloudKit sync
-- ✅ Clean Architecture (~70% migrated)
+### Reminder Response Quality
+- Reminder acknowledgment rate.
+- Reminder action conversion rate (complete/reschedule within defined window).
+- Reminder dismissal-without-action rate.
 
-### In Progress (v2.1)
-- 🚧 AI Assistant (Eva) - Beta
-- 🚧 Habit builder UI
+### Retention And Streak Resilience
+- D7/D30 retention.
+- Streak continuation after one missed day.
+- Return-to-active rate after inactivity windows.
 
-### Planned (v3.0)
-- ⏳ Team collaboration features
-- ⏳ Siri Shortcuts integration
-- ⏳ Apple Watch app
-- ⏳ Calendar integration (full)
+## Metric Interpretation Guardrails
 
----
+- Favor sustained improvement over single-day spikes.
+- Review metric movement alongside user-reported overwhelm/friction feedback.
+- Treat reminder and assistant metrics as quality metrics first, volume metrics second.
+- Do not ship growth tactics that improve short-term activity while degrading user trust.
 
-## Technical Notes
+## Risks And Ethics
 
-For technical architecture, Clean Architecture patterns, and implementation details, see:
-- **[CLAUDE.md](CLAUDE.md)** — Architecture rules, patterns, coding guidelines
-- **[TECHNICAL_DEBT.md](TECHNICAL_DEBT.md)** — Migration status, known issues
+### Non-Clinical Framing
+- Product language must avoid medical claims.
+- Product should not imply diagnosis or treatment.
 
----
+### Anti-Manipulation Guardrails
+- Rewards should not punish temporary disengagement.
+- Streak mechanics should support recovery paths and avoid all-or-nothing pressure.
 
-**Document History**:
-- v3.0 (Jan 2026): Streamlined from 2,754 lines, added LLM specs, product-focused
-- v2.0 (Jan 2026): Previous comprehensive version
-- v1.0 (2024): Initial PRD
+### Privacy And Trust Expectations
+- Users should clearly understand where data is stored/synced.
+- AI/assistant interactions should preserve user control and explicit confirmation for impactful actions.
+
+### Notification Responsibility
+- Reminder volume and cadence should avoid overload.
+- Reminder UX should optimize for helpfulness, not interruption maximization.
+
+## Product Roadmap Themes
+
+### Theme 1: Execution Reliability
+- Improve confidence that plans become action with low friction.
+
+### Theme 2: Adaptive Focus
+- Better personalized focus scoping based on behavior patterns.
+
+### Theme 3: Recovery Experience
+- Faster and kinder re-entry after disrupted periods.
+
+### Theme 4: Trustworthy Assistance
+- Expand assistant usefulness while keeping confirmation, transparency, and undo safety.
+
+### Theme 5: Insight That Drives Action
+- Convert analytics into practical next-step guidance.
+
+## Technical References
+
+Technical implementation details are intentionally kept out of this PRD. Use the architecture docs:
+- `docs/README.md`
+- `docs/architecture/README.md`
+- `docs/architecture/data-model-v2.md`
+- `docs/architecture/clean-architecture-v2.md`
+- `docs/architecture/usecases-v2.md`
+- `docs/architecture/risk-register-v2.md`
+- `docs/architecture/state-repositories-and-services-v2.md`
+- `docs/architecture/domain-events-and-observability-v2.md`
+- `docs/architecture/llm-assistant-stack-v2.md`
+- `docs/architecture/v3-runtime-cutover-todo.md`
+- `docs/operations/ci-release-and-guardrails.md`
+- `docs/operations/developer-tooling-and-flowctl.md`
+
+## Document History
+
+- **v4.1 (February 20, 2026):** Added product constraints for V3 runtime cutover, non-goals, metric interpretation guardrails, and updated technical reference index.
+- **v4.0 (February 18, 2026):** Product-only PRD with explicit ADHD framework, metrics model, ethics section, and architecture-doc handoff.
+- **v3.0 (January 13, 2026):** Prior mixed product/technical PRD.

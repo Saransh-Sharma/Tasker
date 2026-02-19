@@ -22,27 +22,35 @@ public final class EnhancedDependencyContainer {
 
     // MARK: - Repositories (State Management Layer)
 
-    public private(set) var taskRepository: TaskRepositoryProtocol!
     public private(set) var projectRepository: ProjectRepositoryProtocol!
+    public private(set) var taskDefinitionRepository: TaskDefinitionRepositoryProtocol?
+    public private(set) var taskReadModelRepository: TaskReadModelRepositoryProtocol?
+    public private(set) var taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
+    public private(set) var taskDependencyRepository: TaskDependencyRepositoryProtocol?
+    public private(set) var lifeAreaRepository: LifeAreaRepositoryProtocol?
+    public private(set) var sectionRepository: SectionRepositoryProtocol?
+    public private(set) var tagRepository: TagRepositoryProtocol?
+    public private(set) var habitRepository: HabitRepositoryProtocol?
+    public private(set) var scheduleRepository: ScheduleRepositoryProtocol?
+    public private(set) var occurrenceRepository: OccurrenceRepositoryProtocol?
+    public private(set) var reminderRepository: ReminderRepositoryProtocol?
+    public private(set) var gamificationRepository: GamificationRepositoryProtocol?
+    public private(set) var assistantActionRepository: AssistantActionRepositoryProtocol?
+    public private(set) var externalSyncRepository: ExternalSyncRepositoryProtocol?
+    public private(set) var tombstoneRepository: TombstoneRepositoryProtocol?
 
     // MARK: - Use Cases
-
+    
     public private(set) var useCaseCoordinator: UseCaseCoordinator!
+    public private(set) var v3RuntimeReady: Bool = false
+    public private(set) var v3RuntimeFailureReason: String?
 
-    // MARK: - Data Sources
-    
-    private(set) var localDataSource: LocalDataSourceProtocol!
-    private(set) var remoteDataSource: RemoteDataSourceProtocol!
-    
     // MARK: - Services
     
     private(set) var cacheService: CacheServiceProtocol!
-    private(set) var syncService: SyncServiceProtocol!
-    private(set) var syncCoordinator: OfflineFirstSyncCoordinator!
-    
-    // MARK: - Legacy Support
-    
-    private(set) var legacyTaskRepository: TaskRepository!
+    private(set) var schedulingEngine: SchedulingEngineProtocol?
+    private(set) var notificationService: NotificationServiceProtocol?
+    private(set) var remindersProvider: AppleRemindersProviderProtocol?
     
     // MARK: - Initialization
     
@@ -53,43 +61,130 @@ public final class EnhancedDependencyContainer {
     /// Configure the container with Core Data
     func configure(with container: NSPersistentContainer) {
         logDebug("🔧 EnhancedDependencyContainer: Starting configuration...")
-        
+
         self.persistentContainer = container
+        self.v3RuntimeReady = false
+        self.v3RuntimeFailureReason = nil
         
         // Initialize cache service
         self.cacheService = InMemoryCacheService()
         
-        // Initialize data sources (placeholder implementations for now)
-        self.localDataSource = CoreDataLocalDataSource(container: container)
-        self.remoteDataSource = CloudKitRemoteDataSource(container: container)
-        
         // Initialize repositories
-        let coreDataTaskRepo = CoreDataTaskRepository(container: container)
-        self.legacyTaskRepository = coreDataTaskRepo
-        self.taskRepository = coreDataTaskRepo // CoreDataTaskRepository now conforms to TaskRepositoryProtocol
+        let taskDefinitionRepository = CoreDataTaskDefinitionRepository(container: container)
+        let taskReadModelRepository = CoreDataTaskReadModelRepository(container: container)
+        let taskTagLinkRepository = CoreDataTaskTagLinkRepository(container: container)
+        let taskDependencyRepository = CoreDataTaskDependencyRepository(container: container)
         self.projectRepository = CoreDataProjectRepository(container: container)
-        
-        // Initialize sync service (placeholder for now)
-        self.syncService = CloudKitSyncService(
-            localDataSource: localDataSource,
-            remoteDataSource: remoteDataSource
-        )
-        
-        // Initialize sync coordinator
-        self.syncCoordinator = OfflineFirstSyncCoordinator(
-            localDataSource: localDataSource,
-            remoteDataSource: remoteDataSource,
-            cacheService: cacheService
+        self.taskDefinitionRepository = taskDefinitionRepository
+        self.taskReadModelRepository = taskReadModelRepository
+        self.taskTagLinkRepository = taskTagLinkRepository
+        self.taskDependencyRepository = taskDependencyRepository
+        self.lifeAreaRepository = CoreDataLifeAreaRepository(container: container)
+        self.sectionRepository = CoreDataSectionRepository(container: container)
+        self.tagRepository = CoreDataTagRepository(container: container)
+        self.habitRepository = CoreDataHabitRepository(container: container)
+        self.scheduleRepository = CoreDataScheduleRepository(container: container)
+        self.occurrenceRepository = CoreDataOccurrenceRepository(container: container)
+        self.reminderRepository = CoreDataReminderRepository(container: container)
+        self.gamificationRepository = CoreDataGamificationRepository(container: container)
+        self.assistantActionRepository = CoreDataAssistantActionRepository(container: container)
+        self.externalSyncRepository = CoreDataExternalSyncRepository(container: container)
+        self.tombstoneRepository = CoreDataTombstoneRepository(container: container)
+        if let scheduleRepository, let occurrenceRepository {
+            self.schedulingEngine = CoreSchedulingEngine(
+                scheduleRepository: scheduleRepository,
+                occurrenceRepository: occurrenceRepository
+            )
+        }
+        self.notificationService = LocalNotificationService()
+        self.remindersProvider = EventKitAppleRemindersProvider()
+
+        guard let lifeAreaRepository,
+              let sectionRepository,
+              let tagRepository,
+              let habitRepository,
+              let schedulingEngine,
+              let occurrenceRepository,
+              let tombstoneRepository,
+              let reminderRepository,
+              let gamificationRepository,
+              let assistantActionRepository,
+              let externalSyncRepository else {
+            v3RuntimeReady = false
+            v3RuntimeFailureReason = "Missing required V3 repository dependencies during container configuration"
+            logError(
+                event: "v3_runtime_not_ready",
+                message: "Enhanced dependency container failed to construct required dependencies"
+            )
+            return
+        }
+
+        let v2Dependencies = UseCaseCoordinator.V2Dependencies(
+            lifeAreaRepository: lifeAreaRepository,
+            sectionRepository: sectionRepository,
+            tagRepository: tagRepository,
+            taskDefinitionRepository: taskDefinitionRepository,
+            taskTagLinkRepository: taskTagLinkRepository,
+            taskDependencyRepository: taskDependencyRepository,
+            habitRepository: habitRepository,
+            scheduleEngine: schedulingEngine,
+            occurrenceRepository: occurrenceRepository,
+            tombstoneRepository: tombstoneRepository,
+            reminderRepository: reminderRepository,
+            gamificationRepository: gamificationRepository,
+            assistantActionRepository: assistantActionRepository,
+            externalSyncRepository: externalSyncRepository,
+            remindersProvider: remindersProvider
         )
 
         // Initialize UseCaseCoordinator
         self.useCaseCoordinator = UseCaseCoordinator(
-            taskRepository: taskRepository,
+            taskReadModelRepository: taskReadModelRepository,
             projectRepository: projectRepository,
-            cacheService: cacheService
+            cacheService: cacheService,
+            notificationService: notificationService,
+            v2Dependencies: v2Dependencies
         )
 
+        evaluateV3RuntimeReadiness()
+
         logDebug("✅ EnhancedDependencyContainer: Configuration completed")
+    }
+
+    public func assertV3RuntimeReady() throws {
+        guard v3RuntimeReady else {
+            throw NSError(
+                domain: "EnhancedDependencyContainer",
+                code: 503,
+                userInfo: [
+                    NSLocalizedDescriptionKey: v3RuntimeFailureReason
+                    ?? "V3 runtime dependencies are not fully configured"
+                ]
+            )
+        }
+    }
+
+    private func evaluateV3RuntimeReadiness() {
+        var missing: [String] = []
+        if taskDefinitionRepository == nil { missing.append("taskDefinitionRepository") }
+        if externalSyncRepository == nil { missing.append("externalSyncRepository") }
+        if assistantActionRepository == nil { missing.append("assistantActionRepository") }
+
+        if missing.isEmpty {
+            v3RuntimeReady = true
+            v3RuntimeFailureReason = nil
+            return
+        }
+
+        v3RuntimeReady = false
+        v3RuntimeFailureReason = "Missing required V3 runtime dependencies: \(missing.joined(separator: ", "))"
+        logError(
+            event: "v3_runtime_not_ready",
+            message: "Enhanced dependency container failed V3 runtime readiness checks",
+            fields: [
+                "missing": missing.joined(separator: ",")
+            ]
+        )
     }
     
     // MARK: - Dependency Injection
@@ -98,21 +193,7 @@ public final class EnhancedDependencyContainer {
     func inject(into viewController: UIViewController) {
         let vcType = String(describing: type(of: viewController))
         logDebug("💉 EnhancedDependencyContainer: Injecting into \(vcType)")
-        
-        // Legacy injection for TaskRepository
-        if let dependentVC = viewController as? TaskRepositoryDependent {
-            dependentVC.taskRepository = legacyTaskRepository
-            logDebug("✅ Injected legacy TaskRepository")
-        }
-        
-        // Clean Architecture injection
-        if let cleanVC = viewController as? CleanArchitectureDependent {
-            cleanVC.taskRepository = taskRepository
-            cleanVC.projectRepository = projectRepository
-            cleanVC.cacheService = cacheService
-            logDebug("✅ Injected Clean Architecture dependencies")
-        }
-        
+
         // Inject into child view controllers
         for child in viewController.children {
             inject(into: child)
@@ -121,362 +202,12 @@ public final class EnhancedDependencyContainer {
     
     // MARK: - Factory Methods
     
-    /// Create a task repository with caching
-    func makeCachedTaskRepository() -> TaskRepositoryProtocol {
-        return CachedTaskRepository(
-            repository: taskRepository,
-            cache: cacheService
-        )
-    }
-    
     /// Create a project repository with caching
     func makeCachedProjectRepository() -> ProjectRepositoryProtocol {
         return CachedProjectRepository(
             repository: projectRepository,
             cache: cacheService
         )
-    }
-}
-
-// MARK: - Protocols
-
-/// Protocol for view controllers using Clean Architecture dependencies
-protocol CleanArchitectureDependent: AnyObject {
-    var taskRepository: TaskRepositoryProtocol! { get set }
-    var projectRepository: ProjectRepositoryProtocol! { get set }
-    var cacheService: CacheServiceProtocol! { get set }
-}
-
-// MARK: - Placeholder Implementations
-
-/// Placeholder Core Data local data source
-private class CoreDataLocalDataSource: LocalDataSourceProtocol {
-    private let container: NSPersistentContainer
-    
-    init(container: NSPersistentContainer) {
-        self.container = container
-    }
-    
-    func saveTasks(_ tasks: [Task]) throws {
-        // Implementation will use TaskMapper
-    }
-    
-    func loadTasks() throws -> [Task] {
-        // Implementation will use TaskMapper
-        return []
-    }
-    
-    func deleteTasks(withIds ids: [UUID]) throws {
-        // Implementation will use TaskMapper
-    }
-    
-    func clearAllTasks() throws {
-        // Implementation
-    }
-    
-    func saveProjects(_ projects: [Project]) throws {
-        // Implementation will use ProjectMapper
-    }
-    
-    func loadProjects() throws -> [Project] {
-        // Implementation will use ProjectMapper
-        return []
-    }
-    
-    func deleteProjects(withIds ids: [UUID]) throws {
-        // Implementation will use ProjectMapper
-    }
-    
-    func clearAllProjects() throws {
-        // Implementation
-    }
-    
-    func beginTransaction() throws {
-        // Core Data doesn't need explicit transactions
-    }
-    
-    func commitTransaction() throws {
-        try container.viewContext.save()
-    }
-    
-    func rollbackTransaction() throws {
-        container.viewContext.rollback()
-    }
-    
-    func getLastSyncTimestamp() -> Date? {
-        // Implementation would use UserDefaults or Core Data
-        return UserDefaults.standard.object(forKey: "lastSyncTimestamp") as? Date
-    }
-    
-    func setLastSyncTimestamp(_ date: Date) throws {
-        UserDefaults.standard.set(date, forKey: "lastSyncTimestamp")
-    }
-    
-    func getStorageSize() -> Int {
-        // Implementation would calculate Core Data store size
-        return 0
-    }
-    
-    func isAvailable() -> Bool {
-        return true
-    }
-}
-
-/// Placeholder CloudKit remote data source
-private class CloudKitRemoteDataSource: RemoteDataSourceProtocol {
-    private let container: NSPersistentContainer
-    
-    init(container: NSPersistentContainer) {
-        self.container = container
-    }
-    
-    var isAvailable: Bool { return true }
-    var isSyncing: Bool { return false }
-    var syncStatus: SyncStatus { return .idle }
-    
-    func fetchTasks(since date: Date?, completion: @escaping (Result<[Task], Error>) -> Void) {
-        // CloudKit implementation
-        completion(.success([]))
-    }
-    
-    func pushTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) {
-        // CloudKit implementation
-        completion(.success(tasks))
-    }
-    
-    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
-        // CloudKit implementation
-        completion(.success(()))
-    }
-    
-    func fetchProjects(since date: Date?, completion: @escaping (Result<[Project], Error>) -> Void) {
-        // CloudKit implementation
-        completion(.success([]))
-    }
-    
-    func pushProjects(_ projects: [Project], completion: @escaping (Result<[Project], Error>) -> Void) {
-        // CloudKit implementation
-        completion(.success(projects))
-    }
-    
-    func deleteProjects(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
-        // CloudKit implementation
-        completion(.success(()))
-    }
-    
-    func performFullSync(completion: @escaping (Result<SyncResult, Error>) -> Void) {
-        // CloudKit implementation
-        completion(.success(SyncResult()))
-    }
-    
-    func performIncrementalSync(since date: Date, completion: @escaping (Result<SyncResult, Error>) -> Void) {
-        // CloudKit implementation
-        completion(.success(SyncResult()))
-    }
-    
-    func cancelSync() {
-        // CloudKit implementation
-    }
-    
-    func resolveConflicts(_ conflicts: [SyncConflict], strategy: ConflictResolutionStrategy, completion: @escaping (Result<[SyncResolution], Error>) -> Void) {
-        // CloudKit implementation
-        completion(.success([]))
-    }
-    
-    func subscribeToChanges(handler: @escaping (RemoteChange) -> Void) -> SubscriptionToken {
-        // CloudKit implementation
-        return SubscriptionToken()
-    }
-    
-    func unsubscribe(token: SubscriptionToken) {
-        // CloudKit implementation
-    }
-}
-
-/// Placeholder CloudKit sync service
-private class CloudKitSyncService: SyncServiceProtocol {
-    private let localDataSource: LocalDataSourceProtocol
-    private let remoteDataSource: RemoteDataSourceProtocol
-    
-    init(localDataSource: LocalDataSourceProtocol, remoteDataSource: RemoteDataSourceProtocol) {
-        self.localDataSource = localDataSource
-        self.remoteDataSource = remoteDataSource
-    }
-    
-    var isSyncEnabled: Bool { return true }
-    var isSyncing: Bool { return false }
-    var lastSyncDate: Date? { return localDataSource.getLastSyncTimestamp() }
-    
-    func startSync(completion: @escaping (Result<Void, Error>) -> Void) {
-        remoteDataSource.performFullSync { result in
-            switch result {
-            case .success:
-                completion(.success(()))
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
-    }
-    
-    func stopSync() {
-        remoteDataSource.cancelSync()
-    }
-    
-    func syncTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) {
-        remoteDataSource.pushTasks(tasks, completion: completion)
-    }
-    
-    func syncProjects(_ projects: [Project], completion: @escaping (Result<[Project], Error>) -> Void) {
-        remoteDataSource.pushProjects(projects, completion: completion)
-    }
-    
-    func resolveConflicts(for tasks: [Task], strategy: ConflictResolutionStrategy, completion: @escaping (Result<[Task], Error>) -> Void) {
-        // Implementation
-        completion(.success(tasks))
-    }
-    
-    func setSyncEnabled(_ enabled: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
-        // Implementation
-        completion(.success(()))
-    }
-    
-    func setSyncFrequency(_ frequency: SyncFrequency) {
-        // Implementation
-    }
-}
-
-// MARK: - Cached Repository Wrappers
-
-/// Task repository with caching
-private class CachedTaskRepository: TaskRepositoryProtocol {
-    private let repository: TaskRepositoryProtocol
-    private let cache: CacheServiceProtocol
-    
-    init(repository: TaskRepositoryProtocol, cache: CacheServiceProtocol) {
-        self.repository = repository
-        self.cache = cache
-    }
-    
-    // Implement all TaskRepositoryProtocol methods with caching
-    // This is a simplified example - full implementation would cache appropriately
-    
-    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        if let cached = cache.get([Task].self, forKey: "all_tasks") {
-            completion(.success(cached))
-            return
-        }
-        
-        repository.fetchAllTasks { [weak self] result in
-            if case .success(let tasks) = result {
-                self?.cache.set(tasks, forKey: "all_tasks", expiration: .minutes(5))
-            }
-            completion(result)
-        }
-    }
-    
-    // ... implement other methods similarly
-    
-    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchTasks(for: date, completion: completion)
-    }
-    
-    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchTodayTasks(completion: completion)
-    }
-    
-    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchTasks(for: project, completion: completion)
-    }
-    
-    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchOverdueTasks(completion: completion)
-    }
-    
-    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchUpcomingTasks(completion: completion)
-    }
-    
-    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchCompletedTasks(completion: completion)
-    }
-    
-    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchTasks(ofType: type, completion: completion)
-    }
-    
-    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) {
-        repository.fetchTask(withId: id, completion: completion)
-    }
-    
-    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.createTask(task, completion: completion)
-    }
-    
-    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.updateTask(task, completion: completion)
-    }
-    
-    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.completeTask(withId: id, completion: completion)
-    }
-    
-    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.uncompleteTask(withId: id, completion: completion)
-    }
-    
-    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.rescheduleTask(withId: id, to: date, completion: completion)
-    }
-    
-    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.deleteTask(withId: id, completion: completion)
-    }
-    
-    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.deleteCompletedTasks(completion: completion)
-    }
-    
-    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.createTasks(tasks, completion: completion)
-    }
-    
-    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.updateTasks(tasks, completion: completion)
-    }
-    
-    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.deleteTasks(withIds: ids, completion: completion)
-    }
-
-    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchTasks(forProjectID: projectID, completion: completion)
-    }
-
-    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchTasks(from: startDate, to: endDate, completion: completion)
-    }
-
-    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchTasksWithoutProject(completion: completion)
-    }
-
-    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
-        cache.remove(forKey: "all_tasks")
-        repository.assignTasksToProject(taskIDs: taskIDs, projectID: projectID, completion: completion)
-    }
-
-    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.fetchInboxTasks(completion: completion)
     }
 }
 
@@ -533,6 +264,10 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
         repository.ensureInboxProject(completion: completion)
     }
+
+    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+        repository.repairProjectIdentityCollisions(completion: completion)
+    }
     
     func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
         cache.clearAll()
@@ -551,10 +286,6 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     
     func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
         repository.getTaskCount(for: projectId, completion: completion)
-    }
-    
-    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
-        repository.getTasks(for: projectId, completion: completion)
     }
     
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {

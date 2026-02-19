@@ -216,10 +216,14 @@ class NavigationTests: BaseUITest {
             }
         }
 
-        // THEN: App should handle rapid switching without crashes
-        // Verify we're back on home
+        // THEN: App should handle rapid switching without crashes.
+        // If this runtime uses the new home bottom bar (no UITabBar), home visibility is the contract.
         let homeTabButton = tabBarButton(AccessibilityIdentifiers.TabBar.home)
-        XCTAssertTrue(homeTabButton.isSelected, "Should be on home tab")
+        if homeTabButton.exists {
+            XCTAssertTrue(homeTabButton.isSelected, "Should be on home tab")
+        } else {
+            XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should remain visible without tab bar")
+        }
 
         takeScreenshot(named: "rapid_tab_switching")
     }

@@ -289,6 +289,144 @@ public struct TaskUpdatedEvent: SerializableDomainEvent {
     }
 }
 
+/// Event fired when a scheduled occurrence is resolved.
+public struct OccurrenceResolvedEvent: SerializableDomainEvent {
+    public let eventId: UUID
+    public let occurredAt: Date
+    public let eventType: String = "OccurrenceResolved"
+    public let eventVersion: Int = 1
+    public let aggregateId: UUID
+    public let metadata: [String: Any]?
+
+    public let resolutionType: String
+    public let actor: String
+
+    public init(
+        occurrenceId: UUID,
+        resolutionType: String,
+        actor: String,
+        eventId: UUID = UUID(),
+        occurredAt: Date = Date()
+    ) {
+        self.eventId = eventId
+        self.occurredAt = occurredAt
+        self.aggregateId = occurrenceId
+        self.resolutionType = resolutionType
+        self.actor = actor
+        self.metadata = [
+            "occurrenceId": occurrenceId.uuidString,
+            "resolutionType": resolutionType,
+            "actor": actor
+        ]
+    }
+
+    public func toDictionary() -> [String: Any] {
+        [
+            "eventId": eventId.uuidString,
+            "occurredAt": occurredAt.timeIntervalSince1970,
+            "eventType": eventType,
+            "eventVersion": eventVersion,
+            "aggregateId": aggregateId.uuidString,
+            "resolutionType": resolutionType,
+            "actor": actor
+        ]
+    }
+
+    public static func fromDictionary(_ dict: [String: Any]) -> OccurrenceResolvedEvent? {
+        guard
+            let eventIdString = dict["eventId"] as? String,
+            let eventId = UUID(uuidString: eventIdString),
+            let occurredAtInterval = dict["occurredAt"] as? TimeInterval,
+            let aggregateIdString = dict["aggregateId"] as? String,
+            let aggregateId = UUID(uuidString: aggregateIdString),
+            let resolutionType = dict["resolutionType"] as? String,
+            let actor = dict["actor"] as? String
+        else {
+            return nil
+        }
+
+        return OccurrenceResolvedEvent(
+            occurrenceId: aggregateId,
+            resolutionType: resolutionType,
+            actor: actor,
+            eventId: eventId,
+            occurredAt: Date(timeIntervalSince1970: occurredAtInterval)
+        )
+    }
+}
+
+/// Event fired when XP is awarded from the gamification ledger.
+public struct XPAwardedEvent: SerializableDomainEvent {
+    public let eventId: UUID
+    public let occurredAt: Date
+    public let eventType: String = "XPAwarded"
+    public let eventVersion: Int = 1
+    public let aggregateId: UUID
+    public let metadata: [String: Any]?
+
+    public let delta: Int
+    public let reason: String
+    public let idempotencyKey: String
+
+    public init(
+        eventId: UUID = UUID(),
+        occurredAt: Date = Date(),
+        aggregateId: UUID = UUID(),
+        delta: Int,
+        reason: String,
+        idempotencyKey: String
+    ) {
+        self.eventId = eventId
+        self.occurredAt = occurredAt
+        self.aggregateId = aggregateId
+        self.delta = delta
+        self.reason = reason
+        self.idempotencyKey = idempotencyKey
+        self.metadata = [
+            "delta": delta,
+            "reason": reason,
+            "idempotencyKey": idempotencyKey
+        ]
+    }
+
+    public func toDictionary() -> [String: Any] {
+        [
+            "eventId": eventId.uuidString,
+            "occurredAt": occurredAt.timeIntervalSince1970,
+            "eventType": eventType,
+            "eventVersion": eventVersion,
+            "aggregateId": aggregateId.uuidString,
+            "delta": delta,
+            "reason": reason,
+            "idempotencyKey": idempotencyKey
+        ]
+    }
+
+    public static func fromDictionary(_ dict: [String: Any]) -> XPAwardedEvent? {
+        guard
+            let eventIdString = dict["eventId"] as? String,
+            let eventId = UUID(uuidString: eventIdString),
+            let occurredAtInterval = dict["occurredAt"] as? TimeInterval,
+            let aggregateIdString = dict["aggregateId"] as? String,
+            let aggregateId = UUID(uuidString: aggregateIdString),
+            let delta = dict["delta"] as? Int,
+            let reason = dict["reason"] as? String,
+            let idempotencyKey = dict["idempotencyKey"] as? String
+        else {
+            return nil
+        }
+
+        return XPAwardedEvent(
+            eventId: eventId,
+            occurredAt: Date(timeIntervalSince1970: occurredAtInterval),
+            aggregateId: aggregateId,
+            delta: delta,
+            reason: reason,
+            idempotencyKey: idempotencyKey
+        )
+    }
+}
+
 /// Event fired when a task is deleted
 public struct TaskDeletedEvent: SerializableDomainEvent {
     public let eventId: UUID

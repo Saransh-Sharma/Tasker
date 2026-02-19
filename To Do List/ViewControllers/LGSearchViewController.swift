@@ -6,7 +6,6 @@
 //
 
 import UIKit
-import CoreData
 import SwiftUI
 
 // MARK: - LGFilterButton
@@ -112,12 +111,14 @@ class LGFilterButton: LGBaseView {
 
 // MARK: - LGSearchViewController
 
-class LGSearchViewController: UIViewController {
+class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, PresentationDependencyContainerAware {
 
     // MARK: - Properties
 
     private var viewModel: LGSearchViewModel!
-    private var tasks: [NTask] = []
+    var useCaseCoordinator: UseCaseCoordinator!
+    var presentationDependencyContainer: PresentationDependencyContainer?
+    private var tasks: [TaskDefinition] = []
 
     // Theme
     private var todoColors: TaskerColorTokens {
@@ -232,6 +233,12 @@ class LGSearchViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        guard useCaseCoordinator != nil else {
+            fatalError("LGSearchViewController requires injected UseCaseCoordinator")
+        }
+        guard presentationDependencyContainer != nil else {
+            fatalError("LGSearchViewController requires injected PresentationDependencyContainer")
+        }
         setupViewModel()
         setupBackdropForedropArchitecture()
         setupNavigationBar()
@@ -260,12 +267,8 @@ class LGSearchViewController: UIViewController {
     // MARK: - Setup
 
     private func setupViewModel() {
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            logError(" Failed to get Core Data context")
-            return
-        }
-
-        viewModel = LGSearchViewModel(context: context)
+        viewModel = LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
+        viewModel.loadProjects()
         viewModel.onResultsUpdated = { [weak self] tasks in
             self?.tasks = tasks
             self?.updateResults()
@@ -622,6 +625,7 @@ class LGSearchViewController: UIViewController {
     private func applyFiltersAndSearch() {
         // Clear existing filters
         viewModel.clearFilters()
+        var selectedStatusFilter: StatusFilterType = .all
 
         // Apply selected filters
         filterStackView.arrangedSubviews.forEach { view in
@@ -634,10 +638,20 @@ class LGSearchViewController: UIViewController {
                         viewModel.toggleProjectFilter(project)
                     }
                 case .status(let statusType):
-                    // Handle status filters in ViewModel
-                    applyStatusFilter(statusType)
+                    selectedStatusFilter = statusType
                 }
             }
+        }
+
+        switch selectedStatusFilter {
+        case .all:
+            viewModel.setStatusFilter(.all)
+        case .today:
+            viewModel.setStatusFilter(.today)
+        case .overdue:
+            viewModel.setStatusFilter(.overdue)
+        case .completed:
+            viewModel.setStatusFilter(.completed)
         }
 
         // Re-run search
@@ -650,37 +664,28 @@ class LGSearchViewController: UIViewController {
     }
 
     private func applyStatusFilter(_ statusType: StatusFilterType) {
-        // This would extend the ViewModel to handle status filters
-        // For now, we'll implement basic filtering logic here
         switch statusType {
         case .all:
-            // No additional filtering needed
-            break
+            viewModel.setStatusFilter(.all)
         case .today:
-            // Filter for today's tasks
-            filterTasksForToday()
+            viewModel.setStatusFilter(.today)
         case .overdue:
-            // Filter for overdue tasks
-            filterTasksForOverdue()
+            viewModel.setStatusFilter(.overdue)
         case .completed:
-            // Filter for completed tasks
-            filterTasksForCompleted()
+            viewModel.setStatusFilter(.completed)
         }
     }
 
     private func filterTasksForToday() {
-        // Implementation would go here - temporarily using existing search
-        viewModel.searchAll()
+        applyStatusFilter(.today)
     }
 
     private func filterTasksForOverdue() {
-        // Implementation would go here - temporarily using existing search
-        viewModel.searchAll()
+        applyStatusFilter(.overdue)
     }
 
     private func filterTasksForCompleted() {
-        // Implementation would go here - temporarily using existing search
-        viewModel.searchAll()
+        applyStatusFilter(.completed)
     }
     
     @objc private func keyboardWillShow(_ notification: Notification) {
@@ -748,6 +753,9 @@ class LGSearchViewController: UIViewController {
                 card.onTap = { [weak self] task in
                     self?.showTaskDetail(task)
                 }
+                card.onToggleComplete = { [weak self] task in
+                    self?.toggleCompletion(for: task)
+                }
 
                 contentStackView.addArrangedSubview(card)
 
@@ -805,41 +813,108 @@ class LGSearchViewController: UIViewController {
         }
     }
 
-    private func showTaskDetail(_ task: NTask) {
+    private func showTaskDetail(_ task: TaskDefinition) {
         presentTaskDetailSheet(for: task)
     }
 
-    private func presentTaskDetailSheet(for task: NTask) {
-        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.taskID?.uuidString ?? "nil")")
+    private func presentTaskDetailSheet(for task: TaskDefinition) {
+        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.id.uuidString)")
         let detailView = TaskDetailSheetView(
             task: task,
-            projectNames: buildProjectChipData(),
-            onSave: { [weak self] in
-                self?.refreshAfterTaskDetailMutation(reason: "save")
-            },
-            onToggleComplete: { [weak self] in
-                self?.refreshAfterTaskDetailMutation(reason: "toggle")
-            },
-            onDismiss: nil,
-            onDelete: { [weak self] in
-                guard let self else { return }
-                task.managedObjectContext?.delete(task)
-                do {
-                    try task.managedObjectContext?.save()
-                    logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=delete taskID=\(task.taskID?.uuidString ?? "nil")")
-                } catch {
-                    logError(
-                        event: "search_task_delete_failed",
-                        message: "Failed to delete task from search detail sheet",
-                        fields: [
-                            "task_id": task.taskID?.uuidString ?? "nil",
-                            "error": error.localizedDescription
-                        ]
-                    )
+            projects: viewModel.projects,
+            onUpdate: { [weak self] request, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 0,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
                 }
-
-                self.presentedViewController?.dismiss(animated: true) { [weak self] in
-                    self?.refreshAfterTaskDetailMutation(reason: "delete")
+                self.viewModel.updateTask(taskID: task.id, request: request) { result in
+                    if case .success = result {
+                        self.refreshAfterTaskDetailMutation(reason: "update")
+                    }
+                    completion(result)
+                }
+            },
+            onSetCompletion: { [weak self] isComplete, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.setTaskCompletion(taskID: task.id, to: isComplete) { success in
+                    guard success else {
+                        completion(.failure(NSError(
+                            domain: "LGSearchViewController",
+                            code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "Failed to update completion state"]
+                        )))
+                        return
+                    }
+                    self.refreshAfterTaskDetailMutation(reason: "toggle")
+                    if let updated = self.tasks.first(where: { $0.id == task.id }) {
+                        completion(.success(updated))
+                    } else {
+                        var fallback = task
+                        fallback.isComplete = isComplete
+                        fallback.dateCompleted = isComplete ? Date() : nil
+                        completion(.success(fallback))
+                    }
+                }
+            },
+            onDelete: { [weak self] completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 2,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.deleteTask(taskID: task.id) { success in
+                    guard success else {
+                        completion(.failure(NSError(
+                            domain: "LGSearchViewController",
+                            code: 2,
+                            userInfo: [NSLocalizedDescriptionKey: "Failed to delete task"]
+                        )))
+                        return
+                    }
+                    self.refreshAfterTaskDetailMutation(reason: "delete")
+                    completion(.success(()))
+                }
+            },
+            onReschedule: { [weak self] date, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 3,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.rescheduleTask(taskID: task.id, to: date) { success in
+                    guard success else {
+                        completion(.failure(NSError(
+                            domain: "LGSearchViewController",
+                            code: 3,
+                            userInfo: [NSLocalizedDescriptionKey: "Failed to reschedule task"]
+                        )))
+                        return
+                    }
+                    self.refreshAfterTaskDetailMutation(reason: "reschedule")
+                    if let updated = self.tasks.first(where: { $0.id == task.id }) {
+                        completion(.success(updated))
+                    } else {
+                        var fallback = task
+                        fallback.dueDate = date
+                        completion(.success(fallback))
+                    }
                 }
             }
         )
@@ -856,7 +931,7 @@ class LGSearchViewController: UIViewController {
         present(hostingController, animated: true)
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
-        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.taskID?.uuidString ?? "nil")")
+        logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.id.uuidString)")
     }
 
     private func refreshAfterTaskDetailMutation(reason: String) {
@@ -864,30 +939,27 @@ class LGSearchViewController: UIViewController {
         logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=refresh reason=\(reason)")
     }
 
-    private func buildProjectChipData() -> [String] {
-        var projectNames: [String] = []
-        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
-            if let projects = try? context.fetch(request) {
-                projectNames = projects.compactMap { $0.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
+    private func toggleCompletion(for task: TaskDefinition) {
+        viewModel.setTaskCompletion(taskID: task.id, to: !task.isComplete) { [weak self] success in
+            guard success else { return }
+            self?.refreshAfterTaskDetailMutation(reason: "toggle")
+        }
+    }
+
+    private func deleteTask(_ task: TaskDefinition) {
+        viewModel.deleteTask(taskID: task.id) { [weak self] success in
+            guard success else { return }
+            self?.presentedViewController?.dismiss(animated: true) { [weak self] in
+                self?.refreshAfterTaskDetailMutation(reason: "delete")
             }
         }
+    }
 
-        let inboxTitle = ProjectConstants.inboxProjectName
-        projectNames.removeAll { $0.caseInsensitiveCompare(inboxTitle) == .orderedSame }
-        projectNames.insert(inboxTitle, at: 0)
-
-        var deduped: [String] = []
-        var seen = Set<String>()
-        for name in projectNames {
-            let key = name.lowercased()
-            guard !seen.contains(key) else { continue }
-            seen.insert(key)
-            deduped.append(name)
+    private func rescheduleTask(_ task: TaskDefinition, to date: Date) {
+        viewModel.rescheduleTask(taskID: task.id, to: date) { [weak self] success in
+            guard success else { return }
+            self?.refreshAfterTaskDetailMutation(reason: "reschedule")
         }
-        return deduped
     }
     
     deinit {

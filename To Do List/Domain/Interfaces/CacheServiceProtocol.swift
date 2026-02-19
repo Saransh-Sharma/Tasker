@@ -33,16 +33,16 @@ public protocol CacheServiceProtocol {
     // MARK: - Task-specific Caching
     
     /// Cache tasks for a specific date
-    func cacheTasks(_ tasks: [Task], forDate date: Date)
+    func cacheTasks(_ tasks: [TaskDefinition], forDate date: Date)
     
     /// Get cached tasks for a specific date
-    func getCachedTasks(forDate date: Date) -> [Task]?
+    func getCachedTasks(forDate date: Date) -> [TaskDefinition]?
     
-    /// Cache tasks for a specific project
-    func cacheTasks(_ tasks: [Task], forProject projectName: String)
-    
-    /// Get cached tasks for a specific project
-    func getCachedTasks(forProject projectName: String) -> [Task]?
+    /// Cache tasks for a specific project ID
+    func cacheTasks(_ tasks: [TaskDefinition], forProjectID projectID: UUID)
+
+    /// Get cached tasks for a specific project ID
+    func getCachedTasks(forProjectID projectID: UUID) -> [TaskDefinition]?
     
     // MARK: - Project-specific Caching
     
@@ -51,26 +51,6 @@ public protocol CacheServiceProtocol {
     
     /// Get cached projects
     func getCachedProjects() -> [Project]?
-    
-    // MARK: - Advanced Caching for Use Cases
-    
-    /// Cache filter results
-    func cacheFilterResult(_ result: FilteredTasksResult, key: String)
-    
-    /// Get cached filter result
-    func getCachedFilterResult(key: String) -> FilteredTasksResult?
-    
-    /// Cache search results
-    func cacheSearchResult(_ result: SearchResult, key: String)
-    
-    /// Get cached search result
-    func getCachedSearchResult(key: String) -> SearchResult?
-    
-    /// Cache statistics
-    func cacheStatistics(_ statistics: TaskStatistics, key: String)
-    
-    /// Get cached statistics
-    func getCachedStatistics(key: String) -> TaskStatistics?
     
     // MARK: - Cache Statistics
     

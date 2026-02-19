@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // MARK: - Foredrop Anchor
 
@@ -52,6 +53,30 @@ struct HomeForedropLayoutMetrics {
     }
 }
 
+struct HomeForedropHintEligibility {
+    static let triggerCooldown: TimeInterval = 0.7
+
+    static func canTrigger(
+        isHomeVisible: Bool,
+        foredropAnchor: ForedropAnchor,
+        reduceMotionEnabled: Bool,
+        isUITesting: Bool,
+        hasRunningAnimation: Bool,
+        lastTriggerDate: Date?,
+        now: Date = Date(),
+        cooldown: TimeInterval = triggerCooldown
+    ) -> Bool {
+        guard isHomeVisible else { return false }
+        guard foredropAnchor == .collapsed else { return false }
+        guard !reduceMotionEnabled else { return false }
+        guard !isUITesting else { return false }
+        guard !hasRunningAnimation else { return false }
+        guard let lastTriggerDate else { return true }
+
+        return now.timeIntervalSince(lastTriggerDate) >= cooldown
+    }
+}
+
 private struct CalendarHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 80
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -73,6 +98,12 @@ private struct SettingsButtonFramePreferenceKey: PreferenceKey {
     }
 }
 
+private extension TimeInterval {
+    var nanoseconds: UInt64 {
+        UInt64((self * 1_000_000_000).rounded())
+    }
+}
+
 private extension ForedropAnchor {
     var accessibilityValue: String {
         switch self {
@@ -88,15 +119,19 @@ private extension ForedropAnchor {
 
 struct HomeBackdropForedropRootView: View {
     @ObservedObject var viewModel: HomeViewModel
+    @ObservedObject var chartCardViewModel: ChartCardViewModel
+    @ObservedObject var radarChartCardViewModel: RadarChartCardViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    let onTaskTap: (DomainTask) -> Void
-    let onToggleComplete: (DomainTask) -> Void
-    let onDeleteTask: (DomainTask) -> Void
-    let onRescheduleTask: (DomainTask) -> Void
+    let onTaskTap: (TaskDefinition) -> Void
+    let onToggleComplete: (TaskDefinition) -> Void
+    let onDeleteTask: (TaskDefinition) -> Void
+    let onRescheduleTask: (TaskDefinition) -> Void
     let onReorderCustomProjects: ([UUID]) -> Void
     let onAddTask: () -> Void
     let onOpenSearch: () -> Void
     let onOpenChat: () -> Void
+    let onOpenProjectCreator: () -> Void
     let onOpenSettings: () -> Void
     let onSettingsButtonFrameChange: (CGRect) -> Void
 
@@ -111,10 +146,24 @@ struct HomeBackdropForedropRootView: View {
     @State private var xpBurstValue = 0
     @State private var bottomBarState = HomeBottomBarState()
     @State private var lastTaskListOffset: CGFloat = 0
-    @State private var showAddTaskSheet = false
+    @State private var foredropHintOffset: CGFloat = 0
+    @State private var hintAnimationTask: _Concurrency.Task<Void, Never>?
+    @State private var lastHintTriggerAt: Date?
+    @State private var isHomeVisible = false
+
+    private static let foredropHintLaunchDelay: TimeInterval = 0.10
+    private static let foredropHintPeekDistance: CGFloat = 24
+    private static let foredropHintPeekDuration: TimeInterval = 0.10
+    private static let foredropHintReturnResponse: TimeInterval = 0.22
+    private static let foredropHintReturnDampingFraction: CGFloat = 0.86
+    private static let foredropHintSettleDuration: TimeInterval = 0.16
+    private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var isUITesting: Bool {
+        Self.launchArguments.contains("-UI_TESTING") || Self.launchArguments.contains("-DISABLE_ANIMATIONS")
+    }
 
     private func foredropOffset(for geometryHeight: CGFloat) -> CGFloat {
         let metrics = HomeForedropLayoutMetrics(
@@ -139,7 +188,7 @@ struct HomeBackdropForedropRootView: View {
                     backdropLayer(geometry: geometry)
 
                     foredropLayer(geometry: geometry)
-                        .offset(y: foredropOffset(for: geometry.size.height))
+                        .offset(y: foredropOffset(for: geometry.size.height) + foredropHintOffset)
                         .animation(TaskerAnimation.snappy, value: foredropAnchor)
                         .animation(TaskerAnimation.snappy, value: calendarExpandedHeight)
                         .animation(TaskerAnimation.snappy, value: analyticsSectionHeight)
@@ -239,7 +288,16 @@ struct HomeBackdropForedropRootView: View {
             homeBottomBar
         }
         .onAppear {
+            isHomeVisible = true
             lastDailyScore = viewModel.dailyScore
+            triggerForedropHintIfEligible()
+        }
+        .onDisappear {
+            isHomeVisible = false
+            cancelForedropHintAnimation()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            triggerForedropHintIfEligible()
         }
         .onPreferenceChange(SettingsButtonFramePreferenceKey.self) { frame in
             onSettingsButtonFrameChange(frame)
@@ -247,11 +305,69 @@ struct HomeBackdropForedropRootView: View {
         .onReceive(viewModel.$dailyScore.receive(on: RunLoop.main)) { newScore in
             handleDailyScoreUpdate(newScore)
         }
-        .sheet(isPresented: $showAddTaskSheet) {
-            AddTaskSheetView.make()
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+    }
+
+    private func triggerForedropHintIfEligible(now: Date = Date()) {
+        let canTrigger = HomeForedropHintEligibility.canTrigger(
+            isHomeVisible: isHomeVisible,
+            foredropAnchor: foredropAnchor,
+            reduceMotionEnabled: reduceMotion,
+            isUITesting: isUITesting,
+            hasRunningAnimation: hintAnimationTask != nil,
+            lastTriggerDate: lastHintTriggerAt,
+            now: now
+        )
+        guard canTrigger else { return }
+
+        startForedropHintAnimation(triggeredAt: now)
+    }
+
+    private func startForedropHintAnimation(triggeredAt timestamp: Date) {
+        cancelForedropHintAnimation()
+        lastHintTriggerAt = timestamp
+
+        hintAnimationTask = _Concurrency.Task { @MainActor in
+            do {
+                try await _Concurrency.Task.sleep(nanoseconds: Self.foredropHintLaunchDelay.nanoseconds)
+            } catch {
+                return
+            }
+            guard !_Concurrency.Task.isCancelled else { return }
+
+            withAnimation(.easeOut(duration: Self.foredropHintPeekDuration)) {
+                foredropHintOffset = Self.foredropHintPeekDistance
+            }
+
+            do {
+                try await _Concurrency.Task.sleep(nanoseconds: Self.foredropHintPeekDuration.nanoseconds)
+            } catch {
+                return
+            }
+            guard !_Concurrency.Task.isCancelled else { return }
+
+            withAnimation(
+                .spring(
+                    response: Self.foredropHintReturnResponse,
+                    dampingFraction: Self.foredropHintReturnDampingFraction
+                )
+            ) {
+                foredropHintOffset = 0
+            }
+
+            do {
+                try await _Concurrency.Task.sleep(nanoseconds: Self.foredropHintSettleDuration.nanoseconds)
+            } catch {
+                return
+            }
+
+            hintAnimationTask = nil
         }
+    }
+
+    private func cancelForedropHintAnimation() {
+        hintAnimationTask?.cancel()
+        hintAnimationTask = nil
+        foredropHintOffset = 0
     }
 
     private func backdropLayer(geometry: GeometryProxy) -> some View {
@@ -298,7 +414,12 @@ struct HomeBackdropForedropRootView: View {
                                 .font(.tasker(.headline))
                                 .foregroundColor(Color.tasker.textPrimary)
 
-                            ChartCardsScrollView(referenceDate: viewModel.selectedDate)
+                            ChartCardsScrollView(
+                                referenceDate: viewModel.selectedDate,
+                                onCreateProject: onOpenProjectCreator,
+                                chartViewModel: chartCardViewModel,
+                                radarViewModel: radarChartCardViewModel
+                            )
                                 .frame(height: chartCardsViewportHeight(for: geometry))
                         }
                         .background(
@@ -335,6 +456,8 @@ struct HomeBackdropForedropRootView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, spacing.s16)
                     .padding(.top, spacing.s2)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("home.focus.strip")
             }
 
             // Next action module: contextual guidance for empty/low-content states
@@ -342,7 +465,7 @@ struct HomeBackdropForedropRootView: View {
                 NextActionModule(
                     openTaskCount: viewModel.todayOpenTaskCount,
                     focusPinnedCount: viewModel.pinnedFocusTaskIDs.count,
-                    onAddTask: { showAddTaskSheet = true }
+                    onAddTask: { onAddTask() }
                 )
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, spacing.s16)
@@ -380,7 +503,7 @@ struct HomeBackdropForedropRootView: View {
                         ]
                     )
                 },
-                onEmptyStateAction: { showAddTaskSheet = true },
+                onEmptyStateAction: { onAddTask() },
                 onTaskDragStarted: { task in
                     trackTaskDragStarted(task, source: "task_list")
                 },
@@ -418,6 +541,7 @@ struct HomeBackdropForedropRootView: View {
                 topTrailingRadius: corner.modal
             )
         )
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.foredrop.surface")
         .accessibilityValue(foredropAnchor.accessibilityValue)
     }
@@ -560,6 +684,7 @@ struct HomeBackdropForedropRootView: View {
                 Text("\(progress.earnedXP)/\(progress.todayTargetXP) XP")
                     .font(.tasker(.bodyEmphasis))
                     .foregroundColor(Color.tasker.textPrimary)
+                    .accessibilityIdentifier("home.dailyScoreLabel")
 
                 Text("\u{00B7}")
                     .foregroundColor(Color.tasker.textQuaternary)
@@ -568,7 +693,6 @@ struct HomeBackdropForedropRootView: View {
 
                 Spacer()
             }
-            .accessibilityIdentifier("home.dailyScoreLabel")
 
             // Enhanced progress bar with gradient and glow
             GeometryReader { geo in
@@ -658,7 +782,7 @@ struct HomeBackdropForedropRootView: View {
                 onOpenChat()
             },
             onCreate: {
-                showAddTaskSheet = true
+                onAddTask()
             }
         )
         .padding(.horizontal, spacing.s16)
@@ -698,7 +822,7 @@ struct HomeBackdropForedropRootView: View {
         return formatter
     }()
 
-    private func trackTaskToggle(_ task: DomainTask, source: String) {
+    private func trackTaskToggle(_ task: TaskDefinition, source: String) {
         viewModel.trackHomeInteraction(
             action: "home_task_toggle",
             metadata: [
@@ -709,7 +833,7 @@ struct HomeBackdropForedropRootView: View {
         )
     }
 
-    private func trackTaskDragStarted(_ task: DomainTask, source: String) {
+    private func trackTaskDragStarted(_ task: TaskDefinition, source: String) {
         var metadata = focusScopeMetadata(source: source, taskID: task.id)
         metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
         viewModel.trackHomeInteraction(

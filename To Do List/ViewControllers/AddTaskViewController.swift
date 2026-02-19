@@ -8,7 +8,6 @@
 
 import UIKit
 import FSCalendar
-import FluentUI
 import MaterialComponents.MaterialTextControls_FilledTextAreas
 import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas
@@ -18,20 +17,19 @@ import Combine
 // Import Clean Architecture components
 @_exported import Foundation
 
-class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate, UIScrollViewDelegate, TaskRepositoryDependent, AddTaskViewControllerProtocol {
+class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBarDelegate, UIScrollViewDelegate, AddTaskViewControllerProtocol, PresentationDependencyContainerAware {
 
     // Delegate for communicating back to the presenter
     weak var delegate: AddTaskViewControllerDelegate?
 
-    // MARK: - Repository Dependency
-    var taskRepository: TaskRepository!
-
     /// AddTaskViewModel dependency (injected) - Clean Architecture
     /// Note: Optional to avoid crashes when ViewModel path is disabled
     var viewModel: AddTaskViewModel?
+    var presentationDependencyContainer: PresentationDependencyContainer?
 
     /// Combine cancellables for reactive bindings
     private var cancellables = Set<AnyCancellable>()
+    private var hasBoundViewModel = false
 
     //MARK:- Backdrop & Fordrop parent containers
     var backdropContainer = UIView()
@@ -90,6 +88,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     // MARK: - New Components (Obsidian & Gems)
     let metadataRow = AddTaskMetadataRowView()
     let priorityPicker = AddTaskPriorityPickerView()
+    let advancedMetadataPanel = AddTaskAdvancedMetadataPanel()
     let inlineProjectCreator = AddTaskInlineProjectCreatorView()
     var alertReminderTime: Date?
 
@@ -106,6 +105,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
 
     //MARK:- current task list date
     var dateForAddTaskView = Date.today()
+    var calendarTaskCountByDay: [Date: Int] = [:]
 
 
 
@@ -138,30 +138,21 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         
         // ACTIVATE CLEAN ARCHITECTURE - Primary dependency injection
         logDebug("🏗️ Activating AddTask Clean Architecture")
-        // Use legacy injection for now until module issues are resolved
-        DependencyContainer.shared.inject(into: self)
+        guard viewModel != nil else {
+            fatalError("AddTaskViewController requires injected AddTaskViewModel")
+        }
+        guard presentationDependencyContainer != nil else {
+            fatalError("AddTaskViewController requires injected PresentationDependencyContainer")
+        }
+        setupViewModelBindings()
+        viewModel?.loadProjects()
         
         logDebug("🔍 AddTaskViewController: Checking dependency injection state...")
-        
-        // TODO: Re-enable when ViewModel is available
-        // Check Clean Architecture vs Legacy injection state
-        // if viewModel != nil {
-        //     logDebug("✅ AddTaskViewController: ViewModel properly injected - Using Clean Architecture")
-        //     logDebug("📊 AddTaskViewController: ViewModel type: \(String(describing: type(of: viewModel)))")
-        //     setupViewModelBindings()
-        // } else {
-        // }
-        
-        // Check legacy repository injection
-        if taskRepository == nil {
+        if viewModel == nil {
             logError(
-                event: "add_task_repository_missing",
-                message: "Task repository missing in viewDidLoad"
+                event: "add_task_view_model_missing",
+                message: "AddTaskViewModel missing in viewDidLoad"
             )
-            logDebug("🔧 AddTaskViewController: This indicates dependency injection hasn't happened yet")
-        } else {
-            logDebug("✅ AddTaskViewController: taskRepository is properly injected")
-            logDebug("📊 AddTaskViewController: Repository type: \(String(describing: type(of: taskRepository)))")
         }
         
         // Setup backdrop with navigation bar and calendar
@@ -181,6 +172,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         setupSamplePillBar()
         setupInlineProjectCreator()
         setupPriorityPicker()
+        setupAdvancedMetadataPanel()
 
         // Add components to foredrop stack in order
         // 1. Title field
@@ -208,7 +200,11 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         inlineProjectCreator.translatesAutoresizingMaskIntoConstraints = false
         foredropStackContainer.addArrangedSubview(inlineProjectCreator)
 
-        // 6. Priority picker (jewel-tone pills)
+        // 6. Advanced metadata panel (life area / section / tags / hierarchy / dependencies)
+        advancedMetadataPanel.translatesAutoresizingMaskIntoConstraints = false
+        foredropStackContainer.addArrangedSubview(advancedMetadataPanel)
+
+        // 7. Priority picker (jewel-tone pills)
         priorityPicker.translatesAutoresizingMaskIntoConstraints = false
         foredropStackContainer.addArrangedSubview(priorityPicker)
 
@@ -252,39 +248,114 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     // MARK: - Clean Architecture Methods
     
     /// Setup ViewModel bindings for reactive UI
-    /// TODO: Re-enable when ViewModel is available
     private func setupViewModelBindings() {
-        // guard let viewModel = viewModel else { return }
-        //
-        // // TODO: Bindings commented out until real ViewModel with @Published properties is integrated
-        // /*
-        // // Bind loading state
-        // viewModel.$isLoading
-        //     .receive(on: DispatchQueue.main)
-        //     .sink { [weak self] isLoading in
-        //         // Update UI loading state - disable navigation bar Done button while loading
-        //         self?.navigationItem.rightBarButtonItem?.isEnabled = !isLoading
-        //     }
-        //     .store(in: &cancellables)
-        //
-        // // Bind error messages
-        // viewModel.$errorMessage
-        //     .receive(on: DispatchQueue.main)
-        //     .compactMap { $0 }
-        //     .sink { [weak self] error in
-        //         self?.showError(error)
-        //     }
-        //     .store(in: &cancellables)
-        //
-        // // Bind available projects
-        // viewModel.$availableProjects
-        //     .receive(on: DispatchQueue.main)
-        //     .sink { [weak self] projects in
-        //         // Update project selection UI if needed
-        //         self?.updateProjectSelection(projects)
-        //     }
-        //     .store(in: &cancellables)
-        // */
+        guard hasBoundViewModel == false, let viewModel else { return }
+        hasBoundViewModel = true
+
+        viewModel.$isLoading
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isLoading in
+                self?.navigationItem.rightBarButtonItem?.isEnabled = !isLoading
+            }
+            .store(in: &cancellables)
+
+        viewModel.$errorMessage
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0 }
+            .sink { [weak self] error in
+                self?.showError(error)
+            }
+            .store(in: &cancellables)
+
+        viewModel.$projects
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] projects in
+                self?.applyProjectsToPillBar(projects)
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$lifeAreas
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$sections
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$tags
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$selectedLifeAreaID
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$selectedSectionID
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$selectedTagIDs
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$selectedParentTaskID
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$selectedDependencyTaskIDs
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$availableParentTasks
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$availableDependencyTasks
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshMetadataPanel()
+            }
+            .store(in: &cancellables)
+
+        viewModel.$isTaskCreated
+            .receive(on: DispatchQueue.main)
+            .dropFirst()
+            .filter { $0 }
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.dismiss(animated: true) {
+                    self.delegate?.didCreateTask()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     /// Check if using Clean Architecture or legacy
@@ -301,35 +372,49 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
     
     /// Update project selection UI
     private func updateProjectSelection(_ projects: [Project]) {
-        // Update pill bar or other project selection UI based on available projects
-        // This can be enhanced based on your specific UI needs
+        applyProjectsToPillBar(projects)
+    }
+
+    private func applyProjectsToPillBar(_ projects: [Project]) {
+        samplePillBarItems = [PillButtonBarItem(title: addProjectString)]
+
+        let sortedProjects = projects.sorted { lhs, rhs in
+            if lhs.id == ProjectConstants.inboxProjectID { return true }
+            if rhs.id == ProjectConstants.inboxProjectID { return false }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
+
+        for project in sortedProjects {
+            samplePillBarItems.append(PillButtonBarItem(title: project.name))
+        }
+
+        if samplePillBarItems.count == 1 {
+            samplePillBarItems.append(PillButtonBarItem(title: ProjectConstants.inboxProjectName))
+        }
+
+        let preferredProject: String
+        if samplePillBarItems.contains(where: { $0.title == currenttProjectForAddTaskView }),
+           currenttProjectForAddTaskView != addProjectString {
+            preferredProject = currenttProjectForAddTaskView
+        } else if let viewModel,
+                  samplePillBarItems.contains(where: { $0.title == viewModel.selectedProject }) {
+            preferredProject = viewModel.selectedProject
+        } else if let inbox = samplePillBarItems.first(where: { $0.title.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame }) {
+            preferredProject = inbox.title
+        } else {
+            preferredProject = samplePillBarItems.dropFirst().first?.title ?? ProjectConstants.inboxProjectName
+        }
+
+        updatePillBarUI(selectProject: preferredProject)
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         logDebug("👁️ AddTaskViewController: viewWillAppear called")
-        
-        // Re-check dependency injection state before view appears
-        logDebug("🔍 AddTaskViewController: Re-checking dependency injection state...")
-        if taskRepository == nil {
-            logError(
-                event: "add_task_repository_missing",
-                message: "Task repository missing in viewWillAppear"
-            )
-            
-            // Try to inject dependencies as a fallback
-            DependencyContainer.shared.inject(into: self)
-            
-            if taskRepository != nil {
-            } else {
-                logFatal(
-                    event: "add_task_fallback_injection_failed",
-                    message: "Fallback dependency injection failed in AddTaskViewController"
-                )
-            }
-        } else {
-            logDebug("✅ AddTaskViewController: taskRepository is properly available")
+        guard viewModel != nil else {
+            fatalError("AddTaskViewController requires injected AddTaskViewModel before appearing")
         }
+        viewModel?.loadProjects()
         
         // Set default project to Inbox
         currenttProjectForAddTaskView = "Inbox"
@@ -359,6 +444,11 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
                 currentTaskInMaterialTextBox = newText
             } else if textField == descriptionTextBox_Material {
                 currentTaskDescription = newText
+                // UIKit compatibility: if title field is not focusable in current layout,
+                // allow description entry to bootstrap task creation.
+                if currentTaskInMaterialTextBox.isEmpty {
+                    currentTaskInMaterialTextBox = newText
+                }
             }
             
             let isEmpty = currentTaskInMaterialTextBox.isEmpty
@@ -471,87 +561,186 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         // Hidden by default — shown when "Add Project" pill is tapped
     }
 
-    /// Load projects via fallback using CoreDataProjectRepository
-    /// Called when ViewModel is not available
-    private func loadProjectsFallback() {
-        guard let container = DependencyContainer.shared.persistentContainer else {
-            logError(
-                event: "add_task_project_fallback_container_missing",
-                message: "Persistent container unavailable for fallback project load"
-            )
-            samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
+    // MARK: - Advanced Metadata Setup
+    func setupAdvancedMetadataPanel() {
+        advancedMetadataPanel.onLifeAreaTapped = { [weak self] in
+            self?.presentLifeAreaSelector()
+        }
+        advancedMetadataPanel.onSectionTapped = { [weak self] in
+            self?.presentSectionSelector()
+        }
+        advancedMetadataPanel.onTagsTapped = { [weak self] in
+            self?.presentTagSelector()
+        }
+        advancedMetadataPanel.onParentTapped = { [weak self] in
+            self?.presentParentTaskSelector()
+        }
+        advancedMetadataPanel.onDependenciesTapped = { [weak self] in
+            self?.presentDependenciesSelector()
+        }
+        refreshMetadataPanel()
+    }
+
+    private func refreshMetadataPanel() {
+        guard let viewModel else { return }
+        advancedMetadataPanel.update(
+            lifeAreas: viewModel.lifeAreas,
+            selectedLifeAreaID: viewModel.selectedLifeAreaID,
+            sections: viewModel.sections,
+            selectedSectionID: viewModel.selectedSectionID,
+            tags: viewModel.tags,
+            selectedTagIDs: viewModel.selectedTagIDs,
+            parentTasks: viewModel.availableParentTasks,
+            selectedParentTaskID: viewModel.selectedParentTaskID,
+            dependencyTasks: viewModel.availableDependencyTasks,
+            selectedDependencyTaskIDs: viewModel.selectedDependencyTaskIDs
+        )
+    }
+
+    private func configureActionSheetPopover(_ alert: UIAlertController, sourceView: UIView) {
+        guard let popover = alert.popoverPresentationController else { return }
+        popover.sourceView = sourceView
+        popover.sourceRect = sourceView.bounds
+        popover.permittedArrowDirections = [.up, .down]
+    }
+
+    private func presentLifeAreaSelector() {
+        guard let viewModel else { return }
+        guard !viewModel.lifeAreas.isEmpty else {
+            showError("No life areas available")
             return
         }
-
-        // Use CoreDataProjectRepository from State layer to fetch all projects
-        let projectRepo = CoreDataProjectRepository(container: container)
-
-        // Fetch all projects asynchronously
-        projectRepo.fetchAllProjects { [weak self] result in
-            guard let self = self else { return }
-
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let domainProjects):
-                    // Reset the list with "Add Project" button as first item
-                    self.samplePillBarItems = []
-                    self.samplePillBarItems.append(PillButtonBarItem(title: self.addProjectString))
-
-                    // Separate Inbox from other projects
-                    let inboxProject = domainProjects.first { $0.name.lowercased() == "inbox" }
-                    let customProjects = domainProjects.filter { $0.name.lowercased() != "inbox" }
-                        .sorted { $0.name < $1.name }
-
-                    // Add Inbox as second item (index 1) - always present
-                    let inboxTitle = inboxProject?.name ?? "Inbox"
-                    self.samplePillBarItems.append(PillButtonBarItem(title: inboxTitle))
-
-                    // Add all custom projects after Inbox
-                    for project in customProjects {
-                        self.samplePillBarItems.append(PillButtonBarItem(title: project.name))
-                        logDebug("✅ Added custom project to pill bar: \(project.name)")
-                    }
-
-                    // Determine which project to select:
-                    // - If currenttProjectForAddTaskView is set to a valid project (e.g., after creating a new project), select it
-                    // - Otherwise, default to Inbox
-                    let projectToSelect: String
-                    if !self.currenttProjectForAddTaskView.isEmpty,
-                       self.currenttProjectForAddTaskView != self.addProjectString,
-                       self.samplePillBarItems.contains(where: { $0.title == self.currenttProjectForAddTaskView }) {
-                        projectToSelect = self.currenttProjectForAddTaskView
-                    } else {
-                        projectToSelect = inboxTitle
-                    }
-
-                    // Update the pill bar UI directly (don't call refreshProjectPillBar which would start another async load)
-                    self.updatePillBarUI(selectProject: projectToSelect)
-
-                case .failure(let error):
-                    logError(
-                        event: "add_task_project_fallback_load_failed",
-                        message: "Fallback project load failed",
-                        fields: ["error": error.localizedDescription]
-                    )
-                    // Ensure at least Inbox is present
-                    self.samplePillBarItems = []
-                    self.samplePillBarItems.append(PillButtonBarItem(title: self.addProjectString))
-                    self.samplePillBarItems.append(PillButtonBarItem(title: "Inbox"))
-                    self.updatePillBarUI(selectProject: "Inbox")
-                }
-            }
+        let alert = UIAlertController(title: "Select Life Area", message: nil, preferredStyle: .actionSheet)
+        alert.addAction(UIAlertAction(title: "None", style: .default) { [weak self] _ in
+            self?.viewModel?.selectedLifeAreaID = nil
+            self?.refreshMetadataPanel()
+        })
+        viewModel.lifeAreas.forEach { area in
+            let selected = viewModel.selectedLifeAreaID == area.id ? "✓ " : ""
+            alert.addAction(UIAlertAction(title: selected + area.name, style: .default) { [weak self] _ in
+                self?.viewModel?.selectedLifeAreaID = area.id
+                self?.refreshMetadataPanel()
+            })
         }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        configureActionSheetPopover(alert, sourceView: advancedMetadataPanel)
+        present(alert, animated: true)
+    }
+
+    private func presentSectionSelector() {
+        guard let viewModel else { return }
+        guard !viewModel.sections.isEmpty else {
+            showError("No sections available for the selected project")
+            return
+        }
+        let alert = UIAlertController(title: "Select Section", message: nil, preferredStyle: .actionSheet)
+        alert.addAction(UIAlertAction(title: "None", style: .default) { [weak self] _ in
+            self?.viewModel?.selectedSectionID = nil
+            self?.refreshMetadataPanel()
+        })
+        viewModel.sections.forEach { section in
+            let selected = viewModel.selectedSectionID == section.id ? "✓ " : ""
+            alert.addAction(UIAlertAction(title: selected + section.name, style: .default) { [weak self] _ in
+                self?.viewModel?.selectedSectionID = section.id
+                self?.refreshMetadataPanel()
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        configureActionSheetPopover(alert, sourceView: advancedMetadataPanel)
+        present(alert, animated: true)
+    }
+
+    private func presentTagSelector() {
+        guard let viewModel else { return }
+        guard !viewModel.tags.isEmpty else {
+            showError("No tags available")
+            return
+        }
+        let alert = UIAlertController(
+            title: "Select Tags",
+            message: "Tap tags to toggle selection",
+            preferredStyle: .actionSheet
+        )
+        viewModel.tags.forEach { tag in
+            let selected = viewModel.selectedTagIDs.contains(tag.id) ? "✓ " : ""
+            alert.addAction(UIAlertAction(title: selected + tag.name, style: .default) { [weak self] _ in
+                guard let self, let viewModel = self.viewModel else { return }
+                if viewModel.selectedTagIDs.contains(tag.id) {
+                    viewModel.selectedTagIDs.remove(tag.id)
+                } else {
+                    viewModel.selectedTagIDs.insert(tag.id)
+                }
+                self.refreshMetadataPanel()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    self.presentTagSelector()
+                }
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Done", style: .cancel))
+        configureActionSheetPopover(alert, sourceView: advancedMetadataPanel)
+        present(alert, animated: true)
+    }
+
+    private func presentParentTaskSelector() {
+        guard let viewModel else { return }
+        let alert = UIAlertController(title: "Select Parent Task", message: nil, preferredStyle: .actionSheet)
+        alert.addAction(UIAlertAction(title: "None", style: .default) { [weak self] _ in
+            self?.viewModel?.selectedParentTaskID = nil
+            self?.refreshMetadataPanel()
+        })
+        viewModel.availableParentTasks.forEach { task in
+            let selected = viewModel.selectedParentTaskID == task.id ? "✓ " : ""
+            alert.addAction(UIAlertAction(title: selected + task.title, style: .default) { [weak self] _ in
+                self?.viewModel?.selectedParentTaskID = task.id
+                self?.refreshMetadataPanel()
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        configureActionSheetPopover(alert, sourceView: advancedMetadataPanel)
+        present(alert, animated: true)
+    }
+
+    private func presentDependenciesSelector() {
+        guard let viewModel else { return }
+        guard !viewModel.availableDependencyTasks.isEmpty else {
+            showError("No dependency candidates available for the selected project")
+            return
+        }
+        let alert = UIAlertController(
+            title: "Select Dependencies",
+            message: "Tap tasks to toggle selection",
+            preferredStyle: .actionSheet
+        )
+        viewModel.availableDependencyTasks.forEach { task in
+            let selected = viewModel.selectedDependencyTaskIDs.contains(task.id) ? "✓ " : ""
+            alert.addAction(UIAlertAction(title: selected + task.title, style: .default) { [weak self] _ in
+                guard let self, let viewModel = self.viewModel else { return }
+                if viewModel.selectedDependencyTaskIDs.contains(task.id) {
+                    viewModel.selectedDependencyTaskIDs.remove(task.id)
+                } else {
+                    viewModel.selectedDependencyTaskIDs.insert(task.id)
+                }
+                self.refreshMetadataPanel()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    self.presentDependenciesSelector()
+                }
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Done", style: .cancel))
+        configureActionSheetPopover(alert, sourceView: advancedMetadataPanel)
+        present(alert, animated: true)
     }
 
     func buildSamplePillBarData() {
-        // Reset the list
-        samplePillBarItems = []
-
-        // PHASE 3: Add "Add Project" button as the first pill (index 0)
-        samplePillBarItems.append(PillButtonBarItem(title: addProjectString))
-
-        // Use fallback to load all projects (since ViewModel is not available)
-        loadProjectsFallback()
+        if let viewModel {
+            applyProjectsToPillBar(viewModel.projects)
+        } else {
+            samplePillBarItems = [
+                PillButtonBarItem(title: addProjectString),
+                PillButtonBarItem(title: ProjectConstants.inboxProjectName)
+            ]
+            updatePillBarUI(selectProject: ProjectConstants.inboxProjectName)
+        }
     }
     
     func createSamplePillBar(items: [PillButtonBarItem], centerAligned: Bool = false) -> UIView {
@@ -626,6 +815,8 @@ extension AddTaskViewController {
             // Update current project based on pill selection
             logDebug("Sample pill bar item selected: \(item.title) at index \(index)")
             self.currenttProjectForAddTaskView = item.title
+            self.viewModel?.selectedProject = item.title
+            self.refreshMetadataPanel()
             return
         }
         
@@ -684,62 +875,15 @@ extension AddTaskViewController {
     }
     
     // PHASE 3: Create a new project using Clean Architecture
-    /// TODO: Re-enable when ViewModel is available
     private func createNewProject(name: String, description: String?) {
-        // Use ViewModel to create project (Clean Architecture)
-        // guard let viewModel = viewModel else {
-        //     showProjectError(message: "Failed to create project")
-        //     return
-        // }
-        //
-        // // Create request for new project
-        // let request = CreateProjectRequest(name: name, description: description)
-        //
-        // // Use UseCaseCoordinator through ViewModel
-        // // Note: AddTaskViewModel should have a createProject method that calls UseCaseCoordinator.manageProjects
-        // logDebug("🆕 Creating project '\(name)' using Clean Architecture")
-
-        // Create request for new project
-        let request = CreateProjectRequest(name: name, description: description)
-
-        // Temporary: Create UseCaseCoordinator locally until proper DI is set up
-        // TODO: Add createProject method to AddTaskViewModel
-        guard let taskRepo = DependencyContainer.shared.taskRepository as? TaskRepositoryProtocol,
-              let container = DependencyContainer.shared.persistentContainer else {
-            logError(
-                event: "add_task_project_create_dependencies_missing",
-                message: "Missing dependencies for project creation"
-            )
-            showProjectError(message: "Failed to create project")
+        guard let viewModel else {
+            showProjectError(message: "Project service unavailable")
             return
         }
 
-        // Use CoreDataProjectRepository from State layer
-        let projectRepo = CoreDataProjectRepository(container: container)
-        let useCaseCoordinator = UseCaseCoordinator(
-            taskRepository: taskRepo,
-            projectRepository: projectRepo,
-            cacheService: nil
-        )
-
-        useCaseCoordinator.manageProjects.createProject(request: request) { [weak self] result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let project):
-                    logDebug("✅ Phase 3: Successfully created project '\(project.name)'")
-                    self?.showProjectSuccess(message: "Project '\(project.name)' created")
-                    self?.addNewProjectToPillBar(project: project)
-
-                case .failure(let error):
-                    logError(
-                        event: "add_task_project_create_failed",
-                        message: "Project creation failed",
-                        fields: ["error": error.localizedDescription]
-                    )
-                    self?.showProjectError(message: "Failed to create project")
-                }
-            }
-        }
+        _ = description // Reserved for future project description support in view model API.
+        currenttProjectForAddTaskView = name
+        viewModel.createProject(name: name)
     }
     
     // Update the pill bar UI with current items (does NOT reload from database)
@@ -768,6 +912,8 @@ extension AddTaskViewController {
            let projectIndex = samplePillBarItems.firstIndex(where: { $0.title == projectName }) {
             _ = pillBarComponent.selectItem(atIndex: projectIndex)
             self.currenttProjectForAddTaskView = projectName
+            self.viewModel?.selectedProject = projectName
+            self.refreshMetadataPanel()
             logDebug("✅ Pre-selected project '\(projectName)' at index \(projectIndex)")
         }
     }

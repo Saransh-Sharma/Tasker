@@ -7,7 +7,6 @@ import MarkdownUI
 import SwiftUI
 import Combine
 import SwiftData
-import CoreData
 import os
 
 struct ChatView: View {
@@ -363,7 +362,7 @@ struct ChatView: View {
     }
 
     private enum SlashAction {
-        case summary(TaskRange, Projects?)
+        case summary(TaskRange, String?)
         case clear
         case none
     }
@@ -419,16 +418,16 @@ struct ChatView: View {
                     var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
 
                     switch action {
-                    case let .summary(range, project):
-                        let summary = PromptMiddleware.buildTasksSummary(range: range, project: project)
+                    case let .summary(range, projectName):
+                        let summary = PromptMiddleware.buildTasksSummary(range: range, projectName: projectName)
                         dynamicSystemPrompt += "\n\nTasks (\(range.description)):\n" + summary
                     default:
                         break
                     }
                     let tID = currentThread.id
                     if !ChatView.contextInjectedThreads.contains(tID) {
-                        let tasksText = LLMTaskContextBuilder.weeklyTasksTextCached()
-                        dynamicSystemPrompt += "\n\n" + tasksText
+                        let injectedContext = buildLLMContextPayload()
+                        dynamicSystemPrompt += "\n\n" + injectedContext
                         ChatView.contextInjectedThreads.insert(tID)
                     }
 
@@ -502,10 +501,7 @@ struct ChatView: View {
         case "/project":
             if components.count == 2 {
                 let query = components[1].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext
-                let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-                let allProjects = (try? context?.fetch(request)) ?? []
-                let match = allProjects.first { ($0.projectName ?? "").lowercased().contains(query) }
+                let match = LLMContextRepositoryProvider.findProjectNameSync(matching: query)
                 return .summary(.all, match)
             }
             return .summary(.all, nil)
@@ -518,6 +514,40 @@ struct ChatView: View {
 
     private func buildTasksSummary() -> String {
         PromptMiddleware.buildTasksSummary(range: .today)
+    }
+
+    private func buildLLMContextPayload() -> String {
+        guard let service = LLMContextRepositoryProvider.makeService() else {
+            return """
+            Context JSON:
+            today={}
+            upcoming={}
+            """
+        }
+        let todayJSON = fetchProjectionSync { completion in
+            service.buildTodayJSON(completion: completion)
+        }
+        let upcomingJSON = fetchProjectionSync { completion in
+            service.buildUpcomingJSON(completion: completion)
+        }
+        return """
+        Context JSON:
+        today=\(todayJSON)
+        upcoming=\(upcomingJSON)
+        """
+    }
+
+    private func fetchProjectionSync(
+        _ request: (@escaping (String) -> Void) -> Void
+    ) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        var payload = "{}"
+        request { json in
+            payload = json
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + .seconds(3))
+        return payload
     }
 
     #if os(macOS)

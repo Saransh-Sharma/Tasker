@@ -7,10 +7,8 @@
 //
 
 import SwiftUI
-import CoreData
 import DGCharts
 import UIKit
-import Combine
 
 // MARK: - Radar Chart Card
 
@@ -18,21 +16,23 @@ struct RadarChartCard: View {
     let title: String
     let subtitle: String?
     let referenceDate: Date?
-
-    @State private var chartData: [RadarChartDataEntry] = []
-    @State private var chartLabels: [String] = []
-    @State private var isLoading = true
-    @State private var hasCustomProjects = true
-    @State private var hasCompletedTasks = true
-    @State private var showProjectSelection = false
-    @State private var selectedProjectIDs: [UUID]? = nil
+    let onCreateProject: () -> Void
+    @StateObject private var viewModel: RadarChartCardViewModel
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
-    init(title: String = "Project Breakdown", subtitle: String? = "Weekly scores by project", referenceDate: Date? = nil) {
+    init(
+        title: String = "Project Breakdown",
+        subtitle: String? = "Weekly scores by project",
+        referenceDate: Date? = nil,
+        onCreateProject: @escaping () -> Void,
+        viewModel: RadarChartCardViewModel
+    ) {
         self.title = title
         self.subtitle = subtitle
         self.referenceDate = referenceDate
+        self.onCreateProject = onCreateProject
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
 
     var body: some View {
@@ -54,28 +54,11 @@ struct RadarChartCard: View {
                                 .dynamicTypeSize(.large...(.accessibility3))
                         }
                     }
-
-                    Spacer()
-
-                    if hasCustomProjects {
-                        Button(action: {
-                            showProjectSelection = true
-                        }) {
-                            Image(systemName: "slider.horizontal.3")
-                                .font(.tasker(.buttonSmall))
-                                .foregroundColor(.tasker(.accentPrimary))
-                                .padding(spacing.s8)
-                                .background(Color.tasker.accentMuted)
-                                .cornerRadius(corner.r1)
-                        }
-                        .accessibilityLabel("Select projects")
-                        .accessibilityHint("Choose which projects to display on the radar chart")
-                    }
                 }
                 .accessibilityElement(children: .contain)
 
                 ZStack {
-                    if isLoading {
+                    if viewModel.isLoading {
                         RoundedRectangle(cornerRadius: corner.input)
                             .fill(Color.tasker.surfaceSecondary)
                             .frame(height: 350)
@@ -83,17 +66,15 @@ struct RadarChartCard: View {
                                 ProgressView()
                                     .scaleEffect(1.2)
                             )
-                    } else if !hasCustomProjects {
+                    } else if !viewModel.hasCustomProjects {
                         emptyStateView(
                             icon: "folder.badge.plus",
                             title: "No Custom Projects",
                             message: "Create custom projects to see your score breakdown",
                             actionTitle: "Create Project",
-                            action: {
-                                NotificationCenter.default.post(name: Notification.Name("ShowProjectManagement"), object: nil)
-                            }
+                            action: onCreateProject
                         )
-                    } else if !hasCompletedTasks {
+                    } else if !viewModel.hasCompletedTasks {
                         emptyStateView(
                             icon: "checkmark.circle",
                             title: "Complete Tasks",
@@ -103,8 +84,8 @@ struct RadarChartCard: View {
                         )
                     } else {
                         RadarChartViewRepresentable(
-                            data: chartData,
-                            labels: chartLabels,
+                            data: viewModel.chartData,
+                            labels: viewModel.chartLabels,
                             referenceDate: referenceDate
                         )
                         .frame(height: 350)
@@ -117,42 +98,17 @@ struct RadarChartCard: View {
                 }
             }
         }
-        .sheet(isPresented: $showProjectSelection) {
-            ProjectSelectionSheet(
-                selectedProjectIDs: selectedProjectIDs ?? [],
-                onSave: { pinnedProjectIDs in
-                    selectedProjectIDs = pinnedProjectIDs
-
-                    // Persist pinned projects using ProjectSelectionService
-                    if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
-                        let service = ProjectSelectionService(context: context)
-                        do {
-                            try service.setPinnedProjectIDs(pinnedProjectIDs)
-                        } catch {
-                            logWarning(
-                                event: "radar_pinned_projects_save_failed",
-                                message: "Failed to save pinned projects",
-                                fields: ["error": error.localizedDescription]
-                            )
-                        }
-                    }
-
-                    // Reload chart with new pinned projects
-                    loadChartData()
-                }
-            )
-        }
         .onAppear {
-            loadPinnedProjects()
+            viewModel.load(referenceDate: referenceDate)
         }
         .onChange(of: referenceDate) { _, _ in
-            loadChartData()
+            viewModel.load(referenceDate: referenceDate)
         }
         .onReceive(
             NotificationCenter.default.publisher(for: .homeTaskMutation)
                 .debounce(for: .milliseconds(120), scheduler: RunLoop.main)
         ) { _ in
-            loadChartData()
+            viewModel.load(referenceDate: referenceDate)
         }
     }
 
@@ -204,91 +160,6 @@ struct RadarChartCard: View {
         )
     }
 
-    // MARK: - Data Loading
-
-    /// Load pinned projects from ProjectSelectionService
-    /// Called once on appear to initialize selectedProjectIDs
-    private func loadPinnedProjects() {
-
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-            logWarning(
-                event: "radar_app_delegate_unavailable",
-                message: "App delegate unavailable while loading pinned projects"
-            )
-            loadChartData()
-            return
-        }
-
-        let context = appDelegate.persistentContainer.viewContext
-        let service = ProjectSelectionService(context: context)
-
-        service.getPinnedProjectIDs { [self] pinnedIDs in
-            DispatchQueue.main.async {
-                self.selectedProjectIDs = pinnedIDs
-                self.loadChartData()
-            }
-        }
-    }
-
-    private func loadChartData() {
-        isLoading = true
-
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {
-            logWarning(
-                event: "radar_app_delegate_unavailable",
-                message: "App delegate unavailable while loading radar chart"
-            )
-            isLoading = false
-            return
-        }
-
-        let context = appDelegate.persistentContainer.viewContext
-
-        // Execute on main context directly (SwiftUI is already on main thread)
-        let chartService = ChartDataService(context: context)
-
-        // Generate radar chart data ONLY for selected/pinned projects
-        let result = chartService.generateRadarChartData(
-            for: referenceDate,
-            selectedProjectIDs: selectedProjectIDs
-        )
-
-
-        self.chartData = result.entries
-        self.chartLabels = result.labels
-
-        // Determine empty states
-
-        let checkResult = self.checkHasCustomProjects(context: context)
-
-        self.hasCustomProjects = !result.labels.isEmpty || checkResult
-
-        self.hasCompletedTasks = !result.entries.isEmpty && result.entries.contains(where: { $0.value > 0 })
-
-        if !self.hasCustomProjects {
-        } else if !self.hasCompletedTasks {
-        } else {
-        }
-
-        withAnimation(TaskerAnimation.gentle) {
-            self.isLoading = false
-        }
-
-    }
-
-    private func checkHasCustomProjects(context: NSManagedObjectContext) -> Bool {
-
-        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        request.predicate = NSPredicate(
-            format: "projectID != %@",
-            ProjectConstants.inboxProjectID as CVarArg
-        )
-        request.fetchLimit = 1
-
-        let count = (try? context.count(for: request)) ?? 0
-
-        return count > 0
-    }
 }
 
 // MARK: - Radar Chart View Representable
@@ -360,15 +231,6 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
     }
 
     private func updateChartData(_ chartView: RadarChartView) {
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            logWarning(
-                event: "radar_context_unavailable",
-                message: "App delegate unavailable while updating radar chart render data"
-            )
-            chartView.data = nil
-            return
-        }
-
         let normalizedPayload = normalizedRenderPayload()
         guard !normalizedPayload.entries.isEmpty else {
             chartView.data = nil
@@ -378,11 +240,9 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
         let colors = themeTokens.color
 
-        // Use ChartDataService for consistent styling
-        let chartService = ChartDataService(context: context)
-
         // Calculate dynamic maximum
-        let dynamicMaximum = chartService.calculateRadarChartMaximum(for: normalizedPayload.entries)
+        let maxValue = normalizedPayload.entries.map(\.value).max() ?? 0
+        let dynamicMaximum = max(ceil(maxValue / 5) * 5, 5)
         chartView.yAxis.axisMaximum = dynamicMaximum
 
         // Rebuild renderer to prevent stale accessibility label caches inside DGCharts.
@@ -396,11 +256,17 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         chartView.xAxis.valueFormatter = RadarXAxisFormatter(labels: normalizedPayload.labels)
 
         // Create data set
-        let dataSet = chartService.createRadarChartDataSet(
-            with: normalizedPayload.entries,
-            colors: colors,
-            typography: themeTokens.typography
-        )
+        let dataSet = RadarChartDataSet(entries: normalizedPayload.entries, label: "Project Scores")
+        dataSet.setColor(colors.accentPrimary)
+        dataSet.fillColor = colors.accentMuted
+        dataSet.drawFilledEnabled = true
+        dataSet.fillAlpha = 0.3
+        dataSet.lineWidth = 4.0
+        dataSet.drawHighlightCircleEnabled = true
+        dataSet.setDrawHighlightIndicators(false)
+        dataSet.valueFont = themeTokens.typography.font(for: .caption1)
+        dataSet.valueTextColor = colors.textSecondary
+        dataSet.drawValuesEnabled = true
 
         // Create chart data
         let radarData = RadarChartData(dataSet: dataSet)
@@ -460,16 +326,71 @@ class RadarXAxisFormatter: AxisValueFormatter {
 
 struct RadarChartCard_Previews: PreviewProvider {
     static var previews: some View {
+        let previewReadModel = PreviewRadarReadModelRepository()
+        let previewProjectRepository = PreviewRadarProjectRepository()
+        let viewModel = RadarChartCardViewModel(
+            projectRepository: previewProjectRepository,
+            readModelRepository: previewReadModel
+        )
         VStack(spacing: 20) {
-            RadarChartCard()
+            RadarChartCard(
+                onCreateProject: {},
+                viewModel: viewModel
+            )
 
             RadarChartCard(
                 title: "Custom Radar",
-                subtitle: "Custom subtitle"
+                subtitle: "Custom subtitle",
+                onCreateProject: {},
+                viewModel: viewModel
             )
         }
         .padding()
         .background(Color(.systemGroupedBackground))
         .previewLayout(.sizeThatFits)
     }
+}
+
+private final class PreviewRadarReadModelRepository: TaskReadModelRepositoryProtocol {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    }
+
+    func fetchProjectTaskCounts(
+        includeCompleted: Bool,
+        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
+    }
+
+    func fetchProjectCompletionScoreTotals(
+        from startDate: Date,
+        to endDate: Date,
+        completion: @escaping (Result<[UUID: Int], Error>) -> Void
+    ) {
+        completion(.success([:]))
+    }
+}
+
+private final class PreviewRadarProjectRepository: ProjectRepositoryProtocol {
+    func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+        completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
+    }
+    func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
+    func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
 }

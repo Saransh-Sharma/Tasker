@@ -10,307 +10,397 @@ import Foundation
 /// Use case for retrieving tasks with complex filtering
 /// Handles all task query operations with business logic
 public final class GetTasksUseCase {
-    
+
     // MARK: - Dependencies
-    
-    private let taskRepository: TaskRepositoryProtocol
+
+    private let readModelRepository: TaskReadModelRepositoryProtocol?
     private let cacheService: CacheServiceProtocol?
-    
+
     // MARK: - Initialization
-    
+
     public init(
-        taskRepository: TaskRepositoryProtocol,
+        readModelRepository: TaskReadModelRepositoryProtocol? = nil,
         cacheService: CacheServiceProtocol? = nil
     ) {
-        self.taskRepository = taskRepository
+        self.readModelRepository = readModelRepository
         self.cacheService = cacheService
     }
-    
+
     // MARK: - Task Retrieval Methods
-    
+
     /// Get tasks for today's schedule
     public func getTodayTasks(completion: @escaping (Result<TodayTasksResult, GetTasksError>) -> Void) {
-        logDebug("🔍 [USE CASE] getTodayTasks called")
-
-        // Check cache first
         if let cached = cacheService?.getCachedTasks(forDate: Date()) {
-            logDebug("🔍 [USE CASE] Using cached tasks: \(cached.count) tasks")
-            let result = categorizeTodayTasks(cached)
-            completion(.success(result))
+            completion(.success(categorizeTodayTasks(cached)))
             return
         }
 
-        logDebug("🔍 [USE CASE] No cache, fetching from repository")
-
-        // Fetch from repository
-        taskRepository.fetchTodayTasks { [weak self] result in
+        fetchReadSlice(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                sortBy: .dueDateAscending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { [weak self] result in
             switch result {
             case .success(let tasks):
-                logDebug("🔍 [USE CASE] Repository returned \(tasks.count) tasks")
-
-                // Cache the results
                 self?.cacheService?.cacheTasks(tasks, forDate: Date())
-
-                // Categorize and return
-                let categorized = self?.categorizeTodayTasks(tasks) ?? TodayTasksResult()
-                logDebug("🔍 [USE CASE] Categorized tasks:")
-                logDebug("🔍 [USE CASE]   - Morning: \(categorized.morningTasks.count)")
-                logDebug("🔍 [USE CASE]   - Evening: \(categorized.eveningTasks.count)")
-                logDebug("🔍 [USE CASE]   - Overdue: \(categorized.overdueTasks.count)")
-                logDebug("🔍 [USE CASE]   - Completed: \(categorized.completedTasks.count)")
-                logDebug("🔍 [USE CASE]   - Total: \(categorized.totalCount)")
-
-                completion(.success(categorized))
-
+                completion(.success(self?.categorizeTodayTasks(tasks) ?? TodayTasksResult()))
             case .failure(let error):
-                logError(" [USE CASE] Repository error: \(error)")
-                completion(.failure(.repositoryError(error)))
+                completion(.failure(error))
             }
         }
     }
-    
+
     /// Get tasks for a specific date
     public func getTasksForDate(
         _ date: Date,
         completion: @escaping (Result<DateTasksResult, GetTasksError>) -> Void
     ) {
-        // Check if requesting today
         if Calendar.current.isDateInToday(date) {
             getTodayTasks { result in
                 switch result {
                 case .success(let todayResult):
-                    let dateResult = DateTasksResult(
+                    completion(.success(DateTasksResult(
                         date: date,
                         morningTasks: todayResult.morningTasks,
                         eveningTasks: todayResult.eveningTasks,
                         overdueTasks: todayResult.overdueTasks,
                         completedTasks: todayResult.completedTasks,
                         totalCount: todayResult.totalCount
-                    )
-                    completion(.success(dateResult))
+                    )))
                 case .failure(let error):
                     completion(.failure(error))
                 }
             }
             return
         }
-        
-        // Fetch tasks for specific date
-        taskRepository.fetchTasks(for: date) { [weak self] result in
+
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+
+        fetchReadSlice(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                dueDateEnd: endOfDay,
+                sortBy: .dueDateAscending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { [weak self] result in
             switch result {
             case .success(let tasks):
-                let categorized = self?.categorizeTasksForDate(tasks, date: date) ?? DateTasksResult(date: date)
-                completion(.success(categorized))
-                
+                completion(.success(self?.categorizeTasksForDate(tasks, date: date) ?? DateTasksResult(date: date)))
             case .failure(let error):
-                completion(.failure(.repositoryError(error)))
+                completion(.failure(error))
             }
         }
     }
-    
+
     /// Get tasks for a specific project
     public func getTasksForProject(
-        _ projectName: String,
+        _ projectID: UUID,
         includeCompleted: Bool = true,
         completion: @escaping (Result<ProjectTasksResult, GetTasksError>) -> Void
     ) {
-        // Check cache
-        if let cached = cacheService?.getCachedTasks(forProject: projectName) {
+        if let cached = cacheService?.getCachedTasks(forProjectID: projectID) {
             let filtered = includeCompleted ? cached : cached.filter { !$0.isComplete }
-            let result = ProjectTasksResult(
-                projectName: projectName,
+            completion(.success(ProjectTasksResult(
+                projectID: projectID,
                 tasks: filtered,
                 openCount: cached.filter { !$0.isComplete }.count,
                 completedCount: cached.filter { $0.isComplete }.count
-            )
-            completion(.success(result))
+            )))
             return
         }
-        
-        // Fetch from repository
-        taskRepository.fetchTasks(for: projectName) { [weak self] result in
-            switch result {
-            case .success(let tasks):
-                // Cache the results
-                self?.cacheService?.cacheTasks(tasks, forProject: projectName)
-                
-                // Filter and return
-                let filtered = includeCompleted ? tasks : tasks.filter { !$0.isComplete }
-                let projectResult = ProjectTasksResult(
-                    projectName: projectName,
+
+        fetchReadSlice(
+            query: TaskReadQuery(
+                projectID: projectID,
+                includeCompleted: true,
+                sortBy: .dueDateAscending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { [weak self] sliceResult in
+            switch sliceResult {
+            case .success(let definitions):
+                self?.cacheService?.cacheTasks(definitions, forProjectID: projectID)
+                let filtered = includeCompleted ? definitions : definitions.filter { !$0.isComplete }
+                completion(.success(ProjectTasksResult(
+                    projectID: projectID,
                     tasks: filtered,
-                    openCount: tasks.filter { !$0.isComplete }.count,
-                    completedCount: tasks.filter { $0.isComplete }.count
-                )
-                completion(.success(projectResult))
-                
+                    openCount: definitions.filter { !$0.isComplete }.count,
+                    completedCount: definitions.filter { $0.isComplete }.count
+                )))
             case .failure(let error):
-                completion(.failure(.repositoryError(error)))
+                completion(.failure(error))
             }
         }
     }
-    
+
     /// Get overdue tasks
-    public func getOverdueTasks(completion: @escaping (Result<[Task], GetTasksError>) -> Void) {
-        taskRepository.fetchOverdueTasks { result in
+    public func getOverdueTasks(completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void) {
+        let startOfToday = Calendar.current.startOfDay(for: Date())
+
+        fetchReadSlice(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                dueDateEnd: startOfToday,
+                sortBy: .dueDateAscending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { result in
             switch result {
             case .success(let tasks):
-                // Sort by priority and due date
-                let sorted = tasks.sorted { task1, task2 in
-                    // First by priority (higher priority first)
-                    if task1.priority.rawValue != task2.priority.rawValue {
-                        return task1.priority.rawValue < task2.priority.rawValue
-                    }
-                    // Then by due date (older first)
-                    return (task1.dueDate ?? Date()) < (task2.dueDate ?? Date())
-                }
-                completion(.success(sorted))
-                
+                let overdue = tasks
+                    .filter { !$0.isComplete && ($0.dueDate.map { $0 < startOfToday } ?? false) }
+                    .sorted(by: self.sortByPriorityThenDue)
+                completion(.success(overdue))
             case .failure(let error):
-                completion(.failure(.repositoryError(error)))
+                completion(.failure(error))
             }
         }
     }
-    
+
     /// Get upcoming tasks (future tasks beyond today)
     public func getUpcomingTasks(completion: @escaping (Result<UpcomingTasksResult, GetTasksError>) -> Void) {
-        taskRepository.fetchUpcomingTasks { result in
+        let calendar = Calendar.current
+        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: Date())) ?? Date()
+
+        fetchReadSlice(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                dueDateStart: startOfTomorrow,
+                sortBy: .dueDateAscending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { [weak self] result in
             switch result {
             case .success(let tasks):
-                let categorized = self.categorizeUpcomingTasks(tasks)
-                completion(.success(categorized))
-                
+                completion(.success(self?.categorizeUpcomingTasks(tasks) ?? UpcomingTasksResult(thisWeek: [], nextWeek: [], thisMonth: [], later: [])))
             case .failure(let error):
-                completion(.failure(.repositoryError(error)))
+                completion(.failure(error))
             }
         }
     }
-    
+
     /// Get tasks by type (morning, evening, upcoming)
     public func getTasksByType(
         _ type: TaskType,
         for date: Date? = nil,
-        completion: @escaping (Result<[Task], GetTasksError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void
     ) {
-        if let date = date {
-            // Get tasks of specific type for a specific date
-            taskRepository.fetchTasks(for: date) { result in
+        if let date {
+            let calendar = Calendar.current
+            let startOfDay = calendar.startOfDay(for: date)
+            let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+
+            fetchReadSlice(
+                query: TaskReadQuery(
+                    includeCompleted: true,
+                    dueDateStart: startOfDay,
+                    dueDateEnd: endOfDay,
+                    sortBy: .dueDateAscending,
+                    limit: 5_000,
+                    offset: 0
+                )
+            ) { result in
                 switch result {
                 case .success(let tasks):
-                    let filtered = tasks.filter { $0.type == type }
-                    completion(.success(filtered))
+                    completion(.success(tasks.filter { $0.type == type }))
                 case .failure(let error):
-                    completion(.failure(.repositoryError(error)))
+                    completion(.failure(error))
                 }
             }
-        } else {
-            // Get all tasks of specific type
-            taskRepository.fetchTasks(ofType: type, completion: { result in
-                switch result {
-                case .success(let tasks):
-                    completion(.success(tasks))
-                case .failure(let error):
-                    completion(.failure(.repositoryError(error)))
-                }
-            })
+            return
+        }
+
+        fetchReadSlice(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                sortBy: .dueDateAscending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { result in
+            switch result {
+            case .success(let tasks):
+                completion(.success(tasks.filter { $0.type == type }))
+            case .failure(let error):
+                completion(.failure(error))
+            }
         }
     }
-    
-    /// Search tasks by name or details
+
+    /// Search tasks by title or details
     public func searchTasks(
         query: String,
         in scope: GetTasksScope = .all,
-        completion: @escaping (Result<[Task], GetTasksError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void
     ) {
-        let fetchCompletion: (Result<[Task], Error>) -> Void = { result in
-            switch result {
-            case .success(let tasks):
-                let filtered = tasks.filter { task in
-                    let nameMatch = task.name.localizedCaseInsensitiveContains(query)
-                    let detailsMatch = task.details?.localizedCaseInsensitiveContains(query) ?? false
-                    return nameMatch || detailsMatch
-                }
-                completion(.success(filtered))
-                
-            case .failure(let error):
-                completion(.failure(.repositoryError(error)))
-            }
-        }
-        
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
         switch scope {
         case .all:
-            taskRepository.fetchAllTasks(completion: fetchCompletion)
+            if trimmed.isEmpty {
+                fetchReadSlice(
+                    query: TaskReadQuery(
+                        includeCompleted: true,
+                        sortBy: .dueDateAscending,
+                        limit: 5_000,
+                        offset: 0
+                    ),
+                    completion: completion
+                )
+            } else {
+                searchReadSlice(
+                    query: TaskSearchQuery(
+                        text: trimmed,
+                        includeCompleted: true,
+                        limit: 5_000,
+                        offset: 0
+                    ),
+                    completion: completion
+                )
+            }
+
         case .today:
-            taskRepository.fetchTodayTasks(completion: fetchCompletion)
+            getTodayTasks { result in
+                switch result {
+                case .success(let today):
+                    let allTasks = today.morningTasks + today.eveningTasks + today.overdueTasks + today.completedTasks
+                    completion(.success(self.applySearchFilter(query: trimmed, in: allTasks)))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+
         case .upcoming:
-            taskRepository.fetchUpcomingTasks(completion: fetchCompletion)
-        case .project(let name):
-            taskRepository.fetchTasks(for: name, completion: fetchCompletion)
+            getUpcomingTasks { result in
+                switch result {
+                case .success(let upcoming):
+                    let allTasks = upcoming.thisWeek + upcoming.nextWeek + upcoming.thisMonth + upcoming.later
+                    completion(.success(self.applySearchFilter(query: trimmed, in: allTasks)))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+
+        case .project(let projectID):
+            if trimmed.isEmpty {
+                fetchReadSlice(
+                    query: TaskReadQuery(
+                        projectID: projectID,
+                        includeCompleted: true,
+                        sortBy: .dueDateAscending,
+                        limit: 5_000,
+                        offset: 0
+                    ),
+                    completion: completion
+                )
+            } else {
+                searchReadSlice(
+                    query: TaskSearchQuery(
+                        text: trimmed,
+                        projectID: projectID,
+                        includeCompleted: true,
+                        limit: 5_000,
+                        offset: 0
+                    ),
+                    completion: completion
+                )
+            }
         }
     }
-    
-    // MARK: - Private Helper Methods
-    
-    private func categorizeTodayTasks(_ tasks: [Task]) -> TodayTasksResult {
-        let now = Date()
-        let startOfDay = Calendar.current.startOfDay(for: now)
 
-        logDebug("🔍 [USE CASE - CATEGORIZE] Categorizing \(tasks.count) tasks")
-        logDebug("🔍 [USE CASE - CATEGORIZE] Current time: \(now)")
-        logDebug("🔍 [USE CASE - CATEGORIZE] Start of day: \(startOfDay)")
+    // MARK: - Private Helpers
 
-        var morningTasks: [Task] = []
-        var eveningTasks: [Task] = []
-        var overdueTasks: [Task] = []
-        var completedTasks: [Task] = []
+    private func fetchReadSlice(
+        query: TaskReadQuery,
+        completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void
+    ) {
+        guard let readModelRepository else {
+            completion(.failure(.repositoryError(NSError(
+                domain: "GetTasksUseCase",
+                code: 503,
+                userInfo: [NSLocalizedDescriptionKey: "Task read-model repository is not configured"]
+            ))))
+            return
+        }
 
-        for (index, task) in tasks.enumerated() {
-            logDebug("🔍 [USE CASE - CATEGORIZE] Task \(index + 1): '\(task.name)'")
-            logDebug("   - isComplete: \(task.isComplete)")
-            logDebug("   - dueDate: \(task.dueDate?.description ?? "NIL")")
-            logDebug("   - type: \(task.type)")
-            logDebug("   - isOverdue: \(task.isOverdue)")
+        readModelRepository.fetchTasks(query: query) { result in
+            completion(result.map(\.tasks).mapError { GetTasksError.repositoryError($0) })
+        }
+    }
 
+    private func searchReadSlice(
+        query: TaskSearchQuery,
+        completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void
+    ) {
+        guard let readModelRepository else {
+            completion(.failure(.repositoryError(NSError(
+                domain: "GetTasksUseCase",
+                code: 503,
+                userInfo: [NSLocalizedDescriptionKey: "Task read-model repository is not configured"]
+            ))))
+            return
+        }
+
+        readModelRepository.searchTasks(query: query) { result in
+            completion(result.map(\.tasks).mapError { GetTasksError.repositoryError($0) })
+        }
+    }
+
+    private func applySearchFilter(query: String, in tasks: [TaskDefinition]) -> [TaskDefinition] {
+        guard !query.isEmpty else { return tasks }
+        return tasks.filter { task in
+            task.title.localizedCaseInsensitiveContains(query) ||
+                (task.details?.localizedCaseInsensitiveContains(query) ?? false)
+        }
+    }
+
+    private func categorizeTodayTasks(_ tasks: [TaskDefinition]) -> TodayTasksResult {
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+
+        var morningTasks: [TaskDefinition] = []
+        var eveningTasks: [TaskDefinition] = []
+        var overdueTasks: [TaskDefinition] = []
+        var completedTasks: [TaskDefinition] = []
+
+        for task in tasks {
             if task.isComplete {
-                logDebug("   ➡️ CATEGORIZED AS: COMPLETED")
                 completedTasks.append(task)
             } else if let dueDate = task.dueDate, dueDate < startOfDay {
-                logDebug("   ➡️ CATEGORIZED AS: OVERDUE (dueDate \(dueDate) < startOfDay \(startOfDay))")
                 overdueTasks.append(task)
             } else if task.type == .morning {
-                logDebug("   ➡️ CATEGORIZED AS: MORNING")
                 morningTasks.append(task)
             } else if task.type == .evening {
-                logDebug("   ➡️ CATEGORIZED AS: EVENING")
                 eveningTasks.append(task)
-            } else {
-                logDebug("   ⚠️ NOT CATEGORIZED! type: \(task.type)")
             }
         }
 
-        logDebug("🔍 [USE CASE - CATEGORIZE] Final counts:")
-        logDebug("   - Morning: \(morningTasks.count)")
-        logDebug("   - Evening: \(eveningTasks.count)")
-        logDebug("   - Overdue: \(overdueTasks.count)")
-        logDebug("   - Completed: \(completedTasks.count)")
-
         return TodayTasksResult(
-            morningTasks: morningTasks.sorted { ($0.priority.rawValue, $0.dueDate ?? Date()) < ($1.priority.rawValue, $1.dueDate ?? Date()) },
-            eveningTasks: eveningTasks.sorted { ($0.priority.rawValue, $0.dueDate ?? Date()) < ($1.priority.rawValue, $1.dueDate ?? Date()) },
-            overdueTasks: overdueTasks.sorted { ($0.priority.rawValue, $0.dueDate ?? Date()) < ($1.priority.rawValue, $1.dueDate ?? Date()) },
-            completedTasks: completedTasks.sorted { ($0.dateCompleted ?? Date()) > ($1.dateCompleted ?? Date()) },
+            morningTasks: morningTasks.sorted(by: sortByPriorityThenDue),
+            eveningTasks: eveningTasks.sorted(by: sortByPriorityThenDue),
+            overdueTasks: overdueTasks.sorted(by: sortByPriorityThenDue),
+            completedTasks: completedTasks.sorted { ($0.dateCompleted ?? .distantPast) > ($1.dateCompleted ?? .distantPast) },
             totalCount: tasks.count
         )
     }
-    
-    private func categorizeTasksForDate(_ tasks: [Task], date: Date) -> DateTasksResult {
-        var morningTasks: [Task] = []
-        var eveningTasks: [Task] = []
-        var overdueTasks: [Task] = []
-        var completedTasks: [Task] = []
-        
+
+    private func categorizeTasksForDate(_ tasks: [TaskDefinition], date: Date) -> DateTasksResult {
+        var morningTasks: [TaskDefinition] = []
+        var eveningTasks: [TaskDefinition] = []
+        var overdueTasks: [TaskDefinition] = []
+        var completedTasks: [TaskDefinition] = []
+
         let startOfDate = Calendar.current.startOfDay(for: date)
-        
+
         for task in tasks {
             if task.isComplete {
                 completedTasks.append(task)
@@ -322,7 +412,7 @@ public final class GetTasksUseCase {
                 eveningTasks.append(task)
             }
         }
-        
+
         return DateTasksResult(
             date: date,
             morningTasks: morningTasks,
@@ -332,25 +422,25 @@ public final class GetTasksUseCase {
             totalCount: tasks.count
         )
     }
-    
-    private func categorizeUpcomingTasks(_ tasks: [Task]) -> UpcomingTasksResult {
-        var thisWeek: [Task] = []
-        var nextWeek: [Task] = []
-        var thisMonth: [Task] = []
-        var later: [Task] = []
-        
+
+    private func categorizeUpcomingTasks(_ tasks: [TaskDefinition]) -> UpcomingTasksResult {
+        var thisWeek: [TaskDefinition] = []
+        var nextWeek: [TaskDefinition] = []
+        var thisMonth: [TaskDefinition] = []
+        var later: [TaskDefinition] = []
+
         let calendar = Calendar.current
         let now = Date()
-        
+
         guard let endOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.end,
               let endOfNextWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: endOfWeek),
               let endOfMonth = calendar.dateInterval(of: .month, for: now)?.end else {
             return UpcomingTasksResult(thisWeek: tasks, nextWeek: [], thisMonth: [], later: [])
         }
-        
+
         for task in tasks {
             guard let dueDate = task.dueDate else { continue }
-            
+
             if dueDate <= endOfWeek {
                 thisWeek.append(task)
             } else if dueDate <= endOfNextWeek {
@@ -361,7 +451,7 @@ public final class GetTasksUseCase {
                 later.append(task)
             }
         }
-        
+
         return UpcomingTasksResult(
             thisWeek: thisWeek,
             nextWeek: nextWeek,
@@ -369,22 +459,29 @@ public final class GetTasksUseCase {
             later: later
         )
     }
+
+    private func sortByPriorityThenDue(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
+        if lhs.priority.rawValue != rhs.priority.rawValue {
+            return lhs.priority.rawValue < rhs.priority.rawValue
+        }
+        return (lhs.dueDate ?? Date()) < (rhs.dueDate ?? Date())
+    }
 }
 
 // MARK: - Result Models
 
 public struct TodayTasksResult {
-    public let morningTasks: [Task]
-    public let eveningTasks: [Task]
-    public let overdueTasks: [Task]
-    public let completedTasks: [Task]
+    public let morningTasks: [TaskDefinition]
+    public let eveningTasks: [TaskDefinition]
+    public let overdueTasks: [TaskDefinition]
+    public let completedTasks: [TaskDefinition]
     public let totalCount: Int
-    
+
     init(
-        morningTasks: [Task] = [],
-        eveningTasks: [Task] = [],
-        overdueTasks: [Task] = [],
-        completedTasks: [Task] = [],
+        morningTasks: [TaskDefinition] = [],
+        eveningTasks: [TaskDefinition] = [],
+        overdueTasks: [TaskDefinition] = [],
+        completedTasks: [TaskDefinition] = [],
         totalCount: Int = 0
     ) {
         self.morningTasks = morningTasks
@@ -397,18 +494,18 @@ public struct TodayTasksResult {
 
 public struct DateTasksResult {
     public let date: Date
-    public let morningTasks: [Task]
-    public let eveningTasks: [Task]
-    public let overdueTasks: [Task]
-    public let completedTasks: [Task]
+    public let morningTasks: [TaskDefinition]
+    public let eveningTasks: [TaskDefinition]
+    public let overdueTasks: [TaskDefinition]
+    public let completedTasks: [TaskDefinition]
     public let totalCount: Int
-    
+
     init(
         date: Date,
-        morningTasks: [Task] = [],
-        eveningTasks: [Task] = [],
-        overdueTasks: [Task] = [],
-        completedTasks: [Task] = [],
+        morningTasks: [TaskDefinition] = [],
+        eveningTasks: [TaskDefinition] = [],
+        overdueTasks: [TaskDefinition] = [],
+        completedTasks: [TaskDefinition] = [],
         totalCount: Int = 0
     ) {
         self.date = date
@@ -421,17 +518,17 @@ public struct DateTasksResult {
 }
 
 public struct ProjectTasksResult {
-    public let projectName: String
-    public let tasks: [Task]
+    public let projectID: UUID
+    public let tasks: [TaskDefinition]
     public let openCount: Int
     public let completedCount: Int
 }
 
 public struct UpcomingTasksResult {
-    public let thisWeek: [Task]
-    public let nextWeek: [Task]
-    public let thisMonth: [Task]
-    public let later: [Task]
+    public let thisWeek: [TaskDefinition]
+    public let nextWeek: [TaskDefinition]
+    public let thisMonth: [TaskDefinition]
+    public let later: [TaskDefinition]
 }
 
 // MARK: - Supporting Types
@@ -440,13 +537,13 @@ public enum GetTasksScope {
     case all
     case today
     case upcoming
-    case project(String)
+    case project(UUID)
 }
 
 public enum GetTasksError: LocalizedError {
     case repositoryError(Error)
     case invalidDateRange
-    
+
     public var errorDescription: String? {
         switch self {
         case .repositoryError(let error):

@@ -1,245 +1,125 @@
-# Tasker - Gamified Tasks & Productivity
+# Tasker (iOS)
 
-![iOS](https://img.shields.io/badge/iOS-16.0%2B-blue)
-![Swift](https://img.shields.io/badge/Swift-5.9-orange)
-![Xcode](https://img.shields.io/badge/Xcode-15.0-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Files](https://img.shields.io/badge/Files-730-blue)
-![Architecture](https://img.shields.io/badge/Clean_Architecture-~70%25-brightgreen)
+Tasker is an ADHD-focused todo and life-management app built for low-friction planning, fast execution, and momentum-preserving follow-through.
 
-A gamified iOS task management app that transforms productivity into an engaging experience. Tasker combines smart task organization with priority-based scoring, seamless CloudKit sync, and on-device AI assistance.
+## Runtime Snapshot
 
-## Overview
+Current V3 runtime composition:
+1. `AppDelegate` bootstraps `TaskModelV3` stores with hard-cut epoch key `tasker.v3.store.epoch`, CloudKit container `iCloud.TaskerCloudKitV3`, and fail-closed readiness checks.
+2. `EnhancedDependencyContainer` wires repositories/services and builds `UseCaseCoordinator`.
+3. `PresentationDependencyContainer` exposes ViewModels and validates presentation-side runtime readiness.
 
-Tasker helps busy professionals stay organized with a unique gamification system—complete higher priority tasks to earn more points (P0=7pts, P1=4pts, P2=3pts, P3=2pts). With **730 Swift files** and a **~70% Clean Architecture** migration, the codebase demonstrates modern iOS development patterns using UIKit, SwiftUI, Combine, and CoreData with CloudKit synchronization.
+Primary source anchors:
+- `To Do List/AppDelegate.swift`
+- `To Do List/State/DI/EnhancedDependencyContainer.swift`
+- `To Do List/Presentation/DI/PresentationDependencyContainer.swift`
+- `To Do List/UseCases/Coordinator/UseCaseCoordinator.swift`
 
-The app is **production-published on the App Store** and features offline-first architecture, real-time analytics, and an AI-powered assistant (Eva) running on-device via MLX.
+## Release Cutover Policy
 
-## Features
+- V3-only runtime: legacy task contracts (`TaskRepositoryProtocol`, compatibility task aliases, legacy bridge adapters) are removed.
+- Upgrade data policy is destructive reset by design for this hard cut.
+- Cloud sync cutover uses a new container: `iCloud.TaskerCloudKitV3`.
 
-### Task Management
-- Create, edit, and complete tasks with rich details (title, description, due date, priority)
-- Four-level priority system (P0-Highest, P1-High, P2-Medium, P3-Low) with visual indicators
-- Task types: Morning, Evening, Upcoming, and automatic Inbox categorization
-- Smart rescheduling for overdue or postponed tasks
-- Advanced search and filtering by project, priority, completion status, and date ranges
+## Repository Map
 
-### Project Organization
-- UUID-based project architecture for reliable cross-device sync
-- Fixed Inbox project (`00000000-0000-0000-0000-000000000001`) for uncategorized tasks
-- Custom projects with colors and icons
-- Project-based filtering and analytics
-- Orphaned task protection—automatic assignment to Inbox
+| Layer | Purpose | Primary Paths |
+| --- | --- | --- |
+| Domain | Models, repository interfaces, domain events | `To Do List/Domain` |
+| UseCases | Business workflows and orchestration | `To Do List/UseCases` |
+| State | CoreData repositories, services, DI composition | `To Do List/State` |
+| Presentation | ViewModels and presentation DI | `To Do List/Presentation` |
+| LLM | Chat UI, local model UX, context projection | `To Do List/LLM` |
+| UI | SwiftUI/UIKit views and controllers | `To Do List/View`, `To Do List/Views`, `To Do List/ViewControllers` |
 
-### Gamification & Analytics
-- **Scoring System**: Earn points based on task priority (P0: 7pts, P1: 4pts, P2: 3pts, P3: 2pts)
-- **Streak Tracking**: Consecutive day completion streaks with 30-day history
-- **Daily Dashboard**: Visual charts showing completion trends and productivity patterns
-- **Performance Insights**: Historical data visualization with DGCharts integration
+## V3 Systems At A Glance
 
-### CloudKit Sync
-- Seamless cross-device synchronization via iCloud
-- Offline-first architecture—works without internet
-- Automatic conflict resolution with smart merge strategies
-- Private CloudKit database with silent push notifications
-
-### AI Assistant (Eva) 🚧 Beta
-- **Eva Assistant**: On-device AI chat interface for task assistance
-- **MLX-Based**: Local inference using MLX framework (privacy-first, no server calls)
-- **Task Understanding**: Natural language task recommendations and insights
-- **Calendar Integration**: Smart scheduling suggestions
-- **Status**: In development—core features functional, expanding capabilities
-
-## Quick Stats
-
-| Metric | Value |
-|--------|-------|
-| Swift Files | 730 |
-| Clean Architecture | ~70% migrated |
-| iOS Deployment | 16.0+ |
-| Swift Version | 5.9 |
-| Architecture | Clean Architecture + UIKit/SwiftUI hybrid |
+| System | What It Owns | Primary Code Anchors |
+| --- | --- | --- |
+| TaskDefinition-centric write model | canonical task identity, dependency/tag graph, mutation contracts | `To Do List/Domain/Models/Task.swift`, `To Do List/State/Repositories/CoreDataTaskDefinitionRepository.swift`, `To Do List/UseCases/Task/CreateTaskDefinitionUseCase.swift` |
+| Read-model query layer | paged/sorted/filterable task slices and project aggregates for UI | `To Do List/Domain/Interfaces/TaskReadModelRepositoryProtocol.swift`, `To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift`, `To Do List/UseCases/Task/GetHomeFilteredTasksUseCase.swift` |
+| Scheduling and occurrence lifecycle | recurrence generation, occurrence maintenance, resolution/tombstone hygiene | `To Do List/State/Services/CoreSchedulingEngine.swift`, `To Do List/UseCases/Schedule/GenerateOccurrencesUseCase.swift`, `To Do List/UseCases/Schedule/MaintainOccurrencesUseCase.swift` |
+| External reminders synchronization | provider mapping, merge-clock reconciliation, two-way convergence | `To Do List/State/Repositories/CoreDataExternalSyncRepository.swift`, `To Do List/UseCases/Sync/LinkExternalRemindersUseCase.swift`, `To Do List/UseCases/Sync/ReconcileExternalRemindersUseCase.swift` |
+| Assistant action pipeline | propose/confirm/apply/undo transactional commands over `TaskDefinition` entities | `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`, `To Do List/UseCases/LLM/AssistantCommandExecutor.swift`, `To Do List/Domain/Models/AssistantAction.swift` |
 
 ## Quick Start
 
 ### Prerequisites
-- macOS 14.0+
-- Xcode 15.0+
+- macOS 14+
+- Xcode 15+
 - CocoaPods
 
-### Installation
-
+### Install
 ```bash
-# Clone the repository
 git clone https://github.com/Saransh-Sharma/Tasker.git
 cd Tasker
-
-# Install dependencies
 pod install
-
-# Open the workspace
 open Tasker.xcworkspace
-
-# Build and run
-# Select target device/simulator and press Cmd+R
 ```
 
-### Build Commands
-
+### Build
 ```bash
-# Using taskerctl (recommended)
-./taskerctl build              # Build for simulator
-./taskerctl build device       # Build for physical device
-./taskerctl clean --all        # Clean build artifacts
-./taskerctl doctor             # Run diagnostics
+./taskerctl build
+./taskerctl build device
+./taskerctl doctor
 ```
 
-## Architecture Overview
+Use deterministic `xcodebuild` gates for migration/release validation; avoid `./taskerctl clean --all` as a phase gate because it mutates CocoaPods integration.
 
-Tasker follows **Clean Architecture** principles with clear separation between layers:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Presentation Layer                       │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │ ViewControllers│  │  ViewModels  │  │  UI Components│       │
-│  └──────────────┘  └──────────────┘  └──────────────┘       │
-└─────────────────────────────────────────────────────────────┘
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Business Logic Layer                      │
-│  ┌──────────────┐  ┌──────────────┐                         │
-│  │   Use Cases  │  │ UseCaseCoord │                         │
-│  └──────────────┘  └──────────────┘                         │
-└─────────────────────────────────────────────────────────────┘
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Domain Layer                            │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │   Protocols  │  │   Entities   │  │   Constants  │       │
-│  └──────────────┘  └──────────────┘  └──────────────┘       │
-└─────────────────────────────────────────────────────────────┘
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   State Management Layer                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │  Repositories│  │Data Sources  │  │   Cache      │       │
-│  └──────────────┘  └──────────────┘  └──────────────┘       │
-└─────────────────────────────────────────────────────────────┘
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Infrastructure                             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │  Core Data   │  │   CloudKit   │  │   Firebase   │       │
-│  └──────────────┘  └──────────────┘  └──────────────┘       │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Key Principles:**
-- Unidirectional dependencies (Presentation → Business Logic → Domain → State)
-- Protocol-based injection for testability
-- No upward dependencies—lower layers never depend on higher layers
-- ViewModels expose @Published state; ViewControllers coordinate with Use Cases
-
-For detailed architecture patterns, Clean Architecture rules, and coding guidelines, see **[CLAUDE.md](CLAUDE.md)**.
-
-## Migration Status
-
-| Layer | Files | Compliance | Status |
-|-------|-------|------------|--------|
-| Domain | 30 | 80% | Mappers import CoreData, business logic in Task model |
-| UseCases | 28 | 96% | Excellent—protocol injection, no CoreData |
-| State | 9 | 85% | DI container has UIKit import |
-| Presentation | 4 | 95% | ViewModels clean |
-| ViewControllers | 47 | 42% | 23 files with NSFetchRequest (gradual migration) |
-| **Overall** | **118** | **~70%** | Weighted average |
-
-See **[TECHNICAL_DEBT.md](TECHNICAL_DEBT.md)** for detailed migration status and remaining work.
-
-## Dependencies
-
-| Library | Version | Purpose |
-|---------|---------|---------|
-| Firebase/Crashlytics | ~11.13 | Crash reporting |
-| Firebase/Analytics | ~11.13 | Analytics |
-| Firebase/Performance | ~11.13 | Performance monitoring |
-| MicrosoftFluentUI | ~0.34.0 | UI components |
-| FSCalendar | ~2.8.1 | Calendar view |
-| DGCharts | ~5.1 | Analytics charts |
-| CircleMenu | ~4.1.0 | Circular menu UI |
-| ViewAnimator | ~3.1 | View animations |
-| Timepiece | ~1.3.1 | Date utilities |
-| EasyPeasy | ~1.9.0 | Layout DSL |
-| BEMCheckBox | ~1.4.1 | Checkboxes |
-| TinyConstraints | ~4.0.1 | Layout constraints |
-
-## Recent Improvements (2025-2026)
-
-- **January 2026**: Clean Architecture ~70% complete—Domain layer 100% clean, ViewModels wired via PresentationDependencyContainer
-- **October 2025**: UUID-based architecture implemented—stable IDs for tasks and projects
-- **June 2025**: BEMCheckBox integration for inline task completion
-- **May 2025**: Chat assistant interface (Eva) introduced
-- **Ongoing**: LLM features with MLX-based on-device inference
-
-## Testing
-
+### Test
 ```bash
-# Run unit tests
-xcodebuild test -scheme Tasker -destination 'platform=iOS Simulator,name=iPhone 15'
-
-# Run UI tests
-xcodebuild test -scheme Tasker -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:TaskerUITests
+xcodebuild test -workspace Tasker.xcworkspace -scheme "To Do List" -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:TaskerTests
+xcodebuild test -workspace Tasker.xcworkspace -scheme "To Do List" -destination 'platform=iOS Simulator,name=iPhone 16' -only-testing:TaskerUITests
 ```
 
-Test coverage is currently ~10% with planned expansion as Clean Architecture migration progresses.
+## Documentation Catalog (Exhaustive)
 
-## Logging Policy
+| Doc | Type | Canonical/Reference | When to update | Primary audience |
+| --- | --- | --- | --- | --- |
+| `PRODUCT_REQUIREMENTS_DOCUMENT.md` | Product strategy/requirements | Canonical | persona/pillar/metric/roadmap changes | product, design, engineering leads |
+| `AGENTS.md` | Agent workflow instructions | Canonical | automation/agent behavior instruction changes | AI-assisted contributors |
+| `docs/README.md` | Docs top-level index | Canonical | any docs structure or ownership change | all contributors |
+| `docs/architecture/README.md` | Architecture index and update policy | Canonical | architecture doc set additions/ownership changes | engineers |
+| `docs/architecture/data-model-v2.md` | V2 schema/domain invariants | Canonical | entity/field/relationship/migration changes | backend-state and feature engineers |
+| `docs/architecture/clean-architecture-v2.md` | layering, DI/runtime, fail-closed behavior | Canonical | runtime wiring/feature-gate/bootstrapping changes | platform and feature engineers |
+| `docs/architecture/usecases-v2.md` | usecase contracts and side effects | Canonical | usecase API/dependency/behavior changes | app engineers |
+| `docs/architecture/risk-register-v2.md` | migration risks and guardrails | Canonical | new risks, mitigations, release policy changes | tech leads, reviewers |
+| `docs/architecture/state-repositories-and-services-v2.md` | repository/service internals | Canonical | State repository/service changes | state/data engineers |
+| `docs/architecture/domain-events-and-observability-v2.md` | domain event system and handler behavior | Canonical | event schema/handler/notification changes | app + analytics engineers |
+| `docs/architecture/llm-assistant-stack-v2.md` | LLM context + assistant transaction boundaries | Canonical | `/LLM` or `/UseCases/LLM` changes | AI feature engineers |
+| `docs/operations/ci-release-and-guardrails.md` | CI workflows, script guardrails, release evidence flow | Canonical | workflow/script/release gate changes | release owners, maintainers |
+| `docs/operations/developer-tooling-and-flowctl.md` | `taskerctl` + flowctl policy and troubleshooting | Canonical | tooling scripts or CI tooling rules change | contributors, CI maintainers |
+| `docs/cloudkit-two-device-smoke.md` | CloudKit two-device runbook | Canonical | smoke scenarios/evidence rules change | QA, release managers |
+| `docs/cloudkit-smoke-evidence/latest.md` | release smoke evidence pointer | Canonical pointer | each smoke run | release owners |
+| `docs/release-gate-v2-efgh.md` | release block criteria | Canonical | gate criteria/workflow mapping changes | release owners |
+| `To Do List/View/LiquidGlass/README.md` | component-specific UI notes | Canonical (component scope) | LiquidGlass component behavior updates | UI engineers |
+| `clean.md` | clean-architecture conceptual guide | Reference | rarely; conceptual alignment updates | contributors learning architecture concepts |
+| `claude.md` | retained historical architecture playbook | Reference | retained for historical context and migration intent | maintainers, reviewers |
+| `docs/archive/qoder-repowiki/README.md` | archive policy for moved repowiki docs | Canonical (archive policy) | archive scope/policy changes | maintainers |
 
-Runtime logging is restricted to actionable issues only:
-- Levels retained by default: `WARN`, `ERROR`, `FATAL`
-- Default minimum level: `.warning` in both Debug and Release
-- Temporary deep diagnostics: launch with `-TASKER_VERBOSE_LOGS`
-- Firebase startup in Debug: disabled by default to reduce simulator Network/QUIC noise; opt in with `-TASKER_ENABLE_FIREBASE_DEBUG`
+## Archived Docs
 
-Standard log contract:
-- `ts=<ISO8601UTC> lvl=<WARN|ERROR|FATAL> cmp=<Component> evt=<event_name> msg="<short message>" key=value ...`
-- `evt` is required and uses snake_case
-- Logs are single-line key-value output (no multiline dumps, no emoji prefixes)
+Legacy generated repowiki docs were moved out of active paths and are non-canonical:
+- `docs/archive/qoder-repowiki/README.md`
+- `docs/archive/qoder-repowiki/en/content/**`
 
-Guardrails:
-```bash
-./scripts/check-no-print-logs.sh
-```
-This fails when direct `print(...)` remains in production app source.
+## Documentation Maintenance Rules
 
-## Contributing
+1. Update canonical architecture docs in the same PR as code changes.
+2. Keep PRD product-facing; put implementation details under `docs/architecture/*` or `docs/operations/*`.
+3. Do not reintroduce archived docs into active runbooks.
+4. Keep release runbooks aligned with:
+- `.github/workflows/ios.yml`
+- `.github/workflows/cloudkit-smoke.yml`
+- `scripts/validate_cloudkit_smoke_evidence.sh`
 
-Contributions are welcome! This project follows Clean Architecture principles. Please review:
-- **[CLAUDE.md](CLAUDE.md)** — Architecture rules, patterns, and coding guidelines
-- **[TECHNICAL_DEBT.md](TECHNICAL_DEBT.md)** — Known issues and migration status
+## Legacy Cleanup Status
 
-When contributing:
-1. New features MUST use Clean Architecture (no CoreData in UseCases/Domain)
-2. Always use `TaskMapper.toDomain/toEntity`—never manual mapping
-3. Business logic belongs in UseCases, not ViewModels
-4. UI updates MUST be on `DispatchQueue.main.async`
-
-## Documentation
-
-- **[CLAUDE.md](CLAUDE.md)** — Project instructions for AI agents and developers (architecture patterns, critical rules)
-- **[TECHNICAL_DEBT.md](TECHNICAL_DEBT.md)** — Technical debt tracking and migration status
-- **[PRODUCT_REQUIREMENTS_DOCUMENT.md](PRODUCT_REQUIREMENTS_DOCUMENT.md)** — Feature specifications and requirements
+- Legacy task runtime bridge is removed; app runtime is V3-only.
+- Legacy debt doc removed (content absorbed into architecture/risk docs).
+- Legacy root CLI guide removed (content absorbed into operations tooling docs).
+- `clean.md` retained as historical reference.
 
 ## License
 
-This project is licensed under the MIT License — see the LICENSE file for details.
-
-## Screenshots
-
-| App Store | Task Flow |
-|-------------|-------------|
-| ![app_store](https://user-images.githubusercontent.com/4607881/123705006-fbb21700-d883-11eb-9c32-7c201067bf08.png) | ![Tasker v1 0 0](https://user-images.githubusercontent.com/4607881/123707145-e4285d80-d886-11eb-8868-13d257fab8f4.gif) |
-
----
-
-**[App Store Link](https://apps.apple.com/app/id1574046107)** | **Built with ❤️ using Clean Architecture**
+MIT (see distribution artifacts for license file details).

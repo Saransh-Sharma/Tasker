@@ -16,20 +16,20 @@ struct PriorityPillSelector: View {
 
     var body: some View {
         HStack(spacing: TaskerTheme.Spacing.sm) {
-            PriorityPill(label: "None", color: Color.tasker.priorityNone, isSelected: selectedPriority == 4) {
-                withAnimation(TaskerAnimation.snappy) { selectedPriority = 4 }
+            PriorityPill(label: "None", color: Color.tasker.priorityNone, isSelected: selectedPriority == 1) {
+                withAnimation(TaskerAnimation.snappy) { selectedPriority = 1 }
                 TaskerFeedback.selection()
             }
-            PriorityPill(label: "Low", color: Color.tasker.priorityLow, isSelected: selectedPriority == 3) {
-                withAnimation(TaskerAnimation.snappy) { selectedPriority = 3 }
-                TaskerFeedback.selection()
-            }
-            PriorityPill(label: "High", color: Color.tasker.priorityHigh, isSelected: selectedPriority == 2) {
+            PriorityPill(label: "Low", color: Color.tasker.priorityLow, isSelected: selectedPriority == 2) {
                 withAnimation(TaskerAnimation.snappy) { selectedPriority = 2 }
                 TaskerFeedback.selection()
             }
-            PriorityPill(label: "Max", color: Color.tasker.priorityMax, isSelected: selectedPriority == 1) {
-                withAnimation(TaskerAnimation.snappy) { selectedPriority = 1 }
+            PriorityPill(label: "High", color: Color.tasker.priorityHigh, isSelected: selectedPriority == 3) {
+                withAnimation(TaskerAnimation.snappy) { selectedPriority = 3 }
+                TaskerFeedback.selection()
+            }
+            PriorityPill(label: "Max", color: Color.tasker.priorityMax, isSelected: selectedPriority == 4) {
+                withAnimation(TaskerAnimation.snappy) { selectedPriority = 4 }
                 TaskerFeedback.selection()
             }
         }
@@ -110,20 +110,20 @@ struct PriorityBadge: View {
 
     private var priorityLabel: String {
         switch priority {
-        case 1: return "Max"
-        case 2: return "High"
-        case 3: return "Low"
-        case 4: return "None"
+        case 1: return "None"
+        case 2: return "Low"
+        case 3: return "High"
+        case 4: return "Max"
         default: return "Low"
         }
     }
 
     private var priorityColor: Color {
         switch priority {
-        case 1: return Color.tasker.priorityMax
-        case 2: return Color.tasker.priorityHigh
-        case 3: return Color.tasker.priorityLow
-        case 4: return Color.tasker.priorityNone
+        case 1: return Color.tasker.priorityNone
+        case 2: return Color.tasker.priorityLow
+        case 3: return Color.tasker.priorityHigh
+        case 4: return Color.tasker.priorityMax
         default: return Color.tasker.priorityLow
         }
     }
@@ -350,3 +350,4 @@ struct CompletionCheckbox: View {
         .accessibilityHint("Double tap to toggle completion")
     }
 }
+

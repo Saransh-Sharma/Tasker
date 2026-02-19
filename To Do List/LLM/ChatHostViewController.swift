@@ -9,7 +9,6 @@
 import UIKit
 import SwiftUI
 import SwiftData
-import FluentUI
 import Combine
 
 
@@ -54,8 +53,7 @@ class ChatHostViewController: UIViewController {
             hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         hostingController.didMove(toParent: self)
-        // Configure FluentUI navigation bar
-        setupFluentNavigationBar()
+        setupNavigationBar()
 
         themeCancellable = TaskerThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
@@ -63,15 +61,12 @@ class ChatHostViewController: UIViewController {
                 self?.applyTheme()
             }
     }
-    // MARK: - FluentUI Navigation Bar Setup
-    private func setupFluentNavigationBar() {
+    // MARK: - Navigation Bar Setup
+    private func setupNavigationBar() {
         // Configure navigation bar appearance using standard iOS APIs
         title = "Eva"
 
-        // Set FluentUI custom navigation bar color - this is the correct way to set color with FluentUI
         let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
-        navigationItem.fluentConfiguration.customNavigationBarColor = themeColors.accentPrimary
-        navigationItem.fluentConfiguration.navigationBarStyle = .custom
         let onAccent = themeColors.accentOnPrimary
 
         // Configure navigation bar appearance
@@ -122,8 +117,6 @@ class ChatHostViewController: UIViewController {
     private func applyTheme() {
         let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
         view.backgroundColor = themeColors.bgCanvas
-        navigationItem.fluentConfiguration.customNavigationBarColor = themeColors.accentPrimary
-        navigationItem.fluentConfiguration.navigationBarStyle = .custom
         let onAccent = themeColors.accentOnPrimary
 
         let appearance = UINavigationBarAppearance()

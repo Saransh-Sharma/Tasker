@@ -18,30 +18,30 @@ class ThemeAndAppearanceTests: BaseUITest {
         homePage = HomePage(app: app)
     }
 
-    // MARK: - Test 61: FluentUI Components Render
+    // MARK: - Test 61: Core Components Render
 
-    func testFluentUIComponentsRender() throws {
-        // GIVEN: App uses FluentUI design system
+    func testCoreComponentsRender() throws {
+        // GIVEN: App uses the current design system
         // WHEN: User views home screen
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
 
-        // THEN: FluentUI components should render correctly
+        // THEN: Key components should render correctly
         // Verify key UI elements exist and are styled
 
-        // Check for floating action button (Material/Fluent style)
+        // Check for floating action button
         let addButton = homePage.addTaskButton
         XCTAssertTrue(addButton.exists, "Floating action button should exist")
 
         // Check for bottom app bar (glass style)
         XCTAssertTrue(homePage.verifyBottomBarExists(), "Home bottom bar should exist")
 
-        // Check for task cells with Fluent styling
+        // Check for task cells with expected styling
         let taskCells = app.tables.cells
         if taskCells.count > 0 {
             print("✅ Task cells rendered")
         }
 
-        takeScreenshot(named: "fluentui_components_render")
+        takeScreenshot(named: "core_components_render")
     }
 
     // MARK: - Test 62: Dark Mode Toggle
@@ -116,7 +116,7 @@ class ThemeAndAppearanceTests: BaseUITest {
         homePage = settingsPage.tapDone()
     }
 
-    // MARK: - Bonus: FluentUI Material Design Elements
+    // MARK: - Bonus: Material Design Elements
 
     func testMaterialDesignElements() throws {
         // GIVEN: App uses Material Design components

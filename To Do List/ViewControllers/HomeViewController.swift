@@ -8,16 +8,16 @@
 import UIKit
 import SwiftUI
 import Combine
-import CoreData
 import DGCharts
-import FluentUI
 
-final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeViewControllerProtocol {
+final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware {
 
     // MARK: - Dependencies
 
-    var taskRepository: TaskRepository!
     var viewModel: HomeViewModel!
+    var chartCardViewModel: ChartCardViewModel!
+    var radarChartCardViewModel: RadarChartCardViewModel!
+    var presentationDependencyContainer: PresentationDependencyContainer?
 
     // MARK: - UI
 
@@ -88,26 +88,17 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
     // MARK: - Setup
 
     private func injectDependenciesIfNeeded() {
-        if taskRepository == nil {
-            DependencyContainer.shared.inject(into: self)
+        guard viewModel != nil else {
+            fatalError("HomeViewController requires injected HomeViewModel")
         }
-
-        if viewModel == nil {
-            PresentationDependencyContainer.shared.inject(into: self)
+        guard chartCardViewModel != nil else {
+            fatalError("HomeViewController requires injected ChartCardViewModel")
         }
-
-        // Safety fallback for development paths where presentation DI was skipped.
-        if viewModel == nil,
-           let appDelegate = UIApplication.shared.delegate as? AppDelegate {
-            let taskRepo = CoreDataTaskRepository(container: appDelegate.persistentContainer, defaultProject: "Inbox")
-            let projectRepo = CoreDataProjectRepository(container: appDelegate.persistentContainer)
-            let coordinator = UseCaseCoordinator(taskRepository: taskRepo, projectRepository: projectRepo)
-            viewModel = HomeViewModel(useCaseCoordinator: coordinator)
+        guard radarChartCardViewModel != nil else {
+            fatalError("HomeViewController requires injected RadarChartCardViewModel")
         }
-
-        if taskRepository == nil,
-           let appDelegate = UIApplication.shared.delegate as? AppDelegate {
-            taskRepository = CoreDataTaskRepository(container: appDelegate.persistentContainer, defaultProject: "Inbox")
+        guard presentationDependencyContainer != nil else {
+            fatalError("HomeViewController requires injected PresentationDependencyContainer")
         }
     }
 
@@ -121,9 +112,6 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
         navigationController?.navigationBar.prefersLargeTitles = false
-
-        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
-        navigationItem.fluentConfiguration.navigationBarStyle = .custom
 
         // Pie chart on the right
         ensureNavigationPieChartAsRightItem()
@@ -182,6 +170,8 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
 
         let root = HomeBackdropForedropRootView(
             viewModel: viewModel,
+            chartCardViewModel: chartCardViewModel,
+            radarChartCardViewModel: radarChartCardViewModel,
             onTaskTap: { [weak self] task in
                 self?.handleTaskTap(task)
             },
@@ -205,6 +195,9 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
             },
             onOpenChat: { [weak self] in
                 self?.chatButtonTapped()
+            },
+            onOpenProjectCreator: { [weak self] in
+                self?.openProjectCreator()
             },
             onOpenSettings: { [weak self] in
                 self?.onMenuButtonTapped()
@@ -255,31 +248,47 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
 
     @objc func onMenuButtonTapped() {
         let settingsVC = SettingsPageViewController()
+        settingsVC.presentationDependencyContainer = presentationDependencyContainer
         let navController = UINavigationController(rootViewController: settingsVC)
         navController.navigationBar.prefersLargeTitles = false
-
-        let controller = DrawerController(sourceView: view, sourceRect: .zero, presentationDirection: .fromLeading)
-        controller.contentController = navController
-        controller.preferredContentSize.width = 350
-        controller.resizingBehavior = .dismiss
-
-        present(controller, animated: true)
+        navController.modalPresentationStyle = .pageSheet
+        if let sheet = navController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(navController, animated: true)
     }
 
     @objc func AddTaskAction() {
         let addTaskVC = AddTaskViewController()
         addTaskVC.delegate = self
-
-        DependencyContainer.shared.inject(into: addTaskVC)
-        PresentationDependencyContainer.shared.inject(into: addTaskVC)
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+        presentationDependencyContainer.inject(into: addTaskVC)
 
         let navController = UINavigationController(rootViewController: addTaskVC)
         navController.modalPresentationStyle = .fullScreen
         present(navController, animated: true)
     }
 
+    @objc private func openProjectCreator() {
+        let controller = NewProjectViewController()
+        let navController = UINavigationController(rootViewController: controller)
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+        presentationDependencyContainer.inject(into: controller)
+        navController.modalPresentationStyle = .fullScreen
+        present(navController, animated: true)
+    }
+
     @objc func searchButtonTapped() {
         let searchVC = LGSearchViewController()
+        guard let presentationDependencyContainer else {
+            fatalError("HomeViewController missing PresentationDependencyContainer")
+        }
+        presentationDependencyContainer.inject(into: searchVC)
         searchVC.modalPresentationStyle = .fullScreen
         searchVC.modalTransitionStyle = .crossDissolve
         present(searchVC, animated: true)
@@ -287,7 +296,7 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
 
     @objc func chatButtonTapped() {
         let chatHostVC = ChatHostViewController()
-        let navController = NavigationController(rootViewController: chatHostVC)
+        let navController = UINavigationController(rootViewController: chatHostVC)
         navController.modalPresentationStyle = .fullScreen
         navController.navigationBar.prefersLargeTitles = false
         present(navController, animated: true)
@@ -295,19 +304,15 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
 
     // MARK: - Task Routing
 
-    private func handleTaskTap(_ task: DomainTask) {
-        guard let managedTask = resolveManagedTask(for: task) else {
-            return
-        }
-        presentTaskDetailView(for: managedTask)
+    private func handleTaskTap(_ task: TaskDefinition) {
+        presentTaskDetailView(for: task)
     }
 
-    private func handleTaskReschedule(_ task: DomainTask) {
-        guard let managedTask = resolveManagedTask(for: task) else {
-            return
-        }
-
-        let rescheduleVC = RescheduleViewController(task: managedTask) { [weak self] selectedDate in
+    private func handleTaskReschedule(_ task: TaskDefinition) {
+        let rescheduleVC = RescheduleViewController(
+            taskTitle: task.title,
+            currentDueDate: task.dueDate
+        ) { [weak self] (selectedDate: Date) in
             guard let self else { return }
             self.viewModel?.rescheduleTask(task, to: selectedDate)
         }
@@ -316,89 +321,53 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         present(navController, animated: true)
     }
 
-    private func resolveManagedTask(for task: DomainTask) -> NTask? {
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            return nil
-        }
-
-        let idRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
-        idRequest.fetchLimit = 1
-        idRequest.predicate = NSPredicate(format: "taskID == %@", task.id as CVarArg)
-        if let exact = try? context.fetch(idRequest).first {
-            return exact
-        }
-
-        let metadataRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
-        metadataRequest.fetchLimit = 30
-
-        var predicates: [NSPredicate] = [
-            NSPredicate(format: "name == %@", task.name),
-            NSPredicate(format: "taskType == %d", task.type.rawValue),
-            NSPredicate(format: "taskPriority == %d", task.priority.rawValue)
-        ]
-
-        if let dueDate = task.dueDate {
-            let lowerBound = dueDate.addingTimeInterval(-180)
-            let upperBound = dueDate.addingTimeInterval(180)
-            predicates.append(NSPredicate(format: "dueDate >= %@ AND dueDate <= %@", lowerBound as NSDate, upperBound as NSDate))
-        } else {
-            predicates.append(NSPredicate(format: "dueDate == nil"))
-        }
-
-        metadataRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
-        metadataRequest.sortDescriptors = [NSSortDescriptor(key: "dateAdded", ascending: false)]
-
-        if let candidates = try? context.fetch(metadataRequest) {
-            return bestCandidate(for: task, in: candidates)
-        }
-
-        return nil
-    }
-
-    private func bestCandidate(for task: DomainTask, in candidates: [NTask]) -> NTask? {
-        guard !candidates.isEmpty else { return nil }
-
-        var scored: [(NTask, Int)] = candidates.map { candidate in
-            var score = 0
-            if candidate.name == task.name { score += 4 }
-            if candidate.isComplete == task.isComplete { score += 2 }
-            if candidate.projectID == task.projectID { score += 4 }
-            if candidate.taskType == task.type.rawValue { score += 2 }
-            if candidate.taskPriority == task.priority.rawValue { score += 2 }
-
-            switch (candidate.dueDate as Date?, task.dueDate) {
-            case let (lhs?, rhs?) where abs(lhs.timeIntervalSince(rhs)) <= 180:
-                score += 2
-            case (nil, nil):
-                score += 1
-            default:
-                break
-            }
-
-            return (candidate, score)
-        }
-
-        scored.sort { lhs, rhs in
-            if lhs.1 != rhs.1 { return lhs.1 > rhs.1 }
-            let lhsDate = lhs.0.dateAdded as Date? ?? Date.distantPast
-            let rhsDate = rhs.0.dateAdded as Date? ?? Date.distantPast
-            return lhsDate > rhsDate
-        }
-
-        return scored.first?.0
-    }
-
-    private func presentTaskDetailView(for task: NTask) {
+    private func presentTaskDetailView(for task: TaskDefinition) {
         let detailView = TaskDetailSheetView(
             task: task,
-            projectNames: buildProjectChipData(),
-            onDismiss: nil,
-            onDelete: { [weak self] in
-                guard let self else { return }
-                task.managedObjectContext?.delete(task)
-                try? task.managedObjectContext?.save()
-                self.viewModel?.handleExternalMutation(reason: .deleted, repostEvent: true)
-                self.presentedViewController?.dismiss(animated: true)
+            projects: viewModel?.projects ?? [],
+            onUpdate: { [weak self] request, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.updateTask(taskID: task.id, request: request, completion: completion)
+            },
+            onSetCompletion: { [weak self] isComplete, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 2,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.setTaskCompletion(taskID: task.id, to: isComplete, completion: completion)
+            },
+            onDelete: { [weak self] completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 3,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.deleteTask(taskID: task.id, completion: completion)
+            },
+            onReschedule: { [weak self] date, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 4,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.rescheduleTask(taskID: task.id, to: date, completion: completion)
             }
         )
 
@@ -413,32 +382,6 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         }
 
         present(hostingController, animated: true)
-    }
-
-    private func buildProjectChipData() -> [String] {
-        var projectNames: [String] = []
-        if let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
-            if let projects = try? context.fetch(request) {
-                projectNames = projects.compactMap { $0.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { !$0.isEmpty }
-            }
-        }
-
-        let inboxTitle = ProjectConstants.inboxProjectName
-        projectNames.removeAll { $0.caseInsensitiveCompare(inboxTitle) == .orderedSame }
-        projectNames.insert(inboxTitle, at: 0)
-
-        var deduped: [String] = []
-        var seen = Set<String>()
-        for name in projectNames {
-            let key = name.lowercased()
-            guard !seen.contains(key) else { continue }
-            seen.insert(key)
-            deduped.append(name)
-        }
-        return deduped
     }
 
     // MARK: - Chart Refresh Contract
@@ -473,46 +416,26 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
 
     func calculateTodaysScore() -> Int {
         let targetDate = dateForTheView
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            return 0
-        }
-
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        let start = Calendar.current.startOfDay(for: targetDate)
-        let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? targetDate
-
-        request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "isComplete == YES"),
-            NSCompoundPredicate(orPredicateWithSubpredicates: [
-                NSPredicate(format: "dateCompleted >= %@ AND dateCompleted < %@", start as NSDate, end as NSDate),
-                NSPredicate(format: "dateCompleted == nil AND dueDate >= %@ AND dueDate < %@", start as NSDate, end as NSDate)
-            ])
-        ])
-
-        let tasks = (try? context.fetch(request)) ?? []
-        return tasks.reduce(0) { partial, task in
-            partial + TaskPriority(rawValue: task.taskPriority).scorePoints
+        let doneTasks = viewModel?.completedTasks ?? []
+        let calendar = Calendar.current
+        return doneTasks.reduce(0) { partial, task in
+            let referenceDate = task.dateCompleted ?? task.dueDate
+            guard let referenceDate, calendar.isDate(referenceDate, inSameDayAs: targetDate) else {
+                return partial
+            }
+            return partial + task.priority.scorePoints
         }
     }
 
     func priorityBreakdown(for date: Date) -> [Int32: Int] {
         var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0]
 
-        guard let context = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer.viewContext else {
-            return counts
-        }
-
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-        guard let allTasks = try? context.fetch(request) else {
-            return counts
-        }
-
+        let completedTasks = viewModel?.completedTasks ?? []
         let currentCalendar = Calendar.current
-        for task in allTasks {
-            guard task.isComplete else { continue }
-            let referenceDate = (task.dateCompleted as Date?) ?? (task.dueDate as Date?)
-            guard let ref = referenceDate, currentCalendar.isDate(ref, inSameDayAs: date) else { continue }
-            let normalizedPriority = TaskPriorityConfig.normalizePriority(task.taskPriority)
+        for task in completedTasks {
+            let referenceDate = task.dateCompleted ?? task.dueDate
+            guard let referenceDate, currentCalendar.isDate(referenceDate, inSameDayAs: date) else { continue }
+            let normalizedPriority = TaskPriorityConfig.normalizePriority(Int32(task.priority.rawValue))
             counts[normalizedPriority, default: 0] += 1
         }
 
@@ -527,16 +450,7 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
             return
         }
 
-        guard let repository = taskRepository else {
-            applyScoreDisplay(0, for: targetDate)
-            return
-        }
-
-        TaskScoringService.shared.calculateTotalScore(for: targetDate, using: repository) { [weak self] total in
-            DispatchQueue.main.async {
-                self?.applyScoreDisplay(total, for: targetDate)
-            }
-        }
+        applyScoreDisplay(calculateTodaysScore(), for: targetDate)
     }
 
     private func applyScoreDisplay(_ score: Int, for date: Date) {
@@ -657,8 +571,8 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
             accentOnPrimaryColor: todoColors.accentOnPrimary
         )
         let hostingController = UIHostingController(rootView: dateView)
-        hostingController.view.backgroundColor = .clear
-        hostingController.sizingOptions = .intrinsicContentSize
+        hostingController.view.backgroundColor = UIColor.clear
+        hostingController.sizingOptions = UIHostingControllerSizingOptions.intrinsicContentSize
         hostingController.view.sizeToFit()
         navigationItem.titleView = hostingController.view
     }
@@ -798,9 +712,6 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
 
-        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
-        navigationItem.fluentConfiguration.navigationBarStyle = .custom
-
         ensureNavigationPieChartAsRightItem()
         layoutNavigationPieChart()
         updateNavigationDateHeader()
@@ -815,10 +726,66 @@ final class HomeViewController: UIViewController, TaskRepositoryDependent, HomeV
     }
 }
 
+private final class RescheduleViewController: UIViewController {
+    private let taskTitle: String
+    private let onDateSelected: (Date) -> Void
+    private let datePicker = UIDatePicker()
+
+    init(taskTitle: String, currentDueDate: Date?, onDateSelected: @escaping (Date) -> Void) {
+        self.taskTitle = taskTitle
+        self.onDateSelected = onDateSelected
+        super.init(nibName: nil, bundle: nil)
+        datePicker.date = currentDueDate ?? Date()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+        title = "Reschedule"
+
+        datePicker.translatesAutoresizingMaskIntoConstraints = false
+        datePicker.datePickerMode = .dateAndTime
+        datePicker.preferredDatePickerStyle = .inline
+        view.addSubview(datePicker)
+
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .cancel,
+            target: self,
+            action: #selector(cancelTapped)
+        )
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            title: "Save",
+            style: .done,
+            target: self,
+            action: #selector(saveTapped)
+        )
+
+        NSLayoutConstraint.activate([
+            datePicker.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
+            datePicker.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
+            datePicker.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16)
+        ])
+    }
+
+    @objc private func cancelTapped() {
+        dismiss(animated: true)
+    }
+
+    @objc private func saveTapped() {
+        onDateSelected(datePicker.date)
+        dismiss(animated: true)
+    }
+}
+
 // MARK: - AddTaskViewControllerDelegate
 
 extension HomeViewController: AddTaskViewControllerDelegate {
-    func didAddTask(_ task: NTask) {
+    func didCreateTask() {
         viewModel?.handleExternalMutation(reason: .created, repostEvent: true)
 
         // Keep currently selected scope and date; let ViewModel reload pipeline settle.

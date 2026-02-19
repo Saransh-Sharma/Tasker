@@ -59,6 +59,11 @@ class DateUtils {
 
 /// A comprehensive utility for Date operations used throughout the app
 public extension Date {
+    /// Returns the start of today in the current calendar.
+    static func today() -> Date {
+        Calendar.current.startOfDay(for: Date())
+    }
+
     // MARK: - Day Comparisons
     
     /// Returns true if the date is today

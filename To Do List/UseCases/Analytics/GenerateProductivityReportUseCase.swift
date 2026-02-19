@@ -12,12 +12,12 @@ public final class GenerateProductivityReportUseCase {
     
     // MARK: - Dependencies
     
-    private let taskRepository: TaskRepositoryProtocol
+    private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     
     // MARK: - Initialization
     
-    public init(taskRepository: TaskRepositoryProtocol) {
-        self.taskRepository = taskRepository
+    public init(taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil) {
+        self.taskReadModelRepository = taskReadModelRepository
     }
     
     // MARK: - Report Methods
@@ -30,13 +30,32 @@ public final class GenerateProductivityReportUseCase {
         let startOfDay = Calendar.current.startOfDay(for: date)
         let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) ?? date
         
-        taskRepository.fetchTasks(from: startOfDay, to: endOfDay) { result in
+        guard let taskReadModelRepository else {
+            completion(.failure(.dataError(NSError(
+                domain: "GenerateProductivityReportUseCase",
+                code: 503,
+                userInfo: [NSLocalizedDescriptionKey: "Task read-model repository is not configured"]
+            ))))
+            return
+        }
+
+        taskReadModelRepository.fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                dueDateStart: startOfDay,
+                dueDateEnd: endOfDay,
+                sortBy: .dueDateAscending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { result in
             switch result {
-            case .success(let tasks):
+            case .success(let slice):
+                let completedTasks = slice.tasks.filter(\.isComplete)
                 let report = GenerateProductivityReportUseCase.ProductivityReport(
                     period: .daily(date),
-                    tasksCompleted: tasks.filter { $0.isComplete }.count,
-                    totalScore: tasks.filter { $0.isComplete }.reduce(0) { $0 + $1.score }
+                    tasksCompleted: completedTasks.count,
+                    totalScore: completedTasks.reduce(0) { $0 + $1.priority.scorePoints }
                 )
                 completion(.success(report))
             case .failure(let error):

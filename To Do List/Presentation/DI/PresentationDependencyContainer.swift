@@ -9,7 +9,6 @@
 
 import Foundation
 import UIKit
-import CoreData  // Required for legacy configure(with:) method - only used for backward compatibility
 
 /// Dependency container for Clean Architecture ViewModels
 /// Receives dependencies from EnhancedDependencyContainer (State layer)
@@ -22,31 +21,28 @@ public final class PresentationDependencyContainer {
 
     // MARK: - Injected Dependencies (from State layer)
 
-    private var taskRepository: (any TaskRepositoryProtocol)!
+    private var taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private var projectRepository: (any ProjectRepositoryProtocol)!
-    private var cacheService: CacheServiceProtocol!
     private var useCaseCoordinator: UseCaseCoordinator!
-
-    // MARK: - Use Cases (created from injected dependencies)
-
-    private var createTaskUseCase: CreateTaskUseCase!
-    private var completeTaskUseCase: CompleteTaskUseCase!
-    private var deleteTaskUseCase: DeleteTaskUseCase!
-    private var updateTaskUseCase: UpdateTaskUseCase!
-    private var rescheduleTaskUseCase: RescheduleTaskUseCase!
-    private var getTasksUseCase: GetTasksUseCase!
-    private var manageProjectsUseCase: ManageProjectsUseCase!
-    private var calculateAnalyticsUseCase: CalculateAnalyticsUseCase!
 
     // MARK: - ViewModels (Lazy initialization)
 
     private var _homeViewModel: HomeViewModel?
     private var _addTaskViewModel: AddTaskViewModel?
     private var _projectManagementViewModel: ProjectManagementViewModel?
+    private var _chartCardViewModel: ChartCardViewModel?
+    private var _radarChartCardViewModel: RadarChartCardViewModel?
+    private var _projectSelectionViewModel: ProjectSelectionViewModel?
 
     // MARK: - Configuration State
 
     private var isConfigured = false
+    public private(set) var v3RuntimeReady = false
+    public private(set) var v3RuntimeFailureReason: String?
+
+    public var isConfiguredForRuntime: Bool {
+        isConfigured
+    }
 
     // MARK: - Initialization
 
@@ -57,20 +53,17 @@ public final class PresentationDependencyContainer {
     /// Configure the container with dependencies from the State layer
     /// This is the preferred configuration method that maintains clean architecture
     public func configure(
-        taskRepository: TaskRepositoryProtocol,
+        taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         projectRepository: ProjectRepositoryProtocol,
-        cacheService: CacheServiceProtocol?,
         useCaseCoordinator: UseCaseCoordinator
     ) {
         logDebug("🔧 PresentationDependencyContainer: Starting configuration (Clean Architecture)...")
 
-        self.taskRepository = taskRepository
+        self.taskReadModelRepository = taskReadModelRepository
         self.projectRepository = projectRepository
-        self.cacheService = cacheService ?? InMemoryCacheService()
         self.useCaseCoordinator = useCaseCoordinator
 
-        // Initialize use cases from injected dependencies
-        setupUseCases()
+        evaluateV3RuntimeReadiness()
 
         self.isConfigured = true
         logDebug("✅ PresentationDependencyContainer: Configuration completed (Clean Architecture)")
@@ -81,25 +74,10 @@ public final class PresentationDependencyContainer {
     public func configureFromStateLayer() {
         let stateContainer = EnhancedDependencyContainer.shared
         configure(
-            taskRepository: stateContainer.taskRepository,
+            taskReadModelRepository: stateContainer.taskReadModelRepository,
             projectRepository: stateContainer.projectRepository,
-            cacheService: stateContainer.cacheService,
             useCaseCoordinator: stateContainer.useCaseCoordinator
         )
-    }
-
-    /// Legacy configuration method for backward compatibility with AppDelegate
-    /// This configures both State and Presentation layers in one call
-    @objc public func configure(with container: NSPersistentContainer) {
-        logDebug("🔧 PresentationDependencyContainer: Legacy configuration with NSPersistentContainer...")
-
-        // First configure the State layer (EnhancedDependencyContainer)
-        EnhancedDependencyContainer.shared.configure(with: container)
-
-        // Then configure this container from the State layer
-        configureFromStateLayer()
-
-        logDebug("✅ PresentationDependencyContainer: Legacy configuration completed")
     }
 
     // MARK: - Setup Methods
@@ -111,66 +89,44 @@ public final class PresentationDependencyContainer {
             fatalError(
                 """
                 PresentationDependencyContainer is not configured!
-                Call configure(...) or configureFromStateLayer() before accessing ViewModels.
+                Call configure(...) before accessing ViewModels.
                 Location: \(file):\(line)
                 """
             )
         }
     }
 
-    private func setupUseCases() {
-        // Use DefaultTaskScoringService which conforms to TaskScoringServiceProtocol
-        let scoringService = DefaultTaskScoringService()
-
-        // Task use cases
-        self.createTaskUseCase = CreateTaskUseCase(
-            taskRepository: taskRepository,
-            projectRepository: projectRepository,
-            notificationService: nil
-        )
-
-        self.completeTaskUseCase = CompleteTaskUseCase(
-            taskRepository: taskRepository,
-            scoringService: scoringService,
-            analyticsService: nil
-        )
-
-        self.deleteTaskUseCase = DeleteTaskUseCase(
-            taskRepository: taskRepository,
-            notificationService: nil,
-            analyticsService: nil
-        )
-
-        self.updateTaskUseCase = UpdateTaskUseCase(
-            taskRepository: taskRepository,
-            projectRepository: projectRepository,
-            notificationService: nil
-        )
-
-        self.rescheduleTaskUseCase = RescheduleTaskUseCase(
-            taskRepository: taskRepository,
-            notificationService: nil
-        )
-
-        self.getTasksUseCase = GetTasksUseCase(
-            taskRepository: taskRepository,
-            cacheService: cacheService
-        )
-
-        // Project use cases
-        self.manageProjectsUseCase = ManageProjectsUseCase(
-            projectRepository: projectRepository,
-            taskRepository: taskRepository
-        )
-
-        // Analytics use cases
-        self.calculateAnalyticsUseCase = CalculateAnalyticsUseCase(
-            taskRepository: taskRepository,
-            scoringService: scoringService,
-            cacheService: cacheService
-        )
+    public func assertV3RuntimeReady() throws {
+        guard v3RuntimeReady else {
+            throw NSError(
+                domain: "PresentationDependencyContainer",
+                code: 503,
+                userInfo: [
+                    NSLocalizedDescriptionKey: v3RuntimeFailureReason
+                    ?? "V3 runtime is not fully wired in presentation container"
+                ]
+            )
+        }
     }
-    
+
+    private func evaluateV3RuntimeReadiness() {
+        var missingDependencies: [String] = []
+        if taskReadModelRepository == nil {
+            missingDependencies.append("taskReadModelRepository")
+        }
+        if projectRepository == nil {
+            missingDependencies.append("projectRepository")
+        }
+        if useCaseCoordinator == nil {
+            missingDependencies.append("useCaseCoordinator")
+        }
+
+        v3RuntimeReady = missingDependencies.isEmpty
+        v3RuntimeFailureReason = v3RuntimeReady
+            ? nil
+            : "Presentation dependencies missing: \(missingDependencies.joined(separator: ", "))"
+    }
+
     // MARK: - ViewModel Factory Methods
 
     /// Get or create HomeViewModel
@@ -193,9 +149,13 @@ public final class PresentationDependencyContainer {
         }
 
         let viewModel = AddTaskViewModel(
-            createTaskUseCase: createTaskUseCase,
-            manageProjectsUseCase: manageProjectsUseCase,
-            rescheduleTaskUseCase: rescheduleTaskUseCase
+            taskReadModelRepository: taskReadModelRepository,
+            manageProjectsUseCase: useCaseCoordinator.manageProjects,
+            createTaskDefinitionUseCase: useCaseCoordinator.createTaskDefinition,
+            rescheduleTaskDefinitionUseCase: useCaseCoordinator.rescheduleTaskDefinition,
+            manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
+            manageSectionsUseCase: useCaseCoordinator.manageSections,
+            manageTagsUseCase: useCaseCoordinator.manageTags
         )
         _addTaskViewModel = viewModel
         return viewModel
@@ -209,10 +169,51 @@ public final class PresentationDependencyContainer {
         }
 
         let viewModel = ProjectManagementViewModel(
-            manageProjectsUseCase: manageProjectsUseCase,
-            getTasksUseCase: getTasksUseCase
+            manageProjectsUseCase: useCaseCoordinator.manageProjects,
+            getTasksUseCase: useCaseCoordinator.getTasks
         )
         _projectManagementViewModel = viewModel
+        return viewModel
+    }
+
+    public func makeChartCardViewModel() -> ChartCardViewModel {
+        assertConfigured()
+        if let existing = _chartCardViewModel {
+            return existing
+        }
+
+        let viewModel = ChartCardViewModel(
+            readModelRepository: taskReadModelRepository
+        )
+        _chartCardViewModel = viewModel
+        return viewModel
+    }
+
+    public func makeRadarChartCardViewModel() -> RadarChartCardViewModel {
+        assertConfigured()
+        if let existing = _radarChartCardViewModel {
+            return existing
+        }
+
+        let viewModel = RadarChartCardViewModel(
+            projectRepository: projectRepository,
+            readModelRepository: taskReadModelRepository
+        )
+        _radarChartCardViewModel = viewModel
+        return viewModel
+    }
+
+    public func makeProjectSelectionViewModel() -> ProjectSelectionViewModel {
+        assertConfigured()
+        if let existing = _projectSelectionViewModel {
+            return existing
+        }
+
+        let viewModel = ProjectSelectionViewModel(
+            projectRepository: projectRepository,
+            readModelRepository: taskReadModelRepository
+        )
+        _projectSelectionViewModel = viewModel
         return viewModel
     }
 
@@ -220,9 +221,13 @@ public final class PresentationDependencyContainer {
     public func makeNewAddTaskViewModel() -> AddTaskViewModel {
         assertConfigured()
         return AddTaskViewModel(
-            createTaskUseCase: createTaskUseCase,
-            manageProjectsUseCase: manageProjectsUseCase,
-            rescheduleTaskUseCase: rescheduleTaskUseCase
+            taskReadModelRepository: taskReadModelRepository,
+            manageProjectsUseCase: useCaseCoordinator.manageProjects,
+            createTaskDefinitionUseCase: useCaseCoordinator.createTaskDefinition,
+            rescheduleTaskDefinitionUseCase: useCaseCoordinator.rescheduleTaskDefinition,
+            manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
+            manageSectionsUseCase: useCaseCoordinator.manageSections,
+            manageTagsUseCase: useCaseCoordinator.manageTags
         )
     }
 
@@ -234,10 +239,18 @@ public final class PresentationDependencyContainer {
         let vcType = String(describing: type(of: viewController))
         logDebug("💉 PresentationDependencyContainer: Injecting into \(vcType)")
 
+        if let containerAware = viewController as? PresentationDependencyContainerAware {
+            containerAware.presentationDependencyContainer = self
+        }
+
         // Check for specific view controller types and inject ViewModels
         switch viewController {
         case let homeVC as HomeViewControllerProtocol:
             homeVC.viewModel = makeHomeViewModel()
+            if let analyticsInjectable = viewController as? HomeAnalyticsViewModelsInjectable {
+                analyticsInjectable.chartCardViewModel = makeChartCardViewModel()
+                analyticsInjectable.radarChartCardViewModel = makeRadarChartCardViewModel()
+            }
             logDebug("✅ Injected HomeViewModel")
 
         case let addTaskVC as AddTaskViewControllerProtocol:
@@ -248,6 +261,10 @@ public final class PresentationDependencyContainer {
             projectVC.viewModel = makeProjectManagementViewModel()
             logDebug("✅ Injected ProjectManagementViewModel")
 
+        case let coordinatorInjectable as UseCaseCoordinatorInjectable:
+            coordinatorInjectable.useCaseCoordinator = useCaseCoordinator
+            logDebug("✅ Injected UseCaseCoordinator")
+
         default:
             logDebug("ℹ️ No specific injection for \(vcType)")
         }
@@ -256,6 +273,23 @@ public final class PresentationDependencyContainer {
         for child in viewController.children {
             inject(into: child)
         }
+    }
+
+    /// Attempts dependency injection without crashing when the container is not configured.
+    /// Returns true when injection succeeded.
+    @discardableResult
+    public func tryInject(into viewController: UIViewController) -> Bool {
+        guard isConfigured else {
+            let vcType = String(describing: type(of: viewController))
+            logWarning(
+                event: "presentation_injection_skipped_unconfigured",
+                message: "Skipping dependency injection because presentation container is not configured",
+                fields: ["view_controller": vcType]
+            )
+            return false
+        }
+        inject(into: viewController)
+        return true
     }
 
     // MARK: - Direct Access (for migration)
@@ -274,6 +308,11 @@ public protocol HomeViewControllerProtocol: AnyObject {
     var viewModel: HomeViewModel! { get set }
 }
 
+public protocol HomeAnalyticsViewModelsInjectable: AnyObject {
+    var chartCardViewModel: ChartCardViewModel! { get set }
+    var radarChartCardViewModel: RadarChartCardViewModel! { get set }
+}
+
 /// Protocol for AddTaskViewController to receive ViewModel
 /// Note: viewModel is optional because the ViewModel path may be disabled
 public protocol AddTaskViewControllerProtocol: AnyObject {
@@ -283,4 +322,12 @@ public protocol AddTaskViewControllerProtocol: AnyObject {
 /// Protocol for ProjectManagementViewController to receive ViewModel
 public protocol ProjectManagementViewControllerProtocol: AnyObject {
     var viewModel: ProjectManagementViewModel! { get set }
+}
+
+public protocol PresentationDependencyContainerAware: AnyObject {
+    var presentationDependencyContainer: PresentationDependencyContainer? { get set }
+}
+
+public protocol UseCaseCoordinatorInjectable: AnyObject {
+    var useCaseCoordinator: UseCaseCoordinator! { get set }
 }

@@ -112,6 +112,24 @@ public final class DomainEventPublisher: ObservableObject {
             }
             .eraseToAnyPublisher()
     }
+
+    /// Publisher for gamification-related events
+    public var gamificationEvents: AnyPublisher<DomainEvent, Never> {
+        return eventSubject
+            .filter { event in
+                event.eventType == "XPAwarded"
+            }
+            .eraseToAnyPublisher()
+    }
+
+    /// Publisher for occurrence lifecycle events
+    public var occurrenceEvents: AnyPublisher<DomainEvent, Never> {
+        return eventSubject
+            .filter { event in
+                event.eventType == "OccurrenceResolved"
+            }
+            .eraseToAnyPublisher()
+    }
     
     /// Publisher for specific event types
     public func publisher(for eventType: String) -> AnyPublisher<DomainEvent, Never> {

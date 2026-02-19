@@ -160,6 +160,16 @@ private final class XPRegressionMockProjectRepository: ProjectRepositoryProtocol
         }
     }
 
+    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
+        completion(.success(ProjectRepairReport(
+            scanned: projects.count,
+            merged: 0,
+            deleted: 0,
+            inboxCandidates: projects.filter { $0.isInbox }.count,
+            warnings: []
+        )))
+    }
+
     func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
         if let index = projects.firstIndex(where: { $0.id == project.id }) {
             projects[index] = project
@@ -206,7 +216,7 @@ private final class XPRegressionMockProjectRepository: ProjectRepositoryProtocol
     }
 }
 
-private final class XPRegressionMockTaskRepository: TaskRepositoryProtocol {
+private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
     private var tasksByID: [UUID: Task]
     private let calendar = Calendar.current
 
@@ -252,7 +262,7 @@ private final class XPRegressionMockTaskRepository: TaskRepositoryProtocol {
     }
 
     func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) {
-        completion(.success(tasksByID.values.filter { $0.project?.caseInsensitiveCompare(project) == .orderedSame }))
+        completion(.success(tasksByID.values.filter { $0.projectName?.caseInsensitiveCompare(project) == .orderedSame }))
     }
 
     func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {

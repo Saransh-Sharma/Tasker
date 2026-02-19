@@ -14,16 +14,13 @@ public final class ManageProjectsUseCase {
     // MARK: - Dependencies
     
     private let projectRepository: ProjectRepositoryProtocol
-    private let taskRepository: TaskRepositoryProtocol
     
     // MARK: - Initialization
     
     public init(
-        projectRepository: ProjectRepositoryProtocol,
-        taskRepository: TaskRepositoryProtocol
+        projectRepository: ProjectRepositoryProtocol
     ) {
         self.projectRepository = projectRepository
-        self.taskRepository = taskRepository
     }
     
     // MARK: - Create Project
@@ -69,8 +66,7 @@ public final class ManageProjectsUseCase {
                 self?.projectRepository.createProject(project) { result in
                     switch result {
                     case .success(let createdProject):
-                        // Post notification
-                        NotificationCenter.default.post(
+                        TaskNotificationDispatcher.postOnMain(
                             name: NSNotification.Name("ProjectCreated"),
                             object: createdProject
                         )
@@ -178,8 +174,7 @@ public final class ManageProjectsUseCase {
                 self?.projectRepository.deleteProject(withId: projectId, deleteTasks: deleteTasks) { result in
                     switch result {
                     case .success:
-                        // Post notification
-                        NotificationCenter.default.post(
+                        TaskNotificationDispatcher.postOnMain(
                             name: NSNotification.Name("ProjectDeleted"),
                             object: project
                         )
@@ -203,10 +198,11 @@ public final class ManageProjectsUseCase {
         projectRepository.fetchAllProjects { [weak self] result in
             switch result {
             case .success(let projects):
+                let dedupedProjects = self?.dedupeProjects(projects) ?? projects
                 var projectsWithStats: [ProjectWithStats] = []
                 let group = DispatchGroup()
                 
-                for project in projects {
+                for project in dedupedProjects {
                     group.enter()
                     self?.projectRepository.getTaskCount(for: project.id) { countResult in
                         if case .success(let count) = countResult {
@@ -231,6 +227,17 @@ public final class ManageProjectsUseCase {
                     completion(.success(projectsWithStats))
                 }
                 
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            }
+        }
+    }
+
+    public func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, ProjectError>) -> Void) {
+        projectRepository.repairProjectIdentityCollisions { result in
+            switch result {
+            case .success(let report):
+                completion(.success(report))
             case .failure(let error):
                 completion(.failure(.repositoryError(error)))
             }
@@ -320,8 +327,7 @@ public final class ManageProjectsUseCase {
         projectRepository.updateProject(project) { result in
             switch result {
             case .success(let updatedProject):
-                // Post notification
-                NotificationCenter.default.post(
+                TaskNotificationDispatcher.postOnMain(
                     name: NSNotification.Name("ProjectUpdated"),
                     object: updatedProject
                 )
@@ -331,6 +337,23 @@ public final class ManageProjectsUseCase {
                 completion(.failure(.repositoryError(error)))
             }
         }
+    }
+
+    private func dedupeProjects(_ projects: [Project]) -> [Project] {
+        var byID: [UUID: Project] = [:]
+        for project in projects {
+            if let existing = byID[project.id] {
+                let keepIncoming =
+                    (project.isDefault && !existing.isDefault) ||
+                    (project.isInbox && !existing.isInbox)
+                if keepIncoming {
+                    byID[project.id] = project
+                }
+            } else {
+                byID[project.id] = project
+            }
+        }
+        return Array(byID.values)
     }
 }
 

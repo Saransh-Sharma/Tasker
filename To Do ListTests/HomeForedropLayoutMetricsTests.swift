@@ -62,17 +62,18 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertGreaterThan(metrics.offset(for: .fullReveal), legacyFull + 220)
     }
 
-    func testFullRevealNeverFallsAboveMidRevealWhenScreenIsVeryShort() {
+    func testFullRevealStaysAtOrBelowBottomClampOnVeryShortScreens() {
         let metrics = HomeForedropLayoutMetrics(
             calendarExpandedHeight: 20,
             analyticsSectionHeight: 420,
             geometryHeight: 300
         )
 
-        XCTAssertEqual(
-            metrics.offset(for: .fullReveal),
-            metrics.offset(for: .midReveal),
-            accuracy: 0.001
-        )
+        let full = metrics.offset(for: .fullReveal)
+        let mid = metrics.offset(for: .midReveal)
+        let expectedClamp = 300 - HomeForedropLayoutMetrics.minimumVisibleForedropHeight
+
+        XCTAssertGreaterThanOrEqual(full, mid - 0.001)
+        XCTAssertEqual(full, expectedClamp, accuracy: 0.001)
     }
 }

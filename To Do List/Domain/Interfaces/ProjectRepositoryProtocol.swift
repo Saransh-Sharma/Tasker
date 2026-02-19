@@ -7,6 +7,28 @@
 
 import Foundation
 
+public struct ProjectRepairReport {
+    public let scanned: Int
+    public let merged: Int
+    public let deleted: Int
+    public let inboxCandidates: Int
+    public let warnings: [String]
+
+    public init(
+        scanned: Int,
+        merged: Int,
+        deleted: Int,
+        inboxCandidates: Int,
+        warnings: [String]
+    ) {
+        self.scanned = scanned
+        self.merged = merged
+        self.deleted = deleted
+        self.inboxCandidates = inboxCandidates
+        self.warnings = warnings
+    }
+}
+
 /// Protocol defining all project-related data operations
 /// This abstraction allows for different implementations (Core Data, Mock, etc.)
 public protocol ProjectRepositoryProtocol {
@@ -35,6 +57,9 @@ public protocol ProjectRepositoryProtocol {
     
     /// Ensure the Inbox project exists (create if needed)
     func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void)
+
+    /// Repair malformed project identity rows and deduplicate conflicting IDs.
+    func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void)
     
     // MARK: - Update Operations
     
@@ -53,9 +78,6 @@ public protocol ProjectRepositoryProtocol {
     
     /// Get the count of tasks in a project
     func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void)
-    
-    /// Get all tasks for a project
-    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void)
     
     /// Move tasks from one project to another
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void)

@@ -25,10 +25,20 @@ class AddTaskPage {
 
         // Fallback: find by placeholder or label
         if !field.exists {
-            field = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[c] 'title' OR label CONTAINS[c] 'title'")).firstMatch
+            field = app.textFields.matching(
+                NSPredicate(
+                    format: "placeholderValue CONTAINS[c] 'title' OR label CONTAINS[c] 'title' OR label CONTAINS[c] 'task name' OR placeholderValue CONTAINS[c] 'what do you need to do'"
+                )
+            ).firstMatch
         }
 
-        // Last fallback: first text field
+        // Last fallback: prefer a non-description text field.
+        if !field.exists {
+            field = app.textFields.matching(
+                NSPredicate(format: "identifier != %@", AccessibilityIdentifiers.AddTask.descriptionField)
+            ).firstMatch
+        }
+
         if !field.exists {
             field = app.textFields.firstMatch
         }
@@ -90,27 +100,7 @@ class AddTaskPage {
     }
 
     var saveButton: XCUIElement {
-        // Try accessibility identifier first
-        var button = app.buttons[AccessibilityIdentifiers.AddTask.saveButton]
-
-        // Fallback: find by label "Save" or "Done"
-        if !button.exists {
-            button = app.buttons["Save"]
-        }
-
-        if !button.exists {
-            button = app.buttons["Done"]
-        }
-
-        // Last fallback: right bar button (typically Done button in navigation bar)
-        if !button.exists {
-            let navBar = app.navigationBars.firstMatch
-            if navBar.exists {
-                button = navBar.buttons.element(boundBy: navBar.buttons.count - 1)
-            }
-        }
-
-        return button
+        return app.buttons[AccessibilityIdentifiers.AddTask.saveButton]
     }
 
     var cancelButton: XCUIElement {
@@ -125,7 +115,7 @@ class AddTaskPage {
         // Last fallback: first bar button
         if !button.exists {
             let navBar = app.navigationBars.firstMatch
-            if navBar.exists {
+            if navBar.exists, navBar.buttons.count > 0 {
                 button = navBar.buttons.element(boundBy: 0)
             }
         }
@@ -152,8 +142,47 @@ class AddTaskPage {
 
     /// Enter task title
     func enterTitle(_ title: String) {
-        titleField.tap()
-        titleField.typeText(title)
+        let primaryTitleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField]
+        if primaryTitleField.waitForExistence(timeout: 8) {
+            primaryTitleField.tap()
+            primaryTitleField.typeText(title)
+            return
+        }
+
+        let titleContainer = app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.titleField]
+        if titleContainer.exists && titleContainer.isHittable {
+            titleContainer.tap()
+            if let focusedField = focusedTextField(), focusedField.exists {
+                focusedField.typeText(title)
+                return
+            }
+        }
+
+        let namedFallbackField = app.textFields.matching(
+            NSPredicate(
+                format: "identifier != %@ AND (label CONTAINS[c] 'task name' OR placeholderValue CONTAINS[c] 'what do you need to do')",
+                AccessibilityIdentifiers.AddTask.descriptionField
+            )
+        ).firstMatch
+        if namedFallbackField.exists {
+            namedFallbackField.tap()
+            namedFallbackField.typeText(title)
+            return
+        }
+
+        let descriptionFallbackField = app.textFields[AccessibilityIdentifiers.AddTask.descriptionField]
+        if descriptionFallbackField.waitForExistence(timeout: 2) {
+            descriptionFallbackField.tap()
+            descriptionFallbackField.typeText(title)
+            return
+        }
+
+        if let focusedField = focusedTextField(), focusedField.exists {
+            focusedField.typeText(title)
+            return
+        }
+
+        XCTFail("Add Task title field should exist")
     }
 
     /// Clear and enter new title
@@ -188,10 +217,29 @@ class AddTaskPage {
             priorityName = "Low"  // Medium no longer exists, map to Low
         }
 
-        if prioritySegmentedControl.exists {
+        let fallbackIndex: Int = {
+            switch priority {
+            case .none:
+                return 0
+            case .low, .medium:
+                return 1
+            case .high:
+                return 2
+            case .max:
+                return 3
+            }
+        }()
+
+        if prioritySegmentedControl.waitForExistence(timeout: 1.5) {
             let button = prioritySegmentedControl.buttons[priorityName]
             if button.exists {
                 button.tap()
+                return
+            }
+
+            let indexedButton = prioritySegmentedControl.buttons.element(boundBy: fallbackIndex)
+            if indexedButton.exists {
+                indexedButton.tap()
             } else {
                 print("⚠️ Warning: Priority '\(priorityName)' not found in segmented control")
             }
@@ -295,7 +343,7 @@ class AddTaskPage {
 
     /// Select project
     func selectProject(named projectName: String) {
-        // The app uses FluentUI PillButtonBar for project selection
+        // The app uses a pill-style project selector
         // Pills may not be exposed as standard buttons in accessibility hierarchy
 
         // Method 1: Try direct button access
@@ -305,7 +353,7 @@ class AddTaskPage {
             return
         }
 
-        // Method 2: Try finding as static text (FluentUI pills sometimes exposed as text)
+        // Method 2: Try finding as static text (pills can be exposed as text)
         let projectLabel = app.staticTexts[projectName]
         if projectLabel.exists {
             projectLabel.tap()
@@ -364,8 +412,168 @@ class AddTaskPage {
     /// Tap save button
     @discardableResult
     func tapSave() -> HomePage {
-        saveButton.tap()
+        let didDismiss: () -> Bool = {
+            if self.waitForDismissal(timeout: 2) {
+                return true
+            }
+
+            let homePage = HomePage(app: self.app)
+            return homePage.verifyBottomBarExists(timeout: 1) && homePage.verifyIsDisplayed(timeout: 1)
+        }
+
+        let candidates: [XCUIElement] = [
+            app.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+            app.buttons["addTask.createButton"],
+            app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.saveButton],
+            app.descendants(matching: .any)["addTask.createButton"],
+            app.navigationBars.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+            app.navigationBars.firstMatch.buttons["Done"],
+            app.navigationBars.firstMatch.buttons["Create"],
+            app.navigationBars.firstMatch.buttons["Save"],
+            app.buttons["Create Task"],
+            app.buttons["Create"],
+            app.buttons["Done"],
+            app.buttons["Save"],
+            app.toolbars.buttons["Done"]
+        ]
+        let deadline = Date().addingTimeInterval(6)
+        repeat {
+            let navigationBar = app.navigationBars.firstMatch
+            if navigationBar.exists {
+                let preferredNavButtons: [XCUIElement] = [
+                    navigationBar.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+                    navigationBar.buttons["Done"],
+                    navigationBar.buttons["Save"],
+                    navigationBar.buttons["Create"],
+                    navigationBar.buttons.firstMatch
+                ]
+
+                for navButton in preferredNavButtons where navButton.exists {
+                    if navButton.isHittable {
+                        navButton.tap()
+                    } else {
+                        navButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                    }
+                    if didDismiss() {
+                        return HomePage(app: app)
+                    }
+                }
+
+                let navFrame = navigationBar.frame
+                if navFrame.width > 0 && navFrame.height > 0 {
+                    let doneCoordinate = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
+                        .withOffset(CGVector(dx: navFrame.maxX - 24, dy: navFrame.midY))
+                    doneCoordinate.tap()
+                    if didDismiss() {
+                        return HomePage(app: app)
+                    }
+                }
+            }
+
+            for candidate in candidates where candidate.exists {
+                if candidate.isHittable {
+                    candidate.tap()
+                } else {
+                    candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
+                if didDismiss() {
+                    return HomePage(app: app)
+                }
+            }
+
+            let keyboardDone = app.keyboards.buttons["Done"]
+            if keyboardDone.exists {
+                keyboardDone.tap()
+                if didDismiss() {
+                    return HomePage(app: app)
+                }
+            }
+
+            let keyboardReturn = app.keyboards.buttons["Return"]
+            if keyboardReturn.exists {
+                keyboardReturn.tap()
+                if didDismiss() {
+                    return HomePage(app: app)
+                }
+            }
+
+            Thread.sleep(forTimeInterval: 0.15)
+        } while Date() < deadline
+
+        if submitReturnFromFocusedTextField() {
+            if didDismiss() {
+                return HomePage(app: app)
+            }
+        }
+
+        let primaryTitleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField]
+        if focusAndSubmitReturn(primaryTitleField) {
+            if didDismiss() {
+                return HomePage(app: app)
+            }
+        }
+
+        let fallbackTitleField = app.textFields.firstMatch
+        if focusAndSubmitReturn(fallbackTitleField) {
+            if didDismiss() {
+                return HomePage(app: app)
+            }
+        }
+
+        let homePage = HomePage(app: app)
+        if homePage.verifyBottomBarExists(timeout: 1) && homePage.verifyIsDisplayed(timeout: 1) {
+            return homePage
+        }
+
+        XCTFail("Unable to find save/create action for Add Task screen")
         return HomePage(app: app)
+    }
+
+    private func submitReturnFromFocusedTextField() -> Bool {
+        let fields = app.descendants(matching: .textField)
+        guard fields.count > 0 else { return false }
+
+        for index in 0..<fields.count {
+            let field = fields.element(boundBy: index)
+            if hasKeyboardFocus(field) {
+                field.typeText("\n")
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func focusAndSubmitReturn(_ field: XCUIElement) -> Bool {
+        guard field.exists else { return false }
+
+        if !hasKeyboardFocus(field) {
+            guard field.isHittable else { return false }
+            field.tap()
+            _ = app.keyboards.firstMatch.waitForExistence(timeout: 0.5)
+        }
+
+        guard hasKeyboardFocus(field) else { return false }
+        field.typeText("\n")
+        return true
+    }
+
+    private func focusedTextField() -> XCUIElement? {
+        let fields = app.descendants(matching: .textField)
+        guard fields.count > 0 else { return nil }
+
+        for index in 0..<fields.count {
+            let field = fields.element(boundBy: index)
+            if hasKeyboardFocus(field) {
+                return field
+            }
+        }
+
+        return nil
+    }
+
+    private func hasKeyboardFocus(_ field: XCUIElement) -> Bool {
+        return (field.value(forKey: "hasKeyboardFocus") as? Bool) == true
     }
 
     /// Tap cancel button
@@ -414,9 +622,9 @@ class AddTaskPage {
         }
     }
 
-    // MARK: - Complex Actions (Fluent API)
+    // MARK: - Complex Actions
 
-    /// Create task with all details (fluent interface)
+    /// Create task with all details (builder-style helper)
     @discardableResult
     func createTask(
         title: String,

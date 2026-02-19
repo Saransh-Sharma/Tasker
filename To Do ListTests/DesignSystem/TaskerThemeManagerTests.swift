@@ -1,5 +1,5 @@
 import XCTest
-@testable import Tasker
+@testable import To_Do_List
 
 @MainActor
 final class TaskerThemeManagerTests: XCTestCase {

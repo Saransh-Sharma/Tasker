@@ -10,10 +10,38 @@ import UIKit
 import CoreData
 import CloudKit
 import Firebase
+import BackgroundTasks
+
+enum PersistentBootstrapState {
+    case ready(NSPersistentCloudKitContainer)
+    case failed(String)
+}
+
+enum LaunchRootMode: Equatable {
+    case home
+    case bootstrapFailure(message: String)
+}
+
+struct PersistentStoreLoadReport {
+    let loadedConfigurations: Set<String>
+    let errors: [NSError]
+}
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
+    private let occurrenceRefreshTaskIdentifier = "com.tasker.refresh.occurrences"
+    private let remindersRefreshTaskIdentifier = "com.tasker.refresh.reminders"
+    private let expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"]
+    private let v3StoreEpoch = 4
+
+    private(set) static var persistentBootstrapFailureMessage: String?
+    static var isPersistentStoreReady: Bool {
+        persistentBootstrapFailureMessage == nil
+    }
+
+    private(set) var persistentBootstrapState: PersistentBootstrapState = .failed("Persistent store bootstrap has not run")
+    private(set) var persistentContainer: NSPersistentCloudKitContainer?
 
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -94,48 +122,92 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Register for CloudKit silent pushes
         application.registerForRemoteNotifications()
 
-        // 1) Force the container to load now (so CloudKit subscriptions are registered)
-        _ = persistentContainer
+        // Hard-reset cutover to V3 model/container.
+        performV3BootstrapCutoverIfNeeded()
 
-        // 2) Run UUID migration if needed (CRITICAL: Must run before Clean Architecture setup)
-        performStartupMigration()
+        persistentBootstrapState = bootstrapV3PersistentContainer()
+        switch persistentBootstrapState {
+        case .ready(let container):
+            persistentContainer = container
+            AppDelegate.persistentBootstrapFailureMessage = nil
 
-        // Setup Clean Architecture - replaces all singleton initialization
-        setupCleanArchitecture()
-        
-        // 2) Observe remote-change notifications so your viewContext merges them
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handlePersistentStoreRemoteChange),
-            name: .NSPersistentStoreRemoteChange,
-            object: persistentContainer.persistentStoreCoordinator)
-            
-        // 3) Monitor CloudKit container events for debugging
-        NotificationCenter.default.addObserver(
-            forName: NSPersistentCloudKitContainer.eventChangedNotification,
-            object: persistentContainer,
-            queue: .main
-        ) { note in
-            guard
-              let userInfo = note.userInfo,
-              let events = userInfo[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
-                            as? [NSPersistentCloudKitContainer.Event]
-            else { return }
-
-            for event in events where event.error != nil {
-                let errorDescription = event.error?.localizedDescription ?? "unknown"
-                logError(
-                    event: "cloudkit_event_error",
-                    message: "CloudKit container event reported error",
-                    fields: [
-                        "event_type": "\(event.type)",
-                        "error": errorDescription
-                    ]
-                )
+            let didConfigureRuntime = setupCleanArchitecture()
+            guard didConfigureRuntime else {
+                break
             }
+
+            registerBackgroundTasks()
+            scheduleOccurrenceRefresh()
+            if V2FeatureFlags.remindersBackgroundRefreshEnabled {
+                scheduleRemindersRefresh()
+            }
+
+            // 2) Observe remote-change notifications so your viewContext merges them
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(handlePersistentStoreRemoteChange),
+                name: .NSPersistentStoreRemoteChange,
+                object: container.persistentStoreCoordinator
+            )
+
+            // 3) Monitor CloudKit container events for debugging
+            NotificationCenter.default.addObserver(
+                forName: NSPersistentCloudKitContainer.eventChangedNotification,
+                object: container,
+                queue: .main
+            ) { note in
+                guard
+                  let userInfo = note.userInfo,
+                  let events = userInfo[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+                                as? [NSPersistentCloudKitContainer.Event]
+                else { return }
+
+                for event in events where event.error != nil {
+                    let errorDescription = event.error?.localizedDescription ?? "unknown"
+                    logError(
+                        event: "cloudkit_event_error",
+                        message: "CloudKit container event reported error",
+                        fields: [
+                            "event_type": "\(event.type)",
+                            "error": errorDescription
+                        ]
+                    )
+                }
+            }
+        case .failed(let message):
+            AppDelegate.persistentBootstrapFailureMessage = message
+            logError(
+                event: "persistent_store_bootstrap_failed",
+                message: "Persistent store bootstrap failed; running without initialized persistence",
+                fields: [
+                    "reason": message,
+                    "retry_attempted": "true"
+                ]
+            )
+            persistentContainer = nil
         }
         
         return true
+    }
+
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        guard case .ready = persistentBootstrapState else {
+            return
+        }
+        scheduleOccurrenceRefresh()
+        if V2FeatureFlags.remindersBackgroundRefreshEnabled {
+            scheduleRemindersRefresh()
+        }
+    }
+
+    func makeLaunchRootMode(state overrideState: PersistentBootstrapState? = nil) -> LaunchRootMode {
+        let state = overrideState ?? persistentBootstrapState
+        switch state {
+        case .ready:
+            return .home
+        case .failed(let message):
+            return .bootstrapFailure(message: message)
+        }
     }
 
     // MARK: - UI Testing Helpers
@@ -155,10 +227,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     /// Clear all Core Data entities for testing
     private func clearCoreData() {
-        let context = persistentContainer.viewContext
+        guard let container = persistentContainer else {
+            return
+        }
+        let context = container.viewContext
 
         // Get all entity names
-        guard let entities = persistentContainer.managedObjectModel.entities.map({ $0.name }) as? [String] else {
+        guard let entities = container.managedObjectModel.entities.map({ $0.name }) as? [String] else {
             return
         }
 
@@ -209,79 +284,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
     }
 
-    lazy var persistentContainer: NSPersistentCloudKitContainer = {
-        /*
-         The persistent container for the application. This implementation
-         creates and returns a container, having loaded the store for the
-         application to it. This property is optional since there are legitimate
-         error conditions that could cause the creation of the store to fail.
-         */
-        let container = NSPersistentCloudKitContainer(name: "TaskModel")
-        
-        // Get the default persistent store description created by the container.
-        guard let description = container.persistentStoreDescriptions.first else {
-            fatalError("### AppDelegate ### Failed to retrieve a persistent store description.")
-        }
-        
-        // Set the CloudKit container options.
-        // This is the crucial step to enable CloudKit synchronization.
-        description.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(containerIdentifier: "iCloud.TaskerCloudKit")
-        
-        // Enable history tracking and remote change notifications for robust sync.
-        description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-        description.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-        
-        container.loadPersistentStores(completionHandler: { (storeDescription, error) in
-            if let error = error as NSError? {
-                // Handle CloudKit-specific errors gracefully
-                if error.domain == NSCocoaErrorDomain && error.code == 134400 {
-                    // iCloud account not available - continue without CloudKit
-                    // Disable CloudKit for this session
-                    storeDescription.cloudKitContainerOptions = nil
-                    logWarning(
-                        event: "cloudkit_unavailable_local_mode",
-                        message: "CloudKit unavailable; using local persistent store",
-                        fields: [
-                            "domain": error.domain,
-                            "code": String(error.code)
-                        ]
-                    )
-                } else {
-                    // Handle other errors
-                    logError(
-                        event: "persistent_store_load_failed",
-                        message: "Persistent store failed to load",
-                        fields: [
-                            "domain": error.domain,
-                            "code": String(error.code),
-                            "error": error.localizedDescription
-                        ]
-                    )
-                    // Don't crash the app, continue with available functionality
-                }
-            }
-        })
-        
-        // Configure the view context to automatically merge changes from the parent (persistent store coordinator).
-        container.viewContext.automaticallyMergesChangesFromParent = true
-        // Set a merge policy for handling conflicts
-        container.viewContext.mergePolicy = NSMergeByPropertyStoreTrumpMergePolicy
-        
-        return container
-    }()
-    
     // MARK: - Core Data Saving support
     
     func saveContext () {
-        let context = persistentContainer.viewContext
+        guard let context = persistentContainer?.viewContext else {
+            return
+        }
         if context.hasChanges {
             do {
                 try context.save()
             } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
                 let nserror = error as NSError
-                fatalError("Unresolved error \(nserror), \(nserror.userInfo)")
+                logError(
+                    event: "save_context_failed",
+                    message: "Failed to save Core Data context",
+                    fields: [
+                        "domain": nserror.domain,
+                        "code": String(nserror.code),
+                        "error": nserror.localizedDescription
+                    ]
+                )
             }
         }
     }
@@ -290,7 +312,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     @objc
     func handlePersistentStoreRemoteChange(_ notification: Notification) {
-        let context = persistentContainer.viewContext
+        guard let context = persistentContainer?.viewContext else {
+            return
+        }
         // Perform merging on the context's queue to avoid threading issues
         context.perform { // Changed from performAndWait to perform for potentially better responsiveness
             context.mergeChanges(fromContextDidSave: notification) // Correct method signature
@@ -321,418 +345,724 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         )
     }
 
-    // MARK: - UUID Migration
+    // MARK: - V3 Bootstrap
 
-    /// Perform startup migration to ensure all entities have UUIDs
-    /// This is critical for transitioning from legacy string-based to UUID-based project references
-    private func performStartupMigration() {
+    private func performV3BootstrapCutoverIfNeeded() {
+        let defaults = UserDefaults.standard
+        let epochKey = "tasker.v3.store.epoch"
+        let appliedEpoch = defaults.integer(forKey: epochKey)
+        guard appliedEpoch != v3StoreEpoch else {
+            return
+        }
 
-        let migrationManager = MigrationManager()
-        let migrationService = DataMigrationService(persistentContainer: persistentContainer, migrationManager: migrationManager)
+        wipeV3StoreFiles()
+        clearLegacyV1PreferenceKeys(defaults: defaults)
+    }
 
-        // 🔥 EMERGENCY: Add direct legacy data check and force migration if needed
-        let inboxInitializer = InboxProjectInitializer(
-            viewContext: persistentContainer.viewContext,
-            backgroundContext: persistentContainer.newBackgroundContext()
+    private func markV3BootstrapEpochApplied() {
+        UserDefaults.standard.set(v3StoreEpoch, forKey: "tasker.v3.store.epoch")
+    }
+
+    private func makeV3PersistentContainer() -> NSPersistentCloudKitContainer {
+        let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
+
+        let baseURL = NSPersistentContainer.defaultDirectoryURL()
+        let cloudURL = baseURL.appendingPathComponent("TaskModelV3-cloud.sqlite")
+        let localURL = baseURL.appendingPathComponent("TaskModelV3-local.sqlite")
+
+        let cloudDescription = NSPersistentStoreDescription(url: cloudURL)
+        cloudDescription.configuration = "CloudSync"
+        cloudDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
+            containerIdentifier: "iCloud.TaskerCloudKitV3"
         )
+        cloudDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+        cloudDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
 
-        // Force emergency migration
-        let semaphore = DispatchSemaphore(value: 0)
+        let localDescription = NSPersistentStoreDescription(url: localURL)
+        localDescription.configuration = "LocalOnly"
+        localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+        localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
 
-        // Step 1: Force UUID assignment to all projects
-        inboxInitializer.forceAssignUUIDsToAllProjects { result in
-            switch result {
-            case .success(let count):
-                // Step 2: Fix task references
-                inboxInitializer.forceUpdateTaskProjectReferences { taskResult in
-                    switch taskResult {
-                    case .success(let taskCount):
-                        // Step 3: Reset migration state to trigger proper migration
-                        migrationManager.forceResetMigration()
+        container.persistentStoreDescriptions = [cloudDescription, localDescription]
+        container.viewContext.automaticallyMergesChangesFromParent = true
+        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        return container
+    }
 
-                        // Step 4: Run normal migration to complete the process
-                        migrationService.migrateToUUIDs { migrationResult in
-                            switch migrationResult {
-                            case .success(let report):
+    private func bootstrapV3PersistentContainer() -> PersistentBootstrapState {
+        let initialContainer = makeV3PersistentContainer()
+        let initialReport = loadPersistentStoresAndReport(container: initialContainer, phase: "initial")
+        let initialHealthy = initialReport.errors.isEmpty && hasExpectedConfigurations(initialReport)
 
-                                // Step 5: Verify results
-                                self.verifyMigrationResults()
+        if initialHealthy {
+            markV3BootstrapEpochApplied()
+            return .ready(initialContainer)
+        }
 
-                                // Step 6: Verify new project creation works correctly
-                                migrationService.verifyNewProjectCreation { verificationResult in
-                                    switch verificationResult {
-                                    case .success(let worksCorrectly):
-                                        if !worksCorrectly {
-                                            logError(
-                                                event: "project_uuid_verification_failed",
-                                                message: "New project UUID verification failed",
-                                                fields: [
-                                                    "projects_assigned": String(count),
-                                                    "tasks_updated": String(taskCount)
-                                                ]
-                                            )
-                                        }
-                                    case .failure(let error):
-                                        logError(
-                                            event: "project_uuid_verification_error",
-                                            message: "New project UUID verification errored",
-                                            fields: [
-                                                "error": error.localizedDescription
-                                            ]
-                                        )
-                                    }
-                                }
+        let missingConfigurations = expectedStoreConfigurations.subtracting(initialReport.loadedConfigurations)
+        let hasMissingConfigurations = missingConfigurations.isEmpty == false
+        let hasCompatibilityError = initialReport.errors.contains(where: isIncompatibleStoreError)
+        let shouldRetryWithWipe = hasCompatibilityError || hasMissingConfigurations
 
-                            case .failure(let error):
-                                logError(
-                                    event: "emergency_migration_failed",
-                                    message: "Emergency migration failed",
-                                    fields: [
-                                        "projects_assigned": String(count),
-                                        "tasks_updated": String(taskCount),
-                                        "error": error.localizedDescription
-                                    ]
-                                )
-                                // Continue app launch even if migration fails
-                            }
-                            semaphore.signal()
-                        }
+        if shouldRetryWithWipe {
+            logWarning(
+                event: "persistent_store_bootstrap_retry",
+                message: "Retrying persistent store bootstrap after V3 store wipe",
+                fields: [
+                    "retry_attempted": "true",
+                    "retry_reason": hasCompatibilityError ? "compatibility_error" : "missing_configuration",
+                    "loaded_configurations": initialReport.loadedConfigurations.sorted().joined(separator: ","),
+                    "missing_configurations": missingConfigurations.sorted().joined(separator: ","),
+                    "error_count": String(initialReport.errors.count)
+                ]
+            )
 
-                    case .failure(let error):
-                        logError(
-                            event: "emergency_task_reference_update_failed",
-                            message: "Emergency task reference update failed",
-                            fields: [
-                                "projects_assigned": String(count),
-                                "error": error.localizedDescription
-                            ]
-                        )
-                        semaphore.signal()
-                    }
-                }
+            unloadPersistentStores(initialContainer)
+            wipeV3StoreFiles()
+            let recoveryContainer = makeV3PersistentContainer()
+            let recoveryReport = loadPersistentStoresAndReport(container: recoveryContainer, phase: "recovery")
+            let recoveryHealthy = recoveryReport.errors.isEmpty && hasExpectedConfigurations(recoveryReport)
+            if recoveryHealthy {
+                markV3BootstrapEpochApplied()
+                return .ready(recoveryContainer)
+            }
 
-            case .failure(let error):
+            let failureMessage = "Tasker could not initialize local storage after retry. Please relaunch or reinstall the app."
+            logError(
+                event: "persistent_store_bootstrap_failed_after_retry",
+                message: "Persistent store bootstrap failed after wipe and retry",
+                fields: [
+                    "retry_attempted": "true",
+                    "loaded_configurations": recoveryReport.loadedConfigurations.sorted().joined(separator: ","),
+                    "expected_configurations": expectedStoreConfigurations.sorted().joined(separator: ","),
+                    "error_count": String(recoveryReport.errors.count),
+                    "errors": recoveryReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
+                ]
+            )
+            return .failed(failureMessage)
+        }
+
+        let failureMessage = "Tasker storage is unavailable. Please relaunch the app."
+        logError(
+            event: "persistent_store_bootstrap_failed_without_retry",
+            message: "Persistent store bootstrap failed and was not eligible for wipe/retry",
+            fields: [
+                "retry_attempted": "false",
+                "loaded_configurations": initialReport.loadedConfigurations.sorted().joined(separator: ","),
+                "expected_configurations": expectedStoreConfigurations.sorted().joined(separator: ","),
+                "error_count": String(initialReport.errors.count),
+                "errors": initialReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
+            ]
+        )
+        return .failed(failureMessage)
+    }
+
+    private func loadPersistentStoresAndReport(
+        container: NSPersistentCloudKitContainer,
+        phase: String
+    ) -> PersistentStoreLoadReport {
+        let descriptions = container.persistentStoreDescriptions
+        guard descriptions.isEmpty == false else {
+            return PersistentStoreLoadReport(loadedConfigurations: [], errors: [])
+        }
+
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var loadedConfigurations = Set<String>()
+        var loadErrors: [NSError] = []
+
+        descriptions.forEach { _ in group.enter() }
+        container.loadPersistentStores { storeDescription, error in
+            defer { group.leave() }
+
+            lock.lock()
+            defer { lock.unlock() }
+
+            if let error = error as NSError? {
+                loadErrors.append(error)
+
+                let configuration = storeDescription.configuration ?? "unknown"
+                let missingConfigurations = self.expectedStoreConfigurations.subtracting(loadedConfigurations)
                 logError(
-                    event: "emergency_project_uuid_assignment_failed",
-                    message: "Emergency project UUID assignment failed",
+                    event: "persistent_store_load_failed",
+                    message: "V3 persistent store failed to load",
                     fields: [
+                        "phase": phase,
+                        "url": storeDescription.url?.absoluteString ?? "unknown",
+                        "configuration": configuration,
+                        "domain": error.domain,
+                        "code": String(error.code),
+                        "error": error.localizedDescription,
+                        "loaded_configurations": loadedConfigurations.sorted().joined(separator: ","),
+                        "missing_configurations": missingConfigurations.sorted().joined(separator: ",")
+                    ]
+                )
+                return
+            }
+
+            if let configuration = storeDescription.configuration {
+                loadedConfigurations.insert(configuration)
+            }
+        }
+        group.wait()
+
+        return PersistentStoreLoadReport(
+            loadedConfigurations: loadedConfigurations,
+            errors: loadErrors
+        )
+    }
+
+    private func hasExpectedConfigurations(_ report: PersistentStoreLoadReport) -> Bool {
+        expectedStoreConfigurations.isSubset(of: report.loadedConfigurations)
+    }
+
+    private func unloadPersistentStores(_ container: NSPersistentCloudKitContainer) {
+        let coordinator = container.persistentStoreCoordinator
+        for store in coordinator.persistentStores {
+            do {
+                try coordinator.remove(store)
+            } catch {
+                let nsError = error as NSError
+                logWarning(
+                    event: "persistent_store_unload_failed",
+                    message: "Failed to unload persistent store before wipe",
+                    fields: [
+                        "domain": nsError.domain,
+                        "code": String(nsError.code),
+                        "error": nsError.localizedDescription,
+                        "url": store.url?.absoluteString ?? "unknown",
+                        "configuration": store.configurationName ?? "unknown"
+                    ]
+                )
+            }
+        }
+    }
+
+    private func isIncompatibleStoreError(_ error: NSError) -> Bool {
+        let code = error.code
+        let incompatibleCodes: Set<Int> = [
+            NSPersistentStoreInvalidTypeError,
+            NSPersistentStoreTypeMismatchError,
+            NSPersistentStoreIncompatibleSchemaError,
+            NSPersistentStoreOpenError,
+            NSPersistentStoreIncompatibleVersionHashError,
+            134000,
+            134010,
+            134020,
+            134060,
+            134080,
+            134081,
+            134100
+        ]
+
+        if error.domain == NSCocoaErrorDomain, incompatibleCodes.contains(code) {
+            return true
+        }
+
+        if error.localizedDescription.localizedCaseInsensitiveContains("model configuration used to open the store is incompatible") {
+            return true
+        }
+
+        if let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError {
+            return isIncompatibleStoreError(underlying)
+        }
+
+        if let detailed = error.userInfo[NSDetailedErrorsKey] as? [NSError] {
+            return detailed.contains(where: isIncompatibleStoreError)
+        }
+
+        return false
+    }
+
+    private func wipeV3StoreFiles() {
+        let storeDir = NSPersistentContainer.defaultDirectoryURL()
+        let fileManager = FileManager.default
+        let storeFileNames = [
+            "TaskModelV2-cloud.sqlite",
+            "TaskModelV2-cloud.sqlite-wal",
+            "TaskModelV2-cloud.sqlite-shm",
+            "TaskModelV2-local.sqlite",
+            "TaskModelV2-local.sqlite-wal",
+            "TaskModelV2-local.sqlite-shm",
+            "TaskModelV3-cloud.sqlite",
+            "TaskModelV3-cloud.sqlite-wal",
+            "TaskModelV3-cloud.sqlite-shm",
+            "TaskModelV3-local.sqlite",
+            "TaskModelV3-local.sqlite-wal",
+            "TaskModelV3-local.sqlite-shm"
+        ]
+
+        for fileName in storeFileNames {
+            let fileURL = storeDir.appendingPathComponent(fileName)
+            guard fileManager.fileExists(atPath: fileURL.path) else {
+                continue
+            }
+
+            do {
+                try fileManager.removeItem(at: fileURL)
+            } catch {
+                logWarning(
+                    event: "v3_store_file_delete_failed",
+                    message: "Failed to delete V3 cutover persistent store file",
+                    fields: [
+                        "file": fileName,
                         "error": error.localizedDescription
                     ]
                 )
-                semaphore.signal()
+            }
+        }
+    }
+
+    private func clearLegacyV1PreferenceKeys(defaults: UserDefaults) {
+        let legacyKeys = [
+            "home.focus.lastFilterState.v1",
+            "home.focus.pinnedTaskIDs.v1",
+            "home.focus.savedViews.v1"
+        ]
+        for key in legacyKeys {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    private func ensureV3Defaults() {
+        guard let context = persistentContainer?.viewContext else {
+            return
+        }
+        context.performAndWait {
+            do {
+                let lifeAreaRequest = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+                lifeAreaRequest.predicate = NSPredicate(format: "name ==[c] %@", "General")
+                lifeAreaRequest.fetchLimit = 1
+
+                let lifeArea: NSManagedObject
+                if let existing = try context.fetch(lifeAreaRequest).first {
+                    lifeArea = existing
+                } else {
+                    let created = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
+                    created.setValue(UUID(), forKey: "id")
+                    created.setValue("General", forKey: "name")
+                    created.setValue("#4A6FA5", forKey: "color")
+                    created.setValue("square.grid.2x2", forKey: "icon")
+                    created.setValue(Int32(0), forKey: "sortOrder")
+                    created.setValue(false, forKey: "isArchived")
+                    created.setValue(Date(), forKey: "createdAt")
+                    created.setValue(Date(), forKey: "updatedAt")
+                    created.setValue(Int32(1), forKey: "version")
+                    lifeArea = created
+                }
+
+                let inboxRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
+                inboxRequest.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+                    NSPredicate(format: "id == %@", ProjectConstants.inboxProjectID as CVarArg),
+                    NSPredicate(format: "isInbox == YES"),
+                    NSPredicate(format: "isDefault == YES"),
+                    NSPredicate(format: "name ==[c] %@", ProjectConstants.inboxProjectName)
+                ])
+                inboxRequest.fetchLimit = 1
+                let inbox = try context.fetch(inboxRequest).first ?? NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
+                inbox.setValue(ProjectConstants.inboxProjectID, forKey: "id")
+                inbox.setValue(lifeArea.value(forKey: "id") as? UUID, forKey: "lifeAreaID")
+                inbox.setValue(ProjectConstants.inboxProjectName, forKey: "name")
+                inbox.setValue(ProjectConstants.inboxProjectDescription, forKey: "projectDescription")
+                inbox.setValue(true, forKey: "isInbox")
+                inbox.setValue(true, forKey: "isDefault")
+                inbox.setValue(false, forKey: "isArchived")
+                inbox.setValue(false, forKey: "isFavorite")
+                inbox.setValue("gray", forKey: "color")
+                inbox.setValue("inbox", forKey: "icon")
+                inbox.setValue("active", forKey: "status")
+                inbox.setValue(Int32(1), forKey: "priority")
+                if inbox.value(forKey: "createdDate") == nil {
+                    inbox.setValue(Date(), forKey: "createdDate")
+                }
+                inbox.setValue(Date(), forKey: "modifiedDate")
+                inbox.setValue(Date(), forKey: "updatedAt")
+
+                try backfillTaskLifeAreaIDsIfNeeded(in: context)
+
+                if context.hasChanges {
+                    try context.save()
+                }
+            } catch {
+                logError(
+                    event: "v3_default_seed_failed",
+                    message: "Failed to seed V3 default life area/inbox",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+        }
+    }
+
+    private func backfillTaskLifeAreaIDsIfNeeded(in context: NSManagedObjectContext) throws {
+        guard
+            let taskEntity = NSEntityDescription.entity(forEntityName: "TaskDefinition", in: context),
+            taskEntity.attributesByName["lifeAreaID"] != nil
+        else {
+            return
+        }
+
+        let projectRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
+        let projects = try context.fetch(projectRequest)
+        var lifeAreaByProjectID: [UUID: UUID] = [:]
+        for project in projects {
+            let projectID = project.value(forKey: "id") as? UUID
+            let lifeAreaID = project.value(forKey: "lifeAreaID") as? UUID
+            if let projectID, let lifeAreaID {
+                lifeAreaByProjectID[projectID] = lifeAreaID
             }
         }
 
-        // Wait for migration to complete (with extended timeout for emergency fix)
-        let timeout = DispatchTime.now() + .seconds(60)
-        if semaphore.wait(timeout: timeout) == .timedOut {
+        guard lifeAreaByProjectID.isEmpty == false else {
+            return
+        }
+
+        let taskRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+        taskRequest.predicate = NSPredicate(format: "lifeAreaID == nil")
+        let tasks = try context.fetch(taskRequest)
+
+        var updated = 0
+        for task in tasks {
+            guard
+                let projectID = task.value(forKey: "projectID") as? UUID,
+                let lifeAreaID = lifeAreaByProjectID[projectID]
+            else {
+                continue
+            }
+            task.setValue(lifeAreaID, forKey: "lifeAreaID")
+            updated += 1
+        }
+
+        if updated > 0 {
             logWarning(
-                event: "emergency_migration_timeout",
-                message: "Emergency migration timed out",
-                fields: [
-                    "timeout_seconds": "60"
-                ]
+                event: "task_life_area_backfill_applied",
+                message: "Backfilled TaskDefinition.lifeAreaID from project linkage",
+                fields: ["updated_count": String(updated)]
             )
         }
     }
 
-    /// 🔥 EMERGENCY: Verify migration results to ensure all data has proper UUIDs
-    private func verifyMigrationResults() {
+    private func registerBackgroundTasks() {
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: occurrenceRefreshTaskIdentifier,
+            using: nil
+        ) { [weak self] task in
+            guard let refreshTask = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self?.handleOccurrenceRefresh(task: refreshTask)
+        }
 
-        let context = persistentContainer.viewContext
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: remindersRefreshTaskIdentifier,
+            using: nil
+        ) { [weak self] task in
+            guard let refreshTask = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self?.handleRemindersRefresh(task: refreshTask)
+        }
+    }
 
-        // Check Projects
-        let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+    private func scheduleOccurrenceRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: occurrenceRefreshTaskIdentifier)
+        request.earliestBeginDate = Calendar.current.date(byAdding: .hour, value: 12, to: Date())
         do {
-            let allProjects = try context.fetch(projectRequest)
-
-            var projectsWithUUID = 0
-            var projectsWithoutUUID = 0
-
-            for project in allProjects {
-                if project.projectID != nil {
-                    projectsWithUUID += 1
-                    if let projectName = project.projectName {
-                    }
-                } else {
-                    projectsWithoutUUID += 1
-                }
-            }
-
-
-            // Check Tasks
-            let taskRequest: NSFetchRequest<NTask> = NTask.fetchRequest()
-            let allTasks = try context.fetch(taskRequest)
-
-            var tasksWithUUID = 0
-            var tasksWithoutUUID = 0
-            var tasksWithProjectUUID = 0
-            var tasksWithoutProjectUUID = 0
-
-            for task in allTasks {
-                if task.taskID != nil {
-                    tasksWithUUID += 1
-                } else {
-                    tasksWithoutUUID += 1
-                }
-
-                if task.projectID != nil {
-                    tasksWithProjectUUID += 1
-                } else {
-                    tasksWithoutProjectUUID += 1
-                }
-            }
-
-
-            // Overall status
-            if projectsWithoutUUID == 0 && tasksWithoutUUID == 0 && tasksWithoutProjectUUID == 0 {
-            } else {
-                logWarning(
-                    event: "migration_incomplete",
-                    message: "Migration incomplete: entities still missing UUIDs",
-                    fields: [
-                        "projects_without_uuid": String(projectsWithoutUUID),
-                        "tasks_without_uuid": String(tasksWithoutUUID),
-                        "tasks_without_project_uuid": String(tasksWithoutProjectUUID)
-                    ]
-                )
-            }
-
+            try BGTaskScheduler.shared.submit(request)
         } catch {
-            logError(
-                event: "migration_verification_failed",
-                message: "Migration verification failed",
+            logWarning(
+                event: "bg_refresh_schedule_failed",
+                message: "Failed to schedule V3 occurrence refresh task",
+                fields: ["error": error.localizedDescription]
+            )
+        }
+    }
+
+    private func scheduleRemindersRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: remindersRefreshTaskIdentifier)
+        request.earliestBeginDate = Calendar.current.date(byAdding: .hour, value: 6, to: Date())
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            logWarning(
+                event: "bg_reminders_schedule_failed",
+                message: "Failed to schedule reminders background refresh task",
+                fields: ["error": error.localizedDescription]
+            )
+        }
+    }
+
+    private func handleOccurrenceRefresh(task: BGAppRefreshTask) {
+        scheduleOccurrenceRefresh()
+        task.expirationHandler = {
+            task.setTaskCompleted(success: false)
+        }
+
+        let generateUseCase = PresentationDependencyContainer.shared.coordinator.generateOccurrences
+
+        generateUseCase.execute(daysAhead: 14) { result in
+            switch result {
+            case .success:
+                let maintain = PresentationDependencyContainer.shared.coordinator.maintainOccurrences
+                let purge = PresentationDependencyContainer.shared.coordinator.purgeExpiredTombstones
+
+                maintain.execute { maintainResult in
+                    switch maintainResult {
+                    case .success:
+                        purge.execute { purgeResult in
+                            switch purgeResult {
+                            case .success:
+                                task.setTaskCompleted(success: true)
+                            case .failure(let error):
+                                logWarning(
+                                    event: "bg_tombstone_purge_failed",
+                                    message: "Tombstone purge failed in background refresh",
+                                    fields: ["error": error.localizedDescription]
+                                )
+                                task.setTaskCompleted(success: false)
+                            }
+                        }
+                    case .failure(let error):
+                        logWarning(
+                            event: "bg_maintenance_failed",
+                            message: "Occurrence maintenance failed in background refresh",
+                            fields: ["error": error.localizedDescription]
+                        )
+                        task.setTaskCompleted(success: false)
+                    }
+                }
+            case .failure(let error):
+                logWarning(
+                    event: "bg_refresh_execute_failed",
+                    message: "Occurrence generation failed in background refresh",
+                    fields: ["error": error.localizedDescription]
+                )
+                task.setTaskCompleted(success: false)
+            }
+        }
+    }
+
+    private func handleRemindersRefresh(task: BGAppRefreshTask) {
+        scheduleRemindersRefresh()
+        task.expirationHandler = {
+            task.setTaskCompleted(success: false)
+        }
+
+        guard V2FeatureFlags.remindersSyncEnabled, V2FeatureFlags.remindersBackgroundRefreshEnabled else {
+            task.setTaskCompleted(success: true)
+            return
+        }
+
+        let reconcileUseCase = PresentationDependencyContainer.shared.coordinator.reconcileExternalReminders
+        guard let externalRepository = EnhancedDependencyContainer.shared.externalSyncRepository else {
+            logWarning(
+                event: "bg_reminders_missing_dependencies",
+                message: "Skipping reminders refresh because V3 sync dependencies are unavailable",
+                fields: [:]
+            )
+            task.setTaskCompleted(success: false)
+            return
+        }
+
+        externalRepository.fetchContainerMappings { result in
+            switch result {
+            case .failure(let error):
+                logWarning(
+                    event: "bg_reminders_fetch_mappings_failed",
+                    message: "Failed to load external container mappings for reminders refresh",
+                    fields: ["error": error.localizedDescription]
+                )
+                task.setTaskCompleted(success: false)
+            case .success(let mappings):
+                let syncedMappings = mappings.filter { $0.provider == "apple_reminders" && $0.syncEnabled }
+                guard syncedMappings.isEmpty == false else {
+                    task.setTaskCompleted(success: true)
+                    return
+                }
+
+                self.processReminderReconcileQueue(
+                    mappings: syncedMappings,
+                    index: 0,
+                    reconcileUseCase: reconcileUseCase,
+                    externalRepository: externalRepository,
+                    failureCount: 0
+                ) { failureCount in
+                    task.setTaskCompleted(success: failureCount == 0)
+                }
+            }
+        }
+    }
+
+    private func processReminderReconcileQueue(
+        mappings: [ExternalContainerMapDefinition],
+        index: Int,
+        reconcileUseCase: ReconcileExternalRemindersUseCase,
+        externalRepository: ExternalSyncRepositoryProtocol,
+        failureCount: Int,
+        completion: @escaping (Int) -> Void
+    ) {
+        guard index < mappings.count else {
+            completion(failureCount)
+            return
+        }
+
+        let mapping = mappings[index]
+        var didFinish = false
+        let timeoutItem = DispatchWorkItem { [weak self] in
+            guard didFinish == false else { return }
+            didFinish = true
+            logWarning(
+                event: "bg_reminders_project_timeout",
+                message: "Project reconcile timed out in background reminders refresh",
                 fields: [
-                    "error": error.localizedDescription
+                    "project_id": mapping.projectID.uuidString,
+                    "external_container_id": mapping.externalContainerID
                 ]
             )
+            self?.processReminderReconcileQueue(
+                mappings: mappings,
+                index: index + 1,
+                reconcileUseCase: reconcileUseCase,
+                externalRepository: externalRepository,
+                failureCount: failureCount + 1,
+                completion: completion
+            )
+        }
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 55, execute: timeoutItem)
+
+        reconcileUseCase.reconcileProject(projectID: mapping.projectID) { [weak self] result in
+            guard didFinish == false else { return }
+            didFinish = true
+            timeoutItem.cancel()
+
+            switch result {
+            case .success:
+                externalRepository.upsertContainerMapping(
+                    provider: mapping.provider,
+                    projectID: mapping.projectID
+                ) { existing in
+                    var resolved = existing ?? mapping
+                    resolved.lastSyncAt = Date()
+                    resolved.syncEnabled = true
+                    return resolved
+                } completion: { _ in
+                    self?.processReminderReconcileQueue(
+                        mappings: mappings,
+                        index: index + 1,
+                        reconcileUseCase: reconcileUseCase,
+                        externalRepository: externalRepository,
+                        failureCount: failureCount,
+                        completion: completion
+                    )
+                }
+            case .failure(let error):
+                logWarning(
+                    event: "bg_reminders_project_failed",
+                    message: "Project reconcile failed in background reminders refresh",
+                    fields: [
+                        "project_id": mapping.projectID.uuidString,
+                        "external_container_id": mapping.externalContainerID,
+                        "error": error.localizedDescription
+                    ]
+                )
+                DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2) {
+                    self?.processReminderReconcileQueue(
+                        mappings: mappings,
+                        index: index + 1,
+                        reconcileUseCase: reconcileUseCase,
+                        externalRepository: externalRepository,
+                        failureCount: failureCount + 1,
+                        completion: completion
+                    )
+                }
+            }
         }
     }
 
     // MARK: - Clean Architecture Setup
 
     /// Setup Clean Architecture with modern components only
-    func setupCleanArchitecture() {
-        
-        // Configure legacy DependencyContainer for backward compatibility
-        DependencyContainer.shared.configure(with: persistentContainer)
+    @discardableResult
+    func setupCleanArchitecture() -> Bool {
+        guard let persistentContainer else {
+            logError(
+                event: "setup_clean_architecture_skipped",
+                message: "Skipping dependency configuration because persistent container is unavailable",
+                fields: ["reason": "persistent_container_nil"]
+            )
+            return false
+        }
 
-        // Configure presentation container with typed API (no reflection).
-        PresentationDependencyContainer.shared.configure(with: persistentContainer)
-        
-        // Run basic data consolidation
-        consolidateDataBasic()
-        
-    }
-    
-    /// Basic data consolidation without complex type dependencies
-    private func consolidateDataBasic() {
-
-        // Run cleanup first to remove duplicates
-        cleanupDuplicateProjects()
-
-        // Ensure Inbox project exists using Core Data directly
-        ensureInboxProjectExists()
-
-        // Fix any tasks with missing data
-        fixMissingTaskData()
-
-    }
-
-    /// Clean up duplicate projects from the database
-    private func cleanupDuplicateProjects() {
-        let context = persistentContainer.viewContext
+        // Freeze runtime composition to AppDelegate -> PresentationDependencyContainer -> UseCaseCoordinator.
+        let stateContainer = EnhancedDependencyContainer.shared
+        stateContainer.configure(with: persistentContainer)
 
         do {
-            var inboxDuplicatesRemoved = 0
-            var customDuplicatesRemoved = 0
-
-            // 1. Clean up duplicate Inbox projects
-            let inboxFetchRequest = Projects.fetchRequest()
-            inboxFetchRequest.predicate = NSPredicate(
-                format: "projectName ==[c] %@",
-                ProjectConstants.inboxProjectName
-            )
-
-            let inboxProjects = try context.fetch(inboxFetchRequest)
-
-            if inboxProjects.count > 1 {
-                // Keep only the one with the correct UUID, or the first one if none match
-                var projectToKeep: Projects?
-
-                // First, try to find one with the correct UUID
-                projectToKeep = inboxProjects.first { $0.projectID == ProjectConstants.inboxProjectID }
-
-                // If no project has the correct UUID, keep the first one and update its UUID
-                if projectToKeep == nil {
-                    projectToKeep = inboxProjects.first
-                    projectToKeep?.projectID = ProjectConstants.inboxProjectID
-                    projectToKeep?.projectName = ProjectConstants.inboxProjectName
-                    projectToKeep?.projecDescription = ProjectConstants.inboxProjectDescription
-                }
-
-                // Delete all other Inbox projects
-                for project in inboxProjects {
-                    if project.objectID != projectToKeep?.objectID {
-                        context.delete(project)
-                        inboxDuplicatesRemoved += 1
-                    }
-                }
-            }
-
-            // 2. Clean up duplicate custom projects
-            let allProjectsFetchRequest = Projects.fetchRequest()
-            let allProjects = try context.fetch(allProjectsFetchRequest)
-
-            // Group projects by name (case-insensitive)
-            var projectsByName: [String: [Projects]] = [:]
-            for project in allProjects {
-                let name = project.projectName?.lowercased() ?? ""
-                if !name.isEmpty && name != ProjectConstants.inboxProjectName.lowercased() {
-                    if projectsByName[name] == nil {
-                        projectsByName[name] = []
-                    }
-                    projectsByName[name]?.append(project)
-                }
-            }
-
-            // For each group with duplicates, keep only the first one
-            for (_, projects) in projectsByName {
-                if projects.count > 1 {
-                    // Keep the first project (or the one with UUID if available)
-                    let projectToKeep = projects.first { $0.projectID != nil } ?? projects.first
-
-                    // Delete all others
-                    for project in projects {
-                        if project.objectID != projectToKeep?.objectID {
-                            context.delete(project)
-                            customDuplicatesRemoved += 1
-                        }
-                    }
-                }
-            }
-
-            // Save changes if any duplicates were removed
-            if inboxDuplicatesRemoved > 0 || customDuplicatesRemoved > 0 {
-                try context.save()
-            }
+            try stateContainer.assertV3RuntimeReady()
         } catch {
-            logWarning(
-                event: "duplicate_project_cleanup_failed",
-                message: "Failed to clean duplicate projects",
-                fields: [
-                    "error": error.localizedDescription
-                ]
-            )
+            return failClosedV3Runtime(reason: error.localizedDescription)
         }
-    }
-    
-    /// Ensure Inbox project exists in Core Data with UUID
-    private func ensureInboxProjectExists() {
-        let context = persistentContainer.viewContext
-        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        request.predicate = NSPredicate(
-            format: "projectID == %@",
-            ProjectConstants.inboxProjectID as CVarArg
+
+        PresentationDependencyContainer.shared.configure(
+            taskReadModelRepository: stateContainer.taskReadModelRepository,
+            projectRepository: stateContainer.projectRepository,
+            useCaseCoordinator: stateContainer.useCaseCoordinator
         )
 
         do {
-            let existingProjects = try context.fetch(request)
-
-            if existingProjects.isEmpty {
-                // Create Inbox project with fixed UUID
-                let inboxProject = Projects(context: context)
-                inboxProject.projectID = ProjectConstants.inboxProjectID
-                inboxProject.projectName = ProjectConstants.inboxProjectName
-                inboxProject.projecDescription = ProjectConstants.inboxProjectDescription
-
-                try context.save()
-            } else {
-                // Ensure existing Inbox has the correct UUID
-                if let inbox = existingProjects.first, inbox.projectID != ProjectConstants.inboxProjectID {
-                    inbox.projectID = ProjectConstants.inboxProjectID
-                    try context.save()
-                }
-            }
+            try PresentationDependencyContainer.shared.assertV3RuntimeReady()
         } catch {
-            logWarning(
-                event: "ensure_inbox_project_failed",
-                message: "Failed to ensure Inbox project exists",
-                fields: [
-                    "error": error.localizedDescription
-                ]
-            )
+            return failClosedV3Runtime(reason: error.localizedDescription)
+        }
+
+        // Seed clean-start V3 defaults.
+        ensureV3Defaults()
+        repairProjectIdentityIfNeeded()
+
+        // Configure LLM access through repositories (no direct Core Data context pulls).
+        LLMContextRepositoryProvider.configure(
+            taskReadModelRepository: stateContainer.taskReadModelRepository,
+            projectRepository: stateContainer.projectRepository
+        )
+        return true
+    }
+
+    private func failClosedV3Runtime(reason: String) -> Bool {
+        let failureMessage = "Tasker failed to initialize required V3 runtime dependencies."
+        persistentBootstrapState = .failed(failureMessage)
+        AppDelegate.persistentBootstrapFailureMessage = failureMessage
+        logError(
+            event: "v3_runtime_not_ready",
+            message: "Failing closed because required V3 runtime dependencies are missing",
+            fields: ["reason": reason]
+        )
+        return false
+    }
+
+    private func repairProjectIdentityIfNeeded() {
+        let manageProjects = PresentationDependencyContainer.shared.coordinator.manageProjects
+        manageProjects.repairProjectIdentityCollisions { result in
+            switch result {
+            case .success(let report):
+                logWarning(
+                    event: "project_identity_repair",
+                    message: "Project identity repair completed",
+                    fields: [
+                        "scanned": String(report.scanned),
+                        "merged": String(report.merged),
+                        "deleted": String(report.deleted),
+                        "inbox_candidates": String(report.inboxCandidates),
+                        "warnings_count": String(report.warnings.count)
+                    ]
+                )
+            case .failure(let error):
+                logError(
+                    event: "project_identity_repair_failed",
+                    message: "Project identity repair failed",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
         }
     }
-    
-    /// Fix tasks with missing required data including UUIDs
-    private func fixMissingTaskData() {
-        let context = persistentContainer.viewContext
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-
-        do {
-            let tasks = try context.fetch(request)
-            var needsSave = false
-
-            for task in tasks {
-                // Generate taskID if missing
-                if task.taskID == nil {
-                    task.taskID = UUID()
-                    needsSave = true
-                }
-
-                // Assign to Inbox if projectID is missing
-                if task.projectID == nil {
-                    task.projectID = ProjectConstants.inboxProjectID
-                    needsSave = true
-                }
-
-                // Fix missing project name (for backward compatibility)
-                if task.project == nil || task.project?.isEmpty == true {
-                    task.project = "Inbox"
-                    needsSave = true
-                }
-
-                // Fix missing dates
-                if task.dateAdded == nil {
-                    task.dateAdded = Date() as NSDate
-                    needsSave = true
-                }
-
-                // Fix missing due date
-                if task.dueDate == nil {
-                    task.dueDate = Date() as NSDate
-                    needsSave = true
-                }
-
-                // Fix missing task type
-                if task.taskType == 0 {
-                    task.taskType = 1 // Morning task
-                    needsSave = true
-                }
-
-                // Fix missing priority
-                if task.taskPriority == 0 {
-                    task.taskPriority = TaskPriority.low.rawValue
-                    needsSave = true
-                }
-            }
-
-            if needsSave {
-                try context.save()
-            }
-
-        } catch {
-            logWarning(
-                event: "fix_missing_task_data_failed",
-                message: "Failed to fix missing task data",
-                fields: [
-                    "error": error.localizedDescription
-                ]
-            )
-        }
-    }
-    
-
-
 }

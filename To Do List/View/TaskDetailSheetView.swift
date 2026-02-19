@@ -2,36 +2,71 @@
 //  TaskDetailSheetView.swift
 //  Tasker
 //
-//  Premium "Gem Card" task detail sheet.
-//  Matches the Obsidian & Gems design language with inline editing,
-//  medium-detent presentation, and full token-system integration.
+//  Restored shared legacy-style task detail sheet backed by V2 use cases.
 //
 
 import SwiftUI
-import CoreData
 
-// MARK: - Task Detail Sheet View
+// MARK: - Task Detail Sheet
+
+private enum TaskDetailAutosaveState: Equatable {
+    case idle
+    case saving
+    case saved
+    case failed(String)
+
+    var label: String {
+        switch self {
+        case .idle:
+            return ""
+        case .saving:
+            return "Saving..."
+        case .saved:
+            return "Saved"
+        case .failed(let message):
+            return message
+        }
+    }
+
+    @MainActor
+    var color: Color {
+        switch self {
+        case .idle:
+            return Color.clear
+        case .saving:
+            return Color.tasker.textTertiary
+        case .saved:
+            return Color.tasker.statusSuccess
+        case .failed:
+            return Color.tasker.statusDanger
+        }
+    }
+}
 
 struct TaskDetailSheetView: View {
-    let task: NTask
-    let projectNames: [String]
-    var onSave: (() -> Void)?
-    var onToggleComplete: (() -> Void)?
-    var onDismiss: (() -> Void)?
-    var onDelete: (() -> Void)?
+    typealias UpdateHandler = (UpdateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias CompletionHandler = (Bool, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias DeleteHandler = (@escaping (Result<Void, Error>) -> Void) -> Void
+    typealias RescheduleHandler = (Date, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
 
-    // MARK: - Editable State
+    let task: TaskDefinition
+    let projects: [Project]
+    let onUpdate: UpdateHandler
+    let onSetCompletion: CompletionHandler
+    let onDelete: DeleteHandler
+    let onReschedule: RescheduleHandler
 
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var persistedTask: TaskDefinition
     @State private var taskName: String
     @State private var taskDescription: String
-    @State private var taskPriority: Int32
-    @State private var taskType: Int32
-    @State private var selectedProject: String
+    @State private var taskPriorityRaw: Int32
+    @State private var taskTypeRaw: Int32
+    @State private var selectedProjectID: UUID
     @State private var dueDate: Date?
     @State private var reminderTime: Date?
     @State private var isComplete: Bool
-
-    // MARK: - UI State
 
     @State private var isEditingTitle = false
     @State private var isEditingDescription = false
@@ -40,93 +75,110 @@ struct TaskDetailSheetView: View {
     @State private var showPriorityPicker = false
     @State private var showProjectPicker = false
     @State private var showTypePicker = false
-    @State private var hasChanges = false
-    @Environment(\.dismiss) private var dismiss
 
-    // MARK: - Init
+    @State private var autosaveWorkItem: DispatchWorkItem?
+    @State private var isSaving = false
+    @State private var needsSaveAfterCurrentRequest = false
+    @State private var suppressAutosave = false
+    @State private var autosaveState: TaskDetailAutosaveState = .idle
+
+    private let textAutosaveDebounceSeconds: TimeInterval = 0.4
 
     init(
-        task: NTask,
-        projectNames: [String],
-        onSave: (() -> Void)? = nil,
-        onToggleComplete: (() -> Void)? = nil,
-        onDismiss: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil
+        task: TaskDefinition,
+        projects: [Project],
+        onUpdate: @escaping UpdateHandler,
+        onSetCompletion: @escaping CompletionHandler,
+        onDelete: @escaping DeleteHandler,
+        onReschedule: @escaping RescheduleHandler
     ) {
         self.task = task
-        self.projectNames = projectNames
-        self.onSave = onSave
-        self.onToggleComplete = onToggleComplete
-        self.onDismiss = onDismiss
+        self.projects = projects
+        self.onUpdate = onUpdate
+        self.onSetCompletion = onSetCompletion
         self.onDelete = onDelete
+        self.onReschedule = onReschedule
 
-        _taskName = State(initialValue: task.name ?? "")
-        _taskDescription = State(initialValue: task.taskDetails ?? "")
-        _taskPriority = State(initialValue: task.taskPriority)
-        _taskType = State(initialValue: task.taskType)
-        _selectedProject = State(initialValue: task.project ?? "Inbox")
-        _dueDate = State(initialValue: task.dueDate as Date?)
-        _reminderTime = State(initialValue: task.alertReminderTime as Date?)
+        _persistedTask = State(initialValue: task)
+        _taskName = State(initialValue: task.title)
+        _taskDescription = State(initialValue: task.details ?? "")
+        _taskPriorityRaw = State(initialValue: task.priority.rawValue)
+        _taskTypeRaw = State(initialValue: task.type.rawValue)
+        _selectedProjectID = State(initialValue: task.projectID)
+        _dueDate = State(initialValue: task.dueDate)
+        _reminderTime = State(initialValue: task.alertReminderTime)
         _isComplete = State(initialValue: task.isComplete)
     }
-
-    // MARK: - Body
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
-                priorityAccentBar
-                    .staggeredAppearance(index: 0)
+                Rectangle()
+                    .fill(priorityColor)
+                    .frame(height: 4)
 
                 headerSection
-                    .staggeredAppearance(index: 1)
+                    .staggeredAppearance(index: 0)
+
+                if autosaveState != .idle {
+                    Text(autosaveState.label)
+                        .font(.tasker(.caption2))
+                        .foregroundColor(autosaveState.color)
+                        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+                        .padding(.bottom, TaskerTheme.Spacing.sm)
+                }
 
                 quickInfoRow
-                    .staggeredAppearance(index: 2)
+                    .staggeredAppearance(index: 1)
 
                 descriptionSection
-                    .staggeredAppearance(index: 3)
+                    .staggeredAppearance(index: 2)
 
                 TaskDetailSectionDivider("Details")
                     .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
                     .padding(.top, TaskerTheme.Spacing.lg)
-                    .staggeredAppearance(index: 4)
+                    .staggeredAppearance(index: 3)
 
                 editableFieldsSection
-                    .staggeredAppearance(index: 5)
+                    .staggeredAppearance(index: 4)
 
                 actionSection
-                    .staggeredAppearance(index: 6)
+                    .staggeredAppearance(index: 5)
 
                 metadataFooter
-                    .staggeredAppearance(index: 7)
+                    .staggeredAppearance(index: 6)
             }
         }
         .background(Color.tasker.bgCanvas)
         .presentationDragIndicator(.visible)
-        .onChange(of: taskName) { hasChanges = true }
-        .onChange(of: taskDescription) { hasChanges = true }
-        .onChange(of: taskPriority) { hasChanges = true }
-        .onChange(of: taskType) { hasChanges = true }
-        .onChange(of: selectedProject) { hasChanges = true }
-        .onChange(of: dueDate) { hasChanges = true }
-        .onChange(of: reminderTime) { hasChanges = true }
+        .onChange(of: taskName) { _ in
+            scheduleAutosave(debounced: true)
+        }
+        .onChange(of: taskDescription) { _ in
+            scheduleAutosave(debounced: true)
+        }
+        .onChange(of: taskPriorityRaw) { _ in
+            scheduleAutosave(debounced: false)
+        }
+        .onChange(of: taskTypeRaw) { _ in
+            scheduleAutosave(debounced: false)
+        }
+        .onChange(of: selectedProjectID) { _ in
+            scheduleAutosave(debounced: false)
+        }
+        .onChange(of: dueDate) { _ in
+            scheduleAutosave(debounced: false)
+        }
+        .onChange(of: reminderTime) { _ in
+            scheduleAutosave(debounced: false)
+        }
+        .onDisappear {
+            autosaveWorkItem?.cancel()
+        }
     }
-
-    // MARK: - Priority Accent Bar
-
-    private var priorityAccentBar: some View {
-        Rectangle()
-            .fill(priorityColor)
-            .frame(height: 4)
-            .animation(TaskerAnimation.snappy, value: taskPriority)
-    }
-
-    // MARK: - Header Section
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-            // Checkbox + Title row
             HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
                 CompletionCheckbox(isComplete: isComplete) {
                     toggleCompletion()
@@ -149,20 +201,18 @@ struct TaskDetailSheetView: View {
                 }
             }
 
-            // Badges row
             HStack(spacing: TaskerTheme.Spacing.sm) {
-                PriorityBadge(priority: taskPriority)
-                ScoreBadge(points: scorePoints)
+                PriorityBadge(priority: taskPriorityRaw)
+                ScoreBadge(points: TaskPriority(rawValue: taskPriorityRaw).scorePoints)
 
                 Spacer()
 
-                // Project chip
-                Text(selectedProject)
+                Text(selectedProjectName)
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.accentPrimary)
                     .padding(.horizontal, TaskerTheme.Spacing.sm)
                     .padding(.vertical, 4)
-                    .background(Color.tasker.accentWash)
+                    .background(Color.tasker.accentMuted)
                     .clipShape(Capsule())
             }
         }
@@ -170,8 +220,6 @@ struct TaskDetailSheetView: View {
         .padding(.top, TaskerTheme.Spacing.lg)
         .padding(.bottom, TaskerTheme.Spacing.md)
     }
-
-    // MARK: - Quick Info Row
 
     private var quickInfoRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -190,15 +238,15 @@ struct TaskDetailSheetView: View {
                     color: Color.tasker.textSecondary
                 )
 
-                if reminderTime != nil {
+                if let reminderTime {
                     InfoPill(
                         icon: "bell.fill",
-                        text: formatTime(reminderTime!),
+                        text: formatTime(reminderTime),
                         color: Color.tasker.accentPrimary
                     )
                 }
 
-                if isComplete, let completedDate = task.dateCompleted as Date? {
+                if isComplete, let completedDate = persistedTask.dateCompleted {
                     InfoPill(
                         icon: "checkmark",
                         text: "Done \(DateUtils.formatDate(completedDate))",
@@ -210,8 +258,6 @@ struct TaskDetailSheetView: View {
         }
         .padding(.bottom, TaskerTheme.Spacing.md)
     }
-
-    // MARK: - Description Section
 
     private var descriptionSection: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
@@ -230,7 +276,7 @@ struct TaskDetailSheetView: View {
                     )
             } else {
                 Group {
-                    if taskDescription.isEmpty {
+                    if taskDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text("Add a description...")
                             .font(.tasker(.body))
                             .foregroundColor(Color.tasker.textQuaternary)
@@ -256,41 +302,32 @@ struct TaskDetailSheetView: View {
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
 
-    // MARK: - Editable Fields Section
-
     private var editableFieldsSection: some View {
         VStack(spacing: 0) {
-            // Due Date
             dueDateRow
 
             Divider()
                 .foregroundColor(Color.tasker.strokeHairline)
 
-            // Priority
             priorityRow
 
             Divider()
                 .foregroundColor(Color.tasker.strokeHairline)
 
-            // Project
             projectRow
 
             Divider()
                 .foregroundColor(Color.tasker.strokeHairline)
 
-            // Task Type
             typeRow
 
             Divider()
                 .foregroundColor(Color.tasker.strokeHairline)
 
-            // Reminder
             reminderRow
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
-
-    // MARK: - Due Date Row
 
     private var dueDateRow: some View {
         VStack(spacing: 0) {
@@ -318,7 +355,7 @@ struct TaskDetailSheetView: View {
                         get: { dueDate ?? Date() },
                         set: { dueDate = $0 }
                     ),
-                    displayedComponents: [.date]
+                    displayedComponents: [.date, .hourAndMinute]
                 )
                 .datePickerStyle(.graphical)
                 .tint(Color.tasker.accentPrimary)
@@ -327,8 +364,6 @@ struct TaskDetailSheetView: View {
             }
         }
     }
-
-    // MARK: - Priority Row
 
     private var priorityRow: some View {
         VStack(spacing: 0) {
@@ -343,14 +378,12 @@ struct TaskDetailSheetView: View {
             }
 
             if showPriorityPicker {
-                PriorityPillSelector(selectedPriority: $taskPriority)
+                PriorityPillSelector(selectedPriority: $taskPriorityRaw)
                     .padding(.bottom, TaskerTheme.Spacing.md)
                     .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
             }
         }
     }
-
-    // MARK: - Project Row
 
     private var projectRow: some View {
         VStack(spacing: 0) {
@@ -359,7 +392,7 @@ struct TaskDetailSheetView: View {
                     showProjectPicker.toggle()
                 }
             }) {
-                Text(selectedProject)
+                Text(selectedProjectName)
                     .font(.tasker(.bodyEmphasis))
                     .foregroundColor(Color.tasker.textPrimary)
             }
@@ -367,14 +400,14 @@ struct TaskDetailSheetView: View {
             if showProjectPicker {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: TaskerTheme.Spacing.sm) {
-                        ForEach(projectNames, id: \.self) { name in
+                        ForEach(projectOptions, id: \.id) { project in
                             TaskerChip(
-                                title: name,
-                                isSelected: selectedProject == name,
+                                title: project.name,
+                                isSelected: selectedProjectID == project.id,
                                 selectedStyle: .tinted
                             ) {
                                 withAnimation(TaskerAnimation.snappy) {
-                                    selectedProject = name
+                                    selectedProjectID = project.id
                                 }
                                 TaskerFeedback.selection()
                             }
@@ -386,8 +419,6 @@ struct TaskDetailSheetView: View {
             }
         }
     }
-
-    // MARK: - Type Row
 
     private var typeRow: some View {
         VStack(spacing: 0) {
@@ -402,14 +433,12 @@ struct TaskDetailSheetView: View {
             }
 
             if showTypePicker {
-                TypeChipSelector(selectedType: $taskType)
+                TypeChipSelector(selectedType: $taskTypeRaw)
                     .padding(.bottom, TaskerTheme.Spacing.md)
                     .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
             }
         }
     }
-
-    // MARK: - Reminder Row
 
     private var reminderRow: some View {
         VStack(spacing: 0) {
@@ -448,17 +477,16 @@ struct TaskDetailSheetView: View {
         }
     }
 
-    // MARK: - Action Section
-
     private var actionSection: some View {
         VStack(spacing: TaskerTheme.Spacing.md) {
-            // Save button (visible when changes detected)
-            if hasChanges {
-                Button(action: saveChanges) {
+            if let dueDate {
+                Button(action: {
+                    applyReschedule(to: dueDate)
+                }) {
                     HStack(spacing: TaskerTheme.Spacing.sm) {
-                        Image(systemName: "checkmark")
+                        Image(systemName: "calendar.badge.clock")
                             .font(.system(size: 14, weight: .bold))
-                        Text("Save Changes")
+                        Text("Apply Reschedule")
                             .font(.tasker(.button))
                     }
                     .foregroundColor(Color.tasker.accentOnPrimary)
@@ -468,10 +496,8 @@ struct TaskDetailSheetView: View {
                     .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
                 }
                 .scaleOnPress()
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
 
-            // Complete / Incomplete toggle
             Button(action: {
                 toggleCompletion()
             }) {
@@ -489,31 +515,24 @@ struct TaskDetailSheetView: View {
             }
             .scaleOnPress()
 
-            // Delete button
-            if onDelete != nil {
-                Button(action: { onDelete?() }) {
-                    Text("Delete Task")
-                        .font(.tasker(.callout))
-                        .foregroundColor(Color.tasker.statusDanger)
-                }
-                .padding(.top, TaskerTheme.Spacing.xs)
+            Button(action: deleteTask) {
+                Text("Delete Task")
+                    .font(.tasker(.callout))
+                    .foregroundColor(Color.tasker.statusDanger)
             }
+            .padding(.top, TaskerTheme.Spacing.xs)
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
         .padding(.top, TaskerTheme.Spacing.xl)
     }
 
-    // MARK: - Metadata Footer
-
     private var metadataFooter: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-            if let dateAdded = task.dateAdded as Date? {
-                Text("Added \(DateUtils.formatDateTime(dateAdded))")
-                    .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textTertiary)
-            }
+            Text("Added \(DateUtils.formatDateTime(persistedTask.dateAdded))")
+                .font(.tasker(.caption2))
+                .foregroundColor(Color.tasker.textTertiary)
 
-            if isComplete, let dateCompleted = task.dateCompleted as Date? {
+            if isComplete, let dateCompleted = persistedTask.dateCompleted {
                 Text("Completed \(DateUtils.formatDateTime(dateCompleted))")
                     .font(.tasker(.caption2))
                     .foregroundColor(Color.tasker.textTertiary)
@@ -525,189 +544,262 @@ struct TaskDetailSheetView: View {
         .padding(.bottom, TaskerTheme.Spacing.xxxl)
     }
 
-    // MARK: - Save Logic
+    private var projectOptions: [Project] {
+        var ordered: [Project] = []
+        var seen = Set<UUID>()
 
-    private func saveChanges() {
-        guard !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let resolvedProject = resolveProjectSelection(for: selectedProject)
-        let oldProjectID = task.projectID
-        let oldPriority = task.taskPriority
-        let oldType = task.taskType
-        let oldDueDate = task.dueDate as Date?
+        let inbox = projects.first(where: { $0.id == ProjectConstants.inboxProjectID }) ?? Project.createInbox()
+        ordered.append(inbox)
+        seen.insert(inbox.id)
 
-        task.name = taskName
-        task.taskDetails = taskDescription.isEmpty ? nil : taskDescription
-        task.taskPriority = taskPriority
-        task.taskType = taskType
-        task.project = resolvedProject.name
-        task.projectID = resolvedProject.id
-        task.dueDate = dueDate as NSDate?
-        task.alertReminderTime = reminderTime as NSDate?
-        task.isEveningTask = taskType == 2
-
-        do {
-            try task.managedObjectContext?.save()
-            hasChanges = false
-            TaskerFeedback.success()
-            var mutationReasons: [HomeTaskMutationEvent] = []
-            if oldProjectID != resolvedProject.id {
-                mutationReasons.append(.projectChanged)
-            }
-            if oldPriority != taskPriority {
-                mutationReasons.append(.priorityChanged)
-            }
-            if oldType != taskType {
-                mutationReasons.append(.typeChanged)
-            }
-            if oldDueDate != dueDate {
-                mutationReasons.append(.dueDateChanged)
-            }
-            if mutationReasons.isEmpty {
-                mutationReasons = [.updated]
-            }
-            for reason in mutationReasons {
-                NotificationCenter.default.post(
-                    name: .homeTaskMutation,
-                    object: nil,
-                    userInfo: ["reason": reason.rawValue]
-                )
-            }
-            onSave?()
-        } catch {
-            logError(
-                event: "task_detail_save_failed",
-                message: "Failed to save task details",
-                fields: [
-                    "task_id": task.taskID?.uuidString ?? "nil",
-                    "error": error.localizedDescription
-                ]
-            )
+        for project in projects.sorted(by: { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) {
+            guard seen.contains(project.id) == false else { continue }
+            ordered.append(project)
+            seen.insert(project.id)
         }
+
+        return ordered
     }
 
-    private func toggleCompletion() {
-        withAnimation(TaskerAnimation.bouncy) {
-            isComplete.toggle()
-        }
-
-        task.isComplete = isComplete
-        task.dateCompleted = isComplete ? Date() as NSDate : nil
-
-        do {
-            try task.managedObjectContext?.save()
-            TaskerFeedback.success()
-            NotificationCenter.default.post(
-                name: .homeTaskMutation,
-                object: nil,
-                userInfo: [
-                    "reason": (isComplete ? HomeTaskMutationEvent.completed : HomeTaskMutationEvent.reopened).rawValue
-                ]
-            )
-            onToggleComplete?()
-        } catch {
-            logError(
-                event: "task_detail_toggle_failed",
-                message: "Failed to toggle task completion",
-                fields: [
-                    "task_id": task.taskID?.uuidString ?? "nil",
-                    "error": error.localizedDescription
-                ]
-            )
-        }
+    private var selectedProjectName: String {
+        projectOptions.first(where: { $0.id == selectedProjectID })?.name
+            ?? persistedTask.projectName
+            ?? ProjectConstants.inboxProjectName
     }
-
-    private func resolveProjectSelection(for projectName: String) -> (name: String, id: UUID, source: String) {
-        let trimmed = projectName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let fallbackName = ProjectConstants.inboxProjectName
-        let fallbackID = ProjectConstants.inboxProjectID
-
-        guard let context = task.managedObjectContext else {
-            let selectedName = trimmed.isEmpty ? fallbackName : trimmed
-            logWarning(
-                event: "task_detail_project_context_missing",
-                message: "Task context unavailable while resolving project; using fallback",
-                fields: ["project_id": fallbackID.uuidString]
-            )
-            return (selectedName, fallbackID, "no_context")
-        }
-
-        if !trimmed.isEmpty {
-            let byNameRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
-            byNameRequest.fetchLimit = 1
-            byNameRequest.predicate = NSPredicate(format: "projectName =[c] %@", trimmed)
-            if let project = try? context.fetch(byNameRequest).first,
-               let projectID = project.projectID {
-                let resolvedName = project.projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
-                let name = (resolvedName?.isEmpty == false) ? (resolvedName ?? trimmed) : trimmed
-                return (name, projectID, "matched_name")
-            }
-        }
-
-        let inboxRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
-        inboxRequest.fetchLimit = 1
-        inboxRequest.predicate = NSPredicate(format: "projectID == %@", fallbackID as CVarArg)
-        if let inbox = try? context.fetch(inboxRequest).first,
-           let inboxID = inbox.projectID {
-            let name = inbox.projectName ?? fallbackName
-            return (name, inboxID, "inbox_entity")
-        }
-
-        let selectedName = trimmed.isEmpty ? fallbackName : trimmed
-        logWarning(
-            event: "task_detail_project_fallback",
-            message: "Project resolution fallback used Inbox project",
-            fields: ["project_id": fallbackID.uuidString]
-        )
-        return (selectedName, fallbackID, "inbox_fallback")
-    }
-
-    // MARK: - Computed Helpers
 
     private var priorityColor: Color {
-        switch taskPriority {
-        case 1: return Color.tasker.priorityMax
-        case 2: return Color.tasker.priorityHigh
-        case 3: return Color.tasker.priorityLow
-        case 4: return Color.tasker.priorityNone
+        switch taskPriorityRaw {
+        case 1: return Color.tasker.priorityNone
+        case 2: return Color.tasker.priorityLow
+        case 3: return Color.tasker.priorityHigh
+        case 4: return Color.tasker.priorityMax
         default: return Color.tasker.priorityLow
         }
     }
 
     private var priorityLabel: String {
-        switch taskPriority {
-        case 1: return "Max"
-        case 2: return "High"
-        case 3: return "Low"
-        case 4: return "None"
+        switch taskPriorityRaw {
+        case 1: return "None"
+        case 2: return "Low"
+        case 3: return "High"
+        case 4: return "Max"
         default: return "Low"
         }
     }
 
-    private var scorePoints: Int {
-        switch taskPriority {
-        case 1: return 7
-        case 2: return 5
-        case 3: return 3
-        case 4: return 2
-        default: return 3
-        }
-    }
-
     private var taskTypeIcon: String {
-        switch taskType {
+        switch taskTypeRaw {
         case 1: return "sunrise.fill"
         case 2: return "moon.fill"
         case 3: return "calendar.badge.clock"
+        case 4: return "tray.fill"
         default: return "sunrise.fill"
         }
     }
 
     private var taskTypeLabel: String {
-        switch taskType {
+        switch taskTypeRaw {
         case 1: return "Morning"
         case 2: return "Evening"
         case 3: return "Upcoming"
+        case 4: return "Inbox"
         default: return "Morning"
+        }
+    }
+
+    private func scheduleAutosave(debounced: Bool) {
+        guard suppressAutosave == false else { return }
+
+        autosaveWorkItem?.cancel()
+
+        if isSaving {
+            needsSaveAfterCurrentRequest = true
+            return
+        }
+
+        let workItem = DispatchWorkItem {
+            performAutosave()
+        }
+        autosaveWorkItem = workItem
+
+        if debounced {
+            DispatchQueue.main.asyncAfter(deadline: .now() + textAutosaveDebounceSeconds, execute: workItem)
+        } else {
+            DispatchQueue.main.async(execute: workItem)
+        }
+    }
+
+    private func performAutosave() {
+        guard suppressAutosave == false else { return }
+
+        let trimmedTitle = taskName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmedTitle.isEmpty == false else {
+            autosaveState = .failed("Task name cannot be empty")
+            return
+        }
+
+        guard let request = makeUpdateRequest() else {
+            autosaveState = .saved
+            return
+        }
+
+        autosaveState = .saving
+        isSaving = true
+
+        onUpdate(request) { result in
+            DispatchQueue.main.async {
+                isSaving = false
+                switch result {
+                case .success(let updatedTask):
+                    syncDraftFromTask(updatedTask)
+                    autosaveState = .saved
+
+                case .failure(let error):
+                    autosaveState = .failed(error.localizedDescription)
+                }
+
+                if needsSaveAfterCurrentRequest {
+                    needsSaveAfterCurrentRequest = false
+                    scheduleAutosave(debounced: false)
+                }
+            }
+        }
+    }
+
+    private func makeUpdateRequest() -> UpdateTaskDefinitionRequest? {
+        let trimmedName = taskName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedDetails = taskDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let detailsForStorage: String? = normalizedDetails.isEmpty ? nil : taskDescription
+
+        let priority = TaskPriority(rawValue: taskPriorityRaw)
+        let type = TaskType(rawValue: taskTypeRaw)
+
+        var title: String?
+        var details: String?
+        var priorityChange: TaskPriority?
+        var typeChange: TaskType?
+        var dueDateChange: Date?
+        var projectID: UUID?
+        var reminderChange: Date?
+
+        if trimmedName != persistedTask.title {
+            title = trimmedName
+        }
+
+        if detailsForStorage != persistedTask.details {
+            // Empty string requests a clear in update request handling.
+            details = detailsForStorage ?? ""
+        }
+
+        if priority != persistedTask.priority {
+            priorityChange = priority
+        }
+
+        if type != persistedTask.type {
+            typeChange = type
+        }
+
+        if areDatesDifferent(dueDate, persistedTask.dueDate), let dueDate {
+            dueDateChange = dueDate
+        }
+
+        if selectedProjectID != persistedTask.projectID || selectedProjectName != (persistedTask.projectName ?? ProjectConstants.inboxProjectName) {
+            projectID = selectedProjectID
+        }
+
+        if areDatesDifferent(reminderTime, persistedTask.alertReminderTime), let reminderTime {
+            reminderChange = reminderTime
+        }
+
+        let request = UpdateTaskDefinitionRequest(
+            id: persistedTask.id,
+            title: title,
+            details: details,
+            projectID: projectID,
+            dueDate: dueDateChange,
+            priority: priorityChange,
+            type: typeChange,
+            alertReminderTime: reminderChange
+        )
+
+        let hasChanges =
+            title != nil ||
+            details != nil ||
+            priorityChange != nil ||
+            typeChange != nil ||
+            dueDateChange != nil ||
+            projectID != nil ||
+            reminderChange != nil
+
+        return hasChanges ? request : nil
+    }
+
+    private func toggleCompletion() {
+        let requested = !isComplete
+        withAnimation(TaskerAnimation.bouncy) {
+            isComplete = requested
+        }
+
+        onSetCompletion(requested) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let updatedTask):
+                    syncDraftFromTask(updatedTask)
+                    autosaveState = .saved
+                    TaskerFeedback.success()
+
+                case .failure(let error):
+                    withAnimation(TaskerAnimation.bouncy) {
+                        isComplete.toggle()
+                    }
+                    autosaveState = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func deleteTask() {
+        onDelete { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    TaskerFeedback.success()
+                    dismiss()
+                case .failure(let error):
+                    autosaveState = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func applyReschedule(to date: Date) {
+        onReschedule(date) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let updatedTask):
+                    syncDraftFromTask(updatedTask)
+                    autosaveState = .saved
+                    TaskerFeedback.success()
+                case .failure(let error):
+                    autosaveState = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func syncDraftFromTask(_ updatedTask: TaskDefinition) {
+        suppressAutosave = true
+        persistedTask = updatedTask
+        taskName = updatedTask.title
+        taskDescription = updatedTask.details ?? ""
+        taskPriorityRaw = updatedTask.priority.rawValue
+        taskTypeRaw = updatedTask.type.rawValue
+        selectedProjectID = updatedTask.projectID
+        dueDate = updatedTask.dueDate
+        reminderTime = updatedTask.alertReminderTime
+        isComplete = updatedTask.isComplete
+        DispatchQueue.main.async {
+            suppressAutosave = false
         }
     }
 
@@ -728,5 +820,16 @@ struct TaskDetailSheetView: View {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+
+    private func areDatesDifferent(_ lhs: Date?, _ rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return false
+        case let (left?, right?):
+            return abs(left.timeIntervalSince(right)) > 0.5
+        default:
+            return true
+        }
     }
 }

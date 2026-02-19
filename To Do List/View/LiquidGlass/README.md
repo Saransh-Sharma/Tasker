@@ -63,7 +63,7 @@ func searchBarCancelButtonTapped(_ searchBar: LGSearchBar)
 let taskCard = LGTaskCard()
 taskCard.task = myTask // NTask object
 taskCard.onTap = { task in
-    print("Tapped task: \(task.name)")
+    print("Tapped task: \(task.title)")
 }
 ```
 

@@ -2,7 +2,7 @@
 //  UserDefaultsSavedHomeViewRepository.swift
 //  Tasker
 //
-//  Local persisted implementation for Home saved views (v1)
+//  Local persisted implementation for Home saved views (v2)
 //
 
 import Foundation
@@ -14,7 +14,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
 
     public init(
         defaults: UserDefaults = .standard,
-        storageKey: String = "home.focus.savedViews.v1"
+        storageKey: String = "home.focus.savedViews.v2"
     ) {
         self.defaults = defaults
         self.storageKey = storageKey
