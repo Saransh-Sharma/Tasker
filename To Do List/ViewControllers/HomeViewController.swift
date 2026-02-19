@@ -57,6 +57,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         bindViewModel()
         mountHomeShell()
         observeMutations()
+        observeTaskCreatedForSnackbar()
 
         updateDailyScore(for: dateForTheView)
     }
@@ -260,16 +261,19 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     @objc func AddTaskAction() {
-        let addTaskVC = AddTaskViewController()
-        addTaskVC.delegate = self
         guard let presentationDependencyContainer else {
             fatalError("HomeViewController missing PresentationDependencyContainer")
         }
-        presentationDependencyContainer.inject(into: addTaskVC)
-
-        let navController = UINavigationController(rootViewController: addTaskVC)
-        navController.modalPresentationStyle = .fullScreen
-        present(navController, animated: true)
+        let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
+        let sheet = AddTaskSheetView(viewModel: vm)
+        let hostingVC = UIHostingController(rootView: sheet)
+        hostingVC.modalPresentationStyle = .pageSheet
+        if let sheetController = hostingVC.sheetPresentationController {
+            sheetController.detents = [.medium(), .large()]
+            sheetController.prefersGrabberVisible = true
+            sheetController.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        present(hostingVC, animated: true)
     }
 
     @objc private func openProjectCreator() {
@@ -782,15 +786,53 @@ private final class RescheduleViewController: UIViewController {
     }
 }
 
-// MARK: - AddTaskViewControllerDelegate
+// MARK: - Snackbar Support
 
-extension HomeViewController: AddTaskViewControllerDelegate {
-    func didCreateTask() {
-        viewModel?.handleExternalMutation(reason: .created, repostEvent: true)
+extension HomeViewController {
+    func observeTaskCreatedForSnackbar() {
+        NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
+            .receive(on: RunLoop.main)
+            .compactMap { $0.object as? TaskDefinition }
+            .sink { [weak self] createdTask in
+                self?.showTaskCreatedSnackbar(for: createdTask)
+            }
+            .store(in: &cancellables)
+    }
 
-        // Keep currently selected scope and date; let ViewModel reload pipeline settle.
-        if let selected = viewModel?.selectedDate {
-            dateForTheView = selected
+    private func showTaskCreatedSnackbar(for task: TaskDefinition) {
+        guard let hostingController = homeHostingController else { return }
+
+        let taskID = task.id
+        let snackbar = TaskerSnackbar(
+            data: SnackbarData(
+                message: "Task added.",
+                actions: [
+                    SnackbarAction(title: "Undo") { [weak self] in
+                        self?.viewModel?.deleteTask(taskID: taskID) { _ in }
+                    }
+                ]
+            ),
+            onDismiss: {}
+        )
+
+        let snackbarVC = UIHostingController(rootView: snackbar)
+        snackbarVC.view.backgroundColor = .clear
+        snackbarVC.view.translatesAutoresizingMaskIntoConstraints = false
+
+        addChild(snackbarVC)
+        view.addSubview(snackbarVC.view)
+        NSLayoutConstraint.activate([
+            snackbarVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            snackbarVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            snackbarVC.view.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+        ])
+        snackbarVC.didMove(toParent: self)
+
+        // Auto-remove after snackbar's auto-dismiss (5s + 0.4s animation)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
+            snackbarVC.willMove(toParent: nil)
+            snackbarVC.view.removeFromSuperview()
+            snackbarVC.removeFromParent()
         }
     }
 }

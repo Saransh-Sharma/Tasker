@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SwiftUI
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 extension String {
@@ -157,21 +158,21 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
 
                         // Navigate to add task screen
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
-                            guard let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as? AddTaskViewController else {
-                                logError(" Failed to cast view controller to AddTaskViewController")
-                                self.showMessage("Failed to open Add Task screen")
-                                return
-                            }
                             guard let presentationDependencyContainer = self.presentationDependencyContainer else {
                                 fatalError("NewProjectViewController missing PresentationDependencyContainer")
                             }
-                            // Inject V2 presentation dependencies
-                            presentationDependencyContainer.inject(into: newViewController)
-                            newViewController.modalPresentationStyle = .fullScreen
-                            self.present(newViewController, animated: true, completion: { () in
+                            let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
+                            let sheet = AddTaskSheetView(viewModel: vm)
+                            let hostingVC = UIHostingController(rootView: sheet)
+                            hostingVC.modalPresentationStyle = .pageSheet
+                            if let sheetController = hostingVC.sheetPresentationController {
+                                sheetController.detents = [.medium(), .large()]
+                                sheetController.prefersGrabberVisible = true
+                                sheetController.prefersScrollingExpandsWhenScrolledToEdge = false
+                            }
+                            self.present(hostingVC, animated: true) {
                                 logDebug("SUCCESS - Navigated to Add Task")
-                            })
+                            }
                         }
 
                     case .failure(let error):
