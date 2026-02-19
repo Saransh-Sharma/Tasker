@@ -1,5 +1,4 @@
 import UIKit
-import FluentUI
 import FSCalendar
 import MaterialComponents
 

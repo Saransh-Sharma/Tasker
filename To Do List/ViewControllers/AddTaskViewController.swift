@@ -8,7 +8,6 @@
 
 import UIKit
 import FSCalendar
-import FluentUI
 import MaterialComponents.MaterialTextControls_FilledTextAreas
 import MaterialComponents.MaterialTextControls_FilledTextFields
 import MaterialComponents.MaterialTextControls_OutlinedTextAreas

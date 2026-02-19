@@ -22,12 +22,12 @@ class LGSearchViewModel {
     private var currentStatusFilter: StatusFilterType = .all
     private var lastQuery: String = ""
 
-    var searchResults: [Task] = []
+    var searchResults: [DomainTask] = []
     private(set) var projects: [Project] = []
     var filteredProjects: Set<String> = []
     var filteredPriorities: Set<Int32> = []
 
-    var onResultsUpdated: (([Task]) -> Void)?
+    var onResultsUpdated: (([DomainTask]) -> Void)?
 
     // MARK: - Initialization
 
@@ -68,11 +68,9 @@ class LGSearchViewModel {
     }
 
     func setTaskCompletion(taskID: UUID, to isComplete: Bool, completion: @escaping (Bool) -> Void) {
-        let taskSnapshot = searchResults.first(where: { $0.id == taskID })
-        useCaseCoordinator.completeTask.setCompletion(
-            taskId: taskID,
-            to: isComplete,
-            taskSnapshot: taskSnapshot
+        useCaseCoordinator.completeTaskDefinition.setCompletion(
+            taskID: taskID,
+            to: isComplete
         ) { result in
             DispatchQueue.main.async {
                 if case .failure(let error) = result {
@@ -91,7 +89,7 @@ class LGSearchViewModel {
     }
 
     func deleteTask(taskID: UUID, completion: @escaping (Bool) -> Void) {
-        useCaseCoordinator.deleteTask.execute(taskId: taskID) { result in
+        useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID) { result in
             DispatchQueue.main.async {
                 if case .failure(let error) = result {
                     logError(
@@ -109,7 +107,7 @@ class LGSearchViewModel {
     }
 
     func rescheduleTask(taskID: UUID, to newDate: Date, completion: @escaping (Bool) -> Void) {
-        useCaseCoordinator.rescheduleTask.execute(taskId: taskID, newDate: newDate) { result in
+        useCaseCoordinator.rescheduleTaskDefinition.execute(taskID: taskID, newDate: newDate) { result in
             DispatchQueue.main.async {
                 if case .failure(let error) = result {
                     logError(
@@ -128,10 +126,12 @@ class LGSearchViewModel {
 
     func updateTask(
         taskID: UUID,
-        request: UpdateTaskRequest,
-        completion: @escaping (Result<Task, Error>) -> Void
+        request: UpdateTaskDefinitionRequest,
+        completion: @escaping (Result<DomainTask, Error>) -> Void
     ) {
-        useCaseCoordinator.updateTask.execute(taskId: taskID, request: request) { result in
+        var normalizedRequest = request
+        normalizedRequest.updatedAt = Date()
+        useCaseCoordinator.updateTaskDefinition.execute(request: normalizedRequest) { result in
             DispatchQueue.main.async {
                 if case .failure(let error) = result {
                     logError(
@@ -179,14 +179,14 @@ class LGSearchViewModel {
         return Array(projects).sorted()
     }
 
-    func groupTasksByProject(_ tasks: [Task]) -> [(project: String, tasks: [Task])] {
+    func groupTasksByProject(_ tasks: [DomainTask]) -> [(project: String, tasks: [DomainTask])] {
         let grouped = Dictionary(grouping: tasks) { $0.project ?? "Inbox" }
         return grouped.map { (project: $0.key, tasks: $0.value) }
             .sorted { $0.project < $1.project }
     }
 
-    private func fetchTasksForCurrentStatusFilter(completion: @escaping ([Task]) -> Void) {
-        let handler: (Result<[Task], Error>) -> Void = { result in
+    private func fetchTasksForCurrentStatusFilter(completion: @escaping ([DomainTask]) -> Void) {
+        let handler: (Result<[DomainTask], Error>) -> Void = { result in
             switch result {
             case .success(let tasks):
                 completion(tasks)
@@ -202,17 +202,32 @@ class LGSearchViewModel {
 
         switch currentStatusFilter {
         case .all:
-            useCaseCoordinator.taskRepository.fetchAllTasks(completion: handler)
+            useCaseCoordinator.getTasks.searchTasks(query: "", in: .all) { result in
+                handler(result.mapError { $0 as Error })
+            }
         case .today:
-            useCaseCoordinator.taskRepository.fetchTodayTasks(completion: handler)
+            useCaseCoordinator.getTasks.getTodayTasks { result in
+                let mapped = result.map { today in
+                    let openTasks = today.morningTasks + today.eveningTasks + today.overdueTasks
+                    return openTasks + today.completedTasks
+                }.mapError { $0 as Error }
+                handler(mapped)
+            }
         case .overdue:
-            useCaseCoordinator.taskRepository.fetchOverdueTasks(completion: handler)
+            useCaseCoordinator.getTasks.getOverdueTasks { result in
+                handler(result.mapError { $0 as Error })
+            }
         case .completed:
-            useCaseCoordinator.taskRepository.fetchCompletedTasks(completion: handler)
+            useCaseCoordinator.getTasks.searchTasks(query: "", in: .all) { result in
+                let mapped = result.map { tasks in
+                    tasks.filter(\.isComplete)
+                }.mapError { $0 as Error }
+                handler(mapped)
+            }
         }
     }
 
-    private func applyInMemoryFilters(tasks: [Task], query: String) -> [Task] {
+    private func applyInMemoryFilters(tasks: [DomainTask], query: String) -> [DomainTask] {
         let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let normalizedProjects = Set(filteredProjects.map { $0.lowercased() })
 

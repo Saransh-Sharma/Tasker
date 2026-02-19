@@ -1,5 +1,4 @@
 import UIKit
-import FluentUI
 
 /// A tiny enum to pick one of two nav-bar background colors.
 enum ColoredPillBackgroundStyle {
@@ -13,12 +12,12 @@ enum ColoredPillBackgroundStyle {
 final class ColoredPillBackgroundView: UIView {
     init(style: ColoredPillBackgroundStyle) {
         super.init(frame: .zero)
-        let theme = FluentTheme()
+        let colors = TaskerThemeManager.shared.currentTheme.tokens.color
         switch style {
         case .neutralNavBar:
-            backgroundColor = theme.color(.background5)
+            backgroundColor = colors.surfaceSecondary
         case .brandNavBar:
-            backgroundColor = theme.color(.brandBackground1)
+            backgroundColor = colors.accentPrimary
         }
     }
     required init?(coder: NSCoder) {

@@ -7,7 +7,6 @@
 //
 
 import UIKit
-import FluentUI
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 extension String {
@@ -23,7 +22,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         TaskerThemeManager.shared.currentTheme.tokens.color
     }
     
-    //    var description = Label(style: .subhead, colorStyle: .regular)
+    //    var description = UILabel()
     
     static let verticalSpacing: CGFloat = 16
     static let margin: CGFloat = 16
@@ -31,7 +30,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
     var projectNameTextField = MDCOutlinedTextField()
     var projecDescriptionTextField = MDCOutlinedTextField()
     
-    let button = Button()
+    let button = UIButton(type: .system)
     
     var currentProjectInTexField = ""
     var currentDescriptionInTexField = ""
@@ -154,14 +153,14 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
                         logDebug("   Project Name: '\(project.name)'")
                         logDebug("   Project UUID: \(project.id.uuidString)'")
                         logDebug("🆕 [NEW PROJECT] ==================")
-                        HUD.shared.showSuccess(from: self, with: "Project created\n\(project.name)")
+                        self.showMessage("Project created\n\(project.name)")
 
                         // Navigate to add task screen
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             let storyBoard: UIStoryboard = UIStoryboard(name: "Main", bundle: nil)
                             guard let newViewController = storyBoard.instantiateViewController(withIdentifier: "addNewTask") as? AddTaskViewController else {
                                 logError(" Failed to cast view controller to AddTaskViewController")
-                                HUD.shared.showFailure(from: self, with: "Failed to open Add Task screen")
+                                self.showMessage("Failed to open Add Task screen")
                                 return
                             }
                             guard let presentationDependencyContainer = self.presentationDependencyContainer else {
@@ -177,29 +176,34 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
 
                     case .failure(let error):
                         logError(" Failed to create project: \(error)")
-                        HUD.shared.showFailure(from: self, with: "Failed to create project")
+                        self.showMessage("Failed to create project")
                     }
                 }
             }
 
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
-            HUD.shared.showFailure(from: self, with: "No New Project")
+            showMessage("No New Project")
             return
         }
     }
     
     @discardableResult
-    func addLabel(text: String, alignment: NSTextAlignment = .natural) -> Label {
-        let label = Label()
+    func addLabel(text: String, alignment: NSTextAlignment = .natural) -> UILabel {
+        let label = UILabel()
+        label.font = UIFont.tasker.body
+        label.textColor = todoColors.textPrimary
         label.textAlignment = alignment
         label.text = text
+        label.numberOfLines = 0
         addProjectContainer.addArrangedSubview(label)
         return label
     }
     
-    func addSeparator() -> Separator {
-        let separator = Separator()
+    func addSeparator() -> UIView {
+        let separator = UIView()
+        separator.backgroundColor = .separator
+        separator.heightAnchor.constraint(equalToConstant: 1.0 / UIScreen.main.scale).isActive = true
         addProjectContainer.addArrangedSubview(separator)
         return separator
     }
@@ -299,4 +303,3 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
     
     
 }
-    var useCaseCoordinator: UseCaseCoordinator!

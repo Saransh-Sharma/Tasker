@@ -118,7 +118,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     private var viewModel: LGSearchViewModel!
     var useCaseCoordinator: UseCaseCoordinator!
     var presentationDependencyContainer: PresentationDependencyContainer?
-    private var tasks: [Task] = []
+    private var tasks: [DomainTask] = []
 
     // Theme
     private var todoColors: TaskerColorTokens {
@@ -813,11 +813,11 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
-    private func showTaskDetail(_ task: Task) {
+    private func showTaskDetail(_ task: DomainTask) {
         presentTaskDetailSheet(for: task)
     }
 
-    private func presentTaskDetailSheet(for task: Task) {
+    private func presentTaskDetailSheet(for task: DomainTask) {
         logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.id.uuidString)")
         let detailView = TaskDetailSheetView(
             task: task,
@@ -939,14 +939,14 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=refresh reason=\(reason)")
     }
 
-    private func toggleCompletion(for task: Task) {
+    private func toggleCompletion(for task: DomainTask) {
         viewModel.setTaskCompletion(taskID: task.id, to: !task.isComplete) { [weak self] success in
             guard success else { return }
             self?.refreshAfterTaskDetailMutation(reason: "toggle")
         }
     }
 
-    private func deleteTask(_ task: Task) {
+    private func deleteTask(_ task: DomainTask) {
         viewModel.deleteTask(taskID: task.id) { [weak self] success in
             guard success else { return }
             self?.presentedViewController?.dismiss(animated: true) { [weak self] in
@@ -955,7 +955,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
-    private func rescheduleTask(_ task: Task, to date: Date) {
+    private func rescheduleTask(_ task: DomainTask, to date: Date) {
         viewModel.rescheduleTask(taskID: task.id, to: date) { [weak self] success in
             guard success else { return }
             self?.refreshAfterTaskDetailMutation(reason: "reschedule")

@@ -9,7 +9,6 @@ import UIKit
 import SwiftUI
 import Combine
 import DGCharts
-import FluentUI
 
 final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware {
 
@@ -113,9 +112,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
         navigationController?.navigationBar.prefersLargeTitles = false
-
-        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
-        navigationItem.fluentConfiguration.navigationBarStyle = .custom
 
         // Pie chart on the right
         ensureNavigationPieChartAsRightItem()
@@ -255,13 +251,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         settingsVC.presentationDependencyContainer = presentationDependencyContainer
         let navController = UINavigationController(rootViewController: settingsVC)
         navController.navigationBar.prefersLargeTitles = false
-
-        let controller = DrawerController(sourceView: view, sourceRect: .zero, presentationDirection: .fromLeading)
-        controller.contentController = navController
-        controller.preferredContentSize.width = 350
-        controller.resizingBehavior = .dismiss
-
-        present(controller, animated: true)
+        navController.modalPresentationStyle = .pageSheet
+        if let sheet = navController.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(navController, animated: true)
     }
 
     @objc func AddTaskAction() {
@@ -301,7 +296,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     @objc func chatButtonTapped() {
         let chatHostVC = ChatHostViewController()
-        let navController = NavigationController(rootViewController: chatHostVC)
+        let navController = UINavigationController(rootViewController: chatHostVC)
         navController.modalPresentationStyle = .fullScreen
         navController.navigationBar.prefersLargeTitles = false
         present(navController, animated: true)
@@ -716,9 +711,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.compactAppearance = appearance
-
-        navigationItem.fluentConfiguration.customNavigationBarColor = todoColors.accentPrimary
-        navigationItem.fluentConfiguration.navigationBarStyle = .custom
 
         ensureNavigationPieChartAsRightItem()
         layoutNavigationPieChart()
