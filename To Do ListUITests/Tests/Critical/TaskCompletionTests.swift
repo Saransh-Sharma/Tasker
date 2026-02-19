@@ -260,6 +260,16 @@ class TaskCompletionTests: BaseUITest {
 
     /// Find task index by title
     private func findTaskIndex(withTitle title: String) -> Int {
+        let taskRows = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
+        )
+        for index in 0..<taskRows.count {
+            let row = taskRows.element(boundBy: index)
+            if row.label.localizedCaseInsensitiveContains(title) || row.staticTexts[title].exists {
+                return index
+            }
+        }
+
         let cells = app.tables.cells
         for index in 0..<cells.count {
             let cell = cells.element(boundBy: index)

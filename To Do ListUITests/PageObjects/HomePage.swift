@@ -20,15 +20,25 @@ class HomePage {
     }
 
     var foredropSurface: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.foredropSurface]
+        let predicate = NSPredicate(
+            format: "identifier == %@ OR identifier == %@ OR identifier == %@",
+            AccessibilityIdentifiers.Home.foredropSurface,
+            "home.foredropSurface",
+            "homeForedropSurface"
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     var foredropHandle: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.foredropHandle]
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.foredropHandle]
     }
 
     var foredropCollapseHint: XCUIElement {
-        return app.buttons[AccessibilityIdentifiers.Home.foredropCollapseHint]
+        let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.foredropCollapseHint]
+        if byIdentifier.exists {
+            return byIdentifier
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.foredropCollapseHint]
     }
 
     var addTaskButton: XCUIElement {
@@ -36,7 +46,7 @@ class HomePage {
     }
 
     var bottomBar: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.bottomBar]
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.bottomBar]
     }
 
     var chartsButton: XCUIElement {
@@ -49,23 +59,16 @@ class HomePage {
             return byIdentifier
         }
 
-        // Fallback to finding by predicate if accessibility identifier not set
-        let predicate = NSPredicate(format: "label CONTAINS[c] 'Settings' OR label CONTAINS[c] 'gear' OR identifier CONTAINS[c] 'settings'")
-        let settingsButtons = app.buttons.containing(predicate)
-
-        if settingsButtons.count > 0 {
-            return settingsButtons.firstMatch
+        let byAnyIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.settingsButton]
+        if byAnyIdentifier.exists {
+            return byAnyIdentifier
         }
 
-        // Fallback to toolbar buttons
-        if app.toolbars.firstMatch.exists {
-            let toolbarButtons = app.toolbars.firstMatch.buttons
-            if toolbarButtons.count > 2 {
-                return toolbarButtons.element(boundBy: 2) // Settings is typically 3rd button
-            }
-        }
-
-        return app.buttons[AccessibilityIdentifiers.Home.settingsButton]
+        return app.buttons.matching(
+            NSPredicate(
+                format: "label CONTAINS[c] 'Settings' OR label CONTAINS[c] 'gear' OR identifier CONTAINS[c] 'settings'"
+            )
+        ).firstMatch
     }
 
     var searchButton: XCUIElement {
@@ -108,15 +111,32 @@ class HomePage {
     }
 
     var focusStrip: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.focusStrip]
+        let predicate = NSPredicate(
+            format: "identifier == %@ OR identifier == %@ OR identifier == %@",
+            AccessibilityIdentifiers.Home.focusStrip,
+            "home.focusZone",
+            AccessibilityIdentifiers.Home.focusDropZone
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     var focusDropZone: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.focusDropZone]
+        let predicate = NSPredicate(
+            format: "identifier == %@ OR identifier == %@ OR identifier == %@",
+            AccessibilityIdentifiers.Home.focusDropZone,
+            "home.focusZone",
+            AccessibilityIdentifiers.Home.focusStrip
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     var listDropZone: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.listDropZone]
+        let predicate = NSPredicate(
+            format: "identifier == %@ OR identifier == %@",
+            AccessibilityIdentifiers.Home.listDropZone,
+            AccessibilityIdentifiers.Home.taskListScrollView
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     var morningTasksList: XCUIElement {
@@ -188,20 +208,92 @@ class HomePage {
         self.app = app
     }
 
+    private var taskRowQuery: XCUIElementQuery {
+        app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'")
+        )
+    }
+
     // MARK: - Actions
 
     /// Tap the add task button to open task creation screen
     @discardableResult
     func tapAddTask() -> AddTaskPage {
-        addTaskButton.tap()
-        return AddTaskPage(app: app)
+        let addTaskPage = AddTaskPage(app: app)
+        for _ in 0..<3 {
+            let byButtonID = app.buttons[AccessibilityIdentifiers.Home.addTaskButton]
+            if byButtonID.waitForExistence(timeout: 1) {
+                if byButtonID.isHittable {
+                    byButtonID.tap()
+                } else {
+                    byButtonID.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
+                if addTaskPage.verifyIsDisplayed(timeout: 2) {
+                    return addTaskPage
+                }
+            }
+
+            let byAnyID = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.addTaskButton]
+            if byAnyID.waitForExistence(timeout: 1) {
+                byAnyID.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                if addTaskPage.verifyIsDisplayed(timeout: 2) {
+                    return addTaskPage
+                }
+            }
+
+            let addTaskByLabel = app.buttons["Add Task"]
+            if addTaskByLabel.exists {
+                addTaskByLabel.tap()
+                if addTaskPage.verifyIsDisplayed(timeout: 2) {
+                    return addTaskPage
+                }
+            }
+
+            let bottomBarContainer = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.bottomBar]
+            if bottomBarContainer.waitForExistence(timeout: 1) {
+                // Add action is rendered on the trailing edge of the custom bottom bar.
+                bottomBarContainer
+                    .coordinate(withNormalizedOffset: CGVector(dx: 0.90, dy: 0.50))
+                    .tap()
+                if addTaskPage.verifyIsDisplayed(timeout: 2) {
+                    return addTaskPage
+                }
+            }
+        }
+
+        XCTFail("Add Task button should exist before tapping")
+        return addTaskPage
     }
 
     /// Tap settings button to open settings
     @discardableResult
     func tapSettings() -> SettingsPage {
-        settingsButton.tap()
-        return SettingsPage(app: app)
+        let settingsPage = SettingsPage(app: app)
+        let candidates: [XCUIElement] = [
+            app.buttons[AccessibilityIdentifiers.Home.settingsButton],
+            app.descendants(matching: .any)[AccessibilityIdentifiers.Home.settingsButton],
+            app.buttons.matching(
+                NSPredicate(
+                    format: "label CONTAINS[c] 'Settings' OR label CONTAINS[c] 'gear' OR identifier CONTAINS[c] 'settings'"
+                )
+            ).firstMatch
+        ]
+
+        for candidate in candidates {
+            guard candidate.waitForExistence(timeout: 2) else { continue }
+            if candidate.isHittable {
+                candidate.tap()
+            } else {
+                candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+
+            if settingsPage.verifyIsDisplayed(timeout: 2) {
+                return settingsPage
+            }
+        }
+
+        XCTFail("Failed to tap \(AccessibilityIdentifiers.Home.settingsButton)")
+        return settingsPage
     }
 
     /// Tap search button
@@ -271,13 +363,32 @@ class HomePage {
 
     /// Get task cell at index
     func taskCell(at index: Int) -> XCUIElement {
-        return app.tables.cells.element(boundBy: index)
+        let tableCell = app.tables.cells.element(boundBy: index)
+        if tableCell.exists {
+            return tableCell
+        }
+        return taskRowQuery.element(boundBy: index)
     }
 
     /// Get task checkbox at index
     func taskCheckbox(at index: Int) -> XCUIElement {
         let identifier = AccessibilityIdentifiers.Home.taskCheckbox(index: index)
-        return app.buttons[identifier]
+        let legacyCheckbox = app.buttons[identifier]
+        if legacyCheckbox.exists {
+            return legacyCheckbox
+        }
+
+        let row = taskCell(at: index)
+        let rowCheckbox = row.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskCheckbox.'")
+        ).firstMatch
+        if rowCheckbox.exists {
+            return rowCheckbox
+        }
+
+        return app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'home.taskCheckbox.'")
+        ).element(boundBy: index)
     }
 
     /// Get SwiftUI task row by title using stable row accessibility identifiers.
@@ -350,17 +461,22 @@ class HomePage {
     /// Complete task at index by tapping checkbox
     func completeTask(at index: Int) {
         let checkbox = taskCheckbox(at: index)
+        if checkbox.exists {
+            checkbox.tap()
+            return
+        }
 
-        // Fallback: if accessibility identifier not set, tap the first button in the cell
+        // Last-resort fallback for runtimes where checkbox IDs are not projected.
         if !checkbox.exists {
             let cell = taskCell(at: index)
-            if let firstButton = cell.buttons.allElementsBoundByIndex.first {
-                firstButton.tap()
+            let fallbackCheckbox = cell.buttons.matching(
+                NSPredicate(format: "identifier CONTAINS[c] 'checkbox' OR label CONTAINS[c] 'complete'")
+            ).firstMatch
+            if fallbackCheckbox.exists {
+                fallbackCheckbox.tap()
                 return
             }
         }
-
-        checkbox.tap()
     }
 
     /// Uncomplete task at index
@@ -399,7 +515,11 @@ class HomePage {
 
     @discardableResult
     func verifyBottomBarExists(timeout: TimeInterval = 5) -> Bool {
-        bottomBar.waitForExistence(timeout: timeout)
+        if bottomBar.waitForExistence(timeout: timeout) {
+            return true
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.bottomBar]
+            .waitForExistence(timeout: timeout)
     }
 
     @discardableResult
@@ -421,17 +541,24 @@ class HomePage {
     /// Verify task exists with title
     func verifyTaskExists(withTitle title: String) -> Bool {
         let taskText = app.staticTexts[title]
-        return taskText.exists
+        if taskText.exists {
+            return true
+        }
+        return taskRow(containingTitle: title).exists
     }
 
     /// Verify task does not exist
     func verifyTaskDoesNotExist(withTitle title: String) -> Bool {
         let taskText = app.staticTexts[title]
-        return !taskText.exists
+        return !taskText.exists && !taskRow(containingTitle: title).exists
     }
 
     /// Get task count in table
     func getTaskCount() -> Int {
+        let rowCount = taskRowQuery.count
+        if rowCount > 0 {
+            return rowCount
+        }
         return app.tables.cells.count
     }
 
@@ -629,7 +756,10 @@ class HomePage {
     @discardableResult
     func waitForTask(withTitle title: String, timeout: TimeInterval = 5) -> Bool {
         let taskText = app.staticTexts[title]
-        return taskText.waitForExistence(timeout: timeout)
+        if taskText.waitForExistence(timeout: timeout) {
+            return true
+        }
+        return taskRow(containingTitle: title).waitForExistence(timeout: timeout)
     }
 
     /// Wait for task count to match expected

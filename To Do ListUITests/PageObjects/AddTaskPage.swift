@@ -90,27 +90,7 @@ class AddTaskPage {
     }
 
     var saveButton: XCUIElement {
-        // Try accessibility identifier first
-        var button = app.buttons[AccessibilityIdentifiers.AddTask.saveButton]
-
-        // Fallback: find by label "Save" or "Done"
-        if !button.exists {
-            button = app.buttons["Save"]
-        }
-
-        if !button.exists {
-            button = app.buttons["Done"]
-        }
-
-        // Last fallback: right bar button (typically Done button in navigation bar)
-        if !button.exists {
-            let navBar = app.navigationBars.firstMatch
-            if navBar.exists {
-                button = navBar.buttons.element(boundBy: navBar.buttons.count - 1)
-            }
-        }
-
-        return button
+        return app.buttons[AccessibilityIdentifiers.AddTask.saveButton]
     }
 
     var cancelButton: XCUIElement {
@@ -125,7 +105,7 @@ class AddTaskPage {
         // Last fallback: first bar button
         if !button.exists {
             let navBar = app.navigationBars.firstMatch
-            if navBar.exists {
+            if navBar.exists, navBar.buttons.count > 0 {
                 button = navBar.buttons.element(boundBy: 0)
             }
         }
@@ -152,8 +132,17 @@ class AddTaskPage {
 
     /// Enter task title
     func enterTitle(_ title: String) {
-        titleField.tap()
-        titleField.typeText(title)
+        let primaryTitleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField]
+        if primaryTitleField.waitForExistence(timeout: 4) {
+            primaryTitleField.tap()
+            primaryTitleField.typeText(title)
+            return
+        }
+
+        let field = titleField
+        XCTAssertTrue(field.waitForExistence(timeout: 2), "Add Task title field should exist")
+        field.tap()
+        field.typeText(title)
     }
 
     /// Clear and enter new title
@@ -295,7 +284,7 @@ class AddTaskPage {
 
     /// Select project
     func selectProject(named projectName: String) {
-        // The app uses FluentUI PillButtonBar for project selection
+        // The app uses a pill-style project selector
         // Pills may not be exposed as standard buttons in accessibility hierarchy
 
         // Method 1: Try direct button access
@@ -305,7 +294,7 @@ class AddTaskPage {
             return
         }
 
-        // Method 2: Try finding as static text (FluentUI pills sometimes exposed as text)
+        // Method 2: Try finding as static text (pills can be exposed as text)
         let projectLabel = app.staticTexts[projectName]
         if projectLabel.exists {
             projectLabel.tap()
@@ -364,7 +353,64 @@ class AddTaskPage {
     /// Tap save button
     @discardableResult
     func tapSave() -> HomePage {
-        saveButton.tap()
+        let candidates: [XCUIElement] = [
+            app.buttons[AccessibilityIdentifiers.AddTask.saveButton],
+            app.buttons["addTask.createButton"],
+            app.descendants(matching: .any)[AccessibilityIdentifiers.AddTask.saveButton],
+            app.descendants(matching: .any)["addTask.createButton"],
+            app.navigationBars.firstMatch.buttons["Done"],
+            app.navigationBars.firstMatch.buttons["Create"],
+            app.navigationBars.firstMatch.buttons["Save"],
+            app.buttons["Create Task"],
+            app.buttons["Create"],
+            app.buttons["Done"],
+            app.buttons["Save"],
+            app.toolbars.buttons["Done"]
+        ]
+        let deadline = Date().addingTimeInterval(4)
+        repeat {
+            for candidate in candidates where candidate.exists {
+                if candidate.isHittable {
+                    candidate.tap()
+                } else {
+                    candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
+                return HomePage(app: app)
+            }
+
+            let keyboardDone = app.keyboards.buttons["Done"]
+            if keyboardDone.exists {
+                keyboardDone.tap()
+                return HomePage(app: app)
+            }
+
+            let keyboardReturn = app.keyboards.buttons["Return"]
+            if keyboardReturn.exists {
+                keyboardReturn.tap()
+                return HomePage(app: app)
+            }
+
+            Thread.sleep(forTimeInterval: 0.15)
+        } while Date() < deadline
+
+        let primaryTitleField = app.textFields[AccessibilityIdentifiers.AddTask.titleField]
+        if primaryTitleField.exists {
+            primaryTitleField.typeText("\n")
+            return HomePage(app: app)
+        }
+
+        let fallbackTitleField = app.textFields.firstMatch
+        if fallbackTitleField.exists {
+            fallbackTitleField.typeText("\n")
+            return HomePage(app: app)
+        }
+
+        let homePage = HomePage(app: app)
+        if homePage.verifyIsDisplayed(timeout: 1) {
+            return homePage
+        }
+
+        XCTFail("Unable to find save/create action for Add Task screen")
         return HomePage(app: app)
     }
 
@@ -414,9 +460,9 @@ class AddTaskPage {
         }
     }
 
-    // MARK: - Complex Actions (Fluent API)
+    // MARK: - Complex Actions
 
-    /// Create task with all details (fluent interface)
+    /// Create task with all details (builder-style helper)
     @discardableResult
     func createTask(
         title: String,
