@@ -8,21 +8,20 @@
 import Foundation
 import CoreData
 
-/// Mapper class for converting between domain Project and Core Data Projects entity
+/// Mapper class for converting between domain Project and Core Data ProjectEntity entity
 public enum StateProjectMapper {
 
     // MARK: - Core Data Entity Support
 
-    /// Convert a Core Data Projects entity to domain Project
-    /// - Parameter entity: The Core Data Projects entity
+    /// Convert a Core Data ProjectEntity entity to domain Project
+    /// - Parameter entity: The Core Data ProjectEntity entity
     /// - Returns: The domain Project model
-    public static func toDomain(from entity: Projects) -> Project {
-        let normalizedProjectName = normalizedName(entity.projectName) ?? normalizedName(entity.name)
+    public static func toDomain(from entity: ProjectEntity) -> Project {
+        let normalizedProjectName = normalizedName(entity.name)
         let inboxByName = normalizedProjectName?.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame
         let inboxByFlag = entity.isDefault || entity.isInbox
         let inboxLike = inboxByFlag || inboxByName
-        let id = entity.projectID
-            ?? entity.id
+        let id = entity.id
             ?? (inboxLike
                 ? ProjectConstants.inboxProjectID
                 : stableUUID(from: entity.objectID.uriRepresentation().absoluteString))
@@ -33,7 +32,7 @@ public enum StateProjectMapper {
         return Project(
             id: id,
             name: normalizedProjectName ?? "Unnamed Project",
-            projectDescription: entity.projectDescription ?? entity.projecDescription,
+            projectDescription: entity.projectDescription,
             createdDate: entity.createdDate ?? Date(),
             modifiedDate: entity.modifiedDate ?? Date(),
             isDefault: isInbox,
@@ -54,28 +53,25 @@ public enum StateProjectMapper {
         )
     }
 
-    /// Convert a domain Project to Core Data Projects entity
+    /// Convert a domain Project to Core Data ProjectEntity entity
     /// - Parameters:
     ///   - project: The domain Project model
     ///   - context: The Core Data managed object context
-    /// - Returns: The Core Data Projects entity
-    public static func toEntity(from project: Project, in context: NSManagedObjectContext) -> Projects {
-        let entity = Projects(context: context)
+    /// - Returns: The Core Data ProjectEntity entity
+    public static func toEntity(from project: Project, in context: NSManagedObjectContext) -> ProjectEntity {
+        let entity = ProjectEntity(context: context)
         updateEntity(entity, from: project)
         return entity
     }
 
-    /// Update an existing Projects entity with domain Project data
+    /// Update an existing ProjectEntity entity with domain Project data
     /// - Parameters:
-    ///   - entity: The Core Data Projects entity to update
+    ///   - entity: The Core Data ProjectEntity entity to update
     ///   - project: The domain Project model
-    public static func updateEntity(_ entity: Projects, from project: Project) {
-        entity.projectID = project.id
+    public static func updateEntity(_ entity: ProjectEntity, from project: Project) {
         entity.id = project.id
         entity.name = project.name
-        entity.projectName = project.name
         entity.projectDescription = project.projectDescription
-        entity.projecDescription = project.projectDescription // Legacy field, keep in sync
         entity.createdDate = project.createdDate
         entity.modifiedDate = Date() // Always update modified date
         entity.createdAt = entity.createdAt ?? project.createdDate
@@ -97,18 +93,14 @@ public enum StateProjectMapper {
         entity.templateID = project.templateId
     }
 
-    /// Find an existing Projects entity by UUID
+    /// Find an existing ProjectEntity entity by UUID
     /// - Parameters:
     ///   - id: The UUID to search for
     ///   - context: The Core Data managed object context
-    /// - Returns: The Projects entity if found, nil otherwise
-    public static func findEntity(byId id: UUID, in context: NSManagedObjectContext) -> Projects? {
-        let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-        request.predicate = NSPredicate(
-            format: "projectID == %@ OR id == %@",
-            id as CVarArg,
-            id as CVarArg
-        )
+    /// - Returns: The ProjectEntity entity if found, nil otherwise
+    public static func findEntity(byId id: UUID, in context: NSManagedObjectContext) -> ProjectEntity? {
+        let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
         request.fetchLimit = 1
 
         do {
@@ -120,10 +112,10 @@ public enum StateProjectMapper {
         }
     }
 
-    /// Convert an array of Core Data Projects entities to domain Projects
-    /// - Parameter entities: Array of Core Data Projects entities
+    /// Convert an array of Core Data ProjectEntity entities to domain ProjectEntity
+    /// - Parameter entities: Array of Core Data ProjectEntity entities
     /// - Returns: Array of domain Project models
-    public static func toDomainArray(from entities: [Projects]) -> [Project] {
+    public static func toDomainArray(from entities: [ProjectEntity]) -> [Project] {
         return entities.map { toDomain(from: $0) }
     }
 

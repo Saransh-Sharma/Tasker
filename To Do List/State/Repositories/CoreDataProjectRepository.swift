@@ -30,8 +30,8 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     public func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
+            let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+            request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
 
             do {
                 let entities = try self.viewContext.fetch(request)
@@ -45,12 +45,8 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     public func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
         viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(
-                format: "projectID == %@ OR id == %@",
-                id as CVarArg,
-                id as CVarArg
-            )
+            let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+            request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
             request.fetchLimit = 1
 
             do {
@@ -65,8 +61,8 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     public func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
         viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectName ==[c] %@", name)
+            let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+            request.predicate = NSPredicate(format: "name ==[c] %@", name)
             request.fetchLimit = 1
 
             do {
@@ -86,8 +82,8 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     public func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.sortDescriptors = [NSSortDescriptor(key: "projectName", ascending: true)]
+            let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+            request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
 
             do {
                 let entities = try self.viewContext.fetch(request)
@@ -138,7 +134,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     public func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
         viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
+            let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
             request.predicate = self.inboxCandidatePredicate()
 
             do {
@@ -192,7 +188,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     public func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
         backgroundContext.perform {
             do {
-                let projectRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
+                let projectRequest: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
                 projectRequest.returnsObjectsAsFaults = false
                 var projects = try self.backgroundContext.fetch(projectRequest)
                 let scannedCount = projects.count
@@ -206,7 +202,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                 }
 
                 var inboxCandidates = projects.filter { self.isInboxCandidate($0) }
-                var canonicalInbox: Projects
+                var canonicalInbox: ProjectEntity
                 if let selected = self.selectCanonicalInbox(from: inboxCandidates) {
                     canonicalInbox = selected
                 } else {
@@ -291,17 +287,28 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                     return
                 }
                 
-                // Update project and associated task display names by project UUID.
+                // Update project entity by project UUID.
                 self?.backgroundContext.perform {
-                    let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-                    request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
-                    
+                    let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+                    request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+                    request.fetchLimit = 1
+
                     do {
-                        let tasks = try self?.backgroundContext.fetch(request) ?? []
-                        tasks.forEach { $0.project = newName }
-                        
+                        guard let entity = try self?.backgroundContext.fetch(request).first else {
+                            let notFound = NSError(
+                                domain: "ProjectRepository",
+                                code: 404,
+                                userInfo: [NSLocalizedDescriptionKey: "Project not found"]
+                            )
+                            DispatchQueue.main.async { completion(.failure(notFound)) }
+                            return
+                        }
+
+                        entity.name = newName
+                        entity.updatedAt = Date()
+                        entity.modifiedDate = Date()
                         try self?.backgroundContext.save()
-                        
+
                         var renamedProject = project
                         renamedProject.name = newName
                         DispatchQueue.main.async { completion(.success(renamedProject)) }
@@ -337,7 +344,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                 }
                 
                 self?.backgroundContext.perform {
-                    let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+                    let request: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
                     request.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
 
                     do {
@@ -352,22 +359,20 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         } else {
                             // Move tasks to Inbox.
                             let inboxID = ProjectConstants.inboxProjectID
-                            let inboxName = ProjectConstants.inboxProjectName
 
                             tasks.forEach { task in
                                 task.projectID = inboxID
-                                task.project = inboxName
                             }
                             logDebug("  ✅ Reassigned \(tasks.count) tasks to Inbox")
                         }
 
-                        // Now delete the Projects entity itself (if it exists)
-                        let projectFetchRequest: NSFetchRequest<Projects> = Projects.fetchRequest()
-                        projectFetchRequest.predicate = NSPredicate(format: "projectID == %@", id as CVarArg)
+                        // Now delete the ProjectEntity entity itself (if it exists)
+                        let projectFetchRequest: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+                        projectFetchRequest.predicate = NSPredicate(format: "id == %@", id as CVarArg)
 
                         if let projectEntity = try self?.backgroundContext.fetch(projectFetchRequest).first {
                             self?.backgroundContext.delete(projectEntity)
-                            logDebug("  🗑️ Deleted Projects entity: '\(projectEntity.projectName ?? "Unknown")'")
+                            logDebug("  🗑️ Deleted ProjectEntity entity: '\(projectEntity.name ?? "Unknown")'")
                         }
 
                         try self?.backgroundContext.save()
@@ -389,31 +394,12 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     public func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
         viewContext.perform {
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+            let request: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
             request.predicate = NSPredicate(format: "projectID == %@", projectId as CVarArg)
 
             do {
                 let count = try self.viewContext.count(for: request)
                 DispatchQueue.main.async { completion(.success(count)) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-    
-    public func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
-        viewContext.perform {
-            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
-            request.predicate = NSPredicate(format: "projectID == %@", projectId as CVarArg)
-            request.sortDescriptors = [
-                NSSortDescriptor(key: "dueDate", ascending: true),
-                NSSortDescriptor(key: "taskPriority", ascending: true)
-            ]
-
-            do {
-                let entities = try self.viewContext.fetch(request)
-                let tasks = entities.map { TaskDefinitionMapper.toDomain(from: $0) }
-                DispatchQueue.main.async { completion(.success(tasks)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
@@ -434,7 +420,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                 self?.fetchProject(withId: targetProjectId) { targetResult in
                     switch targetResult {
                     case .success(let targetProject):
-                        guard let targetProject = targetProject else {
+                        guard targetProject != nil else {
                             let error = NSError(domain: "ProjectRepository", code: 404,
                                               userInfo: [NSLocalizedDescriptionKey: "Target project not found"])
                             completion(.failure(error))
@@ -442,14 +428,13 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
                         }
                         
                         self?.backgroundContext.perform {
-                            let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+                            let request: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
                             request.predicate = NSPredicate(format: "projectID == %@", sourceProjectId as CVarArg)
                             
                             do {
                                 let tasks = try self?.backgroundContext.fetch(request) ?? []
                                 tasks.forEach {
                                     $0.projectID = targetProjectId
-                                    $0.project = targetProject.name
                                 }
                                 
                                 try self?.backgroundContext.save()
@@ -474,8 +459,8 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     public func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
         viewContext.perform {
-            let request: NSFetchRequest<Projects> = Projects.fetchRequest()
-            request.predicate = NSPredicate(format: "projectName ==[c] %@", name)
+            let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
+            request.predicate = NSPredicate(format: "name ==[c] %@", name)
             request.fetchLimit = 1
 
             do {
@@ -483,7 +468,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
 
                 if let existingProject = existingProjects.first {
                     // Name exists, check if we're excluding this ID
-                    if let excludingId = excludingId, existingProject.projectID == excludingId {
+                    if let excludingId = excludingId, existingProject.id == excludingId {
                         // It's the same project, name is available
                         DispatchQueue.main.async { completion(.success(true)) }
                     } else {
@@ -500,48 +485,35 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
 
-    private func normalizeProjectIdentity(_ entity: Projects) {
-        if entity.projectID == nil, let id = entity.id {
-            entity.projectID = id
-        } else if entity.id == nil, let projectID = entity.projectID {
-            entity.id = projectID
-        } else if entity.id == nil, entity.projectID == nil {
+    private func normalizeProjectIdentity(_ entity: ProjectEntity) {
+        if entity.id == nil {
             let derivedID: UUID
             if isInboxCandidate(entity) {
                 derivedID = ProjectConstants.inboxProjectID
             } else {
                 derivedID = Self.stableUUID(from: entity.objectID.uriRepresentation().absoluteString)
             }
-            entity.projectID = derivedID
             entity.id = derivedID
         }
     }
 
-    private func normalizeAsCanonicalInbox(_ entity: Projects) {
-        entity.projectID = ProjectConstants.inboxProjectID
+    private func normalizeAsCanonicalInbox(_ entity: ProjectEntity) {
         entity.id = ProjectConstants.inboxProjectID
         entity.isInbox = true
         entity.isDefault = true
-        entity.projectName = ProjectConstants.inboxProjectName
         entity.name = ProjectConstants.inboxProjectName
         entity.projectDescription = ProjectConstants.inboxProjectDescription
-        entity.projecDescription = ProjectConstants.inboxProjectDescription
     }
 
-    private func repointTasks(from source: Projects, to target: Projects) {
-        let sourceIDs = Set([source.projectID, source.id].compactMap { $0 })
-        let sourceNames = Set([source.projectName, source.name].compactMap { normalizedName($0) })
+    private func repointTasks(from source: ProjectEntity, to target: ProjectEntity) {
+        let sourceIDs = Set([source.id].compactMap { $0 })
         let targetID = effectiveProjectID(for: target)
-        let targetName = normalizedName(target.projectName) ?? normalizedName(target.name) ?? ProjectConstants.inboxProjectName
 
-        let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+        let request: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
         var predicates: [NSPredicate] = []
 
         if sourceIDs.isEmpty == false {
             predicates.append(NSPredicate(format: "projectID IN %@", Array(sourceIDs)))
-        }
-        for sourceName in sourceNames {
-            predicates.append(NSPredicate(format: "project ==[c] %@", sourceName))
         }
         guard predicates.isEmpty == false else {
             return
@@ -552,14 +524,13 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
             let tasks = try backgroundContext.fetch(request)
             for task in tasks {
                 task.projectID = targetID
-                task.project = targetName
             }
         } catch {
             logWarning("Project identity repair could not repoint tasks: \(error.localizedDescription)")
         }
     }
 
-    private func selectCanonicalInbox(from candidates: [Projects]) -> Projects? {
+    private func selectCanonicalInbox(from candidates: [ProjectEntity]) -> ProjectEntity? {
         candidates.sorted { lhs, rhs in
             let lhsRank = inboxCanonicalRank(lhs)
             let rhsRank = inboxCanonicalRank(rhs)
@@ -570,44 +541,36 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }.first
     }
 
-    private func selectCanonicalProject(from candidates: [Projects], targetID: UUID) -> Projects {
+    private func selectCanonicalProject(from candidates: [ProjectEntity], targetID: UUID) -> ProjectEntity {
         if targetID == ProjectConstants.inboxProjectID, let inbox = selectCanonicalInbox(from: candidates) {
             return inbox
         }
         return candidates.min(by: { createdDate($0) < createdDate($1) }) ?? candidates[0]
     }
 
-    private func inboxCanonicalRank(_ entity: Projects) -> Int {
-        let projectID = entity.projectID
+    private func inboxCanonicalRank(_ entity: ProjectEntity) -> Int {
         let id = entity.id
-        if projectID == ProjectConstants.inboxProjectID && id == ProjectConstants.inboxProjectID {
+        if id == ProjectConstants.inboxProjectID {
             return 0
         }
-        if projectID == ProjectConstants.inboxProjectID || id == ProjectConstants.inboxProjectID {
-            return 1
-        }
-        return 2
+        return 1
     }
 
-    private func createdDate(_ entity: Projects) -> Date {
+    private func createdDate(_ entity: ProjectEntity) -> Date {
         entity.createdDate ?? entity.createdAt ?? .distantFuture
     }
 
-    private func isInboxCandidate(_ entity: Projects) -> Bool {
-        if entity.projectID == ProjectConstants.inboxProjectID || entity.id == ProjectConstants.inboxProjectID {
+    private func isInboxCandidate(_ entity: ProjectEntity) -> Bool {
+        if entity.id == ProjectConstants.inboxProjectID {
             return true
         }
         if entity.isInbox || entity.isDefault {
             return true
         }
-        let candidates = [entity.projectName, entity.name]
-        return candidates.contains(where: { normalizedName($0)?.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame })
+        return normalizedName(entity.name)?.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame
     }
 
-    private func effectiveProjectID(for entity: Projects) -> UUID {
-        if let projectID = entity.projectID {
-            return projectID
-        }
+    private func effectiveProjectID(for entity: ProjectEntity) -> UUID {
         if let id = entity.id {
             return id
         }
@@ -622,11 +585,9 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
 
     private func inboxCandidatePredicate() -> NSPredicate {
         NSCompoundPredicate(orPredicateWithSubpredicates: [
-            NSPredicate(format: "projectID == %@", ProjectConstants.inboxProjectID as CVarArg),
             NSPredicate(format: "id == %@", ProjectConstants.inboxProjectID as CVarArg),
             NSPredicate(format: "isInbox == YES"),
             NSPredicate(format: "isDefault == YES"),
-            NSPredicate(format: "projectName ==[c] %@", ProjectConstants.inboxProjectName),
             NSPredicate(format: "name ==[c] %@", ProjectConstants.inboxProjectName)
         ])
     }

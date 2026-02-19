@@ -22,7 +22,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                 )
                 let definitions = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(entities, context: self.context)
                 completion(.success(TaskSliceResult(
-                    tasks: definitions.map { $0.toLegacyTask() },
+                    tasks: definitions,
                     totalCount: totalCount,
                     limit: query.limit,
                     offset: query.offset
@@ -46,7 +46,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                 )
                 let definitions = try CoreDataTaskDefinitionRepository.mapTaskDefinitions(entities, context: self.context)
                 completion(.success(TaskSliceResult(
-                    tasks: definitions.map { $0.toLegacyTask() },
+                    tasks: definitions,
                     totalCount: totalCount,
                     limit: query.limit,
                     offset: query.offset
@@ -109,16 +109,16 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
                     NSPredicate(format: "dateCompleted >= %@", startDate as NSDate),
                     NSPredicate(format: "dateCompleted <= %@", endDate as NSDate)
                 ])
-                request.propertiesToGroupBy = ["projectID", "taskPriority"]
-                request.propertiesToFetch = ["projectID", "taskPriority", countExpr]
+                request.propertiesToGroupBy = ["projectID", "priority"]
+                request.propertiesToFetch = ["projectID", "priority", countExpr]
 
                 let rows = try self.context.fetch(request)
                 var totals: [UUID: Int] = [:]
                 for row in rows {
                     guard let projectID = row["projectID"] as? UUID else { continue }
                     let countValue = (row["taskCount"] as? NSNumber)?.intValue ?? 0
-                    let priorityRaw = (row["taskPriority"] as? NSNumber)?.int32Value
-                        ?? (row["taskPriority"] as? Int32)
+                    let priorityRaw = (row["priority"] as? NSNumber)?.int32Value
+                        ?? (row["priority"] as? Int32)
                         ?? Int32(TaskPriority.low.rawValue)
                     let priority = TaskPriority(rawValue: priorityRaw)
                     totals[projectID, default: 0] += countValue * priority.scorePoints
@@ -184,10 +184,8 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         if trimmed.isEmpty == false {
             predicates.append(
                 NSCompoundPredicate(orPredicateWithSubpredicates: [
-                    NSPredicate(format: "name CONTAINS[cd] %@", trimmed),
                     NSPredicate(format: "title CONTAINS[cd] %@", trimmed),
-                    NSPredicate(format: "notes CONTAINS[cd] %@", trimmed),
-                    NSPredicate(format: "taskDetails CONTAINS[cd] %@", trimmed)
+                    NSPredicate(format: "notes CONTAINS[cd] %@", trimmed)
                 ])
             )
         }

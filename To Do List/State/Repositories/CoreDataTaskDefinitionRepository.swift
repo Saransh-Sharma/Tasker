@@ -18,7 +18,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     public func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
-                let request: NSFetchRequest<NTask> = NTask.fetchRequest()
+                let request: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
                 var predicates: [NSPredicate] = []
                 if let query {
                     if let projectID = query.projectID {
@@ -46,10 +46,8 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
                        searchText.isEmpty == false {
                         predicates.append(
                             NSCompoundPredicate(orPredicateWithSubpredicates: [
-                                NSPredicate(format: "name CONTAINS[cd] %@", searchText),
                                 NSPredicate(format: "title CONTAINS[cd] %@", searchText),
-                                NSPredicate(format: "notes CONTAINS[cd] %@", searchText),
-                                NSPredicate(format: "taskDetails CONTAINS[cd] %@", searchText)
+                                NSPredicate(format: "notes CONTAINS[cd] %@", searchText)
                             ])
                         )
                     }
@@ -258,16 +256,14 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     static func mapTaskDefinition(_ entity: NSManagedObject) -> TaskDefinition {
         let taskID = attributeValue("taskID", from: entity) ?? attributeValue("id", from: entity) ?? UUID()
         let projectID = attributeValue("projectID", from: entity) ?? ProjectConstants.inboxProjectID
-        let title = attributeValue("title", from: entity)
-            ?? attributeValue("name", from: entity)
-            ?? "Untitled Task"
-        let details: String? = attributeValue("notes", from: entity) ?? attributeValue("taskDetails", from: entity)
+        let title = attributeValue("title", from: entity) ?? "Untitled Task"
+        let details: String? = attributeValue("notes", from: entity)
         let typeRaw: Int32 = attributeValue("taskType", from: entity) ?? 1
-        let priorityRaw: Int32 = attributeValue("taskPriority", from: entity) ?? (attributeValue("priority", from: entity) ?? 2)
+        let priorityRaw: Int32 = attributeValue("priority", from: entity) ?? 2
         let energy = TaskEnergy(rawValue: attributeValue("energy", from: entity) ?? "") ?? .medium
         let category = TaskCategory(rawValue: attributeValue("category", from: entity) ?? "") ?? .general
         let context = TaskContext(rawValue: attributeValue("context", from: entity) ?? "") ?? .anywhere
-        let projectName = attributeValue("project", from: entity) ?? ProjectConstants.inboxProjectName
+        let projectName = resolvedProjectName(from: entity) ?? ProjectConstants.inboxProjectName
 
         return TaskDefinition(
             id: taskID,
@@ -306,13 +302,18 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             let taskID: UUID? = attributeValue("taskID", from: entity)
             return taskID ?? attributeValue("id", from: entity)
         }
+        let projectIDs = entities.compactMap { entity in
+            attributeValue("projectID", from: entity) as UUID?
+        }
         let tagIDsByTaskID = try hydrateTagIDsByTaskID(taskIDs: taskIDs, context: context)
         let dependenciesByTaskID = try hydrateDependenciesByTaskID(taskIDs: taskIDs, context: context)
+        let projectNamesByProjectID = try hydrateProjectNamesByProjectID(projectIDs: projectIDs, context: context)
 
         return entities.map { entity in
             var mapped = mapTaskDefinition(entity)
             mapped.tagIDs = tagIDsByTaskID[mapped.id] ?? []
             mapped.dependencies = dependenciesByTaskID[mapped.id] ?? []
+            mapped.projectName = projectNamesByProjectID[mapped.projectID] ?? mapped.projectName
             return mapped
         }
     }
@@ -409,6 +410,31 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         return grouped
     }
 
+    fileprivate static func hydrateProjectNamesByProjectID(
+        projectIDs: [UUID],
+        context: NSManagedObjectContext
+    ) throws -> [UUID: String] {
+        guard projectIDs.isEmpty == false else { return [:] }
+        let uniqueProjectIDs = Array(Set(projectIDs))
+        let request = NSFetchRequest<NSManagedObject>(entityName: "Project")
+        request.predicate = NSPredicate(format: "id IN %@", uniqueProjectIDs as NSArray)
+        request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+
+        let objects = try context.fetch(request)
+        var namesByID: [UUID: String] = [:]
+        for object in objects {
+            guard
+                let id: UUID = attributeValue("id", from: object),
+                let name: String = attributeValue("name", from: object),
+                name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            else {
+                continue
+            }
+            namesByID[id] = name
+        }
+        return namesByID
+    }
+
     private static func applyCreateRequest(_ request: CreateTaskDefinitionRequest, to entity: NSManagedObject) {
         setAttribute("id", value: request.id, on: entity)
         setAttribute("taskID", value: request.id, on: entity)
@@ -417,11 +443,8 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         setAttribute("sectionID", value: request.sectionID, on: entity)
         setAttribute("parentTaskID", value: request.parentTaskID, on: entity)
         setAttribute("title", value: request.title, on: entity)
-        setAttribute("name", value: request.title, on: entity)
         setAttribute("notes", value: request.details, on: entity)
-        setAttribute("taskDetails", value: request.details, on: entity)
         setAttribute("priority", value: request.priority.rawValue, on: entity)
-        setAttribute("taskPriority", value: request.priority.rawValue, on: entity)
         setAttribute("taskType", value: request.type.rawValue, on: entity)
         setAttribute("energy", value: request.energy.rawValue, on: entity)
         setAttribute("category", value: request.category.rawValue, on: entity)
@@ -435,18 +458,15 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         setAttribute("createdAt", value: request.createdAt, on: entity)
         setAttribute("updatedAt", value: Date(), on: entity)
         setAttribute("status", value: "pending", on: entity)
-        setAttribute("project", value: request.projectName ?? ProjectConstants.inboxProjectName, on: entity)
         setAttribute("version", value: Int32(1), on: entity)
     }
 
     private static func applyUpdateRequest(_ request: UpdateTaskDefinitionRequest, to entity: NSManagedObject) {
         if let title = request.title {
             setAttribute("title", value: title, on: entity)
-            setAttribute("name", value: title, on: entity)
         }
         if request.details != nil {
             setAttribute("notes", value: request.details, on: entity)
-            setAttribute("taskDetails", value: request.details, on: entity)
         }
         if let projectID = request.projectID {
             setAttribute("projectID", value: projectID, on: entity)
@@ -467,7 +487,6 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         }
         if let priority = request.priority {
             setAttribute("priority", value: priority.rawValue, on: entity)
-            setAttribute("taskPriority", value: priority.rawValue, on: entity)
         }
         if let type = request.type {
             setAttribute("taskType", value: type.rawValue, on: entity)
@@ -497,6 +516,13 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     fileprivate static func attributeValue<T>(_ key: String, from entity: NSManagedObject) -> T? {
         guard entity.entity.attributesByName[key] != nil else { return nil }
         return entity.value(forKey: key) as? T
+    }
+
+    private static func resolvedProjectName(from entity: NSManagedObject) -> String? {
+        guard let projectRef = entity.value(forKey: "projectRef") as? NSManagedObject else {
+            return nil
+        }
+        return attributeValue("name", from: projectRef)
     }
 
     private static func setAttribute(_ key: String, value: Any?, on entity: NSManagedObject) {
@@ -691,359 +717,6 @@ public final class CoreDataTaskDependencyRepository: TaskDependencyRepositoryPro
                 completion(.success(()))
             } catch {
                 completion(.failure(error))
-            }
-        }
-    }
-}
-
-/// Bridges legacy task use cases to the V2 TaskDefinition repository.
-final class V2TaskRepositoryAdapter: TaskRepositoryProtocol {
-    private let taskDefinitionRepository: TaskDefinitionRepositoryProtocol
-
-    init(taskDefinitionRepository: TaskDefinitionRepositoryProtocol) {
-        self.taskDefinitionRepository = taskDefinitionRepository
-    }
-
-    func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        taskDefinitionRepository.fetchAll { result in
-            completion(result.map { definitions in
-                definitions.map { $0.toLegacyTask() }
-            })
-        }
-    }
-
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
-        let definitionQuery = TaskDefinitionQuery(
-            projectID: query.projectID,
-            includeCompleted: query.includeCompleted,
-            dueDateStart: query.dueDateStart,
-            dueDateEnd: query.dueDateEnd,
-            updatedAfter: query.updatedAfter,
-            limit: query.limit,
-            offset: query.offset
-        )
-        taskDefinitionRepository.fetchAll(query: definitionQuery) { result in
-            switch result {
-            case .failure(let error):
-                completion(.failure(error))
-            case .success(let definitions):
-                let mapped = definitions.map { $0.toLegacyTask() }
-                let sorted = self.sort(tasks: mapped, by: query.sortBy)
-                completion(.success(TaskSliceResult(
-                    tasks: sorted,
-                    totalCount: sorted.count + query.offset,
-                    limit: query.limit,
-                    offset: query.offset
-                )))
-            }
-        }
-    }
-
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
-        let definitionQuery = TaskDefinitionQuery(
-            projectID: query.projectID,
-            includeCompleted: query.includeCompleted,
-            searchText: query.text,
-            limit: query.limit,
-            offset: query.offset
-        )
-        taskDefinitionRepository.fetchAll(query: definitionQuery) { result in
-            switch result {
-            case .failure(let error):
-                completion(.failure(error))
-            case .success(let definitions):
-                let mapped = definitions.map { $0.toLegacyTask() }
-                completion(.success(TaskSliceResult(
-                    tasks: mapped,
-                    totalCount: mapped.count + query.offset,
-                    limit: query.limit,
-                    offset: query.offset
-                )))
-            }
-        }
-    }
-
-    func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchAllTasks { result in
-            completion(result.map { tasks in
-                let start = date.startOfDay
-                let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start
-                return tasks.filter { task in
-                    guard let due = task.dueDate else { return false }
-                    return due >= start && due < end
-                }
-            })
-        }
-    }
-
-    func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchAllTasks { result in
-            completion(result.map { tasks in
-                let todayStart = Date().startOfDay
-                let tomorrowStart = Calendar.current.date(byAdding: .day, value: 1, to: todayStart) ?? todayStart
-                return tasks.filter { task in
-                    guard task.isComplete == false, let due = task.dueDate else { return false }
-                    return due < tomorrowStart
-                }
-            })
-        }
-    }
-
-    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) {
-        let normalized = project.lowercased()
-        fetchAllTasks { result in
-            completion(result.map { tasks in
-                tasks.filter { ($0.project ?? "").lowercased() == normalized }
-            })
-        }
-    }
-
-    func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchAllTasks { result in
-            completion(result.map { tasks in
-                tasks.filter { $0.projectID == projectID }
-            })
-        }
-    }
-
-    func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchAllTasks { result in
-            completion(result.map { tasks in
-                let todayStart = Date().startOfDay
-                return tasks.filter { task in
-                    guard task.isComplete == false, let due = task.dueDate else { return false }
-                    return due < todayStart
-                }
-            })
-        }
-    }
-
-    func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchAllTasks { result in
-            completion(result.map { tasks in
-                let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date().startOfDay) ?? Date()
-                return tasks.filter { task in
-                    guard task.isComplete == false, let due = task.dueDate else { return false }
-                    return due >= tomorrow
-                }
-            })
-        }
-    }
-
-    func fetchCompletedTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchAllTasks { result in
-            completion(result.map { $0.filter(\.isComplete) })
-        }
-    }
-
-    func fetchTasks(ofType type: TaskType, completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchAllTasks { result in
-            completion(result.map { $0.filter { $0.type == type } })
-        }
-    }
-
-    func fetchTask(withId id: UUID, completion: @escaping (Result<Task?, Error>) -> Void) {
-        fetchAllTasks { result in
-            completion(result.map { tasks in
-                tasks.first(where: { $0.id == id })
-            })
-        }
-    }
-
-    func fetchTasks(from startDate: Date, to endDate: Date, completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchAllTasks { result in
-            completion(result.map { tasks in
-                tasks.filter { task in
-                    guard let due = task.dueDate else { return false }
-                    return due >= startDate && due <= endDate
-                }
-            })
-        }
-    }
-
-    func createTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
-        taskDefinitionRepository.create(task, completion: completion)
-    }
-
-    func updateTask(_ task: Task, completion: @escaping (Result<Task, Error>) -> Void) {
-        taskDefinitionRepository.update(task, completion: completion)
-    }
-
-    func completeTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
-        mutateTask(id: id, completion: completion) { task in
-            var updated = task
-            updated.isComplete = true
-            updated.dateCompleted = Date()
-            return updated
-        }
-    }
-
-    func uncompleteTask(withId id: UUID, completion: @escaping (Result<Task, Error>) -> Void) {
-        mutateTask(id: id, completion: completion) { task in
-            var updated = task
-            updated.isComplete = false
-            updated.dateCompleted = nil
-            return updated
-        }
-    }
-
-    func rescheduleTask(withId id: UUID, to date: Date, completion: @escaping (Result<Task, Error>) -> Void) {
-        mutateTask(id: id, completion: completion) { task in
-            var updated = task
-            updated.dueDate = date
-            return updated
-        }
-    }
-
-    func deleteTask(withId id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
-        taskDefinitionRepository.delete(id: id, completion: completion)
-    }
-
-    func deleteCompletedTasks(completion: @escaping (Result<Void, Error>) -> Void) {
-        fetchCompletedTasks { [weak self] result in
-            switch result {
-            case .success(let tasks):
-                self?.deleteTasks(withIds: tasks.map(\.id), completion: completion)
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
-    }
-
-    func createTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) {
-        performBatch(tasks, completion: completion) { [weak self] task, handler in
-            self?.createTask(task, completion: handler)
-        }
-    }
-
-    func updateTasks(_ tasks: [Task], completion: @escaping (Result<[Task], Error>) -> Void) {
-        performBatch(tasks, completion: completion) { [weak self] task, handler in
-            self?.updateTask(task, completion: handler)
-        }
-    }
-
-    func deleteTasks(withIds ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
-        let group = DispatchGroup()
-        var firstError: Error?
-        for id in ids {
-            group.enter()
-            taskDefinitionRepository.delete(id: id) { result in
-                if case .failure(let error) = result, firstError == nil {
-                    firstError = error
-                }
-                group.leave()
-            }
-        }
-        group.notify(queue: .main) {
-            if let error = firstError {
-                completion(.failure(error))
-            } else {
-                completion(.success(()))
-            }
-        }
-    }
-
-    func fetchTasksWithoutProject(completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchAllTasks { result in
-            completion(result.map { tasks in
-                tasks.filter { $0.projectID == ProjectConstants.inboxProjectID }
-            })
-        }
-    }
-
-    func assignTasksToProject(taskIDs: [UUID], projectID: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
-        fetchAllTasks { [weak self] result in
-            switch result {
-            case .success(let tasks):
-                let candidates = tasks.filter { taskIDs.contains($0.id) }.map { task -> Task in
-                    var updated = task
-                    updated.projectID = projectID
-                    return updated
-                }
-                self?.updateTasks(candidates) { updateResult in
-                    completion(updateResult.map { _ in () })
-                }
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
-    }
-
-    func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void) {
-        fetchTasks(forProjectID: ProjectConstants.inboxProjectID, completion: completion)
-    }
-
-    private func sort(tasks: [Task], by sort: TaskReadSort) -> [Task] {
-        switch sort {
-        case .dueDateAscending:
-            return tasks.sorted {
-                ($0.dueDate ?? Date.distantFuture, $0.id.uuidString) <
-                ($1.dueDate ?? Date.distantFuture, $1.id.uuidString)
-            }
-        case .dueDateDescending:
-            return tasks.sorted {
-                ($0.dueDate ?? Date.distantPast, $0.id.uuidString) >
-                ($1.dueDate ?? Date.distantPast, $1.id.uuidString)
-            }
-        case .updatedAtDescending:
-            return tasks.sorted {
-                let lhs = [$0.dateCompleted, $0.dueDate, $0.dateAdded].compactMap { $0 }.max() ?? Date.distantPast
-                let rhs = [$1.dateCompleted, $1.dueDate, $1.dateAdded].compactMap { $0 }.max() ?? Date.distantPast
-                return (lhs, $0.id.uuidString) > (rhs, $1.id.uuidString)
-            }
-        }
-    }
-
-    private func mutateTask(
-        id: UUID,
-        completion: @escaping (Result<Task, Error>) -> Void,
-        transform: @escaping (Task) -> Task
-    ) {
-        fetchTask(withId: id) { [weak self] result in
-            switch result {
-            case .success(let maybeTask):
-                guard let task = maybeTask else {
-                    completion(.failure(NSError(
-                        domain: "TaskRepository",
-                        code: 404,
-                        userInfo: [NSLocalizedDescriptionKey: "Task not found"]
-                    )))
-                    return
-                }
-                self?.taskDefinitionRepository.update(transform(task), completion: completion)
-            case .failure(let error):
-                completion(.failure(error))
-            }
-        }
-    }
-
-    private func performBatch(
-        _ tasks: [Task],
-        completion: @escaping (Result<[Task], Error>) -> Void,
-        operation: @escaping (_ task: Task, _ completion: @escaping (Result<Task, Error>) -> Void) -> Void
-    ) {
-        let group = DispatchGroup()
-        var collected: [Task] = []
-        var firstError: Error?
-
-        for task in tasks {
-            group.enter()
-            operation(task) { result in
-                switch result {
-                case .success(let value):
-                    collected.append(value)
-                case .failure(let error):
-                    if firstError == nil { firstError = error }
-                }
-                group.leave()
-            }
-        }
-
-        group.notify(queue: .main) {
-            if let firstError {
-                completion(.failure(firstError))
-            } else {
-                completion(.success(collected))
             }
         }
     }

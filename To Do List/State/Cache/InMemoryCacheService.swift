@@ -7,9 +7,6 @@
 
 import Foundation
 
-// Define Task type alias to avoid conflict with Swift.Task
-public typealias DomainTask = Task
-
 /// In-memory cache implementation with TTL support
 public final class InMemoryCacheService: CacheServiceProtocol {
     
@@ -157,13 +154,13 @@ public final class InMemoryCacheService: CacheServiceProtocol {
         return get([DomainTask].self, forKey: key)
     }
 
-    public func cacheTasks(_ tasks: [DomainTask], forProject projectName: String) {
-        let key = "tasks_project_\(projectName.lowercased())"
+    public func cacheTasks(_ tasks: [DomainTask], forProjectID projectID: UUID) {
+        let key = "tasks_project_\(projectID.uuidString.lowercased())"
         set(tasks, forKey: key, expiration: .minutes(10))
     }
 
-    public func getCachedTasks(forProject projectName: String) -> [DomainTask]? {
-        let key = "tasks_project_\(projectName.lowercased())"
+    public func getCachedTasks(forProjectID projectID: UUID) -> [DomainTask]? {
+        let key = "tasks_project_\(projectID.uuidString.lowercased())"
         return get([DomainTask].self, forKey: key)
     }
     
@@ -216,31 +213,6 @@ public final class InMemoryCacheService: CacheServiceProtocol {
         return stats
     }
 
-    // MARK: - Advanced Caching Methods
-
-    public func cacheFilterResult(_ result: FilteredTasksResult, key: String) {
-        set(result, forKey: "filter_\(key)", expiration: .minutes(5))
-    }
-
-    public func getCachedFilterResult(key: String) -> FilteredTasksResult? {
-        return get(FilteredTasksResult.self, forKey: "filter_\(key)")
-    }
-
-    public func cacheSearchResult(_ result: SearchResult, key: String) {
-        set(result, forKey: "search_\(key)", expiration: .minutes(5))
-    }
-
-    public func getCachedSearchResult(key: String) -> SearchResult? {
-        return get(SearchResult.self, forKey: "search_\(key)")
-    }
-
-    public func cacheStatistics(_ statistics: TaskStatistics, key: String) {
-        set(statistics, forKey: "stats_\(key)", expiration: .minutes(30))
-    }
-
-    public func getCachedStatistics(key: String) -> TaskStatistics? {
-        return get(TaskStatistics.self, forKey: "stats_\(key)")
-    }
 }
 
 // MARK: - Date Extension
