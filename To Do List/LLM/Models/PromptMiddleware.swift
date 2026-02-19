@@ -34,7 +34,7 @@ struct PromptMiddleware {
             guard !task.isComplete else { return false }
             // project filter
             if let targetProject {
-                let projName = task.project?.lowercased() ?? ""
+                let projName = task.projectName?.lowercased() ?? ""
                 if projName != targetProject { return false }
             }
             // date range filter
@@ -54,18 +54,25 @@ struct PromptMiddleware {
             }
         }
         if tasks.isEmpty { return "(no tasks)" }
-        return tasks.map { "• \($0.name)" }.joined(separator: "\n")
+        return tasks.map { "• \($0.title)" }.joined(separator: "\n")
     }
 
-    private static func fetchAllTasksSync() -> [Task] {
-        guard let repository = LLMContextRepositoryProvider.taskRepository else {
+    private static func fetchAllTasksSync() -> [TaskDefinition] {
+        guard let repository = LLMContextRepositoryProvider.taskReadModelRepository else {
             return []
         }
         let semaphore = DispatchSemaphore(value: 0)
-        var fetched: [Task] = []
-        repository.fetchAllTasks { result in
-            if case .success(let tasks) = result {
-                fetched = tasks
+        var fetched: [TaskDefinition] = []
+        repository.fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                sortBy: .dueDateAscending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { result in
+            if case .success(let slice) = result {
+                fetched = slice.tasks
             }
             semaphore.signal()
         }

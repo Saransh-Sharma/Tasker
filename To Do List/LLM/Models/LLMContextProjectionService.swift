@@ -1,27 +1,27 @@
 import Foundation
 
 enum LLMContextRepositoryProvider {
-    private static var taskRepositoryStorage: TaskRepositoryProtocol?
+    private static var taskReadModelRepositoryStorage: TaskReadModelRepositoryProtocol?
     private static var projectRepositoryStorage: ProjectRepositoryProtocol?
 
-    static var taskRepository: TaskRepositoryProtocol? { taskRepositoryStorage }
+    static var taskReadModelRepository: TaskReadModelRepositoryProtocol? { taskReadModelRepositoryStorage }
     static var projectRepository: ProjectRepositoryProtocol? { projectRepositoryStorage }
 
     static func configure(
-        taskRepository: TaskRepositoryProtocol?,
+        taskReadModelRepository: TaskReadModelRepositoryProtocol?,
         projectRepository: ProjectRepositoryProtocol?
     ) {
-        self.taskRepositoryStorage = taskRepository
+        self.taskReadModelRepositoryStorage = taskReadModelRepository
         self.projectRepositoryStorage = projectRepository
     }
 
     static func makeService() -> LLMContextProjectionService? {
-        guard let taskRepository = taskRepositoryStorage,
+        guard let taskReadModelRepository = taskReadModelRepositoryStorage,
               let projectRepository = projectRepositoryStorage else {
             return nil
         }
         return LLMContextProjectionService(
-            taskRepository: taskRepository,
+            taskReadModelRepository: taskReadModelRepository,
             projectRepository: projectRepository
         )
     }
@@ -45,27 +45,44 @@ enum LLMContextRepositoryProvider {
 }
 
 struct LLMContextProjectionService {
-    let taskRepository: TaskRepositoryProtocol
+    let taskReadModelRepository: TaskReadModelRepositoryProtocol
     let projectRepository: ProjectRepositoryProtocol
 
     func buildTodayJSON(completion: @escaping (String) -> Void) {
-        taskRepository.fetchTodayTasks { result in
-            let tasks: [Task]
-            switch result {
-            case .success(let fetched): tasks = fetched
-            case .failure: tasks = []
-            }
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? Date()
+        let endOfDay = startOfTomorrow.addingTimeInterval(-1)
+
+        taskReadModelRepository.fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                dueDateStart: startOfDay,
+                dueDateEnd: endOfDay,
+                sortBy: .dueDateAscending,
+                limit: 1_000,
+                offset: 0
+            )
+        ) { result in
+            let tasks = (try? result.get().tasks) ?? []
             completion(Self.encode(tasks: tasks, contextType: "today"))
         }
     }
 
     func buildUpcomingJSON(completion: @escaping (String) -> Void) {
-        taskRepository.fetchUpcomingTasks { result in
-            let tasks: [Task]
-            switch result {
-            case .success(let fetched): tasks = fetched
-            case .failure: tasks = []
-            }
+        let calendar = Calendar.current
+        let tomorrow = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date())
+
+        taskReadModelRepository.fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                dueDateStart: tomorrow,
+                sortBy: .dueDateAscending,
+                limit: 1_000,
+                offset: 0
+            )
+        ) { result in
+            let tasks = (try? result.get().tasks) ?? []
             completion(Self.encode(tasks: tasks, contextType: "upcoming"))
         }
     }
@@ -79,12 +96,16 @@ struct LLMContextProjectionService {
             case .failure:
                 projectName = ""
             }
-            taskRepository.fetchTasks(forProjectID: projectID) { result in
-                let tasks: [Task]
-                switch result {
-                case .success(let fetched): tasks = fetched
-                case .failure: tasks = []
-                }
+            taskReadModelRepository.fetchTasks(
+                query: TaskReadQuery(
+                    projectID: projectID,
+                    includeCompleted: true,
+                    sortBy: .dueDateAscending,
+                    limit: 1_000,
+                    offset: 0
+                )
+            ) { result in
+                let tasks = (try? result.get().tasks) ?? []
                 completion(
                     Self.encode(
                         tasks: tasks,
@@ -99,16 +120,16 @@ struct LLMContextProjectionService {
         }
     }
 
-    private static func encode(tasks: [Task], contextType: String, metadata: [String: Any] = [:]) -> String {
+    private static func encode(tasks: [TaskDefinition], contextType: String, metadata: [String: Any] = [:]) -> String {
         var payload: [String: Any] = [
             "context_type": contextType,
             "count": tasks.count,
             "tasks": tasks.map { task in
                 [
                     "id": task.id.uuidString,
-                    "title": task.name,
+                    "title": task.title,
                     "is_completed": task.isComplete,
-                    "project": task.project ?? "",
+                    "project": task.projectName ?? "",
                     "priority": task.priority.rawValue,
                     "due_date": task.dueDate?.ISO8601Format() as Any
                 ]

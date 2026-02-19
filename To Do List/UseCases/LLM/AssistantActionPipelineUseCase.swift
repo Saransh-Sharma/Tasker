@@ -43,10 +43,6 @@ public final class AssistantActionPipelineUseCase {
     }
 
     public func propose(threadID: String, envelope: AssistantCommandEnvelope, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
-        guard V2FeatureFlags.v2Enabled else {
-            completion(.failure(v2DisabledError(action: "propose")))
-            return
-        }
         guard envelope.schemaVersion >= minimumSupportedSchemaVersion && envelope.schemaVersion <= supportedSchemaVersion else {
             completion(.failure(NSError(
                 domain: "AssistantActionPipelineUseCase",
@@ -79,10 +75,6 @@ public final class AssistantActionPipelineUseCase {
     }
 
     public func confirm(runID: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
-        guard V2FeatureFlags.v2Enabled else {
-            completion(.failure(v2DisabledError(action: "confirm")))
-            return
-        }
         repository.fetchRun(id: runID) { result in
             switch result {
             case .success(let run):
@@ -105,10 +97,6 @@ public final class AssistantActionPipelineUseCase {
     }
 
     public func applyConfirmedRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
-        guard V2FeatureFlags.v2Enabled else {
-            completion(.failure(v2DisabledError(action: "apply")))
-            return
-        }
         guard V2FeatureFlags.assistantApplyEnabled else {
             completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 403, userInfo: [NSLocalizedDescriptionKey: "Assistant apply disabled by feature flag"])))
             return
@@ -204,10 +192,6 @@ public final class AssistantActionPipelineUseCase {
     }
 
     public func reject(runID: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
-        guard V2FeatureFlags.v2Enabled else {
-            completion(.failure(v2DisabledError(action: "reject")))
-            return
-        }
         repository.fetchRun(id: runID) { result in
             switch result {
             case .success(let run):
@@ -231,10 +215,6 @@ public final class AssistantActionPipelineUseCase {
     }
 
     public func undoAppliedRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
-        guard V2FeatureFlags.v2Enabled else {
-            completion(.failure(v2DisabledError(action: "undo")))
-            return
-        }
         guard V2FeatureFlags.assistantUndoEnabled else {
             completion(.failure(NSError(
                 domain: "AssistantActionPipelineUseCase",
@@ -648,11 +628,4 @@ public final class AssistantActionPipelineUseCase {
         return true
     }
 
-    private func v2DisabledError(action: String) -> Error {
-        NSError(
-            domain: "AssistantActionPipelineUseCase",
-            code: 403,
-            userInfo: [NSLocalizedDescriptionKey: "V2 assistant \(action) is disabled by feature flag"]
-        )
-    }
 }
