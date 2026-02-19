@@ -59,3 +59,17 @@ check_banned_symbol "DependencyContainer.shared" '(^|[^A-Za-z0-9_])DependencyCon
 check_banned_symbol "CreateTaskRequest" 'CreateTaskRequest(?!Definition)'
 check_banned_symbol "public struct Task:" 'public\s+struct\s+Task:'
 check_banned_symbol "v2Enabled" 'v2Enabled'
+check_banned_symbol "assertV2RuntimeReady" '\bassertV2RuntimeReady\b'
+check_banned_symbol "evaluateV2RuntimeReadiness" '\bevaluateV2RuntimeReadiness\b'
+check_banned_symbol "v2RuntimeReady" '\bv2RuntimeReady\b'
+check_banned_symbol "v2_runtime_not_ready" '\bv2_runtime_not_ready\b'
+
+if rg -n "TaskModelV2" "${RUNTIME_FILES[@]}" --glob '*.swift' | rg -v "^To Do List/AppDelegate.swift:"; then
+  echo "TaskModelV2 reference detected outside AppDelegate runtime cleanup allowlist"
+  exit 1
+fi
+
+if rg -n "TaskModelV2" "To Do List/AppDelegate.swift" | rg -v "TaskModelV2-(cloud|local)\\.sqlite(-wal|-shm)?"; then
+  echo "TaskModelV2 reference detected in AppDelegate outside cleanup filename allowlist"
+  exit 1
+fi
