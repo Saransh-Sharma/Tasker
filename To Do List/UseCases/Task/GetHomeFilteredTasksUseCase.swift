@@ -8,8 +8,8 @@
 import Foundation
 
 public struct HomeFilteredTasksResult {
-    public let openTasks: [Task]
-    public let doneTimelineTasks: [Task]
+    public let openTasks: [DomainTask]
+    public let doneTimelineTasks: [DomainTask]
     public let quickViewCounts: [HomeQuickView: Int]
     public let pointsPotential: Int
 }
@@ -30,7 +30,6 @@ public final class GetHomeFilteredTasksUseCase {
     private let readModelRepository: TaskReadModelRepositoryProtocol?
 
     public init(
-        taskRepository _: TaskRepositoryProtocol,
         readModelRepository: TaskReadModelRepositoryProtocol? = nil
     ) {
         self.readModelRepository = readModelRepository
@@ -45,12 +44,12 @@ public final class GetHomeFilteredTasksUseCase {
             completion(.failure(.repositoryError(NSError(
                 domain: "GetHomeFilteredTasksUseCase",
                 code: 503,
-                userInfo: [NSLocalizedDescriptionKey: "Task read-model repository is not configured"]
+                userInfo: [NSLocalizedDescriptionKey: "DomainTask read-model repository is not configured"]
             ))))
             return
         }
 
-        let loadTasks: (@escaping (Result<[Task], Error>) -> Void) -> Void = { handler in
+        let loadTasks: (@escaping (Result<[DomainTask], Error>) -> Void) -> Void = { handler in
             let narrowedProjectID = state.selectedProjectIDs.count == 1 ? state.selectedProjectIDs.first : nil
             let query = TaskReadQuery(
                 projectID: narrowedProjectID,
@@ -105,7 +104,7 @@ public final class GetHomeFilteredTasksUseCase {
         execute(state: state, scope: .fromQuickView(state.quickView), completion: completion)
     }
 
-    private func computeQuickViewCounts(from tasks: [Task], scope: HomeListScope) -> [HomeQuickView: Int] {
+    private func computeQuickViewCounts(from tasks: [DomainTask], scope: HomeListScope) -> [HomeQuickView: Int] {
         var counts: [HomeQuickView: Int] = [:]
         let anchorDate = scope.referenceDate
 
@@ -117,8 +116,8 @@ public final class GetHomeFilteredTasksUseCase {
         return counts
     }
 
-    private func applyProjectAndAdvancedFacets(_ tasks: [Task], state: HomeFilterState) -> [Task] {
-        let projectScoped: [Task]
+    private func applyProjectAndAdvancedFacets(_ tasks: [DomainTask], state: HomeFilterState) -> [DomainTask] {
+        let projectScoped: [DomainTask]
         if state.selectedProjectIDs.isEmpty {
             projectScoped = tasks
         } else {
@@ -194,7 +193,7 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
-    private func applyScope(_ scope: HomeListScope, to tasks: [Task]) -> [Task] {
+    private func applyScope(_ scope: HomeListScope, to tasks: [DomainTask]) -> [DomainTask] {
         switch scope {
         case .today:
             return applyQuickView(.today, to: tasks, anchorDate: Date())
@@ -211,7 +210,7 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
-    private func applyQuickView(_ view: HomeQuickView, to tasks: [Task], anchorDate: Date) -> [Task] {
+    private func applyQuickView(_ view: HomeQuickView, to tasks: [DomainTask], anchorDate: Date) -> [DomainTask] {
         let calendar = Calendar.current
         let startOfAnchorDay = calendar.startOfDay(for: anchorDate)
         let startOfNextDay = calendar.date(byAdding: .day, value: 1, to: startOfAnchorDay) ?? anchorDate
@@ -257,7 +256,7 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
-    private func isMorningTaskHybrid(_ task: Task) -> Bool {
+    private func isMorningTaskHybrid(_ task: DomainTask) -> Bool {
         if task.type == .morning { return true }
         if task.type == .evening { return false }
 
@@ -266,7 +265,7 @@ public final class GetHomeFilteredTasksUseCase {
         return hour >= 4 && hour <= 11
     }
 
-    private func isEveningTaskHybrid(_ task: Task) -> Bool {
+    private func isEveningTaskHybrid(_ task: DomainTask) -> Bool {
         if task.type == .evening { return true }
         if task.type == .morning { return false }
 
@@ -275,7 +274,7 @@ public final class GetHomeFilteredTasksUseCase {
         return hour >= 17 && hour <= 23
     }
 
-    private func sortByPriorityThenDue(lhs: Task, rhs: Task) -> Bool {
+    private func sortByPriorityThenDue(lhs: DomainTask, rhs: DomainTask) -> Bool {
         if lhs.priority.scorePoints != rhs.priority.scorePoints {
             return lhs.priority.scorePoints > rhs.priority.scorePoints
         }
@@ -285,7 +284,7 @@ public final class GetHomeFilteredTasksUseCase {
         return lhsDate < rhsDate
     }
 
-    private func sortDoneTimeline(lhs: Task, rhs: Task) -> Bool {
+    private func sortDoneTimeline(lhs: DomainTask, rhs: DomainTask) -> Bool {
         let calendar = Calendar.current
         let lhsDay = lhs.dateCompleted.map { calendar.startOfDay(for: $0) } ?? Date.distantPast
         let rhsDay = rhs.dateCompleted.map { calendar.startOfDay(for: $0) } ?? Date.distantPast
