@@ -1,16 +1,17 @@
-# LLM and Assistant Stack (V2)
+# LLM and Assistant Stack (V3 Runtime)
 
-**Last validated against code on 2026-02-18**
+**Last validated against code on 2026-02-20**
 
-This doc defines the LLM and assistant architecture boundaries across UI-local model inference and transactional assistant actions.
+This document defines boundaries between:
+- local LLM chat UX and context projection, and
+- transactional assistant command execution over core task data.
 
-Primary sources:
+Primary source anchors:
 - `To Do List/LLM/ChatHostViewController.swift`
 - `To Do List/LLM/Models/LLMContextProjectionService.swift`
 - `To Do List/LLM/Models/PromptMiddleware.swift`
-- `To Do List/LLM/Models/LLMDataController.swift`
 - `To Do List/LLM/Models/LLMEvaluator.swift`
-- `To Do List/LLM/Views/Chat/ChatView.swift`
+- `To Do List/LLM/Models/LLMDataController.swift`
 - `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
 - `To Do List/UseCases/LLM/AssistantCommandExecutor.swift`
 - `To Do List/Domain/Models/AssistantAction.swift`
@@ -20,123 +21,95 @@ Primary sources:
 
 ```mermaid
 flowchart TD
-    UI["LLM UI (ChatHostViewController + SwiftUI views)"] --> LLMCTX["LLMContextProjectionService / PromptMiddleware"]
-    LLMCTX --> LEGACY["TaskRepositoryProtocol + ProjectRepositoryProtocol"]
-    UI --> EVAL["LLMEvaluator local model generation"]
-    UI --> STORE["LLMDataController (SwiftData Thread/Message store)"]
+    UI["LLM UI (ChatHost + SwiftUI chat)"] --> CCTX["LLMContextProjectionService"]
+    CCTX --> READ["TaskReadModelRepositoryProtocol + ProjectRepositoryProtocol"]
+    UI --> EVAL["LLMEvaluator (local model inference)"]
+    UI --> STORE["LLMDataController (SwiftData thread/message store)"]
 
-    UI --> AUC["AssistantActionPipelineUseCase"]
-    AUC --> AEXEC["AssistantCommandExecutor actor"]
-    AUC --> ARUN["AssistantActionRepositoryProtocol"]
-    AUC --> TDEF["TaskDefinitionRepositoryProtocol"]
+    UI --> PIPE["AssistantActionPipelineUseCase"]
+    PIPE --> EXEC["AssistantCommandExecutor actor"]
+    PIPE --> AR["AssistantActionRepositoryProtocol"]
+    PIPE --> TR["TaskDefinitionRepositoryProtocol"]
 ```
 
-## Layer Responsibilities
+## Responsibilities
 
-| Surface | Responsibility | Must Not Do |
+| Surface | Owns | Must not own |
 | --- | --- | --- |
-| `/To Do List/LLM/*` | local model UX, context extraction, prompt preparation, chat data persistence | perform direct V2 task-definition transactional mutations |
-| `/To Do List/UseCases/LLM/*` | structured command proposal/confirm/apply/undo workflow over V2 task definitions | own UI rendering or local chat view state |
-
-## LLM UI and Local Inference Components
-
-| Component | Purpose | Notes |
-| --- | --- | --- |
-| `ChatHostViewController` | UIKit shell embedding SwiftUI chat/onboarding | routes between onboarding and chat based on installed models |
-| `ChatView` / related SwiftUI views | interactive chat UX and slash-command triggers | can build task summaries/context payloads |
-| `LLMEvaluator` | loads/switches local models and generates responses | local inference runtime |
-| `LLMDataController` | shared SwiftData container (`Thread`, `Message`) | CloudKit disabled for this store |
-| `AppManager` in `Data.swift` | installed model state and app-level LLM UI state | local app settings/state helper |
+| `/To Do List/LLM/*` | chat UX, prompt assembly, local inference, chat persistence | direct transactional mutation of core task graph |
+| `/To Do List/UseCases/LLM/*` | propose/confirm/apply/reject/undo state machine and transactional command execution | UI rendering and local chat presentation state |
 
 ## Context Projection Pipeline
 
 | Component | Input | Output |
 | --- | --- | --- |
-| `LLMContextRepositoryProvider` | injected task + project repositories | context service factory and sync project lookup |
-| `LLMContextProjectionService` | repository data for today/upcoming/project | JSON context payload for prompts |
-| `PromptMiddleware` | task range and optional project name | bullet summary of open tasks |
+| `LLMContextRepositoryProvider` | injected `taskReadModelRepository` + `projectRepository` | configured context service factory |
+| `LLMContextProjectionService` | read-model task slices + project metadata | structured JSON payloads for today/upcoming/project contexts |
+| `PromptMiddleware` | task range + optional project signal | prompt-ready summaries/bullets |
+
+### Context query behavior
+- `buildTodayJSON`: day-bounded read-model query, includes completed tasks.
+- `buildUpcomingJSON`: future open tasks query.
+- `buildProjectJSON`: project-scoped query + project-name metadata.
+- `findProjectNameSync`: short semaphore-bounded lookup (`3s` timeout).
 
 ## Assistant Transaction Pipeline
 
-| Stage | Behavior | Guards |
+| Stage | Behavior | Key guards |
 | --- | --- | --- |
-| Propose | persist pending run with proposal envelope | `v2Enabled`, schema version bounds |
-| Confirm | mark run confirmed by user | `v2Enabled` |
-| Apply | execute allowlisted commands transactionally and persist undo plan | `v2Enabled`, `assistantApplyEnabled`, confirmed status, allowlist, deterministic undo validation |
-| Reject | mark run rejected | `v2Enabled` |
-| Undo | apply compensating commands in undo window | `v2Enabled`, `assistantUndoEnabled`, applied status, undo payload present, window check |
+| `propose` | validates schema bounds and persists pending run | schema range checks |
+| `confirm` | transitions run to confirmed | valid run existence |
+| `applyConfirmedRun` | allowlist validation, serialized execution, undo-plan generation, persistence of trace/status | `assistantApplyEnabled`, status/allowlist/schema checks |
+| `reject` | marks run rejected | valid run existence |
+| `undoAppliedRun` | executes stored compensating commands within undo window | `assistantUndoEnabled`, applied status, undo payload, window bound |
 
-## End-to-End Assistant Apply Sequence
+## Timeouts and Budgets
 
-```mermaid
-sequenceDiagram
-    participant UI as Chat/Assistant UI
-    participant PIPE as AssistantActionPipelineUseCase
-    participant STORE as AssistantActionRepository
-    participant EXEC as AssistantCommandExecutor
-    participant TASKS as TaskDefinitionRepository
+| Budget | Value | Source |
+| --- | --- | --- |
+| undo window | 30 minutes | `AssistantActionPipelineUseCase` |
+| per-command timeout | 10 seconds | `AssistantActionPipelineUseCase` |
+| per-run timeout | 90 seconds | `AssistantActionPipelineUseCase` |
+| sync project-name lookup timeout | 3 seconds | `LLMContextProjectionService` |
 
-    UI->>PIPE: propose(threadID, envelope)
-    PIPE->>STORE: createRun(pending)
-    UI->>PIPE: confirm(runID)
-    PIPE->>STORE: updateRun(confirmed)
-    UI->>PIPE: applyConfirmedRun(runID)
-    PIPE->>EXEC: enqueue(transaction)
-    EXEC->>TASKS: fetch baseline + apply commands
-    alt success
-        PIPE->>STORE: updateRun(applied + undo plan + trace)
-    else failure
-        PIPE->>TASKS: rollback verification
-        PIPE->>STORE: updateRun(failed + rollback status + error)
-    end
-```
+## Concurrency Model
 
-## Concurrency and Timeouts
-
-| Concern | Implementation |
+| Area | Model |
 | --- | --- |
-| Run serialization | `AssistantCommandExecutor` actor enqueues one transaction at a time |
-| Per-command timeout | command timeout budget tracked in pipeline internals |
-| Per-run timeout | run-level timeout (`runTimeoutSeconds`) enforced during apply |
-| Rollback verification | transaction failure triggers rollback and baseline verification |
-
-## Timeout and Window Budgets
-
-| Budget | Current Value | Source |
-| --- | --- | --- |
-| undo window | 30 minutes (`60 * 30`) | `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift` |
-| per-command timeout | 10 seconds | `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift` |
-| per-run timeout | 90 seconds | `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift` |
-| context project lookup sync wait | 3 seconds semaphore timeout | `To Do List/LLM/Models/LLMContextProjectionService.swift` |
+| Assistant command execution | serialized through `AssistantCommandExecutor` actor queue |
+| Assistant API surface | callback API wrapping async transaction internals |
+| Context projection | callback-based read-model fetch composition |
+| Chat data store | SwiftData-backed local persistence for threads/messages |
 
 ## Failure Modes
 
-| Failure Mode | Detection | Outcome |
+| Failure mode | Detection | Result |
 | --- | --- | --- |
-| Assistant schema mismatch | envelope schema version check | `422` unsupported schema error |
-| Feature gate disabled | flag guards | `403` disabled error path |
-| Invalid run state transition | status checks | `409` conflict-style error |
-| Undo window expired | elapsed time check from `appliedAt` | `410` undo window expired |
-| Missing/invalid proposal data | decode/validation guard | `422` invalid payload error |
-| Transaction execution failure | internal apply/rollback catch path | run marked failed; rollback status persisted |
+| unsupported schema version | envelope bounds validation | `422` failure |
+| apply disabled | feature-flag check | `403` failure |
+| undo disabled | feature-flag check | `403` failure |
+| invalid run status transition | status checks (`confirmed`/`applied`) | `409` conflict-style failure |
+| undo window expired | `appliedAt` age check | `410` failure |
+| invalid proposal payload | decode or allowlist validation failure | `422` failure |
+| transaction execution failure | command pipeline catch path | run persisted as failed, rollback status captured |
 
 ## Feature Flag Dependencies
 
 | Flow | Flags |
 | --- | --- |
-| assistant propose/confirm/reject | `v2Enabled` |
-| assistant apply | `v2Enabled` + `assistantApplyEnabled` |
-| assistant undo | `v2Enabled` + `assistantUndoEnabled` |
+| assistant pipeline does not depend on reminders flags directly | n/a |
+| assistant apply | `assistantApplyEnabled` |
+| assistant undo | `assistantUndoEnabled` |
 
-## Integration Contract: LLM Context vs Assistant Actions
+## Integration Contract: Chat Context vs Assistant Actions
 
-1. Context projection uses legacy repository protocols for broad read compatibility.
-2. Assistant command execution mutates canonical V2 task-definition surfaces.
-3. Consumers should treat chat context and assistant action run history as separate concerns:
-- chat history is local SwiftData UX state,
-- assistant run state is domain workflow state in core persistence.
+1. Context projection is read-only and uses read-model/project repositories.
+2. Assistant apply/undo is transactional and mutates `TaskDefinition` entities.
+3. Chat history (SwiftData) and assistant action runs (core persistence) are separate state systems and must remain decoupled.
 
 ## Cross-Links
-- Usecase contract catalog: `docs/architecture/usecases-v2.md`
-- Runtime wiring and feature gates: `docs/architecture/clean-architecture-v2.md`
-- State ownership internals: `docs/architecture/state-repositories-and-services-v2.md`
+
+- `docs/architecture/usecases-v2.md`
+- `docs/architecture/clean-architecture-v2.md`
+- `docs/architecture/state-repositories-and-services-v2.md`
+- `docs/architecture/risk-register-v2.md`

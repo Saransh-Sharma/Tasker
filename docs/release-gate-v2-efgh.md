@@ -38,7 +38,7 @@ Release tag promotion is blocked until every gate below is green.
 | --- | --- | --- |
 | iOS runtime guardrails | `.github/workflows/ios.yml` (`guardrails`) | `scripts/validate_legacy_runtime_guardrails.sh`, runtime grep checks |
 | iOS unit tests | `.github/workflows/ios.yml` (`unit-tests`) | `xcodebuild ... -only-testing:TaskerTests` |
-| Performance gate | `.github/workflows/ios.yml` (`perf-gate`) | `scripts/perf_seed_v2.swift`, in-workflow SLO assertions |
+| Performance gate | `.github/workflows/ios.yml` (`perf-gate`) | `scripts/perf_seed_v3.swift`, in-workflow SLO assertions |
 | CloudKit smoke docs/evidence gate | `.github/workflows/cloudkit-smoke.yml` | `scripts/validate_cloudkit_smoke_evidence.sh` + runbook existence |
 | Token/logging UI guardrails (supporting quality gate) | `.github/workflows/design-token-law.yml` | `scripts/token-law-guardrails.sh`, `scripts/check-no-print-logs.sh` |
 | flowctl tooling gate | `.github/workflows/ios.yml` (`guardrails`) | `scripts/install_flowctl.sh`, `scripts/verify_flowctl.sh` |

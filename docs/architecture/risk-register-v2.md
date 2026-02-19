@@ -1,151 +1,89 @@
-# Tasker V2 Risk Register And Guardrails
+# Tasker V3 Risk Register and Guardrails
 
-**Last validated against code on 2026-02-18**
+**Last validated against code on 2026-02-20**
 
-## Scope
+This register tracks technical risks that can regress V3 runtime correctness, data integrity, and release safety.
 
-This document tracks architecture and migration risks specific to Tasker V2 model/usecase/runtime behavior. It is intended to protect future UI and product work from hidden regressions.
-
-Primary sources:
-- `To Do List/Domain/Models/Task.swift`
-- `To Do List/TaskModelV2.xcdatamodeld/TaskModelV2.xcdatamodel/contents`
+Primary source anchors:
+- `To Do List/AppDelegate.swift`
 - `To Do List/State/DI/EnhancedDependencyContainer.swift`
 - `To Do List/Presentation/DI/PresentationDependencyContainer.swift`
-- `To Do List/UseCases/Coordinator/UseCaseCoordinator.swift`
+- `To Do List/TaskModelV3.xcdatamodeld/TaskModelV3.xcdatamodel/contents`
+- `To Do List/State/Repositories/*.swift`
 - `To Do List/UseCases/Sync/ReconcileExternalRemindersUseCase.swift`
 - `To Do List/UseCases/Sync/ReminderMergeEngine.swift`
 - `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
 - `To Do List/Services/V2FeatureFlags.swift`
-- `To Do List/AppDelegate.swift`
 
-## Risk Register
+## Active Risk Register
 
-| ID | Risk | Severity | Impact | Trigger | Mitigation | Owner Suggestion | Source Anchors |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| R-001 | Legacy/V2 task field overlap (`title`/`name`, `priority`/`taskPriority`, `project`/`projectID`) causes inconsistent reads/writes | High | Wrong task display/scoring/filtering and migration drift | New feature writes only one alias path | Always mutate canonical domain (`TaskDefinition`) and verify bridge mapping tests | Domain + State maintainers | `Domain/Models/Task.swift`, `TaskModelV2.../contents`, `State/Repositories/CoreDataTaskDefinitionRepository.swift` |
-| R-002 | Optional V2 dependencies in coordinator allow partial runtime wiring | High | Runtime feature failures in screens expecting V2 flows | Container config misses optional V2 repo/usecase | Keep fail-closed readiness checks enforced in both DI containers | App architecture owner | `UseCases/Coordinator/UseCaseCoordinator.swift`, `State/DI/EnhancedDependencyContainer.swift`, `Presentation/DI/PresentationDependencyContainer.swift` |
-| R-003 | Default-true feature flags can mask incomplete rollout assumptions | Medium | Unexpected feature activation in debug/prod | Missing explicit flag gate in new flow | Add explicit flag checks for all new side-effectful V2 flows | Feature owners | `Services/V2FeatureFlags.swift`, `UseCases/LLM/AssistantActionPipelineUseCase.swift`, `UseCases/Sync/ReconcileExternalRemindersUseCase.swift` |
-| R-004 | Mixed legacy utility task usecases and V2-first usecases can diverge behavior | Medium | UX inconsistency between screens | One screen calls legacy path, another calls V2 path | Document and standardize per-screen mutation/read path; prefer V2 for new features | Presentation + Usecase maintainers | `UseCases/Task/*.swift`, `State/Repositories/CoreDataTaskDefinitionRepository.swift` |
-| R-005 | Reconcile flow partial failures leave mappings/tasks/provider state temporarily divergent | High | Duplicate reminders, stale task completion status, mapping corruption risk | Provider call fails mid-loop/timeouts | Track per-item failures, retry safely, and preserve merge clocks/envelopes | Sync owner | `UseCases/Sync/ReconcileExternalRemindersUseCase.swift`, `UseCases/Sync/ReminderMergeEngine.swift` |
-| R-006 | Assistant apply/undo transactional assumptions break under unsupported command schema | High | Irreversible or partially reverted assistant actions | Non-allowlisted commands or invalid envelope schema | Enforce schema bounds + allowlist + deterministic undo validation | Assistant pipeline owner | `UseCases/LLM/AssistantActionPipelineUseCase.swift`, `Domain/Models/AssistantAction.swift` |
-| R-007 | Background refresh timing/timeouts cause silent maintenance gaps | Medium | Occurrence/reminder freshness drifts | BG task expiration or reconcile timeouts | Keep timeout logging, per-project fail accounting, and rescheduling logic | Runtime/platform owner | `AppDelegate.swift`, `UseCases/Schedule/MaintainOccurrencesUseCase.swift` |
-| R-008 | Identity collisions in projects/tasks from historical data remain latent | Medium | Wrong project linking and orphan task behavior | Existing inconsistent IDs in migrated store | Run identity repair and orphan assignment checks on startup and migration paths | Data migration owner | `UseCases/Project/ManageProjectsUseCase.swift`, `UseCases/Task/AssignOrphanedTasksToInboxUseCase.swift`, `AppDelegate.swift` |
+| ID | Risk | Severity | Impact | Trigger | Mitigation |
+| --- | --- | --- | --- | --- | --- |
+| `R-001` | Compatibility-column drift (`title/name`, priority aliases, project aliases) | High | inconsistent reads/scores and migration regressions | one write path updates only compatibility columns | canonical-write rules in repositories + alias-aware regression checks |
+| `R-002` | Runtime DI incompleteness despite successful bootstrap | High | crashes/503 behavior in presentation/usecase paths | missing repository/service wiring at startup | enforce `assertV3RuntimeReady()` in both DI containers and fail closed |
+| `R-003` | Identity divergence (`id` vs `taskID/projectID`) in historical rows | High | duplicate logical entities, broken links | repairs/canonicalization bypassed or regressed | keep identity repair/canonicalization helpers and startup repair path intact |
+| `R-004` | External reminders reconcile partial failures | High | stale mappings, duplicate reminders, sync drift | provider failures/timeouts during multi-item reconcile | preserve per-item failure accounting, merge-clock persistence, targeted retries |
+| `R-005` | Tombstone/merge-clock regressions | High | deleted entities resurrect or conflict resolution becomes unstable | merge envelope encoding/clock logic changes | keep merge-engine envelope compatibility + purge lifecycle checks |
+| `R-006` | Assistant apply/undo contract drift | High | irreversible or partially rolled-back assistant actions | schema/allowlist/undo-plan regressions | enforce schema bounds, allowlist checks, deterministic undo validation |
+| `R-007` | Feature-flag guard omission in side-effect flows | Medium | disabled features still mutate state/provider | new flow added without explicit gate | require explicit `V2FeatureFlags` checks for reminders and assistant paths |
+| `R-008` | Background refresh reliability degradation | Medium | stale occurrence/reminder state | repeated BG task timeout/failure signals | preserve scheduling retries, timeout logging, and dependency checks |
+| `R-009` | Documentation/runtime drift | Medium | incorrect engineering decisions and release mistakes | docs not updated with code changes | enforce same-PR doc updates and release-gate evidence in tracker doc |
 
-## Detection Signals and Rollback Actions
+## Detection Signals and Containment
 
-| Risk ID | Detection Signals | Rollback / Containment Action |
+| Risk ID | Detection signals | Containment action |
 | --- | --- | --- |
-| `R-001` | mismatched task names/titles in UI, inconsistent scoring fields, alias drift in regression checks | revert to canonical write helpers and run alias-sync validation; block merge until compatibility tests pass |
-| `R-002` | `v2_runtime_not_ready` logs, nil V2 usecase surfaces in coordinator/presentation wiring | fail closed; restore missing DI wiring before release build |
-| `R-003` | behavior active despite expected disable state, missing flag checks in PR diff | add explicit flag guard and disabled-path test, then re-run CI |
-| `R-004` | inconsistent behavior across screens for same operation | align screen to canonical usecase path and document chosen contract in usecase/UI map |
-| `R-005` | duplicate reminders, stale external mappings, reconcile summary mismatches | preserve latest mapping state blob, rerun reconcile with targeted project scope, inspect per-item failures |
-| `R-006` | apply/undo errors (`422`, `409`, rollback failed status), missing undo commands in runs | disable apply/undo via flags for rollout containment, fix allowlist/schema/undo generation, replay tests |
-| `R-007` | BG timeout/error events (`bg_reminders_project_timeout`, maintenance failure logs) | schedule rerun and investigate timeout thresholds; avoid shipping with persistent red BG signals |
-| `R-008` | duplicate inbox candidates, orphan count spikes, identity repair warnings | run repair + orphan assignment paths and verify post-repair counts before release gate |
-
-## Risk Handling Flow
-
-```mermaid
-flowchart TD
-    C["Change Proposed"] --> D["Identify affected model/usecase/runtime paths"]
-    D --> R["Map against risk register IDs"]
-    R --> T["Add tests + docs updates + mitigations"]
-    T --> G["Run guardrail checklist"]
-    G --> M["Merge only if no unmitigated high risks"]
-```
-
-## Known Migration Traps
-
-## Trap 1: Legacy/V2 Field Overlap
-- Do not assume one canonical storage field where schema intentionally carries alias columns.
-- Reading only `name` or only `title` can miss data written by other paths.
-
-Sources:
-- `To Do List/TaskModelV2.xcdatamodeld/TaskModelV2.xcdatamodel/contents`
-- `To Do List/Domain/Models/Task.swift`
-
-## Trap 2: Optional V2 Coordinator Dependencies
-- `UseCaseCoordinator` exposes many V2 usecases as optionals.
-- Calling sites must not assume non-nil without runtime readiness enforcement.
-
-Sources:
-- `To Do List/UseCases/Coordinator/UseCaseCoordinator.swift`
-- `To Do List/State/DI/EnhancedDependencyContainer.swift`
-- `To Do List/Presentation/DI/PresentationDependencyContainer.swift`
-
-## Trap 3: Feature Flags Default True
-- Default `true` in user defaults is useful for dev speed but risky if code paths are incompletely guarded.
-- New write/sync/assistant flows must explicitly gate on relevant flags.
-
-Sources:
-- `To Do List/Services/V2FeatureFlags.swift`
-
-## Trap 4: Mixed Legacy Utility Usecases vs V2-First Flows
-- Some utility usecases still operate through legacy `Task` semantics.
-- New UI surfaces should define explicit contract choices to avoid semantic mismatch.
-
-Sources:
-- `To Do List/UseCases/Task/*.swift`
-- `To Do List/State/Repositories/CoreDataTaskDefinitionRepository.swift`
+| `R-001` | inconsistent task/project display values across screens/tests | re-run canonicalization and alias-sync checks; block release until reconciled |
+| `R-002` | `v3_runtime_not_ready` errors or missing dependency reasons | fail closed and fix DI wiring before build promotion |
+| `R-003` | duplicate inbox candidates / identity repair warnings | run repair flows and verify post-repair counts |
+| `R-004` | reconcile summaries show persistent failures/timeouts | retry targeted projects, inspect mapping state and provider permissions |
+| `R-005` | merge decisions flip unexpectedly across runs | validate clock/tombstone serialization round-trip and reconcile replay |
+| `R-006` | assistant apply/undo failures (`409/410/422`) | disable apply/undo flags if needed; fix envelope/schema/undo plan logic |
+| `R-007` | feature-disabled scenarios still execute side effects | add/restore explicit guard checks and disabled-path tests |
+| `R-008` | repeated BG timeout/failure events | tune timeout strategy and dependency readiness, then re-run BG smoke |
+| `R-009` | stale architecture statements detected in review | update docs before merge; refresh `v3-runtime-cutover-todo.md` |
 
 ## Guardrails (Do Not Bypass)
 
-1. Do not bypass DI readiness assertions before constructing presentation runtime.
-2. Do not introduce direct CoreData mutation from presentation layer.
-3. Do not add new reminder-sync mutations outside merge-state/tombstone-aware reconcile paths.
-4. Do not add assistant commands without allowlist updates and deterministic undo mappings.
-5. Do not add new schema alias fields without documenting migration ownership and deprecation intent.
-6. Do not skip canonical ID validation for V2 entities.
+1. Do not bypass `assertV3RuntimeReady()` checks in startup wiring.
+2. Do not introduce presentation-layer CoreData mutations.
+3. Do not add sync mutations outside merge-envelope/tombstone-aware flows.
+4. Do not add assistant commands without allowlist + undo strategy.
+5. Do not remove canonical ID validation/canonicalization helpers.
+6. Do not change compatibility columns without documenting migration rationale.
+7. Do not weaken guardrail scripts without replacing equivalent coverage.
 
-Source anchors:
-- `To Do List/AppDelegate.swift`
-- `To Do List/State/DI/EnhancedDependencyContainer.swift`
-- `To Do List/Presentation/DI/PresentationDependencyContainer.swift`
-- `To Do List/UseCases/Sync/ReconcileExternalRemindersUseCase.swift`
-- `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
-- `To Do List/State/Repositories/CoreDataTaskDefinitionRepository.swift`
+## High-Risk Invariants to Preserve
 
-## Invariants To Protect During UI Integration
-
-| Invariant | Why It Matters | Source |
+| Invariant | Why it matters | Source anchors |
 | --- | --- | --- |
-| Inbox project identity remains canonical and always resolvable | Prevents orphan task drift and broken defaults | `To Do List/AppDelegate.swift`, `To Do List/UseCases/Project/EnsureInboxProjectUseCase.swift` |
-| `Occurrence.occurrenceKey` is immutable | Prevents duplicate/corrupt occurrence timelines | `To Do List/State/Repositories/CoreDataOccurrenceRepository.swift` |
-| Reminder merge clocks must persist across sync cycles | Prevents conflict regression and ping-pong overwrites | `To Do List/Domain/Models/SyncMergeState.swift`, `To Do List/UseCases/Sync/ReminderMergeEngine.swift` |
-| Assistant apply must only run on confirmed runs | Preserves user confirmation contract and trust | `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift` |
-| Assistant undo must stay within undo window and compensating command set | Prevents unsafe late rollback and undefined reversions | `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift` |
+| Inbox project identity remains canonical | prevents orphan tasks and project-link drift | `AppDelegate.swift`, `CoreDataProjectRepository.swift` |
+| `Occurrence.occurrenceKey` remains immutable | deterministic recurrence identity | `CoreDataOccurrenceRepository.swift` |
+| External mapping uniqueness and merge clocks are preserved | stable two-way sync conflict resolution | `CoreDataExternalSyncRepository.swift`, `ReminderMergeEngine.swift` |
+| Assistant apply requires confirmed runs and valid undo payloads | transactional safety and user trust | `AssistantActionPipelineUseCase.swift` |
+| Tombstone lifecycle (write -> expire -> purge) is intact | prevents deletion regressions and sync churn | `DeleteTaskDefinitionUseCase.swift`, `MaintainOccurrencesUseCase.swift` |
 
-## Verification Checklist For Every Model/Usecase Change
+## Review Checklist (Required in PRs Touching Architecture)
 
-Use this checklist in PR review:
-
-- [ ] Data model change documented in `docs/architecture/data-model-v2.md`.
-- [ ] Usecase contract updates documented in `docs/architecture/usecases-v2.md`.
-- [ ] Runtime wiring/flag behavior updates documented in `docs/architecture/clean-architecture-v2.md`.
-- [ ] New or changed risk captured in this register with severity/mitigation/owner.
-- [ ] Added/changed feature-gated flow has explicit gate check and disabled-path behavior.
-- [ ] Compatibility aliases (if touched) include canonical-write and read-fallback behavior review.
-- [ ] Startup/readiness paths still fail closed when required V2 dependencies are absent.
-- [ ] Background maintenance and reconcile flows have timeout/failure logging expectations updated.
-
-## Change Review Checklist (Risk -> Required PR Evidence)
-
-| Risk ID | Required PR Evidence |
-| --- | --- |
-| `R-001` | alias/identity compatibility notes in `data-model-v2.md` plus before/after field mapping proof |
-| `R-002` | DI wiring diff + runtime readiness assertion path validation (`EnhancedDependencyContainer` and presentation container) |
-| `R-003` | feature-flag gate checks shown in changed flow + disabled-path test case notes |
-| `R-004` | UI surface map update in `usecases-v2.md` showing normalized route |
-| `R-005` | reconcile flow sequence/edge-case note update + sample failure handling evidence |
-| `R-006` | assistant pipeline contract update + undo/rollback behavior validation notes |
-| `R-007` | background operation behavior note update and relevant log-signal expectations |
-| `R-008` | identity/orphan repair validation outputs and updated migration guardrail notes |
+- [ ] Data model/schema changes reflected in `docs/architecture/data-model-v2.md`.
+- [ ] Usecase contract changes reflected in `docs/architecture/usecases-v2.md`.
+- [ ] Runtime/DI/bootstrapping changes reflected in `docs/architecture/clean-architecture-v2.md`.
+- [ ] State repository/service changes reflected in `docs/architecture/state-repositories-and-services-v2.md`.
+- [ ] LLM/assistant changes reflected in `docs/architecture/llm-assistant-stack-v2.md`.
+- [ ] `docs/architecture/v3-runtime-cutover-todo.md` gate evidence updated when release-gating behavior changed.
 
 ## Escalation Guidance
 
-Escalate before merge when any of these occur:
-- A change alters entity identity semantics (`id`, `projectID`, `taskID`, `occurrenceKey`).
-- A change introduces new assistant command mutations without undo strategy.
-- A change modifies reminder merge/tombstone logic without replay testing.
-- A change shifts startup/bootstrap behavior and bypasses readiness gating.
+Escalate for architecture review before merge when a change:
+- touches identity columns or canonicalization paths,
+- changes reconcile merge semantics or tombstone handling,
+- changes assistant command schema/allowlist/undo contracts,
+- modifies runtime bootstrap readiness or fail-closed behavior.
+
+## Cross-Links
+
+- `docs/architecture/clean-architecture-v2.md`
+- `docs/architecture/data-model-v2.md`
+- `docs/architecture/state-repositories-and-services-v2.md`
+- `docs/architecture/usecases-v2.md`
+- `docs/architecture/v3-runtime-cutover-todo.md`

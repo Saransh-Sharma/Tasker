@@ -1,86 +1,75 @@
-# Tasker V2 Architecture Docs Index
+# Tasker Architecture Docs Index (V3 Runtime)
 
-**Last validated against code on 2026-02-19**
+**Last validated against code on 2026-02-20**
 
-This folder contains implementation-facing architecture truth for Tasker V2.
-Task runtime is V2-only; legacy task bridge contracts are removed from production code.
+This folder is the implementation-facing source of truth for Tasker's shipped V3 runtime.
+The runtime is V3-only (`TaskModelV3`, V3 bootstrap cutover, `TaskDefinition`-centric contracts).
 
-Primary source paths used:
-- `To Do List/TaskModelV2.xcdatamodeld/TaskModelV2.xcdatamodel/contents`
-- `To Do List/Domain/Models`
-- `To Do List/Domain/Interfaces`
-- `To Do List/Domain/Events`
-- `To Do List/UseCases`
-- `To Do List/State/Repositories`
-- `To Do List/State/Services`
-- `To Do List/LLM`
+## Naming Convention Note
+
+Several filenames still use a `-v2` suffix for link stability across older PRs and external references.
+That suffix no longer means the runtime is V2.
+Treat these docs as the current V3 architecture references unless explicitly marked archived.
+
+## Primary Source Anchors
+
 - `To Do List/AppDelegate.swift`
 - `To Do List/State/DI/EnhancedDependencyContainer.swift`
 - `To Do List/Presentation/DI/PresentationDependencyContainer.swift`
-
-## Source-Of-Truth Boundaries
-
-- Product intent and user outcomes: `PRODUCT_REQUIREMENTS_DOCUMENT.md`
-- Technical architecture and contracts: this folder
-- Operational release mechanics: `docs/operations/*`
-- Historical, non-canonical docs: `docs/archive/*`
+- `To Do List/UseCases/Coordinator/UseCaseCoordinator.swift`
+- `To Do List/TaskModelV3.xcdatamodeld/TaskModelV3.xcdatamodel/contents`
+- `To Do List/Domain/Interfaces/*`
+- `To Do List/Domain/Models/*`
+- `To Do List/UseCases/*`
+- `To Do List/State/Repositories/*`
+- `To Do List/State/Services/*`
+- `To Do List/LLM/*`
 
 ## Document Map
 
-| Document | Purpose | Source Anchors |
+| Document | Purpose | Update when... |
 | --- | --- | --- |
-| `docs/architecture/data-model-v2.md` | CoreData V2 + domain model invariants, lifecycle flows | Domain models + `TaskModelV2` |
-| `docs/architecture/clean-architecture-v2.md` | Layer boundaries, DI/runtime composition, fail-closed behavior | AppDelegate + DI containers |
-| `docs/architecture/usecases-v2.md` | Usecase taxonomy, contract tables, side effects, critical sequences | UseCases + repository protocols |
-| `docs/architecture/risk-register-v2.md` | Risks, migration traps, guardrails, review checklist | Domain/UseCases/DI + feature flags |
-| `docs/architecture/state-repositories-and-services-v2.md` | Repository/service internals and data ownership | State repositories/services |
-| `docs/architecture/domain-events-and-observability-v2.md` | Event contracts, handlers, observability stream | Domain events + publisher |
-| `docs/architecture/llm-assistant-stack-v2.md` | LLM context projection and assistant transaction boundaries | `/LLM` + `/UseCases/LLM` |
+| `docs/architecture/data-model-v2.md` | Entity map, identity rules, compatibility columns, ownership of writes | schema/domain fields/identity rules change |
+| `docs/architecture/clean-architecture-v2.md` | Layer boundaries, DI composition, fail-closed runtime | AppDelegate/DI/runtime bootstrapping changes |
+| `docs/architecture/usecases-v2.md` | Usecase inventory, contracts, side effects, orchestration flows | Usecase APIs/dependencies/flow semantics change |
+| `docs/architecture/state-repositories-and-services-v2.md` | State layer repository/service internals and data ownership | repository/service implementations change |
+| `docs/architecture/domain-events-and-observability-v2.md` | Domain event bus, handler rules, observability expectations | event schemas/handlers/logging behavior change |
+| `docs/architecture/llm-assistant-stack-v2.md` | LLM context pipeline and assistant transaction boundaries | `/LLM` or `/UseCases/LLM` changes |
+| `docs/architecture/risk-register-v2.md` | Active technical risk register and mitigations | risk posture/guardrails/release criteria change |
+| `docs/architecture/v3-runtime-cutover-todo.md` | Active migration and release gate tracker | gate status or verification evidence changes |
+| `docs/architecture/v2-hardcut-execution-todo.md` | Archived historical tracker | almost never (historical context only) |
 
-## Navigation Graph
+## Source-Of-Truth Boundaries
 
-```mermaid
-flowchart TD
-    IDX["docs/architecture/README.md"]
-    DM["data-model-v2.md"]
-    CA["clean-architecture-v2.md"]
-    UC["usecases-v2.md"]
-    RR["risk-register-v2.md"]
-    ST["state-repositories-and-services-v2.md"]
-    EV["domain-events-and-observability-v2.md"]
-    LLM["llm-assistant-stack-v2.md"]
-    OPS["docs/operations/*"]
+- Product outcomes and roadmap: `PRODUCT_REQUIREMENTS_DOCUMENT.md`
+- Runtime implementation contracts: this folder
+- CI/release operations: `docs/operations/*`
+- Archived/non-canonical material: `docs/archive/*`
 
-    IDX --> DM
-    IDX --> CA
-    IDX --> UC
-    IDX --> RR
-    IDX --> ST
-    IDX --> EV
-    IDX --> LLM
-    CA --> OPS
-    UC --> OPS
-    RR --> OPS
-```
+## Maintenance Policy
 
-## Maintenance Policy By Code Area
+1. Update architecture docs in the same PR as code changes.
+2. Keep statements code-verifiable with file anchors.
+3. Prefer canonical runtime terms: `TaskDefinition`, `TaskDefinitionSliceResult`, `TaskModelV3`, `assertV3RuntimeReady`.
+4. Keep archived docs explicitly marked and non-gating.
+5. Keep `docs/architecture/v3-runtime-cutover-todo.md` aligned with actual gate execution status.
 
-| Code Area Changed | Required Docs Update |
+## Required Update Matrix
+
+| Code area changed | Required doc updates |
 | --- | --- |
-| `To Do List/Domain/Models/*` or `TaskModelV2` schema | `data-model-v2.md`, `risk-register-v2.md` |
+| `To Do List/Domain/Models/*` or model schema | `data-model-v2.md`, `risk-register-v2.md` |
 | `To Do List/UseCases/*` | `usecases-v2.md`, `risk-register-v2.md` |
 | `To Do List/State/Repositories/*`, `To Do List/State/Services/*` | `state-repositories-and-services-v2.md`, `clean-architecture-v2.md` |
 | `To Do List/Domain/Events/*` | `domain-events-and-observability-v2.md`, `usecases-v2.md` |
-| `To Do List/LLM/*` or `To Do List/UseCases/LLM/*` | `llm-assistant-stack-v2.md`, `usecases-v2.md`, `risk-register-v2.md` |
-| `AppDelegate`/DI/flags/runtime wiring | `clean-architecture-v2.md`, `risk-register-v2.md`, `docs/operations/ci-release-and-guardrails.md` |
+| `To Do List/LLM/*`, `To Do List/UseCases/LLM/*` | `llm-assistant-stack-v2.md`, `usecases-v2.md`, `risk-register-v2.md` |
+| `AppDelegate` + DI containers + runtime guardrails | `clean-architecture-v2.md`, `risk-register-v2.md`, `v3-runtime-cutover-todo.md` |
 
-## If You Are Building UI
+## Quick Read Order
 
-Read in this order:
-1. `docs/architecture/data-model-v2.md`
-2. `docs/architecture/usecases-v2.md`
-3. `docs/architecture/clean-architecture-v2.md`
-4. `docs/architecture/risk-register-v2.md`
-5. `docs/architecture/llm-assistant-stack-v2.md` (if chat/assistant integrations are touched)
-
-See operations constraints in `docs/operations/ci-release-and-guardrails.md` before release changes.
+1. `docs/architecture/clean-architecture-v2.md`
+2. `docs/architecture/data-model-v2.md`
+3. `docs/architecture/usecases-v2.md`
+4. `docs/architecture/state-repositories-and-services-v2.md`
+5. `docs/architecture/risk-register-v2.md`
+6. `docs/architecture/llm-assistant-stack-v2.md` (for AI/assistant changes)

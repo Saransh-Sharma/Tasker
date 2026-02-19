@@ -1,115 +1,81 @@
-# Domain Events and Observability (V2)
+# Domain Events and Observability (V3 Runtime)
 
-**Last validated against code on 2026-02-18**
+**Last validated against code on 2026-02-20**
 
-This doc describes Tasker's in-process domain-event system and observability hooks used by usecases and presentation consumers.
+This document describes Tasker's in-process domain event system and observability expectations.
 
-Primary sources:
+Primary source anchors:
 - `To Do List/Domain/Events/DomainEvent.swift`
 - `To Do List/Domain/Events/DomainEventPublisher.swift`
 - `To Do List/Domain/Events/TaskEvents.swift`
 - `To Do List/Domain/Events/ProjectEvents.swift`
 - `To Do List/Domain/Events/TaskNotificationDispatcher.swift`
-- `To Do List/UseCases/Task/*.swift`
 
 ## Event System Topology
 
 ```mermaid
 flowchart LR
-    UC["UseCases / workflows"] --> PUB["DomainEventPublisher.shared.publish(event)"]
+    UC["UseCases / workflows"] --> PUB["DomainEventPublisher.shared.publish"]
     PUB --> HANDLERS["DomainEventHandler implementations"]
-    PUB --> COMBINE["eventSubject / typed publishers"]
+    PUB --> COMBINE["eventSubject + typed publishers"]
     HANDLERS --> NC["NotificationCenter bridge"]
-    COMBINE --> VM["ViewModels / observers"]
-    PUB --> LOG["debug event logging"]
+    COMBINE --> OBS["ViewModels / observers"]
+    PUB --> LOG["debug event logs + in-memory storage"]
 ```
 
-## Core Protocols and Types
+## Core Contracts
 
-| Type | Role | Key Fields/Functions |
+| Type | Role | Key members |
 | --- | --- | --- |
-| `DomainEvent` | base protocol for events | `eventId`, `occurredAt`, `eventType`, `aggregateId`, `metadata` |
-| `SerializableDomainEvent` | persistence/transmission-capable event | `toDictionary()`, `fromDictionary(_:)` |
-| `BaseDomainEvent` | convenience concrete baseline | constructor with `eventType`, `aggregateId`, optional metadata |
-| `DomainEventHandler` | handler contract | `handle(_:)`, `canHandle(_:)` |
-| `DomainEventPublisher` | in-process bus + replay storage | `publish`, `register`, typed publishers (`taskEvents`, `projectEvents`, etc.) |
+| `DomainEvent` | base protocol | `eventId`, `occurredAt`, `eventType`, `aggregateId`, `metadata` |
+| `SerializableDomainEvent` | dictionary-serializable event contract | `eventVersion`, `toDictionary()`, `fromDictionary(_:)` |
+| `DomainEventHandler` | handler interface | `handle(_:)`, `canHandle(_:)` |
+| `DomainEventPublisher` | event bus + replay/debug storage | `publish`, `register`, typed publishers |
 
-## Event Families
+## Event Families (Current)
 
-| Family | Primary Files | Examples |
+| Family | Examples | Source file |
 | --- | --- | --- |
-| Task events | `TaskEvents.swift` | `TaskCreatedEvent`, `TaskCompletedEvent`, `TaskUpdatedEvent`, etc. |
-| Project events | `ProjectEvents.swift` | `ProjectCreatedEvent`, `ProjectUpdatedEvent`, `ProjectArchivedEvent`, etc. |
-| Custom usecase events | task usecase files | archive/bulk/habit/gameification events defined near usecases |
-
-## Consumer Expectations and Handler Discipline
-
-| Consumer Type | Expectation | Why |
-| --- | --- | --- |
-| Usecase publishers | publish domain events only after successful state transitions | avoid observers reacting to failed mutations |
-| Event handlers | keep `handle(_:)` lightweight and non-blocking | handlers execute inline in publisher path |
-| UI/observers | subscribe via typed publishers (`taskEvents`, `projectEvents`, etc.) and tolerate out-of-band events | stream is process-local and not a durable log |
-| Notification bridges | post through `TaskNotificationDispatcher.postOnMain` when UI listeners are expected | NotificationCenter consumers can assume main-thread delivery |
-| Replay/debug tooling | treat `eventStorage` as diagnostic only | storage is in-memory and cleared per process lifecycle |
-
-Source anchors:
-- `To Do List/Domain/Events/DomainEventPublisher.swift`
-- `To Do List/Domain/Events/TaskNotificationDispatcher.swift`
-- `To Do List/UseCases/Task/*.swift`
+| Task events | `TaskCreatedEvent`, `TaskCompletedEvent`, `TaskUpdatedEvent` | `TaskEvents.swift` |
+| Project events | `ProjectCreatedEvent`, `ProjectUpdatedEvent`, `ProjectArchivedEvent` | `ProjectEvents.swift` |
+| Publisher typed streams | task/project/gamification/occurrence filtered streams | `DomainEventPublisher.swift` |
 
 ## Publisher Behavior
 
-| Behavior | Current Implementation |
+| Behavior | Current implementation |
 | --- | --- |
-| Event storage | Keeps events in memory (`eventStorage`) for replay/debug |
-| Handler dispatch | Iterates registered handlers and dispatches by `canHandle(eventType)` |
-| Reactive stream | Emits events through `PassthroughSubject<DomainEvent, Never>` |
-| Typed publishers | filters by family (`taskEvents`, `projectEvents`, `gamificationEvents`, `occurrenceEvents`) |
-| Logging | emits debug logs with event type + aggregate IDs |
+| Event storage | in-memory `eventStorage` for replay/debug only |
+| Handler dispatch | synchronous iteration of registered handlers by `canHandle(eventType)` |
+| Reactive stream | `PassthroughSubject<DomainEvent, Never>` |
+| Typed publishers | filtered streams for task/project/gamification/occurrence event types |
+| Logging | debug log entries on publish and stream sink |
 
-## Built-In Handlers
+## Built-in Handler Roles
 
-| Handler | Handles | Side Effects |
+| Handler | Event scope | Side effects |
 | --- | --- | --- |
-| `AnalyticsEventHandler` | task/project creation/completion event types | analytics-oriented debug instrumentation |
-| `NotificationEventHandler` | selected task/project events | posts `NotificationCenter` messages |
-| `TaskNotificationDispatcher` | helper utility | ensures notification posting on main thread |
+| `AnalyticsEventHandler` | selected task/project creation/completion events | analytics-oriented logging hooks |
+| `NotificationEventHandler` | selected task/project events | NotificationCenter posting |
+| `TaskNotificationDispatcher` | helper utility | enforces main-thread posting for notifications |
 
-## Naming and Versioning Expectations
+## Operational Expectations
 
-| Rule | Why |
-| --- | --- |
-| Event `eventType` should be stable and explicit (e.g. `TaskCompleted`) | consumers and filters depend on exact string match |
-| `eventVersion` on serializable events should increment for schema changes | safe deserialization evolution |
-| `metadata` should remain additive where possible | backward compatibility for observers |
+1. Publish events only after successful state transitions.
+2. Keep handlers lightweight; they run inline in the publish path.
+3. Treat `eventStorage` as diagnostics, not durable audit history.
+4. Use stable `eventType` values and additive metadata evolution.
+5. When payload shape changes, bump `eventVersion` and preserve decode compatibility when practical.
 
-## Event Evolution Policy
-
-| Change Type | Allowed? | Required Follow-Up |
-| --- | --- | --- |
-| Add new event type | Yes | update handler allowlists and doc event family table |
-| Add optional metadata field | Yes | keep existing keys stable and additive |
-| Rename event type string | Avoid | if unavoidable, dual-publish transition window and update all filters |
-| Change serializable payload shape | Controlled | bump `eventVersion`, keep backward decode path where feasible |
-
-Source anchors:
-- `To Do List/Domain/Events/DomainEvent.swift`
-- `To Do List/Domain/Events/DomainEventPublisher.swift`
-
-## Replay and Storage Caveats
+## Replay and Caveats
 
 | Caveat | Impact | Mitigation |
 | --- | --- | --- |
-| In-memory event storage is process-local | no durable audit trail across launches | treat as observability aid, not source of truth |
-| Handler execution occurs inline during publish | expensive handlers can affect caller latency | keep handlers lightweight and side-effect bounded |
-| Notification bridge depends on main-thread posting | background callers need marshaling | use `TaskNotificationDispatcher.postOnMain` |
-
-## Observability Integration Points
-
-- Event stream-level observability: `DomainEventPublisher` debug logs.
-- Runtime logs/guardrails: CI and runtime safety docs in `docs/operations/ci-release-and-guardrails.md`.
-- Risk-aware documentation: `docs/architecture/risk-register-v2.md`.
+| Process-local storage | no cross-launch durability | use for debugging, not historical truth |
+| Inline handler execution | slow handlers can add request latency | keep handlers bounded and fast |
+| NotificationCenter bridging | UI listeners need main-thread safety | post via `TaskNotificationDispatcher.postOnMain` |
 
 ## Cross-Links
-- Usecase contracts and side effects: `docs/architecture/usecases-v2.md`
-- Runtime layering and boundaries: `docs/architecture/clean-architecture-v2.md`
+
+- `docs/architecture/usecases-v2.md`
+- `docs/architecture/clean-architecture-v2.md`
+- `docs/architecture/risk-register-v2.md`
