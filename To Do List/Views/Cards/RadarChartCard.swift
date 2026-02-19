@@ -391,7 +391,6 @@ private final class PreviewRadarProjectRepository: ProjectRepositoryProtocol {
     func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
     func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
     func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
-    func getTasks(for projectId: UUID, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success([])) }
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
 }
