@@ -18,12 +18,9 @@
 
     <entity name="Project" representedClassName="ProjectEntity" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
-        <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="lifeAreaID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="name" optional="YES" attributeType="String"/>
-        <attribute name="projectName" optional="YES" attributeType="String"/>
         <attribute name="projectDescription" optional="YES" attributeType="String"/>
-        <attribute name="projecDescription" optional="YES" attributeType="String"/>
         <attribute name="status" optional="YES" attributeType="String"/>
         <attribute name="priority" optional="YES" attributeType="Integer 32" defaultValueString="2" usesScalarValueType="YES"/>
         <attribute name="color" optional="YES" attributeType="String"/>
@@ -51,8 +48,8 @@
         <relationship name="tasks" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskDefinition" inverseName="projectRef" inverseEntity="TaskDefinition"/>
         <relationship name="habits" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="HabitDefinition" inverseName="projectRef" inverseEntity="HabitDefinition"/>
         <relationship name="externalContainerMaps" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ExternalContainerMap" inverseName="projectRef" inverseEntity="ExternalContainerMap"/>
-        <fetchIndex name="byProjectID"><fetchIndexElement property="projectID" type="Binary" order="ascending"/></fetchIndex>
-        <fetchIndex name="byProjectName"><fetchIndexElement property="projectName" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byProjectID"><fetchIndexElement property="id" type="Binary" order="ascending"/></fetchIndex>
+        <fetchIndex name="byProjectName"><fetchIndexElement property="name" type="Binary" order="ascending"/></fetchIndex>
     </entity>
 
     <entity name="ProjectSection" representedClassName="ProjectSection" syncable="YES">
@@ -86,12 +83,9 @@
         <attribute name="parentTaskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="habitDefinitionID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="title" optional="YES" attributeType="String"/>
-        <attribute name="name" optional="YES" attributeType="String" spotlightIndexingEnabled="YES"/>
         <attribute name="notes" optional="YES" attributeType="String"/>
-        <attribute name="taskDetails" optional="YES" attributeType="String"/>
         <attribute name="status" optional="YES" attributeType="String"/>
         <attribute name="priority" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
-        <attribute name="taskPriority" optional="YES" attributeType="Integer 32" defaultValueString="3" usesScalarValueType="YES"/>
         <attribute name="energy" optional="YES" attributeType="String"/>
         <attribute name="category" optional="YES" attributeType="String"/>
         <attribute name="context" optional="YES" attributeType="String"/>
@@ -108,7 +102,6 @@
         <attribute name="updatedByDeviceID" optional="YES" attributeType="String"/>
         <attribute name="version" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
         <attribute name="isComplete" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
-        <attribute name="project" optional="YES" attributeType="String"/>
         <attribute name="taskType" optional="YES" attributeType="Integer 32" defaultValueString="1" usesScalarValueType="YES"/>
         <attribute name="isEveningTask" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="alertReminderTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
