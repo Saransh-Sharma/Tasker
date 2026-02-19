@@ -44,7 +44,7 @@ private enum TaskDetailAutosaveState: Equatable {
 }
 
 struct TaskDetailSheetView: View {
-    typealias UpdateHandler = (UpdateTaskRequest, @escaping (Result<DomainTask, Error>) -> Void) -> Void
+    typealias UpdateHandler = (UpdateTaskDefinitionRequest, @escaping (Result<DomainTask, Error>) -> Void) -> Void
     typealias CompletionHandler = (Bool, @escaping (Result<DomainTask, Error>) -> Void) -> Void
     typealias DeleteHandler = (@escaping (Result<Void, Error>) -> Void) -> Void
     typealias RescheduleHandler = (Date, @escaping (Result<DomainTask, Error>) -> Void) -> Void
@@ -666,7 +666,7 @@ struct TaskDetailSheetView: View {
         }
     }
 
-    private func makeUpdateRequest() -> UpdateTaskRequest? {
+    private func makeUpdateRequest() -> UpdateTaskDefinitionRequest? {
         let trimmedName = taskName.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedDetails = taskDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         let detailsForStorage: String? = normalizedDetails.isEmpty ? nil : taskDescription
@@ -674,21 +674,20 @@ struct TaskDetailSheetView: View {
         let priority = TaskPriority(rawValue: taskPriorityRaw)
         let type = TaskType(rawValue: taskTypeRaw)
 
-        var name: String?
+        var title: String?
         var details: String?
         var priorityChange: TaskPriority?
         var typeChange: TaskType?
         var dueDateChange: Date?
         var projectID: UUID?
-        var projectName: String?
         var reminderChange: Date?
 
         if trimmedName != persistedTask.name {
-            name = trimmedName
+            title = trimmedName
         }
 
         if detailsForStorage != persistedTask.details {
-            // Empty string requests a clear in UpdateTaskUseCase.
+            // Empty string requests a clear in update request handling.
             details = detailsForStorage ?? ""
         }
 
@@ -706,32 +705,30 @@ struct TaskDetailSheetView: View {
 
         if selectedProjectID != persistedTask.projectID || selectedProjectName != (persistedTask.project ?? ProjectConstants.inboxProjectName) {
             projectID = selectedProjectID
-            projectName = selectedProjectName
         }
 
         if areDatesDifferent(reminderTime, persistedTask.alertReminderTime), let reminderTime {
             reminderChange = reminderTime
         }
 
-        let request = UpdateTaskRequest(
-            name: name,
+        let request = UpdateTaskDefinitionRequest(
+            id: persistedTask.id,
+            title: title,
             details: details,
-            type: typeChange,
-            priority: priorityChange,
-            dueDate: dueDateChange,
             projectID: projectID,
-            projectName: projectName,
+            dueDate: dueDateChange,
+            priority: priorityChange,
+            type: typeChange,
             alertReminderTime: reminderChange
         )
 
         let hasChanges =
-            name != nil ||
+            title != nil ||
             details != nil ||
             priorityChange != nil ||
             typeChange != nil ||
             dueDateChange != nil ||
             projectID != nil ||
-            projectName != nil ||
             reminderChange != nil
 
         return hasChanges ? request : nil

@@ -81,7 +81,8 @@ public struct FocusZone: View {
         )
         .onDrop(of: ["public.text"], isTargeted: $isTargeted, perform: onDrop)
         .animation(.spring(response: 0.3), value: isTargeted)
-        .accessibilityIdentifier("home.focusZone")
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.focus.dropzone")
     }
 
     // MARK: - Header
@@ -246,6 +247,8 @@ private struct FocusZoneRow: View {
                 return NSItemProvider(object: task.id.uuidString as NSString)
             }
         }
+        .accessibilityIdentifier("home.focus.task.\(task.id.uuidString)")
+        .accessibilityLabel(task.name)
     }
 
     private func focusUrgencyColor(for label: String) -> Color {

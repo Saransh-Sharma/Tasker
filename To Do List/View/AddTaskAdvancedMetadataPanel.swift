@@ -66,9 +66,9 @@ final class AddTaskAdvancedMetadataPanel: UIView {
         selectedSectionID: UUID?,
         tags: [TagDefinition],
         selectedTagIDs: Set<UUID>,
-        parentTasks: [Task],
+        parentTasks: [DomainTask],
         selectedParentTaskID: UUID?,
-        dependencyTasks: [Task],
+        dependencyTasks: [DomainTask],
         selectedDependencyTaskIDs: Set<UUID>
     ) {
         let selectedLifeArea = lifeAreas.first(where: { $0.id == selectedLifeAreaID })?.name ?? "None"

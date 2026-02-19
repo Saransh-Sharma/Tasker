@@ -3,7 +3,7 @@
 //  To Do List
 //
 //  Task card variants for non-list contexts (dashboard, detail views).
-//  Migrated from NTask (CoreData) to domain Task model.
+//  Migrated from Core Data entity rows to domain Task model.
 //
 
 import SwiftUI
@@ -385,7 +385,7 @@ struct TaskCard_Previews: PreviewProvider {
 
     static var sampleTask: DomainTask {
         DomainTask(
-            name: "Sample Task",
+            title: "Sample Task",
             details: "This is a sample task for preview",
             priority: .low,
             dueDate: Date().addingTimeInterval(86400)

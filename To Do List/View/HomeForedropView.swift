@@ -456,6 +456,8 @@ struct HomeBackdropForedropRootView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, spacing.s16)
                     .padding(.top, spacing.s2)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("home.focus.strip")
             }
 
             // Next action module: contextual guidance for empty/low-content states
@@ -539,6 +541,7 @@ struct HomeBackdropForedropRootView: View {
                 topTrailingRadius: corner.modal
             )
         )
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.foredrop.surface")
         .accessibilityValue(foredropAnchor.accessibilityValue)
     }

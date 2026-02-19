@@ -1,5 +1,4 @@
 import SwiftUI
-import FluentUI
 
 struct SettingsView: View {
     private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }

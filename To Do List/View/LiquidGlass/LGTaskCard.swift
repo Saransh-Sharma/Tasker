@@ -11,12 +11,12 @@ class LGTaskCard: LGBaseView {
 
     // MARK: - Properties
 
-    var task: Task? {
+    var task: DomainTask? {
         didSet { updateUI() }
     }
 
-    var onTap: ((Task) -> Void)?
-    var onToggleComplete: ((Task) -> Void)?
+    var onTap: ((DomainTask) -> Void)?
+    var onToggleComplete: ((DomainTask) -> Void)?
 
     // Theme support
     private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
