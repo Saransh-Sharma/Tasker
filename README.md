@@ -5,7 +5,7 @@ Tasker is an ADHD-focused todo and life-management app built for low-friction pl
 ## Runtime Snapshot
 
 Current V2 runtime composition:
-1. `AppDelegate` bootstraps `TaskModelV2` stores and executes fail-closed readiness checks.
+1. `AppDelegate` bootstraps `TaskModelV2` stores with hard-cut epoch key `tasker.v3.store.epoch`, CloudKit container `iCloud.TaskerCloudKitV3`, and fail-closed readiness checks.
 2. `EnhancedDependencyContainer` wires repositories/services and builds `UseCaseCoordinator`.
 3. `PresentationDependencyContainer` exposes ViewModels and validates presentation-side V2 readiness.
 
@@ -14,6 +14,12 @@ Primary source anchors:
 - `To Do List/State/DI/EnhancedDependencyContainer.swift`
 - `To Do List/Presentation/DI/PresentationDependencyContainer.swift`
 - `To Do List/UseCases/Coordinator/UseCaseCoordinator.swift`
+
+## Release Cutover Policy
+
+- V2-only runtime: legacy task contracts (`Task`, `TaskRepositoryProtocol`, legacy task use cases, V2 bridge adapter) are removed.
+- Upgrade data policy is destructive reset by design for this hard cut.
+- Cloud sync cutover uses a new container: `iCloud.TaskerCloudKitV3`.
 
 ## Repository Map
 
@@ -55,9 +61,10 @@ open Tasker.xcworkspace
 ```bash
 ./taskerctl build
 ./taskerctl build device
-./taskerctl clean --all
 ./taskerctl doctor
 ```
+
+Use deterministic `xcodebuild` gates for migration/release validation; avoid `./taskerctl clean --all` as a phase gate because it mutates CocoaPods integration.
 
 ### Test
 ```bash
@@ -108,9 +115,10 @@ Legacy generated repowiki docs were moved out of active paths and are non-canoni
 
 ## Legacy Cleanup Status
 
+- Legacy task runtime bridge is removed; app runtime is V2-only.
 - Legacy debt doc removed (content absorbed into architecture/risk docs).
 - Legacy root CLI guide removed (content absorbed into operations tooling docs).
-- `clean.md` and `claude.md` retained as reference docs.
+- `clean.md` retained as historical reference.
 
 ## License
 

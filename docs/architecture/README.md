@@ -1,8 +1,9 @@
 # Tasker V2 Architecture Docs Index
 
-**Last validated against code on 2026-02-18**
+**Last validated against code on 2026-02-19**
 
 This folder contains implementation-facing architecture truth for Tasker V2.
+Task runtime is V2-only; legacy task bridge contracts are removed from production code.
 
 Primary source paths used:
 - `To Do List/TaskModelV2.xcdatamodeld/TaskModelV2.xcdatamodel/contents`
