@@ -359,7 +359,7 @@ public final class GetTasksUseCase {
     private func applySearchFilter(query: String, in tasks: [TaskDefinition]) -> [TaskDefinition] {
         guard !query.isEmpty else { return tasks }
         return tasks.filter { task in
-            task.name.localizedCaseInsensitiveContains(query) ||
+            task.title.localizedCaseInsensitiveContains(query) ||
                 (task.details?.localizedCaseInsensitiveContains(query) ?? false)
         }
     }

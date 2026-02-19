@@ -296,7 +296,7 @@ public final class LinkExternalRemindersUseCase {
         let normalizedTitle = normalize(snapshot.title)
         let dueDate = snapshot.dueDate
         return tasks.first { task in
-            guard normalize(task.name) == normalizedTitle else { return false }
+            guard normalize(task.title) == normalizedTitle else { return false }
             switch (task.dueDate, dueDate) {
             case (nil, nil):
                 return true

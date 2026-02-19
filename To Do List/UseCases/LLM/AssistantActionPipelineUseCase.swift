@@ -489,7 +489,7 @@ public final class AssistantActionPipelineUseCase {
             }
             let inverse = AssistantCommand.restoreTaskSnapshot(snapshot: AssistantTaskSnapshot(task: task))
             if let title {
-                task.name = title
+                task.title = title
             }
             if let dueDate {
                 task.dueDate = dueDate

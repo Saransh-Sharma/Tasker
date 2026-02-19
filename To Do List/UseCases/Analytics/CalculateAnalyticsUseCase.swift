@@ -338,7 +338,7 @@ public final class CalculateAnalyticsUseCase {
         // Calculate project breakdown
         var projectBreakdown: [String: Int] = [:]
         for task in tasks.filter({ $0.isComplete }) {
-            let projectName = task.project ?? "Inbox"
+            let projectName = task.projectName ?? "Inbox"
             projectBreakdown[projectName, default: 0] += 1
         }
         

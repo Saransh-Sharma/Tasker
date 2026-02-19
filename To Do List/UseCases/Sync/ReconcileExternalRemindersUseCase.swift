@@ -773,7 +773,7 @@ public final class ReconcileExternalRemindersUseCase {
     private func matchTask(external: AppleReminderItemSnapshot, tasks: [TaskDefinition]) -> TaskDefinition? {
         let normalized = normalize(external.title)
         return tasks.first { task in
-            guard normalize(task.name) == normalized else { return false }
+            guard normalize(task.title) == normalized else { return false }
             switch (task.dueDate, external.dueDate) {
             case (nil, nil):
                 return true
@@ -859,7 +859,7 @@ public final class ReconcileExternalRemindersUseCase {
     ) -> Data? {
         let existingEnvelope = decodeMergeEnvelope(data: existingPayloadData)
         let known = ReminderMergeEnvelope.KnownFields(
-            title: task.name,
+            title: task.title,
             notes: task.details,
             dueDate: task.dueDate,
             completionDate: task.dateCompleted,
@@ -929,7 +929,7 @@ public final class ReconcileExternalRemindersUseCase {
         return AppleReminderItemSnapshot(
             itemID: existingExternalID,
             calendarID: listID,
-            title: task.name,
+            title: task.title,
             notes: task.details,
             dueDate: task.dueDate,
             completionDate: task.dateCompleted,
@@ -960,7 +960,7 @@ public final class ReconcileExternalRemindersUseCase {
             )
         }
         return ReminderMergeEnvelope.KnownFields(
-            title: task.name,
+            title: task.title,
             notes: task.details,
             dueDate: task.dueDate,
             completionDate: task.dateCompleted,
@@ -985,7 +985,7 @@ public final class ReconcileExternalRemindersUseCase {
     }
 
     private func applyKnownFields(_ known: ReminderMergeEnvelope.KnownFields, to task: inout TaskDefinition) {
-        task.name = known.title
+        task.title = known.title
         task.details = known.notes
         task.dueDate = known.dueDate
         task.isComplete = known.isCompleted

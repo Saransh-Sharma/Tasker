@@ -26,7 +26,7 @@ public final class SortTasksUseCase {
     
     /// Sort tasks with comprehensive criteria
     public func sortTasks(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         criteria: SortCriteria,
         completion: @escaping (Result<SortedTasksResult, SortError>) -> Void
     ) {
@@ -52,9 +52,9 @@ public final class SortTasksUseCase {
     
     /// Sort by priority (most common sorting)
     public func sortByPriority(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[DomainTask], SortError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .priority(order),
@@ -74,9 +74,9 @@ public final class SortTasksUseCase {
     
     /// Sort by due date
     public func sortByDueDate(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[DomainTask], SortError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .dueDate(order),
@@ -96,9 +96,9 @@ public final class SortTasksUseCase {
     
     /// Sort by name (alphabetical)
     public func sortByName(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[DomainTask], SortError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .name(order),
@@ -118,9 +118,9 @@ public final class SortTasksUseCase {
     
     /// Sort by creation date
     public func sortByCreationDate(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         order: SortOrder = .descending,
-        completion: @escaping (Result<[DomainTask], SortError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .dateAdded(order),
@@ -140,9 +140,9 @@ public final class SortTasksUseCase {
     
     /// Sort by completion date
     public func sortByCompletionDate(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         order: SortOrder = .descending,
-        completion: @escaping (Result<[DomainTask], SortError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .dateCompleted(order),
@@ -162,9 +162,9 @@ public final class SortTasksUseCase {
     
     /// Sort by project
     public func sortByProject(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[DomainTask], SortError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .project(order),
@@ -184,9 +184,9 @@ public final class SortTasksUseCase {
     
     /// Sort by category
     public func sortByCategory(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[DomainTask], SortError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .category(order),
@@ -206,9 +206,9 @@ public final class SortTasksUseCase {
     
     /// Sort by energy level
     public func sortByEnergyLevel(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[DomainTask], SortError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .energy(order),
@@ -228,9 +228,9 @@ public final class SortTasksUseCase {
     
     /// Sort by estimated duration
     public func sortByEstimatedDuration(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         order: SortOrder = .ascending,
-        completion: @escaping (Result<[DomainTask], SortError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = SortCriteria(
             primarySort: .estimatedDuration(order),
@@ -250,9 +250,9 @@ public final class SortTasksUseCase {
     
     /// Smart sort - context-aware sorting based on current time and user behavior
     public func smartSort(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         context: SortContext = .general,
-        completion: @escaping (Result<[DomainTask], SortError>) -> Void
+        completion: @escaping (Result<[TaskDefinition], SortError>) -> Void
     ) {
         let criteria = determineSmartSortCriteria(for: context)
         
@@ -268,7 +268,7 @@ public final class SortTasksUseCase {
     
     /// Group and sort tasks by category or project
     public func groupAndSort(
-        _ tasks: [DomainTask],
+        _ tasks: [TaskDefinition],
         groupBy: GroupingCriteria,
         sortWithinGroups: SortField = .priority(.ascending),
         completion: @escaping (Result<GroupedTasksResult, SortError>) -> Void
@@ -289,7 +289,7 @@ public final class SortTasksUseCase {
     
     // MARK: - Private Helper Methods
     
-    private func performSort(tasks: [DomainTask], criteria: SortCriteria) throws -> [DomainTask] {
+    private func performSort(tasks: [TaskDefinition], criteria: SortCriteria) throws -> [TaskDefinition] {
         return tasks.sorted { task1, task2 in
             // Primary sort
             let primaryResult = compareTasksBy(task1, task2, field: criteria.primarySort)
@@ -315,7 +315,7 @@ public final class SortTasksUseCase {
         }
     }
     
-    private func compareTasksBy(_ task1: DomainTask, _ task2: DomainTask, field: SortField) -> ComparisonResult {
+    private func compareTasksBy(_ task1: TaskDefinition, _ task2: TaskDefinition, field: SortField) -> ComparisonResult {
         switch field {
         case .priority(let order):
             let comparison = compareInts(Int(task1.priority.rawValue), Int(task2.priority.rawValue))
@@ -328,7 +328,7 @@ public final class SortTasksUseCase {
             return order == .ascending ? comparison : invertComparison(comparison)
             
         case .name(let order):
-            let comparison = task1.name.localizedCaseInsensitiveCompare(task2.name)
+            let comparison = task1.title.localizedCaseInsensitiveCompare(task2.title)
             return order == .ascending ? comparison : invertComparison(comparison)
             
         case .dateAdded(let order):
@@ -342,8 +342,8 @@ public final class SortTasksUseCase {
             return order == .ascending ? comparison : invertComparison(comparison)
             
         case .project(let order):
-            let project1 = task1.project ?? ""
-            let project2 = task2.project ?? ""
+            let project1 = task1.projectName ?? ""
+            let project2 = task2.projectName ?? ""
             let comparison = project1.localizedCaseInsensitiveCompare(project2)
             return order == .ascending ? comparison : invertComparison(comparison)
             
@@ -433,15 +433,15 @@ public final class SortTasksUseCase {
         }
     }
     
-    private func groupTasks(_ tasks: [DomainTask], by criteria: GroupingCriteria, sortedBy sortField: SortField) -> [TaskGroup] {
-        var groups: [String: [DomainTask]] = [:]
+    private func groupTasks(_ tasks: [TaskDefinition], by criteria: GroupingCriteria, sortedBy sortField: SortField) -> [TaskGroup] {
+        var groups: [String: [TaskDefinition]] = [:]
         
         // Group tasks
         for task in tasks {
             let key: String
             switch criteria {
             case .project:
-                key = task.project ?? "No Project"
+                key = task.projectName ?? "No Project"
             case .category:
                 key = task.category.displayName
             case .priority:
@@ -541,14 +541,14 @@ public enum GroupingCriteria {
 }
 
 public struct SortedTasksResult {
-    public let tasks: [DomainTask]
+    public let tasks: [TaskDefinition]
     public let criteria: SortCriteria
     public let sortTime: Date
 }
 
 public struct TaskGroup {
     public let name: String
-    public let tasks: [DomainTask]
+    public let tasks: [TaskDefinition]
     
     public var count: Int { tasks.count }
     public var completedCount: Int { tasks.filter { $0.isComplete }.count }
