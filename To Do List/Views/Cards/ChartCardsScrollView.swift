@@ -80,12 +80,12 @@ struct ChartCardsScrollView_Previews: PreviewProvider {
 }
 
 private final class PreviewChartCardsReadModelRepository: TaskReadModelRepositoryProtocol {
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
-        completion(.success(TaskSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
-        completion(.success(TaskSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+        completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
     func fetchProjectTaskCounts(

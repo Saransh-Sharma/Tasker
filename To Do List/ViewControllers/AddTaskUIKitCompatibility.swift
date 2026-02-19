@@ -114,10 +114,62 @@ protocol AddTaskPriorityPickerDelegate: AnyObject {
 
 final class AddTaskPriorityPickerView: UIView {
     weak var delegate: AddTaskPriorityPickerDelegate?
-    var selectedPriority: TaskPriority = .none
+    var selectedPriority: TaskPriority = .none {
+        didSet {
+            syncSelectionToSegmentControl()
+        }
+    }
+
+    private let priorities: [TaskPriority] = TaskPriority.uiOrder
+    private lazy var segmentedControl: UISegmentedControl = {
+        let control = UISegmentedControl(items: priorities.map { $0.displayName })
+        control.translatesAutoresizingMaskIntoConstraints = false
+        control.selectedSegmentIndex = TaskPriority.none.segmentIndex(order: priorities)
+        control.accessibilityIdentifier = "addTask.prioritySegmentedControl"
+        control.addTarget(self, action: #selector(priorityChanged(_:)), for: .valueChanged)
+        return control
+    }()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupView()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     func staggerEntrance(baseDelay: TimeInterval) {
         // Compatibility no-op while UIKit screen is still present.
+    }
+
+    @objc private func priorityChanged(_ sender: UISegmentedControl) {
+        let priority = TaskPriority.fromSegmentIndex(sender.selectedSegmentIndex, order: priorities)
+        guard priority != selectedPriority else {
+            delegate?.priorityPicker(self, didSelect: priority)
+            return
+        }
+        selectedPriority = priority
+        delegate?.priorityPicker(self, didSelect: priority)
+    }
+
+    private func setupView() {
+        addSubview(segmentedControl)
+        NSLayoutConstraint.activate([
+            segmentedControl.leadingAnchor.constraint(equalTo: leadingAnchor),
+            segmentedControl.trailingAnchor.constraint(equalTo: trailingAnchor),
+            segmentedControl.topAnchor.constraint(equalTo: topAnchor),
+            segmentedControl.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+        syncSelectionToSegmentControl()
+    }
+
+    private func syncSelectionToSegmentControl() {
+        let index = selectedPriority.segmentIndex(order: priorities)
+        if segmentedControl.selectedSegmentIndex != index {
+            segmentedControl.selectedSegmentIndex = index
+        }
     }
 }
 

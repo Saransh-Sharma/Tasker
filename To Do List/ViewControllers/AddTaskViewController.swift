@@ -444,6 +444,11 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
                 currentTaskInMaterialTextBox = newText
             } else if textField == descriptionTextBox_Material {
                 currentTaskDescription = newText
+                // UIKit compatibility: if title field is not focusable in current layout,
+                // allow description entry to bootstrap task creation.
+                if currentTaskInMaterialTextBox.isEmpty {
+                    currentTaskInMaterialTextBox = newText
+                }
             }
             
             let isEmpty = currentTaskInMaterialTextBox.isEmpty
@@ -685,7 +690,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         })
         viewModel.availableParentTasks.forEach { task in
             let selected = viewModel.selectedParentTaskID == task.id ? "✓ " : ""
-            alert.addAction(UIAlertAction(title: selected + task.name, style: .default) { [weak self] _ in
+            alert.addAction(UIAlertAction(title: selected + task.title, style: .default) { [weak self] _ in
                 self?.viewModel?.selectedParentTaskID = task.id
                 self?.refreshMetadataPanel()
             })
@@ -708,7 +713,7 @@ class AddTaskViewController: UIViewController, UITextFieldDelegate, PillButtonBa
         )
         viewModel.availableDependencyTasks.forEach { task in
             let selected = viewModel.selectedDependencyTaskIDs.contains(task.id) ? "✓ " : ""
-            alert.addAction(UIAlertAction(title: selected + task.name, style: .default) { [weak self] _ in
+            alert.addAction(UIAlertAction(title: selected + task.title, style: .default) { [weak self] _ in
                 guard let self, let viewModel = self.viewModel else { return }
                 if viewModel.selectedDependencyTaskIDs.contains(task.id) {
                     viewModel.selectedDependencyTaskIDs.remove(task.id)

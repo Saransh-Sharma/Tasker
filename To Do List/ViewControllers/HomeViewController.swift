@@ -304,13 +304,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     // MARK: - Task Routing
 
-    private func handleTaskTap(_ task: DomainTask) {
+    private func handleTaskTap(_ task: TaskDefinition) {
         presentTaskDetailView(for: task)
     }
 
-    private func handleTaskReschedule(_ task: DomainTask) {
+    private func handleTaskReschedule(_ task: TaskDefinition) {
         let rescheduleVC = RescheduleViewController(
-            taskTitle: task.name,
+            taskTitle: task.title,
             currentDueDate: task.dueDate
         ) { [weak self] (selectedDate: Date) in
             guard let self else { return }
@@ -321,7 +321,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(navController, animated: true)
     }
 
-    private func presentTaskDetailView(for task: DomainTask) {
+    private func presentTaskDetailView(for task: TaskDefinition) {
         let detailView = TaskDetailSheetView(
             task: task,
             projects: viewModel?.projects ?? [],
