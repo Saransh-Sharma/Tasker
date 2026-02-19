@@ -179,8 +179,8 @@ public final class ProjectManagementViewModel: ObservableObject {
     }
     
     /// Get tasks for specific project
-    public func loadTasksForProject(_ project: Project, completion: @escaping ([Task]) -> Void) {
-        getTasksUseCase.getTasksForProject(project.name) { result in
+    public func loadTasksForProject(_ project: Project, completion: @escaping ([DomainTask]) -> Void) {
+        getTasksUseCase.getTasksForProject(project.id) { result in
             switch result {
             case .success(let projectResult):
                 completion(projectResult.tasks)

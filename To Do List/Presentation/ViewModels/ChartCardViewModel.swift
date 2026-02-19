@@ -38,7 +38,7 @@ public final class ChartCardViewModel: ObservableObject {
             return
         }
 
-        let loadTasks: (@escaping (Result<[Task], Error>) -> Void) -> Void = { handler in
+        let loadTasks: (@escaping (Result<[TaskDefinition], Error>) -> Void) -> Void = { handler in
             readModel.fetchTasks(
                 query: TaskReadQuery(
                     includeCompleted: true,

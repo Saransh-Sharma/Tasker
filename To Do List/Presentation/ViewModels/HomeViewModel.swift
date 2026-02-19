@@ -48,14 +48,14 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var streak: Int = 0
     @Published public private(set) var completionRate: Double = 0.0
 
-    // Task lists by category
-    @Published public private(set) var morningTasks: [Task] = []
-    @Published public private(set) var eveningTasks: [Task] = []
-    @Published public private(set) var overdueTasks: [Task] = []
-    @Published public private(set) var dailyCompletedTasks: [Task] = []
-    @Published public private(set) var upcomingTasks: [Task] = []
-    @Published public private(set) var completedTasks: [Task] = []
-    @Published public private(set) var doneTimelineTasks: [Task] = []
+    // DomainTask lists by category
+    @Published public private(set) var morningTasks: [DomainTask] = []
+    @Published public private(set) var eveningTasks: [DomainTask] = []
+    @Published public private(set) var overdueTasks: [DomainTask] = []
+    @Published public private(set) var dailyCompletedTasks: [DomainTask] = []
+    @Published public private(set) var upcomingTasks: [DomainTask] = []
+    @Published public private(set) var completedTasks: [DomainTask] = []
+    @Published public private(set) var doneTimelineTasks: [DomainTask] = []
 
     // Focus Engine
     @Published public private(set) var activeFilterState: HomeFilterState = .default
@@ -63,7 +63,7 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var quickViewCounts: [HomeQuickView: Int] = [:]
     @Published public private(set) var pointsPotential: Int = 0
     @Published public private(set) var progressState: HomeProgressState = .empty
-    @Published public private(set) var focusTasks: [Task] = []
+    @Published public private(set) var focusTasks: [DomainTask] = []
     @Published public private(set) var pinnedFocusTaskIDs: [UUID] = []
     @Published public private(set) var emptyStateMessage: String?
     @Published public private(set) var emptyStateActionTitle: String?
@@ -77,7 +77,7 @@ public final class HomeViewModel: ObservableObject {
 
     // Projects
     @Published public private(set) var projects: [Project] = []
-    @Published public private(set) var selectedProjectTasks: [Task] = []
+    @Published public private(set) var selectedProjectTasks: [DomainTask] = []
 
     // MARK: - Dependencies
 
@@ -90,8 +90,8 @@ public final class HomeViewModel: ObservableObject {
 
     // MARK: - Persistence Keys
 
-    private static let lastFilterStateKey = "home.focus.lastFilterState.v1"
-    private static let pinnedFocusTaskIDsKey = "home.focus.pinnedTaskIDs.v1"
+    private static let lastFilterStateKey = "home.focus.lastFilterState.v2"
+    private static let pinnedFocusTaskIDsKey = "home.focus.pinnedTaskIDs.v2"
     private static let maxPinnedFocusTasks = 3
 
     // MARK: - Session State
@@ -164,7 +164,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Toggle task completion.
-    public func toggleTaskCompletion(_ task: Task) {
+    public func toggleTaskCompletion(_ task: DomainTask) {
         setTaskCompletion(
             taskID: task.id,
             to: !task.isComplete,
@@ -176,7 +176,7 @@ public final class HomeViewModel: ObservableObject {
     public func setTaskCompletion(
         taskID: UUID,
         to desiredCompletion: Bool,
-        completion: @escaping (Result<Task, Error>) -> Void
+        completion: @escaping (Result<DomainTask, Error>) -> Void
     ) {
         setTaskCompletion(
             taskID: taskID,
@@ -187,30 +187,8 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Create a new task.
-    public func createTask(request: CreateTaskRequest) {
-        if let createTaskDefinition = useCaseCoordinator.createTaskDefinition {
-            let taskProjectID = request.projectID ?? ProjectConstants.inboxProjectID
-            createTaskDefinition.execute(
-                title: request.name,
-                projectID: taskProjectID,
-                dueDate: request.dueDate,
-                details: request.details
-            ) { [weak self] result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success:
-                        self?.invalidateTaskCaches()
-                        self?.reloadCurrentModeTasks()
-                        self?.requestChartRefresh(reason: .created)
-                    case .failure(let error):
-                        self?.errorMessage = error.localizedDescription
-                    }
-                }
-            }
-            return
-        }
-
-        useCaseCoordinator.createTask.execute(request: request) { [weak self] result in
+    public func createTask(request: CreateTaskDefinitionRequest) {
+        useCaseCoordinator.createTaskDefinition.execute(request: request) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:
@@ -226,7 +204,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Delete a task.
-    public func deleteTask(_ task: Task) {
+    public func deleteTask(_ task: DomainTask) {
         deleteTask(taskID: task.id) { _ in }
     }
 
@@ -234,7 +212,7 @@ public final class HomeViewModel: ObservableObject {
         taskID: UUID,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        useCaseCoordinator.deleteTask.execute(taskId: taskID) { [weak self] result in
+        useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:
@@ -253,16 +231,16 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Reschedule a task.
-    public func rescheduleTask(_ task: Task, to newDate: Date) {
+    public func rescheduleTask(_ task: DomainTask, to newDate: Date) {
         rescheduleTask(taskID: task.id, to: newDate) { _ in }
     }
 
     public func rescheduleTask(
         taskID: UUID,
         to newDate: Date,
-        completion: @escaping (Result<Task, Error>) -> Void
+        completion: @escaping (Result<DomainTask, Error>) -> Void
     ) {
-        useCaseCoordinator.rescheduleTask.execute(taskId: taskID, newDate: newDate) { [weak self] result in
+        useCaseCoordinator.rescheduleTaskDefinition.execute(taskID: taskID, newDate: newDate) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let task):
@@ -281,10 +259,12 @@ public final class HomeViewModel: ObservableObject {
 
     public func updateTask(
         taskID: UUID,
-        request: UpdateTaskRequest,
-        completion: @escaping (Result<Task, Error>) -> Void
+        request: UpdateTaskDefinitionRequest,
+        completion: @escaping (Result<DomainTask, Error>) -> Void
     ) {
-        useCaseCoordinator.updateTask.execute(taskId: taskID, request: request) { [weak self] result in
+        var normalizedRequest = request
+        normalizedRequest.updatedAt = Date()
+        useCaseCoordinator.updateTaskDefinition.execute(request: normalizedRequest) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let task):
@@ -758,32 +738,35 @@ public final class HomeViewModel: ObservableObject {
     private func setTaskCompletion(
         taskID: UUID,
         to requestedCompletion: Bool,
-        taskSnapshot: Task?,
-        completion: @escaping (Result<Task, Error>) -> Void
+        taskSnapshot: DomainTask?,
+        completion: @escaping (Result<DomainTask, Error>) -> Void
     ) {
         logDebug(
             "HOME_ROW_STATE vm.toggle_input id=\(taskID.uuidString) " +
             "isComplete=\(String(describing: taskSnapshot?.isComplete)) requested=\(requestedCompletion)"
         )
-        useCaseCoordinator.completeTask.setCompletion(
-            taskId: taskID,
-            to: requestedCompletion,
-            taskSnapshot: taskSnapshot
+        useCaseCoordinator.completeTaskDefinition.setCompletion(
+            taskID: taskID,
+            to: requestedCompletion
         ) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
-                case .success(let completionResult):
-                    self?.completionOverrides[completionResult.task.id] = completionResult.task.isComplete
+                case .success(let updatedTask):
+                    self?.completionOverrides[updatedTask.id] = updatedTask.isComplete
                     self?.suppressCompletionReloadUntil = Date().addingTimeInterval(self?.completionReloadSuppressionSeconds ?? 0.35)
-                    self?.applyCompletionResultLocally(completionResult.task)
-                    let stateMatchesRequest = completionResult.task.isComplete == requestedCompletion
+                    self?.applyCompletionResultLocally(updatedTask)
+                    let stateMatchesRequest = updatedTask.isComplete == requestedCompletion
                     if stateMatchesRequest {
-                        self?.dailyScore += completionResult.scoreEarned
+                        if updatedTask.isComplete {
+                            self?.dailyScore += updatedTask.priority.scorePoints
+                        } else {
+                            self?.dailyScore = max(0, (self?.dailyScore ?? 0) - updatedTask.priority.scorePoints)
+                        }
                         self?.refreshProgressState()
                     } else {
                         logDebug(
-                            "HOME_ROW_STATE vm.toggle_mismatch id=\(completionResult.task.id.uuidString) " +
-                            "requested=\(requestedCompletion) result=\(completionResult.task.isComplete) " +
+                            "HOME_ROW_STATE vm.toggle_mismatch id=\(updatedTask.id.uuidString) " +
+                            "requested=\(requestedCompletion) result=\(updatedTask.isComplete) " +
                             "forcing_analytics_reload=true"
                         )
                     }
@@ -791,10 +774,10 @@ public final class HomeViewModel: ObservableObject {
                     self?.invalidateTaskCaches()
                     self?.reloadCurrentModeTasks()
                     self?.requestChartRefresh(
-                        reason: completionResult.task.isComplete ? .completed : .reopened
+                        reason: updatedTask.isComplete ? .completed : .reopened
                     )
                     self?.trackFirstCompletionLatencyIfNeeded()
-                    completion(.success(completionResult.task))
+                    completion(.success(updatedTask))
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -804,13 +787,13 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func currentTaskSnapshot(for id: UUID) -> Task? {
+    private func currentTaskSnapshot(for id: UUID) -> DomainTask? {
         let candidates = morningTasks + eveningTasks + overdueTasks + dailyCompletedTasks + upcomingTasks + completedTasks + doneTimelineTasks
         return candidates.first(where: { $0.id == id })
     }
 
-    private func mutationReason(for request: UpdateTaskRequest) -> HomeTaskMutationEvent {
-        if request.projectID != nil || request.projectName != nil {
+    private func mutationReason(for request: UpdateTaskDefinitionRequest) -> HomeTaskMutationEvent {
+        if request.projectID != nil {
             return .projectChanged
         }
         if request.priority != nil {
@@ -870,12 +853,13 @@ public final class HomeViewModel: ObservableObject {
             return
         }
 
-        useCaseCoordinator.taskRepository.fetchCompletedTasks { [weak self] result in
+        useCaseCoordinator.getTasks.searchTasks(query: "", in: .all) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
 
                 switch result {
-                case .success(let completedTasks):
+                case .success(let tasks):
+                    let completedTasks = tasks.filter(\.isComplete)
                     let totalScore = completedTasks.reduce(0) { partial, task in
                         let countsForToday: Bool
                         if let completionDate = task.dateCompleted {
@@ -905,14 +889,14 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func loadProjectTasks(_ projectName: String) {
-        loadProjectTasks(projectName, generation: nextReloadGeneration())
+    private func loadProjectTasks(_ projectID: UUID) {
+        loadProjectTasks(projectID, generation: nextReloadGeneration())
     }
 
-    private func loadProjectTasks(_ projectName: String, generation: Int) {
+    private func loadProjectTasks(_ projectID: UUID, generation: Int) {
         isLoading = true
 
-        useCaseCoordinator.getTasks.getTasksForProject(projectName) { [weak self] result in
+        useCaseCoordinator.getTasks.getTasksForProject(projectID) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard self.isCurrentReloadGeneration(generation) else {
@@ -923,9 +907,10 @@ public final class HomeViewModel: ObservableObject {
 
                 switch result {
                 case .success(let projectResult):
+                    let projectTasks = projectResult.tasks
                     let overridden = self.applyCompletionOverrides(
-                        openTasks: projectResult.tasks.filter { !$0.isComplete },
-                        doneTasks: projectResult.tasks.filter(\.isComplete)
+                        openTasks: projectTasks.filter { !$0.isComplete },
+                        doneTasks: projectTasks.filter(\.isComplete)
                     )
                     self.selectedProjectTasks = overridden.openTasks + overridden.doneTasks
 
@@ -1058,11 +1043,11 @@ public final class HomeViewModel: ObservableObject {
         case .morning:
             upcomingTasks = []
             emptyStateMessage = "No morning tasks. Add one to start strong."
-            emptyStateActionTitle = "Add Morning Task"
+            emptyStateActionTitle = "Add Morning DomainTask"
         case .evening:
             upcomingTasks = []
             emptyStateMessage = "No evening tasks. Plan your wind-down."
-            emptyStateActionTitle = "Add Evening Task"
+            emptyStateActionTitle = "Add Evening DomainTask"
         case .today:
             upcomingTasks = []
             emptyStateMessage = nil
@@ -1075,7 +1060,7 @@ public final class HomeViewModel: ObservableObject {
         updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
     }
 
-    private func updateCompletionRateFromFocusResult(openTasks: [Task], doneTasks: [Task]) {
+    private func updateCompletionRateFromFocusResult(openTasks: [DomainTask], doneTasks: [DomainTask]) {
         let total = openTasks.count + doneTasks.count
         completionRate = total > 0 ? Double(doneTasks.count) / Double(total) : 0
     }
@@ -1200,7 +1185,7 @@ public final class HomeViewModel: ObservableObject {
         return merged + missing
     }
 
-    private func sortByPriorityThenDue(lhs: Task, rhs: Task) -> Bool {
+    private func sortByPriorityThenDue(lhs: DomainTask, rhs: DomainTask) -> Bool {
         if lhs.priority.scorePoints != rhs.priority.scorePoints {
             return lhs.priority.scorePoints > rhs.priority.scorePoints
         }
@@ -1210,7 +1195,7 @@ public final class HomeViewModel: ObservableObject {
         return lhsDate < rhsDate
     }
 
-    private func isEveningTaskHybrid(_ task: Task) -> Bool {
+    private func isEveningTaskHybrid(_ task: DomainTask) -> Bool {
         if task.type == .evening { return true }
         if task.type == .morning { return false }
 
@@ -1219,19 +1204,19 @@ public final class HomeViewModel: ObservableObject {
         return hour >= 17 && hour <= 23
     }
 
-    private func rankedFocusTasks(from tasks: [Task], relativeTo scope: HomeListScope) -> [Task] {
+    private func rankedFocusTasks(from tasks: [DomainTask], relativeTo scope: HomeListScope) -> [DomainTask] {
         guard !tasks.isEmpty else { return [] }
 
         let calendar = Calendar.current
         let anchorStart = calendar.startOfDay(for: scope.referenceDate)
         let anchorEnd = calendar.date(byAdding: .day, value: 1, to: anchorStart) ?? anchorStart
 
-        func isOverdue(_ task: Task) -> Bool {
+        func isOverdue(_ task: DomainTask) -> Bool {
             guard let dueDate = task.dueDate else { return false }
             return dueDate < anchorStart
         }
 
-        func isDueToday(_ task: Task) -> Bool {
+        func isDueToday(_ task: DomainTask) -> Bool {
             guard let dueDate = task.dueDate else { return false }
             return dueDate >= anchorStart && dueDate < anchorEnd
         }
@@ -1265,7 +1250,7 @@ public final class HomeViewModel: ObservableObject {
         return Array(sorted.prefix(Self.maxPinnedFocusTasks))
     }
 
-    private func composedFocusTasks(from openTasks: [Task]) -> [Task] {
+    private func composedFocusTasks(from openTasks: [DomainTask]) -> [DomainTask] {
         guard !openTasks.isEmpty else { return [] }
 
         guard canUseManualFocusDrag else {
@@ -1311,7 +1296,7 @@ public final class HomeViewModel: ObservableObject {
         return deduped
     }
 
-    private func focusOpenTasksForCurrentState() -> [Task] {
+    private func focusOpenTasksForCurrentState() -> [DomainTask] {
         switch activeScope.quickView {
         case .done:
             return []
@@ -1396,7 +1381,7 @@ public final class HomeViewModel: ObservableObject {
         completionRate = total > 0 ? Double(completed) / Double(total) : 0
     }
 
-    private func applyCompletionResultLocally(_ updatedTask: Task) {
+    private func applyCompletionResultLocally(_ updatedTask: DomainTask) {
         let keepsCompletedInline = shouldKeepCompletedInline(for: activeScope)
 
         if keepsCompletedInline {
@@ -1426,7 +1411,8 @@ public final class HomeViewModel: ObservableObject {
             var snapshotMorning = snapshot.morningTasks
             var snapshotEvening = snapshot.eveningTasks
             var snapshotOverdue = snapshot.overdueTasks
-            var snapshotCompleted = removingTask(id: updatedTask.id, from: snapshot.completedTasks)
+            let snapshotCompletedSeed = snapshot.completedTasks
+            var snapshotCompleted = removingTask(id: updatedTask.id, from: snapshotCompletedSeed)
 
             let snapshotWasInMorning = snapshotMorning.contains(where: { $0.id == updatedTask.id })
             let snapshotWasInEvening = snapshotEvening.contains(where: { $0.id == updatedTask.id })
@@ -1508,13 +1494,13 @@ public final class HomeViewModel: ObservableObject {
         refreshProgressState()
     }
 
-    private func replacingTask(in tasks: [Task], with updatedTask: Task) -> [Task] {
+    private func replacingTask(in tasks: [DomainTask], with updatedTask: DomainTask) -> [DomainTask] {
         tasks.map { task in
             task.id == updatedTask.id ? updatedTask : task
         }
     }
 
-    private func upsertingTaskInPlace(in tasks: [Task], with updatedTask: Task) -> [Task] {
+    private func upsertingTaskInPlace(in tasks: [DomainTask], with updatedTask: DomainTask) -> [DomainTask] {
         guard let index = tasks.firstIndex(where: { $0.id == updatedTask.id }) else {
             return tasks + [updatedTask]
         }
@@ -1524,7 +1510,7 @@ public final class HomeViewModel: ObservableObject {
         return updated
     }
 
-    private func replacingTaskIfPresent(in tasks: [Task], with updatedTask: Task) -> [Task] {
+    private func replacingTaskIfPresent(in tasks: [DomainTask], with updatedTask: DomainTask) -> [DomainTask] {
         guard let index = tasks.firstIndex(where: { $0.id == updatedTask.id }) else {
             return tasks
         }
@@ -1534,7 +1520,7 @@ public final class HomeViewModel: ObservableObject {
         return updated
     }
 
-    private func removingTask(id: UUID, from tasks: [Task]) -> [Task] {
+    private func removingTask(id: UUID, from tasks: [DomainTask]) -> [DomainTask] {
         tasks.filter { $0.id != id }
     }
 
@@ -1545,7 +1531,7 @@ public final class HomeViewModel: ObservableObject {
         upcomingTasks = removingTask(id: id, from: upcomingTasks)
     }
 
-    private func upsertTaskInOpenProjectionPreservingPosition(_ task: Task) {
+    private func upsertTaskInOpenProjectionPreservingPosition(_ task: DomainTask) {
         if morningTasks.contains(where: { $0.id == task.id }) {
             morningTasks = replacingTaskIfPresent(in: morningTasks, with: task)
             return
@@ -1566,7 +1552,7 @@ public final class HomeViewModel: ObservableObject {
         insertTaskIntoOpenProjection(task)
     }
 
-    private func insertTaskIntoOpenProjection(_ task: Task) {
+    private func insertTaskIntoOpenProjection(_ task: DomainTask) {
         if task.isOverdue {
             overdueTasks = sortTasksByPriorityThenDue(upsertingTaskInPlace(in: overdueTasks, with: task))
             return
@@ -1579,7 +1565,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func sortTasksByPriorityThenDue(_ tasks: [Task]) -> [Task] {
+    private func sortTasksByPriorityThenDue(_ tasks: [DomainTask]) -> [DomainTask] {
         tasks.sorted(by: sortByPriorityThenDue)
     }
 
@@ -1590,11 +1576,11 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func retainingInlineCompletedRows(
-        computedMorning: [Task],
-        computedEvening: [Task],
-        computedOverdue: [Task],
-        doneTasks: [Task]
-    ) -> (morning: [Task], evening: [Task], overdue: [Task]) {
+        computedMorning: [DomainTask],
+        computedEvening: [DomainTask],
+        computedOverdue: [DomainTask],
+        doneTasks: [DomainTask]
+    ) -> (morning: [DomainTask], evening: [DomainTask], overdue: [DomainTask]) {
         var morning = computedMorning
         var evening = computedEvening
         var overdue = computedOverdue
@@ -1602,7 +1588,7 @@ public final class HomeViewModel: ObservableObject {
         var visibleIDs = Set((morning + evening + overdue).map(\.id))
         let doneByID = Dictionary(uniqueKeysWithValues: doneTasks.map { ($0.id, $0) })
 
-        let priorCompleted: [(InlineSection, Int, Task)] = {
+        let priorCompleted: [(InlineSection, Int, DomainTask)] = {
             let morningRows = morningTasks.enumerated().compactMap { index, task in
                 task.isComplete ? (InlineSection.morning, index, task) : nil
             }
@@ -1651,7 +1637,7 @@ public final class HomeViewModel: ObservableObject {
         return (morning: morning, evening: evening, overdue: overdue)
     }
 
-    private func insertTaskIfMissing(_ tasks: inout [Task], task: Task, preferredIndex: Int) {
+    private func insertTaskIfMissing(_ tasks: inout [DomainTask], task: DomainTask, preferredIndex: Int) {
         if let existingIndex = tasks.firstIndex(where: { $0.id == task.id }) {
             tasks[existingIndex] = task
             return
@@ -1661,7 +1647,7 @@ public final class HomeViewModel: ObservableObject {
         tasks.insert(task, at: targetIndex)
     }
 
-    private func isTaskOverdue(_ task: Task, relativeTo scope: HomeListScope) -> Bool {
+    private func isTaskOverdue(_ task: DomainTask, relativeTo scope: HomeListScope) -> Bool {
         guard let dueDate = task.dueDate else { return false }
 
         switch scope {
@@ -1683,7 +1669,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
-    private func isTaskCompletedOnScopeDay(_ task: Task, scope: HomeListScope) -> Bool {
+    private func isTaskCompletedOnScopeDay(_ task: DomainTask, scope: HomeListScope) -> Bool {
         guard task.isComplete, let completionDate = task.dateCompleted else { return false }
         let calendar = Calendar.current
         let startOfScopeDay = calendar.startOfDay(for: scope.referenceDate)
@@ -1693,15 +1679,15 @@ public final class HomeViewModel: ObservableObject {
         return completionDate >= startOfScopeDay && completionDate < startOfNextScopeDay
     }
 
-    private func isTaskCompletedOnActiveScopeDay(_ task: Task) -> Bool {
+    private func isTaskCompletedOnActiveScopeDay(_ task: DomainTask) -> Bool {
         isTaskCompletedOnScopeDay(task, scope: activeScope)
     }
 
     private func mergedInlineDoneTasks(
-        incomingDoneTasks: [Task],
-        openTasks: [Task],
+        incomingDoneTasks: [DomainTask],
+        openTasks: [DomainTask],
         shouldKeepCompletedInline: Bool
-    ) -> [Task] {
+    ) -> [DomainTask] {
         guard shouldKeepCompletedInline else {
             return incomingDoneTasks
         }
@@ -1711,7 +1697,7 @@ public final class HomeViewModel: ObservableObject {
             !openIDs.contains(task.id) && isTaskCompletedOnActiveScopeDay(task)
         }
 
-        var merged: [Task] = []
+        var merged: [DomainTask] = []
         var seen = Set<UUID>()
         for task in incomingDoneTasks + retainedPriorDone where task.isComplete && isTaskCompletedOnActiveScopeDay(task) {
             if seen.insert(task.id).inserted {
@@ -1722,11 +1708,11 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func normalizedSections(
-        morning: [Task],
-        evening: [Task],
-        overdue: [Task],
-        completed: [Task]
-    ) -> (morning: [Task], evening: [Task], overdue: [Task], completed: [Task]) {
+        morning: [DomainTask],
+        evening: [DomainTask],
+        overdue: [DomainTask],
+        completed: [DomainTask]
+    ) -> (morning: [DomainTask], evening: [DomainTask], overdue: [DomainTask], completed: [DomainTask]) {
         let overridden = applyCompletionOverrides(
             openTasks: morning + evening + overdue,
             doneTasks: completed
@@ -1756,11 +1742,11 @@ public final class HomeViewModel: ObservableObject {
         generation == reloadGeneration
     }
 
-    private func applyCompletionOverrides(openTasks: [Task], doneTasks: [Task]) -> (openTasks: [Task], doneTasks: [Task]) {
+    private func applyCompletionOverrides(openTasks: [DomainTask], doneTasks: [DomainTask]) -> (openTasks: [DomainTask], doneTasks: [DomainTask]) {
         let normalizedOpen = openTasks.map(applyingCompletionOverrideIfNeeded)
         let normalizedDone = doneTasks.map(applyingCompletionOverrideIfNeeded)
 
-        var mergedOpen: [Task] = []
+        var mergedOpen: [DomainTask] = []
         var openIDs = Set<UUID>()
         for task in normalizedOpen where !task.isComplete {
             if openIDs.insert(task.id).inserted {
@@ -1773,7 +1759,7 @@ public final class HomeViewModel: ObservableObject {
             }
         }
 
-        var mergedDone: [Task] = []
+        var mergedDone: [DomainTask] = []
         var doneIDs = Set<UUID>()
         for task in normalizedDone where task.isComplete {
             if doneIDs.insert(task.id).inserted {
@@ -1790,7 +1776,7 @@ public final class HomeViewModel: ObservableObject {
         return (openTasks: mergedOpen, doneTasks: mergedDone)
     }
 
-    private func applyingCompletionOverrideIfNeeded(_ task: Task) -> Task {
+    private func applyingCompletionOverrideIfNeeded(_ task: DomainTask) -> DomainTask {
         guard let expectedCompletion = completionOverrides[task.id],
               expectedCompletion != task.isComplete else {
             return task
@@ -1802,7 +1788,7 @@ public final class HomeViewModel: ObservableObject {
         return updated
     }
 
-    private func reconcileCompletionOverrides(persistedTasks: [Task]) {
+    private func reconcileCompletionOverrides(persistedTasks: [DomainTask]) {
         guard !completionOverrides.isEmpty else { return }
 
         var resolvedIDs: [UUID] = []
@@ -1822,7 +1808,7 @@ public final class HomeViewModel: ObservableObject {
         logDebug("HOME_ROW_STATE vm.override_cleared ids=[\(resolvedSummary)]")
     }
 
-    private func summarizeRowState(_ tasks: [Task], limit: Int = 4) -> String {
+    private func summarizeRowState(_ tasks: [DomainTask], limit: Int = 4) -> String {
         let summary = tasks.prefix(limit).map { task in
             let state = task.isComplete ? "done" : "open"
             return "\(task.id.uuidString.prefix(8)):\(state):\(task.name)"
@@ -1875,12 +1861,12 @@ public struct HomeViewState {
     public let errorMessage: String?
     public let selectedDate: Date
     public let selectedProject: String
-    public let morningTasks: [Task]
-    public let eveningTasks: [Task]
-    public let overdueTasks: [Task]
-    public let upcomingTasks: [Task]
-    public let completedTasks: [Task]
-    public let doneTimelineTasks: [Task]
+    public let morningTasks: [DomainTask]
+    public let eveningTasks: [DomainTask]
+    public let overdueTasks: [DomainTask]
+    public let upcomingTasks: [DomainTask]
+    public let completedTasks: [DomainTask]
+    public let doneTimelineTasks: [DomainTask]
     public let projects: [Project]
     public let dailyScore: Int
     public let streak: Int
@@ -1890,7 +1876,7 @@ public struct HomeViewState {
     public let selectedProjectIDs: [UUID]
     public let pointsPotential: Int
     public let progressState: HomeProgressState
-    public let focusTasks: [Task]
+    public let focusTasks: [DomainTask]
     public let pinnedFocusTaskIDs: [UUID]
     public let quickViewCounts: [HomeQuickView: Int]
     public let savedHomeViews: [SavedHomeView]

@@ -37,16 +37,15 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var dueDate: Date = Date()
     @Published public var hasReminder: Bool = false
     @Published public var reminderTime: Date = Date()
-    @Published public private(set) var availableParentTasks: [Task] = []
-    @Published public private(set) var availableDependencyTasks: [Task] = []
+    @Published public private(set) var availableParentTasks: [DomainTask] = []
+    @Published public private(set) var availableDependencyTasks: [DomainTask] = []
     
     // MARK: - Dependencies
     
-    private let taskRepository: TaskRepositoryProtocol
-    private let createTaskUseCase: CreateTaskUseCase
+    private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private let manageProjectsUseCase: ManageProjectsUseCase
-    private let rescheduleTaskUseCase: RescheduleTaskUseCase
-    private let createTaskDefinitionUseCase: CreateTaskDefinitionUseCase?
+    private let createTaskDefinitionUseCase: CreateTaskDefinitionUseCase
+    private let rescheduleTaskDefinitionUseCase: RescheduleTaskDefinitionUseCase?
     private let manageLifeAreasUseCase: ManageLifeAreasUseCase?
     private let manageSectionsUseCase: ManageSectionsUseCase?
     private let manageTagsUseCase: ManageTagsUseCase?
@@ -55,20 +54,18 @@ public final class AddTaskViewModel: ObservableObject {
     // MARK: - Initialization
     
     public init(
-        taskRepository: TaskRepositoryProtocol,
-        createTaskUseCase: CreateTaskUseCase,
+        taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         manageProjectsUseCase: ManageProjectsUseCase,
-        rescheduleTaskUseCase: RescheduleTaskUseCase,
-        createTaskDefinitionUseCase: CreateTaskDefinitionUseCase? = nil,
+        createTaskDefinitionUseCase: CreateTaskDefinitionUseCase,
+        rescheduleTaskDefinitionUseCase: RescheduleTaskDefinitionUseCase? = nil,
         manageLifeAreasUseCase: ManageLifeAreasUseCase? = nil,
         manageSectionsUseCase: ManageSectionsUseCase? = nil,
         manageTagsUseCase: ManageTagsUseCase? = nil
     ) {
-        self.taskRepository = taskRepository
-        self.createTaskUseCase = createTaskUseCase
+        self.taskReadModelRepository = taskReadModelRepository
         self.manageProjectsUseCase = manageProjectsUseCase
-        self.rescheduleTaskUseCase = rescheduleTaskUseCase
         self.createTaskDefinitionUseCase = createTaskDefinitionUseCase
+        self.rescheduleTaskDefinitionUseCase = rescheduleTaskDefinitionUseCase
         self.manageLifeAreasUseCase = manageLifeAreasUseCase
         self.manageSectionsUseCase = manageSectionsUseCase
         self.manageTagsUseCase = manageTagsUseCase
@@ -93,68 +90,42 @@ public final class AddTaskViewModel: ObservableObject {
         // Resolve projectID from selectedProject name
         let projectID = projects.first(where: { $0.name == selectedProject })?.id ?? ProjectConstants.inboxProjectID
 
-        if let createTaskDefinitionUseCase {
-            let resolvedTagIDs = selectedTagIDs.isEmpty ? parseImplicitTagIDs(from: taskName) : selectedTagIDs
-            let definitionRequest = CreateTaskDefinitionRequest(
-                title: taskName,
-                details: taskDetails.isEmpty ? nil : taskDetails,
-                projectID: projectID,
-                projectName: selectedProject,
-                lifeAreaID: selectedLifeAreaID,
-                sectionID: selectedSectionID,
-                dueDate: dueDate,
-                parentTaskID: selectedParentTaskID,
-                tagIDs: Array(resolvedTagIDs),
-                dependencies: selectedDependencyTaskIDs.map { dependsOnTaskID in
-                    TaskDependencyLinkDefinition(
-                        taskID: UUID(), // replaced in use case with created task ID
-                        dependsOnTaskID: dependsOnTaskID,
-                        kind: .related
-                    )
-                },
-                priority: selectedPriority,
-                type: selectedType,
-                energy: .medium,
-                category: .general,
-                context: .anywhere,
-                isEveningTask: selectedType == .evening,
-                alertReminderTime: hasReminder ? reminderTime : nil
-            )
-            createTaskDefinitionUseCase.execute(
-                request: definitionRequest
-            ) { [weak self] result in
-                DispatchQueue.main.async {
-                    self?.isLoading = false
-                    switch result {
-                    case .success:
-                        self?.isTaskCreated = true
-                    case .failure(let error):
-                        self?.errorMessage = error.localizedDescription
-                    }
-                }
-            }
-            return
-        }
-
-        let request = CreateTaskRequest(
-            name: taskName,
+        let resolvedTagIDs = selectedTagIDs.isEmpty ? parseImplicitTagIDs(from: taskName) : selectedTagIDs
+        let definitionRequest = CreateTaskDefinitionRequest(
+            title: taskName,
             details: taskDetails.isEmpty ? nil : taskDetails,
-            type: selectedType,
-            priority: selectedPriority,
-            dueDate: dueDate,
             projectID: projectID,
-            project: selectedProject,
+            projectName: selectedProject,
+            lifeAreaID: selectedLifeAreaID,
+            sectionID: selectedSectionID,
+            dueDate: dueDate,
+            parentTaskID: selectedParentTaskID,
+            tagIDs: Array(resolvedTagIDs),
+            dependencies: selectedDependencyTaskIDs.map { dependsOnTaskID in
+                TaskDependencyLinkDefinition(
+                    taskID: UUID(), // replaced in use case with created task ID
+                    dependsOnTaskID: dependsOnTaskID,
+                    kind: .related
+                )
+            },
+            priority: selectedPriority,
+            type: selectedType,
+            energy: .medium,
+            category: .general,
+            context: .anywhere,
+            isEveningTask: selectedType == .evening,
             alertReminderTime: hasReminder ? reminderTime : nil
         )
-        
-        createTaskUseCase.execute(request: request) { [weak self] result in
+
+        createTaskDefinitionUseCase.execute(
+            request: definitionRequest
+        ) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
-                
+
                 switch result {
                 case .success:
                     self?.isTaskCreated = true
-                    
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                 }
@@ -236,12 +207,17 @@ public final class AddTaskViewModel: ObservableObject {
     
     /// Reschedule task (for editing existing tasks)
     public func rescheduleTask(_ taskId: UUID, to newDate: Date) {
+        guard let rescheduleTaskDefinitionUseCase else {
+            errorMessage = "Task rescheduling is not configured."
+            return
+        }
+
         isLoading = true
-        
-        rescheduleTaskUseCase.execute(taskId: taskId, newDate: newDate) { [weak self] result in
+
+        rescheduleTaskDefinitionUseCase.execute(taskID: taskId, newDate: newDate) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
-                
+
                 switch result {
                 case .success:
                     // Task rescheduled successfully
@@ -408,12 +384,28 @@ public final class AddTaskViewModel: ObservableObject {
     }
 
     private func loadTaskMetadataOptions(projectID: UUID) {
-        taskRepository.fetchTasks(forProjectID: projectID) { [weak self] result in
+        guard let taskReadModelRepository else {
+            availableParentTasks = []
+            availableDependencyTasks = []
+            selectedParentTaskID = nil
+            selectedDependencyTaskIDs = []
+            return
+        }
+
+        taskReadModelRepository.fetchTasks(
+            query: TaskReadQuery(
+                projectID: projectID,
+                includeCompleted: false,
+                sortBy: .dueDateAscending,
+                limit: 2_000,
+                offset: 0
+            )
+        ) { [weak self] result in
             DispatchQueue.main.async {
                 guard let self else { return }
                 switch result {
-                case .success(let tasks):
-                    let activeTasks = tasks
+                case .success(let slice):
+                    let activeTasks = slice.tasks
                         .filter { !$0.isComplete }
                         .sorted { lhs, rhs in
                             let lhsDate = lhs.dueDate ?? .distantFuture
@@ -447,8 +439,22 @@ public final class AddTaskViewModel: ObservableObject {
         windowEnd: Date,
         completion: @escaping ([Date: Int]) -> Void
     ) {
-        taskRepository.fetchTasks(from: windowStart, to: windowEnd) { result in
-            let tasks = (try? result.get()) ?? []
+        guard let taskReadModelRepository else {
+            completion([:])
+            return
+        }
+
+        taskReadModelRepository.fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                dueDateStart: windowStart,
+                dueDateEnd: windowEnd,
+                sortBy: .dueDateAscending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { result in
+            let tasks = (try? result.get().tasks) ?? []
             let calendar = Calendar.current
             let counts = tasks.reduce(into: [Date: Int]()) { grouped, task in
                 guard let dueDate = task.dueDate else { return }
