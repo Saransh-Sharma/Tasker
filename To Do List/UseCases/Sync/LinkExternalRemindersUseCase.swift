@@ -41,7 +41,7 @@ public final class LinkExternalRemindersUseCase {
     }
 
     public func listContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) {
-        guard V2FeatureFlags.v2Enabled, V2FeatureFlags.remindersSyncEnabled else {
+        guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
             return
         }
@@ -54,7 +54,7 @@ public final class LinkExternalRemindersUseCase {
         importedItems: [ImportedReminderItem],
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard V2FeatureFlags.v2Enabled, V2FeatureFlags.remindersSyncEnabled else {
+        guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
             return
         }
@@ -151,7 +151,7 @@ public final class LinkExternalRemindersUseCase {
         externalContainerID: String,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        guard V2FeatureFlags.v2Enabled, V2FeatureFlags.remindersSyncEnabled else {
+        guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
             return
         }

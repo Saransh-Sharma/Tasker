@@ -70,7 +70,7 @@ public final class ReconcileExternalRemindersUseCase {
     }
 
     public func execute(completion: @escaping (Result<Int, Error>) -> Void) {
-        guard V2FeatureFlags.v2Enabled, V2FeatureFlags.remindersSyncEnabled else {
+        guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
             return
         }
@@ -88,7 +88,7 @@ public final class ReconcileExternalRemindersUseCase {
         snapshots: [ExternalReminderSnapshot],
         completion: @escaping (Result<Int, Error>) -> Void
     ) {
-        guard V2FeatureFlags.v2Enabled, V2FeatureFlags.remindersSyncEnabled else {
+        guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
             return
         }
@@ -175,7 +175,7 @@ public final class ReconcileExternalRemindersUseCase {
         projectID: UUID,
         completion: @escaping (Result<ReconcileSummary, Error>) -> Void
     ) {
-        guard V2FeatureFlags.v2Enabled, V2FeatureFlags.remindersSyncEnabled else {
+        guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
             return
         }

@@ -13,16 +13,13 @@ public final class GetProjectStatisticsUseCase {
     // MARK: - Dependencies
     
     private let projectRepository: ProjectRepositoryProtocol
-    private let taskRepository: TaskRepositoryProtocol
     
     // MARK: - Initialization
     
     public init(
-        projectRepository: ProjectRepositoryProtocol,
-        taskRepository: TaskRepositoryProtocol
+        projectRepository: ProjectRepositoryProtocol
     ) {
         self.projectRepository = projectRepository
-        self.taskRepository = taskRepository
     }
     
     // MARK: - Statistics Methods
@@ -59,4 +56,8 @@ public struct ProjectOverview {
         self.activeProjects = activeProjects
         self.completedProjects = completedProjects
     }
+}
+
+public enum StatisticsError: Error {
+    case repositoryError(Error)
 }

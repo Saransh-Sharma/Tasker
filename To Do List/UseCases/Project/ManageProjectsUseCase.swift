@@ -14,16 +14,13 @@ public final class ManageProjectsUseCase {
     // MARK: - Dependencies
     
     private let projectRepository: ProjectRepositoryProtocol
-    private let taskRepository: TaskRepositoryProtocol
     
     // MARK: - Initialization
     
     public init(
-        projectRepository: ProjectRepositoryProtocol,
-        taskRepository: TaskRepositoryProtocol
+        projectRepository: ProjectRepositoryProtocol
     ) {
         self.projectRepository = projectRepository
-        self.taskRepository = taskRepository
     }
     
     // MARK: - Create Project
