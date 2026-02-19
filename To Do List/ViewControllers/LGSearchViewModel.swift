@@ -22,12 +22,12 @@ class LGSearchViewModel {
     private var currentStatusFilter: StatusFilterType = .all
     private var lastQuery: String = ""
 
-    var searchResults: [DomainTask] = []
+    var searchResults: [TaskDefinition] = []
     private(set) var projects: [Project] = []
     var filteredProjects: Set<String> = []
     var filteredPriorities: Set<Int32> = []
 
-    var onResultsUpdated: (([DomainTask]) -> Void)?
+    var onResultsUpdated: (([TaskDefinition]) -> Void)?
 
     // MARK: - Initialization
 
@@ -127,7 +127,7 @@ class LGSearchViewModel {
     func updateTask(
         taskID: UUID,
         request: UpdateTaskDefinitionRequest,
-        completion: @escaping (Result<DomainTask, Error>) -> Void
+        completion: @escaping (Result<TaskDefinition, Error>) -> Void
     ) {
         var normalizedRequest = request
         normalizedRequest.updatedAt = Date()
@@ -175,18 +175,18 @@ class LGSearchViewModel {
     // MARK: - Helper Methods
 
     func getAllProjects() -> [String] {
-        let projects = Set(searchResults.compactMap { $0.project })
+        let projects = Set(searchResults.compactMap { $0.projectName })
         return Array(projects).sorted()
     }
 
-    func groupTasksByProject(_ tasks: [DomainTask]) -> [(project: String, tasks: [DomainTask])] {
-        let grouped = Dictionary(grouping: tasks) { $0.project ?? "Inbox" }
+    func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
+        let grouped = Dictionary(grouping: tasks) { $0.projectName ?? "Inbox" }
         return grouped.map { (project: $0.key, tasks: $0.value) }
             .sorted { $0.project < $1.project }
     }
 
-    private func fetchTasksForCurrentStatusFilter(completion: @escaping ([DomainTask]) -> Void) {
-        let handler: (Result<[DomainTask], Error>) -> Void = { result in
+    private func fetchTasksForCurrentStatusFilter(completion: @escaping ([TaskDefinition]) -> Void) {
+        let handler: (Result<[TaskDefinition], Error>) -> Void = { result in
             switch result {
             case .success(let tasks):
                 completion(tasks)
@@ -227,16 +227,16 @@ class LGSearchViewModel {
         }
     }
 
-    private func applyInMemoryFilters(tasks: [DomainTask], query: String) -> [DomainTask] {
+    private func applyInMemoryFilters(tasks: [TaskDefinition], query: String) -> [TaskDefinition] {
         let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let normalizedProjects = Set(filteredProjects.map { $0.lowercased() })
 
         return tasks.filter { task in
             if normalizedQuery.isEmpty == false {
                 let haystacks = [
-                    task.name,
+                    task.title,
                     task.details ?? "",
-                    task.project ?? ""
+                    task.projectName ?? ""
                 ].map { $0.lowercased() }
                 guard haystacks.contains(where: { $0.contains(normalizedQuery) }) else {
                     return false
@@ -244,7 +244,7 @@ class LGSearchViewModel {
             }
 
             if normalizedProjects.isEmpty == false {
-                let projectName = (task.project ?? ProjectConstants.inboxProjectName).lowercased()
+                let projectName = (task.projectName ?? ProjectConstants.inboxProjectName).lowercased()
                 guard normalizedProjects.contains(projectName) else {
                     return false
                 }

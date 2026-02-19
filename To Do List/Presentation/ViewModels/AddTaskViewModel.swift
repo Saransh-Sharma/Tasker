@@ -37,8 +37,8 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public var dueDate: Date = Date()
     @Published public var hasReminder: Bool = false
     @Published public var reminderTime: Date = Date()
-    @Published public private(set) var availableParentTasks: [DomainTask] = []
-    @Published public private(set) var availableDependencyTasks: [DomainTask] = []
+    @Published public private(set) var availableParentTasks: [TaskDefinition] = []
+    @Published public private(set) var availableDependencyTasks: [TaskDefinition] = []
     
     // MARK: - Dependencies
     
@@ -407,14 +407,14 @@ public final class AddTaskViewModel: ObservableObject {
                 case .success(let slice):
                     let activeTasks = slice.tasks
                         .filter { !$0.isComplete }
-                        .sorted { lhs, rhs in
-                            let lhsDate = lhs.dueDate ?? .distantFuture
-                            let rhsDate = rhs.dueDate ?? .distantFuture
+                        .sorted(by: { (lhs: TaskDefinition, rhs: TaskDefinition) in
+                            let lhsDate = lhs.dueDate ?? Date.distantFuture
+                            let rhsDate = rhs.dueDate ?? Date.distantFuture
                             if lhsDate == rhsDate {
-                                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+                                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
                             }
                             return lhsDate < rhsDate
-                        }
+                        })
                     self.availableParentTasks = activeTasks
                     self.availableDependencyTasks = activeTasks
 
