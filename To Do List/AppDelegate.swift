@@ -630,12 +630,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
         context.performAndWait {
             do {
-                let lifeAreaRequest = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
-                lifeAreaRequest.predicate = NSPredicate(format: "name ==[c] %@", "General")
-                lifeAreaRequest.fetchLimit = 1
+                let repairReport = try LifeAreaIdentityRepair.repair(in: context)
+                if repairReport.merged > 0 || repairReport.normalized > 0 {
+                    logWarning(
+                        event: "life_area_identity_repair_applied",
+                        message: "Repaired duplicate or malformed life area rows during startup defaults",
+                        fields: [
+                            "scanned": String(repairReport.scanned),
+                            "normalized": String(repairReport.normalized),
+                            "merged": String(repairReport.merged),
+                            "duplicate_groups": String(repairReport.duplicateGroups),
+                            "repointed_projects": String(repairReport.repointedProjects),
+                            "repointed_tasks": String(repairReport.repointedTasks),
+                            "repointed_habits": String(repairReport.repointedHabits)
+                        ]
+                    )
+                }
 
                 let lifeArea: NSManagedObject
-                if let existing = try context.fetch(lifeAreaRequest).first {
+                let normalizedGeneralKey = LifeAreaIdentityRepair.normalizedNameKey("General")
+                if let canonicalGeneralID = repairReport.canonicalIDsByNormalizedName[normalizedGeneralKey],
+                   let existing = try fetchLifeArea(id: canonicalGeneralID, in: context) {
+                    lifeArea = existing
+                } else if let existing = try fetchGeneralLifeArea(in: context) {
                     lifeArea = existing
                 } else {
                     let created = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
@@ -691,6 +708,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 )
             }
         }
+    }
+
+    private func fetchGeneralLifeArea(in context: NSManagedObjectContext) throws -> NSManagedObject? {
+        let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+        request.predicate = NSPredicate(format: "name ==[c] %@", "General")
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
+    private func fetchLifeArea(id: UUID, in context: NSManagedObjectContext) throws -> NSManagedObject? {
+        let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
+        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
     }
 
     private func backfillTaskLifeAreaIDsIfNeeded(in context: NSManagedObjectContext) throws {
