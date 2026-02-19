@@ -10,41 +10,41 @@ import Foundation
 /// Protocol for handling task analytics and tracking
 public protocol AnalyticsServiceProtocol {
     
-    // MARK: - Task Analytics
+    // MARK: - DomainTask Analytics
     
     /// Track when a task is completed
     /// - Parameters:
     ///   - task: The completed task
     ///   - score: Score earned from completion
     ///   - completionTime: When the task was completed
-    func trackTaskCompleted(task: Task, score: Int, completionTime: Date)
+    func trackTaskCompleted(task: DomainTask, score: Int, completionTime: Date)
     
     /// Track when a task is marked as incomplete
     /// - Parameters:
     ///   - task: The task that was uncompleted
     ///   - scoreDeducted: Score deducted for uncompleting
-    func trackTaskUncompleted(task: Task, scoreDeducted: Int)
+    func trackTaskUncompleted(task: DomainTask, scoreDeducted: Int)
     
     /// Track when a task is created
     /// - Parameter task: The newly created task
-    func trackTaskCreated(task: Task)
+    func trackTaskCreated(task: DomainTask)
     
     /// Track when a task is deleted
     /// - Parameter task: The deleted task
-    func trackTaskDeleted(task: Task)
+    func trackTaskDeleted(task: DomainTask)
     
     /// Track when a task is updated
     /// - Parameters:
     ///   - oldTask: The task before update
     ///   - newTask: The task after update
-    func trackTaskUpdated(oldTask: Task, newTask: Task)
+    func trackTaskUpdated(oldTask: DomainTask, newTask: DomainTask)
     
     /// Track when a task is rescheduled
     /// - Parameters:
     ///   - task: The rescheduled task
     ///   - oldDate: Previous due date
     ///   - newDate: New due date
-    func trackTaskRescheduled(task: Task, oldDate: Date?, newDate: Date?)
+    func trackTaskRescheduled(task: DomainTask, oldDate: Date?, newDate: Date?)
     
     // MARK: - User Behavior Analytics
     

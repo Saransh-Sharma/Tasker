@@ -3,11 +3,6 @@ import Foundation
 public enum V2FeatureFlags {
     private static let defaults = UserDefaults.standard
 
-    public static var v2Enabled: Bool {
-        get { defaults.object(forKey: "feature.v2.enabled") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.v2.enabled") }
-    }
-
     public static var remindersSyncEnabled: Bool {
         get { defaults.object(forKey: "feature.reminders.sync") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.reminders.sync") }

@@ -9,7 +9,6 @@
 
 import Foundation
 import UIKit
-import CoreData  // Required for legacy configure(with:) method - only used for backward compatibility
 
 /// Dependency container for Clean Architecture ViewModels
 /// Receives dependencies from EnhancedDependencyContainer (State layer)
@@ -22,22 +21,9 @@ public final class PresentationDependencyContainer {
 
     // MARK: - Injected Dependencies (from State layer)
 
-    private var taskRepository: (any TaskRepositoryProtocol)!
     private var taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private var projectRepository: (any ProjectRepositoryProtocol)!
-    private var cacheService: CacheServiceProtocol!
     private var useCaseCoordinator: UseCaseCoordinator!
-
-    // MARK: - Use Cases (created from injected dependencies)
-
-    private var createTaskUseCase: CreateTaskUseCase!
-    private var completeTaskUseCase: CompleteTaskUseCase!
-    private var deleteTaskUseCase: DeleteTaskUseCase!
-    private var updateTaskUseCase: UpdateTaskUseCase!
-    private var rescheduleTaskUseCase: RescheduleTaskUseCase!
-    private var getTasksUseCase: GetTasksUseCase!
-    private var manageProjectsUseCase: ManageProjectsUseCase!
-    private var calculateAnalyticsUseCase: CalculateAnalyticsUseCase!
 
     // MARK: - ViewModels (Lazy initialization)
 
@@ -67,22 +53,16 @@ public final class PresentationDependencyContainer {
     /// Configure the container with dependencies from the State layer
     /// This is the preferred configuration method that maintains clean architecture
     public func configure(
-        taskRepository: TaskRepositoryProtocol,
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         projectRepository: ProjectRepositoryProtocol,
-        cacheService: CacheServiceProtocol?,
         useCaseCoordinator: UseCaseCoordinator
     ) {
         logDebug("🔧 PresentationDependencyContainer: Starting configuration (Clean Architecture)...")
 
-        self.taskRepository = taskRepository
         self.taskReadModelRepository = taskReadModelRepository
         self.projectRepository = projectRepository
-        self.cacheService = cacheService ?? InMemoryCacheService()
         self.useCaseCoordinator = useCaseCoordinator
 
-        // Initialize use cases from injected dependencies
-        setupUseCases()
         evaluateV2RuntimeReadiness()
 
         self.isConfigured = true
@@ -94,26 +74,10 @@ public final class PresentationDependencyContainer {
     public func configureFromStateLayer() {
         let stateContainer = EnhancedDependencyContainer.shared
         configure(
-            taskRepository: stateContainer.taskRepository,
             taskReadModelRepository: stateContainer.taskReadModelRepository,
             projectRepository: stateContainer.projectRepository,
-            cacheService: stateContainer.cacheService,
             useCaseCoordinator: stateContainer.useCaseCoordinator
         )
-    }
-
-    /// Legacy configuration method for backward compatibility with AppDelegate
-    /// This configures both State and Presentation layers in one call
-    @objc public func configure(with container: NSPersistentContainer) {
-        logDebug("🔧 PresentationDependencyContainer: Legacy configuration with NSPersistentContainer...")
-
-        // First configure the State layer (EnhancedDependencyContainer)
-        EnhancedDependencyContainer.shared.configure(with: container)
-
-        // Then configure this container from the State layer
-        configureFromStateLayer()
-
-        logDebug("✅ PresentationDependencyContainer: Legacy configuration completed")
     }
 
     // MARK: - Setup Methods
@@ -125,7 +89,7 @@ public final class PresentationDependencyContainer {
             fatalError(
                 """
                 PresentationDependencyContainer is not configured!
-                Call configure(...) or configureFromStateLayer() before accessing ViewModels.
+                Call configure(...) before accessing ViewModels.
                 Location: \(file):\(line)
                 """
             )
@@ -146,86 +110,10 @@ public final class PresentationDependencyContainer {
     }
 
     private func evaluateV2RuntimeReadiness() {
-        guard V2FeatureFlags.v2Enabled else {
-            v2RuntimeReady = true
-            v2RuntimeFailureReason = nil
-            return
-        }
-
-        var missing: [String] = []
-        if useCaseCoordinator.createTaskDefinition == nil { missing.append("createTaskDefinitionUseCase") }
-        if useCaseCoordinator.reconcileExternalReminders == nil { missing.append("reconcileExternalRemindersUseCase") }
-        if useCaseCoordinator.assistantActionPipeline == nil { missing.append("assistantActionPipelineUseCase") }
-
-        if missing.isEmpty {
-            v2RuntimeReady = true
-            v2RuntimeFailureReason = nil
-            return
-        }
-
-        v2RuntimeReady = false
-        v2RuntimeFailureReason = "Missing required V2 presentation dependencies: \(missing.joined(separator: ", "))"
-        logError(
-            event: "v2_runtime_not_ready",
-            message: "Presentation dependency container failed V2 runtime readiness checks",
-            fields: ["missing": missing.joined(separator: ",")]
-        )
+        v2RuntimeReady = true
+        v2RuntimeFailureReason = nil
     }
 
-    private func setupUseCases() {
-        // Use DefaultTaskScoringService which conforms to TaskScoringServiceProtocol
-        let scoringService = DefaultTaskScoringService()
-
-        // Task use cases
-        self.createTaskUseCase = CreateTaskUseCase(
-            taskRepository: taskRepository,
-            projectRepository: projectRepository,
-            notificationService: nil
-        )
-
-        self.completeTaskUseCase = CompleteTaskUseCase(
-            taskRepository: taskRepository,
-            scoringService: scoringService,
-            analyticsService: nil
-        )
-
-        self.deleteTaskUseCase = DeleteTaskUseCase(
-            taskRepository: taskRepository,
-            notificationService: nil,
-            analyticsService: nil
-        )
-
-        self.updateTaskUseCase = UpdateTaskUseCase(
-            taskRepository: taskRepository,
-            projectRepository: projectRepository,
-            notificationService: nil
-        )
-
-        self.rescheduleTaskUseCase = RescheduleTaskUseCase(
-            taskRepository: taskRepository,
-            notificationService: nil
-        )
-
-        self.getTasksUseCase = GetTasksUseCase(
-            taskRepository: taskRepository,
-            readModelRepository: taskReadModelRepository,
-            cacheService: cacheService
-        )
-
-        // Project use cases
-        self.manageProjectsUseCase = ManageProjectsUseCase(
-            projectRepository: projectRepository,
-            taskRepository: taskRepository
-        )
-
-        // Analytics use cases
-        self.calculateAnalyticsUseCase = CalculateAnalyticsUseCase(
-            taskRepository: taskRepository,
-            scoringService: scoringService,
-            cacheService: cacheService
-        )
-    }
-    
     // MARK: - ViewModel Factory Methods
 
     /// Get or create HomeViewModel
@@ -248,11 +136,10 @@ public final class PresentationDependencyContainer {
         }
 
         let viewModel = AddTaskViewModel(
-            taskRepository: taskRepository,
-            createTaskUseCase: createTaskUseCase,
-            manageProjectsUseCase: manageProjectsUseCase,
-            rescheduleTaskUseCase: rescheduleTaskUseCase,
+            taskReadModelRepository: taskReadModelRepository,
+            manageProjectsUseCase: useCaseCoordinator.manageProjects,
             createTaskDefinitionUseCase: useCaseCoordinator.createTaskDefinition,
+            rescheduleTaskDefinitionUseCase: useCaseCoordinator.rescheduleTaskDefinition,
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
             manageSectionsUseCase: useCaseCoordinator.manageSections,
             manageTagsUseCase: useCaseCoordinator.manageTags
@@ -269,8 +156,8 @@ public final class PresentationDependencyContainer {
         }
 
         let viewModel = ProjectManagementViewModel(
-            manageProjectsUseCase: manageProjectsUseCase,
-            getTasksUseCase: getTasksUseCase
+            manageProjectsUseCase: useCaseCoordinator.manageProjects,
+            getTasksUseCase: useCaseCoordinator.getTasks
         )
         _projectManagementViewModel = viewModel
         return viewModel
@@ -321,11 +208,10 @@ public final class PresentationDependencyContainer {
     public func makeNewAddTaskViewModel() -> AddTaskViewModel {
         assertConfigured()
         return AddTaskViewModel(
-            taskRepository: taskRepository,
-            createTaskUseCase: createTaskUseCase,
-            manageProjectsUseCase: manageProjectsUseCase,
-            rescheduleTaskUseCase: rescheduleTaskUseCase,
+            taskReadModelRepository: taskReadModelRepository,
+            manageProjectsUseCase: useCaseCoordinator.manageProjects,
             createTaskDefinitionUseCase: useCaseCoordinator.createTaskDefinition,
+            rescheduleTaskDefinitionUseCase: useCaseCoordinator.rescheduleTaskDefinition,
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
             manageSectionsUseCase: useCaseCoordinator.manageSections,
             manageTagsUseCase: useCaseCoordinator.manageTags
