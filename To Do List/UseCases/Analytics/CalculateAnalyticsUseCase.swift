@@ -12,18 +12,18 @@ public final class CalculateAnalyticsUseCase {
     
     // MARK: - Dependencies
     
-    private let taskRepository: TaskRepositoryProtocol
+    private let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     private let scoringService: TaskScoringServiceProtocol
     private let cacheService: CacheServiceProtocol?
     
     // MARK: - Initialization
     
     public init(
-        taskRepository: TaskRepositoryProtocol,
+        taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         scoringService: TaskScoringServiceProtocol? = nil,
         cacheService: CacheServiceProtocol? = nil
     ) {
-        self.taskRepository = taskRepository
+        self.taskReadModelRepository = taskReadModelRepository
         self.scoringService = scoringService ?? DefaultTaskScoringService()
         self.cacheService = cacheService
     }
@@ -40,7 +40,7 @@ public final class CalculateAnalyticsUseCase {
         for date: Date,
         completion: @escaping (Result<DailyAnalytics, AnalyticsError>) -> Void
     ) {
-        taskRepository.fetchTasks(for: date) { [weak self] result in
+        fetchTasksForDay(date) { [weak self] result in
             switch result {
             case .success(let tasks):
                 let analytics = self?.computeDailyAnalytics(tasks: tasks, date: date) ?? DailyAnalytics(date: date)
@@ -156,15 +156,18 @@ public final class CalculateAnalyticsUseCase {
         }
         
         // Fetch all tasks in the date range
-        taskRepository.fetchAllTasks { [weak self] result in
+        fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                dueDateStart: startDate,
+                dueDateEnd: endDate,
+                sortBy: .dueDateAscending,
+                limit: 10_000,
+                offset: 0
+            )
+        ) { [weak self] result in
             switch result {
-            case .success(let allTasks):
-                // Filter tasks within date range
-                let tasksInRange = allTasks.filter { task in
-                    guard let dueDate = task.dueDate else { return false }
-                    return dueDate >= startDate && dueDate <= endDate
-                }
-                
+            case .success(let tasksInRange):
                 let analytics = self?.computePeriodAnalytics(
                     tasks: tasksInRange,
                     startDate: startDate,
@@ -183,7 +186,14 @@ public final class CalculateAnalyticsUseCase {
     
     /// Calculate overall productivity score
     public func calculateProductivityScore(completion: @escaping (Result<ProductivityScore, AnalyticsError>) -> Void) {
-        taskRepository.fetchAllTasks { [weak self] result in
+        fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                sortBy: .updatedAtDescending,
+                limit: 10_000,
+                offset: 0
+            )
+        ) { [weak self] result in
             switch result {
             case .success(let tasks):
                 let score = self?.computeProductivityScore(tasks: tasks) ?? ProductivityScore()
@@ -199,9 +209,17 @@ public final class CalculateAnalyticsUseCase {
     
     /// Calculate current completion streak
     public func calculateStreak(completion: @escaping (Result<StreakInfo, AnalyticsError>) -> Void) {
-        taskRepository.fetchCompletedTasks { [weak self] result in
+        fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                sortBy: .updatedAtDescending,
+                limit: 10_000,
+                offset: 0
+            )
+        ) { [weak self] result in
             switch result {
-            case .success(let completedTasks):
+            case .success(let tasks):
+                let completedTasks = tasks.filter(\.isComplete)
                 let streak = self?.computeStreak(completedTasks: completedTasks) ?? StreakInfo()
                 completion(.success(streak))
                 
@@ -210,10 +228,49 @@ public final class CalculateAnalyticsUseCase {
             }
         }
     }
+
+    private func fetchTasksForDay(
+        _ date: Date,
+        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+    ) {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? date
+
+        fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                dueDateStart: startOfDay,
+                dueDateEnd: endOfDay,
+                sortBy: .dueDateAscending,
+                limit: 5_000,
+                offset: 0
+            ),
+            completion: completion
+        )
+    }
+
+    private func fetchTasks(
+        query: TaskReadQuery,
+        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+    ) {
+        guard let taskReadModelRepository else {
+            completion(.failure(NSError(
+                domain: "CalculateAnalyticsUseCase",
+                code: 503,
+                userInfo: [NSLocalizedDescriptionKey: "Task read-model repository is not configured"]
+            )))
+            return
+        }
+
+        taskReadModelRepository.fetchTasks(query: query) { result in
+            completion(result.map(\.tasks))
+        }
+    }
     
     // MARK: - Private Computation Methods
     
-    private func computeDailyAnalytics(tasks: [Task], date: Date) -> DailyAnalytics {
+    private func computeDailyAnalytics(tasks: [TaskDefinition], date: Date) -> DailyAnalytics {
         let completedTasks = tasks.filter { $0.isComplete }
         let totalTasks = tasks.count
         let completionRate = totalTasks > 0 ? Double(completedTasks.count) / Double(totalTasks) : 0
@@ -247,7 +304,7 @@ public final class CalculateAnalyticsUseCase {
         )
     }
     
-    private func computePeriodAnalytics(tasks: [Task], startDate: Date, endDate: Date) -> PeriodAnalytics {
+    private func computePeriodAnalytics(tasks: [TaskDefinition], startDate: Date, endDate: Date) -> PeriodAnalytics {
         let calendar = Calendar.current
         var dailyBreakdown: [DailyAnalytics] = []
         var currentDate = startDate
@@ -306,7 +363,7 @@ public final class CalculateAnalyticsUseCase {
         )
     }
     
-    private func computeProductivityScore(tasks: [Task]) -> ProductivityScore {
+    private func computeProductivityScore(tasks: [TaskDefinition]) -> ProductivityScore {
         let completedTasks = tasks.filter { $0.isComplete }
         let totalScore = completedTasks.reduce(0) { sum, task in
             sum + scoringService.calculateScore(for: task)
@@ -326,10 +383,10 @@ public final class CalculateAnalyticsUseCase {
         )
     }
     
-    private func computeStreak(completedTasks: [Task]) -> StreakInfo {
+    private func computeStreak(completedTasks: [TaskDefinition]) -> StreakInfo {
         let calendar = Calendar.current
         let sortedTasks = completedTasks
-            .compactMap { task -> (task: Task, date: Date)? in
+            .compactMap { task -> (task: TaskDefinition, date: Date)? in
                 guard let completedDate = task.dateCompleted else { return nil }
                 return (task, completedDate)
             }
@@ -547,7 +604,7 @@ public enum AnalyticsError: LocalizedError {
 // MARK: - Scoring Service Protocol
 
 public protocol TaskScoringServiceProtocol {
-    func calculateScore(for task: Task) -> Int
+    func calculateScore(for task: TaskDefinition) -> Int
     func getTotalScore(completion: @escaping (Int) -> Void)
     func getScoreHistory(days: Int, completion: @escaping ([DailyScore]) -> Void)
 }
@@ -568,7 +625,7 @@ public class DefaultTaskScoringService: TaskScoringServiceProtocol {
     
     public init() {}
     
-    public func calculateScore(for task: Task) -> Int {
+    public func calculateScore(for task: TaskDefinition) -> Int {
         guard task.isComplete else { return 0 }
         return task.priority.scorePoints
     }
