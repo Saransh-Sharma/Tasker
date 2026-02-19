@@ -11,12 +11,12 @@ class LGTaskCard: LGBaseView {
 
     // MARK: - Properties
 
-    var task: DomainTask? {
+    var task: TaskDefinition? {
         didSet { updateUI() }
     }
 
-    var onTap: ((DomainTask) -> Void)?
-    var onToggleComplete: ((DomainTask) -> Void)?
+    var onTap: ((TaskDefinition) -> Void)?
+    var onToggleComplete: ((TaskDefinition) -> Void)?
 
     // Theme support
     private var todoColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
@@ -129,7 +129,7 @@ class LGTaskCard: LGBaseView {
         guard let task = task else { return }
 
         // Title
-        titleLabel.text = task.name
+        titleLabel.text = task.title
         titleLabel.textColor = todoColors.textPrimary
 
         // Checkbox
@@ -153,19 +153,19 @@ class LGTaskCard: LGBaseView {
         priorityIndicator.backgroundColor = task.priority.color
 
         // Project
-        projectLabel.text = task.project ?? "Inbox"
+        projectLabel.text = task.projectName ?? "Inbox"
         projectLabel.textColor = todoColors.textPrimary.withAlphaComponent(0.8)
 
         // Strike through if completed
         if task.isComplete {
             titleLabel.attributedText = NSAttributedString(
-                string: task.name,
+                string: task.title,
                 attributes: [.strikethroughStyle: NSUnderlineStyle.single.rawValue]
             )
             titleLabel.alpha = 0.6
         } else {
             titleLabel.attributedText = nil
-            titleLabel.text = task.name
+            titleLabel.text = task.title
             titleLabel.alpha = 1.0
         }
 

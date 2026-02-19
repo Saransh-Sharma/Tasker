@@ -44,12 +44,12 @@ private enum TaskDetailAutosaveState: Equatable {
 }
 
 struct TaskDetailSheetView: View {
-    typealias UpdateHandler = (UpdateTaskDefinitionRequest, @escaping (Result<DomainTask, Error>) -> Void) -> Void
-    typealias CompletionHandler = (Bool, @escaping (Result<DomainTask, Error>) -> Void) -> Void
+    typealias UpdateHandler = (UpdateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias CompletionHandler = (Bool, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
     typealias DeleteHandler = (@escaping (Result<Void, Error>) -> Void) -> Void
-    typealias RescheduleHandler = (Date, @escaping (Result<DomainTask, Error>) -> Void) -> Void
+    typealias RescheduleHandler = (Date, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
 
-    let task: DomainTask
+    let task: TaskDefinition
     let projects: [Project]
     let onUpdate: UpdateHandler
     let onSetCompletion: CompletionHandler
@@ -58,7 +58,7 @@ struct TaskDetailSheetView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var persistedTask: DomainTask
+    @State private var persistedTask: TaskDefinition
     @State private var taskName: String
     @State private var taskDescription: String
     @State private var taskPriorityRaw: Int32
@@ -85,7 +85,7 @@ struct TaskDetailSheetView: View {
     private let textAutosaveDebounceSeconds: TimeInterval = 0.4
 
     init(
-        task: DomainTask,
+        task: TaskDefinition,
         projects: [Project],
         onUpdate: @escaping UpdateHandler,
         onSetCompletion: @escaping CompletionHandler,
@@ -100,7 +100,7 @@ struct TaskDetailSheetView: View {
         self.onReschedule = onReschedule
 
         _persistedTask = State(initialValue: task)
-        _taskName = State(initialValue: task.name)
+        _taskName = State(initialValue: task.title)
         _taskDescription = State(initialValue: task.details ?? "")
         _taskPriorityRaw = State(initialValue: task.priority.rawValue)
         _taskTypeRaw = State(initialValue: task.type.rawValue)
@@ -563,7 +563,7 @@ struct TaskDetailSheetView: View {
 
     private var selectedProjectName: String {
         projectOptions.first(where: { $0.id == selectedProjectID })?.name
-            ?? persistedTask.project
+            ?? persistedTask.projectName
             ?? ProjectConstants.inboxProjectName
     }
 
@@ -682,7 +682,7 @@ struct TaskDetailSheetView: View {
         var projectID: UUID?
         var reminderChange: Date?
 
-        if trimmedName != persistedTask.name {
+        if trimmedName != persistedTask.title {
             title = trimmedName
         }
 
@@ -703,7 +703,7 @@ struct TaskDetailSheetView: View {
             dueDateChange = dueDate
         }
 
-        if selectedProjectID != persistedTask.projectID || selectedProjectName != (persistedTask.project ?? ProjectConstants.inboxProjectName) {
+        if selectedProjectID != persistedTask.projectID || selectedProjectName != (persistedTask.projectName ?? ProjectConstants.inboxProjectName) {
             projectID = selectedProjectID
         }
 
@@ -787,10 +787,10 @@ struct TaskDetailSheetView: View {
         }
     }
 
-    private func syncDraftFromTask(_ updatedTask: DomainTask) {
+    private func syncDraftFromTask(_ updatedTask: TaskDefinition) {
         suppressAutosave = true
         persistedTask = updatedTask
-        taskName = updatedTask.name
+        taskName = updatedTask.title
         taskDescription = updatedTask.details ?? ""
         taskPriorityRaw = updatedTask.priority.rawValue
         taskTypeRaw = updatedTask.type.rawValue

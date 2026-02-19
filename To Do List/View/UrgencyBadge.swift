@@ -16,7 +16,7 @@ public enum UrgencyLevel {
     case today
     case none
 
-    public static func from(task: DomainTask, now: Date = Date()) -> UrgencyLevel {
+    public static func from(task: TaskDefinition, now: Date = Date()) -> UrgencyLevel {
         guard !task.isComplete else { return .none }
         if task.isOverdue { return .overdue }
         guard let dueDate = task.dueDate else { return .none }

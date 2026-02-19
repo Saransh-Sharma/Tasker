@@ -66,9 +66,9 @@ final class AddTaskAdvancedMetadataPanel: UIView {
         selectedSectionID: UUID?,
         tags: [TagDefinition],
         selectedTagIDs: Set<UUID>,
-        parentTasks: [DomainTask],
+        parentTasks: [TaskDefinition],
         selectedParentTaskID: UUID?,
-        dependencyTasks: [DomainTask],
+        dependencyTasks: [TaskDefinition],
         selectedDependencyTaskIDs: Set<UUID>
     ) {
         let selectedLifeArea = lifeAreas.first(where: { $0.id == selectedLifeAreaID })?.name ?? "None"
@@ -77,7 +77,7 @@ final class AddTaskAdvancedMetadataPanel: UIView {
             .filter { selectedTagIDs.contains($0.id) }
             .map(\.name)
             .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-        let selectedParent = parentTasks.first(where: { $0.id == selectedParentTaskID })?.name ?? "None"
+        let selectedParent = parentTasks.first(where: { $0.id == selectedParentTaskID })?.title ?? "None"
         let selectedDependencyCount = selectedDependencyTaskIDs.count
 
         updateButton(lifeAreaButton, title: "Life Area", value: selectedLifeArea)

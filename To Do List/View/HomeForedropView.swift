@@ -123,10 +123,10 @@ struct HomeBackdropForedropRootView: View {
     @ObservedObject var radarChartCardViewModel: RadarChartCardViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    let onTaskTap: (DomainTask) -> Void
-    let onToggleComplete: (DomainTask) -> Void
-    let onDeleteTask: (DomainTask) -> Void
-    let onRescheduleTask: (DomainTask) -> Void
+    let onTaskTap: (TaskDefinition) -> Void
+    let onToggleComplete: (TaskDefinition) -> Void
+    let onDeleteTask: (TaskDefinition) -> Void
+    let onRescheduleTask: (TaskDefinition) -> Void
     let onReorderCustomProjects: ([UUID]) -> Void
     let onAddTask: () -> Void
     let onOpenSearch: () -> Void
@@ -684,6 +684,7 @@ struct HomeBackdropForedropRootView: View {
                 Text("\(progress.earnedXP)/\(progress.todayTargetXP) XP")
                     .font(.tasker(.bodyEmphasis))
                     .foregroundColor(Color.tasker.textPrimary)
+                    .accessibilityIdentifier("home.dailyScoreLabel")
 
                 Text("\u{00B7}")
                     .foregroundColor(Color.tasker.textQuaternary)
@@ -692,7 +693,6 @@ struct HomeBackdropForedropRootView: View {
 
                 Spacer()
             }
-            .accessibilityIdentifier("home.dailyScoreLabel")
 
             // Enhanced progress bar with gradient and glow
             GeometryReader { geo in
@@ -822,7 +822,7 @@ struct HomeBackdropForedropRootView: View {
         return formatter
     }()
 
-    private func trackTaskToggle(_ task: DomainTask, source: String) {
+    private func trackTaskToggle(_ task: TaskDefinition, source: String) {
         viewModel.trackHomeInteraction(
             action: "home_task_toggle",
             metadata: [
@@ -833,7 +833,7 @@ struct HomeBackdropForedropRootView: View {
         )
     }
 
-    private func trackTaskDragStarted(_ task: DomainTask, source: String) {
+    private func trackTaskDragStarted(_ task: TaskDefinition, source: String) {
         var metadata = focusScopeMetadata(source: source, taskID: task.id)
         metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
         viewModel.trackHomeInteraction(

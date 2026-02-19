@@ -22,26 +22,26 @@ private struct TaskListScrollOffsetPreferenceKey: PreferenceKey {
 struct TaskListView: View {
     private static let defaultBottomContentInset: CGFloat = 80
 
-    let morningTasks: [DomainTask]
-    let eveningTasks: [DomainTask]
-    let overdueTasks: [DomainTask]
-    let inlineCompletedTasks: [DomainTask]
+    let morningTasks: [TaskDefinition]
+    let eveningTasks: [TaskDefinition]
+    let overdueTasks: [TaskDefinition]
+    let inlineCompletedTasks: [TaskDefinition]
     let projects: [Project]
-    let doneTimelineTasks: [DomainTask]
+    let doneTimelineTasks: [TaskDefinition]
     let activeQuickView: HomeQuickView?
     let projectGroupingMode: HomeProjectGroupingMode
     let customProjectOrderIDs: [UUID]
     let emptyStateMessage: String?
     let emptyStateActionTitle: String?
     let isTaskDragEnabled: Bool
-    var onTaskTap: ((DomainTask) -> Void)? = nil
-    var onToggleComplete: ((DomainTask) -> Void)? = nil
-    var onDeleteTask: ((DomainTask) -> Void)? = nil
-    var onRescheduleTask: ((DomainTask) -> Void)? = nil
+    var onTaskTap: ((TaskDefinition) -> Void)? = nil
+    var onToggleComplete: ((TaskDefinition) -> Void)? = nil
+    var onDeleteTask: ((TaskDefinition) -> Void)? = nil
+    var onRescheduleTask: ((TaskDefinition) -> Void)? = nil
     var onReorderCustomProjects: (([UUID]) -> Void)? = nil
     var onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil
     var onEmptyStateAction: (() -> Void)? = nil
-    var onTaskDragStarted: ((DomainTask) -> Void)? = nil
+    var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
     var onScrollOffsetChange: ((CGFloat) -> Void)? = nil
     let bottomContentInset: CGFloat
     @State private var draggingCustomProjectID: UUID?
@@ -49,26 +49,26 @@ struct TaskListView: View {
     private let scrollCoordinateSpace = "home.taskList.scrollSpace"
 
     init(
-        morningTasks: [DomainTask],
-        eveningTasks: [DomainTask],
-        overdueTasks: [DomainTask],
-        inlineCompletedTasks: [DomainTask] = [],
+        morningTasks: [TaskDefinition],
+        eveningTasks: [TaskDefinition],
+        overdueTasks: [TaskDefinition],
+        inlineCompletedTasks: [TaskDefinition] = [],
         projects: [Project],
-        doneTimelineTasks: [DomainTask] = [],
+        doneTimelineTasks: [TaskDefinition] = [],
         activeQuickView: HomeQuickView? = nil,
         projectGroupingMode: HomeProjectGroupingMode = .defaultMode,
         customProjectOrderIDs: [UUID] = [],
         emptyStateMessage: String? = nil,
         emptyStateActionTitle: String? = nil,
         isTaskDragEnabled: Bool = false,
-        onTaskTap: ((DomainTask) -> Void)? = nil,
-        onToggleComplete: ((DomainTask) -> Void)? = nil,
-        onDeleteTask: ((DomainTask) -> Void)? = nil,
-        onRescheduleTask: ((DomainTask) -> Void)? = nil,
+        onTaskTap: ((TaskDefinition) -> Void)? = nil,
+        onToggleComplete: ((TaskDefinition) -> Void)? = nil,
+        onDeleteTask: ((TaskDefinition) -> Void)? = nil,
+        onRescheduleTask: ((TaskDefinition) -> Void)? = nil,
         onReorderCustomProjects: (([UUID]) -> Void)? = nil,
         onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil,
         onEmptyStateAction: (() -> Void)? = nil,
-        onTaskDragStarted: ((DomainTask) -> Void)? = nil,
+        onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
         onScrollOffsetChange: ((CGFloat) -> Void)? = nil,
         bottomContentInset: CGFloat = TaskListView.defaultBottomContentInset
     ) {
@@ -148,7 +148,7 @@ struct TaskListView: View {
 
     @ViewBuilder
     private var todayRegularTaskContent: some View {
-        let completedByID = inlineCompletedTasks.reduce(into: [UUID: DomainTask]()) { partialResult, task in
+        let completedByID = inlineCompletedTasks.reduce(into: [UUID: TaskDefinition]()) { partialResult, task in
             partialResult[task.id] = task
         }
         let reconciledMorning = morningTasks.map { completedByID[$0.id] ?? $0 }
@@ -391,7 +391,7 @@ struct TaskListView: View {
         return morningTasks.isEmpty && eveningTasks.isEmpty && overdueTasks.isEmpty
     }
 
-    private func sectionRenderKey(projectID: UUID, tasks: [DomainTask]) -> String {
+    private func sectionRenderKey(projectID: UUID, tasks: [TaskDefinition]) -> String {
         let rows = tasks.map(taskRenderKey(for:)).joined(separator: ",")
         return "\(projectID.uuidString)|\(rows)"
     }
@@ -404,14 +404,14 @@ struct TaskListView: View {
             .joined(separator: ";")
     }
 
-    private func taskRenderKey(for task: DomainTask) -> String {
+    private func taskRenderKey(for task: TaskDefinition) -> String {
         let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
         return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
     }
 
-    private func normalizedTaskProjectName(from tasks: [DomainTask]) -> String? {
+    private func normalizedTaskProjectName(from tasks: [TaskDefinition]) -> String? {
         tasks
-            .compactMap { $0.project?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .compactMap { $0.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first(where: { !$0.isEmpty })
     }
 
@@ -481,18 +481,18 @@ struct TaskListView: View {
 
 private struct ProjectSection: Identifiable {
     let project: Project
-    let tasks: [DomainTask]
+    let tasks: [TaskDefinition]
     var id: UUID { project.id }
 }
 
 private struct OverdueGroupedSectionView: View {
     let groups: [HomeTaskOverdueGroup]
     let isTaskDragEnabled: Bool
-    var onTaskTap: ((DomainTask) -> Void)?
-    var onToggleComplete: ((DomainTask) -> Void)?
-    var onDeleteTask: ((DomainTask) -> Void)?
-    var onRescheduleTask: ((DomainTask) -> Void)?
-    var onTaskDragStarted: ((DomainTask) -> Void)?
+    var onTaskTap: ((TaskDefinition) -> Void)?
+    var onToggleComplete: ((TaskDefinition) -> Void)?
+    var onDeleteTask: ((TaskDefinition) -> Void)?
+    var onRescheduleTask: ((TaskDefinition) -> Void)?
+    var onTaskDragStarted: ((TaskDefinition) -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
@@ -544,7 +544,7 @@ private struct OverdueGroupedSectionView: View {
         }
     }
 
-    private func taskRenderKey(for task: DomainTask) -> String {
+    private func taskRenderKey(for task: TaskDefinition) -> String {
         let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
         return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
     }
@@ -591,49 +591,49 @@ struct TaskListView_Previews: PreviewProvider {
 
         TaskListView(
             morningTasks: [
-                DomainTask(
-                    name: "Morning standup call with the engineering team",
+                TaskDefinition(
+                    title: "Morning standup call with the engineering team",
                     details: "Discuss sprint priorities and blockers",
-                    type: .morning,
                     priority: .high,
+                    type: .morning,
                     dueDate: Date()
                 ),
-                DomainTask(
+                TaskDefinition(
                     projectID: workProject.id,
-                    name: "Review quarterly OKRs and prepare status updates for leadership review",
-                    type: .morning,
+                    title: "Review quarterly OKRs and prepare status updates for leadership review",
                     priority: .max,
+                    type: .morning,
                     dueDate: Date()
                 ),
-                DomainTask(
+                TaskDefinition(
                     projectID: sideProject.id,
-                    name: "Design landing page wireframes",
+                    title: "Design landing page wireframes",
                     details: "Focus on mobile-first layout with clear CTA hierarchy",
-                    type: .morning,
                     priority: .low,
+                    type: .morning,
                     dueDate: Date().addingTimeInterval(86400)
                 )
             ],
             eveningTasks: [
-                DomainTask(
-                    name: "Evening reading — Atomic Habits chapter 4",
-                    type: .evening,
-                    priority: .none
+                TaskDefinition(
+                    title: "Evening reading — Atomic Habits chapter 4",
+                    priority: .none,
+                    type: .evening
                 ),
-                DomainTask(
+                TaskDefinition(
                     projectID: workProject.id,
-                    name: "Write weekly retrospective notes",
+                    title: "Write weekly retrospective notes",
                     details: "Include wins, challenges, and next week goals",
-                    type: .evening,
                     priority: .low,
+                    type: .evening,
                     dueDate: Date()
                 )
             ],
             overdueTasks: [
-                DomainTask(
-                    name: "Submit expense report for January travel",
-                    type: .morning,
+                TaskDefinition(
+                    title: "Submit expense report for January travel",
                     priority: .max,
+                    type: .morning,
                     dueDate: Date().addingTimeInterval(-172800)
                 )
             ],

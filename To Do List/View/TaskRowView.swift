@@ -26,7 +26,7 @@ struct TaskRowDisplayModel: Equatable {
         urgencyLabel == "Overdue"
     }
 
-    static func from(task: DomainTask, showTypeBadge: Bool, now: Date = Date()) -> TaskRowDisplayModel {
+    static func from(task: TaskDefinition, showTypeBadge: Bool, now: Date = Date()) -> TaskRowDisplayModel {
         let xpValue = task.priority.scorePoints
         let projectName = resolvedProjectName(for: task)
 
@@ -54,8 +54,8 @@ struct TaskRowDisplayModel: Equatable {
         )
     }
 
-    private static func resolvedProjectName(for task: DomainTask) -> String {
-        if let project = task.project?.trimmingCharacters(in: .whitespacesAndNewlines), !project.isEmpty {
+    private static func resolvedProjectName(for task: TaskDefinition) -> String {
+        if let project = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines), !project.isEmpty {
             return project
         }
         if task.projectID == ProjectConstants.inboxProjectID {
@@ -64,7 +64,7 @@ struct TaskRowDisplayModel: Equatable {
         return "Project"
     }
 
-    private static func trailingMetaText(for task: DomainTask, xpValue: Int) -> String {
+    private static func trailingMetaText(for task: TaskDefinition, xpValue: Int) -> String {
         guard let dueDate = task.dueDate else {
             return "+\(xpValue) XP"
         }
@@ -82,7 +82,7 @@ struct TaskRowDisplayModel: Equatable {
         return DateUtils.formatDate(dueDate)
     }
 
-    private static func urgencyLabel(for task: DomainTask, now: Date) -> String? {
+    private static func urgencyLabel(for task: TaskDefinition, now: Date) -> String? {
         guard !task.isComplete else { return nil }
         if task.isOverdue {
             return "Overdue"
@@ -104,14 +104,14 @@ struct TaskRowDisplayModel: Equatable {
 }
 
 struct TaskRowView: View {
-    let task: DomainTask
+    let task: TaskDefinition
     let showTypeBadge: Bool
     let isTaskDragEnabled: Bool
     var onTap: (() -> Void)? = nil
     var onToggleComplete: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
     var onReschedule: (() -> Void)? = nil
-    var onTaskDragStarted: ((DomainTask) -> Void)? = nil
+    var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
 
     private var displayModel: TaskRowDisplayModel {
         TaskRowDisplayModel.from(task: task, showTypeBadge: showTypeBadge)
@@ -187,11 +187,13 @@ struct TaskRowView: View {
                     onToggleComplete?()
                 }
                 .accessibilityIdentifier("home.taskCheckbox.\(task.id.uuidString)")
+                .accessibilityLabel("Toggle completion for \(task.title)")
+                .accessibilityHint(task.isComplete ? "Double tap to mark as open" : "Double tap to mark as completed")
                 .accessibilityValue(accessibilityStateValue)
 
                 // Left column: name + note
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(task.name)
+                    Text(task.title)
                         .font(.tasker(.bodyEmphasis))
                         .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textPrimary)
                         .lineLimit(1)
@@ -331,7 +333,7 @@ struct TaskRowView: View {
     // contentStack replaced by inline two-column layout in rowContent
 
     private var accessibilityLabel: String {
-        var parts: [String] = ["Task: \(task.name)"]
+        var parts: [String] = ["Task: \(task.title)"]
         if task.isComplete { parts.append("completed") }
         parts.append(displayModel.rowMetaText)
         if let urgencyLabel = displayModel.urgencyLabel {
@@ -404,11 +406,11 @@ struct TaskRowView_Previews: PreviewProvider {
     static var previews: some View {
         VStack(spacing: 6) {
             TaskRowView(
-                task: DomainTask(
-                    name: "Review pull requests",
+                task: TaskDefinition(
+                    title: "Review pull requests",
                     details: "Prioritize API migration and checkout fixes",
-                    type: .morning,
                     priority: .high,
+                    type: .morning,
                     dueDate: Date()
                 ),
                 showTypeBadge: true,
@@ -416,10 +418,10 @@ struct TaskRowView_Previews: PreviewProvider {
             )
 
             TaskRowView(
-                task: DomainTask(
-                    name: "Completed task example",
-                    type: .morning,
+                task: TaskDefinition(
+                    title: "Completed task example",
                     priority: .low,
+                    type: .morning,
                     isComplete: true,
                     dateCompleted: Date()
                 ),
@@ -446,7 +448,7 @@ private enum TaskRowUrgencyLevel: Equatable {
     case today
     case none
 
-    static func from(task: DomainTask, now: Date = Date()) -> TaskRowUrgencyLevel {
+    static func from(task: TaskDefinition, now: Date = Date()) -> TaskRowUrgencyLevel {
         guard !task.isComplete else { return .none }
         if task.isOverdue { return .overdue }
         guard let dueDate = task.dueDate else { return .none }

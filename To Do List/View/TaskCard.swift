@@ -10,7 +10,7 @@ import SwiftUI
 
 // MARK: - Task Card Component
 struct TaskCard: View {
-    let task: DomainTask
+    let task: TaskDefinition
     let onTap: (() -> Void)?
     let onToggleComplete: (() -> Void)?
 
@@ -18,7 +18,7 @@ struct TaskCard: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
     init(
-        task: DomainTask,
+        task: TaskDefinition,
         onTap: (() -> Void)? = nil,
         onToggleComplete: (() -> Void)? = nil
     ) {
@@ -50,7 +50,7 @@ struct TaskCard: View {
         HStack {
             VStack(alignment: .leading, spacing: spacing.titleSubtitleGap) {
                 // Task title
-                Text(task.name)
+                Text(task.title)
                     .font(.tasker(.bodyEmphasis))
                     .foregroundColor(task.isComplete ? .secondary : .primary)
                     .strikethrough(task.isComplete)
@@ -161,7 +161,7 @@ struct TaskCard: View {
     }
 
     private var accessibilityLabel: String {
-        var label = "Task: \(task.name)"
+        var label = "Task: \(task.title)"
 
         if task.isComplete {
             label += ", completed"
@@ -197,7 +197,7 @@ struct TaskCard: View {
 
 /// Compact version of TaskCard for list views
 struct CompactTaskCard: View {
-    let task: DomainTask
+    let task: TaskDefinition
     let onTap: (() -> Void)?
     let onToggleComplete: (() -> Void)?
 
@@ -213,7 +213,7 @@ struct CompactTaskCard: View {
             .buttonStyle(PlainButtonStyle())
 
             VStack(alignment: .leading, spacing: spacing.s2) {
-                Text(task.name)
+                Text(task.title)
                     .font(.tasker(.callout))
                     .foregroundColor(task.isComplete ? .secondary : .primary)
                     .strikethrough(task.isComplete)
@@ -261,7 +261,7 @@ struct CompactTaskCard: View {
 
 /// Featured version of TaskCard for dashboard/home views
 struct FeaturedTaskCard: View {
-    let task: DomainTask
+    let task: TaskDefinition
     let onTap: (() -> Void)?
     let onToggleComplete: (() -> Void)?
 
@@ -290,7 +290,7 @@ struct FeaturedTaskCard: View {
                 }
             }
 
-            Text(task.name)
+            Text(task.title)
                 .font(.title2)
                 .fontWeight(.semibold)
                 .foregroundColor(task.isComplete ? .secondary : .primary)
@@ -383,8 +383,8 @@ struct TaskCard_Previews: PreviewProvider {
         .previewLayout(.sizeThatFits)
     }
 
-    static var sampleTask: DomainTask {
-        DomainTask(
+    static var sampleTask: TaskDefinition {
+        TaskDefinition(
             title: "Sample Task",
             details: "This is a sample task for preview",
             priority: .low,

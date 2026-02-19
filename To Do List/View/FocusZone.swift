@@ -12,11 +12,11 @@ import SwiftUI
 
 /// Enhanced focus zone container with visual boundary.
 public struct FocusZone: View {
-    let tasks: [DomainTask]
+    let tasks: [TaskDefinition]
     let canDrag: Bool
-    let onTaskTap: (DomainTask) -> Void
-    let onToggleComplete: (DomainTask) -> Void
-    let onTaskDragStarted: (DomainTask) -> Void
+    let onTaskTap: (TaskDefinition) -> Void
+    let onToggleComplete: (TaskDefinition) -> Void
+    let onTaskDragStarted: (TaskDefinition) -> Void
     let onDrop: ([NSItemProvider]) -> Bool
 
     @State private var isTargeted = false
@@ -26,11 +26,11 @@ public struct FocusZone: View {
     private var themeColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
 
     public init(
-        tasks: [DomainTask],
+        tasks: [TaskDefinition],
         canDrag: Bool,
-        onTaskTap: @escaping (DomainTask) -> Void,
-        onToggleComplete: @escaping (DomainTask) -> Void,
-        onTaskDragStarted: @escaping (DomainTask) -> Void,
+        onTaskTap: @escaping (TaskDefinition) -> Void,
+        onToggleComplete: @escaping (TaskDefinition) -> Void,
+        onTaskDragStarted: @escaping (TaskDefinition) -> Void,
         onDrop: @escaping ([NSItemProvider]) -> Bool
     ) {
         self.tasks = tasks
@@ -172,7 +172,7 @@ public struct FocusZone: View {
 
 /// Compact row for focus zone tasks.
 private struct FocusZoneRow: View {
-    let task: DomainTask
+    let task: TaskDefinition
     let canDrag: Bool
     let onTap: () -> Void
     let onToggleComplete: () -> Void
@@ -188,7 +188,7 @@ private struct FocusZoneRow: View {
             }
             .frame(width: 24, height: 24)
 
-            Text(task.name)
+            Text(task.title)
                 .font(.tasker(.body))
                 .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
                 .lineLimit(1)
@@ -248,7 +248,7 @@ private struct FocusZoneRow: View {
             }
         }
         .accessibilityIdentifier("home.focus.task.\(task.id.uuidString)")
-        .accessibilityLabel(task.name)
+        .accessibilityLabel(task.title)
     }
 
     private func focusUrgencyColor(for label: String) -> Color {
@@ -297,8 +297,8 @@ struct FocusZone_Previews: PreviewProvider {
             // With tasks
             FocusZone(
                 tasks: [
-                    DomainTask(name: "Review pull requests", priority: .high, dueDate: Date()),
-                    DomainTask(name: "Design landing page", priority: .low, dueDate: Date().addingTimeInterval(7200))
+                    TaskDefinition(title: "Review pull requests", priority: .high, dueDate: Date()),
+                    TaskDefinition(title: "Design landing page", priority: .low, dueDate: Date().addingTimeInterval(7200))
                 ],
                 canDrag: true,
                 onTaskTap: { _ in },

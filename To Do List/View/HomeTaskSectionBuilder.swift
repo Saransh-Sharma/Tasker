@@ -9,14 +9,14 @@ import Foundation
 
 struct HomeTaskProjectSection: Equatable {
     let project: Project
-    let tasks: [DomainTask]
+    let tasks: [TaskDefinition]
 
     var id: UUID { project.id }
 }
 
 struct HomeTaskOverdueGroup: Equatable {
     let project: Project
-    let tasks: [DomainTask]
+    let tasks: [TaskDefinition]
 
     var id: UUID { project.id }
 }
@@ -30,8 +30,8 @@ struct HomeTaskTodayLayout: Equatable {
 enum HomeTaskSectionBuilder {
     static func buildTodayLayout(
         mode: HomeProjectGroupingMode,
-        nonOverdueTasks: [DomainTask],
-        overdueTasks: [DomainTask],
+        nonOverdueTasks: [TaskDefinition],
+        overdueTasks: [TaskDefinition],
         projects: [Project],
         customProjectOrderIDs: [UUID]
     ) -> HomeTaskTodayLayout {
@@ -54,8 +54,8 @@ enum HomeTaskSectionBuilder {
     }
 
     private static func buildPrioritizeOverdueLayout(
-        nonOverdueTasks: [DomainTask],
-        overdueTasks: [DomainTask],
+        nonOverdueTasks: [TaskDefinition],
+        overdueTasks: [TaskDefinition],
         projects: [Project],
         customProjectOrderIDs: [UUID]
     ) -> HomeTaskTodayLayout {
@@ -89,8 +89,8 @@ enum HomeTaskSectionBuilder {
     }
 
     private static func buildGroupByProjectsLayout(
-        nonOverdueTasks: [DomainTask],
-        overdueTasks: [DomainTask],
+        nonOverdueTasks: [TaskDefinition],
+        overdueTasks: [TaskDefinition],
         projects: [Project],
         customProjectOrderIDs: [UUID]
     ) -> HomeTaskTodayLayout {
@@ -113,7 +113,7 @@ enum HomeTaskSectionBuilder {
     }
 
     private static func buildProjectSections(
-        from tasks: [DomainTask],
+        from tasks: [TaskDefinition],
         projects: [Project],
         customProjectOrderIDs: [UUID],
         includeOverdueInSectionSort: Bool
@@ -127,7 +127,7 @@ enum HomeTaskSectionBuilder {
                 tasks: groupedTasks,
                 projects: projects
             )
-            let sortedTasks: [DomainTask]
+            let sortedTasks: [TaskDefinition]
             if includeOverdueInSectionSort {
                 sortedTasks = sortWithNonOverdueFirst(groupedTasks)
             } else {
@@ -173,7 +173,7 @@ enum HomeTaskSectionBuilder {
 
     private static func resolveProject(
         projectID: UUID,
-        tasks: [DomainTask],
+        tasks: [TaskDefinition],
         projects: [Project]
     ) -> Project {
         if let project = projects.first(where: { $0.id == projectID }) {
@@ -181,7 +181,7 @@ enum HomeTaskSectionBuilder {
         }
 
         let inferredName = tasks
-            .compactMap { $0.project?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .compactMap { $0.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first(where: { !$0.isEmpty })
 
         if let inferredName {
@@ -202,7 +202,7 @@ enum HomeTaskSectionBuilder {
         project.isInbox || project.id == ProjectConstants.inboxProjectID || project.name.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame
     }
 
-    private static func sortByPriorityThenDue(_ tasks: [DomainTask]) -> [DomainTask] {
+    private static func sortByPriorityThenDue(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
         tasks.sorted { lhs, rhs in
             if lhs.priority.scorePoints != rhs.priority.scorePoints {
                 return lhs.priority.scorePoints > rhs.priority.scorePoints
@@ -213,7 +213,7 @@ enum HomeTaskSectionBuilder {
         }
     }
 
-    private static func sortWithNonOverdueFirst(_ tasks: [DomainTask]) -> [DomainTask] {
+    private static func sortWithNonOverdueFirst(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
         tasks.sorted { lhs, rhs in
             if lhs.isOverdue != rhs.isOverdue {
                 return !lhs.isOverdue && rhs.isOverdue
