@@ -59,7 +59,7 @@ public struct TaskSearchQuery: Codable, Equatable, Hashable {
     }
 }
 
-public struct TaskSliceResult: Codable, Equatable, Hashable {
+public struct TaskDefinitionSliceResult: Codable, Equatable, Hashable {
     public var tasks: [TaskDefinition]
     public var totalCount: Int
     public var limit: Int

@@ -33,16 +33,16 @@ public protocol CacheServiceProtocol {
     // MARK: - Task-specific Caching
     
     /// Cache tasks for a specific date
-    func cacheTasks(_ tasks: [DomainTask], forDate date: Date)
+    func cacheTasks(_ tasks: [TaskDefinition], forDate date: Date)
     
     /// Get cached tasks for a specific date
-    func getCachedTasks(forDate date: Date) -> [DomainTask]?
+    func getCachedTasks(forDate date: Date) -> [TaskDefinition]?
     
     /// Cache tasks for a specific project ID
-    func cacheTasks(_ tasks: [DomainTask], forProjectID projectID: UUID)
+    func cacheTasks(_ tasks: [TaskDefinition], forProjectID projectID: UUID)
 
     /// Get cached tasks for a specific project ID
-    func getCachedTasks(forProjectID projectID: UUID) -> [DomainTask]?
+    func getCachedTasks(forProjectID projectID: UUID) -> [TaskDefinition]?
     
     // MARK: - Project-specific Caching
     

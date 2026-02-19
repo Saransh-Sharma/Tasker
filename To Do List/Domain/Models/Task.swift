@@ -36,22 +36,6 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
     public var createdAt: Date
     public var updatedAt: Date
 
-    // Backward-compatible aliases kept for view/use-case ergonomics in V2-only runtime.
-    public var name: String {
-        get { title }
-        set { title = newValue }
-    }
-
-    public var project: String? {
-        get { projectName }
-        set { projectName = newValue }
-    }
-
-    public var tags: [String] {
-        get { tagIDs.map(\.uuidString) }
-        set { tagIDs = newValue.compactMap(UUID.init(uuidString:)) }
-    }
-
     public init(
         id: UUID = UUID(),
         projectID: UUID = ProjectConstants.inboxProjectID,
@@ -108,67 +92,6 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
         self.repeatPattern = repeatPattern
         self.createdAt = createdAt
         self.updatedAt = updatedAt
-    }
-
-    @available(*, deprecated, message: "Use init(title:) instead.")
-    public init(
-        id: UUID = UUID(),
-        projectID: UUID = ProjectConstants.inboxProjectID,
-        projectName: String? = ProjectConstants.inboxProjectName,
-        lifeAreaID: UUID? = nil,
-        sectionID: UUID? = nil,
-        parentTaskID: UUID? = nil,
-        name: String,
-        details: String? = nil,
-        type: TaskType = .morning,
-        priority: TaskPriority = .low,
-        energy: TaskEnergy = .medium,
-        category: TaskCategory = .general,
-        context: TaskContext = .anywhere,
-        dueDate: Date? = nil,
-        isComplete: Bool = false,
-        dateAdded: Date = Date(),
-        dateCompleted: Date? = nil,
-        isEveningTask: Bool = false,
-        alertReminderTime: Date? = nil,
-        tagIDs: [UUID] = [],
-        dependencies: [TaskDependencyLinkDefinition] = [],
-        estimatedDuration: TimeInterval? = nil,
-        actualDuration: TimeInterval? = nil,
-        subtasks: [UUID] = [],
-        repeatPattern: TaskRepeatPattern? = nil,
-        createdAt: Date = Date(),
-        updatedAt: Date = Date()
-    ) {
-        self.init(
-            id: id,
-            projectID: projectID,
-            projectName: projectName,
-            lifeAreaID: lifeAreaID,
-            sectionID: sectionID,
-            parentTaskID: parentTaskID,
-            title: name,
-            details: details,
-            priority: priority,
-            type: type,
-            energy: energy,
-            category: category,
-            context: context,
-            dueDate: dueDate,
-            isComplete: isComplete,
-            dateAdded: dateAdded,
-            dateCompleted: dateCompleted,
-            isEveningTask: isEveningTask,
-            alertReminderTime: alertReminderTime,
-            tagIDs: tagIDs,
-            dependencies: dependencies,
-            estimatedDuration: estimatedDuration,
-            actualDuration: actualDuration,
-            subtasks: subtasks,
-            repeatPattern: repeatPattern,
-            createdAt: createdAt,
-            updatedAt: updatedAt
-        )
     }
 
     // MARK: - Business Logic
