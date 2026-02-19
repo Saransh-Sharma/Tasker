@@ -2,6 +2,85 @@
 
 Tasker is an ADHD-focused todo and life-management app built for low-friction planning, fast execution, and momentum-preserving follow-through.
 
+## Product Overview
+
+Tasker is designed to increase the probability that intent becomes action.
+The product focuses on reducing execution friction in everyday life by combining fast capture, bounded decision support, interruption recovery, and reflection loops that reinforce progress without shame-based pressure.
+
+Tasker is not a clinical treatment product. It is a productivity product with ADHD-relevant execution support and non-judgmental interaction design.
+
+## Who Tasker Is For
+
+- Adults with high context load balancing work, personal, and life-admin responsibilities.
+- Students and early-career builders facing deadline clustering.
+- Habit-oriented users seeking consistency without perfection pressure.
+- Low-energy or burnout-prone users needing gentle restart paths.
+
+## Core Execution Loop
+
+Tasker uses a five-phase loop:
+1. Capture
+2. Decide
+3. Start
+4. Resume
+5. Reflect
+
+Design intent by phase:
+- Capture: fast input with minimal required fields.
+- Decide: narrow focus to actionable choices now.
+- Start: minimize transition cost from plan to action.
+- Resume: keep context available after interruptions.
+- Reflect: encourage continuity and recovery.
+
+## Experience Surfaces
+
+### Home And Focus
+- Bounded "Now" list for immediate action.
+- Quick Views for Today, Next, Overdue, Quick Wins, Deep Work, Waiting, and Someday.
+- Resume cues after interruption and lightweight done timeline for reflection.
+
+### Add Task
+- Two-speed task creation: Lightning capture and Clarify mode.
+- Lightning capture supports immediate task creation.
+- Clarify mode supports deeper structure such as notes, steps, tags, schedule, and dependencies.
+
+### Tasks Browse And Search
+- Browse, smart views, and project-oriented navigation for backlog control.
+- Search is optimized for fast retrieval as backlog size grows.
+
+### Assistant
+- Ask mode: read-only support.
+- Plan mode: proposal cards with rationale.
+- Apply mode: propose -> confirm -> apply with diff visibility and bounded undo.
+
+### Insights And Analytics
+- Action-oriented progress and backlog health summaries.
+- Reminder quality and streak resilience signals.
+
+### Settings
+- Controls for reminders, focus behavior, assistant behavior, privacy posture, and accessibility preferences.
+
+## Trust And Safety Guardrails
+
+- Explicit non-clinical product framing.
+- No silent assistant mutations for impactful actions.
+- Confirmation plus bounded undo for assistant apply workflows.
+- Privacy disclosures for data handling and assistant mode behavior.
+- Notification strategy optimized for helpfulness over volume.
+
+## Product Metrics Snapshot
+
+Primary product metrics include:
+- Activation: first-task capture and time-to-first completion.
+- Daily execution: focus selection and start-to-complete conversion.
+- Recovery: return-to-context utilization after interruption.
+- Backlog health: overdue carry-over and stale backlog trend.
+- Reminder quality: acknowledgment and action conversion.
+- Assistant trust: proposal acceptance, undo frequency, apply failures.
+
+Full metric definitions, acceptance criteria, and requirement detail live in:
+- `PRODUCT_REQUIREMENTS_DOCUMENT.md`
+
 ## Runtime Snapshot
 
 Current V3 runtime composition:
@@ -76,7 +155,7 @@ xcodebuild test -workspace Tasker.xcworkspace -scheme "To Do List" -destination 
 
 | Doc | Type | Canonical/Reference | When to update | Primary audience |
 | --- | --- | --- | --- | --- |
-| `PRODUCT_REQUIREMENTS_DOCUMENT.md` | Product strategy/requirements | Canonical | persona/pillar/metric/roadmap changes | product, design, engineering leads |
+| `PRODUCT_REQUIREMENTS_DOCUMENT.md` | Product strategy and detailed requirements | Canonical | product promise, personas, feature requirements, acceptance criteria, or roadmap changes | product, design, engineering leads |
 | `AGENTS.md` | Agent workflow instructions | Canonical | automation/agent behavior instruction changes | AI-assisted contributors |
 | `docs/README.md` | Docs top-level index | Canonical | any docs structure or ownership change | all contributors |
 | `docs/architecture/README.md` | Architecture index and update policy | Canonical | architecture doc set additions/ownership changes | engineers |
