@@ -4,10 +4,10 @@ Tasker is an ADHD-focused todo and life-management app built for low-friction pl
 
 ## Runtime Snapshot
 
-Current V2 runtime composition:
-1. `AppDelegate` bootstraps `TaskModelV2` stores with hard-cut epoch key `tasker.v3.store.epoch`, CloudKit container `iCloud.TaskerCloudKitV3`, and fail-closed readiness checks.
+Current V3 runtime composition:
+1. `AppDelegate` bootstraps `TaskModelV3` stores with hard-cut epoch key `tasker.v3.store.epoch`, CloudKit container `iCloud.TaskerCloudKitV3`, and fail-closed readiness checks.
 2. `EnhancedDependencyContainer` wires repositories/services and builds `UseCaseCoordinator`.
-3. `PresentationDependencyContainer` exposes ViewModels and validates presentation-side V2 readiness.
+3. `PresentationDependencyContainer` exposes ViewModels and validates presentation-side runtime readiness.
 
 Primary source anchors:
 - `To Do List/AppDelegate.swift`
@@ -17,7 +17,7 @@ Primary source anchors:
 
 ## Release Cutover Policy
 
-- V2-only runtime: legacy task contracts (`Task`, `TaskRepositoryProtocol`, legacy task use cases, V2 bridge adapter) are removed.
+- V3-only runtime: legacy task contracts (`TaskRepositoryProtocol`, compatibility task aliases, legacy bridge adapters) are removed.
 - Upgrade data policy is destructive reset by design for this hard cut.
 - Cloud sync cutover uses a new container: `iCloud.TaskerCloudKitV3`.
 
@@ -32,7 +32,7 @@ Primary source anchors:
 | LLM | Chat UI, local model UX, context projection | `To Do List/LLM` |
 | UI | SwiftUI/UIKit views and controllers | `To Do List/View`, `To Do List/Views`, `To Do List/ViewControllers` |
 
-## V2 Systems At A Glance
+## V3 Systems At A Glance
 
 | System | What It Owns | Primary Code Anchors |
 | --- | --- | --- |
@@ -40,7 +40,7 @@ Primary source anchors:
 | Read-model query layer | paged/sorted/filterable task slices and project aggregates for UI | `To Do List/Domain/Interfaces/TaskReadModelRepositoryProtocol.swift`, `To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift`, `To Do List/UseCases/Task/GetHomeFilteredTasksUseCase.swift` |
 | Scheduling and occurrence lifecycle | recurrence generation, occurrence maintenance, resolution/tombstone hygiene | `To Do List/State/Services/CoreSchedulingEngine.swift`, `To Do List/UseCases/Schedule/GenerateOccurrencesUseCase.swift`, `To Do List/UseCases/Schedule/MaintainOccurrencesUseCase.swift` |
 | External reminders synchronization | provider mapping, merge-clock reconciliation, two-way convergence | `To Do List/State/Repositories/CoreDataExternalSyncRepository.swift`, `To Do List/UseCases/Sync/LinkExternalRemindersUseCase.swift`, `To Do List/UseCases/Sync/ReconcileExternalRemindersUseCase.swift` |
-| Assistant action pipeline | propose/confirm/apply/undo transactional commands over V2 tasks | `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`, `To Do List/UseCases/LLM/AssistantCommandExecutor.swift`, `To Do List/Domain/Models/AssistantAction.swift` |
+| Assistant action pipeline | propose/confirm/apply/undo transactional commands over `TaskDefinition` entities | `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`, `To Do List/UseCases/LLM/AssistantCommandExecutor.swift`, `To Do List/Domain/Models/AssistantAction.swift` |
 
 ## Quick Start
 
@@ -115,7 +115,7 @@ Legacy generated repowiki docs were moved out of active paths and are non-canoni
 
 ## Legacy Cleanup Status
 
-- Legacy task runtime bridge is removed; app runtime is V2-only.
+- Legacy task runtime bridge is removed; app runtime is V3-only.
 - Legacy debt doc removed (content absorbed into architecture/risk docs).
 - Legacy root CLI guide removed (content absorbed into operations tooling docs).
 - `clean.md` retained as historical reference.
