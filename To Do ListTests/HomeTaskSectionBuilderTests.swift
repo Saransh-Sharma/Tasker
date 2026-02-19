@@ -9,20 +9,20 @@ private enum HomeRowDestinationSection {
 
 private enum HomeRowStateCanonicalizer {
     struct CanonicalizedSections {
-        let morning: [DomainTask]
-        let evening: [DomainTask]
-        let overdue: [DomainTask]
+        let morning: [TaskDefinition]
+        let evening: [TaskDefinition]
+        let overdue: [TaskDefinition]
     }
 
     private static let noOverride: (UUID) -> Bool? = { _ in nil }
 
     static func deduplicate(
-        tasks: [DomainTask],
+        tasks: [TaskDefinition],
         completionOverrideForID: @escaping (UUID) -> Bool?,
         logConflicts: Bool
-    ) -> [DomainTask] {
+    ) -> [TaskDefinition] {
         var orderedIDs: [UUID] = []
-        var byID: [UUID: DomainTask] = [:]
+        var byID: [UUID: TaskDefinition] = [:]
 
         for task in tasks {
             if byID[task.id] == nil {
@@ -62,9 +62,9 @@ private enum HomeRowStateCanonicalizer {
     }
 
     static func tasksEligibleForCompletedMerge(
-        from tasks: [DomainTask],
+        from tasks: [TaskDefinition],
         completionOverrideForID: ((UUID) -> Bool?)?
-    ) -> [DomainTask] {
+    ) -> [TaskDefinition] {
         let override = completionOverrideForID ?? noOverride
         return tasks.filter { task in
             let effective = override(task.id) ?? task.isComplete
@@ -72,7 +72,7 @@ private enum HomeRowStateCanonicalizer {
         }
     }
 
-    static func sortSectionTasksForDisplay(_ tasks: [DomainTask]) -> [DomainTask] {
+    static func sortSectionTasksForDisplay(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
         tasks
             .enumerated()
             .sorted { lhs, rhs in
@@ -85,9 +85,9 @@ private enum HomeRowStateCanonicalizer {
     }
 
     static func canonicalizeMergedSections(
-        morning: [DomainTask],
-        evening: [DomainTask],
-        overdue: [DomainTask],
+        morning: [TaskDefinition],
+        evening: [TaskDefinition],
+        overdue: [TaskDefinition],
         completionOverrideForID: ((UUID) -> Bool?)?,
         destinationForTaskID: (UUID) -> HomeRowDestinationSection
     ) -> CanonicalizedSections {
@@ -99,9 +99,9 @@ private enum HomeRowStateCanonicalizer {
         )
         let ordered = sortSectionTasksForDisplay(deduped)
 
-        var morningRows: [DomainTask] = []
-        var eveningRows: [DomainTask] = []
-        var overdueRows: [DomainTask] = []
+        var morningRows: [TaskDefinition] = []
+        var eveningRows: [TaskDefinition] = []
+        var overdueRows: [TaskDefinition] = []
 
         for task in ordered {
             switch destinationForTaskID(task.id) {
@@ -149,7 +149,7 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(layout.inboxSection?.project.id, inbox.id)
-        XCTAssertEqual(layout.inboxSection?.tasks.map(\.name), ["Inbox Due"])
+        XCTAssertEqual(layout.inboxSection?.tasks.map(\.title), ["Inbox Due"])
 
         XCTAssertEqual(layout.overdueGroups.map(\.project.name), ["Inbox", "Work"])
         XCTAssertEqual(layout.customSections.map(\.project.name), ["Side", "Work"])
@@ -182,8 +182,8 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             return XCTFail("Expected Work section")
         }
         XCTAssertEqual(workSection.tasks.count, 2)
-        XCTAssertEqual(workSection.tasks.first?.name, "Work Due")
-        XCTAssertEqual(workSection.tasks.last?.name, "Work Overdue")
+        XCTAssertEqual(workSection.tasks.first?.title, "Work Due")
+        XCTAssertEqual(workSection.tasks.last?.title, "Work Overdue")
         XCTAssertFalse(workSection.tasks.first?.isOverdue ?? true)
         XCTAssertTrue(workSection.tasks.last?.isOverdue ?? false)
     }
@@ -242,7 +242,7 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             return XCTFail("Expected Work section")
         }
 
-        XCTAssertEqual(workSection.tasks.map(\.name), ["Completed Task", "Open Task"])
+        XCTAssertEqual(workSection.tasks.map(\.title), ["Completed Task", "Open Task"])
         XCTAssertEqual(workSection.tasks.map(\.isComplete), [true, false])
     }
 
@@ -319,7 +319,7 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             completionOverrideForID: nil
         )
 
-        XCTAssertEqual(eligible.map(\.name), ["Completed"])
+        XCTAssertEqual(eligible.map(\.title), ["Completed"])
         XCTAssertTrue(eligible.allSatisfy(\.isComplete))
     }
 
@@ -343,7 +343,7 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
 
         let sorted = HomeRowStateCanonicalizer.sortSectionTasksForDisplay([completedHighPriority, openLowPriority])
 
-        XCTAssertEqual(sorted.map(\.name), ["Open Low", "Completed High"])
+        XCTAssertEqual(sorted.map(\.title), ["Open Low", "Completed High"])
         XCTAssertEqual(sorted.map(\.isComplete), [false, true])
     }
 
@@ -445,13 +445,13 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
             completionOverrideForID: nil
         ) { _ in .morning }
 
-        XCTAssertEqual(canonical.morning.map(\.name), ["Open Task", "Completed Task"])
+        XCTAssertEqual(canonical.morning.map(\.title), ["Open Task", "Completed Task"])
         XCTAssertEqual(canonical.morning.map(\.isComplete), [false, true])
     }
 
     func testTaskRowDisplayModelBuildsCompactMetadataAndTrailingDue() {
         let due = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) ?? Date()
-        var task = DomainTask(
+        var task = TaskDefinition(
             projectID: ProjectConstants.inboxProjectID,
             title: "Metadata task",
             details: "  Add note  ",
@@ -470,7 +470,7 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
     }
 
     func testTaskRowDisplayModelFallsBackToXPWhenNoDueDate() {
-        let task = DomainTask(
+        let task = TaskDefinition(
             projectID: ProjectConstants.inboxProjectID,
             title: "No due date",
             priority: .low,
@@ -492,8 +492,8 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         isComplete: Bool = false,
         priority: TaskPriority = .low,
         dateCompleted: Date? = nil
-    ) -> DomainTask {
-        DomainTask(
+    ) -> TaskDefinition {
+        TaskDefinition(
             id: id,
             projectID: project.id,
             projectName: project.name,

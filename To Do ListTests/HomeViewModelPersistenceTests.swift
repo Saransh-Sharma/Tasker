@@ -133,7 +133,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
 
         waitForMainQueueFlush()
 
-        XCTAssertEqual(viewModel.focusTasks.map(\.name), ["Overdue High", "Overdue Low", "Today High"])
+        XCTAssertEqual(viewModel.focusTasks.map(\.title), ["Overdue High", "Overdue Low", "Today High"])
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -230,7 +230,7 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         waitForMainQueueFlush()
 
         XCTAssertEqual(viewModel.pinTaskToFocus(pinnedLow.id), .pinned)
-        XCTAssertEqual(viewModel.focusTasks.map(\.name), ["Pinned Low", "Overdue High", "Overdue Low"])
+        XCTAssertEqual(viewModel.focusTasks.map(\.title), ["Pinned Low", "Overdue High", "Overdue Low"])
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -386,15 +386,15 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
         waitForMainQueueFlush()
 
-        XCTAssertTrue(viewModel.completedTasks.contains(where: { $0.name == "Completed Today" }))
+        XCTAssertTrue(viewModel.completedTasks.contains(where: { $0.title == "Completed Today" }))
 
         viewModel.selectDate(tomorrowDue)
         waitForMainQueueFlush()
 
         XCTAssertTrue(viewModel.completedTasks.isEmpty)
-        XCTAssertFalse(viewModel.morningTasks.contains(where: { $0.name == "Completed Today" }))
-        XCTAssertFalse(viewModel.eveningTasks.contains(where: { $0.name == "Completed Today" }))
-        XCTAssertFalse(viewModel.overdueTasks.contains(where: { $0.name == "Completed Today" }))
+        XCTAssertFalse(viewModel.morningTasks.contains(where: { $0.title == "Completed Today" }))
+        XCTAssertFalse(viewModel.eveningTasks.contains(where: { $0.title == "Completed Today" }))
+        XCTAssertFalse(viewModel.overdueTasks.contains(where: { $0.title == "Completed Today" }))
 
         defaults.removePersistentDomain(forName: suiteName)
     }
@@ -527,7 +527,7 @@ private final class HomeViewModelMockProjectRepository: ProjectRepositoryProtoco
     }
 }
 
-private final class HomeViewModelMockTaskRepository: TaskRepositoryProtocol {
+private final class HomeViewModelMockTaskRepository: LegacyTaskRepositoryShim {
     private let tasks: [Task]
 
     init(tasks: [Task]) {
@@ -537,7 +537,7 @@ private final class HomeViewModelMockTaskRepository: TaskRepositoryProtocol {
     func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
     func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
     func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }
-    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.project == project })) }
+    func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectName == project })) }
     func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.projectID == projectID })) }
     func fetchOverdueTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks.filter { $0.isOverdue })) }
     func fetchUpcomingTasks(completion: @escaping (Result<[Task], Error>) -> Void) { completion(.success(tasks)) }

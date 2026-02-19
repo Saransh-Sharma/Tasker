@@ -31,7 +31,7 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
 
         XCTAssertEqual(
-            Set(captured?.openTasks.map(\.name) ?? []),
+            Set(captured?.openTasks.map(\.title) ?? []),
             Set(["Due On Anchor", "Overdue Relative Anchor"])
         )
         XCTAssertEqual(captured?.doneTimelineTasks.count, 0)
@@ -107,8 +107,8 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.openTasks.map(\.name), ["Inside"])
-        XCTAssertEqual(captured?.doneTimelineTasks.map(\.name), ["Completed"])
+        XCTAssertEqual(captured?.openTasks.map(\.title), ["Inside"])
+        XCTAssertEqual(captured?.doneTimelineTasks.map(\.title), ["Completed"])
     }
 
     func testTodayQuickViewIncludesOnlyCompletedTasksCompletedToday() {
@@ -176,9 +176,9 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.openTasks.map(\.name), ["Open Today"])
+        XCTAssertEqual(captured?.openTasks.map(\.title), ["Open Today"])
         XCTAssertEqual(
-            Set(captured?.doneTimelineTasks.map(\.name) ?? []),
+            Set(captured?.doneTimelineTasks.map(\.title) ?? []),
             Set(["Completed Today", "Completed Overdue"])
         )
     }
@@ -223,10 +223,10 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
 
         XCTAssertEqual(
-            Set(captured?.openTasks.map(\.name) ?? []),
+            Set(captured?.openTasks.map(\.title) ?? []),
             Set(["Open On Anchor", "Overdue Open"])
         )
-        XCTAssertEqual(captured?.doneTimelineTasks.map(\.name), ["Completed On Anchor"])
+        XCTAssertEqual(captured?.doneTimelineTasks.map(\.title), ["Completed On Anchor"])
     }
 
     func testCustomDateScopeExcludesCompletedTasksMissingCompletionDate() {
@@ -258,7 +258,7 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.openTasks.map(\.name), ["Open On Anchor"])
+        XCTAssertEqual(captured?.openTasks.map(\.title), ["Open On Anchor"])
         XCTAssertEqual(captured?.doneTimelineTasks.count, 0)
     }
 
@@ -292,7 +292,7 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(captured?.doneTimelineTasks.map(\.name), ["Recent High", "Recent Low", "Older Recent"])
+        XCTAssertEqual(captured?.doneTimelineTasks.map(\.title), ["Recent High", "Recent Low", "Older Recent"])
         XCTAssertEqual(captured?.openTasks.count, 0)
     }
 
@@ -323,7 +323,7 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(Set(captured?.openTasks.map(\.name) ?? []), Set(["Explicit Morning", "Inferred Morning"]))
+        XCTAssertEqual(Set(captured?.openTasks.map(\.title) ?? []), Set(["Explicit Morning", "Inferred Morning"]))
     }
 
     func testMorningAndEveningQuickViewsIncludeCompletedTasksInDoneTimeline() {
@@ -385,10 +385,10 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(morningResult?.openTasks.map(\.name), ["Morning Open"])
-        XCTAssertEqual(morningResult?.doneTimelineTasks.map(\.name), ["Morning Done"])
-        XCTAssertEqual(eveningResult?.openTasks.map(\.name), ["Evening Open"])
-        XCTAssertEqual(eveningResult?.doneTimelineTasks.map(\.name), ["Evening Done"])
+        XCTAssertEqual(morningResult?.openTasks.map(\.title), ["Morning Open"])
+        XCTAssertEqual(morningResult?.doneTimelineTasks.map(\.title), ["Morning Done"])
+        XCTAssertEqual(eveningResult?.openTasks.map(\.title), ["Evening Open"])
+        XCTAssertEqual(eveningResult?.doneTimelineTasks.map(\.title), ["Evening Done"])
     }
 
     func testProjectFacetUsesORAcrossSelectedProjects() {
@@ -419,7 +419,7 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
 
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(Set(captured?.openTasks.map(\.name) ?? []), Set(["P1", "P2"]))
+        XCTAssertEqual(Set(captured?.openTasks.map(\.title) ?? []), Set(["P1", "P2"]))
     }
 
     private func makeTask(
@@ -443,7 +443,7 @@ final class GetHomeFilteredTasksUseCaseTests: XCTestCase {
     }
 }
 
-private final class MockTaskRepository: TaskRepositoryProtocol {
+private final class MockTaskRepository: LegacyTaskRepositoryShim {
     private let tasks: [Task]
 
     init(tasks: [Task]) {

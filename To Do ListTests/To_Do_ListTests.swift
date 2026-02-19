@@ -50,14 +50,7 @@ extension TaskDefinition {
     }
 }
 
-extension V2FeatureFlags {
-    static var v2Enabled: Bool {
-        get { true }
-        set { _ = newValue }
-    }
-}
-
-protocol TaskRepositoryProtocol {
+protocol LegacyTaskRepositoryShim {
     func fetchAllTasks(completion: @escaping (Result<[Task], Error>) -> Void)
     func fetchTasks(for date: Date, completion: @escaping (Result<[Task], Error>) -> Void)
     func fetchTodayTasks(completion: @escaping (Result<[Task], Error>) -> Void)
@@ -84,7 +77,7 @@ protocol TaskRepositoryProtocol {
     func fetchInboxTasks(completion: @escaping (Result<[Task], Error>) -> Void)
 }
 
-struct UpdateTaskRequest {
+struct LegacyTaskUpdatePayload {
     var name: String?
     var details: String?
     var projectID: UUID?
@@ -106,13 +99,13 @@ struct UpdateTaskRequest {
     }
 }
 
-final class UpdateTaskUseCase {
-    private let taskRepository: TaskRepositoryProtocol
+final class LocalTaskUpdateUseCase {
+    private let taskRepository: LegacyTaskRepositoryShim
     private let projectRepository: ProjectRepositoryProtocol
     private let notificationService: NotificationServiceProtocol?
 
     init(
-        taskRepository: TaskRepositoryProtocol,
+        taskRepository: LegacyTaskRepositoryShim,
         projectRepository: ProjectRepositoryProtocol,
         notificationService: NotificationServiceProtocol?
     ) {
@@ -123,7 +116,7 @@ final class UpdateTaskUseCase {
 
     func execute(
         taskId: UUID,
-        request: UpdateTaskRequest,
+        request: LegacyTaskUpdatePayload,
         completion: @escaping (Result<Task, Error>) -> Void
     ) {
         taskRepository.fetchTask(withId: taskId) { [weak self] result in
@@ -132,11 +125,11 @@ final class UpdateTaskUseCase {
             switch result {
             case .success(let maybeTask):
                 guard var task = maybeTask else {
-                    completion(.failure(NSError(domain: "UpdateTaskUseCase", code: 404)))
+                    completion(.failure(NSError(domain: "LocalTaskUpdateUseCase", code: 404)))
                     return
                 }
 
-                task.name = request.name ?? task.name
+                task.title = request.name ?? task.title
                 task.details = request.details ?? task.details
                 task.dueDate = request.dueDate ?? task.dueDate
                 task.type = request.type ?? task.type
@@ -184,19 +177,19 @@ private enum LegacyTaskAdapterError: LocalizedError {
     }
 }
 
-private final class LegacyTaskReadModelAdapter: TaskReadModelRepositoryProtocol {
-    private let legacyRepository: TaskRepositoryProtocol
+private final class ShimTaskReadModelAdapter: TaskReadModelRepositoryProtocol {
+    private let legacyRepository: LegacyTaskRepositoryShim
 
-    init(legacyRepository: TaskRepositoryProtocol) {
+    init(legacyRepository: LegacyTaskRepositoryShim) {
         self.legacyRepository = legacyRepository
     }
 
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         legacyRepository.fetchAllTasks { result in
             switch result {
             case .success(let tasks):
                 let filtered = self.applyReadQuery(query, to: tasks)
-                completion(.success(TaskSliceResult(
+                completion(.success(TaskDefinitionSliceResult(
                     tasks: filtered.slice,
                     totalCount: filtered.totalCount,
                     limit: query.limit,
@@ -208,12 +201,12 @@ private final class LegacyTaskReadModelAdapter: TaskReadModelRepositoryProtocol 
         }
     }
 
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         legacyRepository.fetchAllTasks { result in
             switch result {
             case .success(let tasks):
                 let filtered = self.applySearchQuery(query, to: tasks)
-                completion(.success(TaskSliceResult(
+                completion(.success(TaskDefinitionSliceResult(
                     tasks: filtered.slice,
                     totalCount: filtered.totalCount,
                     limit: query.limit,
@@ -291,7 +284,7 @@ private final class LegacyTaskReadModelAdapter: TaskReadModelRepositoryProtocol 
             if let projectID = query.projectID, task.projectID != projectID { return false }
             if query.includeCompleted == false, task.isComplete { return false }
             if text.isEmpty { return true }
-            let inTitle = task.name.lowercased().contains(text)
+            let inTitle = task.title.lowercased().contains(text)
             let inDetails = task.details?.lowercased().contains(text) ?? false
             return inTitle || inDetails
         }
@@ -318,10 +311,10 @@ private final class LegacyTaskReadModelAdapter: TaskReadModelRepositoryProtocol 
     }
 }
 
-private final class LegacyTaskDefinitionRepositoryAdapter: TaskDefinitionRepositoryProtocol {
-    private let legacyRepository: TaskRepositoryProtocol
+private final class ShimTaskDefinitionRepositoryAdapter: TaskDefinitionRepositoryProtocol {
+    private let legacyRepository: LegacyTaskRepositoryShim
 
-    init(legacyRepository: TaskRepositoryProtocol) {
+    init(legacyRepository: LegacyTaskRepositoryShim) {
         self.legacyRepository = legacyRepository
     }
 
@@ -442,7 +435,7 @@ private final class LegacyTaskDefinitionRepositoryAdapter: TaskDefinitionReposit
             if let updatedAfter = query.updatedAfter, task.updatedAt < updatedAfter { return false }
             if let searchText = query.searchText?.trimmingCharacters(in: .whitespacesAndNewlines), searchText.isEmpty == false {
                 let needle = searchText.lowercased()
-                let inTitle = task.name.lowercased().contains(needle)
+                let inTitle = task.title.lowercased().contains(needle)
                 let inDetails = task.details?.lowercased().contains(needle) ?? false
                 if !inTitle && !inDetails { return false }
             }
@@ -553,23 +546,23 @@ private final class LegacyNoopExternalSyncRepository: ExternalSyncRepositoryProt
 }
 
 extension GetHomeFilteredTasksUseCase {
-    convenience init(taskRepository: TaskRepositoryProtocol) {
+    convenience init(taskRepository: LegacyTaskRepositoryShim) {
         let readModel = (taskRepository as? TaskReadModelRepositoryProtocol)
-            ?? LegacyTaskReadModelAdapter(legacyRepository: taskRepository)
+            ?? ShimTaskReadModelAdapter(legacyRepository: taskRepository)
         self.init(readModelRepository: readModel)
     }
 }
 
 extension UseCaseCoordinator {
     convenience init(
-        taskRepository: TaskRepositoryProtocol,
+        taskRepository: LegacyTaskRepositoryShim,
         projectRepository: ProjectRepositoryProtocol,
         cacheService: CacheServiceProtocol? = nil,
         notificationService: NotificationServiceProtocol? = nil
     ) {
         let readModel = (taskRepository as? TaskReadModelRepositoryProtocol)
-            ?? LegacyTaskReadModelAdapter(legacyRepository: taskRepository)
-        let taskDefinitionRepository = LegacyTaskDefinitionRepositoryAdapter(legacyRepository: taskRepository)
+            ?? ShimTaskReadModelAdapter(legacyRepository: taskRepository)
+        let taskDefinitionRepository = ShimTaskDefinitionRepositoryAdapter(legacyRepository: taskRepository)
 
         let v2Dependencies = V2Dependencies(
             lifeAreaRepository: LegacyNoopLifeAreaRepository(),
@@ -617,7 +610,7 @@ class To_Do_ListTests: XCTestCase {
 
         let taskRepository = MockTaskRepository(seed: initialTask)
         let projectRepository = MockProjectRepository(projects: [inbox, workProject])
-        let useCase = UpdateTaskUseCase(
+        let useCase = LocalTaskUpdateUseCase(
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             notificationService: nil
@@ -626,12 +619,12 @@ class To_Do_ListTests: XCTestCase {
         let expectation = expectation(description: "project update")
         useCase.execute(
             taskId: initialTask.id,
-            request: UpdateTaskRequest(projectID: workProject.id)
+            request: LegacyTaskUpdatePayload(projectID: workProject.id)
         ) { result in
             switch result {
             case .success(let updated):
                 XCTAssertEqual(updated.projectID, workProject.id)
-                XCTAssertEqual(updated.project, workProject.name)
+                XCTAssertEqual(updated.projectName, workProject.name)
             case .failure(let error):
                 XCTFail("Unexpected error: \(error)")
             }
@@ -657,7 +650,7 @@ class To_Do_ListTests: XCTestCase {
 
         let taskRepository = MockTaskRepository(seed: initialTask)
         let projectRepository = MockProjectRepository(projects: [inbox])
-        let useCase = UpdateTaskUseCase(
+        let useCase = LocalTaskUpdateUseCase(
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             notificationService: nil
@@ -666,7 +659,7 @@ class To_Do_ListTests: XCTestCase {
         let expectation = expectation(description: "type precedence update")
         useCase.execute(
             taskId: initialTask.id,
-            request: UpdateTaskRequest(
+            request: LegacyTaskUpdatePayload(
                 dueDate: futureDate,
                 type: .morning
             )
@@ -698,7 +691,7 @@ class To_Do_ListTests: XCTestCase {
 
         let taskRepository = MockTaskRepository(seed: initialTask)
         let projectRepository = MockProjectRepository(projects: [inbox])
-        let useCase = UpdateTaskUseCase(
+        let useCase = LocalTaskUpdateUseCase(
             taskRepository: taskRepository,
             projectRepository: projectRepository,
             notificationService: nil
@@ -715,11 +708,11 @@ class To_Do_ListTests: XCTestCase {
 
         useCase.execute(
             taskId: initialTask.id,
-            request: UpdateTaskRequest(name: "New Name")
+            request: LegacyTaskUpdatePayload(name: "New Name")
         ) { _ in }
 
         waitForExpectations(timeout: 1.0)
-        XCTAssertEqual(taskRepository.currentTask.name, "New Name")
+        XCTAssertEqual(taskRepository.currentTask.title, "New Name")
         NotificationCenter.default.removeObserver(token)
     }
 
@@ -942,7 +935,7 @@ final class LaunchResilienceTests: XCTestCase {
     func testMakeLaunchRootModeReturnsHomeWhenStateReady() {
         let delegate = AppDelegate()
         let container = NSPersistentCloudKitContainer(
-            name: "TaskModelV2",
+            name: "TaskModelV3",
             managedObjectModel: NSManagedObjectModel()
         )
 
@@ -1039,10 +1032,10 @@ final class TaskDefinitionLinkHydrationTests: XCTestCase {
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
               model.entitiesByName["TaskDefinition"] != nil
         else {
-            throw NSError(domain: "TaskDefinitionLinkHydrationTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV2 from test bundles"])
+            throw NSError(domain: "TaskDefinitionLinkHydrationTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
 
-        let container = NSPersistentContainer(name: "TaskModelV2", managedObjectModel: model)
+        let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
         description.shouldAddStoreAsynchronously = false
@@ -1237,10 +1230,10 @@ final class DeterministicFetchTests: XCTestCase {
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
               model.entitiesByName["TaskDefinition"] != nil
         else {
-            throw NSError(domain: "DeterministicFetchTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV2 from test bundles"])
+            throw NSError(domain: "DeterministicFetchTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
 
-        let container = NSPersistentContainer(name: "TaskModelV2", managedObjectModel: model)
+        let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
         description.shouldAddStoreAsynchronously = false
@@ -1308,7 +1301,7 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        originalV2Enabled = V2FeatureFlags.v2Enabled
+        originalV2Enabled = true
         originalRemindersSyncEnabled = V2FeatureFlags.remindersSyncEnabled
         originalAssistantApplyEnabled = V2FeatureFlags.assistantApplyEnabled
         originalAssistantUndoEnabled = V2FeatureFlags.assistantUndoEnabled
@@ -1316,7 +1309,7 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 
     override func tearDown() {
-        V2FeatureFlags.v2Enabled = originalV2Enabled
+        _ = originalV2Enabled
         V2FeatureFlags.remindersSyncEnabled = originalRemindersSyncEnabled
         V2FeatureFlags.assistantApplyEnabled = originalAssistantApplyEnabled
         V2FeatureFlags.assistantUndoEnabled = originalAssistantUndoEnabled
@@ -1325,7 +1318,7 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 
     func testReconcileExternalRemindersFailsClosedWhenSyncFlagDisabled() {
-        V2FeatureFlags.v2Enabled = true
+        // V3 runtime is always enabled in tests
         V2FeatureFlags.remindersSyncEnabled = false
 
         let useCase = ReconcileExternalRemindersUseCase(
@@ -1342,7 +1335,7 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 
     func testAssistantApplyFailsClosedWhenApplyFlagDisabled() {
-        V2FeatureFlags.v2Enabled = true
+        // V3 runtime is always enabled in tests
         V2FeatureFlags.assistantApplyEnabled = false
 
         let useCase = AssistantActionPipelineUseCase(
@@ -1359,7 +1352,7 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 
     func testAssistantUndoFailsClosedWhenUndoFlagDisabled() {
-        V2FeatureFlags.v2Enabled = true
+        // V3 runtime is always enabled in tests
         V2FeatureFlags.assistantUndoEnabled = false
 
         let useCase = AssistantActionPipelineUseCase(
@@ -1460,7 +1453,7 @@ private final class NoopExternalSyncRepository: ExternalSyncRepositoryProtocol {
     func fetchItemMapping(provider: String, externalItemID: String, completion: @escaping (Result<ExternalItemMapDefinition?, Error>) -> Void) { completion(.success(nil)) }
 }
 
-private final class MockTaskRepository: TaskRepositoryProtocol, TaskReadModelRepositoryProtocol {
+private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelRepositoryProtocol {
     private var storedTask: Task
     private let lock = NSLock()
 
@@ -1490,7 +1483,7 @@ private final class MockTaskRepository: TaskRepositoryProtocol, TaskReadModelRep
         completion(.success([readStoredTask()]))
     }
 
-    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+    func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         readModelFetchCallCount += 1
         let base = [readStoredTask()].filter { task in
             if let projectID = query.projectID, task.projectID != projectID { return false }
@@ -1502,7 +1495,7 @@ private final class MockTaskRepository: TaskRepositoryProtocol, TaskReadModelRep
         let start = min(query.offset, base.count)
         let end = min(start + query.limit, base.count)
         let slice = Array(base[start..<end])
-        completion(.success(TaskSliceResult(
+        completion(.success(TaskDefinitionSliceResult(
             tasks: slice,
             totalCount: base.count,
             limit: query.limit,
@@ -1510,21 +1503,21 @@ private final class MockTaskRepository: TaskRepositoryProtocol, TaskReadModelRep
         )))
     }
 
-    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         readModelSearchCallCount += 1
         let normalized = query.text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let base = [readStoredTask()].filter { task in
             if let projectID = query.projectID, task.projectID != projectID { return false }
             if query.includeCompleted == false, task.isComplete { return false }
             if normalized.isEmpty { return true }
-            let nameMatch = task.name.lowercased().contains(normalized)
+            let nameMatch = task.title.lowercased().contains(normalized)
             let detailMatch = task.details?.lowercased().contains(normalized) ?? false
             return nameMatch || detailMatch
         }
         let start = min(query.offset, base.count)
         let end = min(start + query.limit, base.count)
         let slice = Array(base[start..<end])
-        completion(.success(TaskSliceResult(
+        completion(.success(TaskDefinitionSliceResult(
             tasks: slice,
             totalCount: base.count,
             limit: query.limit,
@@ -2077,10 +2070,10 @@ final class V2RepositoryInvariantTests: XCTestCase {
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
               model.entitiesByName["TaskDefinition"] != nil
         else {
-            throw NSError(domain: "V2RepositoryInvariantTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV2 from test bundles"])
+            throw NSError(domain: "V2RepositoryInvariantTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
 
-        let container = NSPersistentContainer(name: "TaskModelV2", managedObjectModel: model)
+        let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
         description.shouldAddStoreAsynchronously = false
@@ -2126,10 +2119,10 @@ final class TaskTagLinkUniquenessTests: XCTestCase {
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
               model.entitiesByName["TaskDefinition"] != nil
         else {
-            throw NSError(domain: "TaskTagLinkUniquenessTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV2 from test bundles"])
+            throw NSError(domain: "TaskTagLinkUniquenessTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
 
-        let container = NSPersistentContainer(name: "TaskModelV2", managedObjectModel: model)
+        let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
         description.shouldAddStoreAsynchronously = false
@@ -2249,10 +2242,10 @@ final class ExternalMapUniquenessTests: XCTestCase {
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
               model.entitiesByName["TaskDefinition"] != nil
         else {
-            throw NSError(domain: "ExternalMapUniquenessTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV2 from test bundles"])
+            throw NSError(domain: "ExternalMapUniquenessTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
 
-        let container = NSPersistentContainer(name: "TaskModelV2", managedObjectModel: model)
+        let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
         description.shouldAddStoreAsynchronously = false
@@ -2527,10 +2520,10 @@ final class ConcurrencyRaceTests: XCTestCase {
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
               model.entitiesByName["TaskDefinition"] != nil
         else {
-            throw NSError(domain: "ConcurrencyRaceTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV2 from test bundles"])
+            throw NSError(domain: "ConcurrencyRaceTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
 
-        let container = NSPersistentContainer(name: "TaskModelV2", managedObjectModel: model)
+        let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
         description.shouldAddStoreAsynchronously = false
@@ -2591,7 +2584,7 @@ final class TaskDefinitionCreationMetadataTests: XCTestCase {
         XCTAssertEqual(taskRepository.lastCreateRequest?.sectionID, request.sectionID)
         XCTAssertEqual(taskRepository.lastCreateRequest?.parentTaskID, request.parentTaskID)
         XCTAssertEqual(createdTask.projectID, request.projectID)
-        XCTAssertEqual(createdTask.project, request.projectName)
+        XCTAssertEqual(createdTask.projectName, request.projectName)
 
         XCTAssertEqual(tagRepository.lastTaskID, request.id)
         XCTAssertEqual(Set(tagRepository.lastTagIDs ?? []), Set(request.tagIDs))
@@ -2671,7 +2664,7 @@ private final class MetadataCapturingTaskDefinitionRepository: TaskDefinitionRep
             completion(.failure(NSError(domain: "MetadataCapturingTaskDefinitionRepository", code: 404)))
             return
         }
-        if let title = request.title { current.name = title }
+        if let title = request.title { current.title = title }
         if let details = request.details { current.details = details }
         if let projectID = request.projectID { current.projectID = projectID }
         if let dueDate = request.dueDate { current.dueDate = dueDate }
@@ -2794,14 +2787,14 @@ final class ReconcileExternalRemindersConflictTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        originalV2Enabled = V2FeatureFlags.v2Enabled
+        originalV2Enabled = true
         originalRemindersSyncEnabled = V2FeatureFlags.remindersSyncEnabled
-        V2FeatureFlags.v2Enabled = true
+        // V3 runtime is always enabled in tests
         V2FeatureFlags.remindersSyncEnabled = true
     }
 
     override func tearDown() {
-        V2FeatureFlags.v2Enabled = originalV2Enabled
+        _ = originalV2Enabled
         V2FeatureFlags.remindersSyncEnabled = originalRemindersSyncEnabled
         super.tearDown()
     }
@@ -2888,7 +2881,7 @@ final class ReconcileExternalRemindersConflictTests: XCTestCase {
         let updatedTask = try awaitResult { completion in
             taskRepository.fetchTaskDefinition(id: taskID, completion: completion)
         }
-        XCTAssertEqual(updatedTask?.name, "Remote Title")
+        XCTAssertEqual(updatedTask?.title, "Remote Title")
         XCTAssertEqual(updatedTask?.details, "remote")
     }
 
@@ -3169,14 +3162,14 @@ final class ReminderPayloadRoundTripTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        originalV2Enabled = V2FeatureFlags.v2Enabled
+        originalV2Enabled = true
         originalRemindersSyncEnabled = V2FeatureFlags.remindersSyncEnabled
-        V2FeatureFlags.v2Enabled = true
+        // V3 runtime is always enabled in tests
         V2FeatureFlags.remindersSyncEnabled = true
     }
 
     override func tearDown() {
-        V2FeatureFlags.v2Enabled = originalV2Enabled
+        _ = originalV2Enabled
         V2FeatureFlags.remindersSyncEnabled = originalRemindersSyncEnabled
         super.tearDown()
     }
@@ -3326,16 +3319,16 @@ final class AssistantPipelineTransactionalTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        originalV2Enabled = V2FeatureFlags.v2Enabled
+        originalV2Enabled = true
         originalAssistantApplyEnabled = V2FeatureFlags.assistantApplyEnabled
         originalAssistantUndoEnabled = V2FeatureFlags.assistantUndoEnabled
-        V2FeatureFlags.v2Enabled = true
+        // V3 runtime is always enabled in tests
         V2FeatureFlags.assistantApplyEnabled = true
         V2FeatureFlags.assistantUndoEnabled = true
     }
 
     override func tearDown() {
-        V2FeatureFlags.v2Enabled = originalV2Enabled
+        _ = originalV2Enabled
         V2FeatureFlags.assistantApplyEnabled = originalAssistantApplyEnabled
         V2FeatureFlags.assistantUndoEnabled = originalAssistantUndoEnabled
         super.tearDown()
@@ -3405,7 +3398,7 @@ final class AssistantPipelineTransactionalTests: XCTestCase {
         let finalTask = try awaitResult { completion in
             taskRepository.fetchTaskDefinition(id: taskID, completion: completion)
         }
-        XCTAssertEqual(finalTask?.name, "Before Apply", "Rollback must restore pre-apply state")
+        XCTAssertEqual(finalTask?.title, "Before Apply", "Rollback must restore pre-apply state")
     }
 
     func testSuccessfulApplyGeneratesDeterministicUndoPlan() throws {
@@ -3472,7 +3465,7 @@ final class AssistantPipelineTransactionalTests: XCTestCase {
         let taskAfterUndo = try awaitResult { completion in
             taskRepository.fetchTaskDefinition(id: taskID, completion: completion)
         }
-        XCTAssertEqual(taskAfterUndo?.name, "Before Undo")
+        XCTAssertEqual(taskAfterUndo?.title, "Before Undo")
     }
 }
 
@@ -3482,14 +3475,14 @@ final class AssistantUndoWindowTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        originalV2Enabled = V2FeatureFlags.v2Enabled
+        originalV2Enabled = true
         originalAssistantUndoEnabled = V2FeatureFlags.assistantUndoEnabled
-        V2FeatureFlags.v2Enabled = true
+        // V3 runtime is always enabled in tests
         V2FeatureFlags.assistantUndoEnabled = true
     }
 
     override func tearDown() {
-        V2FeatureFlags.v2Enabled = originalV2Enabled
+        _ = originalV2Enabled
         V2FeatureFlags.assistantUndoEnabled = originalAssistantUndoEnabled
         super.tearDown()
     }
@@ -3598,7 +3591,7 @@ final class V2PerformanceGateTests: XCTestCase {
         let outputURL = root.appendingPathComponent("build/benchmarks/v2_readmodel.test.json")
         let command = [
             "swift",
-            "scripts/perf_seed_v2.swift",
+            "scripts/perf_seed_v3.swift",
             "--tasks", "2000",
             "--occurrences", "20000",
             "--iterations", "60",
@@ -3684,7 +3677,7 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
             if let start = query.dueDateStart, let due = task.dueDate, due < start { return false }
             if let end = query.dueDateEnd, let due = task.dueDate, due > end { return false }
             if let searchText = query.searchText?.lowercased(), searchText.isEmpty == false {
-                let nameMatch = task.name.lowercased().contains(searchText)
+                let nameMatch = task.title.lowercased().contains(searchText)
                 let detailMatch = task.details?.lowercased().contains(searchText) ?? false
                 if !nameMatch && !detailMatch { return false }
             }
@@ -3746,7 +3739,7 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
             completion(.failure(NSError(domain: "InMemoryTaskDefinitionRepository", code: 404)))
             return
         }
-        if let title = request.title { current.name = title }
+        if let title = request.title { current.title = title }
         if let details = request.details { current.details = details }
         if let projectID = request.projectID { current.projectID = projectID }
         if let dueDate = request.dueDate { current.dueDate = dueDate }

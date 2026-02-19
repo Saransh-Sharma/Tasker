@@ -216,7 +216,7 @@ private final class XPRegressionMockProjectRepository: ProjectRepositoryProtocol
     }
 }
 
-private final class XPRegressionMockTaskRepository: TaskRepositoryProtocol {
+private final class XPRegressionMockTaskRepository: LegacyTaskRepositoryShim {
     private var tasksByID: [UUID: Task]
     private let calendar = Calendar.current
 
@@ -262,7 +262,7 @@ private final class XPRegressionMockTaskRepository: TaskRepositoryProtocol {
     }
 
     func fetchTasks(for project: String, completion: @escaping (Result<[Task], Error>) -> Void) {
-        completion(.success(tasksByID.values.filter { $0.project?.caseInsensitiveCompare(project) == .orderedSame }))
+        completion(.success(tasksByID.values.filter { $0.projectName?.caseInsensitiveCompare(project) == .orderedSame }))
     }
 
     func fetchTasks(forProjectID projectID: UUID, completion: @escaping (Result<[Task], Error>) -> Void) {
