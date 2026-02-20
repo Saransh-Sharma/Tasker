@@ -246,13 +246,13 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Reschedule a task.
-    public func rescheduleTask(_ task: TaskDefinition, to newDate: Date) {
+    public func rescheduleTask(_ task: TaskDefinition, to newDate: Date?) {
         rescheduleTask(taskID: task.id, to: newDate) { _ in }
     }
 
     public func rescheduleTask(
         taskID: UUID,
-        to newDate: Date,
+        to newDate: Date?,
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
     ) {
         useCaseCoordinator.rescheduleTaskDefinition.execute(taskID: taskID, newDate: newDate) { [weak self] result in
@@ -290,6 +290,157 @@ public final class HomeViewModel: ObservableObject {
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    public func loadTaskDetailMetadata(
+        projectID: UUID,
+        completion: @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void
+    ) {
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var firstError: Error?
+
+        var loadedProjects: [Project] = projects
+        var loadedLifeAreas: [LifeArea] = []
+        var loadedSections: [TaskerProjectSection] = []
+        var loadedTags: [TagDefinition] = []
+        var availableTasks: [TaskDefinition] = []
+
+        func record(_ error: Error) {
+            lock.lock()
+            if firstError == nil {
+                firstError = error
+            }
+            lock.unlock()
+        }
+
+        group.enter()
+        useCaseCoordinator.manageProjects.getAllProjects { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let projectsWithStats):
+                loadedProjects = projectsWithStats.map(\.project)
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.enter()
+        useCaseCoordinator.manageLifeAreas.list { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let lifeAreas):
+                loadedLifeAreas = lifeAreas
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.enter()
+        useCaseCoordinator.manageSections.list(projectID: projectID) { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let sections):
+                loadedSections = sections
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.enter()
+        useCaseCoordinator.manageTags.list { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let tags):
+                loadedTags = tags
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.enter()
+        useCaseCoordinator.getTasks.getTasksForProject(projectID, includeCompleted: false) { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let slice):
+                availableTasks = slice.tasks
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.notify(queue: .main) {
+            if let firstError {
+                completion(.failure(firstError))
+                return
+            }
+            completion(.success(TaskDetailMetadataPayload(
+                projects: loadedProjects,
+                lifeAreas: loadedLifeAreas,
+                sections: loadedSections,
+                tags: loadedTags,
+                availableTasks: availableTasks
+            )))
+        }
+    }
+
+    public func loadTaskChildren(
+        parentTaskID: UUID,
+        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+    ) {
+        useCaseCoordinator.getTaskChildren.execute(parentTaskID: parentTaskID) { result in
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }
+    }
+
+    public func createTaskDefinition(
+        request: CreateTaskDefinitionRequest,
+        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+    ) {
+        useCaseCoordinator.createTaskDefinition.execute(request: request) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let createdTask):
+                    self?.invalidateTaskCaches()
+                    self?.reloadCurrentModeTasks()
+                    self?.requestChartRefresh(reason: .created)
+                    completion(.success(createdTask))
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    public func createTagForTaskDetail(
+        name: String,
+        completion: @escaping (Result<TagDefinition, Error>) -> Void
+    ) {
+        useCaseCoordinator.manageTags.create(name: name, color: nil, icon: nil) { result in
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }
+    }
+
+    public func createProjectForTaskDetail(
+        name: String,
+        completion: @escaping (Result<Project, Error>) -> Void
+    ) {
+        useCaseCoordinator.manageProjects.createProject(request: CreateProjectRequest(name: name)) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let project):
+                    self?.loadProjects()
+                    completion(.success(project))
+                case .failure(let error):
                     completion(.failure(error))
                 }
             }
