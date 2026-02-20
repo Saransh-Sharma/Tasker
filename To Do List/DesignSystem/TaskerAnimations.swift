@@ -55,17 +55,17 @@ public struct StaggeredAppearance: ViewModifier {
 // MARK: - Scale on Press Modifier
 
 public struct ScaleOnPress: ViewModifier {
-    @State private var isPressed = false
-
     public func body(content: Content) -> some View {
         content
-            .scaleEffect(isPressed ? 0.97 : 1.0)
-            .animation(TaskerAnimation.quick, value: isPressed)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in isPressed = true }
-                    .onEnded { _ in isPressed = false }
-            )
+            .buttonStyle(TaskerScaleOnPressButtonStyle())
+    }
+}
+
+private struct TaskerScaleOnPressButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(TaskerAnimation.quick, value: configuration.isPressed)
     }
 }
 

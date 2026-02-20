@@ -22,6 +22,7 @@ struct AddTaskProjectPill: View {
             Text(name)
                 .font(.tasker(.callout))
                 .fontWeight(isSelected ? .semibold : .regular)
+                .fixedSize(horizontal: true, vertical: false)
                 .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)

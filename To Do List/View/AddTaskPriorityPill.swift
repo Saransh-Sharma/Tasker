@@ -53,8 +53,9 @@ struct AddTaskPriorityPill: View {
                     .font(.tasker(.callout))
                     .fontWeight(isSelected ? .semibold : .regular)
             }
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundColor(isSelected ? priorityColor : Color.tasker.textSecondary)
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
