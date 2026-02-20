@@ -375,8 +375,11 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
     public var details: String?
     public var projectID: UUID?
     public var lifeAreaID: UUID?
+    public var clearLifeArea: Bool
     public var sectionID: UUID?
+    public var clearSection: Bool
     public var dueDate: Date?
+    public var clearDueDate: Bool
     public var parentTaskID: UUID?
     public var clearParentTaskLink: Bool
     public var tagIDs: [UUID]?
@@ -389,9 +392,12 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
     public var isComplete: Bool?
     public var dateCompleted: Date?
     public var alertReminderTime: Date?
+    public var clearReminderTime: Bool
     public var estimatedDuration: TimeInterval?
+    public var clearEstimatedDuration: Bool
     public var actualDuration: TimeInterval?
     public var repeatPattern: TaskRepeatPattern?
+    public var clearRepeatPattern: Bool
     public var updatedAt: Date
 
     public init(
@@ -401,8 +407,11 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
         details: String? = nil,
         projectID: UUID? = nil,
         lifeAreaID: UUID? = nil,
+        clearLifeArea: Bool = false,
         sectionID: UUID? = nil,
+        clearSection: Bool = false,
         dueDate: Date? = nil,
+        clearDueDate: Bool = false,
         parentTaskID: UUID? = nil,
         clearParentTaskLink: Bool = false,
         tagIDs: [UUID]? = nil,
@@ -415,9 +424,12 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
         isComplete: Bool? = nil,
         dateCompleted: Date? = nil,
         alertReminderTime: Date? = nil,
+        clearReminderTime: Bool = false,
         estimatedDuration: TimeInterval? = nil,
+        clearEstimatedDuration: Bool = false,
         actualDuration: TimeInterval? = nil,
         repeatPattern: TaskRepeatPattern? = nil,
+        clearRepeatPattern: Bool = false,
         updatedAt: Date = Date()
     ) {
         self.id = id
@@ -426,8 +438,11 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
         self.details = details
         self.projectID = projectID
         self.lifeAreaID = lifeAreaID
+        self.clearLifeArea = clearLifeArea
         self.sectionID = sectionID
+        self.clearSection = clearSection
         self.dueDate = dueDate
+        self.clearDueDate = clearDueDate
         self.parentTaskID = parentTaskID
         self.clearParentTaskLink = clearParentTaskLink
         self.tagIDs = tagIDs
@@ -440,9 +455,12 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
         self.isComplete = isComplete
         self.dateCompleted = dateCompleted
         self.alertReminderTime = alertReminderTime
+        self.clearReminderTime = clearReminderTime
         self.estimatedDuration = estimatedDuration
+        self.clearEstimatedDuration = clearEstimatedDuration
         self.actualDuration = actualDuration
         self.repeatPattern = repeatPattern
+        self.clearRepeatPattern = clearRepeatPattern
         self.updatedAt = updatedAt
     }
 }
