@@ -1,5 +1,6 @@
 import UIKit
 
+@available(*, deprecated, message: "Legacy UIKit task detail view is superseded by SwiftUI TaskDetailSheetView.")
 class TaskDetailView: UIView {
     // MARK: – Subviews
     private let card = UIView()

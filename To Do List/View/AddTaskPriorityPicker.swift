@@ -24,14 +24,16 @@ struct AddTaskPriorityPicker: View {
                 .foregroundColor(Color.tasker.textTertiary)
 
             // Priority pills
-            HStack(spacing: spacing.s8) {
-                ForEach(priorities, id: \.self) { priority in
-                    AddTaskPriorityPill(
-                        priority: priority,
-                        isSelected: selectedPriority == priority
-                    ) {
-                        withAnimation(TaskerAnimation.snappy) {
-                            selectedPriority = priority
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing.chipSpacing) {
+                    ForEach(priorities, id: \.self) { priority in
+                        AddTaskPriorityPill(
+                            priority: priority,
+                            isSelected: selectedPriority == priority
+                        ) {
+                            withAnimation(TaskerAnimation.snappy) {
+                                selectedPriority = priority
+                            }
                         }
                     }
                 }

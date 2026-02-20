@@ -12,8 +12,32 @@ public final class ManageLifeAreasUseCase {
     }
 
     public func create(name: String, color: String?, icon: String?, completion: @escaping (Result<LifeArea, Error>) -> Void) {
-        let model = LifeArea(name: name, color: color, icon: icon)
-        repository.create(model, completion: completion)
+        let normalizedDisplayName = Self.normalizedDisplayName(name)
+        let normalizedKey = Self.normalizedNameKey(name)
+
+        repository.fetchAll { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let areas):
+                let hasCollision = areas.contains { area in
+                    Self.normalizedNameKey(area.name) == normalizedKey
+                }
+                guard hasCollision == false else {
+                    completion(.failure(NSError(
+                        domain: "ManageLifeAreasUseCase",
+                        code: 409,
+                        userInfo: [NSLocalizedDescriptionKey: "Life area '\(normalizedDisplayName)' already exists."]
+                    )))
+                    return
+                }
+
+                let model = LifeArea(name: normalizedDisplayName, color: color, icon: icon)
+                self.repository.create(model, completion: completion)
+
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
     }
 
     public func archive(id: UUID, completion: @escaping (Result<LifeArea, Error>) -> Void) {
@@ -31,5 +55,14 @@ public final class ManageLifeAreasUseCase {
                 completion(.failure(error))
             }
         }
+    }
+
+    private static func normalizedDisplayName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "General" : trimmed
+    }
+
+    private static func normalizedNameKey(_ name: String) -> String {
+        normalizedDisplayName(name).lowercased()
     }
 }

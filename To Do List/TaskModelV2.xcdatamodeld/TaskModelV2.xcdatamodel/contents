@@ -16,7 +16,7 @@
         <fetchIndex name="byLifeAreaID"><fetchIndexElement property="id" type="Binary" order="ascending"/></fetchIndex>
     </entity>
 
-    <entity name="Project" representedClassName="ProjectEntity" syncable="YES">
+    <entity name="Project" representedClassName="ProjectEntity" codeGenerationType="category" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="lifeAreaID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
@@ -77,13 +77,14 @@
         <relationship name="taskLinks" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskTagLink" inverseName="tagRef" inverseEntity="TaskTagLink"/>
     </entity>
 
-    <entity name="TaskDefinition" representedClassName="TaskDefinitionEntity" syncable="YES">
+    <entity name="TaskDefinition" representedClassName="TaskDefinitionEntity" codeGenerationType="category" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="taskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="lifeAreaID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="sectionID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="parentTaskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="recurrenceSeriesID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="habitDefinitionID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="title" optional="YES" attributeType="String"/>
         <attribute name="name" optional="YES" attributeType="String" spotlightIndexingEnabled="YES"/>
@@ -98,6 +99,7 @@
         <attribute name="estimatedDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
         <attribute name="actualDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
         <attribute name="source" optional="YES" attributeType="String"/>
+        <attribute name="repeatPatternData" optional="YES" attributeType="Binary"/>
         <attribute name="createdBy" optional="YES" attributeType="String"/>
         <attribute name="sortOrder" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="dueDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>

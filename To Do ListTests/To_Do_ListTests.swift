@@ -363,9 +363,21 @@ private final class ShimTaskDefinitionRepositoryAdapter: TaskDefinitionRepositor
                 if let title = request.title { task.title = title }
                 if let details = request.details { task.details = details }
                 if let projectID = request.projectID { task.projectID = projectID }
-                if let lifeAreaID = request.lifeAreaID { task.lifeAreaID = lifeAreaID }
-                if let sectionID = request.sectionID { task.sectionID = sectionID }
-                if let dueDate = request.dueDate { task.dueDate = dueDate }
+                if request.clearLifeArea {
+                    task.lifeAreaID = nil
+                } else if let lifeAreaID = request.lifeAreaID {
+                    task.lifeAreaID = lifeAreaID
+                }
+                if request.clearSection {
+                    task.sectionID = nil
+                } else if let sectionID = request.sectionID {
+                    task.sectionID = sectionID
+                }
+                if request.clearDueDate {
+                    task.dueDate = nil
+                } else if let dueDate = request.dueDate {
+                    task.dueDate = dueDate
+                }
 
                 if request.clearParentTaskLink {
                     task.parentTaskID = nil
@@ -392,10 +404,22 @@ private final class ShimTaskDefinitionRepositoryAdapter: TaskDefinitionRepositor
                     task.dateCompleted = dateCompleted
                 }
 
-                if let alertReminderTime = request.alertReminderTime { task.alertReminderTime = alertReminderTime }
-                if let estimatedDuration = request.estimatedDuration { task.estimatedDuration = estimatedDuration }
+                if request.clearReminderTime {
+                    task.alertReminderTime = nil
+                } else if let alertReminderTime = request.alertReminderTime {
+                    task.alertReminderTime = alertReminderTime
+                }
+                if request.clearEstimatedDuration {
+                    task.estimatedDuration = nil
+                } else if let estimatedDuration = request.estimatedDuration {
+                    task.estimatedDuration = estimatedDuration
+                }
                 if let actualDuration = request.actualDuration { task.actualDuration = actualDuration }
-                if let repeatPattern = request.repeatPattern { task.repeatPattern = repeatPattern }
+                if request.clearRepeatPattern {
+                    task.repeatPattern = nil
+                } else if let repeatPattern = request.repeatPattern {
+                    task.repeatPattern = repeatPattern
+                }
                 task.updatedAt = request.updatedAt
 
                 self.update(task, completion: completion)
@@ -804,6 +828,12 @@ final class ArchitectureBoundaryTests: XCTestCase {
         XCTAssertFalse(projectFile.contains("/* AddTaskLegacyStubs.swift in Sources */"))
     }
 
+    func testProjectBuildGraphExcludesHandwrittenCoreDataPropertiesFromSources() throws {
+        let projectFile = try loadWorkspaceFile("Tasker.xcodeproj/project.pbxproj")
+        XCTAssertFalse(projectFile.contains("/* TaskDefinitionEntity+CoreDataProperties.swift in Sources */"))
+        XCTAssertFalse(projectFile.contains("/* ProjectEntity+CoreDataProperties.swift in Sources */"))
+    }
+
     func testPrimaryRuntimeFilesDoNotReferenceLegacyDependencyContainerSingleton() throws {
         let runtimeFiles = [
             "To Do List/AppDelegate.swift",
@@ -835,6 +865,12 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testLegacyGuardrailValidationScriptExistsAndIsExecutable() {
         let scriptURL = workspaceRootURL().appendingPathComponent("scripts/validate_legacy_runtime_guardrails.sh")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: scriptURL.path))
+        XCTAssertTrue(FileManager.default.isExecutableFile(atPath: scriptURL.path))
+    }
+
+    func testCoreDataCodegenGuardrailValidationScriptExistsAndIsExecutable() {
+        let scriptURL = workspaceRootURL().appendingPathComponent("scripts/validate_coredata_codegen_guardrails.sh")
         XCTAssertTrue(FileManager.default.fileExists(atPath: scriptURL.path))
         XCTAssertTrue(FileManager.default.isExecutableFile(atPath: scriptURL.path))
     }
@@ -1153,6 +1189,72 @@ final class DeterministicFetchTests: XCTestCase {
         XCTAssertNotNil(taskDefinition.relationshipsByName["dependencies"])
     }
 
+    func testTaskDefinitionEntityExposesLifeAreaIDManagedAccessor() throws {
+        let container = try makeInMemoryV2Container()
+        let context = container.viewContext
+
+        var taskObject: TaskDefinitionEntity?
+        context.performAndWait {
+            taskObject = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context) as? TaskDefinitionEntity
+        }
+
+        guard let taskObject else {
+            XCTFail("Unable to create TaskDefinitionEntity from model")
+            return
+        }
+
+        let getter = NSSelectorFromString("lifeAreaID")
+        let setter = NSSelectorFromString("setLifeAreaID:")
+        XCTAssertTrue(taskObject.responds(to: getter), "TaskDefinitionEntity must expose lifeAreaID getter")
+        XCTAssertTrue(taskObject.responds(to: setter), "TaskDefinitionEntity must expose lifeAreaID setter")
+
+        let expected = UUID()
+        taskObject.setValue(expected, forKey: "lifeAreaID")
+        XCTAssertEqual(taskObject.value(forKey: "lifeAreaID") as? UUID, expected)
+    }
+
+    func testTaskDefinitionModelAttributeSelectorParity() throws {
+        let container = try makeInMemoryV2Container()
+        let context = container.viewContext
+
+        var taskObject: TaskDefinitionEntity?
+        context.performAndWait {
+            taskObject = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context) as? TaskDefinitionEntity
+        }
+
+        guard let taskObject else {
+            XCTFail("Unable to create TaskDefinitionEntity from model")
+            return
+        }
+
+        assertManagedAttributeSelectorsPresent(
+            entityName: "TaskDefinition",
+            object: taskObject,
+            model: container.managedObjectModel
+        )
+    }
+
+    func testProjectModelAttributeSelectorParity() throws {
+        let container = try makeInMemoryV2Container()
+        let context = container.viewContext
+
+        var projectObject: ProjectEntity?
+        context.performAndWait {
+            projectObject = NSEntityDescription.insertNewObject(forEntityName: "Project", into: context) as? ProjectEntity
+        }
+
+        guard let projectObject else {
+            XCTFail("Unable to create ProjectEntity from model")
+            return
+        }
+
+        assertManagedAttributeSelectorsPresent(
+            entityName: "Project",
+            object: projectObject,
+            model: container.managedObjectModel
+        )
+    }
+
     func testExternalContainerFetchUsesDeterministicFirstRowOrdering() throws {
         let container = try makeInMemoryV2Container()
         let repository = CoreDataExternalSyncRepository(container: container)
@@ -1247,6 +1349,37 @@ final class DeterministicFetchTests: XCTestCase {
             throw loadError
         }
         return container
+    }
+
+    private func assertManagedAttributeSelectorsPresent(
+        entityName: String,
+        object: NSManagedObject,
+        model: NSManagedObjectModel,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard let entity = model.entitiesByName[entityName] else {
+            XCTFail("Missing entity in managed object model: \(entityName)", file: file, line: line)
+            return
+        }
+
+        for attributeName in entity.attributesByName.keys.sorted() {
+            let getter = NSSelectorFromString(attributeName)
+            XCTAssertTrue(
+                object.responds(to: getter),
+                "Missing getter selector \(attributeName) on \(entityName) managed object",
+                file: file,
+                line: line
+            )
+
+            let setter = NSSelectorFromString("set\(attributeName.prefix(1).uppercased())\(attributeName.dropFirst()):")
+            XCTAssertTrue(
+                object.responds(to: setter),
+                "Missing setter selector \(setter.description) for \(attributeName) on \(entityName) managed object",
+                file: file,
+                line: line
+            )
+        }
     }
 }
 
@@ -2667,7 +2800,11 @@ private final class MetadataCapturingTaskDefinitionRepository: TaskDefinitionRep
         if let title = request.title { current.title = title }
         if let details = request.details { current.details = details }
         if let projectID = request.projectID { current.projectID = projectID }
-        if let dueDate = request.dueDate { current.dueDate = dueDate }
+        if request.clearDueDate {
+            current.dueDate = nil
+        } else if let dueDate = request.dueDate {
+            current.dueDate = dueDate
+        }
         if let isComplete = request.isComplete { current.isComplete = isComplete }
         if request.dateCompleted != nil || request.isComplete == false { current.dateCompleted = request.dateCompleted }
         byID[current.id] = current
@@ -3742,7 +3879,11 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
         if let title = request.title { current.title = title }
         if let details = request.details { current.details = details }
         if let projectID = request.projectID { current.projectID = projectID }
-        if let dueDate = request.dueDate { current.dueDate = dueDate }
+        if request.clearDueDate {
+            current.dueDate = nil
+        } else if let dueDate = request.dueDate {
+            current.dueDate = dueDate
+        }
         if let isComplete = request.isComplete { current.isComplete = isComplete }
         if request.dateCompleted != nil || request.isComplete == false { current.dateCompleted = request.dateCompleted }
         current.updatedAt = Date()
@@ -3914,6 +4055,594 @@ private final class InMemoryAppleRemindersProvider: AppleRemindersProviderProtoc
     }
 }
 
+final class LifeAreaIdentityRepairTests: XCTestCase {
+    func testLifeAreaRepairMergesDuplicateGeneralAndRepointsProjectTaskHabit() throws {
+        let container = try makeInMemoryV2Container()
+        let context = container.viewContext
+
+        let canonicalID = UUID()
+        let duplicateID = UUID()
+
+        context.performAndWait {
+            _ = makeLifeArea(
+                in: context,
+                id: canonicalID,
+                name: "General",
+                color: nil,
+                icon: nil,
+                isArchived: false,
+                createdAt: Date(timeIntervalSince1970: 1_000)
+            )
+            _ = makeLifeArea(
+                in: context,
+                id: duplicateID,
+                name: " general ",
+                color: "#4A6FA5",
+                icon: "square.grid.2x2",
+                isArchived: true,
+                createdAt: Date(timeIntervalSince1970: 2_000)
+            )
+            _ = makeProject(in: context, lifeAreaID: duplicateID)
+            _ = makeTaskDefinition(in: context, lifeAreaID: duplicateID)
+            _ = makeHabitDefinition(in: context, lifeAreaID: duplicateID)
+            try? context.save()
+        }
+
+        let report = try LifeAreaIdentityRepair.repair(in: context)
+        try context.save()
+
+        XCTAssertEqual(report.duplicateGroups, 1)
+        XCTAssertEqual(report.merged, 1)
+        XCTAssertEqual(report.repointedProjects, 1)
+        XCTAssertEqual(report.repointedTasks, 1)
+        XCTAssertEqual(report.repointedHabits, 1)
+
+        let lifeAreas = try fetchObjects(entityName: "LifeArea", in: context)
+        let general = lifeAreas.filter {
+            LifeAreaIdentityRepair.normalizedNameKey($0.value(forKey: "name") as? String) == "general"
+        }
+        XCTAssertEqual(general.count, 1)
+        XCTAssertEqual(general.first?.value(forKey: "id") as? UUID, canonicalID)
+        XCTAssertEqual(general.first?.value(forKey: "color") as? String, "#4A6FA5")
+        XCTAssertEqual(general.first?.value(forKey: "icon") as? String, "square.grid.2x2")
+
+        let projects = try fetchObjects(entityName: "Project", in: context)
+        XCTAssertEqual(projects.first?.value(forKey: "lifeAreaID") as? UUID, canonicalID)
+        let tasks = try fetchObjects(entityName: "TaskDefinition", in: context)
+        XCTAssertEqual(tasks.first?.value(forKey: "lifeAreaID") as? UUID, canonicalID)
+        let habits = try fetchObjects(entityName: "HabitDefinition", in: context)
+        XCTAssertEqual(habits.first?.value(forKey: "lifeAreaID") as? UUID, canonicalID)
+    }
+
+    func testLifeAreaRepairMergesDuplicateCustomNamesCaseInsensitive() throws {
+        let container = try makeInMemoryV2Container()
+        let context = container.viewContext
+
+        let firstID = UUID()
+        let secondID = UUID()
+
+        context.performAndWait {
+            _ = makeLifeArea(
+                in: context,
+                id: firstID,
+                name: "Work",
+                color: "#111111",
+                icon: "briefcase",
+                isArchived: false,
+                createdAt: Date(timeIntervalSince1970: 1_500)
+            )
+            _ = makeLifeArea(
+                in: context,
+                id: secondID,
+                name: " work ",
+                color: "#222222",
+                icon: "desktopcomputer",
+                isArchived: false,
+                createdAt: Date(timeIntervalSince1970: 2_000)
+            )
+            _ = makeProject(in: context, lifeAreaID: secondID)
+            _ = makeTaskDefinition(in: context, lifeAreaID: secondID)
+            try? context.save()
+        }
+
+        let report = try LifeAreaIdentityRepair.repair(in: context)
+        try context.save()
+
+        XCTAssertEqual(report.duplicateGroups, 1)
+        XCTAssertEqual(report.merged, 1)
+        XCTAssertEqual(report.canonicalIDsByNormalizedName["work"], secondID)
+
+        let lifeAreas = try fetchObjects(entityName: "LifeArea", in: context)
+        let workAreas = lifeAreas.filter {
+            LifeAreaIdentityRepair.normalizedNameKey($0.value(forKey: "name") as? String) == "work"
+        }
+        XCTAssertEqual(workAreas.count, 1)
+        XCTAssertEqual(workAreas.first?.value(forKey: "id") as? UUID, secondID)
+    }
+
+    func testLifeAreaRepairFillsMissingNameAndMaintainsSingleGeneral() throws {
+        let container = try makeInMemoryV2Container()
+        let context = container.viewContext
+
+        let canonicalGeneralID = UUID()
+
+        context.performAndWait {
+            _ = makeLifeArea(
+                in: context,
+                id: canonicalGeneralID,
+                name: "General",
+                color: "#123456",
+                icon: "square.grid.2x2",
+                isArchived: false,
+                createdAt: Date(timeIntervalSince1970: 1_000)
+            )
+            _ = makeLifeArea(
+                in: context,
+                id: UUID(),
+                name: nil,
+                color: nil,
+                icon: nil,
+                isArchived: false,
+                createdAt: Date(timeIntervalSince1970: 2_000)
+            )
+            _ = makeLifeArea(
+                in: context,
+                id: UUID(),
+                name: "   ",
+                color: nil,
+                icon: nil,
+                isArchived: false,
+                createdAt: Date(timeIntervalSince1970: 3_000)
+            )
+            try? context.save()
+        }
+
+        let report = try LifeAreaIdentityRepair.repair(in: context)
+        try context.save()
+
+        XCTAssertGreaterThanOrEqual(report.normalized, 2)
+        XCTAssertEqual(report.merged, 2)
+
+        let lifeAreas = try fetchObjects(entityName: "LifeArea", in: context)
+        let generalAreas = lifeAreas.filter {
+            LifeAreaIdentityRepair.normalizedNameKey($0.value(forKey: "name") as? String) == "general"
+        }
+        XCTAssertEqual(generalAreas.count, 1)
+        XCTAssertEqual(generalAreas.first?.value(forKey: "id") as? UUID, canonicalGeneralID)
+        XCTAssertEqual(generalAreas.first?.value(forKey: "name") as? String, "General")
+    }
+
+    private func makeInMemoryV2Container() throws -> NSPersistentContainer {
+        let bundles = [Bundle.main, Bundle(for: type(of: self))]
+        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
+              model.entitiesByName["TaskDefinition"] != nil
+        else {
+            throw NSError(domain: "LifeAreaIdentityRepairTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
+        }
+
+        let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
+        let description = NSPersistentStoreDescription()
+        description.type = NSInMemoryStoreType
+        description.shouldAddStoreAsynchronously = false
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
+    }
+
+    @discardableResult
+    private func makeLifeArea(
+        in context: NSManagedObjectContext,
+        id: UUID,
+        name: String?,
+        color: String?,
+        icon: String?,
+        isArchived: Bool,
+        createdAt: Date
+    ) -> NSManagedObject {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: context)
+        object.setValue(id, forKey: "id")
+        object.setValue(name, forKey: "name")
+        object.setValue(color, forKey: "color")
+        object.setValue(icon, forKey: "icon")
+        object.setValue(Int32(0), forKey: "sortOrder")
+        object.setValue(isArchived, forKey: "isArchived")
+        object.setValue(createdAt, forKey: "createdAt")
+        object.setValue(createdAt, forKey: "updatedAt")
+        return object
+    }
+
+    @discardableResult
+    private func makeProject(in context: NSManagedObjectContext, lifeAreaID: UUID) -> NSManagedObject {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
+        object.setValue(UUID(), forKey: "id")
+        object.setValue("Test Project", forKey: "name")
+        object.setValue(lifeAreaID, forKey: "lifeAreaID")
+        object.setValue(Date(), forKey: "createdAt")
+        object.setValue(Date(), forKey: "updatedAt")
+        return object
+    }
+
+    @discardableResult
+    private func makeTaskDefinition(in context: NSManagedObjectContext, lifeAreaID: UUID) -> NSManagedObject {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+        object.setValue(UUID(), forKey: "id")
+        object.setValue("Repair Task", forKey: "title")
+        object.setValue(lifeAreaID, forKey: "lifeAreaID")
+        object.setValue(Date(), forKey: "createdAt")
+        object.setValue(Date(), forKey: "updatedAt")
+        return object
+    }
+
+    @discardableResult
+    private func makeHabitDefinition(in context: NSManagedObjectContext, lifeAreaID: UUID) -> NSManagedObject {
+        let object = NSEntityDescription.insertNewObject(forEntityName: "HabitDefinition", into: context)
+        object.setValue(UUID(), forKey: "id")
+        object.setValue("Repair Habit", forKey: "title")
+        object.setValue("daily", forKey: "habitType")
+        object.setValue(lifeAreaID, forKey: "lifeAreaID")
+        object.setValue(Date(), forKey: "createdAt")
+        object.setValue(Date(), forKey: "updatedAt")
+        return object
+    }
+
+    private func fetchObjects(
+        entityName: String,
+        in context: NSManagedObjectContext
+    ) throws -> [NSManagedObject] {
+        let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+        request.returnsObjectsAsFaults = false
+        return try context.fetch(request)
+    }
+}
+
+final class ManageLifeAreasUseCaseValidationTests: XCTestCase {
+    func testManageLifeAreasCreateRejectsDuplicateNormalizedName() {
+        let existing = LifeArea(name: "General", color: nil, icon: nil)
+        let repository = CapturingLifeAreaRepository(storedAreas: [existing])
+        let useCase = ManageLifeAreasUseCase(repository: repository)
+
+        let expectation = expectation(description: "reject duplicate life area")
+        useCase.create(name: "  gEnErAl ", color: "#123456", icon: "circle") { result in
+            switch result {
+            case .success:
+                XCTFail("Expected duplicate life area create to fail")
+            case .failure(let error):
+                let nsError = error as NSError
+                XCTAssertEqual(nsError.domain, "ManageLifeAreasUseCase")
+                XCTAssertEqual(nsError.code, 409)
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repository.createCallCount, 0)
+    }
+}
+
+final class AddTaskViewModelLifeAreaDedupeTests: XCTestCase {
+    func testLoadLifeAreasDedupesSameNameChipsAndKeepsStableSelection() {
+        let duplicateGeneralA = LifeArea(id: UUID(), name: "General", color: nil, icon: "square.grid.2x2")
+        let duplicateGeneralB = LifeArea(id: UUID(), name: " general ", color: "#111111", icon: "circle")
+        let health = LifeArea(id: UUID(), name: "Health", color: "#00AA00", icon: "heart")
+
+        let deferredRepository = DeferredLifeAreaRepository(storedAreas: [duplicateGeneralA, duplicateGeneralB, health])
+        let lifeAreasUseCase = ManageLifeAreasUseCase(repository: deferredRepository)
+
+        let manageProjectsUseCase = ManageProjectsUseCase(
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+        )
+        let createTaskUseCase = CreateTaskDefinitionUseCase(
+            repository: NoopTaskDefinitionRepository(),
+            taskTagLinkRepository: nil,
+            taskDependencyRepository: nil
+        )
+
+        let viewModel = AddTaskViewModel(
+            taskReadModelRepository: nil,
+            manageProjectsUseCase: manageProjectsUseCase,
+            createTaskDefinitionUseCase: createTaskUseCase,
+            rescheduleTaskDefinitionUseCase: nil,
+            manageLifeAreasUseCase: lifeAreasUseCase,
+            manageSectionsUseCase: nil,
+            manageTagsUseCase: nil
+        )
+
+        viewModel.selectedLifeAreaID = duplicateGeneralB.id
+
+        let expectation = expectation(description: "life areas loaded")
+        deferredRepository.completePendingFetch()
+        DispatchQueue.main.async {
+            XCTAssertEqual(viewModel.lifeAreas.count, 2)
+            XCTAssertEqual(viewModel.selectedLifeAreaID, duplicateGeneralB.id)
+            let normalizedNames = Set(viewModel.lifeAreas.map { LifeAreaIdentityRepair.normalizedNameKey($0.name) })
+            XCTAssertEqual(normalizedNames, Set(["general", "health"]))
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+    }
+}
+
+final class AddTaskViewModelTagCreationTests: XCTestCase {
+    func testCreateTagAddsChipAndSelectsTag() throws {
+        let tagRepository = InMemoryTagRepositoryForAddTaskTests()
+        let manageTagsUseCase = ManageTagsUseCase(repository: tagRepository)
+
+        let manageProjectsUseCase = ManageProjectsUseCase(
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+        )
+        let createTaskUseCase = CreateTaskDefinitionUseCase(
+            repository: NoopTaskDefinitionRepository(),
+            taskTagLinkRepository: nil,
+            taskDependencyRepository: nil
+        )
+
+        let viewModel = AddTaskViewModel(
+            taskReadModelRepository: nil,
+            manageProjectsUseCase: manageProjectsUseCase,
+            createTaskDefinitionUseCase: createTaskUseCase,
+            rescheduleTaskDefinitionUseCase: nil,
+            manageLifeAreasUseCase: nil,
+            manageSectionsUseCase: nil,
+            manageTagsUseCase: manageTagsUseCase
+        )
+
+        let createExpectation = expectation(description: "tag created")
+        viewModel.createTag(name: "Errands") { success in
+            XCTAssertTrue(success)
+            createExpectation.fulfill()
+        }
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(viewModel.tags.count, 1)
+        guard let createdTag = viewModel.tags.first else {
+            XCTFail("Expected created tag in view model")
+            return
+        }
+        XCTAssertEqual(createdTag.name, "Errands")
+        XCTAssertTrue(viewModel.selectedTagIDs.contains(createdTag.id))
+
+        let reloadedViewModel = AddTaskViewModel(
+            taskReadModelRepository: nil,
+            manageProjectsUseCase: manageProjectsUseCase,
+            createTaskDefinitionUseCase: createTaskUseCase,
+            rescheduleTaskDefinitionUseCase: nil,
+            manageLifeAreasUseCase: nil,
+            manageSectionsUseCase: nil,
+            manageTagsUseCase: manageTagsUseCase
+        )
+        let reloadExpectation = expectation(description: "reloaded tags fetched")
+        DispatchQueue.main.async {
+            XCTAssertTrue(reloadedViewModel.tags.contains(where: { $0.id == createdTag.id }))
+            reloadExpectation.fulfill()
+        }
+        waitForExpectations(timeout: 1.0)
+    }
+}
+
+final class RecurringTaskSeriesMaterializationTests: XCTestCase {
+    func testCreateDailyRecurringTaskMaterializesConcreteSeriesWithSharedSeriesID() throws {
+        let repository = InMemoryTaskDefinitionRepositoryStub()
+        let tagLinkRepository = CapturingTaskTagLinkRepositoryForRecurrenceTests()
+        let useCase = CreateTaskDefinitionUseCase(
+            repository: repository,
+            taskTagLinkRepository: tagLinkRepository,
+            taskDependencyRepository: nil
+        )
+
+        let startDate = Calendar.current.startOfDay(for: Date())
+        let tagID = UUID()
+        let request = CreateTaskDefinitionRequest(
+            title: "Daily workout",
+            details: "Stay consistent",
+            projectID: ProjectConstants.inboxProjectID,
+            dueDate: startDate,
+            tagIDs: [tagID],
+            repeatPattern: .daily
+        )
+
+        let created = try awaitResult { completion in
+            useCase.execute(request: request, completion: completion)
+        }
+
+        guard let seriesID = created.recurrenceSeriesID else {
+            XCTFail("Expected recurrence series ID on recurring root task")
+            return
+        }
+
+        let seriesTasks = repository.byID.values
+            .filter { $0.recurrenceSeriesID == seriesID }
+            .sorted {
+                guard let left = $0.dueDate, let right = $1.dueDate else { return $0.id.uuidString < $1.id.uuidString }
+                return left < right
+            }
+
+        XCTAssertGreaterThan(seriesTasks.count, 1, "Expected concrete future tasks for daily recurring series")
+        XCTAssertEqual(seriesTasks.first?.id, created.id)
+        XCTAssertTrue(seriesTasks.dropFirst().allSatisfy { $0.repeatPattern == nil })
+        XCTAssertTrue(seriesTasks.allSatisfy { Set($0.tagIDs) == Set([tagID]) })
+
+        let calendar = Calendar.current
+        let uniqueDays = Set(seriesTasks.compactMap { $0.dueDate }.map { calendar.startOfDay(for: $0) })
+        XCTAssertEqual(uniqueDays.count, seriesTasks.count, "Expected one task per day in series")
+    }
+
+    func testMaintainRecurringSeriesIsDedupedAcrossRuns() throws {
+        let repository = InMemoryTaskDefinitionRepositoryStub()
+        let tagLinkRepository = CapturingTaskTagLinkRepositoryForRecurrenceTests()
+        let useCase = CreateTaskDefinitionUseCase(
+            repository: repository,
+            taskTagLinkRepository: tagLinkRepository,
+            taskDependencyRepository: nil
+        )
+
+        let startDate = Calendar.current.startOfDay(for: Date())
+        let request = CreateTaskDefinitionRequest(
+            title: "Weekday focus",
+            projectID: ProjectConstants.inboxProjectID,
+            dueDate: startDate,
+            repeatPattern: .weekdays
+        )
+
+        let created = try awaitResult { completion in
+            useCase.execute(request: request, completion: completion)
+        }
+        let initialSeriesCount = repository.byID.values.count
+
+        let firstTopUpCount = try awaitResult { completion in
+            useCase.maintainRecurringSeries(daysAhead: 45, completion: completion)
+        }
+        let secondTopUpCount = try awaitResult { completion in
+            useCase.maintainRecurringSeries(daysAhead: 45, completion: completion)
+        }
+
+        XCTAssertEqual(firstTopUpCount, 0)
+        XCTAssertEqual(secondTopUpCount, 0)
+        XCTAssertEqual(repository.byID.values.count, initialSeriesCount)
+
+        let seriesTasks = repository.byID.values.filter { $0.recurrenceSeriesID == created.recurrenceSeriesID }
+        XCTAssertGreaterThan(seriesTasks.count, 1)
+    }
+}
+
+final class DeleteTaskDefinitionUseCaseSeriesScopeTests: XCTestCase {
+    func testDeleteSingleScopeDeletesOnlyTargetTask() throws {
+        let seriesID = UUID()
+        let first = TaskDefinition(title: "Daily 1", recurrenceSeriesID: seriesID)
+        let second = TaskDefinition(title: "Daily 2", recurrenceSeriesID: seriesID)
+        let third = TaskDefinition(title: "Daily 3", recurrenceSeriesID: seriesID)
+        let unrelated = TaskDefinition(title: "Unrelated", recurrenceSeriesID: UUID())
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [first, second, third, unrelated])
+        let useCase = DeleteTaskDefinitionUseCase(repository: repository, tombstoneRepository: nil)
+
+        let _: Void = try awaitResult { completion in
+            useCase.execute(taskID: second.id, scope: .single, completion: completion)
+        }
+
+        let remaining = Set(repository.byID.keys)
+        XCTAssertFalse(remaining.contains(second.id))
+        XCTAssertTrue(remaining.contains(first.id))
+        XCTAssertTrue(remaining.contains(third.id))
+        XCTAssertTrue(remaining.contains(unrelated.id))
+    }
+
+    func testDeleteSeriesScopeDeletesAllTasksInSeriesOnly() throws {
+        let seriesID = UUID()
+        let first = TaskDefinition(title: "Daily 1", recurrenceSeriesID: seriesID)
+        let second = TaskDefinition(title: "Daily 2", recurrenceSeriesID: seriesID)
+        let third = TaskDefinition(title: "Daily 3", recurrenceSeriesID: seriesID)
+        let unrelated = TaskDefinition(title: "Unrelated", recurrenceSeriesID: UUID())
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [first, second, third, unrelated])
+        let useCase = DeleteTaskDefinitionUseCase(repository: repository, tombstoneRepository: nil)
+
+        let _: Void = try awaitResult { completion in
+            useCase.execute(taskID: second.id, scope: .series, completion: completion)
+        }
+
+        let remaining = Set(repository.byID.keys)
+        XCTAssertFalse(remaining.contains(first.id))
+        XCTAssertFalse(remaining.contains(second.id))
+        XCTAssertFalse(remaining.contains(third.id))
+        XCTAssertTrue(remaining.contains(unrelated.id))
+    }
+}
+
+private final class InMemoryTagRepositoryForAddTaskTests: TagRepositoryProtocol {
+    private(set) var tags: [TagDefinition] = []
+
+    func fetchAll(completion: @escaping (Result<[TagDefinition], Error>) -> Void) {
+        completion(.success(tags))
+    }
+
+    func create(_ tag: TagDefinition, completion: @escaping (Result<TagDefinition, Error>) -> Void) {
+        tags.removeAll(where: { $0.id == tag.id })
+        tags.append(tag)
+        completion(.success(tag))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        tags.removeAll(where: { $0.id == id })
+        completion(.success(()))
+    }
+}
+
+private final class CapturingTaskTagLinkRepositoryForRecurrenceTests: TaskTagLinkRepositoryProtocol {
+    private var linksByTaskID: [UUID: Set<UUID>] = [:]
+
+    func fetchTagIDs(taskID: UUID, completion: @escaping (Result<[UUID], Error>) -> Void) {
+        completion(.success(Array(linksByTaskID[taskID] ?? []).sorted { $0.uuidString < $1.uuidString }))
+    }
+
+    func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
+        linksByTaskID[taskID] = Set(tagIDs)
+        completion(.success(()))
+    }
+}
+
+private final class CapturingLifeAreaRepository: LifeAreaRepositoryProtocol {
+    private(set) var storedAreas: [LifeArea]
+    private(set) var createCallCount = 0
+
+    init(storedAreas: [LifeArea]) {
+        self.storedAreas = storedAreas
+    }
+
+    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+        completion(.success(storedAreas))
+    }
+
+    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+        createCallCount += 1
+        storedAreas.append(area)
+        completion(.success(area))
+    }
+
+    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+        completion(.success(area))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+}
+
+private final class DeferredLifeAreaRepository: LifeAreaRepositoryProtocol {
+    private let storedAreas: [LifeArea]
+    private var pendingFetchCompletion: ((Result<[LifeArea], Error>) -> Void)?
+
+    init(storedAreas: [LifeArea]) {
+        self.storedAreas = storedAreas
+    }
+
+    func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
+        pendingFetchCompletion = completion
+    }
+
+    func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+        completion(.success(area))
+    }
+
+    func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
+        completion(.success(area))
+    }
+
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func completePendingFetch() {
+        pendingFetchCompletion?(.success(storedAreas))
+        pendingFetchCompletion = nil
+    }
+}
+
 private func workspaceRootURLForTests() -> URL {
     URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
 }
@@ -3948,5 +4677,89 @@ private extension XCTestCase {
         }
         waitForExpectations(timeout: timeout)
         return try XCTUnwrap(captured).get()
+    }
+}
+
+final class TaskDefinitionClearFlagPersistenceTests: XCTestCase {
+    func testUpdateRequestClearFlagsRemovePersistedOptionalFields() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTaskDefinitionRepository(container: container)
+
+        let taskID = UUID()
+        let lifeAreaID = UUID()
+        let sectionID = UUID()
+        let dueDate = Date().addingTimeInterval(86_400)
+        let reminderTime = Date().addingTimeInterval(43_200)
+
+        _ = try awaitResult { completion in
+            repository.create(
+                request: CreateTaskDefinitionRequest(
+                    id: taskID,
+                    title: "Clear me",
+                    details: "Has optional metadata",
+                    projectID: ProjectConstants.inboxProjectID,
+                    projectName: ProjectConstants.inboxProjectName,
+                    lifeAreaID: lifeAreaID,
+                    sectionID: sectionID,
+                    dueDate: dueDate,
+                    alertReminderTime: reminderTime,
+                    estimatedDuration: 45 * 60,
+                    repeatPattern: .daily,
+                    createdAt: Date()
+                ),
+                completion: completion
+            )
+        }
+
+        _ = try awaitResult { completion in
+            repository.update(
+                request: UpdateTaskDefinitionRequest(
+                    id: taskID,
+                    clearLifeArea: true,
+                    clearSection: true,
+                    clearDueDate: true,
+                    clearReminderTime: true,
+                    clearEstimatedDuration: true,
+                    clearRepeatPattern: true
+                ),
+                completion: completion
+            )
+        }
+
+        let updated = try awaitResult { completion in
+            repository.fetchTaskDefinition(id: taskID, completion: completion)
+        }
+        let task = try XCTUnwrap(updated)
+
+        XCTAssertNil(task.lifeAreaID)
+        XCTAssertNil(task.sectionID)
+        XCTAssertNil(task.dueDate)
+        XCTAssertNil(task.alertReminderTime)
+        XCTAssertNil(task.estimatedDuration)
+        XCTAssertNil(task.repeatPattern)
+    }
+
+    private func makeInMemoryV2Container() throws -> NSPersistentContainer {
+        let bundles = [Bundle.main, Bundle(for: type(of: self))]
+        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
+              model.entitiesByName["TaskDefinition"] != nil
+        else {
+            throw NSError(domain: "TaskDefinitionClearFlagPersistenceTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
+        }
+
+        let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
+        let description = NSPersistentStoreDescription()
+        description.type = NSInMemoryStoreType
+        description.shouldAddStoreAsynchronously = false
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
     }
 }

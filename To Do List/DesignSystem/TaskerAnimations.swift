@@ -55,17 +55,17 @@ public struct StaggeredAppearance: ViewModifier {
 // MARK: - Scale on Press Modifier
 
 public struct ScaleOnPress: ViewModifier {
-    @State private var isPressed = false
-
     public func body(content: Content) -> some View {
         content
-            .scaleEffect(isPressed ? 0.97 : 1.0)
-            .animation(TaskerAnimation.quick, value: isPressed)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in isPressed = true }
-                    .onEnded { _ in isPressed = false }
-            )
+            .buttonStyle(TaskerScaleOnPressButtonStyle())
+    }
+}
+
+private struct TaskerScaleOnPressButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(TaskerAnimation.quick, value: configuration.isPressed)
     }
 }
 
@@ -113,6 +113,36 @@ public extension View {
 
     func shimmer() -> some View {
         modifier(ShimmerEffect())
+    }
+
+    func bellShake(trigger: Binding<Bool>) -> some View {
+        modifier(BellShake(trigger: trigger))
+    }
+}
+
+// MARK: - Bell Shake Modifier
+
+public struct BellShake: ViewModifier {
+    @Binding var trigger: Bool
+    @State private var shaking = false
+
+    public func body(content: Content) -> some View {
+        content
+            .rotationEffect(.degrees(shaking ? 15 : 0))
+            .animation(
+                shaking
+                    ? .spring(response: 0.15, dampingFraction: 0.3).repeatCount(3)
+                    : .default,
+                value: shaking
+            )
+            .onChange(of: trigger) { _, newValue in
+                if newValue {
+                    shaking = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        shaking = false
+                    }
+                }
+            }
     }
 }
 

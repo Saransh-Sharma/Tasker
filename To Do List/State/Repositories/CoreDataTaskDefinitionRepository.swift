@@ -105,6 +105,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     public func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
         let request = CreateTaskDefinitionRequest(
             id: task.id,
+            recurrenceSeriesID: task.recurrenceSeriesID,
             title: task.title,
             details: task.details,
             projectID: task.projectID,
@@ -122,6 +123,8 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             context: task.context,
             isEveningTask: task.isEveningTask,
             alertReminderTime: task.alertReminderTime,
+            estimatedDuration: task.estimatedDuration,
+            repeatPattern: task.repeatPattern,
             createdAt: task.createdAt
         )
         create(request: request, completion: completion)
@@ -162,6 +165,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     public func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
         let request = UpdateTaskDefinitionRequest(
             id: task.id,
+            recurrenceSeriesID: task.recurrenceSeriesID,
             title: task.title,
             details: task.details,
             projectID: task.projectID,
@@ -180,6 +184,9 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             isComplete: task.isComplete,
             dateCompleted: task.dateCompleted,
             alertReminderTime: task.alertReminderTime,
+            estimatedDuration: task.estimatedDuration,
+            actualDuration: task.actualDuration,
+            repeatPattern: task.repeatPattern,
             updatedAt: task.updatedAt
         )
         update(request: request, completion: completion)
@@ -264,9 +271,13 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         let category = TaskCategory(rawValue: attributeValue("category", from: entity) ?? "") ?? .general
         let context = TaskContext(rawValue: attributeValue("context", from: entity) ?? "") ?? .anywhere
         let projectName = resolvedProjectName(from: entity) ?? ProjectConstants.inboxProjectName
+        let repeatPattern = decodeRepeatPattern(from: entity)
+        let estimatedDuration = (attributeValue("estimatedDuration", from: entity) as Double?).flatMap { $0 > 0 ? $0 : nil }
+        let actualDuration = (attributeValue("actualDuration", from: entity) as Double?).flatMap { $0 > 0 ? $0 : nil }
 
         return TaskDefinition(
             id: taskID,
+            recurrenceSeriesID: attributeValue("recurrenceSeriesID", from: entity),
             projectID: projectID,
             projectName: projectName,
             lifeAreaID: attributeValue("lifeAreaID", from: entity),
@@ -287,6 +298,9 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             alertReminderTime: attributeValue("alertReminderTime", from: entity),
             tagIDs: [],
             dependencies: [],
+            estimatedDuration: estimatedDuration,
+            actualDuration: actualDuration,
+            repeatPattern: repeatPattern,
             createdAt: attributeValue("createdAt", from: entity) ?? Date(),
             updatedAt: attributeValue("updatedAt", from: entity) ?? Date()
         )
@@ -442,6 +456,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         setAttribute("lifeAreaID", value: request.lifeAreaID, on: entity)
         setAttribute("sectionID", value: request.sectionID, on: entity)
         setAttribute("parentTaskID", value: request.parentTaskID, on: entity)
+        setAttribute("recurrenceSeriesID", value: request.recurrenceSeriesID, on: entity)
         setAttribute("title", value: request.title, on: entity)
         setAttribute("notes", value: request.details, on: entity)
         setAttribute("priority", value: request.priority.rawValue, on: entity)
@@ -450,6 +465,9 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         setAttribute("category", value: request.category.rawValue, on: entity)
         setAttribute("context", value: request.context.rawValue, on: entity)
         setAttribute("dueDate", value: request.dueDate, on: entity)
+        setAttribute("estimatedDuration", value: request.estimatedDuration, on: entity)
+        setAttribute("actualDuration", value: nil, on: entity)
+        setAttribute("repeatPatternData", value: encodeRepeatPattern(request.repeatPattern), on: entity)
         setAttribute("isComplete", value: false, on: entity)
         setAttribute("dateAdded", value: request.createdAt, on: entity)
         setAttribute("dateCompleted", value: nil, on: entity)
@@ -471,10 +489,14 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         if let projectID = request.projectID {
             setAttribute("projectID", value: projectID, on: entity)
         }
-        if request.lifeAreaID != nil {
+        if request.clearLifeArea {
+            setAttribute("lifeAreaID", value: nil, on: entity)
+        } else if request.lifeAreaID != nil {
             setAttribute("lifeAreaID", value: request.lifeAreaID, on: entity)
         }
-        if request.sectionID != nil {
+        if request.clearSection {
+            setAttribute("sectionID", value: nil, on: entity)
+        } else if request.sectionID != nil {
             setAttribute("sectionID", value: request.sectionID, on: entity)
         }
         if request.clearParentTaskLink {
@@ -482,7 +504,12 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         } else if let parentTaskID = request.parentTaskID {
             setAttribute("parentTaskID", value: parentTaskID, on: entity)
         }
-        if let dueDate = request.dueDate {
+        if let recurrenceSeriesID = request.recurrenceSeriesID {
+            setAttribute("recurrenceSeriesID", value: recurrenceSeriesID, on: entity)
+        }
+        if request.clearDueDate {
+            setAttribute("dueDate", value: nil, on: entity)
+        } else if let dueDate = request.dueDate {
             setAttribute("dueDate", value: dueDate, on: entity)
         }
         if let priority = request.priority {
@@ -507,8 +534,23 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         if request.dateCompleted != nil || request.isComplete == false {
             setAttribute("dateCompleted", value: request.dateCompleted, on: entity)
         }
-        if let alertReminderTime = request.alertReminderTime {
+        if request.clearReminderTime {
+            setAttribute("alertReminderTime", value: nil, on: entity)
+        } else if let alertReminderTime = request.alertReminderTime {
             setAttribute("alertReminderTime", value: alertReminderTime, on: entity)
+        }
+        if request.clearEstimatedDuration {
+            setAttribute("estimatedDuration", value: nil, on: entity)
+        } else if let estimatedDuration = request.estimatedDuration {
+            setAttribute("estimatedDuration", value: estimatedDuration, on: entity)
+        }
+        if let actualDuration = request.actualDuration {
+            setAttribute("actualDuration", value: actualDuration, on: entity)
+        }
+        if request.clearRepeatPattern {
+            setAttribute("repeatPatternData", value: nil, on: entity)
+        } else if let repeatPattern = request.repeatPattern {
+            setAttribute("repeatPatternData", value: encodeRepeatPattern(repeatPattern), on: entity)
         }
         setAttribute("updatedAt", value: request.updatedAt, on: entity)
     }
@@ -528,6 +570,21 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     private static func setAttribute(_ key: String, value: Any?, on entity: NSManagedObject) {
         guard entity.entity.attributesByName[key] != nil else { return }
         entity.setValue(value, forKey: key)
+    }
+
+    private static func encodeRepeatPattern(_ repeatPattern: TaskRepeatPattern?) -> Data? {
+        guard let repeatPattern else { return nil }
+        return try? JSONEncoder().encode(repeatPattern)
+    }
+
+    private static func decodeRepeatPattern(from entity: NSManagedObject) -> TaskRepeatPattern? {
+        guard
+            let data = attributeValue("repeatPatternData", from: entity) as Data?,
+            data.isEmpty == false
+        else {
+            return nil
+        }
+        return try? JSONDecoder().decode(TaskRepeatPattern.self, from: data)
     }
 }
 

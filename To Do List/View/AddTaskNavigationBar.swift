@@ -2,7 +2,7 @@
 //  AddTaskNavigationBar.swift
 //  Tasker
 //
-//  Navigation bar for Add Task sheet with Cancel/Title/Done buttons.
+//  Navigation bar: Cancel | New Task | Done (Done disabled until valid).
 //
 
 import SwiftUI
@@ -10,7 +10,6 @@ import SwiftUI
 // MARK: - Add Task Navigation Bar
 
 struct AddTaskNavigationBar: View {
-    let title: String
     let canSave: Bool
     let onCancel: () -> Void
     let onSave: () -> Void
@@ -19,9 +18,7 @@ struct AddTaskNavigationBar: View {
 
     var body: some View {
         HStack {
-            // Cancel button
             Button {
-                TaskerFeedback.light()
                 onCancel()
             } label: {
                 Text("Cancel")
@@ -32,14 +29,12 @@ struct AddTaskNavigationBar: View {
 
             Spacer()
 
-            // Title
-            Text(title)
+            Text("New Task")
                 .font(.tasker(.headline))
                 .foregroundColor(Color.tasker.textPrimary)
 
             Spacer()
 
-            // Done button
             Button {
                 if canSave {
                     TaskerFeedback.success()
@@ -56,30 +51,3 @@ struct AddTaskNavigationBar: View {
         .padding(.vertical, spacing.s8)
     }
 }
-
-// MARK: - Preview
-
-#if DEBUG
-struct AddTaskNavigationBar_Previews: PreviewProvider {
-    static var previews: some View {
-        VStack(spacing: 20) {
-            AddTaskNavigationBar(
-                title: "New Task",
-                canSave: false,
-                onCancel: {},
-                onSave: {}
-            )
-
-            AddTaskNavigationBar(
-                title: "New Task",
-                canSave: true,
-                onCancel: {},
-                onSave: {}
-            )
-        }
-        .padding()
-        .background(Color.tasker.surfacePrimary)
-        .previewLayout(.sizeThatFits)
-    }
-}
-#endif

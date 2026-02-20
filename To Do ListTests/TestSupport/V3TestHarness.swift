@@ -109,9 +109,21 @@ final class InMemoryTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtoc
         if let title = request.title { current.title = title }
         if let details = request.details { current.details = details }
         if let projectID = request.projectID { current.projectID = projectID }
-        if let lifeAreaID = request.lifeAreaID { current.lifeAreaID = lifeAreaID }
-        if let sectionID = request.sectionID { current.sectionID = sectionID }
-        if let dueDate = request.dueDate { current.dueDate = dueDate }
+        if request.clearLifeArea {
+            current.lifeAreaID = nil
+        } else if let lifeAreaID = request.lifeAreaID {
+            current.lifeAreaID = lifeAreaID
+        }
+        if request.clearSection {
+            current.sectionID = nil
+        } else if let sectionID = request.sectionID {
+            current.sectionID = sectionID
+        }
+        if request.clearDueDate {
+            current.dueDate = nil
+        } else if let dueDate = request.dueDate {
+            current.dueDate = dueDate
+        }
         if let parentTaskID = request.parentTaskID { current.parentTaskID = parentTaskID }
         if request.clearParentTaskLink { current.parentTaskID = nil }
         if let tagIDs = request.tagIDs { current.tagIDs = tagIDs }
@@ -126,10 +138,22 @@ final class InMemoryTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtoc
             if isComplete == false { current.dateCompleted = nil }
         }
         if let dateCompleted = request.dateCompleted { current.dateCompleted = dateCompleted }
-        if let alertReminderTime = request.alertReminderTime { current.alertReminderTime = alertReminderTime }
-        if let estimatedDuration = request.estimatedDuration { current.estimatedDuration = estimatedDuration }
+        if request.clearReminderTime {
+            current.alertReminderTime = nil
+        } else if let alertReminderTime = request.alertReminderTime {
+            current.alertReminderTime = alertReminderTime
+        }
+        if request.clearEstimatedDuration {
+            current.estimatedDuration = nil
+        } else if let estimatedDuration = request.estimatedDuration {
+            current.estimatedDuration = estimatedDuration
+        }
         if let actualDuration = request.actualDuration { current.actualDuration = actualDuration }
-        if let repeatPattern = request.repeatPattern { current.repeatPattern = repeatPattern }
+        if request.clearRepeatPattern {
+            current.repeatPattern = nil
+        } else if let repeatPattern = request.repeatPattern {
+            current.repeatPattern = repeatPattern
+        }
         current.updatedAt = request.updatedAt
 
         byID[current.id] = current

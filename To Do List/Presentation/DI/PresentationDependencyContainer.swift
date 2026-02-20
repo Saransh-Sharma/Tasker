@@ -253,10 +253,6 @@ public final class PresentationDependencyContainer {
             }
             logDebug("✅ Injected HomeViewModel")
 
-        case let addTaskVC as AddTaskViewControllerProtocol:
-            addTaskVC.viewModel = makeNewAddTaskViewModel()
-            logDebug("✅ Injected AddTaskViewModel")
-
         case let projectVC as ProjectManagementViewControllerProtocol:
             projectVC.viewModel = makeProjectManagementViewModel()
             logDebug("✅ Injected ProjectManagementViewModel")
@@ -311,12 +307,6 @@ public protocol HomeViewControllerProtocol: AnyObject {
 public protocol HomeAnalyticsViewModelsInjectable: AnyObject {
     var chartCardViewModel: ChartCardViewModel! { get set }
     var radarChartCardViewModel: RadarChartCardViewModel! { get set }
-}
-
-/// Protocol for AddTaskViewController to receive ViewModel
-/// Note: viewModel is optional because the ViewModel path may be disabled
-public protocol AddTaskViewControllerProtocol: AnyObject {
-    var viewModel: AddTaskViewModel? { get set }
 }
 
 /// Protocol for ProjectManagementViewController to receive ViewModel

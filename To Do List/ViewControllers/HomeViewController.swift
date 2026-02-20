@@ -57,6 +57,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         bindViewModel()
         mountHomeShell()
         observeMutations()
+        observeTaskCreatedForSnackbar()
 
         updateDailyScore(for: dateForTheView)
     }
@@ -179,7 +180,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.viewModel?.toggleTaskCompletion(task)
             },
             onDeleteTask: { [weak self] task in
-                self?.viewModel?.deleteTask(task)
+                self?.handleTaskDeleteRequested(task)
             },
             onRescheduleTask: { [weak self] task in
                 self?.handleTaskReschedule(task)
@@ -260,16 +261,19 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     @objc func AddTaskAction() {
-        let addTaskVC = AddTaskViewController()
-        addTaskVC.delegate = self
         guard let presentationDependencyContainer else {
             fatalError("HomeViewController missing PresentationDependencyContainer")
         }
-        presentationDependencyContainer.inject(into: addTaskVC)
-
-        let navController = UINavigationController(rootViewController: addTaskVC)
-        navController.modalPresentationStyle = .fullScreen
-        present(navController, animated: true)
+        let vm = presentationDependencyContainer.makeNewAddTaskViewModel()
+        let sheet = AddTaskSheetView(viewModel: vm)
+        let hostingVC = UIHostingController(rootView: sheet)
+        hostingVC.modalPresentationStyle = .pageSheet
+        if let sheetController = hostingVC.sheetPresentationController {
+            sheetController.detents = [.medium(), .large()]
+            sheetController.prefersGrabberVisible = true
+            sheetController.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+        present(hostingVC, animated: true)
     }
 
     @objc private func openProjectCreator() {
@@ -321,11 +325,37 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(navController, animated: true)
     }
 
+    private func handleTaskDeleteRequested(_ task: TaskDefinition) {
+        guard let viewModel else { return }
+        guard task.recurrenceSeriesID != nil else {
+            viewModel.deleteTask(taskID: task.id) { _ in }
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "Delete recurring task?",
+            message: "Choose whether to delete only this task or every task in the series.",
+            preferredStyle: .actionSheet
+        )
+        alert.addAction(UIAlertAction(title: "Delete This Task", style: .destructive) { _ in
+            viewModel.deleteTask(taskID: task.id, scope: .single) { _ in }
+        })
+        alert.addAction(UIAlertAction(title: "Delete Entire Series", style: .destructive) { _ in
+            viewModel.deleteTask(taskID: task.id, scope: .series) { _ in }
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+        }
+        present(alert, animated: true)
+    }
+
     private func presentTaskDetailView(for task: TaskDefinition) {
         let detailView = TaskDetailSheetView(
             task: task,
             projects: viewModel?.projects ?? [],
-            onUpdate: { [weak self] request, completion in
+            onUpdate: { [weak self] taskID, request, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
                         domain: "HomeViewController",
@@ -334,9 +364,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.updateTask(taskID: task.id, request: request, completion: completion)
+                viewModel.updateTask(taskID: taskID, request: request, completion: completion)
             },
-            onSetCompletion: { [weak self] isComplete, completion in
+            onSetCompletion: { [weak self] taskID, isComplete, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
                         domain: "HomeViewController",
@@ -345,9 +375,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.setTaskCompletion(taskID: task.id, to: isComplete, completion: completion)
+                viewModel.setTaskCompletion(taskID: taskID, to: isComplete, completion: completion)
             },
-            onDelete: { [weak self] completion in
+            onDelete: { [weak self] taskID, scope, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
                         domain: "HomeViewController",
@@ -356,9 +386,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.deleteTask(taskID: task.id, completion: completion)
+                viewModel.deleteTask(taskID: taskID, scope: scope, completion: completion)
             },
-            onReschedule: { [weak self] date, completion in
+            onReschedule: { [weak self] taskID, date, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
                         domain: "HomeViewController",
@@ -367,7 +397,62 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.rescheduleTask(taskID: task.id, to: date, completion: completion)
+                viewModel.rescheduleTask(taskID: taskID, to: date, completion: completion)
+            },
+            onLoadMetadata: { [weak self] projectID, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 5,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.loadTaskDetailMetadata(projectID: projectID, completion: completion)
+            },
+            onLoadChildren: { [weak self] parentTaskID, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 6,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.loadTaskChildren(parentTaskID: parentTaskID, completion: completion)
+            },
+            onCreateTask: { [weak self] request, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 7,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.createTaskDefinition(request: request, completion: completion)
+            },
+            onCreateTag: { [weak self] name, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 8,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.createTagForTaskDetail(name: name, completion: completion)
+            },
+            onCreateProject: { [weak self] name, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 9,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.createProjectForTaskDetail(name: name, completion: completion)
             }
         )
 
@@ -782,15 +867,53 @@ private final class RescheduleViewController: UIViewController {
     }
 }
 
-// MARK: - AddTaskViewControllerDelegate
+// MARK: - Snackbar Support
 
-extension HomeViewController: AddTaskViewControllerDelegate {
-    func didCreateTask() {
-        viewModel?.handleExternalMutation(reason: .created, repostEvent: true)
+extension HomeViewController {
+    func observeTaskCreatedForSnackbar() {
+        NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
+            .receive(on: RunLoop.main)
+            .compactMap { $0.object as? TaskDefinition }
+            .sink { [weak self] createdTask in
+                self?.showTaskCreatedSnackbar(for: createdTask)
+            }
+            .store(in: &cancellables)
+    }
 
-        // Keep currently selected scope and date; let ViewModel reload pipeline settle.
-        if let selected = viewModel?.selectedDate {
-            dateForTheView = selected
+    private func showTaskCreatedSnackbar(for task: TaskDefinition) {
+        guard let hostingController = homeHostingController else { return }
+
+        let taskID = task.id
+        let snackbar = TaskerSnackbar(
+            data: SnackbarData(
+                message: "Task added.",
+                actions: [
+                    SnackbarAction(title: "Undo") { [weak self] in
+                        self?.viewModel?.deleteTask(taskID: taskID) { _ in }
+                    }
+                ]
+            ),
+            onDismiss: {}
+        )
+
+        let snackbarVC = UIHostingController(rootView: snackbar)
+        snackbarVC.view.backgroundColor = .clear
+        snackbarVC.view.translatesAutoresizingMaskIntoConstraints = false
+
+        addChild(snackbarVC)
+        view.addSubview(snackbarVC.view)
+        NSLayoutConstraint.activate([
+            snackbarVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            snackbarVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            snackbarVC.view.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+        ])
+        snackbarVC.didMove(toParent: self)
+
+        // Auto-remove after snackbar's auto-dismiss (5s + 0.4s animation)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
+            snackbarVC.willMove(toParent: nil)
+            snackbarVC.view.removeFromSuperview()
+            snackbarVC.removeFromParent()
         }
     }
 }

@@ -12,34 +12,125 @@ public final class DeleteTaskDefinitionUseCase {
         self.tombstoneRepository = tombstoneRepository
     }
 
-    public func execute(taskID: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
+    public func execute(
+        taskID: UUID,
+        scope: TaskDeleteScope = .single,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
         repository.fetchTaskDefinition(id: taskID) { result in
             switch result {
             case .failure(let error):
                 completion(.failure(error))
             case .success(let task):
-                self.repository.delete(id: taskID) { deleteResult in
-                    switch deleteResult {
+                guard let task else {
+                    completion(.success(()))
+                    return
+                }
+
+                guard
+                    scope == .series,
+                    let recurrenceSeriesID = task.recurrenceSeriesID
+                else {
+                    self.deleteSingle(taskID: taskID, deletedTask: task, completion: completion)
+                    return
+                }
+
+                self.repository.fetchAll(query: nil) { allResult in
+                    switch allResult {
                     case .failure(let error):
                         completion(.failure(error))
-                    case .success:
-                        self.createTombstoneIfNeeded(taskID: taskID)
-                        TaskNotificationDispatcher.postOnMain(
-                            name: NSNotification.Name("TaskDeleted"),
-                            object: task
+                    case .success(let allTasks):
+                        let seriesTasks = allTasks.filter { $0.recurrenceSeriesID == recurrenceSeriesID }
+                        let candidateIDs = Set(seriesTasks.map(\.id))
+                        if candidateIDs.isEmpty || candidateIDs == Set([taskID]) {
+                            self.deleteSingle(taskID: taskID, deletedTask: task, completion: completion)
+                            return
+                        }
+                        self.deleteMany(
+                            taskIDs: Array(candidateIDs),
+                            deletedTask: task,
+                            scope: .series,
+                            recurrenceSeriesID: recurrenceSeriesID,
+                            completion: completion
                         )
-                        TaskNotificationDispatcher.postOnMain(
-                            name: .homeTaskMutation,
-                            userInfo: [
-                                "reason": "deleted",
-                                "source": "deleteTaskDefinitionUseCase",
-                                "taskID": taskID.uuidString
-                            ]
-                        )
-                        completion(.success(()))
                     }
                 }
             }
+        }
+    }
+
+    private func deleteSingle(
+        taskID: UUID,
+        deletedTask: TaskDefinition?,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        deleteMany(
+            taskIDs: [taskID],
+            deletedTask: deletedTask,
+            scope: .single,
+            recurrenceSeriesID: nil,
+            completion: completion
+        )
+    }
+
+    private func deleteMany(
+        taskIDs: [UUID],
+        deletedTask: TaskDefinition?,
+        scope: TaskDeleteScope,
+        recurrenceSeriesID: UUID?,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        let uniqueIDs = Array(Set(taskIDs))
+        guard uniqueIDs.isEmpty == false else {
+            completion(.success(()))
+            return
+        }
+
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var firstError: Error?
+
+        for taskID in uniqueIDs {
+            group.enter()
+            repository.delete(id: taskID) { deleteResult in
+                switch deleteResult {
+                case .failure(let error):
+                    lock.lock()
+                    if firstError == nil {
+                        firstError = error
+                    }
+                    lock.unlock()
+                case .success:
+                    self.createTombstoneIfNeeded(taskID: taskID)
+                }
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) {
+            if let firstError {
+                completion(.failure(firstError))
+                return
+            }
+            TaskNotificationDispatcher.postOnMain(
+                name: NSNotification.Name("TaskDeleted"),
+                object: deletedTask
+            )
+            var userInfo: [String: Any] = [
+                "reason": "deleted",
+                "source": "deleteTaskDefinitionUseCase",
+                "taskID": uniqueIDs.first?.uuidString ?? ""
+            ]
+            userInfo["deleteScope"] = scope.rawValue
+            userInfo["deletedCount"] = uniqueIDs.count
+            if let recurrenceSeriesID {
+                userInfo["recurrenceSeriesID"] = recurrenceSeriesID.uuidString
+            }
+            TaskNotificationDispatcher.postOnMain(
+                name: .homeTaskMutation,
+                userInfo: userInfo
+            )
+            completion(.success(()))
         }
     }
 

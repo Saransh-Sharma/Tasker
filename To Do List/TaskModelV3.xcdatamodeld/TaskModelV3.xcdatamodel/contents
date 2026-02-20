@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24299" systemVersion="25A354" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="YES" userDefinedModelVersionIdentifier="">
-    <entity name="LifeArea" representedClassName="LifeArea" syncable="YES">
+    <entity name="LifeArea" representedClassName="LifeAreaEntity" codeGenerationType="class" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="name" optional="YES" attributeType="String"/>
         <attribute name="color" optional="YES" attributeType="String"/>
@@ -16,7 +16,7 @@
         <fetchIndex name="byLifeAreaID"><fetchIndexElement property="id" type="Binary" order="ascending"/></fetchIndex>
     </entity>
 
-    <entity name="Project" representedClassName="ProjectEntity" syncable="YES">
+    <entity name="Project" representedClassName="ProjectEntity" codeGenerationType="category" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="lifeAreaID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="name" optional="YES" attributeType="String"/>
@@ -52,7 +52,7 @@
         <fetchIndex name="byProjectName"><fetchIndexElement property="name" type="Binary" order="ascending"/></fetchIndex>
     </entity>
 
-    <entity name="ProjectSection" representedClassName="ProjectSection" syncable="YES">
+    <entity name="ProjectSection" representedClassName="ProjectSectionEntity" codeGenerationType="class" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="name" optional="YES" attributeType="String"/>
@@ -64,7 +64,7 @@
         <relationship name="tasks" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="TaskDefinition" inverseName="sectionRef" inverseEntity="TaskDefinition"/>
     </entity>
 
-    <entity name="Tag" representedClassName="Tag" syncable="YES">
+    <entity name="Tag" representedClassName="TagEntity" codeGenerationType="class" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="name" optional="YES" attributeType="String"/>
         <attribute name="color" optional="YES" attributeType="String"/>
@@ -74,13 +74,14 @@
         <relationship name="taskLinks" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="TaskTagLink" inverseName="tagRef" inverseEntity="TaskTagLink"/>
     </entity>
 
-    <entity name="TaskDefinition" representedClassName="TaskDefinitionEntity" syncable="YES">
+    <entity name="TaskDefinition" representedClassName="TaskDefinitionEntity" codeGenerationType="category" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="taskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="lifeAreaID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="sectionID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="parentTaskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="recurrenceSeriesID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="habitDefinitionID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="title" optional="YES" attributeType="String"/>
         <attribute name="notes" optional="YES" attributeType="String"/>
@@ -92,6 +93,7 @@
         <attribute name="estimatedDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
         <attribute name="actualDuration" optional="YES" attributeType="Double" usesScalarValueType="YES"/>
         <attribute name="source" optional="YES" attributeType="String"/>
+        <attribute name="repeatPatternData" optional="YES" attributeType="Binary"/>
         <attribute name="createdBy" optional="YES" attributeType="String"/>
         <attribute name="sortOrder" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="dueDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
@@ -124,7 +126,7 @@
         <fetchIndex name="byUpdatedAt"><fetchIndexElement property="updatedAt" type="Binary" order="ascending"/></fetchIndex>
     </entity>
 
-    <entity name="TaskDependency" representedClassName="TaskDependency" syncable="YES">
+    <entity name="TaskDependency" representedClassName="TaskDependency" codeGenerationType="class" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="taskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="dependsOnTaskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
@@ -139,7 +141,7 @@
         </fetchIndex>
     </entity>
 
-    <entity name="TaskTagLink" representedClassName="TaskTagLink" syncable="YES">
+    <entity name="TaskTagLink" representedClassName="TaskTagLink" codeGenerationType="class" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="taskID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="tagID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
@@ -152,7 +154,7 @@
         </fetchIndex>
     </entity>
 
-    <entity name="HabitDefinition" representedClassName="HabitDefinition" syncable="YES">
+    <entity name="HabitDefinition" representedClassName="HabitDefinition" codeGenerationType="class" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="lifeAreaID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
@@ -316,7 +318,7 @@
         <relationship name="sourceEventRef" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="XPEvent" inverseName="achievementUnlocks" inverseEntity="XPEvent"/>
     </entity>
 
-    <entity name="ExternalContainerMap" representedClassName="ExternalContainerMap" syncable="YES">
+    <entity name="ExternalContainerMap" representedClassName="ExternalContainerMap" codeGenerationType="class" syncable="YES">
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="provider" optional="YES" attributeType="String"/>
         <attribute name="projectID" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>

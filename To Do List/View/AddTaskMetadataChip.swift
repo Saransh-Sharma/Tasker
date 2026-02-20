@@ -31,6 +31,7 @@ struct AddTaskMetadataChip: View {
                     .font(.tasker(.callout))
                     .lineLimit(1)
             }
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundColor(isActive ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)

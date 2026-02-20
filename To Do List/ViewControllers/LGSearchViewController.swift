@@ -822,7 +822,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         let detailView = TaskDetailSheetView(
             task: task,
             projects: viewModel.projects,
-            onUpdate: { [weak self] request, completion in
+            onUpdate: { [weak self] taskID, request, completion in
                 guard let self else {
                     completion(.failure(NSError(
                         domain: "LGSearchViewController",
@@ -831,14 +831,14 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                     )))
                     return
                 }
-                self.viewModel.updateTask(taskID: task.id, request: request) { result in
+                self.viewModel.updateTask(taskID: taskID, request: request) { result in
                     if case .success = result {
                         self.refreshAfterTaskDetailMutation(reason: "update")
                     }
                     completion(result)
                 }
             },
-            onSetCompletion: { [weak self] isComplete, completion in
+            onSetCompletion: { [weak self] taskID, isComplete, completion in
                 guard let self else {
                     completion(.failure(NSError(
                         domain: "LGSearchViewController",
@@ -847,7 +847,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                     )))
                     return
                 }
-                self.viewModel.setTaskCompletion(taskID: task.id, to: isComplete) { success in
+                self.viewModel.setTaskCompletion(taskID: taskID, to: isComplete) { success in
                     guard success else {
                         completion(.failure(NSError(
                             domain: "LGSearchViewController",
@@ -857,7 +857,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                         return
                     }
                     self.refreshAfterTaskDetailMutation(reason: "toggle")
-                    if let updated = self.tasks.first(where: { $0.id == task.id }) {
+                    if let updated = self.tasks.first(where: { $0.id == taskID }) {
                         completion(.success(updated))
                     } else {
                         var fallback = task
@@ -867,7 +867,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                     }
                 }
             },
-            onDelete: { [weak self] completion in
+            onDelete: { [weak self] taskID, scope, completion in
                 guard let self else {
                     completion(.failure(NSError(
                         domain: "LGSearchViewController",
@@ -876,7 +876,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                     )))
                     return
                 }
-                self.viewModel.deleteTask(taskID: task.id) { success in
+                self.viewModel.deleteTask(taskID: taskID, scope: scope) { success in
                     guard success else {
                         completion(.failure(NSError(
                             domain: "LGSearchViewController",
@@ -889,7 +889,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                     completion(.success(()))
                 }
             },
-            onReschedule: { [weak self] date, completion in
+            onReschedule: { [weak self] taskID, date, completion in
                 guard let self else {
                     completion(.failure(NSError(
                         domain: "LGSearchViewController",
@@ -898,7 +898,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                     )))
                     return
                 }
-                self.viewModel.rescheduleTask(taskID: task.id, to: date) { success in
+                self.viewModel.rescheduleTask(taskID: taskID, to: date) { success in
                     guard success else {
                         completion(.failure(NSError(
                             domain: "LGSearchViewController",
@@ -908,7 +908,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                         return
                     }
                     self.refreshAfterTaskDetailMutation(reason: "reschedule")
-                    if let updated = self.tasks.first(where: { $0.id == task.id }) {
+                    if let updated = self.tasks.first(where: { $0.id == taskID }) {
                         completion(.success(updated))
                     } else {
                         var fallback = task
@@ -916,6 +916,66 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                         completion(.success(fallback))
                     }
                 }
+            },
+            onLoadMetadata: { [weak self] projectID, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 4,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.loadTaskDetailMetadata(projectID: projectID, completion: completion)
+            },
+            onLoadChildren: { [weak self] parentTaskID, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 5,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.loadTaskChildren(parentTaskID: parentTaskID, completion: completion)
+            },
+            onCreateTask: { [weak self] request, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 6,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.createTaskDefinition(request: request) { result in
+                    if case .success = result {
+                        self.refreshAfterTaskDetailMutation(reason: "create_step")
+                    }
+                    completion(result)
+                }
+            },
+            onCreateTag: { [weak self] name, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 7,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.createTagForTaskDetail(name: name, completion: completion)
+            },
+            onCreateProject: { [weak self] name, completion in
+                guard let self else {
+                    completion(.failure(NSError(
+                        domain: "LGSearchViewController",
+                        code: 8,
+                        userInfo: [NSLocalizedDescriptionKey: "Search controller unavailable"]
+                    )))
+                    return
+                }
+                self.viewModel.createProjectForTaskDetail(name: name, completion: completion)
             }
         )
 
@@ -947,12 +1007,43 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     }
 
     private func deleteTask(_ task: TaskDefinition) {
-        viewModel.deleteTask(taskID: task.id) { [weak self] success in
-            guard success else { return }
-            self?.presentedViewController?.dismiss(animated: true) { [weak self] in
-                self?.refreshAfterTaskDetailMutation(reason: "delete")
+        guard task.recurrenceSeriesID != nil else {
+            viewModel.deleteTask(taskID: task.id) { [weak self] success in
+                guard success else { return }
+                self?.presentedViewController?.dismiss(animated: true) { [weak self] in
+                    self?.refreshAfterTaskDetailMutation(reason: "delete")
+                }
             }
+            return
         }
+
+        let alert = UIAlertController(
+            title: "Delete recurring task?",
+            message: "Choose whether to delete only this task or every task in the series.",
+            preferredStyle: .actionSheet
+        )
+        alert.addAction(UIAlertAction(title: "Delete This Task", style: .destructive) { [weak self] _ in
+            self?.viewModel.deleteTask(taskID: task.id, scope: .single) { success in
+                guard success else { return }
+                self?.presentedViewController?.dismiss(animated: true) { [weak self] in
+                    self?.refreshAfterTaskDetailMutation(reason: "delete")
+                }
+            }
+        })
+        alert.addAction(UIAlertAction(title: "Delete Entire Series", style: .destructive) { [weak self] _ in
+            self?.viewModel.deleteTask(taskID: task.id, scope: .series) { success in
+                guard success else { return }
+                self?.presentedViewController?.dismiss(animated: true) { [weak self] in
+                    self?.refreshAfterTaskDetailMutation(reason: "delete_series")
+                }
+            }
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+        }
+        present(alert, animated: true)
     }
 
     private func rescheduleTask(_ task: TaskDefinition, to date: Date) {

@@ -23,22 +23,55 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public private(set) var isTaskCreated: Bool = false
     @Published public private(set) var validationErrors: [ValidationError] = []
     
-    // Form state
+    // Form state — Primary Capture
     @Published public var taskName: String = ""
     @Published public var taskDetails: String = ""
     @Published public var selectedPriority: TaskPriority = .low
     @Published public var selectedType: TaskType = .morning
     @Published public var selectedProject: String = "Inbox"
+    @Published public var dueDate: Date? = Date()
+    @Published public var hasReminder: Bool = false
+    @Published public var reminderTime: Date = Date()
+
+    // Form state — Secondary Details
     @Published public var selectedLifeAreaID: UUID?
     @Published public var selectedSectionID: UUID?
     @Published public var selectedTagIDs: Set<UUID> = []
+
+    // Form state — Advanced Planning
     @Published public var selectedParentTaskID: UUID?
     @Published public var selectedDependencyTaskIDs: Set<UUID> = []
-    @Published public var dueDate: Date = Date()
-    @Published public var hasReminder: Bool = false
-    @Published public var reminderTime: Date = Date()
+    @Published public var selectedDependencyKind: TaskDependencyKind = .related
+    @Published public var selectedEnergy: TaskEnergy = .medium
+    @Published public var selectedCategory: TaskCategory = .general
+    @Published public var selectedContext: TaskContext = .anywhere
+    @Published public var estimatedDuration: TimeInterval? = nil
+    @Published public var repeatPattern: TaskRepeatPattern? = nil
+
+    // UI state
+    @Published public var showMoreDetails: Bool = false
+    @Published public var showAdvancedPlanning: Bool = false
+    @Published public private(set) var lastCreatedTaskID: UUID? = nil
+
+    // Read-only loaded data
     @Published public private(set) var availableParentTasks: [TaskDefinition] = []
     @Published public private(set) var availableDependencyTasks: [TaskDefinition] = []
+
+    /// True when the form has any user-entered content (used for discard confirmation)
+    public var hasUnsavedChanges: Bool {
+        !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        || !taskDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        || selectedPriority != .low
+        || selectedType != .morning
+        || selectedProject != "Inbox"
+        || hasReminder
+        || selectedLifeAreaID != lifeAreas.first?.id
+        || selectedTagIDs.isEmpty == false
+        || selectedParentTaskID != nil
+        || selectedDependencyTaskIDs.isEmpty == false
+        || estimatedDuration != nil
+        || repeatPattern != nil
+    }
     
     // MARK: - Dependencies
     
@@ -91,7 +124,9 @@ public final class AddTaskViewModel: ObservableObject {
         let projectID = projects.first(where: { $0.name == selectedProject })?.id ?? ProjectConstants.inboxProjectID
 
         let resolvedTagIDs = selectedTagIDs.isEmpty ? parseImplicitTagIDs(from: taskName) : selectedTagIDs
+        let requestID = UUID()
         let definitionRequest = CreateTaskDefinitionRequest(
+            id: requestID,
             title: taskName,
             details: taskDetails.isEmpty ? nil : taskDetails,
             projectID: projectID,
@@ -103,18 +138,20 @@ public final class AddTaskViewModel: ObservableObject {
             tagIDs: Array(resolvedTagIDs),
             dependencies: selectedDependencyTaskIDs.map { dependsOnTaskID in
                 TaskDependencyLinkDefinition(
-                    taskID: UUID(), // replaced in use case with created task ID
+                    taskID: requestID,
                     dependsOnTaskID: dependsOnTaskID,
-                    kind: .related
+                    kind: selectedDependencyKind
                 )
             },
             priority: selectedPriority,
             type: selectedType,
-            energy: .medium,
-            category: .general,
-            context: .anywhere,
+            energy: selectedEnergy,
+            category: selectedCategory,
+            context: selectedContext,
             isEveningTask: selectedType == .evening,
-            alertReminderTime: hasReminder ? reminderTime : nil
+            alertReminderTime: hasReminder ? reminderTime : nil,
+            estimatedDuration: estimatedDuration,
+            repeatPattern: repeatPattern
         )
 
         createTaskDefinitionUseCase.execute(
@@ -125,6 +162,7 @@ public final class AddTaskViewModel: ObservableObject {
 
                 switch result {
                 case .success:
+                    self?.lastCreatedTaskID = requestID
                     self?.isTaskCreated = true
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
@@ -204,6 +242,47 @@ public final class AddTaskViewModel: ObservableObject {
             }
         }
     }
+
+    /// Create a tag inline from Add Task and select it on success.
+    public func createTag(name: String, completion: @escaping (Bool) -> Void) {
+        let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.isEmpty == false else {
+            completion(false)
+            return
+        }
+        guard let manageTagsUseCase else {
+            completion(false)
+            return
+        }
+
+        manageTagsUseCase.create(name: normalized, color: nil, icon: nil) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let createdTag):
+                    guard let self else {
+                        completion(false)
+                        return
+                    }
+                    if let existingIndex = self.tags.firstIndex(where: { $0.id == createdTag.id }) {
+                        self.tags[existingIndex] = createdTag
+                    } else {
+                        self.tags.append(createdTag)
+                    }
+                    self.tags.sort {
+                        if $0.sortOrder != $1.sortOrder {
+                            return $0.sortOrder < $1.sortOrder
+                        }
+                        return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                    }
+                    self.selectedTagIDs.insert(createdTag.id)
+                    completion(true)
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    completion(false)
+                }
+            }
+        }
+    }
     
     /// Reschedule task (for editing existing tasks)
     public func rescheduleTask(_ taskId: UUID, to newDate: Date) {
@@ -237,15 +316,24 @@ public final class AddTaskViewModel: ObservableObject {
         selectedPriority = .low
         selectedType = .morning
         selectedProject = "Inbox"
-        selectedLifeAreaID = nil
+        selectedLifeAreaID = lifeAreas.first?.id
         selectedSectionID = nil
         selectedTagIDs = []
         selectedParentTaskID = nil
         selectedDependencyTaskIDs = []
+        selectedDependencyKind = .related
+        selectedEnergy = .medium
+        selectedCategory = .general
+        selectedContext = .anywhere
+        estimatedDuration = nil
+        repeatPattern = nil
         dueDate = Date()
         hasReminder = false
         reminderTime = Date()
+        showMoreDetails = false
+        showAdvancedPlanning = false
         validationErrors = []
+        errorMessage = nil
         isTaskCreated = false
     }
     
@@ -261,8 +349,8 @@ public final class AddTaskViewModel: ObservableObject {
             validationErrors.append(.taskNameTooLong)
         }
         
-        // Validate due date
-        if dueDate < Calendar.current.startOfDay(for: Date()) {
+        // Validate due date (nil is valid — "Someday")
+        if let dueDate, dueDate < Calendar.current.startOfDay(for: Date()) {
             validationErrors.append(.pastDueDate)
         }
         
@@ -339,15 +427,71 @@ public final class AddTaskViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let areas):
-                    self?.lifeAreas = areas.filter { !$0.isArchived }
-                    if self?.selectedLifeAreaID == nil {
-                        self?.selectedLifeAreaID = self?.lifeAreas.first?.id
+                    guard let self else { return }
+                    let activeAreas = areas.filter { !$0.isArchived }
+                    let dedupedAreas = self.dedupeLifeAreasByNormalizedName(
+                        activeAreas,
+                        preferredID: self.selectedLifeAreaID
+                    )
+                    if dedupedAreas.count != activeAreas.count {
+                        logWarning(
+                            event: "add_task_life_areas_deduped",
+                            message: "Duplicate life-area names detected in AddTaskViewModel; using deduped life-area list",
+                            fields: [
+                                "before_count": String(activeAreas.count),
+                                "after_count": String(dedupedAreas.count)
+                            ]
+                        )
+                    }
+                    self.lifeAreas = dedupedAreas
+                    if let selectedLifeAreaID = self.selectedLifeAreaID,
+                       dedupedAreas.contains(where: { $0.id == selectedLifeAreaID }) {
+                        // Keep existing selection when the selected life-area survives dedupe.
+                    } else {
+                        self.selectedLifeAreaID = dedupedAreas.first?.id
                     }
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
                 }
             }
         }
+    }
+
+    private func dedupeLifeAreasByNormalizedName(
+        _ lifeAreas: [LifeArea],
+        preferredID: UUID?
+    ) -> [LifeArea] {
+        var chosenByName: [String: LifeArea] = [:]
+
+        for lifeArea in lifeAreas {
+            let normalizedName = normalizedLifeAreaName(lifeArea.name)
+            guard let existing = chosenByName[normalizedName] else {
+                chosenByName[normalizedName] = lifeArea
+                continue
+            }
+
+            if existing.id == preferredID {
+                continue
+            }
+            if lifeArea.id == preferredID {
+                chosenByName[normalizedName] = lifeArea
+            }
+        }
+
+        var emitted = Set<String>()
+        var deduped: [LifeArea] = []
+        for lifeArea in lifeAreas {
+            let normalizedName = normalizedLifeAreaName(lifeArea.name)
+            guard chosenByName[normalizedName]?.id == lifeArea.id else { continue }
+            guard emitted.insert(normalizedName).inserted else { continue }
+            deduped.append(lifeArea)
+        }
+        return deduped
+    }
+
+    private func normalizedLifeAreaName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (trimmed.isEmpty ? "General" : trimmed).lowercased()
     }
 
     private func loadSections(projectID: UUID) {
@@ -504,7 +648,7 @@ extension AddTaskViewModel {
             lifeAreas: lifeAreas,
             sections: sections,
             tags: tags,
-            canSubmit: validationErrors.isEmpty && !taskName.isEmpty
+            canSubmit: validationErrors.isEmpty && !taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         )
     }
 }

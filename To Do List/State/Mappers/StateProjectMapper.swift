@@ -85,8 +85,8 @@ public enum StateProjectMapper {
         entity.status = project.status.rawValue
         entity.priority = Int32(project.priority.rawValue)
         entity.parentProjectID = project.parentProjectId
-        entity.subprojectIDs = project.subprojectIds as NSObject
-        entity.tags = project.tags as NSObject
+        entity.subprojectIDs = project.subprojectIds as NSArray
+        entity.tags = project.tags as NSArray
         entity.dueDate = project.dueDate
         entity.estimatedTaskCount = Int32(project.estimatedTaskCount ?? 0)
         entity.isArchived = project.isArchived

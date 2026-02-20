@@ -19,12 +19,14 @@ extension TaskDefinitionEntity {
 
     @NSManaged public var taskID: UUID?
     @NSManaged public var projectID: UUID?
+    @NSManaged public var lifeAreaID: UUID?
     @NSManaged public var id: UUID?
     @NSManaged public var title: String?
     @NSManaged public var notes: String?
     @NSManaged public var status: String?
     @NSManaged public var sectionID: UUID?
     @NSManaged public var parentTaskID: UUID?
+    @NSManaged public var recurrenceSeriesID: UUID?
     @NSManaged public var habitDefinitionID: UUID?
     @NSManaged public var priority: Int32
     @NSManaged public var energy: String?
@@ -33,6 +35,7 @@ extension TaskDefinitionEntity {
     @NSManaged public var estimatedDuration: Double
     @NSManaged public var actualDuration: Double
     @NSManaged public var source: String?
+    @NSManaged public var repeatPatternData: Data?
     @NSManaged public var createdBy: String?
     @NSManaged public var sortOrder: Int32
     @NSManaged public var createdAt: NSDate?
