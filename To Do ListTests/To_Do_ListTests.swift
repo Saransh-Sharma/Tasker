@@ -363,9 +363,21 @@ private final class ShimTaskDefinitionRepositoryAdapter: TaskDefinitionRepositor
                 if let title = request.title { task.title = title }
                 if let details = request.details { task.details = details }
                 if let projectID = request.projectID { task.projectID = projectID }
-                if let lifeAreaID = request.lifeAreaID { task.lifeAreaID = lifeAreaID }
-                if let sectionID = request.sectionID { task.sectionID = sectionID }
-                if let dueDate = request.dueDate { task.dueDate = dueDate }
+                if request.clearLifeArea {
+                    task.lifeAreaID = nil
+                } else if let lifeAreaID = request.lifeAreaID {
+                    task.lifeAreaID = lifeAreaID
+                }
+                if request.clearSection {
+                    task.sectionID = nil
+                } else if let sectionID = request.sectionID {
+                    task.sectionID = sectionID
+                }
+                if request.clearDueDate {
+                    task.dueDate = nil
+                } else if let dueDate = request.dueDate {
+                    task.dueDate = dueDate
+                }
 
                 if request.clearParentTaskLink {
                     task.parentTaskID = nil
@@ -392,10 +404,22 @@ private final class ShimTaskDefinitionRepositoryAdapter: TaskDefinitionRepositor
                     task.dateCompleted = dateCompleted
                 }
 
-                if let alertReminderTime = request.alertReminderTime { task.alertReminderTime = alertReminderTime }
-                if let estimatedDuration = request.estimatedDuration { task.estimatedDuration = estimatedDuration }
+                if request.clearReminderTime {
+                    task.alertReminderTime = nil
+                } else if let alertReminderTime = request.alertReminderTime {
+                    task.alertReminderTime = alertReminderTime
+                }
+                if request.clearEstimatedDuration {
+                    task.estimatedDuration = nil
+                } else if let estimatedDuration = request.estimatedDuration {
+                    task.estimatedDuration = estimatedDuration
+                }
                 if let actualDuration = request.actualDuration { task.actualDuration = actualDuration }
-                if let repeatPattern = request.repeatPattern { task.repeatPattern = repeatPattern }
+                if request.clearRepeatPattern {
+                    task.repeatPattern = nil
+                } else if let repeatPattern = request.repeatPattern {
+                    task.repeatPattern = repeatPattern
+                }
                 task.updatedAt = request.updatedAt
 
                 self.update(task, completion: completion)
@@ -2776,7 +2800,11 @@ private final class MetadataCapturingTaskDefinitionRepository: TaskDefinitionRep
         if let title = request.title { current.title = title }
         if let details = request.details { current.details = details }
         if let projectID = request.projectID { current.projectID = projectID }
-        if let dueDate = request.dueDate { current.dueDate = dueDate }
+        if request.clearDueDate {
+            current.dueDate = nil
+        } else if let dueDate = request.dueDate {
+            current.dueDate = dueDate
+        }
         if let isComplete = request.isComplete { current.isComplete = isComplete }
         if request.dateCompleted != nil || request.isComplete == false { current.dateCompleted = request.dateCompleted }
         byID[current.id] = current
@@ -3851,7 +3879,11 @@ private final class InMemoryTaskDefinitionRepository: TaskDefinitionRepositoryPr
         if let title = request.title { current.title = title }
         if let details = request.details { current.details = details }
         if let projectID = request.projectID { current.projectID = projectID }
-        if let dueDate = request.dueDate { current.dueDate = dueDate }
+        if request.clearDueDate {
+            current.dueDate = nil
+        } else if let dueDate = request.dueDate {
+            current.dueDate = dueDate
+        }
         if let isComplete = request.isComplete { current.isComplete = isComplete }
         if request.dateCompleted != nil || request.isComplete == false { current.dateCompleted = request.dateCompleted }
         current.updatedAt = Date()
@@ -4645,5 +4677,89 @@ private extension XCTestCase {
         }
         waitForExpectations(timeout: timeout)
         return try XCTUnwrap(captured).get()
+    }
+}
+
+final class TaskDefinitionClearFlagPersistenceTests: XCTestCase {
+    func testUpdateRequestClearFlagsRemovePersistedOptionalFields() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTaskDefinitionRepository(container: container)
+
+        let taskID = UUID()
+        let lifeAreaID = UUID()
+        let sectionID = UUID()
+        let dueDate = Date().addingTimeInterval(86_400)
+        let reminderTime = Date().addingTimeInterval(43_200)
+
+        _ = try awaitResult { completion in
+            repository.create(
+                request: CreateTaskDefinitionRequest(
+                    id: taskID,
+                    title: "Clear me",
+                    details: "Has optional metadata",
+                    projectID: ProjectConstants.inboxProjectID,
+                    projectName: ProjectConstants.inboxProjectName,
+                    lifeAreaID: lifeAreaID,
+                    sectionID: sectionID,
+                    dueDate: dueDate,
+                    alertReminderTime: reminderTime,
+                    estimatedDuration: 45 * 60,
+                    repeatPattern: .daily,
+                    createdAt: Date()
+                ),
+                completion: completion
+            )
+        }
+
+        _ = try awaitResult { completion in
+            repository.update(
+                request: UpdateTaskDefinitionRequest(
+                    id: taskID,
+                    clearLifeArea: true,
+                    clearSection: true,
+                    clearDueDate: true,
+                    clearReminderTime: true,
+                    clearEstimatedDuration: true,
+                    clearRepeatPattern: true
+                ),
+                completion: completion
+            )
+        }
+
+        let updated = try awaitResult { completion in
+            repository.fetchTaskDefinition(id: taskID, completion: completion)
+        }
+        let task = try XCTUnwrap(updated)
+
+        XCTAssertNil(task.lifeAreaID)
+        XCTAssertNil(task.sectionID)
+        XCTAssertNil(task.dueDate)
+        XCTAssertNil(task.alertReminderTime)
+        XCTAssertNil(task.estimatedDuration)
+        XCTAssertNil(task.repeatPattern)
+    }
+
+    private func makeInMemoryV2Container() throws -> NSPersistentContainer {
+        let bundles = [Bundle.main, Bundle(for: type(of: self))]
+        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
+              model.entitiesByName["TaskDefinition"] != nil
+        else {
+            throw NSError(domain: "TaskDefinitionClearFlagPersistenceTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
+        }
+
+        let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
+        let description = NSPersistentStoreDescription()
+        description.type = NSInMemoryStoreType
+        description.shouldAddStoreAsynchronously = false
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        if let loadError {
+            throw loadError
+        }
+        return container
     }
 }
