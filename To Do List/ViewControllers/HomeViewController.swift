@@ -180,7 +180,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.viewModel?.toggleTaskCompletion(task)
             },
             onDeleteTask: { [weak self] task in
-                self?.viewModel?.deleteTask(task)
+                self?.handleTaskDeleteRequested(task)
             },
             onRescheduleTask: { [weak self] task in
                 self?.handleTaskReschedule(task)
@@ -325,6 +325,32 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(navController, animated: true)
     }
 
+    private func handleTaskDeleteRequested(_ task: TaskDefinition) {
+        guard let viewModel else { return }
+        guard task.recurrenceSeriesID != nil else {
+            viewModel.deleteTask(taskID: task.id) { _ in }
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "Delete recurring task?",
+            message: "Choose whether to delete only this task or every task in the series.",
+            preferredStyle: .actionSheet
+        )
+        alert.addAction(UIAlertAction(title: "Delete This Task", style: .destructive) { _ in
+            viewModel.deleteTask(taskID: task.id, scope: .single) { _ in }
+        })
+        alert.addAction(UIAlertAction(title: "Delete Entire Series", style: .destructive) { _ in
+            viewModel.deleteTask(taskID: task.id, scope: .series) { _ in }
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+        }
+        present(alert, animated: true)
+    }
+
     private func presentTaskDetailView(for task: TaskDefinition) {
         let detailView = TaskDetailSheetView(
             task: task,
@@ -351,7 +377,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 }
                 viewModel.setTaskCompletion(taskID: task.id, to: isComplete, completion: completion)
             },
-            onDelete: { [weak self] completion in
+            onDelete: { [weak self] scope, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
                         domain: "HomeViewController",
@@ -360,7 +386,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.deleteTask(taskID: task.id, completion: completion)
+                viewModel.deleteTask(taskID: task.id, scope: scope, completion: completion)
             },
             onReschedule: { [weak self] date, completion in
                 guard let self, let viewModel = self.viewModel else {

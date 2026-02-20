@@ -867,7 +867,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                     }
                 }
             },
-            onDelete: { [weak self] completion in
+            onDelete: { [weak self] scope, completion in
                 guard let self else {
                     completion(.failure(NSError(
                         domain: "LGSearchViewController",
@@ -876,7 +876,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                     )))
                     return
                 }
-                self.viewModel.deleteTask(taskID: task.id) { success in
+                self.viewModel.deleteTask(taskID: task.id, scope: scope) { success in
                     guard success else {
                         completion(.failure(NSError(
                             domain: "LGSearchViewController",
@@ -947,12 +947,43 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     }
 
     private func deleteTask(_ task: TaskDefinition) {
-        viewModel.deleteTask(taskID: task.id) { [weak self] success in
-            guard success else { return }
-            self?.presentedViewController?.dismiss(animated: true) { [weak self] in
-                self?.refreshAfterTaskDetailMutation(reason: "delete")
+        guard task.recurrenceSeriesID != nil else {
+            viewModel.deleteTask(taskID: task.id) { [weak self] success in
+                guard success else { return }
+                self?.presentedViewController?.dismiss(animated: true) { [weak self] in
+                    self?.refreshAfterTaskDetailMutation(reason: "delete")
+                }
             }
+            return
         }
+
+        let alert = UIAlertController(
+            title: "Delete recurring task?",
+            message: "Choose whether to delete only this task or every task in the series.",
+            preferredStyle: .actionSheet
+        )
+        alert.addAction(UIAlertAction(title: "Delete This Task", style: .destructive) { [weak self] _ in
+            self?.viewModel.deleteTask(taskID: task.id, scope: .single) { success in
+                guard success else { return }
+                self?.presentedViewController?.dismiss(animated: true) { [weak self] in
+                    self?.refreshAfterTaskDetailMutation(reason: "delete")
+                }
+            }
+        })
+        alert.addAction(UIAlertAction(title: "Delete Entire Series", style: .destructive) { [weak self] _ in
+            self?.viewModel.deleteTask(taskID: task.id, scope: .series) { success in
+                guard success else { return }
+                self?.presentedViewController?.dismiss(animated: true) { [weak self] in
+                    self?.refreshAfterTaskDetailMutation(reason: "delete_series")
+                }
+            }
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = view
+            popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+        }
+        present(alert, animated: true)
     }
 
     private func rescheduleTask(_ task: TaskDefinition, to date: Date) {

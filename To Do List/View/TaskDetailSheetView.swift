@@ -46,7 +46,7 @@ private enum TaskDetailAutosaveState: Equatable {
 struct TaskDetailSheetView: View {
     typealias UpdateHandler = (UpdateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
     typealias CompletionHandler = (Bool, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    typealias DeleteHandler = (@escaping (Result<Void, Error>) -> Void) -> Void
+    typealias DeleteHandler = (TaskDeleteScope, @escaping (Result<Void, Error>) -> Void) -> Void
     typealias RescheduleHandler = (Date, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
 
     let task: TaskDefinition
@@ -75,6 +75,7 @@ struct TaskDetailSheetView: View {
     @State private var showPriorityPicker = false
     @State private var showProjectPicker = false
     @State private var showTypePicker = false
+    @State private var showDeleteScopeDialog = false
 
     @State private var autosaveWorkItem: DispatchWorkItem?
     @State private var isSaving = false
@@ -174,6 +175,21 @@ struct TaskDetailSheetView: View {
         }
         .onDisappear {
             autosaveWorkItem?.cancel()
+        }
+        .confirmationDialog(
+            "Delete recurring task?",
+            isPresented: $showDeleteScopeDialog,
+            titleVisibility: .visible
+        ) {
+            Button("Delete This Task", role: .destructive) {
+                deleteTask(scope: .single)
+            }
+            Button("Delete Entire Series", role: .destructive) {
+                deleteTask(scope: .series)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Choose whether to remove only this task or every task in the series.")
         }
     }
 
@@ -515,7 +531,7 @@ struct TaskDetailSheetView: View {
             }
             .scaleOnPress()
 
-            Button(action: deleteTask) {
+            Button(action: promptDeleteTask) {
                 Text("Delete Task")
                     .font(.tasker(.callout))
                     .foregroundColor(Color.tasker.statusDanger)
@@ -758,8 +774,16 @@ struct TaskDetailSheetView: View {
         }
     }
 
-    private func deleteTask() {
-        onDelete { result in
+    private func promptDeleteTask() {
+        if task.recurrenceSeriesID != nil {
+            showDeleteScopeDialog = true
+            return
+        }
+        deleteTask(scope: .single)
+    }
+
+    private func deleteTask(scope: TaskDeleteScope) {
+        onDelete(scope) { result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:
