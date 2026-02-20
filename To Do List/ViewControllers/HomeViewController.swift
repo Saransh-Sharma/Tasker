@@ -355,7 +355,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         let detailView = TaskDetailSheetView(
             task: task,
             projects: viewModel?.projects ?? [],
-            onUpdate: { [weak self] request, completion in
+            onUpdate: { [weak self] taskID, request, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
                         domain: "HomeViewController",
@@ -364,9 +364,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.updateTask(taskID: task.id, request: request, completion: completion)
+                viewModel.updateTask(taskID: taskID, request: request, completion: completion)
             },
-            onSetCompletion: { [weak self] isComplete, completion in
+            onSetCompletion: { [weak self] taskID, isComplete, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
                         domain: "HomeViewController",
@@ -375,9 +375,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.setTaskCompletion(taskID: task.id, to: isComplete, completion: completion)
+                viewModel.setTaskCompletion(taskID: taskID, to: isComplete, completion: completion)
             },
-            onDelete: { [weak self] scope, completion in
+            onDelete: { [weak self] taskID, scope, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
                         domain: "HomeViewController",
@@ -386,9 +386,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.deleteTask(taskID: task.id, scope: scope, completion: completion)
+                viewModel.deleteTask(taskID: taskID, scope: scope, completion: completion)
             },
-            onReschedule: { [weak self] date, completion in
+            onReschedule: { [weak self] taskID, date, completion in
                 guard let self, let viewModel = self.viewModel else {
                     completion(.failure(NSError(
                         domain: "HomeViewController",
@@ -397,7 +397,62 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                     )))
                     return
                 }
-                viewModel.rescheduleTask(taskID: task.id, to: date, completion: completion)
+                viewModel.rescheduleTask(taskID: taskID, to: date, completion: completion)
+            },
+            onLoadMetadata: { [weak self] projectID, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 5,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.loadTaskDetailMetadata(projectID: projectID, completion: completion)
+            },
+            onLoadChildren: { [weak self] parentTaskID, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 6,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.loadTaskChildren(parentTaskID: parentTaskID, completion: completion)
+            },
+            onCreateTask: { [weak self] request, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 7,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.createTaskDefinition(request: request, completion: completion)
+            },
+            onCreateTag: { [weak self] name, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 8,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.createTagForTaskDetail(name: name, completion: completion)
+            },
+            onCreateProject: { [weak self] name, completion in
+                guard let self, let viewModel = self.viewModel else {
+                    completion(.failure(NSError(
+                        domain: "HomeViewController",
+                        code: 9,
+                        userInfo: [NSLocalizedDescriptionKey: "HomeViewModel unavailable"]
+                    )))
+                    return
+                }
+                viewModel.createProjectForTaskDetail(name: name, completion: completion)
             }
         )
 
