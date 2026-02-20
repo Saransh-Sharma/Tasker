@@ -489,10 +489,14 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         if let projectID = request.projectID {
             setAttribute("projectID", value: projectID, on: entity)
         }
-        if request.lifeAreaID != nil {
+        if request.clearLifeArea {
+            setAttribute("lifeAreaID", value: nil, on: entity)
+        } else if request.lifeAreaID != nil {
             setAttribute("lifeAreaID", value: request.lifeAreaID, on: entity)
         }
-        if request.sectionID != nil {
+        if request.clearSection {
+            setAttribute("sectionID", value: nil, on: entity)
+        } else if request.sectionID != nil {
             setAttribute("sectionID", value: request.sectionID, on: entity)
         }
         if request.clearParentTaskLink {
@@ -503,7 +507,9 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         if let recurrenceSeriesID = request.recurrenceSeriesID {
             setAttribute("recurrenceSeriesID", value: recurrenceSeriesID, on: entity)
         }
-        if let dueDate = request.dueDate {
+        if request.clearDueDate {
+            setAttribute("dueDate", value: nil, on: entity)
+        } else if let dueDate = request.dueDate {
             setAttribute("dueDate", value: dueDate, on: entity)
         }
         if let priority = request.priority {
@@ -528,16 +534,22 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         if request.dateCompleted != nil || request.isComplete == false {
             setAttribute("dateCompleted", value: request.dateCompleted, on: entity)
         }
-        if let alertReminderTime = request.alertReminderTime {
+        if request.clearReminderTime {
+            setAttribute("alertReminderTime", value: nil, on: entity)
+        } else if let alertReminderTime = request.alertReminderTime {
             setAttribute("alertReminderTime", value: alertReminderTime, on: entity)
         }
-        if let estimatedDuration = request.estimatedDuration {
+        if request.clearEstimatedDuration {
+            setAttribute("estimatedDuration", value: nil, on: entity)
+        } else if let estimatedDuration = request.estimatedDuration {
             setAttribute("estimatedDuration", value: estimatedDuration, on: entity)
         }
         if let actualDuration = request.actualDuration {
             setAttribute("actualDuration", value: actualDuration, on: entity)
         }
-        if let repeatPattern = request.repeatPattern {
+        if request.clearRepeatPattern {
+            setAttribute("repeatPatternData", value: nil, on: entity)
+        } else if let repeatPattern = request.repeatPattern {
             setAttribute("repeatPatternData", value: encodeRepeatPattern(repeatPattern), on: entity)
         }
         setAttribute("updatedAt", value: request.updatedAt, on: entity)
