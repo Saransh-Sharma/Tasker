@@ -78,7 +78,10 @@ struct AddTaskSecondaryDetailsSection: View {
                     // Tags multi-select
                     AddTaskTagMultiSelect(
                         tags: viewModel.tags,
-                        selectedTagIDs: $viewModel.selectedTagIDs
+                        selectedTagIDs: $viewModel.selectedTagIDs,
+                        onCreateTag: { name, completion in
+                            viewModel.createTag(name: name, completion: completion)
+                        }
                     )
                     .staggeredAppearance(index: 3)
                 }

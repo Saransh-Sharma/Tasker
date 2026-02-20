@@ -52,12 +52,14 @@ struct AddTaskRepeatEditor: View {
 
             // Weekday picker for weekly
             if showWeekdayPicker, case .weekly(let days) = repeatPattern {
-                WeekdayPickerRow(selectedDays: Binding(
-                    get: { days },
-                    set: { newDays in
-                        repeatPattern = .weekly(newDays)
-                    }
-                ))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    WeekdayPickerRow(selectedDays: Binding(
+                        get: { days },
+                        set: { newDays in
+                            repeatPattern = .weekly(newDays)
+                        }
+                    ))
+                }
                 .transition(
                     .asymmetric(
                         insertion: .opacity.combined(with: .move(edge: .top)),

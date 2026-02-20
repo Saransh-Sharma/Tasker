@@ -135,15 +135,17 @@ struct AddTaskDependenciesPicker: View {
                 .foregroundColor(Color.tasker.textTertiary)
 
             // Kind selector
-            HStack(spacing: spacing.chipSpacing) {
-                ForEach(TaskDependencyKind.allCases, id: \.self) { kind in
-                    AddTaskMetadataChip(
-                        icon: kind == .blocks ? "arrow.triangle.branch" : "link",
-                        text: kind == .blocks ? "Blocks" : "Related",
-                        isActive: dependencyKind == kind
-                    ) {
-                        withAnimation(TaskerAnimation.snappy) {
-                            dependencyKind = kind
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing.chipSpacing) {
+                    ForEach(TaskDependencyKind.allCases, id: \.self) { kind in
+                        AddTaskMetadataChip(
+                            icon: kind == .blocks ? "arrow.triangle.branch" : "link",
+                            text: kind == .blocks ? "Blocks" : "Related",
+                            isActive: dependencyKind == kind
+                        ) {
+                            withAnimation(TaskerAnimation.snappy) {
+                                dependencyKind = kind
+                            }
                         }
                     }
                 }
