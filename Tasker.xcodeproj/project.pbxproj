@@ -14,6 +14,7 @@
 		08CCE589CA3E83FE266289D1 /* CoreDataAssistantActionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6747A1FAF23571C7A3DA320 /* CoreDataAssistantActionRepository.swift */; };
 		0D77AD04BFBCEC5DAB92B68D /* ScheduleRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712BE2C322E8930A4886933B /* ScheduleRepositoryProtocol.swift */; };
 		0F67D9989E8924F5B6E2B2EE /* CoreDataLifeAreaRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26D9ECAA7CAE990AACBF05E5 /* CoreDataLifeAreaRepository.swift */; };
+		A4E8C9D12F9A4C3600A1B2C3 /* LifeAreaIdentityRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E8C9D22F9A4C3600A1B2C3 /* LifeAreaIdentityRepair.swift */; };
 		1325F41FAECBAE30E66C3E42 /* V2RepositoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42AD2BFC988A80E8157AD2B2 /* V2RepositoryProtocols.swift */; };
 		147231A5B5EE1AFA9351EA13 /* TagDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C66FE334854F296A4203FD /* TagDefinition.swift */; };
 		166AB064CD81E7EAF6579B7E /* CoreDataSectionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E3799E6AD3B71C2BCAA18D /* CoreDataSectionRepository.swift */; };
@@ -135,7 +136,6 @@
 		755FE8E22479EA5400A71A75 /* RippleDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755FE8E12479EA5300A71A75 /* RippleDelegate.swift */; };
 		758A80402450BFA300BFB571 /* InboxViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A803F2450BFA300BFB571 /* InboxViewController.swift */; };
 		758A80642451E86E00BFB571 /* WeeklyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758A80632451E86E00BFB571 /* WeeklyViewController.swift */; };
-		758D4D7A24A940BD00AB57A8 /* ProjectEntity+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758D4D7924A940BD00AB57A8 /* ProjectEntity+CoreDataProperties.swift */; };
 		758D4D7C24A940C300AB57A8 /* ProjectEntity+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758D4D7B24A940C300AB57A8 /* ProjectEntity+CoreDataClass.swift */; };
 		75A328B22DFB604000F36C31 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328B12DFB604000F36C31 /* MLX */; };
 		75A328B62DFB604000F36C31 /* MLXRandom in Frameworks */ = {isa = PBXBuildFile; productRef = 75A328B52DFB604000F36C31 /* MLXRandom */; };
@@ -192,7 +192,6 @@
 		75F0C7152DEA3DF8008F4460 /* ProjectPillCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */; };
 		75F18102245C99CD004D9A69 /* TaskModelV3.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 75F18100245C99CD004D9A69 /* TaskModelV3.xcdatamodeld */; };
 		75F1810B245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F18109245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataClass.swift */; };
-		75F1810C245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F1810A245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataProperties.swift */; };
 		75F89F452DFC44E6009EDD8F /* ModelsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3F2DFC44E6009EDD8F /* ModelsSettingsView.swift */; };
 		75F89F462DFC44E6009EDD8F /* ChatHostViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */; };
 		75F89F472DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F382DFC44E6009EDD8F /* OnboardingDownloadingModelProgressView.swift */; };
@@ -371,6 +370,7 @@
 		23A78189DAF93E5F5EA0C769 /* CoreDataTombstoneRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataTombstoneRepository.swift"; sourceTree = SOURCE_ROOT; };
 		24EC3451B4B59726B8F286E2 /* ColorTokenGenerationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTokenGenerationTests.swift; sourceTree = "<group>"; };
 		26D9ECAA7CAE990AACBF05E5 /* CoreDataLifeAreaRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataLifeAreaRepository.swift"; sourceTree = SOURCE_ROOT; };
+		A4E8C9D22F9A4C3600A1B2C3 /* LifeAreaIdentityRepair.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Integrity/LifeAreaIdentityRepair.swift"; sourceTree = SOURCE_ROOT; };
 		2856D1EE26429146B60B6633 /* TaskReadQueries.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskReadQueries.swift; sourceTree = "<group>"; };
 		2A7397B50382FF7FB4FAEC5F /* TaskSectionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskSectionView.swift; sourceTree = "<group>"; };
 		2E753995C5FB25BE948BE1E9 /* HomeFilterState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFilterState.swift; sourceTree = "<group>"; };
@@ -1624,6 +1624,15 @@
 			name = Sync;
 			sourceTree = "<group>";
 		};
+		A4E8C9D32F9A4C3600A1B2C3 /* Integrity */ = {
+			isa = PBXGroup;
+			children = (
+				A4E8C9D22F9A4C3600A1B2C3 /* LifeAreaIdentityRepair.swift */,
+			);
+			name = Integrity;
+			path = State/Integrity;
+			sourceTree = "<group>";
+		};
 		B9038E7379A0764C77A53123 /* DI */ = {
 			isa = PBXGroup;
 			children = (
@@ -1640,6 +1649,7 @@
 				B9038E7379A0764C77A53123 /* DI */,
 				017D42D408C7902DAA40A8ED /* DataSources */,
 				8C250E00E309DD182368FE08 /* Sync */,
+				A4E8C9D32F9A4C3600A1B2C3 /* Integrity */,
 				D6580AAB18878FA243D14D3D /* Validators */,
 				3B24EBE5479BE8A48150DCFE /* Services */,
 			);
@@ -1947,13 +1957,11 @@
 				A11B22C42F10000100ABCDEF /* TaskNotificationDispatcher.swift in Sources */,
 				75A6316C2E8BDADC006EEA59 /* LGTaskCard.swift in Sources */,
 				75F1810B245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataClass.swift in Sources */,
-				75F1810C245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataProperties.swift in Sources */,
 				75DFF2D72DF22FC300EB8850 /* LoggingService.swift in Sources */,
 				75DFF2D82DF22FC300EB8850 /* DateUtils.swift in Sources */,
 				75F18102245C99CD004D9A69 /* TaskModelV3.xcdatamodeld in Sources */,
 				7529F6F82DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
 				758D4D7C24A940C300AB57A8 /* ProjectEntity+CoreDataClass.swift in Sources */,
-				758D4D7A24A940BD00AB57A8 /* ProjectEntity+CoreDataProperties.swift in Sources */,
 				75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */,
 				75D827552E8C89BA000F04E1 /* User.swift in Sources */,
 				752A974B2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */,
@@ -2161,6 +2169,7 @@
 				6F02A28B57E02ED09779EC11 /* AssistantAction.swift in Sources */,
 				E15729081BE877C1AF53C8C8 /* ExternalSyncModels.swift in Sources */,
 				68910C38BADF060D09F81CE3 /* V2CoreDataRepositorySupport.swift in Sources */,
+				A4E8C9D12F9A4C3600A1B2C3 /* LifeAreaIdentityRepair.swift in Sources */,
 				0F67D9989E8924F5B6E2B2EE /* CoreDataLifeAreaRepository.swift in Sources */,
 				166AB064CD81E7EAF6579B7E /* CoreDataSectionRepository.swift in Sources */,
 				4204230B763861761BB75AF3 /* CoreDataTagRepository.swift in Sources */,

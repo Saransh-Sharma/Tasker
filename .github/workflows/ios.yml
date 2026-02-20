@@ -21,6 +21,11 @@ jobs:
           set -euo pipefail
           bash scripts/validate_legacy_runtime_guardrails.sh
 
+      - name: Enforce Core Data codegen guardrails
+        run: |
+          set -euo pipefail
+          bash scripts/validate_coredata_codegen_guardrails.sh
+
       - name: Enforce V2 fail-closed runtime guardrails
         run: |
           set -euo pipefail
