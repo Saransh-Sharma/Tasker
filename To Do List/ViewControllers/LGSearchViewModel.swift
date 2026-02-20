@@ -21,6 +21,8 @@ class LGSearchViewModel {
     private let useCaseCoordinator: UseCaseCoordinator
     private var currentStatusFilter: StatusFilterType = .all
     private var lastQuery: String = ""
+    private var lastRecurringTopUpAt: Date?
+    private let recurringTopUpThrottleSeconds: TimeInterval = 90
 
     var searchResults: [TaskDefinition] = []
     private(set) var projects: [Project] = []
@@ -88,8 +90,8 @@ class LGSearchViewModel {
         }
     }
 
-    func deleteTask(taskID: UUID, completion: @escaping (Bool) -> Void) {
-        useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID) { result in
+    func deleteTask(taskID: UUID, scope: TaskDeleteScope = .single, completion: @escaping (Bool) -> Void) {
+        useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID, scope: scope) { result in
             DispatchQueue.main.async {
                 if case .failure(let error) = result {
                     logError(
@@ -186,6 +188,7 @@ class LGSearchViewModel {
     }
 
     private func fetchTasksForCurrentStatusFilter(completion: @escaping ([TaskDefinition]) -> Void) {
+        triggerRecurringTopUpIfNeeded()
         let handler: (Result<[TaskDefinition], Error>) -> Void = { result in
             switch result {
             case .success(let tasks):
@@ -225,6 +228,16 @@ class LGSearchViewModel {
                 handler(mapped)
             }
         }
+    }
+
+    private func triggerRecurringTopUpIfNeeded() {
+        let now = Date()
+        if let lastRecurringTopUpAt,
+           now.timeIntervalSince(lastRecurringTopUpAt) < recurringTopUpThrottleSeconds {
+            return
+        }
+        lastRecurringTopUpAt = now
+        useCaseCoordinator.createTaskDefinition.maintainRecurringSeries(daysAhead: 45) { _ in }
     }
 
     private func applyInMemoryFilters(tasks: [TaskDefinition], query: String) -> [TaskDefinition] {

@@ -101,10 +101,12 @@ public final class HomeViewModel: ObservableObject {
     private var completionOverrides: [UUID: Bool] = [:]
     private var reloadGeneration: Int = 0
     private var suppressCompletionReloadUntil: Date?
+    private var lastRecurringTopUpAt: Date?
 
     private let completionNotificationDebounceMS = 120
     private let completionReloadSuppressionSeconds: TimeInterval = 0.35
     private let mutationNotificationDebounceMS = 90
+    private let recurringTopUpThrottleSeconds: TimeInterval = 90
     private static let mutationNotificationSource = "homeViewModel"
 
     // MARK: - Initialization
@@ -140,6 +142,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func loadTasksForSelectedDate(generation: Int) {
+        triggerRecurringTopUpIfNeeded()
         focusEngineEnabled = true
         activeScope = .customDate(selectedDate)
         applyFocusFilters(trackAnalytics: false, generation: generation)
@@ -151,6 +154,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     private func loadTodayTasks(generation: Int) {
+        triggerRecurringTopUpIfNeeded()
         focusEngineEnabled = true
         activeScope = .today
         selectedDate = Date()
@@ -161,6 +165,16 @@ public final class HomeViewModel: ObservableObject {
         persistLastFilterState()
         applyFocusFilters(trackAnalytics: false, generation: generation)
         loadDailyAnalytics()
+    }
+
+    private func triggerRecurringTopUpIfNeeded() {
+        let now = Date()
+        if let lastRecurringTopUpAt,
+           now.timeIntervalSince(lastRecurringTopUpAt) < recurringTopUpThrottleSeconds {
+            return
+        }
+        lastRecurringTopUpAt = now
+        useCaseCoordinator.createTaskDefinition.maintainRecurringSeries(daysAhead: 45) { _ in }
     }
 
     /// Toggle task completion.
@@ -210,9 +224,10 @@ public final class HomeViewModel: ObservableObject {
 
     public func deleteTask(
         taskID: UUID,
+        scope: TaskDeleteScope = .single,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID) { [weak self] result in
+        useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID, scope: scope) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success:

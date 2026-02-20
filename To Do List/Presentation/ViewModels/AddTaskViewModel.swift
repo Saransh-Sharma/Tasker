@@ -242,6 +242,47 @@ public final class AddTaskViewModel: ObservableObject {
             }
         }
     }
+
+    /// Create a tag inline from Add Task and select it on success.
+    public func createTag(name: String, completion: @escaping (Bool) -> Void) {
+        let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.isEmpty == false else {
+            completion(false)
+            return
+        }
+        guard let manageTagsUseCase else {
+            completion(false)
+            return
+        }
+
+        manageTagsUseCase.create(name: normalized, color: nil, icon: nil) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let createdTag):
+                    guard let self else {
+                        completion(false)
+                        return
+                    }
+                    if let existingIndex = self.tags.firstIndex(where: { $0.id == createdTag.id }) {
+                        self.tags[existingIndex] = createdTag
+                    } else {
+                        self.tags.append(createdTag)
+                    }
+                    self.tags.sort {
+                        if $0.sortOrder != $1.sortOrder {
+                            return $0.sortOrder < $1.sortOrder
+                        }
+                        return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                    }
+                    self.selectedTagIDs.insert(createdTag.id)
+                    completion(true)
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    completion(false)
+                }
+            }
+        }
+    }
     
     /// Reschedule task (for editing existing tasks)
     public func rescheduleTask(_ taskId: UUID, to newDate: Date) {
@@ -388,9 +429,9 @@ public final class AddTaskViewModel: ObservableObject {
                 case .success(let areas):
                     guard let self else { return }
                     let activeAreas = areas.filter { !$0.isArchived }
-                    let dedupedAreas = dedupeLifeAreasByNormalizedName(
+                    let dedupedAreas = self.dedupeLifeAreasByNormalizedName(
                         activeAreas,
-                        preferredID: selectedLifeAreaID
+                        preferredID: self.selectedLifeAreaID
                     )
                     if dedupedAreas.count != activeAreas.count {
                         logWarning(
@@ -402,8 +443,9 @@ public final class AddTaskViewModel: ObservableObject {
                             ]
                         )
                     }
-                    lifeAreas = dedupedAreas
-                    if let selectedLifeAreaID, dedupedAreas.contains(where: { $0.id == selectedLifeAreaID }) {
+                    self.lifeAreas = dedupedAreas
+                    if let selectedLifeAreaID = self.selectedLifeAreaID,
+                       dedupedAreas.contains(where: { $0.id == selectedLifeAreaID }) {
                         // Keep existing selection when the selected life-area survives dedupe.
                     } else {
                         self.selectedLifeAreaID = dedupedAreas.first?.id
@@ -440,8 +482,8 @@ public final class AddTaskViewModel: ObservableObject {
         var deduped: [LifeArea] = []
         for lifeArea in lifeAreas {
             let normalizedName = normalizedLifeAreaName(lifeArea.name)
-            guard emitted.insert(normalizedName).inserted else { continue }
             guard chosenByName[normalizedName]?.id == lifeArea.id else { continue }
+            guard emitted.insert(normalizedName).inserted else { continue }
             deduped.append(lifeArea)
         }
         return deduped
