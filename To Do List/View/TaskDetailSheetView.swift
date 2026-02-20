@@ -2,88 +2,42 @@
 //  TaskDetailSheetView.swift
 //  Tasker
 //
-//  Restored shared legacy-style task detail sheet backed by V2 use cases.
+//  Action-first task details with Add Task field parity.
 //
 
 import SwiftUI
 
-// MARK: - Task Detail Sheet
-
-private enum TaskDetailAutosaveState: Equatable {
-    case idle
-    case saving
-    case saved
-    case failed(String)
-
-    var label: String {
-        switch self {
-        case .idle:
-            return ""
-        case .saving:
-            return "Saving..."
-        case .saved:
-            return "Saved"
-        case .failed(let message):
-            return message
-        }
-    }
-
-    @MainActor
-    var color: Color {
-        switch self {
-        case .idle:
-            return Color.clear
-        case .saving:
-            return Color.tasker.textTertiary
-        case .saved:
-            return Color.tasker.statusSuccess
-        case .failed:
-            return Color.tasker.statusDanger
-        }
-    }
-}
-
 struct TaskDetailSheetView: View {
-    typealias UpdateHandler = (UpdateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    typealias CompletionHandler = (Bool, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
-    typealias DeleteHandler = (TaskDeleteScope, @escaping (Result<Void, Error>) -> Void) -> Void
-    typealias RescheduleHandler = (Date, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias UpdateHandler = (UUID, UpdateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias CompletionHandler = (UUID, Bool, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias DeleteHandler = (UUID, TaskDeleteScope, @escaping (Result<Void, Error>) -> Void) -> Void
+    typealias RescheduleHandler = (UUID, Date?, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias MetadataHandler = (UUID, @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void) -> Void
+    typealias ChildrenHandler = (UUID, @escaping (Result<[TaskDefinition], Error>) -> Void) -> Void
+    typealias CreateTaskHandler = (CreateTaskDefinitionRequest, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
+    typealias CreateTagHandler = (String, @escaping (Result<TagDefinition, Error>) -> Void) -> Void
+    typealias CreateProjectHandler = (String, @escaping (Result<Project, Error>) -> Void) -> Void
 
-    let task: TaskDefinition
-    let projects: [Project]
-    let onUpdate: UpdateHandler
-    let onSetCompletion: CompletionHandler
-    let onDelete: DeleteHandler
-    let onReschedule: RescheduleHandler
+    private enum ActiveEditor: Hashable {
+        case due
+        case reminder
+        case priority
+        case project
+        case type
+        case tags
+    }
 
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var viewModel: TaskDetailViewModel
 
-    @State private var persistedTask: TaskDefinition
-    @State private var taskName: String
-    @State private var taskDescription: String
-    @State private var taskPriorityRaw: Int32
-    @State private var taskTypeRaw: Int32
-    @State private var selectedProjectID: UUID
-    @State private var dueDate: Date?
-    @State private var reminderTime: Date?
-    @State private var isComplete: Bool
-
-    @State private var isEditingTitle = false
-    @State private var isEditingDescription = false
-    @State private var showDatePicker = false
-    @State private var showReminderPicker = false
-    @State private var showPriorityPicker = false
-    @State private var showProjectPicker = false
-    @State private var showTypePicker = false
+    @State private var activeEditor: ActiveEditor?
     @State private var showDeleteScopeDialog = false
+    @State private var showDescriptionEditor = false
+    @State private var newStepTitle = ""
 
-    @State private var autosaveWorkItem: DispatchWorkItem?
-    @State private var isSaving = false
-    @State private var needsSaveAfterCurrentRequest = false
-    @State private var suppressAutosave = false
-    @State private var autosaveState: TaskDetailAutosaveState = .idle
-
-    private let textAutosaveDebounceSeconds: TimeInterval = 0.4
+    @FocusState private var titleFocused: Bool
+    @FocusState private var stepFocused: Bool
+    @FocusState private var descriptionFocused: Bool
 
     init(
         task: TaskDefinition,
@@ -91,90 +45,110 @@ struct TaskDetailSheetView: View {
         onUpdate: @escaping UpdateHandler,
         onSetCompletion: @escaping CompletionHandler,
         onDelete: @escaping DeleteHandler,
-        onReschedule: @escaping RescheduleHandler
+        onReschedule: @escaping RescheduleHandler,
+        onLoadMetadata: @escaping MetadataHandler,
+        onLoadChildren: @escaping ChildrenHandler,
+        onCreateTask: @escaping CreateTaskHandler,
+        onCreateTag: @escaping CreateTagHandler,
+        onCreateProject: @escaping CreateProjectHandler
     ) {
-        self.task = task
-        self.projects = projects
-        self.onUpdate = onUpdate
-        self.onSetCompletion = onSetCompletion
-        self.onDelete = onDelete
-        self.onReschedule = onReschedule
-
-        _persistedTask = State(initialValue: task)
-        _taskName = State(initialValue: task.title)
-        _taskDescription = State(initialValue: task.details ?? "")
-        _taskPriorityRaw = State(initialValue: task.priority.rawValue)
-        _taskTypeRaw = State(initialValue: task.type.rawValue)
-        _selectedProjectID = State(initialValue: task.projectID)
-        _dueDate = State(initialValue: task.dueDate)
-        _reminderTime = State(initialValue: task.alertReminderTime)
-        _isComplete = State(initialValue: task.isComplete)
+        _viewModel = StateObject(wrappedValue: TaskDetailViewModel(
+            task: task,
+            projects: projects,
+            onUpdate: onUpdate,
+            onSetCompletion: onSetCompletion,
+            onDelete: onDelete,
+            onReschedule: onReschedule,
+            onLoadMetadata: onLoadMetadata,
+            onLoadChildren: onLoadChildren,
+            onCreateTask: onCreateTask,
+            onCreateTag: onCreateTag,
+            onCreateProject: onCreateProject
+        ))
     }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
                 Rectangle()
                     .fill(priorityColor)
                     .frame(height: 4)
 
+                topBar
                 headerSection
-                    .staggeredAppearance(index: 0)
-
-                if autosaveState != .idle {
-                    Text(autosaveState.label)
-                        .font(.tasker(.caption2))
-                        .foregroundColor(autosaveState.color)
-                        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-                        .padding(.bottom, TaskerTheme.Spacing.sm)
-                }
-
-                quickInfoRow
-                    .staggeredAppearance(index: 1)
-
-                descriptionSection
-                    .staggeredAppearance(index: 2)
-
-                TaskDetailSectionDivider("Details")
-                    .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-                    .padding(.top, TaskerTheme.Spacing.lg)
-                    .staggeredAppearance(index: 3)
-
-                editableFieldsSection
-                    .staggeredAppearance(index: 4)
-
-                actionSection
-                    .staggeredAppearance(index: 5)
-
+                autosaveBanner
+                primaryActionsRow
+                metadataChipRow
+                activeEditorPanel
+                notesSection
+                stepsSection
+                moreDetailsSection
+                advancedSection
+                destructiveSection
                 metadataFooter
-                    .staggeredAppearance(index: 6)
             }
+            .padding(.bottom, TaskerTheme.Spacing.xxxl)
         }
         .background(Color.tasker.bgCanvas)
         .presentationDragIndicator(.visible)
-        .onChange(of: taskName) { _ in
-            scheduleAutosave(debounced: true)
+        .accessibilityIdentifier("taskDetail.view")
+        .onAppear {
+            viewModel.onAppear()
         }
-        .onChange(of: taskDescription) { _ in
-            scheduleAutosave(debounced: true)
+        .onChange(of: viewModel.taskName) { _ in
+            viewModel.scheduleAutosave(debounced: true)
         }
-        .onChange(of: taskPriorityRaw) { _ in
-            scheduleAutosave(debounced: false)
+        .onChange(of: viewModel.taskDescription) { _ in
+            viewModel.scheduleAutosave(debounced: true)
         }
-        .onChange(of: taskTypeRaw) { _ in
-            scheduleAutosave(debounced: false)
+        .onChange(of: viewModel.selectedPriority) { _ in
+            viewModel.scheduleAutosave(debounced: false)
         }
-        .onChange(of: selectedProjectID) { _ in
-            scheduleAutosave(debounced: false)
+        .onChange(of: viewModel.selectedType) { _ in
+            viewModel.scheduleAutosave(debounced: false)
         }
-        .onChange(of: dueDate) { _ in
-            scheduleAutosave(debounced: false)
+        .onChange(of: viewModel.selectedProjectID) { _ in
+            viewModel.refreshMetadata()
+            viewModel.scheduleAutosave(debounced: false)
         }
-        .onChange(of: reminderTime) { _ in
-            scheduleAutosave(debounced: false)
+        .onChange(of: viewModel.dueDate) { _ in
+            viewModel.scheduleAutosave(debounced: false)
         }
-        .onDisappear {
-            autosaveWorkItem?.cancel()
+        .onChange(of: viewModel.reminderTime) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.selectedLifeAreaID) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.selectedSectionID) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.selectedTagIDs) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.selectedParentTaskID) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.selectedDependencyTaskIDs) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.selectedDependencyKind) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.selectedEnergy) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.selectedCategory) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.selectedContext) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.estimatedDuration) { _ in
+            viewModel.scheduleAutosave(debounced: false)
+        }
+        .onChange(of: viewModel.repeatPattern) { _ in
+            viewModel.scheduleAutosave(debounced: false)
         }
         .confirmationDialog(
             "Delete recurring task?",
@@ -193,589 +167,678 @@ struct TaskDetailSheetView: View {
         }
     }
 
+    private var topBar: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .frame(width: 30, height: 30)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("taskDetail.closeButton")
+            .accessibilityLabel("Close task details")
+
+            Spacer()
+
+            Text("Task")
+                .font(.tasker(.headline))
+                .foregroundColor(Color.tasker.textPrimary)
+
+            Spacer()
+
+            Menu {
+                Button(role: .destructive) {
+                    promptDeleteTask()
+                } label: {
+                    Label("Delete Task", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(Color.tasker.textSecondary)
+            }
+            .accessibilityLabel("More actions")
+        }
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .padding(.top, TaskerTheme.Spacing.sm)
+    }
+
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
             HStack(alignment: .top, spacing: TaskerTheme.Spacing.md) {
-                CompletionCheckbox(isComplete: isComplete) {
-                    toggleCompletion()
+                CompletionCheckbox(isComplete: viewModel.isComplete) {
+                    viewModel.toggleRootCompletion()
                 }
+                .accessibilityIdentifier("taskDetail.completeButton")
+                .accessibilityHint("Double tap to toggle completion")
 
-                if isEditingTitle {
-                    TextField("Task name", text: $taskName)
-                        .font(.tasker(.title2))
-                        .foregroundColor(Color.tasker.textPrimary)
-                        .textFieldStyle(.plain)
-                        .onSubmit { isEditingTitle = false }
-                } else {
-                    Text(taskName.isEmpty ? "Untitled Task" : taskName)
-                        .font(.tasker(.title2))
-                        .foregroundColor(isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
-                        .strikethrough(isComplete, color: Color.tasker.textTertiary)
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
-                        .onTapGesture { isEditingTitle = true }
-                }
+                TextField("Task title", text: $viewModel.taskName)
+                    .font(.tasker(.title2))
+                    .foregroundColor(Color.tasker.textPrimary)
+                    .focused($titleFocused)
+                    .textFieldStyle(.plain)
+                    .accessibilityIdentifier("taskDetail.titleField")
             }
 
             HStack(spacing: TaskerTheme.Spacing.sm) {
-                PriorityBadge(priority: taskPriorityRaw)
-                ScoreBadge(points: TaskPriority(rawValue: taskPriorityRaw).scorePoints)
+                PriorityBadge(priority: viewModel.selectedPriority.rawValue)
+                ScoreBadge(points: viewModel.selectedPriority.scorePoints)
 
                 Spacer()
 
-                Text(selectedProjectName)
+                Text(viewModel.selectedProjectName)
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.accentPrimary)
                     .padding(.horizontal, TaskerTheme.Spacing.sm)
                     .padding(.vertical, 4)
                     .background(Color.tasker.accentMuted)
                     .clipShape(Capsule())
+                    .accessibilityIdentifier("taskDetail.projectLabel")
             }
+
+            Text(statusText)
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.textTertiary)
+                .accessibilityLabel("Task status \(statusText)")
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .padding(.top, TaskerTheme.Spacing.lg)
-        .padding(.bottom, TaskerTheme.Spacing.md)
     }
 
-    private var quickInfoRow: some View {
+    @ViewBuilder
+    private var autosaveBanner: some View {
+        if viewModel.autosaveState != .idle {
+            Text(viewModel.autosaveState.label)
+                .font(.tasker(.caption2))
+                .foregroundColor(autosaveColor)
+                .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+                .accessibilityLabel(viewModel.autosaveState.label)
+        }
+    }
+
+    private var primaryActionsRow: some View {
+        HStack(spacing: TaskerTheme.Spacing.sm) {
+            actionChip(icon: "calendar.badge.clock", title: "Schedule", tint: Color.tasker.accentPrimary) {
+                toggleEditor(.due)
+            }
+            .accessibilityHint("Edit due date")
+
+            actionChip(icon: "list.bullet", title: "Make smaller", tint: Color.tasker.accentPrimary) {
+                stepFocused = true
+            }
+            .accessibilityHint("Focus add step input")
+
+            actionChip(
+                icon: viewModel.isComplete ? "arrow.uturn.backward.circle.fill" : "checkmark.circle.fill",
+                title: viewModel.isComplete ? "Reopen" : "Complete",
+                tint: viewModel.isComplete ? Color.tasker.statusWarning : Color.tasker.statusSuccess
+            ) {
+                viewModel.toggleRootCompletion()
+            }
+            .accessibilityIdentifier("taskDetail.completeButton.action")
+        }
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .accessibilityIdentifier("taskDetail.actionRow")
+    }
+
+    private func actionChip(icon: String, title: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                Text(title)
+            }
+            .font(.tasker(.callout))
+            .foregroundColor(tint)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(tint.opacity(0.12))
+            .overlay(
+                RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md)
+                    .stroke(tint.opacity(0.25), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var metadataChipRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: TaskerTheme.Spacing.sm) {
-                if let dueDate {
-                    InfoPill(
-                        icon: "calendar",
-                        text: DateUtils.formatDate(dueDate),
-                        color: dueDateColor(for: dueDate)
-                    )
+                AddTaskMetadataChip(
+                    icon: "calendar",
+                    text: dueChipText,
+                    isActive: activeEditor == .due || viewModel.dueDate != nil
+                ) {
+                    toggleEditor(.due)
                 }
+                .accessibilityIdentifier("taskDetail.chip.due")
 
-                InfoPill(
-                    icon: taskTypeIcon,
-                    text: taskTypeLabel,
-                    color: Color.tasker.textSecondary
-                )
-
-                if let reminderTime {
-                    InfoPill(
-                        icon: "bell.fill",
-                        text: formatTime(reminderTime),
-                        color: Color.tasker.accentPrimary
-                    )
+                AddTaskMetadataChip(
+                    icon: viewModel.reminderTime == nil ? "bell" : "bell.fill",
+                    text: reminderChipText,
+                    isActive: activeEditor == .reminder || viewModel.reminderTime != nil
+                ) {
+                    toggleEditor(.reminder)
                 }
+                .accessibilityIdentifier("taskDetail.chip.reminder")
 
-                if isComplete, let completedDate = persistedTask.dateCompleted {
-                    InfoPill(
-                        icon: "checkmark",
-                        text: "Done \(DateUtils.formatDate(completedDate))",
-                        color: Color.tasker.statusSuccess
-                    )
+                AddTaskMetadataChip(
+                    icon: "flag.fill",
+                    text: viewModel.selectedPriority.displayName,
+                    isActive: activeEditor == .priority
+                ) {
+                    toggleEditor(.priority)
                 }
+                .accessibilityIdentifier("taskDetail.chip.priority")
+
+                AddTaskMetadataChip(
+                    icon: "folder",
+                    text: viewModel.selectedProjectName,
+                    isActive: activeEditor == .project
+                ) {
+                    toggleEditor(.project)
+                }
+                .accessibilityIdentifier("taskDetail.chip.project")
+
+                AddTaskMetadataChip(
+                    icon: typeChipIcon,
+                    text: viewModel.selectedType.displayName,
+                    isActive: activeEditor == .type
+                ) {
+                    toggleEditor(.type)
+                }
+                .accessibilityIdentifier("taskDetail.chip.type")
+
+                AddTaskMetadataChip(
+                    icon: "number",
+                    text: tagsChipText,
+                    isActive: activeEditor == .tags || !viewModel.selectedTagIDs.isEmpty
+                ) {
+                    toggleEditor(.tags)
+                }
+                .accessibilityIdentifier("taskDetail.chip.tags")
             }
             .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
         }
-        .padding(.bottom, TaskerTheme.Spacing.md)
     }
 
-    private var descriptionSection: some View {
-        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-            if isEditingDescription {
-                TextEditor(text: $taskDescription)
-                    .font(.tasker(.body))
+    @ViewBuilder
+    private var activeEditorPanel: some View {
+        switch activeEditor {
+        case .due:
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                AddTaskDatePresetRow(dueDate: $viewModel.dueDate)
+                if viewModel.dueDate != nil {
+                    Button("Clear due date") {
+                        viewModel.dueDate = nil
+                    }
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.statusWarning)
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+        case .reminder:
+            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                AddTaskReminderChip(
+                    hasReminder: hasReminderBinding,
+                    reminderTime: reminderTimeBinding
+                )
+                if viewModel.reminderTime != nil {
+                    Button("Clear reminder") {
+                        viewModel.reminderTime = nil
+                    }
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.statusWarning)
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+        case .priority:
+            AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
+                .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+        case .project:
+            AddTaskProjectBar(
+                selectedProject: selectedProjectNameBinding,
+                projects: viewModel.projects,
+                onCreateProject: { name in
+                    viewModel.createProject(name: name) { _ in }
+                }
+            )
+            .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+        case .type:
+            AddTaskTypeChips(selectedType: $viewModel.selectedType)
+                .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+        case .tags:
+            AddTaskTagMultiSelect(
+                tags: viewModel.tags,
+                selectedTagIDs: $viewModel.selectedTagIDs,
+                onCreateTag: { name, completion in
+                    viewModel.createTag(name: name, completion: completion)
+                }
+            )
+            .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+        case .none:
+            EmptyView()
+        }
+    }
+
+    private var notesSection: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            HStack {
+                Text("Notes")
+                    .font(.tasker(.headline))
                     .foregroundColor(Color.tasker.textPrimary)
-                    .scrollContentBackground(.hidden)
-                    .frame(minHeight: 80, maxHeight: 160)
-                    .padding(TaskerTheme.Spacing.md)
-                    .background(Color.tasker.surfaceSecondary)
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md)
-                            .stroke(Color.tasker.accentRing, lineWidth: 2)
-                    )
+                Spacer()
+                Button(showDescriptionEditor ? "Done" : "Edit") {
+                    showDescriptionEditor.toggle()
+                    if showDescriptionEditor {
+                        descriptionFocused = true
+                    }
+                }
+                .font(.tasker(.caption1).weight(.medium))
+                .foregroundColor(Color.tasker.accentPrimary)
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("taskDetail.editButton")
+            }
+
+            if showDescriptionEditor {
+                AddTaskDescriptionField(text: $viewModel.taskDescription, isFocused: $descriptionFocused)
+                    .accessibilityIdentifier("taskDetail.descriptionField")
             } else {
                 Group {
-                    if taskDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("Add a description...")
+                    if descriptionIsEmpty {
+                        Text(descriptionPreview)
                             .font(.tasker(.body))
                             .foregroundColor(Color.tasker.textQuaternary)
                             .italic()
                     } else {
-                        Text(taskDescription)
+                        Text(descriptionPreview)
                             .font(.tasker(.body))
                             .foregroundColor(Color.tasker.textSecondary)
-                            .lineLimit(4)
                     }
                 }
+                .lineLimit(3)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(TaskerTheme.Spacing.lg)
+                .padding(TaskerTheme.Spacing.md)
                 .background(Color.tasker.surfaceSecondary)
                 .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
-                .overlay(
-                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md)
-                        .stroke(Color.tasker.strokeHairline, lineWidth: 1)
-                )
-                .onTapGesture { isEditingDescription = true }
+                .accessibilityIdentifier("taskDetail.descriptionField")
             }
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
     }
 
-    private var editableFieldsSection: some View {
-        VStack(spacing: 0) {
-            dueDateRow
+    private var stepsSection: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            Text("Steps")
+                .font(.tasker(.headline))
+                .foregroundColor(Color.tasker.textPrimary)
 
-            Divider()
-                .foregroundColor(Color.tasker.strokeHairline)
-
-            priorityRow
-
-            Divider()
-                .foregroundColor(Color.tasker.strokeHairline)
-
-            projectRow
-
-            Divider()
-                .foregroundColor(Color.tasker.strokeHairline)
-
-            typeRow
-
-            Divider()
-                .foregroundColor(Color.tasker.strokeHairline)
-
-            reminderRow
-        }
-        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-    }
-
-    private var dueDateRow: some View {
-        VStack(spacing: 0) {
-            DetailRow(icon: "calendar", label: "Due Date", action: {
-                withAnimation(TaskerAnimation.snappy) {
-                    showDatePicker.toggle()
-                    showReminderPicker = false
-                }
-            }) {
-                if let dueDate {
-                    Text(DateUtils.formatDate(dueDate))
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(dueDateColor(for: dueDate))
-                } else {
-                    Text("Not set")
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(Color.tasker.textTertiary)
-                }
+            if viewModel.childSteps.isEmpty {
+                Text("Break the task into tiny steps to make starting easier.")
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textTertiary)
+                    .padding(.vertical, TaskerTheme.Spacing.xs)
             }
 
-            if showDatePicker {
-                DatePicker(
-                    "Due Date",
-                    selection: Binding(
-                        get: { dueDate ?? Date() },
-                        set: { dueDate = $0 }
-                    ),
-                    displayedComponents: [.date, .hourAndMinute]
-                )
-                .datePickerStyle(.graphical)
-                .tint(Color.tasker.accentPrimary)
-                .padding(.bottom, TaskerTheme.Spacing.md)
-                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
-            }
-        }
-    }
-
-    private var priorityRow: some View {
-        VStack(spacing: 0) {
-            DetailRow(icon: "flag.fill", iconColor: priorityColor, label: "Priority", action: {
-                withAnimation(TaskerAnimation.snappy) {
-                    showPriorityPicker.toggle()
-                }
-            }) {
-                Text(priorityLabel)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(priorityColor)
-            }
-
-            if showPriorityPicker {
-                PriorityPillSelector(selectedPriority: $taskPriorityRaw)
-                    .padding(.bottom, TaskerTheme.Spacing.md)
-                    .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
-            }
-        }
-    }
-
-    private var projectRow: some View {
-        VStack(spacing: 0) {
-            DetailRow(icon: "folder.fill", label: "Project", action: {
-                withAnimation(TaskerAnimation.snappy) {
-                    showProjectPicker.toggle()
-                }
-            }) {
-                Text(selectedProjectName)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(Color.tasker.textPrimary)
-            }
-
-            if showProjectPicker {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: TaskerTheme.Spacing.sm) {
-                        ForEach(projectOptions, id: \.id) { project in
-                            TaskerChip(
-                                title: project.name,
-                                isSelected: selectedProjectID == project.id,
-                                selectedStyle: .tinted
-                            ) {
-                                withAnimation(TaskerAnimation.snappy) {
-                                    selectedProjectID = project.id
-                                }
-                                TaskerFeedback.selection()
-                            }
-                        }
-                    }
-                }
-                .padding(.bottom, TaskerTheme.Spacing.md)
-                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
-            }
-        }
-    }
-
-    private var typeRow: some View {
-        VStack(spacing: 0) {
-            DetailRow(icon: taskTypeIcon, label: "Type", action: {
-                withAnimation(TaskerAnimation.snappy) {
-                    showTypePicker.toggle()
-                }
-            }) {
-                Text(taskTypeLabel)
-                    .font(.tasker(.bodyEmphasis))
-                    .foregroundColor(Color.tasker.textPrimary)
-            }
-
-            if showTypePicker {
-                TypeChipSelector(selectedType: $taskTypeRaw)
-                    .padding(.bottom, TaskerTheme.Spacing.md)
-                    .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
-            }
-        }
-    }
-
-    private var reminderRow: some View {
-        VStack(spacing: 0) {
-            DetailRow(icon: "bell.fill", label: "Reminder", action: {
-                withAnimation(TaskerAnimation.snappy) {
-                    showReminderPicker.toggle()
-                    showDatePicker = false
-                }
-            }) {
-                if let reminderTime {
-                    Text(formatTime(reminderTime))
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(Color.tasker.accentPrimary)
-                } else {
-                    Text("Not set")
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(Color.tasker.textTertiary)
-                }
-            }
-
-            if showReminderPicker {
-                DatePicker(
-                    "Reminder",
-                    selection: Binding(
-                        get: { reminderTime ?? Date() },
-                        set: { reminderTime = $0 }
-                    ),
-                    displayedComponents: [.hourAndMinute]
-                )
-                .datePickerStyle(.wheel)
-                .tint(Color.tasker.accentPrimary)
-                .frame(height: 120)
-                .padding(.bottom, TaskerTheme.Spacing.md)
-                .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
-            }
-        }
-    }
-
-    private var actionSection: some View {
-        VStack(spacing: TaskerTheme.Spacing.md) {
-            if let dueDate {
-                Button(action: {
-                    applyReschedule(to: dueDate)
-                }) {
-                    HStack(spacing: TaskerTheme.Spacing.sm) {
-                        Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 14, weight: .bold))
-                        Text("Apply Reschedule")
-                            .font(.tasker(.button))
-                    }
-                    .foregroundColor(Color.tasker.accentOnPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(Color.tasker.accentPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
-                }
-                .scaleOnPress()
-            }
-
-            Button(action: {
-                toggleCompletion()
-            }) {
+            ForEach(viewModel.childSteps, id: \.id) { step in
                 HStack(spacing: TaskerTheme.Spacing.sm) {
-                    Image(systemName: isComplete ? "arrow.uturn.backward" : "checkmark.circle")
-                        .font(.system(size: 14, weight: .bold))
-                    Text(isComplete ? "Mark Incomplete" : "Mark Complete")
-                        .font(.tasker(.button))
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .background(isComplete ? Color.tasker.statusWarning : Color.tasker.statusSuccess)
-                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
-            }
-            .scaleOnPress()
+                    CompletionCheckbox(isComplete: step.isComplete, compact: true) {
+                        viewModel.toggleStepCompletion(step)
+                    }
+                    .accessibilityHint("Toggle step completion")
 
-            Button(action: promptDeleteTask) {
-                Text("Delete Task")
-                    .font(.tasker(.callout))
-                    .foregroundColor(Color.tasker.statusDanger)
+                    Text(step.title)
+                        .font(.tasker(.callout))
+                        .foregroundColor(step.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
+                        .strikethrough(step.isComplete, color: Color.tasker.textTertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Menu {
+                        Button("Move up") {
+                            viewModel.moveStepUp(step)
+                        }
+                        Button("Move down") {
+                            viewModel.moveStepDown(step)
+                        }
+                        Button("Delete", role: .destructive) {
+                            viewModel.deleteStep(step)
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.md)
+                .padding(.vertical, TaskerTheme.Spacing.sm)
+                .background(Color.tasker.surfaceSecondary)
+                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+                .accessibilityIdentifier("taskDetail.step.\(step.id.uuidString)")
             }
-            .padding(.top, TaskerTheme.Spacing.xs)
+
+            HStack(spacing: TaskerTheme.Spacing.sm) {
+                TextField("Add a step...", text: $newStepTitle)
+                    .font(.tasker(.callout))
+                    .focused($stepFocused)
+                    .textFieldStyle(.plain)
+                    .onSubmit {
+                        addStep()
+                    }
+                    .accessibilityIdentifier("taskDetail.stepInput")
+
+                Button {
+                    addStep()
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(Color.tasker.accentPrimary)
+                }
+                .buttonStyle(.plain)
+                .disabled(newStepTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityLabel("Add step")
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.md)
+            .padding(.vertical, TaskerTheme.Spacing.sm)
+            .background(Color.tasker.surfaceSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .padding(.top, TaskerTheme.Spacing.xl)
+    }
+
+    private var moreDetailsSection: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            Button {
+                withAnimation(TaskerAnimation.snappy) {
+                    viewModel.showMoreDetails.toggle()
+                }
+            } label: {
+                HStack {
+                    Text("More details")
+                        .font(.tasker(.callout))
+                        .foregroundColor(Color.tasker.textSecondary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.tasker.textTertiary)
+                        .rotationEffect(.degrees(viewModel.showMoreDetails ? 90 : 0))
+                }
+            }
+            .buttonStyle(.plain)
+
+            if viewModel.showMoreDetails {
+                VStack(spacing: TaskerTheme.Spacing.sm) {
+                    if !viewModel.lifeAreas.isEmpty {
+                        AddTaskEntityPicker(
+                            label: "Life Area",
+                            items: viewModel.lifeAreas.map { (id: $0.id, name: $0.name, icon: $0.icon) },
+                            selectedID: $viewModel.selectedLifeAreaID
+                        )
+                        .accessibilityIdentifier("taskDetail.lifeAreaPicker")
+                    }
+
+                    if !viewModel.sections.isEmpty {
+                        AddTaskEntityPicker(
+                            label: "Section",
+                            items: viewModel.sections.map { (id: $0.id, name: $0.name, icon: nil as String?) },
+                            selectedID: $viewModel.selectedSectionID
+                        )
+                        .accessibilityIdentifier("taskDetail.sectionPicker")
+                    }
+                }
+            }
+        }
+        .padding(TaskerTheme.Spacing.md)
+        .background(Color.tasker.surfaceSecondary.opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+    }
+
+    private var advancedSection: some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            Button {
+                withAnimation(TaskerAnimation.snappy) {
+                    viewModel.showAdvancedDetails.toggle()
+                }
+            } label: {
+                HStack {
+                    Text("Advanced")
+                        .font(.tasker(.callout))
+                        .foregroundColor(Color.tasker.textSecondary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.tasker.textTertiary)
+                        .rotationEffect(.degrees(viewModel.showAdvancedDetails ? 90 : 0))
+                }
+            }
+            .buttonStyle(.plain)
+
+            if viewModel.showAdvancedDetails {
+                VStack(spacing: TaskerTheme.Spacing.sm) {
+                    if !viewModel.availableParentTasks.isEmpty {
+                        AddTaskTaskPicker(
+                            label: "Parent Task",
+                            tasks: viewModel.availableParentTasks,
+                            selectedTaskID: $viewModel.selectedParentTaskID
+                        )
+                        .accessibilityIdentifier("taskDetail.parentTaskPicker")
+                    }
+
+                    if !viewModel.availableDependencyTasks.isEmpty {
+                        AddTaskDependenciesPicker(
+                            tasks: viewModel.availableDependencyTasks,
+                            selectedTaskIDs: $viewModel.selectedDependencyTaskIDs,
+                            dependencyKind: $viewModel.selectedDependencyKind
+                        )
+                        .accessibilityIdentifier("taskDetail.dependenciesPicker")
+                    }
+
+                    AddTaskEnumChipRow(
+                        label: "Energy",
+                        displayName: { $0.displayName },
+                        icon: { $0.emoji.isEmpty ? "bolt" : $0.emoji },
+                        selected: $viewModel.selectedEnergy
+                    )
+                    .accessibilityIdentifier("taskDetail.energyPicker")
+
+                    AddTaskEnumChipRow(
+                        label: "Category",
+                        displayName: { $0.displayName },
+                        icon: { $0.emoji.isEmpty ? "tag" : $0.emoji },
+                        selected: $viewModel.selectedCategory
+                    )
+                    .accessibilityIdentifier("taskDetail.categoryPicker")
+
+                    AddTaskEnumChipRow(
+                        label: "Context",
+                        displayName: { $0.displayName },
+                        icon: { $0.emoji.isEmpty ? "mappin" : $0.emoji },
+                        selected: $viewModel.selectedContext
+                    )
+                    .accessibilityIdentifier("taskDetail.contextPicker")
+
+                    AddTaskDurationPicker(duration: $viewModel.estimatedDuration)
+                        .accessibilityIdentifier("taskDetail.durationPicker")
+
+                    AddTaskRepeatEditor(repeatPattern: $viewModel.repeatPattern)
+                        .accessibilityIdentifier("taskDetail.repeatPicker")
+                }
+            }
+        }
+        .padding(TaskerTheme.Spacing.md)
+        .background(Color.tasker.surfaceSecondary.opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+    }
+
+    private var destructiveSection: some View {
+        Button(role: .destructive) {
+            promptDeleteTask()
+        } label: {
+            Text("Delete Task")
+                .font(.tasker(.callout))
+                .foregroundColor(Color.tasker.statusDanger)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, TaskerTheme.Spacing.sm)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+        .accessibilityIdentifier("taskDetail.deleteButton")
     }
 
     private var metadataFooter: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
-            Text("Added \(DateUtils.formatDateTime(persistedTask.dateAdded))")
+            Text("Added \(DateUtils.formatDateTime(viewModel.persistedTask.dateAdded))")
                 .font(.tasker(.caption2))
                 .foregroundColor(Color.tasker.textTertiary)
 
-            if isComplete, let dateCompleted = persistedTask.dateCompleted {
-                Text("Completed \(DateUtils.formatDateTime(dateCompleted))")
+            if viewModel.isComplete, let completedAt = viewModel.persistedTask.dateCompleted {
+                Text("Completed \(DateUtils.formatDateTime(completedAt))")
                     .font(.tasker(.caption2))
                     .foregroundColor(Color.tasker.textTertiary)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-        .padding(.top, TaskerTheme.Spacing.lg)
-        .padding(.bottom, TaskerTheme.Spacing.xxxl)
     }
 
-    private var projectOptions: [Project] {
-        var ordered: [Project] = []
-        var seen = Set<UUID>()
+    private var hasReminderBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.reminderTime != nil },
+            set: { hasReminder in
+                if hasReminder {
+                    if viewModel.reminderTime == nil {
+                        viewModel.reminderTime = Date()
+                    }
+                } else {
+                    viewModel.reminderTime = nil
+                }
+            }
+        )
+    }
 
-        let inbox = projects.first(where: { $0.id == ProjectConstants.inboxProjectID }) ?? Project.createInbox()
-        ordered.append(inbox)
-        seen.insert(inbox.id)
+    private var reminderTimeBinding: Binding<Date> {
+        Binding(
+            get: { viewModel.reminderTime ?? Date() },
+            set: { viewModel.reminderTime = $0 }
+        )
+    }
 
-        for project in projects.sorted(by: { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }) {
-            guard seen.contains(project.id) == false else { continue }
-            ordered.append(project)
-            seen.insert(project.id)
+    private var selectedProjectNameBinding: Binding<String> {
+        Binding(
+            get: { viewModel.selectedProjectName },
+            set: { newName in
+                guard let projectID = viewModel.projects.first(where: { $0.name == newName })?.id else { return }
+                viewModel.selectedProjectID = projectID
+            }
+        )
+    }
+
+    private var statusText: String {
+        if viewModel.isComplete {
+            if let dateCompleted = viewModel.persistedTask.dateCompleted {
+                return "Completed · \(DateUtils.formatDateTime(dateCompleted))"
+            }
+            return "Completed"
         }
 
-        return ordered
+        if let dueDate = viewModel.dueDate {
+            return "Due \(DateUtils.formatDate(dueDate))"
+        }
+
+        return "Not started"
     }
 
-    private var selectedProjectName: String {
-        projectOptions.first(where: { $0.id == selectedProjectID })?.name
-            ?? persistedTask.projectName
-            ?? ProjectConstants.inboxProjectName
+    private var autosaveColor: Color {
+        switch viewModel.autosaveState {
+        case .idle:
+            return Color.clear
+        case .saving:
+            return Color.tasker.textTertiary
+        case .saved:
+            return Color.tasker.statusSuccess
+        case .failed:
+            return Color.tasker.statusDanger
+        }
     }
 
     private var priorityColor: Color {
-        switch taskPriorityRaw {
-        case 1: return Color.tasker.priorityNone
-        case 2: return Color.tasker.priorityLow
-        case 3: return Color.tasker.priorityHigh
-        case 4: return Color.tasker.priorityMax
-        default: return Color.tasker.priorityLow
+        switch viewModel.selectedPriority {
+        case .none: return Color.tasker.priorityNone
+        case .low: return Color.tasker.priorityLow
+        case .high: return Color.tasker.priorityHigh
+        case .max: return Color.tasker.priorityMax
         }
     }
 
-    private var priorityLabel: String {
-        switch taskPriorityRaw {
-        case 1: return "None"
-        case 2: return "Low"
-        case 3: return "High"
-        case 4: return "Max"
-        default: return "Low"
+    private var dueChipText: String {
+        guard let dueDate = viewModel.dueDate else { return "No due" }
+        return DateUtils.formatDate(dueDate)
+    }
+
+    private var reminderChipText: String {
+        guard let reminderTime = viewModel.reminderTime else { return "Reminder" }
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: reminderTime)
+    }
+
+    private var typeChipIcon: String {
+        switch viewModel.selectedType {
+        case .morning: return "sun.max"
+        case .evening: return "moon.stars"
+        case .upcoming: return "arrow.right.circle"
+        case .inbox: return "tray"
         }
     }
 
-    private var taskTypeIcon: String {
-        switch taskTypeRaw {
-        case 1: return "sunrise.fill"
-        case 2: return "moon.fill"
-        case 3: return "calendar.badge.clock"
-        case 4: return "tray.fill"
-        default: return "sunrise.fill"
+    private var tagsChipText: String {
+        if viewModel.selectedTagIDs.isEmpty {
+            return "Tags"
+        }
+        return "Tags · \(viewModel.selectedTagIDs.count)"
+    }
+
+    private var descriptionIsEmpty: Bool {
+        viewModel.taskDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var descriptionPreview: String {
+        descriptionIsEmpty ? "Add details you'll want later (optional)." : viewModel.taskDescription
+    }
+
+    private func toggleEditor(_ editor: ActiveEditor) {
+        withAnimation(TaskerAnimation.snappy) {
+            activeEditor = (activeEditor == editor) ? nil : editor
         }
     }
 
-    private var taskTypeLabel: String {
-        switch taskTypeRaw {
-        case 1: return "Morning"
-        case 2: return "Evening"
-        case 3: return "Upcoming"
-        case 4: return "Inbox"
-        default: return "Morning"
-        }
-    }
+    private func addStep() {
+        let candidate = newStepTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !candidate.isEmpty else { return }
 
-    private func scheduleAutosave(debounced: Bool) {
-        guard suppressAutosave == false else { return }
-
-        autosaveWorkItem?.cancel()
-
-        if isSaving {
-            needsSaveAfterCurrentRequest = true
-            return
-        }
-
-        let workItem = DispatchWorkItem {
-            performAutosave()
-        }
-        autosaveWorkItem = workItem
-
-        if debounced {
-            DispatchQueue.main.asyncAfter(deadline: .now() + textAutosaveDebounceSeconds, execute: workItem)
-        } else {
-            DispatchQueue.main.async(execute: workItem)
-        }
-    }
-
-    private func performAutosave() {
-        guard suppressAutosave == false else { return }
-
-        let trimmedTitle = taskName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedTitle.isEmpty == false else {
-            autosaveState = .failed("Task name cannot be empty")
-            return
-        }
-
-        guard let request = makeUpdateRequest() else {
-            autosaveState = .saved
-            return
-        }
-
-        autosaveState = .saving
-        isSaving = true
-
-        onUpdate(request) { result in
-            DispatchQueue.main.async {
-                isSaving = false
-                switch result {
-                case .success(let updatedTask):
-                    syncDraftFromTask(updatedTask)
-                    autosaveState = .saved
-
-                case .failure(let error):
-                    autosaveState = .failed(error.localizedDescription)
-                }
-
-                if needsSaveAfterCurrentRequest {
-                    needsSaveAfterCurrentRequest = false
-                    scheduleAutosave(debounced: false)
-                }
-            }
-        }
-    }
-
-    private func makeUpdateRequest() -> UpdateTaskDefinitionRequest? {
-        let trimmedName = taskName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedDetails = taskDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        let detailsForStorage: String? = normalizedDetails.isEmpty ? nil : taskDescription
-
-        let priority = TaskPriority(rawValue: taskPriorityRaw)
-        let type = TaskType(rawValue: taskTypeRaw)
-
-        var title: String?
-        var details: String?
-        var priorityChange: TaskPriority?
-        var typeChange: TaskType?
-        var dueDateChange: Date?
-        var projectID: UUID?
-        var reminderChange: Date?
-
-        if trimmedName != persistedTask.title {
-            title = trimmedName
-        }
-
-        if detailsForStorage != persistedTask.details {
-            // Empty string requests a clear in update request handling.
-            details = detailsForStorage ?? ""
-        }
-
-        if priority != persistedTask.priority {
-            priorityChange = priority
-        }
-
-        if type != persistedTask.type {
-            typeChange = type
-        }
-
-        if areDatesDifferent(dueDate, persistedTask.dueDate), let dueDate {
-            dueDateChange = dueDate
-        }
-
-        if selectedProjectID != persistedTask.projectID || selectedProjectName != (persistedTask.projectName ?? ProjectConstants.inboxProjectName) {
-            projectID = selectedProjectID
-        }
-
-        if areDatesDifferent(reminderTime, persistedTask.alertReminderTime), let reminderTime {
-            reminderChange = reminderTime
-        }
-
-        let request = UpdateTaskDefinitionRequest(
-            id: persistedTask.id,
-            title: title,
-            details: details,
-            projectID: projectID,
-            dueDate: dueDateChange,
-            priority: priorityChange,
-            type: typeChange,
-            alertReminderTime: reminderChange
-        )
-
-        let hasChanges =
-            title != nil ||
-            details != nil ||
-            priorityChange != nil ||
-            typeChange != nil ||
-            dueDateChange != nil ||
-            projectID != nil ||
-            reminderChange != nil
-
-        return hasChanges ? request : nil
-    }
-
-    private func toggleCompletion() {
-        let requested = !isComplete
-        withAnimation(TaskerAnimation.bouncy) {
-            isComplete = requested
-        }
-
-        onSetCompletion(requested) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let updatedTask):
-                    syncDraftFromTask(updatedTask)
-                    autosaveState = .saved
-                    TaskerFeedback.success()
-
-                case .failure(let error):
-                    withAnimation(TaskerAnimation.bouncy) {
-                        isComplete.toggle()
-                    }
-                    autosaveState = .failed(error.localizedDescription)
-                }
-            }
+        viewModel.createStep(title: candidate) { success in
+            guard success else { return }
+            newStepTitle = ""
+            stepFocused = true
         }
     }
 
     private func promptDeleteTask() {
-        if task.recurrenceSeriesID != nil {
+        if viewModel.persistedTask.recurrenceSeriesID != nil {
             showDeleteScopeDialog = true
             return
         }
@@ -783,77 +846,14 @@ struct TaskDetailSheetView: View {
     }
 
     private func deleteTask(scope: TaskDeleteScope) {
-        onDelete(scope) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success:
-                    TaskerFeedback.success()
-                    dismiss()
-                case .failure(let error):
-                    autosaveState = .failed(error.localizedDescription)
-                }
+        viewModel.deleteTask(scope: scope) { result in
+            switch result {
+            case .success:
+                TaskerFeedback.success()
+                dismiss()
+            case .failure(let error):
+                viewModel.autosaveState = .failed(error.localizedDescription)
             }
-        }
-    }
-
-    private func applyReschedule(to date: Date) {
-        onReschedule(date) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let updatedTask):
-                    syncDraftFromTask(updatedTask)
-                    autosaveState = .saved
-                    TaskerFeedback.success()
-                case .failure(let error):
-                    autosaveState = .failed(error.localizedDescription)
-                }
-            }
-        }
-    }
-
-    private func syncDraftFromTask(_ updatedTask: TaskDefinition) {
-        suppressAutosave = true
-        persistedTask = updatedTask
-        taskName = updatedTask.title
-        taskDescription = updatedTask.details ?? ""
-        taskPriorityRaw = updatedTask.priority.rawValue
-        taskTypeRaw = updatedTask.type.rawValue
-        selectedProjectID = updatedTask.projectID
-        dueDate = updatedTask.dueDate
-        reminderTime = updatedTask.alertReminderTime
-        isComplete = updatedTask.isComplete
-        DispatchQueue.main.async {
-            suppressAutosave = false
-        }
-    }
-
-    private func dueDateColor(for date: Date) -> Color {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
-            return Color.tasker.statusWarning
-        } else if date < Date() {
-            return Color.tasker.statusDanger
-        } else if calendar.isDateInTomorrow(date) {
-            return Color.tasker.accentPrimary
-        } else {
-            return Color.tasker.textSecondary
-        }
-    }
-
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-
-    private func areDatesDifferent(_ lhs: Date?, _ rhs: Date?) -> Bool {
-        switch (lhs, rhs) {
-        case (nil, nil):
-            return false
-        case let (left?, right?):
-            return abs(left.timeIntervalSince(right)) > 0.5
-        default:
-            return true
         }
     }
 }
