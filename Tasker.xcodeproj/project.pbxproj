@@ -74,6 +74,7 @@
 		750894CC2E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 750894C92E8D3C390037FACE /* AnalyticsRepositoryProtocol.swift */; };
 		7509A0192F13D806009162CD /* AddTaskViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00C2F13D806009162CD /* AddTaskViewModel.swift */; };
 		7509A01A2F13D806009162CD /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00D2F13D806009162CD /* HomeViewModel.swift */; };
+		A7B8C9D22F13D806009162CD /* TaskDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D12F13D806009162CD /* TaskDetailViewModel.swift */; };
 		7509A01B2F13D806009162CD /* PresentationDependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00A2F13D806009162CD /* PresentationDependencyContainer.swift */; };
 		7509A01C2F13D806009162CD /* ProjectManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */; };
 		750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 750F9EDB2685CC9F00C008C4 /* CloudKit.framework */; };
@@ -409,6 +410,7 @@
 		7509A00A2F13D806009162CD /* PresentationDependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresentationDependencyContainer.swift; sourceTree = "<group>"; };
 		7509A00C2F13D806009162CD /* AddTaskViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskViewModel.swift; sourceTree = "<group>"; };
 		7509A00D2F13D806009162CD /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
+		A7B8C9D12F13D806009162CD /* TaskDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailViewModel.swift; sourceTree = "<group>"; };
 		7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectManagementViewModel.swift; sourceTree = "<group>"; };
 		750F9EDA2685CC9500C008C4 /* This Day.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "This Day.entitlements"; sourceTree = "<group>"; };
 		750F9EDB2685CC9F00C008C4 /* CloudKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudKit.framework; path = System/Library/Frameworks/CloudKit.framework; sourceTree = SDKROOT; };
@@ -881,6 +883,7 @@
 			children = (
 				7509A00C2F13D806009162CD /* AddTaskViewModel.swift */,
 				7509A00D2F13D806009162CD /* HomeViewModel.swift */,
+				A7B8C9D12F13D806009162CD /* TaskDetailViewModel.swift */,
 				7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */,
 				B1A1C1D1E1F1020304050603 /* ChartCardViewModel.swift */,
 				B1A1C1D1E1F1020304050604 /* RadarChartCardViewModel.swift */,
@@ -1992,6 +1995,7 @@
 				75DFF3212DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */,
 				7509A0192F13D806009162CD /* AddTaskViewModel.swift in Sources */,
 				7509A01A2F13D806009162CD /* HomeViewModel.swift in Sources */,
+				A7B8C9D22F13D806009162CD /* TaskDetailViewModel.swift in Sources */,
 				7509A01B2F13D806009162CD /* PresentationDependencyContainer.swift in Sources */,
 				7509A01C2F13D806009162CD /* ProjectManagementViewModel.swift in Sources */,
 				B1A1C1D1E1F1020304050613 /* ChartCardViewModel.swift in Sources */,
