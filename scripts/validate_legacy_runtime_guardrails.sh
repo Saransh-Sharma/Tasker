@@ -11,6 +11,7 @@ LEGACY_SCREEN_PATTERN='\bNAddTaskScreen\b'
 PRODUCTION_SWIFT_ROOT="To Do List"
 CHAT_SWIFT_ROOT="To Do List/LLM/Views/Chat"
 CHAT_MUTATION_BYPASS_PATTERN='\b(createTaskDefinition|updateTaskDefinition|deleteTaskDefinition|completeTaskDefinition|rescheduleTaskDefinition)\b'
+CHAT_SEMANTIC_REBUILD_PATTERN='TaskSemanticRetrievalService\.shared\.(rebuildIndex|index)\('
 PROPOSAL_RUN_GUARD_PATTERN='payload\.runID\s*==\s*nil'
 
 RUNTIME_FILES=(
@@ -79,6 +80,11 @@ fi
 
 if rg -n -P "$CHAT_MUTATION_BYPASS_PATTERN" "$CHAT_SWIFT_ROOT" --glob '*.swift'; then
   echo "Chat layer appears to mutate tasks directly; must route through AssistantActionPipelineUseCase"
+  exit 1
+fi
+
+if rg -n -P "$CHAT_SEMANTIC_REBUILD_PATTERN" "$CHAT_SWIFT_ROOT" --glob '*.swift'; then
+  echo "Chat layer must not rebuild or mutate semantic index directly"
   exit 1
 fi
 

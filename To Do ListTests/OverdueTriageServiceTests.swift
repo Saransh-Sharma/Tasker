@@ -30,7 +30,7 @@ final class OverdueTriageServiceTests: XCTestCase {
             return XCTFail("Expected overdue triage suggestion")
         }
         XCTAssertEqual(envelope.schemaVersion, 2)
-        XCTAssertEqual(envelope.commands.count, 2)
+        XCTAssertEqual(envelope.commands.count, 3)
 
         var dueDateByTask: [UUID: Date] = [:]
         for command in envelope.commands {
@@ -41,8 +41,8 @@ final class OverdueTriageServiceTests: XCTestCase {
         }
 
         XCTAssertEqual(dueDateByTask[noneTask.id], expectedNextWeek)
-        XCTAssertEqual(dueDateByTask[lowTask.id], expectedTomorrow)
-        XCTAssertNil(dueDateByTask[highTask.id])
+        XCTAssertEqual(dueDateByTask[lowTask.id], expectedNextWeek)
+        XCTAssertEqual(dueDateByTask[highTask.id], expectedTomorrow)
         XCTAssertNil(dueDateByTask[maxTask.id])
 
         let summary = suggestion?.summaryLines.joined(separator: " | ") ?? ""
@@ -59,5 +59,39 @@ final class OverdueTriageServiceTests: XCTestCase {
             dueDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()),
             isComplete: false
         )
+    }
+}
+
+@MainActor
+final class TaskBreakdownServiceContractTests: XCTestCase {
+    override func tearDown() {
+        super.tearDown()
+        UserDefaults.standard.removeObject(forKey: "installedModels")
+        UserDefaults.standard.removeObject(forKey: "currentModelName")
+    }
+
+    func testImmediateHeuristicEnforcesThreeToSixSteps() {
+        let service = TaskBreakdownService(llm: LLMEvaluator())
+        let result = service.immediateHeuristicSteps(
+            taskTitle: "Write launch note",
+            taskDetails: "Draft intro.",
+            projectName: "Work"
+        )
+
+        XCTAssertGreaterThanOrEqual(result.steps.count, 3)
+        XCTAssertLessThanOrEqual(result.steps.count, 6)
+    }
+
+    func testRefineFallsBackToThreeToSixWhenNoModelInstalled() async {
+        let service = TaskBreakdownService(llm: LLMEvaluator())
+        let result = await service.refine(
+            taskTitle: "Plan quarterly review",
+            taskDetails: nil,
+            projectName: "Ops"
+        )
+
+        XCTAssertGreaterThanOrEqual(result.steps.count, 3)
+        XCTAssertLessThanOrEqual(result.steps.count, 6)
+        XCTAssertNil(result.modelName)
     }
 }

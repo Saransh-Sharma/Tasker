@@ -350,6 +350,7 @@ struct ConversationView: View {
 
     let thread: Thread
     let generatingThreadID: UUID?
+    let isPreparingResponse: Bool
     var onApplyProposal: ((Message, AssistantCardPayload) -> Void)?
     var onRejectProposal: ((Message, AssistantCardPayload) -> Void)?
     var onUndoRun: ((Message, AssistantCardPayload) -> Void)?
@@ -376,7 +377,7 @@ struct ConversationView: View {
                             .id(message.id.uuidString)
                     }
 
-                    if llm.running && !llm.output.isEmpty && thread.id == generatingThreadID {
+                    if (llm.running || isPreparingResponse) && !llm.output.isEmpty && thread.id == generatingThreadID {
                         VStack {
                             MessageView(message: Message(role: .assistant, content: llm.output), isLiveOutput: true)
                         }
@@ -420,7 +421,7 @@ struct ConversationView: View {
 }
 
 #Preview {
-    ConversationView(thread: Thread(), generatingThreadID: nil)
+    ConversationView(thread: Thread(), generatingThreadID: nil, isPreparingResponse: false)
         .environment(LLMEvaluator())
         .environmentObject(AppManager())
 }

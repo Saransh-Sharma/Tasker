@@ -6,6 +6,7 @@ This document defines the runtime boundaries and integration contracts for Taske
 It covers:
 - local LLM chat and context projection,
 - AI-assisted UX surfaces,
+- fast-first UX contracts (instant heuristic fallback + async model refinement),
 - transactional assistant mutation flow (`propose -> confirm -> apply -> undo`), and
 - semantic retrieval and reranking.
 
@@ -28,6 +29,7 @@ Primary source anchors:
 - `To Do List/LLM/Models/TaskEmbeddingEngine.swift`
 - `To Do List/LLM/Models/TaskSemanticIndexStore.swift`
 - `To Do List/LLM/Models/TaskSemanticRetrievalService.swift`
+- `To Do List/LLM/Models/LLMEvaluator.swift`
 - `To Do List/LLM/Models/LLMDataController.swift`
 - `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
 - `To Do List/UseCases/LLM/AssistantCommandExecutor.swift`
@@ -68,12 +70,20 @@ flowchart TD
 | --- | --- | --- | --- | --- |
 | Chat Ask mode | `ChatView` | No | route via installed/current model (`AIChatModeRouter` where applicable) | read-only, no pipeline calls |
 | Chat Plan mode | `ChatView` Ask/Plan toggle | Yes (user-confirmed only) | `AIChatModeRouter.route(.planMode, ...)` | strict envelope parse/validate; proposal card before apply |
-| Add Task suggestion | `AddTaskViewModel` + `AddTaskForedropView` | No | `AIChatModeRouter.route(.addTaskSuggestion, ...)` | `TaskFieldSuggestion` with confidence + repair decode pass |
-| Home top-3 | `HomeViewModel.helpMeChooseTop3()` | No | `AIChatModeRouter.route(.topThree, ...)` | ranked rationale + confidence rendering |
+| Add Task suggestion | `AddTaskViewModel` + `AddTaskForedropView` | No | `AIChatModeRouter.route(.addTaskSuggestion, ...)` | heuristic suggestion first, then async `TaskFieldSuggestion` refine |
+| Home top-3 | `HomeViewModel.helpMeChooseTop3()` | No | `AIChatModeRouter.route(.topThree, ...)` | heuristic top-3 first, then async ranked refine |
 | Overdue triage | `HomeViewModel` + sheet actions | Yes (Apply All only) | rule-based plan + pipeline apply | `propose -> confirm -> apply` enforced |
-| Task breakdown | `TaskDetailViewModel.generateAIBreakdown` | Yes (user-selected step creation) | `AIChatModeRouter.route(.breakdown, ...)` | 3-6 step suggestion + user subset apply |
+| Task breakdown | `TaskDetailViewModel.generateAIBreakdown` | Yes (user-selected step creation) | `AIChatModeRouter.route(.breakdown, ...)` | sheet opens immediately with heuristic steps, then async 3-6 refine |
 | Daily brief | background + notification open | No | `AIChatModeRouter.route(.dailyBrief, ...)` | cached daily brief + chat deep-link seed |
 | Semantic retrieval | chat context + search rerank | No direct mutations | `TaskEmbeddingEngine` local embeddings | local-only top-K + lexical fallback logging |
+
+## Fast-First UX Contract
+
+1. Chat must always insert a status bubble immediately on cold/first request (`Building context`, `Preparing local model`, `Generating response`).
+2. Add-task suggestions, home top-3, and task breakdown all render deterministic heuristic results first and refine asynchronously.
+3. Surface refinement calls are timeout-bounded by `LLMGenerationProfile` and must not block sheet/panel presentation.
+4. Route fallbacks are explicit (banner/message), never silent.
+5. Model prewarm scope is current selected model only.
 
 ## Traceability Matrix (Code -> Docs)
 
@@ -95,6 +105,7 @@ flowchart TD
 - `LLMAssistantPipelineProvider.configure(pipeline:)`
 2. `AppDelegate.configureSemanticRetrievalIndexingIfNeeded()` loads persisted index, rebuilds snapshot, and subscribes to `.homeTaskMutation`.
 3. `AppDelegate.applicationDidEnterBackground` persists semantic index when enabled.
+4. `LLMPrewarmCoordinator.prewarmCurrentModelIfNeeded(...)` is triggered from app launch and chat-open paths (throttled).
 
 ## Context Projection Schema
 
@@ -167,7 +178,8 @@ Required proposal fields:
 
 Route expectations:
 - `.addTaskSuggestion`, `.dynamicChips`, `.dailyBrief`: lightweight model preference.
-- `.planMode`, `.topThree`, `.breakdown`: higher-capacity model preference.
+- `.planMode`: quality-first higher-capacity preference.
+- `.topThree`, `.breakdown`: low-latency preference when `assistantFastModeEnabled` is on.
 - Fallback is explicit (never silent) and may prompt model download when ideal is absent and device budget allows.
 
 ## Semantic Retrieval Layer (Local Only)
@@ -189,7 +201,7 @@ Route expectations:
 
 ### Fallback
 If embeddings unavailable:
-- semantic returns empty hits,
+- semantic returns empty hits with structured `fallbackReason`,
 - lexical path remains canonical fallback,
 - log event: `assistant_semantic_fallback_lexical`.
 
@@ -210,7 +222,23 @@ If embeddings unavailable:
 | undo window | 30 minutes | `AssistantActionPipelineUseCase` |
 | per-command timeout | 10 seconds | `AssistantActionPipelineUseCase` |
 | per-run timeout | 90 seconds | `AssistantActionPipelineUseCase` |
-| sync context/project lookup timeout | 3 seconds | `LLMContextProjectionService` |
+| chat ask timeout | 12 seconds | `LLMGenerationProfile.chatAsk` |
+| chat plan JSON timeout | 10 seconds | `LLMGenerationProfile.chatPlanJSON` |
+| add-task suggestion timeout | 4 seconds | `LLMGenerationProfile.addTaskSuggestion` |
+| home top-3 timeout | 5 seconds | `LLMGenerationProfile.topThree` |
+| task breakdown timeout | 6 seconds | `LLMGenerationProfile.breakdown` |
+| daily brief timeout | 4 seconds | `LLMGenerationProfile.dailyBrief` |
+| dynamic chips timeout | 2.5 seconds | `LLMGenerationProfile.dynamicChips` |
+
+## Latency Telemetry
+
+- `assistant_model_warmup_started`
+- `assistant_model_warmup_completed`
+- `assistant_model_warmup_failed`
+- `assistant_first_token_latency`
+- `assistant_surface_latency`
+- `assistant_surface_timeout`
+- `assistant_fast_fallback_used`
 
 ## Failure Modes and Operator Actions
 
@@ -235,6 +263,7 @@ If embeddings unavailable:
 | assistant semantic retrieval | `assistantSemanticRetrievalEnabled` |
 | assistant daily brief | `assistantBriefEnabled` |
 | assistant breakdown surface | `assistantBreakdownEnabled` |
+| assistant fast-first routing mode | `assistantFastModeEnabled` |
 
 ## Integration Contract: Chat Context vs Assistant Actions
 

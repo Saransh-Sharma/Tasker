@@ -8,23 +8,15 @@ struct DailyBriefOutput {
 
 @MainActor
 final class DailyBriefService {
-    @MainActor static let shared = DailyBriefService(
-        llm: LLMEvaluator(),
-        appManager: AppManager()
-    )
+    @MainActor static let shared = DailyBriefService(llm: LLMEvaluator())
 
     private let defaults = UserDefaults.standard
     private let cachePrefix = "assistant.daily_brief."
     private let llm: LLMEvaluator
-    private let appManager: AppManager
 
     /// Initializes a new instance.
-    init(
-        llm: LLMEvaluator,
-        appManager: AppManager
-    ) {
+    init(llm: LLMEvaluator) {
         self.llm = llm
-        self.appManager = appManager
     }
 
     /// Executes cachedBrief.
@@ -44,7 +36,7 @@ final class DailyBriefService {
         completedTodayCount: Int,
         streak: Int
     ) async -> DailyBriefOutput {
-        let route = AIChatModeRouter.route(for: .dailyBrief, appManager: appManager)
+        let route = AIChatModeRouter.route(for: .dailyBrief)
         guard let modelName = route.selectedModelName else {
             return DailyBriefOutput(
                 brief: fallbackBrief(
@@ -79,7 +71,8 @@ final class DailyBriefService {
             Return ONLY JSON, no markdown and no prose.
             Schema:
             {"brief":"4 short bullets with one clear next action"}
-            """
+            """,
+            profile: .dailyBrief
         )
         if let brief = decodeBrief(from: output) {
             return DailyBriefOutput(brief: brief, modelName: modelName, routeBanner: route.bannerMessage)

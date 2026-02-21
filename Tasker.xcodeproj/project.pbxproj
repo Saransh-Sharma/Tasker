@@ -80,7 +80,6 @@
 		7509A01C2F13D806009162CD /* ProjectManagementViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7509A00E2F13D806009162CD /* ProjectManagementViewModel.swift */; };
 		750F9EDC2685CC9F00C008C4 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 750F9EDB2685CC9F00C008C4 /* CloudKit.framework */; };
 		7513BA322687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */; };
-		7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */; };
 		7529F6F32DFDE9BC000CBE36 /* LLMDataController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F22DFDE9BC000CBE36 /* LLMDataController.swift */; };
 		7529F6F82DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7529F6F62DFDE9F0000CBE36 /* View+IfModifier.swift */; };
 		7529F6FD2DFDEFB3000CBE36 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 7529F6FC2DFDEFB3000CBE36 /* Lottie */; };
@@ -215,6 +214,27 @@
 		75F89F782DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */; };
 		75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 75F89FB12DFC62C3009EDD8F /* MarkdownUI */; };
 		75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
+		75F9937224815BF600C340EB /* ToDoColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937124815BF600C340EB /* ToDoColors.swift */; };
+		75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F993792483764C00C340EB /* DayAxisValueFormatter.swift */; };
+		75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */; };
+		75F993802485B04200C340EB /* Score.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937F2485B04200C340EB /* Score.swift */; };
+		78824D15E7415EDE2EBA903C /* To Do List/Domain/Interfaces/HabitRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEC0DEA9E6D02E2F991F11A1 /* To Do List/Domain/Interfaces/HabitRepositoryProtocol.swift */; };
+		7AF141A3F67EC19A0961D749 /* TaskerTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6442D619CAA8E6CA77B46126 /* TaskerTokens.swift */; };
+		7F7D8255FC6F6CFC199943F2 /* To Do List/Domain/Mappers/LifeAreaMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECB224DA34C6529E86C73875 /* To Do List/Domain/Mappers/LifeAreaMapper.swift */; };
+		7F7EB577ACD1D0E4495420B5 /* HomeDateHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4644C4A070EF40143E3F1C1E /* HomeDateHeaderView.swift */; };
+		807193C0B8E13112AFE45388 /* To Do List/Domain/Models/Tombstone.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A9A2796943621DC66C4703 /* To Do List/Domain/Models/Tombstone.swift */; };
+		816AAF82986408293F48FA7C /* To Do List/Domain/Models/HabitDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A30108580052CC2C67D2058 /* To Do List/Domain/Models/HabitDefinition.swift */; };
+		83EFBFC4977B6ABACDEA352B /* To Do List/State/Repositories/CoreDataTaskDefinitionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4687654CCFC97DCFDA3E695 /* To Do List/State/Repositories/CoreDataTaskDefinitionRepository.swift */; };
+		858A4B4BBFF2BD3553D36F21 /* To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98955AE7E300D2E682AE486B /* To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift */; };
+		863B6B92EB0A96ED4BAB5BA6 /* To Do List/State/Repositories/CoreDataGamificationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1134D09887CAA3CD8F14E808 /* To Do List/State/Repositories/CoreDataGamificationRepository.swift */; };
+		877BB428E2F289B2E71A9989 /* To Do List/State/Repositories/CoreDataHabitRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CFBD9F581CA1A255A49A85 /* To Do List/State/Repositories/CoreDataHabitRepository.swift */; };
+		8B3CA34519B5A28D8599A5B0 /* SwiftUI+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 817A26FD3474A08EC2250BED /* SwiftUI+TokenAdapters.swift */; };
+		8C817899D9F656D853E39B2C /* AddTaskRepeatEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1F5E5105AE9585B4120F9F /* AddTaskRepeatEditor.swift */; };
+		8CEB7AF8EA56D5550356778F /* CoreDataProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD631E2A2245F830BA92FA5 /* CoreDataProjectRepository.swift */; };
+		8CF22C53A483ED3E88E74656 /* To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95FD785F6B6001D9106C2B8 /* To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift */; };
+		8DC9908CB24A163442B463FB /* To Do List/UseCases/Task/CompleteTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1265EFBF270FC894A5FCA278 /* To Do List/UseCases/Task/CompleteTaskDefinitionUseCase.swift */; };
+		92A6F2B715C2C0A1687DACE9 /* To Do List/Domain/Interfaces/LifeAreaRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107822EF572057FAE8E0EF37 /* To Do List/Domain/Interfaces/LifeAreaRepositoryProtocol.swift */; };
+		93C5C68DC8EB7F633BA4DA05 /* Pods_TaskerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 116F9AD2836EC304C14DF552 /* Pods_TaskerTests.framework */; };
 		9F0B10000000000000000001 /* AIChatModeRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F0A10000000000000000001 /* AIChatModeRouter.swift */; };
 		9F0B10000000000000000002 /* AISuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F0A10000000000000000002 /* AISuggestionService.swift */; };
 		9F0B10000000000000000003 /* AssistantCardPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F0A10000000000000000003 /* AssistantCardPayload.swift */; };
@@ -238,28 +258,7 @@
 		9F2B10000000000000000012 /* AddTaskSuggestionFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2A10000000000000000012 /* AddTaskSuggestionFlowTests.swift */; };
 		9F2B10000000000000000013 /* HomeTriageAndTop3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2A10000000000000000013 /* HomeTriageAndTop3Tests.swift */; };
 		9F2B10000000000000000014 /* TaskBreakdownFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2A10000000000000000014 /* TaskBreakdownFlowTests.swift */; };
-		9F2B10000000000000000020 /* V3TestHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2A10000000000000000020 /* V3TestHarness.swift */; };
-		75F9937224815BF600C340EB /* ToDoColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937124815BF600C340EB /* ToDoColors.swift */; };
-		75F9937A2483764C00C340EB /* DayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F993792483764C00C340EB /* DayAxisValueFormatter.swift */; };
-		75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */; };
-		75F993802485B04200C340EB /* Score.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937F2485B04200C340EB /* Score.swift */; };
-		78824D15E7415EDE2EBA903C /* To Do List/Domain/Interfaces/HabitRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEC0DEA9E6D02E2F991F11A1 /* To Do List/Domain/Interfaces/HabitRepositoryProtocol.swift */; };
-		7AF141A3F67EC19A0961D749 /* TaskerTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6442D619CAA8E6CA77B46126 /* TaskerTokens.swift */; };
-		7F7D8255FC6F6CFC199943F2 /* To Do List/Domain/Mappers/LifeAreaMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECB224DA34C6529E86C73875 /* To Do List/Domain/Mappers/LifeAreaMapper.swift */; };
-		7F7EB577ACD1D0E4495420B5 /* HomeDateHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4644C4A070EF40143E3F1C1E /* HomeDateHeaderView.swift */; };
-		807193C0B8E13112AFE45388 /* To Do List/Domain/Models/Tombstone.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A9A2796943621DC66C4703 /* To Do List/Domain/Models/Tombstone.swift */; };
-		816AAF82986408293F48FA7C /* To Do List/Domain/Models/HabitDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A30108580052CC2C67D2058 /* To Do List/Domain/Models/HabitDefinition.swift */; };
-		83EFBFC4977B6ABACDEA352B /* To Do List/State/Repositories/CoreDataTaskDefinitionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4687654CCFC97DCFDA3E695 /* To Do List/State/Repositories/CoreDataTaskDefinitionRepository.swift */; };
-		858A4B4BBFF2BD3553D36F21 /* To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98955AE7E300D2E682AE486B /* To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift */; };
-		863B6B92EB0A96ED4BAB5BA6 /* To Do List/State/Repositories/CoreDataGamificationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1134D09887CAA3CD8F14E808 /* To Do List/State/Repositories/CoreDataGamificationRepository.swift */; };
-		877BB428E2F289B2E71A9989 /* To Do List/State/Repositories/CoreDataHabitRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CFBD9F581CA1A255A49A85 /* To Do List/State/Repositories/CoreDataHabitRepository.swift */; };
-		8B3CA34519B5A28D8599A5B0 /* SwiftUI+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 817A26FD3474A08EC2250BED /* SwiftUI+TokenAdapters.swift */; };
-		8C817899D9F656D853E39B2C /* AddTaskRepeatEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A1F5E5105AE9585B4120F9F /* AddTaskRepeatEditor.swift */; };
-		8CEB7AF8EA56D5550356778F /* CoreDataProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD631E2A2245F830BA92FA5 /* CoreDataProjectRepository.swift */; };
-		8CF22C53A483ED3E88E74656 /* To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95FD785F6B6001D9106C2B8 /* To Do List/State/Repositories/CoreDataTaskReadModelRepository.swift */; };
-		8DC9908CB24A163442B463FB /* To Do List/UseCases/Task/CompleteTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1265EFBF270FC894A5FCA278 /* To Do List/UseCases/Task/CompleteTaskDefinitionUseCase.swift */; };
-		92A6F2B715C2C0A1687DACE9 /* To Do List/Domain/Interfaces/LifeAreaRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107822EF572057FAE8E0EF37 /* To Do List/Domain/Interfaces/LifeAreaRepositoryProtocol.swift */; };
-		93C5C68DC8EB7F633BA4DA05 /* Pods_TaskerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 116F9AD2836EC304C14DF552 /* Pods_TaskerTests.framework */; };
+		9F2B10000000000000000020 /* TestSupport/V3TestHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2A10000000000000000020 /* TestSupport/V3TestHarness.swift */; };
 		9F8F96DA53998188FCCE898D /* HomeQuickFilterSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D233F155B6A87F62F52F845 /* HomeQuickFilterSummary.swift */; };
 		A11B22C42F10000100ABCDEF /* TaskNotificationDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11B22C32F10000100ABCDEF /* TaskNotificationDispatcher.swift */; };
 		A195295E32A95E537E16AF8A /* To Do List/UseCases/Schedule/ResolveOccurrenceUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9EF3524C96CA56E66C86177 /* To Do List/UseCases/Schedule/ResolveOccurrenceUseCase.swift */; };
@@ -577,19 +576,6 @@
 		75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHostViewController.swift; sourceTree = "<group>"; };
 		75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMSettingsView.swift; sourceTree = "<group>"; };
 		75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptMiddleware.swift; sourceTree = "<group>"; };
-		9F0A10000000000000000001 /* AIChatModeRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIChatModeRouter.swift; sourceTree = "<group>"; };
-		9F0A10000000000000000002 /* AISuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISuggestionService.swift; sourceTree = "<group>"; };
-		9F0A10000000000000000003 /* AssistantCardPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantCardPayload.swift; sourceTree = "<group>"; };
-		9F0A10000000000000000004 /* AssistantDiffPreviewBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantDiffPreviewBuilder.swift; sourceTree = "<group>"; };
-		9F0A10000000000000000005 /* AssistantEnvelopeValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidator.swift; sourceTree = "<group>"; };
-		9F0A10000000000000000006 /* AssistantPlannerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPlannerService.swift; sourceTree = "<group>"; };
-		9F0A10000000000000000007 /* DailyBriefService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyBriefService.swift; sourceTree = "<group>"; };
-		9F0A10000000000000000008 /* LLMAssistantPipelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMAssistantPipelineProvider.swift; sourceTree = "<group>"; };
-		9F0A10000000000000000009 /* OverdueTriageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueTriageService.swift; sourceTree = "<group>"; };
-		9F0A1000000000000000000A /* TaskBreakdownService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskBreakdownService.swift; sourceTree = "<group>"; };
-		9F0A1000000000000000000B /* TaskEmbeddingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEmbeddingEngine.swift; sourceTree = "<group>"; };
-		9F0A1000000000000000000C /* TaskSemanticIndexStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticIndexStore.swift; sourceTree = "<group>"; };
-		9F0A1000000000000000000D /* TaskSemanticRetrievalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticRetrievalService.swift; sourceTree = "<group>"; };
 		75F9937124815BF600C340EB /* ToDoColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoColors.swift; sourceTree = "<group>"; };
 		75F993792483764C00C340EB /* DayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayAxisValueFormatter.swift; sourceTree = "<group>"; };
 		75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeBottomBarView.swift; sourceTree = "<group>"; };
@@ -614,6 +600,30 @@
 		9AE41E54BA355D96A678CBF7 /* To Do List/UseCases/Sync/ReminderMergeEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Sync/ReminderMergeEngine.swift"; sourceTree = SOURCE_ROOT; };
 		9AF308251FE7FA9FEE55702D /* GetHomeFilteredTasksUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GetHomeFilteredTasksUseCase.swift; sourceTree = "<group>"; };
 		9BA48957620D83F95FBC4049 /* Pods-Tasker-TaskerUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Tasker-TaskerUITests.release.xcconfig"; path = "Target Support Files/Pods-Tasker-TaskerUITests/Pods-Tasker-TaskerUITests.release.xcconfig"; sourceTree = "<group>"; };
+		9F0A10000000000000000001 /* AIChatModeRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIChatModeRouter.swift; sourceTree = "<group>"; };
+		9F0A10000000000000000002 /* AISuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISuggestionService.swift; sourceTree = "<group>"; };
+		9F0A10000000000000000003 /* AssistantCardPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantCardPayload.swift; sourceTree = "<group>"; };
+		9F0A10000000000000000004 /* AssistantDiffPreviewBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantDiffPreviewBuilder.swift; sourceTree = "<group>"; };
+		9F0A10000000000000000005 /* AssistantEnvelopeValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidator.swift; sourceTree = "<group>"; };
+		9F0A10000000000000000006 /* AssistantPlannerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPlannerService.swift; sourceTree = "<group>"; };
+		9F0A10000000000000000007 /* DailyBriefService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyBriefService.swift; sourceTree = "<group>"; };
+		9F0A10000000000000000008 /* LLMAssistantPipelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMAssistantPipelineProvider.swift; sourceTree = "<group>"; };
+		9F0A10000000000000000009 /* OverdueTriageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueTriageService.swift; sourceTree = "<group>"; };
+		9F0A1000000000000000000A /* TaskBreakdownService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskBreakdownService.swift; sourceTree = "<group>"; };
+		9F0A1000000000000000000B /* TaskEmbeddingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEmbeddingEngine.swift; sourceTree = "<group>"; };
+		9F0A1000000000000000000C /* TaskSemanticIndexStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticIndexStore.swift; sourceTree = "<group>"; };
+		9F0A1000000000000000000D /* TaskSemanticRetrievalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticRetrievalService.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000001 /* AssistantEnvelopeValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidatorTests.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000002 /* AssistantDiffPreviewBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantDiffPreviewBuilderTests.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000003 /* AISuggestionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISuggestionServiceTests.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000004 /* OverdueTriageServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueTriageServiceTests.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000005 /* TaskSemanticRetrievalServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticRetrievalServiceTests.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000006 /* AssistantCardPayloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantCardPayloadTests.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000011 /* ChatPlanApplyUndoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatPlanApplyUndoTests.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000012 /* AddTaskSuggestionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskSuggestionFlowTests.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000013 /* HomeTriageAndTop3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeTriageAndTop3Tests.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000014 /* TaskBreakdownFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskBreakdownFlowTests.swift; sourceTree = "<group>"; };
+		9F2A10000000000000000020 /* TestSupport/V3TestHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport/V3TestHarness.swift; sourceTree = "<group>"; };
 		9FD8DED9951762C1A0ACCBDD /* To Do List/State/Repositories/CoreDataTagRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataTagRepository.swift"; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000001 /* QuickViewSelector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickViewSelector.swift; sourceTree = "<group>"; };
 		A10000000000000000000002 /* NavPieChart.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavPieChart.swift; sourceTree = "<group>"; };
@@ -699,17 +709,6 @@
 		F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFilterStateTests.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskSectionBuilderTests.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewModelPersistenceTests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000001 /* AssistantEnvelopeValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidatorTests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000002 /* AssistantDiffPreviewBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantDiffPreviewBuilderTests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000003 /* AISuggestionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISuggestionServiceTests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000004 /* OverdueTriageServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueTriageServiceTests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000005 /* TaskSemanticRetrievalServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticRetrievalServiceTests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000006 /* AssistantCardPayloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantCardPayloadTests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000011 /* ChatPlanApplyUndoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatPlanApplyUndoTests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000012 /* AddTaskSuggestionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskSuggestionFlowTests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000013 /* HomeTriageAndTop3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeTriageAndTop3Tests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000014 /* TaskBreakdownFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskBreakdownFlowTests.swift; sourceTree = "<group>"; };
-		9F2A10000000000000000020 /* V3TestHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport/V3TestHarness.swift; sourceTree = "<group>"; };
 		F0E3799E6AD3B71C2BCAA18D /* To Do List/State/Repositories/CoreDataSectionRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataSectionRepository.swift"; sourceTree = SOURCE_ROOT; };
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* TaskerTheme+SwiftUI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "TaskerTheme+SwiftUI.swift"; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F7A8B9C0D1E4 /* TaskerAnimations.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerAnimations.swift; sourceTree = "<group>"; };
@@ -1079,7 +1078,7 @@
 				9F2A10000000000000000004 /* OverdueTriageServiceTests.swift */,
 				9F2A10000000000000000005 /* TaskSemanticRetrievalServiceTests.swift */,
 				9F2A10000000000000000006 /* AssistantCardPayloadTests.swift */,
-				9F2A10000000000000000020 /* V3TestHarness.swift */,
+				9F2A10000000000000000020 /* TestSupport/V3TestHarness.swift */,
 				753EFCB62445A24800A739E3 /* Info.plist */,
 				56E141F5136022B40FFD72B3 /* DesignSystem */,
 				C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */,
@@ -1771,6 +1770,7 @@
 				753EFC962445A24500A739E3 /* Sources */,
 				753EFC972445A24500A739E3 /* Frameworks */,
 				753EFC982445A24500A739E3 /* Resources */,
+				7A8A70F12F70110000B4AA10 /* Copy Firebase Config (Real or Stub) */,
 				CF9E9AF55ABC9D30B3C4ADB8 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
@@ -1884,7 +1884,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */,
-				7524B71B2DE4EAC90026D865 /* GoogleService-Info.plist in Resources */,
 				753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */,
 				753EFCA52445A24500A739E3 /* Main.storyboard in Resources */,
 				7529F7052DFDF7E3000CBE36 /* loading-animation.json in Resources */,
@@ -1910,6 +1909,28 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		7A8A70F12F70110000B4AA10 /* Copy Firebase Config (Real or Stub) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${SRCROOT}/GoogleService-Info.plist",
+				"${SRCROOT}/support/GoogleService-Info.stub.plist",
+			);
+			name = "Copy Firebase Config (Real or Stub)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\n\nREAL_PLIST=\"${SRCROOT}/GoogleService-Info.plist\"\nSTUB_PLIST=\"${SRCROOT}/support/GoogleService-Info.stub.plist\"\nDEST_PLIST=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist\"\n\nif [ -f \"${REAL_PLIST}\" ]; then\n  cp \"${REAL_PLIST}\" \"${DEST_PLIST}\"\n  echo \"Using real GoogleService-Info.plist\"\nelif [ -f \"${STUB_PLIST}\" ]; then\n  cp \"${STUB_PLIST}\" \"${DEST_PLIST}\"\n  echo \"Using stub GoogleService-Info.stub.plist\"\nelse\n  echo \"error: Missing Firebase plist. Expected ${REAL_PLIST} or ${STUB_PLIST}\" >&2\n  exit 1\nfi\n";
+			showEnvVarsInLog = 0;
+		};
 		9AFB8E588655C3DCF9B400A1 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -2330,7 +2351,7 @@
 				9F2B10000000000000000004 /* OverdueTriageServiceTests.swift in Sources */,
 				9F2B10000000000000000005 /* TaskSemanticRetrievalServiceTests.swift in Sources */,
 				9F2B10000000000000000006 /* AssistantCardPayloadTests.swift in Sources */,
-				9F2B10000000000000000020 /* V3TestHarness.swift in Sources */,
+				9F2B10000000000000000020 /* TestSupport/V3TestHarness.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2539,7 +2560,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.6;
+				MARKETING_VERSION = 1.7;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_MODULE_NAME = To_Do_List;
 				PRODUCT_NAME = "This Day";
@@ -2565,7 +2586,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.6;
+				MARKETING_VERSION = 1.7;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List";
 				PRODUCT_MODULE_NAME = To_Do_List;
 				PRODUCT_NAME = "This Day";

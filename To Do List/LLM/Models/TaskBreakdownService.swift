@@ -8,20 +8,17 @@ struct TaskBreakdownOutput {
 
 @MainActor
 final class TaskBreakdownService {
-    @MainActor static let shared = TaskBreakdownService(
-        llm: LLMEvaluator(),
-        appManager: AppManager()
-    )
+    @MainActor static let shared = TaskBreakdownService(llm: LLMEvaluator())
+
     private let llm: LLMEvaluator
-    private let appManager: AppManager
+
+    var lastGenerationTimedOut: Bool {
+        llm.lastGenerationTimedOut
+    }
 
     /// Initializes a new instance.
-    init(
-        llm: LLMEvaluator,
-        appManager: AppManager
-    ) {
+    init(llm: LLMEvaluator) {
         self.llm = llm
-        self.appManager = appManager
     }
 
     /// Executes generateSteps.
@@ -33,8 +30,40 @@ final class TaskBreakdownService {
         await generate(taskTitle: taskTitle, taskDetails: taskDetails, projectName: projectName).steps
     }
 
+    /// Executes immediateHeuristicSteps.
+    func immediateHeuristicSteps(
+        taskTitle: String,
+        taskDetails: String?,
+        projectName: String?
+    ) -> TaskBreakdownOutput {
+        let route = AIChatModeRouter.route(for: .breakdown)
+        let fallback = heuristicBreakdown(
+            taskTitle: taskTitle,
+            taskDetails: taskDetails,
+            projectName: projectName
+        )
+        return TaskBreakdownOutput(
+            steps: enforceStepContract(candidate: fallback, fallback: fallback),
+            modelName: nil,
+            routeBanner: route.bannerMessage
+        )
+    }
+
     /// Executes generate.
     func generate(
+        taskTitle: String,
+        taskDetails: String?,
+        projectName: String?
+    ) async -> TaskBreakdownOutput {
+        await refine(
+            taskTitle: taskTitle,
+            taskDetails: taskDetails,
+            projectName: projectName
+        )
+    }
+
+    /// Executes refine.
+    func refine(
         taskTitle: String,
         taskDetails: String?,
         projectName: String?
@@ -44,14 +73,16 @@ final class TaskBreakdownService {
             return TaskBreakdownOutput(steps: [], modelName: nil, routeBanner: nil)
         }
 
-        let route = AIChatModeRouter.route(for: .breakdown, appManager: appManager)
+        let route = AIChatModeRouter.route(for: .breakdown)
+        let fallbackSteps = heuristicBreakdown(
+            taskTitle: trimmedTitle,
+            taskDetails: taskDetails,
+            projectName: projectName
+        )
+
         guard let modelName = route.selectedModelName else {
             return TaskBreakdownOutput(
-                steps: heuristicBreakdown(
-                    taskTitle: trimmedTitle,
-                    taskDetails: taskDetails,
-                    projectName: projectName
-                ),
+                steps: enforceStepContract(candidate: fallbackSteps, fallback: fallbackSteps),
                 modelName: nil,
                 routeBanner: route.bannerMessage
             )
@@ -72,22 +103,13 @@ final class TaskBreakdownService {
         let output = await llm.generate(
             modelName: modelName,
             thread: thread,
-            systemPrompt: breakdownSystemPrompt
+            systemPrompt: breakdownSystemPrompt,
+            profile: .breakdown
         )
-        if let steps = decodeSteps(from: output), steps.isEmpty == false {
-            return TaskBreakdownOutput(
-                steps: steps,
-                modelName: modelName,
-                routeBanner: route.bannerMessage
-            )
-        }
 
+        let parsed = decodeSteps(from: output) ?? []
         return TaskBreakdownOutput(
-            steps: heuristicBreakdown(
-                taskTitle: trimmedTitle,
-                taskDetails: taskDetails,
-                projectName: projectName
-            ),
+            steps: enforceStepContract(candidate: parsed, fallback: fallbackSteps),
             modelName: modelName,
             routeBanner: route.bannerMessage
         )
@@ -163,6 +185,39 @@ final class TaskBreakdownService {
             }
         }
         return output
+    }
+
+    /// Executes enforceStepContract.
+    private func enforceStepContract(candidate: [String], fallback: [String]) -> [String] {
+        var merged = normalizeSteps(candidate)
+        let fallbackNormalized = normalizeSteps(fallback)
+
+        if merged.count < 3 {
+            for step in fallbackNormalized where merged.count < 3 {
+                if merged.contains(where: { $0.caseInsensitiveCompare(step) == .orderedSame }) == false {
+                    merged.append(step)
+                }
+            }
+        }
+
+        if merged.count < 3 {
+            let defaults = [
+                "Define success criteria",
+                "Gather inputs and constraints",
+                "Draft and complete first pass"
+            ]
+            for step in defaults where merged.count < 3 {
+                if merged.contains(where: { $0.caseInsensitiveCompare(step) == .orderedSame }) == false {
+                    merged.append(step)
+                }
+            }
+        }
+
+        if merged.count > 6 {
+            merged = Array(merged.prefix(6))
+        }
+
+        return merged
     }
 
     /// Executes heuristicBreakdown.

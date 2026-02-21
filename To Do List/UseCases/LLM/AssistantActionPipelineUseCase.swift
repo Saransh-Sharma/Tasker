@@ -100,7 +100,7 @@ public final class AssistantActionPipelineUseCase {
     }
 
     /// Executes fetchRun.
-    public func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
+    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
         repository.fetchRun(id: id, completion: completion)
     }
 

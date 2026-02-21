@@ -53,6 +53,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private(set) var persistentBootstrapState: PersistentBootstrapState = .failed("Persistent store bootstrap has not run")
     private(set) var persistentContainer: NSPersistentCloudKitContainer?
 
+    private enum FirebaseBundleConfigState {
+        case missing
+        case stub
+        case ready
+    }
 
     /// Executes application.
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -90,27 +95,50 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }()
 
         if shouldConfigureFirebase {
-            FirebaseApp.configure()
-            FirebaseConfiguration.shared.setLoggerLevel(.error)
+            switch firebaseBundleConfigStatus() {
+            case .ready:
+                if FirebaseApp.app() == nil {
+                    FirebaseApp.configure()
+                }
+                FirebaseConfiguration.shared.setLoggerLevel(.error)
 
-            #if !DEBUG
-            Analytics.setAnalyticsCollectionEnabled(true)
-            #endif
+                #if !DEBUG
+                Analytics.setAnalyticsCollectionEnabled(true)
+                #endif
 
-            #if DEBUG
-            let firebaseStartupSource = "debug_launch_argument"
-            #else
-            let firebaseStartupSource = "release_default_enabled"
-            #endif
+                #if DEBUG
+                let firebaseStartupSource = "debug_launch_argument"
+                #else
+                let firebaseStartupSource = "release_default_enabled"
+                #endif
 
-            logWarning(
-                event: "firebase_startup_mode",
-                message: "Firebase configured for this run",
-                fields: [
-                    "enabled": "true",
-                    "source": firebaseStartupSource
-                ]
-            )
+                logWarning(
+                    event: "firebase_startup_mode",
+                    message: "Firebase configured for this run",
+                    fields: [
+                        "enabled": "true",
+                        "source": firebaseStartupSource
+                    ]
+                )
+            case .stub:
+                logWarning(
+                    event: "firebase_startup_mode",
+                    message: "Firebase skipped because stub config is active",
+                    fields: [
+                        "enabled": "false",
+                        "source": "stub_config_detected"
+                    ]
+                )
+            case .missing:
+                logWarning(
+                    event: "firebase_startup_mode",
+                    message: "Firebase skipped because GoogleService-Info.plist is unavailable",
+                    fields: [
+                        "enabled": "false",
+                        "source": "missing_config_plist"
+                    ]
+                )
+            }
         } else {
             logWarning(
                 event: "firebase_startup_mode",
@@ -150,6 +178,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             let didConfigureRuntime = setupCleanArchitecture()
             guard didConfigureRuntime else {
                 break
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                Task { @MainActor in
+                    LLMPrewarmCoordinator.shared.prewarmCurrentModelIfNeeded(reason: "app_launch")
+                }
             }
 
             registerBackgroundTasks()
@@ -208,6 +241,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         
         return true
+    }
+
+    /// Detects whether the bundled Firebase config is usable or a non-secret stub.
+    private func firebaseBundleConfigStatus() -> FirebaseBundleConfigState {
+        guard
+            let configPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+            let dictionary = NSDictionary(contentsOfFile: configPath) as? [String: Any]
+        else {
+            return .missing
+        }
+
+        let appID = (dictionary["GOOGLE_APP_ID"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let projectID = (dictionary["PROJECT_ID"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let apiKey = (dictionary["API_KEY"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let normalized = [appID, projectID, apiKey].joined(separator: "|").lowercased()
+
+        guard appID.isEmpty == false, projectID.isEmpty == false, apiKey.isEmpty == false else {
+            return .stub
+        }
+
+        if normalized.contains("stub") || normalized.contains("placeholder") {
+            return .stub
+        }
+
+        return .ready
     }
 
     /// Executes applicationDidEnterBackground.

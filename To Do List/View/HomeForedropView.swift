@@ -594,31 +594,39 @@ struct HomeBackdropForedropRootView: View {
                     .buttonStyle(.plain)
                 }
 
-                if viewModel.isGeneratingAITopSuggestions {
-                    HStack(spacing: spacing.s8) {
-                        ProgressView()
-                        Text("Choosing top 3...")
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textTertiary)
-                    }
-                } else {
-                    if let banner = viewModel.aiTopSuggestionsRouteBanner, banner.isEmpty == false {
-                        HStack(alignment: .top, spacing: spacing.s8) {
-                            Image(systemName: "cpu")
-                                .foregroundColor(Color.tasker.accentPrimary)
-                            Text(banner)
+                HStack {
+                    Text(viewModel.aiTopSuggestionsIsRefined ? "AI refined" : "Instant suggestions")
+                        .font(.tasker(.caption2))
+                        .foregroundColor(Color.tasker.textTertiary)
+                    Spacer(minLength: 0)
+                    if viewModel.isGeneratingAITopSuggestions {
+                        HStack(spacing: spacing.s8) {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Refining...")
                                 .font(.tasker(.caption2))
                                 .foregroundColor(Color.tasker.textTertiary)
-                            Spacer(minLength: 0)
                         }
                     }
-                    ForEach(viewModel.aiTopSuggestions, id: \.taskID) { suggestion in
-                        Text(
-                            "• \(suggestion.title) — \(suggestion.rationale) (\(Int((suggestion.confidence * 100).rounded()))%)"
-                        )
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textPrimary)
+                }
+
+                if let banner = viewModel.aiTopSuggestionsRouteBanner, banner.isEmpty == false {
+                    HStack(alignment: .top, spacing: spacing.s8) {
+                        Image(systemName: "cpu")
+                            .foregroundColor(Color.tasker.accentPrimary)
+                        Text(banner)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.textTertiary)
+                        Spacer(minLength: 0)
                     }
+                }
+
+                ForEach(viewModel.aiTopSuggestions, id: \.taskID) { suggestion in
+                    Text(
+                        "• \(suggestion.title) — \(suggestion.rationale) (\(Int((suggestion.confidence * 100).rounded()))%)"
+                    )
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textPrimary)
                 }
 
                 if !viewModel.energyAwareSuggestedTasks.isEmpty {

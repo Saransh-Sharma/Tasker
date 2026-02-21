@@ -372,8 +372,22 @@ public final class GetTasksUseCase {
     /// Executes applySemanticRerank.
     private func applySemanticRerank(to tasks: [TaskDefinition], query: String) -> [TaskDefinition] {
         guard tasks.isEmpty == false else { return [] }
+        let semantic = TaskSemanticRetrievalService.shared.searchDetailed(query: query, topK: max(20, tasks.count))
         let taskByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
-        let rerankedIDs = TaskSemanticRetrievalService.shared.rerank(taskIDs: tasks.map(\.id), query: query)
+        let scores = Dictionary(uniqueKeysWithValues: semantic.hits.map { ($0.taskID, $0.score) })
+        guard scores.isEmpty == false else {
+            return tasks
+        }
+
+        let originalOrder = Dictionary(uniqueKeysWithValues: tasks.enumerated().map { ($1.id, $0) })
+        let rerankedIDs = tasks.map(\.id).sorted { lhs, rhs in
+            let ls = scores[lhs] ?? 0
+            let rs = scores[rhs] ?? 0
+            if ls == rs {
+                return (originalOrder[lhs] ?? 0) < (originalOrder[rhs] ?? 0)
+            }
+            return ls > rs
+        }
         var reranked: [TaskDefinition] = rerankedIDs.compactMap { taskByID[$0] }
         if reranked.count < tasks.count {
             let included = Set(reranked.map(\.id))

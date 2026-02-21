@@ -32,12 +32,10 @@ struct AssistantPlanResult {
 @MainActor
 final class AssistantPlannerService {
     private let llm: LLMEvaluator
-    private let appManager: AppManager
 
     /// Initializes a new instance.
-    init(llm: LLMEvaluator, appManager: AppManager) {
+    init(llm: LLMEvaluator) {
         self.llm = llm
-        self.appManager = appManager
     }
 
     /// Executes generatePlan.
@@ -49,13 +47,18 @@ final class AssistantPlannerService {
         projectNameByID: [UUID: String],
         knownTaskIDs: Set<UUID>
     ) async -> Result<AssistantPlanResult, AssistantPlannerError> {
-        let route = AIChatModeRouter.route(for: .planMode, appManager: appManager)
+        let route = AIChatModeRouter.route(for: .planMode)
         guard let modelName = route.selectedModelName else {
             return .failure(.noModelConfigured)
         }
 
         let systemPrompt = planSystemPrompt(contextPayload: contextPayload)
-        let output = await llm.generate(modelName: modelName, thread: thread, systemPrompt: systemPrompt)
+        let output = await llm.generate(
+            modelName: modelName,
+            thread: thread,
+            systemPrompt: systemPrompt,
+            profile: .chatPlanJSON
+        )
 
         if output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return .failure(.generationFailed("empty_model_output"))

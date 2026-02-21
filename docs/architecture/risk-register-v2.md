@@ -37,6 +37,7 @@ Primary source anchors:
 | `R-013` | Card transport payload corruption or incompatible decoding | Medium | proposal/undo cards fail to render or actions target wrong run | malformed sentinel payload or status mismatch | enforce sentinel prefix contract, decode guards, and run/thread ownership checks |
 | `R-014` | Notification deep-link seeding drift (brief/triage) | Medium | wrong chat mode/prompt seeded or no chat open on tap | pending keys diverge between producers/consumer | centralize key names and verify open-chat signal path |
 | `R-015` | Semantic index performance drift under mutation volume | Medium | UI lag or stale semantic ranking | rebuild-heavy path used too often instead of incremental updates | prefer incremental upsert/remove and bounded rebuild fallback |
+| `R-016` | AI cold-start and surface latency regression | Medium | users perceive assistant as stalled on first interaction | model not warmed, heavy route chosen, or long generation budgets | staged status UX + current-model prewarm + fast-first fallback + latency telemetry |
 
 ## Detection Signals and Containment
 
@@ -57,6 +58,7 @@ Primary source anchors:
 | `R-013` | card decode failures, missing `run_id` warnings, card action mismatch | validate sentinel payload generation and decode guards; block action on invalid payload |
 | `R-014` | daily brief open path does not seed chat thread/prompt | verify pending key writes and `.assistantOpenChatRequested` notification path |
 | `R-015` | frequent full index rebuild logs, degraded search latency | tune mutation observer handling and keep incremental upsert/remove active |
+| `R-016` | first-token and surface latency drift beyond SLO | inspect warmup events, routing mode, and generation profile budgets; tune fast-first paths |
 
 ## AI Telemetry Signals to Watch
 
@@ -70,6 +72,10 @@ Primary source anchors:
 | `assistant_overdue_triage_shown` / `assistant_overdue_triage_applied` | monitors proactive triage path health |
 | `assistant_daily_brief_generated` / `assistant_daily_brief_opened` | validates brief generation + deep-link behavior |
 | `assistant_semantic_fallback_lexical` | confirms graceful behavior when embeddings unavailable |
+| `assistant_model_warmup_started` / `assistant_model_warmup_completed` / `assistant_model_warmup_failed` | verifies prewarm lifecycle and startup readiness |
+| `assistant_first_token_latency` | tracks cold vs warm chat responsiveness |
+| `assistant_surface_latency` / `assistant_surface_timeout` | tracks non-chat AI surface latency and timeout rates |
+| `assistant_fast_fallback_used` | confirms fast-first heuristic rendering occurred before refine |
 
 ## Guardrails (Do Not Bypass)
 

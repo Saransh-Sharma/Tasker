@@ -22,13 +22,13 @@ struct OverdueTriageService {
 
         for task in openOverdue {
             switch task.priority {
-            case .none:
+            case .none, .low:
                 commands.append(.updateTask(taskID: task.id, title: nil, dueDate: nextWeek))
                 movedToNextWeek += 1
-            case .low:
+            case .high:
                 commands.append(.updateTask(taskID: task.id, title: nil, dueDate: tomorrow))
                 movedToTomorrow += 1
-            case .high, .max:
+            case .max:
                 keptToday += 1
             }
         }

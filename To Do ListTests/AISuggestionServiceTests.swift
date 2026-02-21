@@ -8,14 +8,14 @@ final class AISuggestionServiceTests: XCTestCase {
         super.tearDown()
         UserDefaults.standard.removeObject(forKey: "currentModelName")
         UserDefaults.standard.removeObject(forKey: "installedModels")
+        UserDefaults.standard.removeObject(forKey: "feature.assistant.fast_mode")
     }
 
     func testSuggestFieldsParsesWrappedJSONAndClampsConfidence() async {
-        let appManager = configuredAppManagerWithSmallModel()
+        configureInstalledModels([ModelConfiguration.qwen_3_0_6b_4bit.name])
         let service = AISuggestionService(
             llm: LLMEvaluator(),
-            appManager: appManager,
-            generateOutput: { _, _, _ in
+            generateOutput: { _, _, _, _, _ in
                 """
                 Sure, here's the output:
                 ```json
@@ -41,11 +41,10 @@ final class AISuggestionServiceTests: XCTestCase {
     }
 
     func testSuggestFieldsFallsBackToHeuristicsWhenOutputInvalid() async {
-        let appManager = configuredAppManagerWithSmallModel()
+        configureInstalledModels([ModelConfiguration.qwen_3_0_6b_4bit.name])
         let service = AISuggestionService(
             llm: LLMEvaluator(),
-            appManager: appManager,
-            generateOutput: { _, _, _ in "not valid json" }
+            generateOutput: { _, _, _, _, _ in "not valid json" }
         )
 
         let suggestion = await service.suggestFields(
@@ -60,7 +59,7 @@ final class AISuggestionServiceTests: XCTestCase {
     }
 
     func testChooseTopThreeFiltersUnknownIDsAndClampsConfidence() async {
-        let appManager = configuredAppManagerWithMediumModel()
+        configureInstalledModels([ModelConfiguration.deepseek_r1_distill_qwen_1_5b_4bit.name])
         let validID = UUID()
         let tasks = [
             TaskDefinition(id: validID, title: "File expense report", priority: .high),
@@ -70,8 +69,7 @@ final class AISuggestionServiceTests: XCTestCase {
 
         let service = AISuggestionService(
             llm: LLMEvaluator(),
-            appManager: appManager,
-            generateOutput: { _, _, _ in
+            generateOutput: { _, _, _, _, _ in
                 """
                 {"items":[
                     {"task_id":"\(validID.uuidString)","rationale":"due soon","confidence":1.4},
@@ -88,17 +86,20 @@ final class AISuggestionServiceTests: XCTestCase {
         XCTAssertEqual(suggestions.first?.confidence, 1.0)
     }
 
-    private func configuredAppManagerWithSmallModel() -> AppManager {
-        let appManager = AppManager()
-        appManager.currentModelName = nil
-        appManager.installedModels = [ModelConfiguration.qwen_3_0_6b_4bit.name]
-        return appManager
+    func testImmediateFieldSuggestionIsAvailableWithoutModel() {
+        configureInstalledModels([])
+        let service = AISuggestionService(llm: LLMEvaluator(), generateOutput: { _, _, _, _, _ in "" })
+
+        let suggestion = service.immediateFieldSuggestion(for: "call pharmacy", projectName: "Personal")
+
+        XCTAssertNotNil(suggestion)
+        XCTAssertEqual(suggestion?.context, .phone)
+        XCTAssertNil(suggestion?.modelName)
     }
 
-    private func configuredAppManagerWithMediumModel() -> AppManager {
-        let appManager = AppManager()
-        appManager.currentModelName = nil
-        appManager.installedModels = [ModelConfiguration.deepseek_r1_distill_qwen_1_5b_4bit.name]
-        return appManager
+    private func configureInstalledModels(_ models: [String]) {
+        let data = try? JSONEncoder().encode(models)
+        UserDefaults.standard.set(data, forKey: "installedModels")
+        UserDefaults.standard.removeObject(forKey: "currentModelName")
     }
 }

@@ -47,4 +47,9 @@ public enum V2FeatureFlags {
         get { defaults.object(forKey: "feature.assistant.breakdown") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.assistant.breakdown") }
     }
+
+    public static var assistantFastModeEnabled: Bool {
+        get { defaults.object(forKey: "feature.assistant.fast_mode") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.assistant.fast_mode") }
+    }
 }
