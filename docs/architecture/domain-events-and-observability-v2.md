@@ -1,6 +1,6 @@
 # Domain Events and Observability (V3 Runtime)
 
-**Last validated against code on 2026-02-20**
+**Last validated against code on 2026-02-21**
 
 This document describes Tasker's in-process domain event system and observability expectations.
 
@@ -10,6 +10,10 @@ Primary source anchors:
 - `To Do List/Domain/Events/TaskEvents.swift`
 - `To Do List/Domain/Events/ProjectEvents.swift`
 - `To Do List/Domain/Events/TaskNotificationDispatcher.swift`
+- `To Do List/LLM/Views/Chat/ChatView.swift`
+- `To Do List/Presentation/ViewModels/AddTaskViewModel.swift`
+- `To Do List/Presentation/ViewModels/HomeViewModel.swift`
+- `To Do List/AppDelegate.swift`
 
 ## Event System Topology
 
@@ -74,8 +78,50 @@ flowchart LR
 | Inline handler execution | slow handlers can add request latency | keep handlers bounded and fast |
 | NotificationCenter bridging | UI listeners need main-thread safety | post via `TaskNotificationDispatcher.postOnMain` |
 
+## AI Observability Appendix
+
+### Domain events vs assistant telemetry
+
+| Signal type | Mechanism | Purpose | Durability |
+| --- | --- | --- | --- |
+| Domain events | `DomainEventPublisher` + handlers | business state transition signaling | process-local |
+| Assistant telemetry | `logWarning/logError` event fields | AI runtime health, UX quality, rollback and fallback behavior | log-stream/monitoring dependent |
+
+### Required assistant telemetry event catalog
+
+| Event | Minimum fields |
+| --- | --- |
+| `assistant_context_built` | `task_count`, `has_tags`, `build_ms`, `timezone` |
+| `assistant_plan_mode_activated` | `thread_id`, `model`, `used_fallback`, `prompt_download` |
+| `assistant_proposal_generated` | `run_id`, `model`, `command_count`, `destructive_count` |
+| `assistant_proposal_rejected` | `run_id` |
+| `assistant_apply_success` | `run_id` |
+| `assistant_apply_failed` | `run_id`, `error` |
+| `assistant_undo_invoked` | `run_id` |
+| `assistant_undo_expired` | `run_id` |
+| `assistant_suggestion_shown` | `model`, `confidence`, `route_banner` |
+| `assistant_suggestion_accepted` | `priority`, `energy`, `type`, `context` |
+| `assistant_suggestion_dismissed` | `reason` |
+| `assistant_overdue_triage_shown` | `overdue_count` |
+| `assistant_overdue_triage_applied` | `run_id` |
+| `assistant_overdue_triage_dismissed` | optional reason |
+| `assistant_daily_brief_generated` | `model`, `has_route_banner` |
+| `assistant_daily_brief_opened` | notification open confirmation |
+| `assistant_semantic_fallback_lexical` | `reason` |
+
+### AI regression triage order (what to inspect first)
+
+1. Check feature flags (`assistantPlanModeEnabled`, `assistantCopilotEnabled`, `assistantSemanticRetrievalEnabled`, `assistantBriefEnabled`, `assistantBreakdownEnabled`).
+2. Verify startup wiring logs for `LLMContextRepositoryProvider` and `LLMAssistantPipelineProvider` configuration.
+3. Inspect context generation signal (`assistant_context_built`) for payload completeness.
+4. Inspect proposal path events (`assistant_proposal_generated`, `assistant_apply_failed`, rollback statuses).
+5. Inspect deep-link/open-chat path for brief/triage pending keys and `assistant_daily_brief_opened`.
+6. Inspect semantic fallback signal (`assistant_semantic_fallback_lexical`) before suspecting search regression.
+
 ## Cross-Links
 
 - `docs/architecture/usecases-v2.md`
 - `docs/architecture/clean-architecture-v2.md`
+- `docs/architecture/llm-assistant-stack-v2.md`
+- `docs/architecture/llm-feature-integration-handbook.md`
 - `docs/architecture/risk-register-v2.md`

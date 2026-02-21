@@ -1,6 +1,6 @@
 # Tasker Usecases and Contracts (V3 Runtime)
 
-**Last validated against code on 2026-02-20**
+**Last validated against code on 2026-02-21**
 
 This document is the contract map for the current usecase layer.
 It includes active usecase inventory, dependency surfaces, side effects, and orchestration flows.
@@ -12,6 +12,8 @@ Primary source anchors:
 - `To Do List/Domain/Interfaces/TaskReadModelRepositoryProtocol.swift`
 - `To Do List/Services/V2FeatureFlags.swift`
 - `To Do List/Presentation/DI/PresentationDependencyContainer.swift`
+- `To Do List/LLM/Views/Chat/ChatView.swift`
+- `To Do List/Presentation/ViewModels/HomeViewModel.swift`
 
 ## Inventory (All Active UseCase Files)
 
@@ -109,6 +111,32 @@ It exposes:
 | `AssistantActionPipelineUseCase` | propose/confirm/apply/reject/undo calls | `AssistantActionRunDefinition` | assistant action repo, task definition repo, command executor | transactional task mutations + run lifecycle persistence |
 | `ReminderMergeEngine` | merge envelopes/clocks/state | merge decisions + encoded envelope | pure component | deterministic in-memory merge logic |
 
+## LLM Surface Services (Non-UseCase, Runtime-Owned)
+
+These components are intentionally not usecases and stay in the local-LLM/runtime layer:
+- `AssistantPlannerService`, `AssistantEnvelopeValidator`, `AssistantDiffPreviewBuilder` (chat plan/apply bridge)
+- `AISuggestionService`, `TaskBreakdownService`, `OverdueTriageService`, `DailyBriefService`
+- `TaskEmbeddingEngine`, `TaskSemanticIndexStore`, `TaskSemanticRetrievalService`
+
+### Boundary rule
+1. Runtime services may assemble prompts, cards, and UI-facing AI outputs.
+2. Runtime services must not mutate tasks directly.
+3. All assistant mutations must still traverse `AssistantActionPipelineUseCase`.
+
+This keeps deterministic domain mutations in usecases while allowing UI-facing local-AI composition to evolve independently.
+
+## Assistant Mutation Invariants
+
+1. Pipeline signatures are stable in this cycle and unchanged:
+- `propose(threadID:envelope:)`
+- `confirm(runID:)`
+- `applyConfirmedRun(id:)`
+- `reject(runID:)`
+- `undoAppliedRun(id:)`
+2. Ask mode is non-mutating and must not invoke pipeline mutation methods.
+3. Proposal card actions must validate run/thread ownership before confirm/apply/reject/undo.
+4. Home overdue triage “Apply All” must still use `propose -> confirm -> applyConfirmedRun`.
+
 ## Feature Flag Gating
 
 | Flow | Flags |
@@ -118,6 +146,11 @@ It exposes:
 | assistant apply | `assistantApplyEnabled` |
 | assistant undo | `assistantUndoEnabled` |
 | reminders background refresh scheduling | `remindersBackgroundRefreshEnabled` |
+| assistant plan mode surface | `assistantPlanModeEnabled` |
+| assistant copilot surfaces | `assistantCopilotEnabled` |
+| assistant semantic retrieval | `assistantSemanticRetrievalEnabled` |
+| assistant daily brief | `assistantBriefEnabled` |
+| assistant breakdown | `assistantBreakdownEnabled` |
 
 ## Critical Flow Sketches
 
@@ -175,12 +208,27 @@ sequenceDiagram
     EXEC->>TASKS: apply inverse commands
 ```
 
+### Home triage apply-all contract
+
+```mermaid
+sequenceDiagram
+    participant UI as HomeViewModel
+    participant RT as OverdueTriageService
+    participant PIPE as AssistantActionPipelineUseCase
+
+    UI->>RT: build triage envelope (rule-based)
+    UI->>PIPE: propose(threadID,envelope)
+    UI->>PIPE: confirm(runID)
+    UI->>PIPE: applyConfirmedRun(runID)
+```
+
 ## UI Integration Map
 
 | ViewModel | Primary dependency surface |
 | --- | --- |
-| `HomeViewModel` | `UseCaseCoordinator` (home filtering, query, analytics, project surfaces) |
-| `AddTaskViewModel` | `createTaskDefinition`, `rescheduleTaskDefinition`, planning usecases + read model |
+| `HomeViewModel` | `UseCaseCoordinator` (home filtering, query, analytics, project surfaces) + `AISuggestionService` + assistant pipeline provider |
+| `AddTaskViewModel` | `createTaskDefinition`, `rescheduleTaskDefinition`, planning usecases + read model + `AISuggestionService` |
+| `TaskDetailViewModel` | task mutation/query surfaces + `TaskBreakdownService` |
 | `ProjectManagementViewModel` | `manageProjects`, `getTasks` |
 | `ChartCardViewModel` | read-model repository |
 | `RadarChartCardViewModel` | project repository + read-model repository |
@@ -192,4 +240,5 @@ sequenceDiagram
 - `docs/architecture/data-model-v2.md`
 - `docs/architecture/state-repositories-and-services-v2.md`
 - `docs/architecture/llm-assistant-stack-v2.md`
+- `docs/architecture/llm-feature-integration-handbook.md`
 - `docs/architecture/risk-register-v2.md`

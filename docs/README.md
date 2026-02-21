@@ -1,6 +1,6 @@
 # Tasker Documentation Hub
 
-Last updated: 2026-02-18
+Last updated: 2026-02-21
 
 This directory is the canonical home for technical architecture, operations, release runbooks, and archived legacy docs.
 
@@ -36,6 +36,16 @@ flowchart TD
 | `docs/architecture/state-repositories-and-services-v2.md` | State layer repository/service internals and ownership |
 | `docs/architecture/domain-events-and-observability-v2.md` | Domain events, handlers, notification bridge, observability |
 | `docs/architecture/llm-assistant-stack-v2.md` | LLM context pipeline and assistant transaction stack |
+| `docs/architecture/llm-feature-integration-handbook.md` | Mixed audience guide for AI surfaces, safety, rollout, and incident response |
+
+## AI Docs Navigation
+
+Use this order when planning or reviewing AI/LLM changes:
+1. `docs/architecture/llm-feature-integration-handbook.md` for product behavior and operator framing.
+2. `docs/architecture/llm-assistant-stack-v2.md` for contracts, payload schemas, and runtime boundaries.
+3. `docs/architecture/usecases-v2.md` for mutation invariants and workflow ownership.
+4. `docs/architecture/risk-register-v2.md` for failure modes and containment playbooks.
+5. `docs/release-gate-v2-efgh.md` and `docs/architecture/v3-runtime-cutover-todo.md` for release evidence requirements.
 
 ## Operations Docs
 
