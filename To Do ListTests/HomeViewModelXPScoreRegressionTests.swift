@@ -114,7 +114,8 @@ final class HomeViewModelXPScoreRegressionTests: XCTestCase {
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: max(1.0, seconds + 0.8))
+        // Full-suite CI runs can briefly starve the main queue; keep this flush helper resilient.
+        wait(for: [expectation], timeout: max(3.0, seconds + 2.5))
     }
 }
 

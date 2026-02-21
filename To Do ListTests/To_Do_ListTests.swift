@@ -786,7 +786,7 @@ final class ArchitectureBoundaryTests: XCTestCase {
             "To Do List/Views/Cards/ChartCard.swift",
             "To Do List/Views/Cards/RadarChartCard.swift",
             "To Do List/Views/ProjectSelectionSheet.swift",
-            "To Do List/ViewControllers/Delegates/AddTaskCalendarExtention.swift"
+            "To Do List/View/AddTaskForedropView.swift"
         ]
 
         for relativePath in files {
@@ -4515,15 +4515,15 @@ final class RecurringTaskSeriesMaterializationTests: XCTestCase {
 final class DeleteTaskDefinitionUseCaseSeriesScopeTests: XCTestCase {
     func testDeleteSingleScopeDeletesOnlyTargetTask() throws {
         let seriesID = UUID()
-        let first = TaskDefinition(title: "Daily 1", recurrenceSeriesID: seriesID)
-        let second = TaskDefinition(title: "Daily 2", recurrenceSeriesID: seriesID)
-        let third = TaskDefinition(title: "Daily 3", recurrenceSeriesID: seriesID)
-        let unrelated = TaskDefinition(title: "Unrelated", recurrenceSeriesID: UUID())
+        let first = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 1")
+        let second = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 2")
+        let third = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 3")
+        let unrelated = TaskDefinition(recurrenceSeriesID: UUID(), title: "Unrelated")
         let repository = InMemoryTaskDefinitionRepositoryStub(seed: [first, second, third, unrelated])
         let useCase = DeleteTaskDefinitionUseCase(repository: repository, tombstoneRepository: nil)
 
         let _: Void = try awaitResult { completion in
-            useCase.execute(taskID: second.id, scope: .single, completion: completion)
+            useCase.execute(taskID: second.id, scope: TaskDeleteScope.single, completion: completion)
         }
 
         let remaining = Set(repository.byID.keys)
@@ -4535,15 +4535,15 @@ final class DeleteTaskDefinitionUseCaseSeriesScopeTests: XCTestCase {
 
     func testDeleteSeriesScopeDeletesAllTasksInSeriesOnly() throws {
         let seriesID = UUID()
-        let first = TaskDefinition(title: "Daily 1", recurrenceSeriesID: seriesID)
-        let second = TaskDefinition(title: "Daily 2", recurrenceSeriesID: seriesID)
-        let third = TaskDefinition(title: "Daily 3", recurrenceSeriesID: seriesID)
-        let unrelated = TaskDefinition(title: "Unrelated", recurrenceSeriesID: UUID())
+        let first = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 1")
+        let second = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 2")
+        let third = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 3")
+        let unrelated = TaskDefinition(recurrenceSeriesID: UUID(), title: "Unrelated")
         let repository = InMemoryTaskDefinitionRepositoryStub(seed: [first, second, third, unrelated])
         let useCase = DeleteTaskDefinitionUseCase(repository: repository, tombstoneRepository: nil)
 
         let _: Void = try awaitResult { completion in
-            useCase.execute(taskID: second.id, scope: .series, completion: completion)
+            useCase.execute(taskID: second.id, scope: TaskDeleteScope.series, completion: completion)
         }
 
         let remaining = Set(repository.byID.keys)

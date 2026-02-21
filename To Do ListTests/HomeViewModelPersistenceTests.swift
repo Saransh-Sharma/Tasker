@@ -399,12 +399,13 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    private func waitForMainQueueFlush() {
+    private func waitForMainQueueFlush(seconds: TimeInterval = 0.15) {
         let expectation = expectation(description: "MainQueueFlush")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
             expectation.fulfill()
         }
-        wait(for: [expectation], timeout: 1.0)
+        // CI/full-suite runs can temporarily starve the main queue; keep a wider bound to avoid flaky false negatives.
+        wait(for: [expectation], timeout: max(3.0, seconds + 2.5))
     }
 
     private func makeTask(
