@@ -35,6 +35,8 @@ struct TaskDetailSheetView: View {
     @State private var showDeleteScopeDialog = false
     @State private var showDescriptionEditor = false
     @State private var newStepTitle = ""
+    @State private var showBreakdownSheet = false
+    @State private var selectedBreakdownSteps: Set<String> = []
 
     @FocusState private var titleFocused: Bool
     @FocusState private var stepFocused: Bool
@@ -166,6 +168,64 @@ struct TaskDetailSheetView: View {
         } message: {
             Text("Choose whether to remove only this task or every task in the series.")
         }
+        .sheet(isPresented: $showBreakdownSheet) {
+            NavigationStack {
+                VStack(spacing: 0) {
+                    if let routeBanner = viewModel.aiBreakdownRouteBanner, routeBanner.isEmpty == false {
+                        HStack(alignment: .top, spacing: TaskerTheme.Spacing.xs) {
+                            Image(systemName: "cpu")
+                                .foregroundColor(Color.tasker.accentPrimary)
+                            Text(routeBanner)
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker.textSecondary)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, TaskerTheme.Spacing.md)
+                        .padding(.vertical, TaskerTheme.Spacing.sm)
+                        .background(Color.tasker.surfaceSecondary)
+                    }
+
+                    List {
+                        if viewModel.aiBreakdownSteps.isEmpty {
+                            Text("No step suggestions available.")
+                                .foregroundColor(Color.tasker.textTertiary)
+                        } else {
+                            ForEach(viewModel.aiBreakdownSteps, id: \.self) { step in
+                                Button {
+                                    if selectedBreakdownSteps.contains(step) {
+                                        selectedBreakdownSteps.remove(step)
+                                    } else {
+                                        selectedBreakdownSteps.insert(step)
+                                    }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: selectedBreakdownSteps.contains(step) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundColor(selectedBreakdownSteps.contains(step) ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                                        Text(step)
+                                            .foregroundColor(Color.tasker.textPrimary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Breakdown")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { showBreakdownSheet = false }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Add to task") {
+                            viewModel.addBreakdownSteps(Array(selectedBreakdownSteps)) {
+                                showBreakdownSheet = false
+                            }
+                        }
+                        .disabled(selectedBreakdownSteps.isEmpty)
+                    }
+                }
+            }
+        }
     }
 
     private var topBar: some View {
@@ -272,6 +332,21 @@ struct TaskDetailSheetView: View {
                 stepFocused = true
             }
             .accessibilityHint("Focus add step input")
+
+            if V2FeatureFlags.assistantBreakdownEnabled && viewModel.childSteps.isEmpty {
+                actionChip(
+                    icon: viewModel.isGeneratingAIBreakdown ? "hourglass" : "sparkles",
+                    title: viewModel.isGeneratingAIBreakdown ? "Thinking..." : "Break down",
+                    tint: Color.tasker.accentPrimary
+                ) {
+                    viewModel.generateAIBreakdown {
+                        selectedBreakdownSteps = Set(viewModel.aiBreakdownSteps)
+                        showBreakdownSheet = true
+                    }
+                }
+                .disabled(viewModel.isGeneratingAIBreakdown)
+                .accessibilityHint("Generate AI subtask suggestions")
+            }
 
             actionChip(
                 icon: viewModel.isComplete ? "arrow.uturn.backward.circle.fill" : "checkmark.circle.fill",

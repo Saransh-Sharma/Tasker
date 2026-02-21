@@ -52,6 +52,20 @@ struct AddTaskForedropView: View {
                     )
                     .staggeredAppearance(index: 0)
 
+                    if viewModel.isGeneratingSuggestion {
+                        HStack(spacing: spacing.s8) {
+                            ProgressView()
+                            Text("Eva is suggesting fields...")
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .transition(.opacity)
+                    } else if let suggestion = viewModel.aiSuggestion {
+                        aiSuggestionCard(suggestion)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
                     // Date preset row
                     AddTaskDatePresetRow(dueDate: $viewModel.dueDate)
                         .staggeredAppearance(index: 1)
@@ -165,6 +179,81 @@ struct AddTaskForedropView: View {
                 .fill(Color.tasker.statusWarning.opacity(0.12))
         )
         .animation(TaskerAnimation.bouncy, value: viewModel.errorMessage != nil)
+    }
+
+    /// Executes aiSuggestionCard.
+    private func aiSuggestionCard(_ suggestion: TaskFieldSuggestion) -> some View {
+        VStack(alignment: .leading, spacing: spacing.s8) {
+            if let routeBanner = suggestion.routeBanner, routeBanner.isEmpty == false {
+                HStack(alignment: .top, spacing: spacing.s8) {
+                    Image(systemName: "cpu")
+                        .foregroundColor(Color.tasker.accentPrimary)
+                    Text(routeBanner)
+                        .font(.tasker(.caption2))
+                        .foregroundColor(Color.tasker.textTertiary)
+                    Spacer(minLength: 0)
+                }
+            }
+            HStack {
+                Text("AI suggestion")
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker.textSecondary)
+                Spacer()
+                Button("Accept all") {
+                    viewModel.applyAISuggestion(suggestion)
+                    TaskerFeedback.selection()
+                }
+                .font(.tasker(.caption1))
+                .buttonStyle(.plain)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: spacing.chipSpacing) {
+                    suggestionChip("⚡ \(suggestion.priority.displayName)") {
+                        viewModel.selectedPriority = suggestion.priority
+                    }
+                    suggestionChip("🔋 \(suggestion.energy.displayName)") {
+                        viewModel.selectedEnergy = suggestion.energy
+                    }
+                    suggestionChip("📍 \(suggestion.context.displayName)") {
+                        viewModel.selectedContext = suggestion.context
+                    }
+                    suggestionChip("🕒 \(suggestion.type.displayName)") {
+                        viewModel.selectedType = suggestion.type
+                    }
+                }
+            }
+
+            Text("Eva: \"\(suggestion.rationale)\"")
+                .font(.tasker(.caption2))
+                .foregroundColor(Color.tasker.textTertiary)
+        }
+        .padding(.horizontal, spacing.s12)
+        .padding(.vertical, spacing.s12)
+        .background(
+            RoundedRectangle(cornerRadius: corner.r2)
+                .fill(Color.tasker.surfaceSecondary)
+                .overlay(
+                    RoundedRectangle(cornerRadius: corner.r2)
+                        .stroke(Color.tasker.accentMuted.opacity(0.35), lineWidth: 1)
+                )
+        )
+    }
+
+    /// Executes suggestionChip.
+    private func suggestionChip(_ text: String, action: @escaping () -> Void) -> some View {
+        Button {
+            action()
+        } label: {
+            Text(text)
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.accentPrimary)
+                .padding(.horizontal, spacing.s12)
+                .padding(.vertical, spacing.s8)
+                .background(Color.tasker.accentWash)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 

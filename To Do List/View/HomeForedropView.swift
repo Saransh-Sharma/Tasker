@@ -312,6 +312,21 @@ struct HomeBackdropForedropRootView: View {
         .onReceive(viewModel.$dailyScore.receive(on: RunLoop.main)) { newScore in
             handleDailyScoreUpdate(newScore)
         }
+        .sheet(
+            isPresented: Binding(
+                get: { viewModel.shouldShowOverdueTriage },
+                set: { isPresented in
+                    if isPresented == false, viewModel.shouldShowOverdueTriage {
+                        viewModel.dismissOverdueTriage()
+                    }
+                }
+            )
+        ) {
+            overdueTriageSheet
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Color.tasker.bgElevated)
+        }
     }
 
     /// Executes triggerForedropHintIfEligible.
@@ -484,6 +499,10 @@ struct HomeBackdropForedropRootView: View {
                 .padding(.top, spacing.s4)
             }
 
+            aiAssistCard
+                .padding(.horizontal, spacing.s16)
+                .padding(.top, spacing.s4)
+
             TaskListView(
                 morningTasks: viewModel.morningTasks,
                 eveningTasks: viewModel.eveningTasks,
@@ -556,6 +575,117 @@ struct HomeBackdropForedropRootView: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.foredrop.surface")
         .accessibilityValue(foredropAnchor.accessibilityValue)
+    }
+
+    @ViewBuilder
+    private var aiAssistCard: some View {
+        if V2FeatureFlags.assistantCopilotEnabled &&
+            (viewModel.activeScope.quickView == .today || viewModel.isGeneratingAITopSuggestions || !viewModel.aiTopSuggestions.isEmpty) {
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                HStack {
+                    Text("Eva suggestions")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                    Spacer()
+                    Button("Help me choose") {
+                        viewModel.helpMeChooseTop3()
+                    }
+                    .font(.tasker(.caption1))
+                    .buttonStyle(.plain)
+                }
+
+                if viewModel.isGeneratingAITopSuggestions {
+                    HStack(spacing: spacing.s8) {
+                        ProgressView()
+                        Text("Choosing top 3...")
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textTertiary)
+                    }
+                } else {
+                    if let banner = viewModel.aiTopSuggestionsRouteBanner, banner.isEmpty == false {
+                        HStack(alignment: .top, spacing: spacing.s8) {
+                            Image(systemName: "cpu")
+                                .foregroundColor(Color.tasker.accentPrimary)
+                            Text(banner)
+                                .font(.tasker(.caption2))
+                                .foregroundColor(Color.tasker.textTertiary)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                    ForEach(viewModel.aiTopSuggestions, id: \.taskID) { suggestion in
+                        Text(
+                            "• \(suggestion.title) — \(suggestion.rationale) (\(Int((suggestion.confidence * 100).rounded()))%)"
+                        )
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textPrimary)
+                    }
+                }
+
+                if !viewModel.energyAwareSuggestedTasks.isEmpty {
+                    Text("Right now energy fit:")
+                        .font(.tasker(.caption2))
+                        .foregroundColor(Color.tasker.textTertiary)
+                    Text(viewModel.energyAwareSuggestedTasks.map(\.title).joined(separator: " • "))
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .lineLimit(2)
+                }
+            }
+            .padding(.horizontal, spacing.s12)
+            .padding(.vertical, spacing.s12)
+            .background(
+                RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
+                    .fill(Color.tasker.surfaceSecondary)
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var overdueTriageSheet: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: spacing.s12) {
+                Text("\(viewModel.overdueTasks.count) overdue tasks")
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
+
+                if let suggestion = viewModel.overdueTriageSuggestion {
+                    ForEach(suggestion.summaryLines, id: \.self) { line in
+                        Text("• \(line)")
+                            .font(.tasker(.callout))
+                            .foregroundColor(Color.tasker.textSecondary)
+                    }
+                }
+
+                HStack(spacing: spacing.s8) {
+                    Button("Dismiss") {
+                        viewModel.dismissOverdueTriage()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Customize in Chat") {
+                        viewModel.customizeOverdueTriageInChat()
+                        onOpenChat()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Apply All") {
+                        viewModel.applyOverdueTriage { _ in }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(viewModel.isApplyingOverdueTriage)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(spacing.s16)
+            .navigationTitle("Overdue Triage")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        viewModel.dismissOverdueTriage()
+                    }
+                }
+            }
+        }
     }
 
     private var handleBar: some View {
@@ -693,7 +823,7 @@ struct HomeBackdropForedropRootView: View {
 
         return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: spacing.s8) {
-                Text("\(progress.earnedXP)/\(progress.todayTargetXP) XP")
+                Text("\(progress.earnedXP)/\(progress.todayTargetXP) XP Today")
                     .font(.tasker(.bodyEmphasis))
                     .foregroundColor(Color.tasker.textPrimary)
                     .accessibilityIdentifier("home.dailyScoreLabel")
