@@ -53,6 +53,7 @@ struct AddTaskReminderChip: View {
         }
     }
 
+    /// Executes formatTime.
     private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"

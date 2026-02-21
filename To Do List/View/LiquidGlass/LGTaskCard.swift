@@ -65,11 +65,13 @@ class LGTaskCard: LGBaseView {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
     }
     
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupUI()
@@ -77,6 +79,7 @@ class LGTaskCard: LGBaseView {
     
     // MARK: - Setup
     
+    /// Executes setupUI.
     private func setupUI() {
         cornerRadius = corners.card
         elevationLevel = .e1
@@ -125,6 +128,7 @@ class LGTaskCard: LGBaseView {
     
     // MARK: - Update UI
     
+    /// Executes updateUI.
     private func updateUI() {
         guard let task = task else { return }
 

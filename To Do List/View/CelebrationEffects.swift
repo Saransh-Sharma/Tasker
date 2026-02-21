@@ -12,6 +12,7 @@ import SwiftUI
 /// Animated celebration view that appears when XP is earned.
 public struct XPCelebrationView: View {
     let xpValue: Int
+    /// Initializes a new instance.
     @Binding var isPresented: Bool
 
     @State private var scale: CGFloat = 0.5
@@ -73,6 +74,7 @@ public struct XPCelebrationView: View {
         }
     }
 
+    /// Executes performAnimation.
     private func performAnimation() {
         // Generate particles
         particles = (0..<12).map { _ in
@@ -134,6 +136,7 @@ private struct Particle: Identifiable {
 /// Celebration view for streak achievements.
 public struct StreakCelebrationView: View {
     let streakDays: Int
+    /// Initializes a new instance.
     @Binding var isPresented: Bool
 
     @State private var flameScale: CGFloat = 0.3
@@ -176,6 +179,7 @@ public struct StreakCelebrationView: View {
         }
     }
 
+    /// Executes performAnimation.
     private func performAnimation() {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
             flameScale = 1
@@ -206,6 +210,7 @@ public struct StreakCelebrationView: View {
 /// Modifier that adds completion animation to any view.
 public struct TaskCompleteAnimationModifier: ViewModifier {
     let isComplete: Bool
+    /// Executes body.
     @State private var bounceAmount: CGFloat = 0
 
     public func body(content: Content) -> some View {

@@ -41,6 +41,7 @@ struct HomeForedropLayoutMetrics {
         return max(midOffset, cappedOffset)
     }
 
+    /// Executes offset.
     func offset(for anchor: ForedropAnchor) -> CGFloat {
         switch anchor {
         case .collapsed:
@@ -56,6 +57,7 @@ struct HomeForedropLayoutMetrics {
 struct HomeForedropHintEligibility {
     static let triggerCooldown: TimeInterval = 0.7
 
+    /// Executes canTrigger.
     static func canTrigger(
         isHomeVisible: Bool,
         foredropAnchor: ForedropAnchor,
@@ -79,6 +81,7 @@ struct HomeForedropHintEligibility {
 
 private struct CalendarHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 80
+    /// Executes reduce.
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
     }
@@ -86,6 +89,7 @@ private struct CalendarHeightPreferenceKey: PreferenceKey {
 
 private struct AnalyticsSectionHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
+    /// Executes reduce.
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
     }
@@ -93,6 +97,7 @@ private struct AnalyticsSectionHeightPreferenceKey: PreferenceKey {
 
 private struct SettingsButtonFramePreferenceKey: PreferenceKey {
     static var defaultValue: CGRect = .null
+    /// Executes reduce.
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
         value = nextValue()
     }
@@ -165,6 +170,7 @@ struct HomeBackdropForedropRootView: View {
         Self.launchArguments.contains("-UI_TESTING") || Self.launchArguments.contains("-DISABLE_ANIMATIONS")
     }
 
+    /// Executes foredropOffset.
     private func foredropOffset(for geometryHeight: CGFloat) -> CGFloat {
         let metrics = HomeForedropLayoutMetrics(
             calendarExpandedHeight: calendarExpandedHeight,
@@ -174,6 +180,7 @@ struct HomeBackdropForedropRootView: View {
         return metrics.offset(for: foredropAnchor)
     }
 
+    /// Executes chartCardsViewportHeight.
     private func chartCardsViewportHeight(for geometry: GeometryProxy) -> CGFloat {
         let preferred = geometry.size.height * 0.66
         let lowerBound: CGFloat = 560
@@ -307,6 +314,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    /// Executes triggerForedropHintIfEligible.
     private func triggerForedropHintIfEligible(now: Date = Date()) {
         let canTrigger = HomeForedropHintEligibility.canTrigger(
             isHomeVisible: isHomeVisible,
@@ -322,6 +330,7 @@ struct HomeBackdropForedropRootView: View {
         startForedropHintAnimation(triggeredAt: now)
     }
 
+    /// Executes startForedropHintAnimation.
     private func startForedropHintAnimation(triggeredAt timestamp: Date) {
         cancelForedropHintAnimation()
         lastHintTriggerAt = timestamp
@@ -364,12 +373,14 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    /// Executes cancelForedropHintAnimation.
     private func cancelForedropHintAnimation() {
         hintAnimationTask?.cancel()
         hintAnimationTask = nil
         foredropHintOffset = 0
     }
 
+    /// Executes backdropLayer.
     private func backdropLayer(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             Rectangle()
@@ -442,6 +453,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    /// Executes foredropLayer.
     private func foredropLayer(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             handleBar
@@ -726,6 +738,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    /// Executes progressGradientColors.
     private func progressGradientColors(isStreakSafe: Bool) -> [Color] {
         if isStreakSafe {
             return [Color.tasker.accentPrimary, Color.tasker.accentSecondary]
@@ -734,6 +747,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    /// Executes streakIndicator.
     @ViewBuilder
     private func streakIndicator(for progress: HomeProgressState) -> some View {
         HStack(spacing: 4) {
@@ -822,6 +836,7 @@ struct HomeBackdropForedropRootView: View {
         return formatter
     }()
 
+    /// Executes trackTaskToggle.
     private func trackTaskToggle(_ task: TaskDefinition, source: String) {
         viewModel.trackHomeInteraction(
             action: "home_task_toggle",
@@ -833,6 +848,7 @@ struct HomeBackdropForedropRootView: View {
         )
     }
 
+    /// Executes trackTaskDragStarted.
     private func trackTaskDragStarted(_ task: TaskDefinition, source: String) {
         var metadata = focusScopeMetadata(source: source, taskID: task.id)
         metadata["pinned_count"] = viewModel.pinnedFocusTaskIDs.count
@@ -842,6 +858,7 @@ struct HomeBackdropForedropRootView: View {
         )
     }
 
+    /// Executes handleFocusDrop.
     private func handleFocusDrop(providers: [NSItemProvider]) -> Bool {
         guard viewModel.canUseManualFocusDrag else { return false }
 
@@ -870,6 +887,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    /// Executes handleListDrop.
     private func handleListDrop(providers: [NSItemProvider]) -> Bool {
         guard viewModel.canUseManualFocusDrag else { return false }
 
@@ -887,6 +905,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    /// Executes loadTaskIDFromDrop.
     private func loadTaskIDFromDrop(
         providers: [NSItemProvider],
         completion: @escaping (UUID?) -> Void
@@ -907,6 +926,7 @@ struct HomeBackdropForedropRootView: View {
         return true
     }
 
+    /// Executes focusScopeMetadata.
     private func focusScopeMetadata(source: String, taskID: UUID) -> [String: Any] {
         [
             "source": source,
@@ -933,6 +953,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    /// Executes handleDailyScoreUpdate.
     private func handleDailyScoreUpdate(_ newScore: Int) {
         defer { lastDailyScore = newScore }
 

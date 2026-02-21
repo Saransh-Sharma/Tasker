@@ -23,6 +23,7 @@ public struct HomeQuickFilterTriggerButton: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
+    /// Initializes a new instance.
     public init(
         summary: HomeQuickFilterSummary,
         isOpen: Binding<Bool>,

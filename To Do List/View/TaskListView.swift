@@ -14,6 +14,7 @@ import SwiftUI
 private struct TaskListScrollOffsetPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
 
+    /// Executes reduce.
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
     }
@@ -48,6 +49,7 @@ struct TaskListView: View {
     @State private var isCompletedCollapsedBySection: [UUID: Bool] = [:]
     private let scrollCoordinateSpace = "home.taskList.scrollSpace"
 
+    /// Initializes a new instance.
     init(
         morningTasks: [TaskDefinition],
         eveningTasks: [TaskDefinition],
@@ -391,11 +393,13 @@ struct TaskListView: View {
         return morningTasks.isEmpty && eveningTasks.isEmpty && overdueTasks.isEmpty
     }
 
+    /// Executes sectionRenderKey.
     private func sectionRenderKey(projectID: UUID, tasks: [TaskDefinition]) -> String {
         let rows = tasks.map(taskRenderKey(for:)).joined(separator: ",")
         return "\(projectID.uuidString)|\(rows)"
     }
 
+    /// Executes overdueGroupsRenderKey.
     private func overdueGroupsRenderKey(_ groups: [HomeTaskOverdueGroup]) -> String {
         groups
             .map { group in
@@ -404,17 +408,20 @@ struct TaskListView: View {
             .joined(separator: ";")
     }
 
+    /// Executes taskRenderKey.
     private func taskRenderKey(for task: TaskDefinition) -> String {
         let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
         return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
     }
 
+    /// Executes normalizedTaskProjectName.
     private func normalizedTaskProjectName(from tasks: [TaskDefinition]) -> String? {
         tasks
             .compactMap { $0.projectName?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .first(where: { !$0.isEmpty })
     }
 
+    /// Executes isInboxSection.
     private func isInboxSection(_ project: Project) -> Bool {
         project.isInbox || project.name.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame
     }
@@ -544,6 +551,7 @@ private struct OverdueGroupedSectionView: View {
         }
     }
 
+    /// Executes taskRenderKey.
     private func taskRenderKey(for task: TaskDefinition) -> String {
         let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
         return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"
@@ -557,6 +565,7 @@ private struct CustomProjectSectionDropDelegate: DropDelegate {
     let currentCustomOrder: [UUID]
     let onReorder: ([UUID]) -> Void
 
+    /// Executes dropEntered.
     func dropEntered(info: DropInfo) {
         guard let draggedProjectID, draggedProjectID != targetProjectID else { return }
         guard let fromIndex = currentCustomOrder.firstIndex(of: draggedProjectID),
@@ -570,11 +579,13 @@ private struct CustomProjectSectionDropDelegate: DropDelegate {
         self.draggedProjectID = targetProjectID
     }
 
+    /// Executes performDrop.
     func performDrop(info: DropInfo) -> Bool {
         draggedProjectID = nil
         return true
     }
 
+    /// Executes dropUpdated.
     func dropUpdated(info: DropInfo) -> DropProposal? {
         DropProposal(operation: .move)
     }

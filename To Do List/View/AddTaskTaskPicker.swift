@@ -120,6 +120,7 @@ struct AddTaskTaskPicker: View {
 // MARK: - Multi Select Task Picker (for dependencies)
 
 extension AddTaskTaskPicker {
+    /// Initializes a new instance.
     init(label: String?, tasks: [TaskDefinition], selectedTaskIDs: Binding<Set<UUID>>) {
         self.label = label
         self.tasks = tasks

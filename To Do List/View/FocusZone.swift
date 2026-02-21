@@ -25,6 +25,7 @@ public struct FocusZone: View {
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
     private var themeColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
 
+    /// Initializes a new instance.
     public init(
         tasks: [TaskDefinition],
         canDrag: Bool,
@@ -251,6 +252,7 @@ private struct FocusZoneRow: View {
         .accessibilityLabel(task.title)
     }
 
+    /// Executes focusUrgencyColor.
     private func focusUrgencyColor(for label: String) -> Color {
         switch label {
         case "Overdue":

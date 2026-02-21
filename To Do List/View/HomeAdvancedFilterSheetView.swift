@@ -18,6 +18,7 @@ struct HomeAdvancedFilterSheetView: View {
     let onApplySavedView: (UUID) -> Void
     let onDeleteSavedView: (UUID) -> Void
 
+    /// Initializes a new instance.
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedPriorities: Set<TaskPriority>
@@ -197,6 +198,7 @@ struct HomeAdvancedFilterSheetView: View {
         }
     }
 
+    /// Executes buildDraftFilter.
     private func buildDraftFilter() -> HomeAdvancedFilter? {
         let tags = tagsText
             .split(separator: ",")
@@ -250,6 +252,7 @@ private enum TriState: CaseIterable {
         }
     }
 
+    /// Executes from.
     static func from(_ value: Bool?) -> TriState {
         switch value {
         case nil: return .any
@@ -264,6 +267,7 @@ private struct MultiToggleList<T: Hashable>: View {
     @Binding var selection: Set<T>
     let title: (T) -> String
 
+    /// Initializes a new instance.
     init(_ allValues: [T], selection: Binding<Set<T>>, title: @escaping (T) -> String) {
         self.allValues = allValues
         self._selection = selection
@@ -278,6 +282,7 @@ private struct MultiToggleList<T: Hashable>: View {
         }
     }
 
+    /// Executes binding.
     private func binding(for value: T) -> Binding<Bool> {
         Binding<Bool>(
             get: { selection.contains(value) },

@@ -73,6 +73,7 @@ struct AddTaskRepeatEditor: View {
 
     // MARK: - Helpers
 
+    /// Executes applyPreset.
     private func applyPreset(_ preset: RepeatPreset) {
         switch preset {
         case .none:

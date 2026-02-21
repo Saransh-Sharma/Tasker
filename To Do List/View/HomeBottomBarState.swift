@@ -16,10 +16,12 @@ final class HomeBottomBarState {
     private let restoreThreshold: CGFloat = -12
     private let jitterThreshold: CGFloat = 4
 
+    /// Executes select.
     func select(_ item: HomeBottomBarItem) {
         selectedItem = item
     }
 
+    /// Executes updateMinimizeState.
     func updateMinimizeState(fromScrollDelta delta: CGFloat) {
         guard delta.isFinite else { return }
         guard abs(delta) >= jitterThreshold else { return }

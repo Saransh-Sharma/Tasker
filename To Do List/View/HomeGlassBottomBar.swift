@@ -37,6 +37,7 @@ struct HomeGlassBottomBar: View {
         .accessibilityValue(state.isMinimized ? "minimized" : "expanded")
     }
 
+    /// Executes handleToolTap.
     private func handleToolTap(_ item: HomeBottomBarItem) {
         TaskerFeedback.selection()
         withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
@@ -55,6 +56,7 @@ struct HomeGlassBottomBar: View {
         }
     }
 
+    /// Executes handleCreateTap.
     private func handleCreateTap() {
         withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
             state.select(.create)
@@ -246,6 +248,7 @@ private struct LiquidAddTaskCTA: View {
         }
     }
 
+    /// Executes triggerSheenIfNeeded.
     private func triggerSheenIfNeeded() {
         guard !reduceMotion else { return }
 

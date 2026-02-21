@@ -11,6 +11,7 @@ import SwiftUI
 // MARK: - Add Task Sheet View
 
 public struct AddTaskSheetView: View {
+    /// Initializes a new instance.
     @StateObject private var viewModel: AddTaskViewModel
     @Environment(\.dismiss) private var dismiss
 
@@ -53,6 +54,7 @@ public struct AddTaskSheetView: View {
 
     // MARK: - Actions
 
+    /// Executes handleCancel.
     private func handleCancel() {
         if viewModel.hasUnsavedChanges {
             TaskerFeedback.medium()
@@ -63,6 +65,7 @@ public struct AddTaskSheetView: View {
         }
     }
 
+    /// Executes handleCreate.
     private func handleCreate() {
         guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
         viewModel.createTask()
@@ -76,6 +79,7 @@ public struct AddTaskSheetView: View {
         }
     }
 
+    /// Executes handleAddAnother.
     private func handleAddAnother() {
         guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
         viewModel.createTask()
@@ -99,6 +103,7 @@ public struct AddTaskSheetView: View {
         }
     }
 
+    /// Executes expandToLarge.
     private func expandToLarge() {
         withAnimation(TaskerAnimation.gentle) {
             selectedDetent = .large

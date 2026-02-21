@@ -16,6 +16,7 @@ public struct FilterPill: View {
     var isDestructive: Bool = false
     let onRemove: () -> Void
 
+    /// Initializes a new instance.
     public init(
         title: String,
         systemImage: String? = nil,

@@ -26,6 +26,7 @@ struct TaskRowDisplayModel: Equatable {
         urgencyLabel == "Overdue"
     }
 
+    /// Executes from.
     static func from(task: TaskDefinition, showTypeBadge: Bool, now: Date = Date()) -> TaskRowDisplayModel {
         let xpValue = task.priority.scorePoints
         let projectName = resolvedProjectName(for: task)
@@ -54,6 +55,7 @@ struct TaskRowDisplayModel: Equatable {
         )
     }
 
+    /// Executes resolvedProjectName.
     private static func resolvedProjectName(for task: TaskDefinition) -> String {
         if let project = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines), !project.isEmpty {
             return project
@@ -64,6 +66,7 @@ struct TaskRowDisplayModel: Equatable {
         return "Project"
     }
 
+    /// Executes trailingMetaText.
     private static func trailingMetaText(for task: TaskDefinition, xpValue: Int) -> String {
         guard let dueDate = task.dueDate else {
             return "+\(xpValue) XP"
@@ -82,6 +85,7 @@ struct TaskRowDisplayModel: Equatable {
         return DateUtils.formatDate(dueDate)
     }
 
+    /// Executes urgencyLabel.
     private static func urgencyLabel(for task: TaskDefinition, now: Date) -> String? {
         guard !task.isComplete else { return nil }
         if task.isOverdue {
@@ -355,6 +359,7 @@ struct TaskRowView: View {
         task.isComplete ? "done" : "open"
     }
 
+    /// Executes compactUrgencyBadge.
     @ViewBuilder
     private func compactUrgencyBadge(for level: TaskRowUrgencyLevel) -> some View {
         let badge: (text: String, background: Color, foreground: Color)? = {
@@ -448,6 +453,7 @@ private enum TaskRowUrgencyLevel: Equatable {
     case today
     case none
 
+    /// Executes from.
     static func from(task: TaskDefinition, now: Date = Date()) -> TaskRowUrgencyLevel {
         guard !task.isComplete else { return .none }
         if task.isOverdue { return .overdue }

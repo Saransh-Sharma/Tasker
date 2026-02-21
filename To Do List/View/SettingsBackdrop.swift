@@ -11,6 +11,7 @@ import UIKit
 
 extension SettingsPageViewController {
     
+    /// Executes setupBackdrop.
     func setupBackdrop() {
         
         backdropContainer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
@@ -28,6 +29,7 @@ extension SettingsPageViewController {
     }
     
     //MARK:- Setup Backdrop Background - Today label + Score
+    /// Executes setupBackdropBackground.
     func setupBackdropBackground() {
         
         backdropBackgroundImageView.frame =  CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)

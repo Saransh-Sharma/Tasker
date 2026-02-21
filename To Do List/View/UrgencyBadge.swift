@@ -16,6 +16,7 @@ public enum UrgencyLevel {
     case today
     case none
 
+    /// Executes from.
     public static func from(task: TaskDefinition, now: Date = Date()) -> UrgencyLevel {
         guard !task.isComplete else { return .none }
         if task.isOverdue { return .overdue }
@@ -63,6 +64,7 @@ public struct UrgencyBadge: View {
         }
     }
 
+    /// Executes badgeContent.
     @ViewBuilder
     private func badgeContent(icon: String, text: String, backgroundColor: Color, foregroundColor: Color) -> some View {
         HStack(spacing: 3) {

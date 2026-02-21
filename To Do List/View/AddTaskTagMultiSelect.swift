@@ -105,6 +105,7 @@ struct AddTaskTagMultiSelect: View {
         .animation(TaskerAnimation.snappy, value: showInlineCreate)
     }
 
+    /// Executes tagChip.
     private func tagChip(_ tag: TagDefinition) -> some View {
         let isSelected = selectedTagIDs.contains(tag.id)
 

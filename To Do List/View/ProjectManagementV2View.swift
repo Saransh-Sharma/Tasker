@@ -63,6 +63,7 @@ struct ProjectManagementV2View: View {
         }
     }
 
+    /// Executes deleteProjects.
     private func deleteProjects(at offsets: IndexSet) {
         for index in offsets {
             guard viewModel.filteredProjects.indices.contains(index) else { continue }
@@ -72,11 +73,13 @@ struct ProjectManagementV2View: View {
         }
     }
 
+    /// Executes normalizedDescription.
     private func normalizedDescription() -> String? {
         let trimmed = newProjectDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// Executes resetDraft.
     private func resetDraft() {
         newProjectName = ""
         newProjectDescription = ""

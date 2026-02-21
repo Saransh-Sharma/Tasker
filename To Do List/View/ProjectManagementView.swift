@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ProjectManagementView: View {
+    /// Initializes a new instance.
     @StateObject private var viewModel: ProjectManagementViewModel
     @State private var showingCreateDialog = false
     @State private var newProjectName = ""
@@ -67,6 +68,7 @@ struct ProjectManagementView: View {
         }
     }
 
+    /// Executes deleteProjects.
     private func deleteProjects(at offsets: IndexSet) {
         for index in offsets {
             guard viewModel.filteredProjects.indices.contains(index) else { continue }
@@ -76,11 +78,13 @@ struct ProjectManagementView: View {
         }
     }
 
+    /// Executes normalizedDescription.
     private func normalizedDescription() -> String? {
         let trimmed = newProjectDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// Executes resetDraft.
     private func resetDraft() {
         newProjectName = ""
         newProjectDescription = ""

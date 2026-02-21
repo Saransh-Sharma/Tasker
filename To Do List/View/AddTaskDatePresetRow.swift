@@ -79,6 +79,7 @@ struct AddTaskDatePresetRow: View {
         return "Pick date"
     }
 
+    /// Executes applyPreset.
     private func applyPreset(_ preset: DatePreset) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
