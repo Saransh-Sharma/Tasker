@@ -11,8 +11,8 @@ All resolved rows must include a verifiable evidence pointer.
 
 | Gate | Command or check | Evidence pointer | Status |
 | --- | --- | --- | --- |
-| Build gate | `xcodebuild -workspace Tasker.xcworkspace -scheme "To Do List" -configuration Debug -destination "platform=iOS Simulator,name=iPhone 17" build` | `/tmp/tasker_full_build_after_fix9.log` | [x] Resolved |
-| Guardrail gate | `./scripts/validate_legacy_runtime_guardrails.sh` | `/tmp/tasker_guardrails_docs_refresh.log` | [x] Resolved |
+| Build gate | `xcodebuild -workspace Tasker.xcworkspace -scheme "To Do List" -configuration Debug -destination "platform=iOS Simulator,name=iPhone 17" build` | `/tmp/tasker_build.log` | [x] Resolved |
+| Guardrail gate | `./scripts/validate_legacy_runtime_guardrails.sh` | `/tmp/tasker_guardrails.log` | [x] Resolved |
 | Plan/apply flow smoke | proposal card -> confirm/apply -> undo | pending evidence link in release PR notes | [ ] Open |
 | Ask mode non-mutation | verify no pipeline mutation path in ask mode | pending evidence link in release PR notes | [ ] Open |
 | Enriched context logging | validate `assistant_context_built` fields (`energy`, `context`, `project_id`, `timezone`) | pending observability snapshot link | [ ] Open |

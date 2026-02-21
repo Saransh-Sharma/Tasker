@@ -151,6 +151,7 @@ This keeps deterministic domain mutations in usecases while allowing UI-facing l
 | assistant semantic retrieval | `assistantSemanticRetrievalEnabled` |
 | assistant daily brief | `assistantBriefEnabled` |
 | assistant breakdown | `assistantBreakdownEnabled` |
+| assistant fast-first routing mode | `assistantFastModeEnabled` |
 
 ## Critical Flow Sketches
 
