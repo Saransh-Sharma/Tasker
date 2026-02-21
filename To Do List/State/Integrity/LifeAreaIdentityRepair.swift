@@ -16,15 +16,18 @@ struct LifeAreaRepairReport {
 enum LifeAreaIdentityRepair {
     static let defaultLifeAreaName = "General"
 
+    /// Executes normalizedName.
     static func normalizedName(_ name: String?) -> String {
         let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? defaultLifeAreaName : trimmed
     }
 
+    /// Executes normalizedNameKey.
     static func normalizedNameKey(_ name: String?) -> String {
         normalizedName(name).lowercased()
     }
 
+    /// Executes repair.
     static func repair(in context: NSManagedObjectContext) throws -> LifeAreaRepairReport {
         let lifeAreas = try fetchObjects(entityName: "LifeArea", in: context)
         let projects = try fetchObjects(entityName: "Project", in: context)
@@ -119,6 +122,7 @@ enum LifeAreaIdentityRepair {
         )
     }
 
+    /// Executes fetchObjects.
     private static func fetchObjects(
         entityName: String,
         in context: NSManagedObjectContext
@@ -131,6 +135,7 @@ enum LifeAreaIdentityRepair {
         return try context.fetch(request)
     }
 
+    /// Executes ensureLifeAreaID.
     private static func ensureLifeAreaID(on object: NSManagedObject) -> UUID {
         if let id = object.value(forKey: "id") as? UUID {
             return id
@@ -140,6 +145,7 @@ enum LifeAreaIdentityRepair {
         return generated
     }
 
+    /// Executes countInboundReferences.
     private static func countInboundReferences(from objects: [NSManagedObject], into counts: inout [UUID: Int]) {
         for object in objects {
             guard object.entity.attributesByName["lifeAreaID"] != nil else { continue }
@@ -148,6 +154,7 @@ enum LifeAreaIdentityRepair {
         }
     }
 
+    /// Executes selectCanonicalLifeArea.
     private static func selectCanonicalLifeArea(
         from group: [NSManagedObject],
         inboundCounts: [UUID: Int]
@@ -157,6 +164,7 @@ enum LifeAreaIdentityRepair {
         } ?? group[0]
     }
 
+    /// Executes compare.
     private static func compare(
         lhs: NSManagedObject,
         rhs: NSManagedObject,
@@ -185,6 +193,7 @@ enum LifeAreaIdentityRepair {
         return lhsID.uuidString.localizedCaseInsensitiveCompare(rhsID.uuidString) == .orderedAscending
     }
 
+    /// Executes createdDate.
     private static func createdDate(of object: NSManagedObject) -> Date {
         if let created = object.value(forKey: "createdAt") as? Date {
             return created
@@ -195,6 +204,7 @@ enum LifeAreaIdentityRepair {
         return .distantFuture
     }
 
+    /// Executes mergeMissingVisualMetadata.
     private static func mergeMissingVisualMetadata(
         into canonical: NSManagedObject,
         from group: [NSManagedObject]
@@ -210,6 +220,7 @@ enum LifeAreaIdentityRepair {
         }
     }
 
+    /// Executes firstNonBlankValue.
     private static func firstNonBlankValue(forKey key: String, from objects: [NSManagedObject]) -> String? {
         for object in objects {
             if let raw = object.value(forKey: key) as? String, isBlank(raw) == false {
@@ -219,10 +230,12 @@ enum LifeAreaIdentityRepair {
         return nil
     }
 
+    /// Executes isBlank.
     private static func isBlank(_ value: String?) -> Bool {
         value?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
     }
 
+    /// Executes repointReferences.
     private static func repointReferences(
         in objects: [NSManagedObject],
         sourceID: UUID,

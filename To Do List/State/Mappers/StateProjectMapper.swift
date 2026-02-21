@@ -119,12 +119,14 @@ public enum StateProjectMapper {
         return entities.map { toDomain(from: $0) }
     }
 
+    /// Executes normalizedName.
     private static func normalizedName(_ name: String?) -> String? {
         guard let name else { return nil }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// Executes stableUUID.
     private static func stableUUID(from string: String) -> UUID {
         var hash = UInt64(1469598103934665603)
         let prime: UInt64 = 1099511628211

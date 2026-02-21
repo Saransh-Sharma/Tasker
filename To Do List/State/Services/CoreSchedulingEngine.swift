@@ -9,6 +9,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
     private let scheduleRepository: ScheduleRepositoryProtocol
     private let occurrenceRepository: OccurrenceRepositoryProtocol
 
+    /// Initializes a new instance.
     public init(
         scheduleRepository: ScheduleRepositoryProtocol,
         occurrenceRepository: OccurrenceRepositoryProtocol
@@ -17,6 +18,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         self.occurrenceRepository = occurrenceRepository
     }
 
+    /// Executes generateOccurrences.
     public func generateOccurrences(
         windowStart: Date,
         windowEnd: Date,
@@ -64,6 +66,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         }
     }
 
+    /// Executes resolveOccurrence.
     public func resolveOccurrence(
         id: UUID,
         resolution: OccurrenceResolutionType,
@@ -82,6 +85,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         occurrenceRepository.resolve(resolutionRecord, completion: completion)
     }
 
+    /// Executes rebuildFutureOccurrences.
     public func rebuildFutureOccurrences(templateID: UUID, effectiveFrom: Date, completion: @escaping (Result<Void, Error>) -> Void) {
         let rebuildEnd = Calendar.current.date(byAdding: .day, value: 14, to: effectiveFrom) ?? effectiveFrom
         occurrenceRepository.fetchInRange(start: effectiveFrom, end: rebuildEnd) { result in
@@ -121,6 +125,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         }
     }
 
+    /// Executes applyScheduleException.
     public func applyScheduleException(templateID: UUID, occurrenceKey: String, action: ScheduleExceptionAction, completion: @escaping (Result<Void, Error>) -> Void) {
         let normalizedOccurrenceKey = OccurrenceKeyCodec.canonicalize(
             occurrenceKey,
@@ -152,6 +157,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         }
     }
 
+    /// Executes fetchTemplateMetadata.
     private func fetchTemplateMetadata(
         for templates: [ScheduleTemplateDefinition],
         completion: @escaping (Result<TemplateMetadata, Error>) -> Void
@@ -197,6 +203,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         }
     }
 
+    /// Executes buildOccurrences.
     private func buildOccurrences(
         templates: [ScheduleTemplateDefinition],
         rulesByTemplate: [UUID: [ScheduleRuleDefinition]],
@@ -273,6 +280,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         return generated
     }
 
+    /// Executes matches.
     private func matches(
         day: Date,
         rule: ScheduleRuleDefinition,
@@ -312,6 +320,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         }
     }
 
+    /// Executes scheduledDate.
     private func scheduledDate(
         for day: Date,
         template: ScheduleTemplateDefinition,
@@ -327,6 +336,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day)
     }
 
+    /// Executes dueDate.
     private func dueDate(
         for day: Date,
         template: ScheduleTemplateDefinition,
@@ -339,6 +349,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         return calendar.date(bySettingHour: endTime.hour ?? 23, minute: endTime.minute ?? 59, second: 0, of: day) ?? defaultDate
     }
 
+    /// Executes resolveTimeZone.
     private func resolveTimeZone(for template: ScheduleTemplateDefinition) -> TimeZone {
         switch template.temporalReference {
         case .floating:
@@ -348,6 +359,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         }
     }
 
+    /// Executes occurrenceKey.
     private func occurrenceKey(
         templateID: UUID,
         scheduledAt: Date,
@@ -360,6 +372,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         )
     }
 
+    /// Executes defaultRule.
     private static func defaultRule(templateID: UUID) -> ScheduleRuleDefinition {
         ScheduleRuleDefinition(
             id: UUID(),
@@ -375,6 +388,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         )
     }
 
+    /// Executes parsedTime.
     private func parsedTime(from value: String?) -> DateComponents? {
         guard let value else { return nil }
         let parts = value.split(separator: ":")
@@ -384,16 +398,19 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         return DateComponents(hour: max(0, min(23, hour)), minute: max(0, min(59, minute)))
     }
 
+    /// Executes validHour.
     private static func validHour(_ hour: Int?) -> Int? {
         guard let hour else { return nil }
         return (0...23).contains(hour) ? hour : nil
     }
 
+    /// Executes validMinute.
     private static func validMinute(_ minute: Int?) -> Int? {
         guard let minute else { return nil }
         return (0...59).contains(minute) ? minute : nil
     }
 
+    /// Executes weekdayMask.
     private static func weekdayMask(for weekday: Int) -> Int {
         // Foundation weekday: Sunday=1 ... Saturday=7
         switch weekday {
@@ -408,10 +425,12 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         }
     }
 
+    /// Executes occurrenceDate.
     private static func occurrenceDate(from key: String) -> Date? {
         OccurrenceKeyCodec.parse(key)?.scheduledAt
     }
 
+    /// Executes dayKey.
     private static func dayKey(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
@@ -419,6 +438,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         return formatter.string(from: date)
     }
 
+    /// Executes latestExceptionsByOccurrenceKey.
     private func latestExceptionsByOccurrenceKey(
         _ exceptions: [ScheduleExceptionDefinition]
     ) -> [String: ScheduleExceptionDefinition] {
@@ -435,6 +455,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         return indexed
     }
 
+    /// Executes apply.
     private func apply(
         exception: ScheduleExceptionDefinition?,
         template: ScheduleTemplateDefinition,
@@ -488,6 +509,7 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol {
         }
     }
 
+    /// Executes dateFromPayload.
     private func dateFromPayload(field: String, data: Data?) -> Date? {
         guard
             let data,

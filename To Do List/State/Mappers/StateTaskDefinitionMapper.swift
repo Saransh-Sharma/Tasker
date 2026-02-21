@@ -2,6 +2,7 @@ import Foundation
 import CoreData
 
 public enum StateTaskDefinitionMapper {
+    /// Executes toDomain.
     public static func toDomain(from entity: TaskDefinitionEntity) -> TaskDefinition {
         let taskID = entity.taskID ?? entity.id ?? UUID()
         let projectID = entity.projectID ?? ProjectConstants.inboxProjectID
@@ -51,6 +52,7 @@ public enum StateTaskDefinitionMapper {
         )
     }
 
+    /// Executes apply.
     @discardableResult
     public static func apply(_ model: TaskDefinition, to entity: TaskDefinitionEntity) -> TaskDefinitionEntity {
         entity.id = model.id

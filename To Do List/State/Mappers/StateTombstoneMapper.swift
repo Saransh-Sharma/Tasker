@@ -4,6 +4,7 @@ import CoreData
 enum StateTombstoneMapper {
     static let entityName = "Tombstone"
 
+    /// Executes toDomain.
     static func toDomain(from object: NSManagedObject) -> TombstoneDefinition {
         TombstoneDefinition(
             id: object.value(forKey: "id") as? UUID ?? UUID(),
@@ -15,6 +16,7 @@ enum StateTombstoneMapper {
         )
     }
 
+    /// Executes apply.
     @discardableResult
     static func apply(_ model: TombstoneDefinition, to object: NSManagedObject) -> NSManagedObject {
         object.setValue(model.id, forKey: "id")
