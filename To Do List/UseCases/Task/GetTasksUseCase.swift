@@ -355,8 +355,31 @@ public final class GetTasksUseCase {
         }
 
         readModelRepository.searchTasks(query: query) { result in
-            completion(result.map(\.tasks).mapError { GetTasksError.repositoryError($0) })
+            switch result {
+            case .failure(let error):
+                completion(.failure(.repositoryError(error)))
+            case .success(let slice):
+                var tasks = slice.tasks
+                if V2FeatureFlags.assistantSemanticRetrievalEnabled,
+                   query.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                    tasks = self.applySemanticRerank(to: tasks, query: query.text)
+                }
+                completion(.success(tasks))
+            }
         }
+    }
+
+    /// Executes applySemanticRerank.
+    private func applySemanticRerank(to tasks: [TaskDefinition], query: String) -> [TaskDefinition] {
+        guard tasks.isEmpty == false else { return [] }
+        let taskByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
+        let rerankedIDs = TaskSemanticRetrievalService.shared.rerank(taskIDs: tasks.map(\.id), query: query)
+        var reranked: [TaskDefinition] = rerankedIDs.compactMap { taskByID[$0] }
+        if reranked.count < tasks.count {
+            let included = Set(reranked.map(\.id))
+            reranked.append(contentsOf: tasks.filter { !included.contains($0.id) })
+        }
+        return reranked
     }
 
     /// Executes applySearchFilter.
