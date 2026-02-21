@@ -8,6 +8,9 @@ import SwiftUI
 import Combine
 import SwiftData
 import os
+#if os(iOS)
+import UIKit
+#endif
 
 struct ChatView: View {
     @EnvironmentObject var appManager: AppManager
@@ -25,7 +28,34 @@ struct ChatView: View {
     @State var thinkingTime: TimeInterval?
 
     @State private var generatingThreadID: UUID?
-    static private var contextInjectedThreads = Set<UUID>()
+    @State private var isGeneratingProposal = false
+    @State private var pendingDestructiveMessageID: UUID?
+    @State private var pendingDestructivePayload: AssistantCardPayload?
+    @State private var showDestructiveApplyConfirmation = false
+    @State private var shouldShowPlanHint = false
+    @State private var planModeRouteBanner: String?
+    @State private var planModeShouldPromptDownload = false
+    @State private var consecutiveApplyFailures = 0
+    @State private var sessionPlanApplyDisabled = false
+    @AppStorage("assistantPlanModeHintShown") private var assistantPlanModeHintShown = false
+    private static let pendingPromptKey = "assistant.pending_prompt"
+    private static let pendingAssistantMessageKey = "assistant.pending_assistant_message"
+    private static let pendingModeKey = "assistant.pending_chat_mode"
+
+    private var resolvedChatMode: AssistantChatMode {
+        guard V2FeatureFlags.assistantPlanModeEnabled else {
+            return .ask
+        }
+        return AssistantChatMode(rawValue: appManager.assistantChatMode) ?? .ask
+    }
+
+    private var isPlanMode: Bool {
+        resolvedChatMode == .plan
+    }
+
+    private var promptPlaceholder: String {
+        isPlanMode ? "describe what you want to plan..." : "ask Eva anything..."
+    }
 
     var isPromptEmpty: Bool {
         prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -35,7 +65,7 @@ struct ChatView: View {
 
     var chatInput: some View {
         HStack(alignment: .bottom, spacing: 0) {
-            TextField("ask Eva anything...", text: $prompt, axis: .vertical)
+            TextField(promptPlaceholder, text: $prompt, axis: .vertical)
                 .focused($isPromptFocused)
                 .textFieldStyle(.plain)
                 .font(.tasker(.body))
@@ -75,7 +105,7 @@ struct ChatView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.xl, style: .continuous)
-                .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                .stroke(isPlanMode ? Color.tasker(.statusWarning).opacity(0.7) : Color.tasker(.strokeHairline), lineWidth: 1)
         )
         .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.xl)
         #elseif os(macOS)
@@ -204,6 +234,61 @@ struct ChatView: View {
 
     // MARK: - Empty State
 
+    private var contextualSuggestionChips: [String] {
+        let signal = fetchTaskSignal()
+        let calendar = Calendar.current
+        var chips: [String] = []
+
+        if signal.overdueCount > 0 {
+            chips.append("I have \(signal.overdueCount) overdue tasks — help me triage")
+        }
+        if calendar.component(.weekday, from: Date()) == 2 {
+            chips.append("plan my week")
+        }
+        if calendar.component(.weekday, from: Date()) == 6 {
+            chips.append("what did I accomplish this week?")
+        }
+        if signal.openCount == 0 {
+            chips.append("what should I do first?")
+        }
+
+        chips.append("summarize my week")
+        chips.append("break down a big task")
+        return Array(NSOrderedSet(array: chips).compactMap { $0 as? String }.prefix(6))
+    }
+
+    private var modeToggle: some View {
+        HStack(spacing: TaskerTheme.Spacing.xs) {
+            modeButton(title: "Ask", mode: .ask)
+            modeButton(title: "Plan", mode: .plan)
+            Spacer(minLength: 0)
+            if isPlanMode {
+                Text("Plan mode")
+                    .font(.tasker(.caption2))
+                    .foregroundColor(Color.tasker(.statusWarning))
+            }
+        }
+        .padding(.horizontal, TaskerTheme.Spacing.lg)
+    }
+
+    private func modeButton(title: String, mode: AssistantChatMode) -> some View {
+        let selected = resolvedChatMode == mode
+        return Button {
+            setChatMode(mode)
+        } label: {
+            Text(title)
+                .font(.tasker(.caption1))
+                .foregroundColor(selected ? Color.tasker(.accentOnPrimary) : Color.tasker(.textSecondary))
+                .padding(.horizontal, TaskerTheme.Spacing.md)
+                .padding(.vertical, TaskerTheme.Spacing.xs)
+                .background(
+                    Capsule()
+                        .fill(selected ? Color.tasker(.accentPrimary) : Color.tasker(.surfaceSecondary))
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
     var emptyState: some View {
         VStack(spacing: TaskerTheme.Spacing.lg) {
             Spacer()
@@ -232,7 +317,7 @@ struct ChatView: View {
             // Suggestion chips
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: TaskerTheme.Spacing.sm) {
-                    ForEach(["what's due today?", "summarize my week", "plan tomorrow"], id: \.self) { suggestion in
+                    ForEach(contextualSuggestionChips, id: \.self) { suggestion in
                         Button {
                             prompt = suggestion
                             generate()
@@ -262,15 +347,62 @@ struct ChatView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 if let currentThread = currentThread {
-                    ConversationView(thread: currentThread, generatingThreadID: generatingThreadID)
+                    ConversationView(
+                        thread: currentThread,
+                        generatingThreadID: generatingThreadID,
+                        onApplyProposal: { message, payload in
+                            handleApplyProposal(message: message, payload: payload)
+                        },
+                        onRejectProposal: { message, payload in
+                            handleRejectProposal(message: message, payload: payload)
+                        },
+                        onUndoRun: { message, payload in
+                            handleUndoRun(message: message, payload: payload)
+                        },
+                        onRefreshContext: { message, payload in
+                            handleRefreshContext(message: message, payload: payload)
+                        }
+                    )
                 } else {
                     emptyState
                 }
 
                 // Bottom input area
-                HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
-                    modelPickerButton
-                    chatInput
+                VStack(spacing: TaskerTheme.Spacing.xs) {
+                    if currentThread != nil && V2FeatureFlags.assistantPlanModeEnabled {
+                        modeToggle
+                            .padding(.top, TaskerTheme.Spacing.xs)
+                    }
+                    if shouldShowPlanHint && isPlanMode {
+                        Text("Eva will show changes before applying them. You always confirm.")
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker(.textSecondary))
+                            .padding(.horizontal, TaskerTheme.Spacing.lg)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    if isPlanMode, let planModeRouteBanner, planModeRouteBanner.isEmpty == false {
+                        HStack(alignment: .top, spacing: TaskerTheme.Spacing.xs) {
+                            Image(systemName: "cpu")
+                                .foregroundColor(Color.tasker(.accentPrimary))
+                            Text(planModeRouteBanner)
+                                .font(.tasker(.caption2))
+                                .foregroundColor(Color.tasker(.textSecondary))
+                            if planModeShouldPromptDownload {
+                                Button("Models") {
+                                    showModelPicker = true
+                                }
+                                .font(.tasker(.caption2))
+                                .buttonStyle(.plain)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, TaskerTheme.Spacing.lg)
+                    }
+
+                    HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
+                        modelPickerButton
+                        chatInput
+                    }
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.lg)
                 .padding(.bottom, TaskerTheme.Spacing.md)
@@ -344,6 +476,9 @@ struct ChatView: View {
                     }
                     #endif
                 }
+                .onAppear {
+                    applyPendingChatSeedIfNeeded()
+                }
                 // MARK: - Main Toolbar
                 .toolbar {
                     #if os(macOS)
@@ -358,6 +493,29 @@ struct ChatView: View {
                     }
                     #endif
                 }
+                .confirmationDialog(
+                    "Apply destructive changes?",
+                    isPresented: $showDestructiveApplyConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Apply", role: .destructive) {
+                        if let messageID = pendingDestructiveMessageID, let payload = pendingDestructivePayload {
+                            applyConfirmedProposal(messageID: messageID, payload: payload)
+                        }
+                        pendingDestructiveMessageID = nil
+                        pendingDestructivePayload = nil
+                    }
+                    Button("Cancel", role: .cancel) {
+                        pendingDestructiveMessageID = nil
+                        pendingDestructivePayload = nil
+                    }
+                } message: {
+                    if let payload = pendingDestructivePayload {
+                        Text("This plan contains \(payload.destructiveCount) potentially destructive change(s). Undo is available for 30 minutes after apply.")
+                    } else {
+                        Text("This plan contains destructive actions.")
+                    }
+                }
         }
     }
 
@@ -369,92 +527,86 @@ struct ChatView: View {
 
     /// Executes generate.
     private func generate() {
-        if !isPromptEmpty {
-            let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-            let action = parseSlashCommand(trimmed)
+        guard !isPromptEmpty else { return }
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let action = parseSlashCommand(trimmed)
 
-            if case .clear = action {
-                if let thread = currentThread {
-                    modelContext.delete(thread)
-                    try? modelContext.save()
-                }
-                currentThread = nil
-                prompt = ""
+        if case .clear = action {
+            if let thread = currentThread {
+                modelContext.delete(thread)
+                try? modelContext.save()
+            }
+            currentThread = nil
+            prompt = ""
+            return
+        }
+
+        if currentThread == nil {
+            let newThread = Thread()
+            currentThread = newThread
+            modelContext.insert(newThread)
+            do {
+                try modelContext.save()
+                logDebug("[DEBUG] saved new thread OK")
+            } catch {
+                logError(
+                    event: "chat_thread_save_failed",
+                    message: "Failed to save chat thread",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+        }
+
+        guard let currentThread else { return }
+        generatingThreadID = currentThread.id
+        _Concurrency.Task {
+            let message = prompt
+            prompt = ""
+            appManager.playHaptic()
+
+            var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
+
+            switch action {
+            case let .summary(range, projectName):
+                let summary = PromptMiddleware.buildTasksSummary(range: range, projectName: projectName)
+                dynamicSystemPrompt += "\n\nTasks (\(range.description)):\n" + summary
+            default:
+                break
+            }
+            let injectedContext = buildLLMContextPayload(for: message)
+            dynamicSystemPrompt += "\n\n" + injectedContext
+
+            await MainActor.run {
+                sendMessage(Message(role: .user, content: message, thread: currentThread))
+            }
+            await MainActor.run {
+                llm.isThinking = true
+            }
+
+            if isPlanMode {
+                await generateProposal(
+                    message: message,
+                    thread: currentThread,
+                    contextPrompt: dynamicSystemPrompt
+                )
                 return
             }
 
-            if currentThread == nil {
-                let newThread = Thread()
-                currentThread = newThread
-                modelContext.insert(newThread)
-                do {
-                    try modelContext.save()
-                    logDebug("[DEBUG] saved new thread OK")
-                } catch {
-                    logError(
-                        event: "chat_thread_save_failed",
-                        message: "Failed to save chat thread",
-                        fields: ["error": error.localizedDescription]
-                    )
+            guard let modelName = appManager.currentModelName else {
+                await MainActor.run {
+                    sendMessage(Message(role: .assistant, content: "No model selected", thread: currentThread))
+                    generatingThreadID = nil
                 }
-                do {
-                    let all = try modelContext.fetch(FetchDescriptor<Thread>())
-                    logDebug("[DEBUG] after creating thread, total threads: \(all.count)")
-                } catch {
-                    logError(
-                        event: "chat_thread_fetch_failed",
-                        message: "Failed to fetch chat threads",
-                        fields: ["error": error.localizedDescription]
-                    )
-                }
+                return
             }
-
-            if let currentThread = currentThread {
-                generatingThreadID = currentThread.id
-                _Concurrency.Task {
-                    let message = prompt
-                    prompt = ""
-                    appManager.playHaptic()
-
-                    var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
-
-                    switch action {
-                    case let .summary(range, projectName):
-                        let summary = PromptMiddleware.buildTasksSummary(range: range, projectName: projectName)
-                        dynamicSystemPrompt += "\n\nTasks (\(range.description)):\n" + summary
-                    default:
-                        break
-                    }
-                    let tID = currentThread.id
-                    if !ChatView.contextInjectedThreads.contains(tID) {
-                        let injectedContext = buildLLMContextPayload()
-                        dynamicSystemPrompt += "\n\n" + injectedContext
-                        ChatView.contextInjectedThreads.insert(tID)
-                    }
-
-                    await MainActor.run {
-                        sendMessage(Message(role: .user, content: message, thread: currentThread))
-                    }
-                    await MainActor.run {
-                        llm.isThinking = true
-                    }
-                    DispatchQueue.main.async {
-                        _Concurrency.Task {
-                            guard let modelName = appManager.currentModelName else {
-                                sendMessage(Message(role: .assistant, content: "No model selected", thread: currentThread))
-                                generatingThreadID = nil
-                                return
-                            }
-                            os_log("SystemPrompt length %d", dynamicSystemPrompt.count)
-                            logDebug("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
-                            logDebug("USER MESSAGE ->\n\(message)")
-                            let output = await llm.generate(modelName: modelName, thread: currentThread, systemPrompt: dynamicSystemPrompt)
-                            logDebug("LLM RESPONSE ->\n\(output)")
-                            sendMessage(Message(role: .assistant, content: output, thread: currentThread, generatingTime: llm.thinkingTime))
-                            generatingThreadID = nil
-                        }
-                    }
-                }
+            os_log("SystemPrompt length %d", dynamicSystemPrompt.count)
+            logDebug("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
+            logDebug("USER MESSAGE ->\n\(message)")
+            let output = await llm.generate(modelName: modelName, thread: currentThread, systemPrompt: dynamicSystemPrompt)
+            logDebug("LLM RESPONSE ->\n\(output)")
+            await MainActor.run {
+                sendMessage(Message(role: .assistant, content: output, thread: currentThread, generatingTime: llm.thinkingTime))
+                generatingThreadID = nil
             }
         }
     }
@@ -483,6 +635,42 @@ struct ChatView: View {
                 fields: ["error": error.localizedDescription]
             )
         }
+    }
+
+    /// Executes applyPendingChatSeedIfNeeded.
+    private func applyPendingChatSeedIfNeeded() {
+        let defaults = UserDefaults.standard
+
+        if let modeRaw = defaults.string(forKey: Self.pendingModeKey),
+           AssistantChatMode(rawValue: modeRaw) != nil {
+            appManager.assistantChatMode = modeRaw
+            defaults.removeObject(forKey: Self.pendingModeKey)
+        }
+
+        let pendingPrompt = defaults.string(forKey: Self.pendingPromptKey)
+        let pendingAssistantMessage = defaults.string(forKey: Self.pendingAssistantMessageKey)
+        guard pendingPrompt != nil || pendingAssistantMessage != nil else { return }
+
+        if currentThread == nil {
+            let newThread = Thread()
+            currentThread = newThread
+            modelContext.insert(newThread)
+            try? modelContext.save()
+        }
+
+        guard let thread = currentThread else { return }
+        if let pendingAssistantMessage,
+           pendingAssistantMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            let assistantMessage = Message(role: .assistant, content: pendingAssistantMessage, thread: thread)
+            sendMessage(assistantMessage)
+        }
+        if let pendingPrompt,
+           pendingPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            prompt = pendingPrompt
+        }
+
+        defaults.removeObject(forKey: Self.pendingPromptKey)
+        defaults.removeObject(forKey: Self.pendingAssistantMessageKey)
     }
 
     // MARK: - Slash command parsing
@@ -521,12 +709,14 @@ struct ChatView: View {
     }
 
     /// Executes buildLLMContextPayload.
-    private func buildLLMContextPayload() -> String {
+    private func buildLLMContextPayload(for query: String) -> String {
+        let startedAt = Date()
         guard let service = LLMContextRepositoryProvider.makeService() else {
             return """
             Context JSON:
             today={}
             upcoming={}
+            semantic={}
             """
         }
         let todayJSON = fetchProjectionSync { completion in
@@ -535,11 +725,74 @@ struct ChatView: View {
         let upcomingJSON = fetchProjectionSync { completion in
             service.buildUpcomingJSON(completion: completion)
         }
+        let taskCount = extractTaskCount(from: todayJSON) + extractTaskCount(from: upcomingJSON)
+        let hasTags = todayJSON.contains("\"tag_names\"") || upcomingJSON.contains("\"tag_names\"")
+        let elapsedMS = Int(Date().timeIntervalSince(startedAt) * 1_000)
+        let semanticJSON = buildSemanticContextJSON(for: query)
+        logWarning(
+            event: "assistant_context_built",
+            message: "Built fresh assistant context payload",
+            fields: [
+                "task_count": String(taskCount),
+                "has_tags": hasTags ? "true" : "false",
+                "build_ms": String(elapsedMS),
+                "timezone": TimeZone.current.identifier
+            ]
+        )
         return """
         Context JSON:
         today=\(todayJSON)
         upcoming=\(upcomingJSON)
+        semantic=\(semanticJSON)
         """
+    }
+
+    /// Executes buildSemanticContextJSON.
+    private func buildSemanticContextJSON(for query: String) -> String {
+        guard V2FeatureFlags.assistantSemanticRetrievalEnabled else {
+            return "{}"
+        }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return "{}" }
+
+        let tasks = fetchTaskDefinitionsSync()
+        let hits = TaskSemanticRetrievalService.shared.search(query: trimmed, topK: 6)
+        let titleLookup = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0.title) })
+
+        let payload: [String: Any] = [
+            "query": trimmed,
+            "top_k": hits.map { hit in
+                [
+                    "task_id": hit.taskID.uuidString,
+                    "title": titleLookup[hit.taskID] ?? "",
+                    "score": hit.score
+                ]
+            }
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
+              let json = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return json
+    }
+
+    /// Executes extractTaskCount.
+    private func extractTaskCount(from json: String) -> Int {
+        guard
+            let data = json.data(using: .utf8),
+            let object = try? JSONSerialization.jsonObject(with: data, options: []),
+            let payload = object as? [String: Any]
+        else {
+            return 0
+        }
+
+        if let tasks = payload["tasks"] as? [[String: Any]] {
+            return tasks.count
+        }
+        if let count = payload["count"] as? Int {
+            return count
+        }
+        return 0
     }
 
     /// Executes fetchProjectionSync.
@@ -554,6 +807,611 @@ struct ChatView: View {
         }
         _ = semaphore.wait(timeout: .now() + .seconds(3))
         return payload
+    }
+
+    /// Executes fetchTaskDefinitionsSync.
+    private func fetchTaskDefinitionsSync() -> [TaskDefinition] {
+        guard let repository = LLMContextRepositoryProvider.taskReadModelRepository else { return [] }
+        let semaphore = DispatchSemaphore(value: 0)
+        var tasks: [TaskDefinition] = []
+        repository.fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                sortBy: .updatedAtDescending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { result in
+            if case .success(let slice) = result {
+                tasks = slice.tasks
+            }
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + .seconds(3))
+        return tasks
+    }
+
+    /// Executes fetchTaskSignal.
+    private func fetchTaskSignal() -> (openCount: Int, overdueCount: Int) {
+        let tasks = fetchTaskDefinitionsSync()
+        let startOfToday = Calendar.current.startOfDay(for: Date())
+        let open = tasks.filter { !$0.isComplete }
+        let overdue = open.filter { ($0.dueDate ?? Date.distantFuture) < startOfToday }
+        return (open.count, overdue.count)
+    }
+
+    /// Executes setChatMode.
+    private func setChatMode(_ mode: AssistantChatMode) {
+        if mode == .plan, V2FeatureFlags.assistantPlanModeEnabled == false {
+            return
+        }
+        appManager.assistantChatMode = mode.rawValue
+        guard mode == .plan else {
+            planModeRouteBanner = nil
+            planModeShouldPromptDownload = false
+            return
+        }
+
+        let route = AIChatModeRouter.route(for: .planMode, appManager: appManager)
+        planModeRouteBanner = route.bannerMessage
+        planModeShouldPromptDownload = route.shouldPromptDownload
+
+        logWarning(
+            event: "assistant_plan_mode_activated",
+            message: "Plan mode activated from chat",
+            fields: [:]
+        )
+        if !assistantPlanModeHintShown {
+            assistantPlanModeHintShown = true
+            shouldShowPlanHint = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                shouldShowPlanHint = false
+            }
+        }
+    }
+
+    /// Executes generateProposal.
+    private func generateProposal(
+        message: String,
+        thread: Thread,
+        contextPrompt: String
+    ) async {
+        guard sessionPlanApplyDisabled == false else {
+            await MainActor.run {
+                sendMessage(Message(role: .assistant, content: "Plan/apply is disabled for this session due to repeated apply failures.", thread: thread))
+                generatingThreadID = nil
+            }
+            return
+        }
+
+        guard let pipeline = LLMAssistantPipelineProvider.pipeline else {
+            await MainActor.run {
+                sendMessage(Message(role: .assistant, content: "Assistant pipeline unavailable.", thread: thread))
+                generatingThreadID = nil
+            }
+            return
+        }
+
+        await MainActor.run {
+            isGeneratingProposal = true
+            generatingThreadID = nil
+        }
+        let tasks = fetchTaskDefinitionsSync()
+        let taskTitleByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0.title) })
+        var projectNameByID = LLMContextRepositoryProvider.projectNameLookupSync()
+        for task in tasks {
+            if let projectName = task.projectName, projectName.isEmpty == false {
+                projectNameByID[task.projectID] = projectName
+            }
+        }
+        let knownTaskIDs = Set(tasks.map(\.id))
+
+        let planner = AssistantPlannerService(llm: llm, appManager: appManager)
+        let result = await planner.generatePlan(
+            userPrompt: message,
+            thread: thread,
+            contextPayload: contextPrompt,
+            taskTitleByID: taskTitleByID,
+            projectNameByID: projectNameByID,
+            knownTaskIDs: knownTaskIDs
+        )
+
+        switch result {
+        case .failure(let error):
+            await MainActor.run {
+                sendMessage(Message(role: .assistant, content: error.localizedDescription, thread: thread))
+            }
+        case .success(let planResult):
+            await MainActor.run {
+                planModeRouteBanner = planResult.routeBanner
+                planModeShouldPromptDownload = planResult.shouldPromptDownload
+            }
+            let runResult = await proposeRunAsync(
+                pipeline: pipeline,
+                threadID: thread.id.uuidString,
+                envelope: planResult.envelope
+            )
+            switch runResult {
+            case .failure(let error):
+                await MainActor.run {
+                    sendMessage(Message(role: .assistant, content: "Failed to save proposal: \(error.localizedDescription)", thread: thread))
+                }
+            case .success(let run):
+                let destructiveCount = AssistantDiffPreviewBuilder.destructiveCount(for: planResult.envelope.commands)
+                let affectedCount = AssistantDiffPreviewBuilder.affectedTaskCount(for: planResult.envelope.commands)
+                let payload = AssistantCardPayload(
+                    cardType: .proposal,
+                    runID: run.id,
+                    threadID: thread.id.uuidString,
+                    status: .pending,
+                    rationale: planResult.rationale,
+                    diffLines: planResult.diffLines,
+                    destructiveCount: destructiveCount,
+                    affectedTaskCount: affectedCount
+                )
+
+                await MainActor.run {
+                    sendMessage(
+                        Message(
+                            role: .assistant,
+                            content: AssistantCardCodec.encode(payload),
+                            thread: thread,
+                            generatingTime: llm.thinkingTime
+                        )
+                    )
+                    logWarning(
+                        event: "assistant_proposal_generated",
+                        message: "Generated assistant proposal card",
+                        fields: [
+                            "run_id": run.id.uuidString,
+                            "command_count": String(planResult.envelope.commands.count),
+                            "destructive_count": String(destructiveCount)
+                        ]
+                    )
+                }
+            }
+        }
+
+        await MainActor.run {
+            isGeneratingProposal = false
+            generatingThreadID = nil
+        }
+    }
+
+    /// Executes handleApplyProposal.
+    private func handleApplyProposal(message: Message, payload: AssistantCardPayload) {
+        guard let currentThread else { return }
+        guard payload.threadID == currentThread.id.uuidString else {
+            sendMessage(Message(role: .assistant, content: "This proposal belongs to a different thread.", thread: currentThread))
+            return
+        }
+        if payload.destructiveCount > 0 {
+            pendingDestructiveMessageID = message.id
+            pendingDestructivePayload = payload
+            showDestructiveApplyConfirmation = true
+            return
+        }
+        applyConfirmedProposal(messageID: message.id, payload: payload)
+    }
+
+    /// Executes applyConfirmedProposal.
+    private func applyConfirmedProposal(messageID: UUID, payload: AssistantCardPayload) {
+        guard let runID = payload.runID, let currentThread else { return }
+        guard let pipeline = LLMAssistantPipelineProvider.pipeline else { return }
+        guard sessionPlanApplyDisabled == false else { return }
+
+        updateCardMessage(messageID: messageID) { proposal in
+            proposal.status = .confirmed
+            proposal.message = "Confirmed. Applying..."
+        }
+
+#if os(iOS)
+        var backgroundTaskID = UIBackgroundTaskIdentifier.invalid
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "assistant_apply") {
+            if backgroundTaskID != .invalid {
+                UIApplication.shared.endBackgroundTask(backgroundTaskID)
+                backgroundTaskID = .invalid
+            }
+        }
+#endif
+
+        _Concurrency.Task {
+#if os(iOS)
+            defer {
+                if backgroundTaskID != .invalid {
+                    UIApplication.shared.endBackgroundTask(backgroundTaskID)
+                    backgroundTaskID = .invalid
+                }
+            }
+#endif
+            let runLookup = await fetchRunAsync(pipeline: pipeline, runID: runID)
+            switch runLookup {
+            case .failure(let error):
+                await MainActor.run {
+                    updateCardMessage(messageID: messageID) { proposal in
+                        proposal.status = .failed
+                        proposal.message = "Run lookup failed: \(error.localizedDescription)"
+                    }
+                }
+                return
+            case .success(let run):
+                guard let run else {
+                    await MainActor.run {
+                        updateCardMessage(messageID: messageID) { proposal in
+                            proposal.status = .failed
+                            proposal.message = "Proposal run no longer exists."
+                        }
+                    }
+                    return
+                }
+                guard run.threadID == currentThread.id.uuidString else {
+                    await MainActor.run {
+                        updateCardMessage(messageID: messageID) { proposal in
+                            proposal.status = .failed
+                            proposal.message = "Proposal run belongs to a different thread."
+                        }
+                    }
+                    return
+                }
+            }
+
+            let confirmed = await confirmRunAsync(pipeline: pipeline, runID: runID)
+            switch confirmed {
+            case .failure(let error):
+                await MainActor.run {
+                    updateCardMessage(messageID: messageID) { proposal in
+                        proposal.status = .failed
+                        proposal.message = "Confirm failed: \(error.localizedDescription)"
+                    }
+                    consecutiveApplyFailures += 1
+                    if consecutiveApplyFailures >= 3 {
+                        sessionPlanApplyDisabled = true
+                    }
+                }
+            case .success:
+                let applyResult = await applyRunAsync(pipeline: pipeline, runID: runID)
+                switch applyResult {
+                case .failure(let error):
+                    let staleContext = isStaleContextError(error)
+                    let failurePresentation = await rollbackFailurePresentation(
+                        pipeline: pipeline,
+                        runID: runID,
+                        error: error,
+                        staleContext: staleContext
+                    )
+                    await MainActor.run {
+                        updateCardMessage(messageID: messageID) { proposal in
+                            proposal.status = failurePresentation.status
+                            proposal.message = failurePresentation.message
+                        }
+                        consecutiveApplyFailures += 1
+                        logError(
+                            event: "assistant_apply_failed",
+                            message: "Assistant apply failed from chat card",
+                            fields: [
+                                "run_id": runID.uuidString,
+                                "error": error.localizedDescription
+                            ]
+                        )
+                        if consecutiveApplyFailures >= 3 {
+                            sessionPlanApplyDisabled = true
+                            sendMessage(Message(role: .assistant, content: "Plan/apply is disabled for this session after repeated apply failures.", thread: currentThread))
+                        }
+                    }
+                case .success(let run):
+                    await MainActor.run {
+                        consecutiveApplyFailures = 0
+                        updateCardMessage(messageID: messageID) { proposal in
+                            proposal.status = .applied
+                            proposal.message = "Applied successfully."
+                        }
+
+                        let undoPayload = AssistantCardPayload(
+                            cardType: .undo,
+                            runID: run.id,
+                            threadID: currentThread.id.uuidString,
+                            status: .undoAvailable,
+                            rationale: nil,
+                            diffLines: [],
+                            destructiveCount: 0,
+                            affectedTaskCount: 0,
+                            expiresAt: (run.appliedAt ?? Date()).addingTimeInterval(30 * 60),
+                            message: "Changes applied."
+                        )
+                        sendMessage(
+                            Message(
+                                role: .assistant,
+                                content: AssistantCardCodec.encode(undoPayload),
+                                thread: currentThread
+                            )
+                        )
+                        logWarning(
+                            event: "assistant_apply_success",
+                            message: "Assistant apply succeeded from chat card",
+                            fields: ["run_id": runID.uuidString]
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /// Executes handleRefreshContext.
+    private func handleRefreshContext(message: Message, payload: AssistantCardPayload) {
+        guard let currentThread else { return }
+        _ = buildLLMContextPayload(for: "")
+        updateCardMessage(messageID: message.id) { card in
+            card.message = "Context refreshed. Re-run your plan request."
+        }
+        sendMessage(
+            Message(
+                role: .assistant,
+                content: "Context refreshed. Please submit the plan request again.",
+                thread: currentThread
+            )
+        )
+        logWarning(
+            event: "assistant_context_refresh_triggered",
+            message: "User triggered context refresh from failed proposal",
+            fields: ["run_id": payload.runID?.uuidString ?? "unknown"]
+        )
+    }
+
+    /// Executes handleRejectProposal.
+    private func handleRejectProposal(message: Message, payload: AssistantCardPayload) {
+        guard let runID = payload.runID, let currentThread else { return }
+        guard let pipeline = LLMAssistantPipelineProvider.pipeline else { return }
+        _Concurrency.Task {
+            let runLookup = await fetchRunAsync(pipeline: pipeline, runID: runID)
+            switch runLookup {
+            case .failure(let error):
+                await MainActor.run {
+                    updateCardMessage(messageID: message.id) { proposal in
+                        proposal.status = .failed
+                        proposal.message = "Run lookup failed: \(error.localizedDescription)"
+                    }
+                }
+                return
+            case .success(let run):
+                guard let run else {
+                    await MainActor.run {
+                        updateCardMessage(messageID: message.id) { proposal in
+                            proposal.status = .failed
+                            proposal.message = "Proposal run no longer exists."
+                        }
+                    }
+                    return
+                }
+                guard run.threadID == currentThread.id.uuidString else {
+                    await MainActor.run {
+                        updateCardMessage(messageID: message.id) { proposal in
+                            proposal.status = .failed
+                            proposal.message = "Proposal run belongs to a different thread."
+                        }
+                    }
+                    return
+                }
+            }
+
+            let result = await rejectRunAsync(pipeline: pipeline, runID: runID)
+            await MainActor.run {
+                switch result {
+                case .failure(let error):
+                    updateCardMessage(messageID: message.id) { proposal in
+                        proposal.status = .failed
+                        proposal.message = "Reject failed: \(error.localizedDescription)"
+                    }
+                case .success:
+                    updateCardMessage(messageID: message.id) { proposal in
+                        proposal.status = .rejected
+                        proposal.message = "Rejected."
+                    }
+                    logWarning(
+                        event: "assistant_proposal_rejected",
+                        message: "Proposal rejected from card",
+                        fields: ["run_id": runID.uuidString]
+                    )
+                }
+            }
+        }
+    }
+
+    /// Executes handleUndoRun.
+    private func handleUndoRun(message: Message, payload: AssistantCardPayload) {
+        guard let runID = payload.runID, let currentThread else { return }
+        guard let pipeline = LLMAssistantPipelineProvider.pipeline else { return }
+
+        _Concurrency.Task {
+            let runLookup = await fetchRunAsync(pipeline: pipeline, runID: runID)
+            switch runLookup {
+            case .failure(let error):
+                await MainActor.run {
+                    updateCardMessage(messageID: message.id) { undoCard in
+                        undoCard.status = .failed
+                        undoCard.message = "Run lookup failed: \(error.localizedDescription)"
+                    }
+                }
+                return
+            case .success(let run):
+                guard let run else {
+                    await MainActor.run {
+                        updateCardMessage(messageID: message.id) { undoCard in
+                            undoCard.status = .failed
+                            undoCard.message = "Undo run no longer exists."
+                        }
+                    }
+                    return
+                }
+                guard run.threadID == currentThread.id.uuidString else {
+                    await MainActor.run {
+                        updateCardMessage(messageID: message.id) { undoCard in
+                            undoCard.status = .failed
+                            undoCard.message = "Undo run belongs to a different thread."
+                        }
+                    }
+                    return
+                }
+            }
+
+            let result = await undoRunAsync(pipeline: pipeline, runID: runID)
+            await MainActor.run {
+                switch result {
+                case .failure(let error):
+                    updateCardMessage(messageID: message.id) { undoCard in
+                        undoCard.status = .failed
+                        undoCard.message = "Undo failed: \(error.localizedDescription)"
+                    }
+                case .success:
+                    updateCardMessage(messageID: message.id) { undoCard in
+                        undoCard.status = .undone
+                        undoCard.message = "Changes reverted."
+                        undoCard.expiresAt = Date()
+                    }
+                    logWarning(
+                        event: "assistant_undo_invoked",
+                        message: "Undo invoked from card",
+                        fields: ["run_id": runID.uuidString]
+                    )
+                }
+            }
+        }
+    }
+
+    /// Executes updateCardMessage.
+    private func updateCardMessage(messageID: UUID, mutate: (inout AssistantCardPayload) -> Void) {
+        guard let currentThread else { return }
+        guard let target = currentThread.messages.first(where: { $0.id == messageID }) else { return }
+        guard var payload = AssistantCardCodec.decode(from: target.content) else { return }
+        mutate(&payload)
+        target.content = AssistantCardCodec.encode(payload)
+        try? modelContext.save()
+    }
+
+    /// Executes proposeRunAsync.
+    private func proposeRunAsync(
+        pipeline: AssistantActionPipelineUseCase,
+        threadID: String,
+        envelope: AssistantCommandEnvelope
+    ) async -> Result<AssistantActionRunDefinition, Error> {
+        await withCheckedContinuation { continuation in
+            pipeline.propose(threadID: threadID, envelope: envelope) { result in
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    /// Executes confirmRunAsync.
+    private func confirmRunAsync(
+        pipeline: AssistantActionPipelineUseCase,
+        runID: UUID
+    ) async -> Result<AssistantActionRunDefinition, Error> {
+        await withCheckedContinuation { continuation in
+            pipeline.confirm(runID: runID) { result in
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    /// Executes fetchRunAsync.
+    private func fetchRunAsync(
+        pipeline: AssistantActionPipelineUseCase,
+        runID: UUID
+    ) async -> Result<AssistantActionRunDefinition?, Error> {
+        await withCheckedContinuation { continuation in
+            pipeline.fetchRun(id: runID) { result in
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    /// Executes applyRunAsync.
+    private func applyRunAsync(
+        pipeline: AssistantActionPipelineUseCase,
+        runID: UUID
+    ) async -> Result<AssistantActionRunDefinition, Error> {
+        await withCheckedContinuation { continuation in
+            pipeline.applyConfirmedRun(id: runID) { result in
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    /// Executes rejectRunAsync.
+    private func rejectRunAsync(
+        pipeline: AssistantActionPipelineUseCase,
+        runID: UUID
+    ) async -> Result<AssistantActionRunDefinition, Error> {
+        await withCheckedContinuation { continuation in
+            pipeline.reject(runID: runID) { result in
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    /// Executes undoRunAsync.
+    private func undoRunAsync(
+        pipeline: AssistantActionPipelineUseCase,
+        runID: UUID
+    ) async -> Result<AssistantActionRunDefinition, Error> {
+        await withCheckedContinuation { continuation in
+            pipeline.undoAppliedRun(id: runID) { result in
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    /// Executes rollbackFailurePresentation.
+    private func rollbackFailurePresentation(
+        pipeline: AssistantActionPipelineUseCase,
+        runID: UUID,
+        error: Error,
+        staleContext: Bool
+    ) async -> (status: AssistantCardStatus, message: String) {
+        if staleContext {
+            return (.failed, "Apply failed: task state changed. Refresh context and re-plan.")
+        }
+
+        let runLookup = await fetchRunAsync(pipeline: pipeline, runID: runID)
+        if case .success(let run?) = runLookup {
+            switch run.rollbackStatus {
+            case .verified:
+                let commandCount = commandCountFromProposalData(run.proposalData)
+                let countText = commandCount > 0 ? "\(commandCount)" : "All"
+                return (
+                    .rollbackComplete,
+                    "\(countText) change(s) failed to apply. All changes were rolled back. Your tasks are unchanged."
+                )
+            case .failed:
+                return (
+                    .rollbackFailed,
+                    "Apply failed and rollback could not be fully verified. Review tasks before retrying."
+                )
+            default:
+                break
+            }
+        }
+
+        return (.failed, "Apply failed: \(error.localizedDescription)")
+    }
+
+    /// Executes commandCountFromProposalData.
+    private func commandCountFromProposalData(_ data: Data?) -> Int {
+        guard
+            let data,
+            let envelope = try? JSONDecoder().decode(AssistantCommandEnvelope.self, from: data)
+        else {
+            return 0
+        }
+        return envelope.commands.count
+    }
+
+    /// Executes isStaleContextError.
+    private func isStaleContextError(_ error: Error) -> Bool {
+        let message = error.localizedDescription.lowercased()
+        return message.contains("404")
+            || message.contains("not found")
+            || message.contains("missing task")
+            || message.contains("stale")
     }
 
     #if os(macOS)
