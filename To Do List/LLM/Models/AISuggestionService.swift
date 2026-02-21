@@ -22,26 +22,31 @@ struct AITopTaskSuggestion: Codable, Equatable {
 
 @MainActor
 final class AISuggestionService {
-    typealias GenerateOutputHandler = @MainActor (String, Thread, String) async -> String
+    typealias GenerateOutputHandler = @MainActor (String, Thread, String, LLMGenerationProfile, (@MainActor () -> Void)?) async -> String
 
-    @MainActor static let shared = AISuggestionService(
-        llm: LLMEvaluator(),
-        appManager: AppManager()
-    )
+    @MainActor static let shared = AISuggestionService(llm: LLMEvaluator())
+
     private let llm: LLMEvaluator
-    private let appManager: AppManager
     private let generateOutput: GenerateOutputHandler
+
+    var lastGenerationTimedOut: Bool {
+        llm.lastGenerationTimedOut
+    }
 
     /// Initializes a new instance.
     init(
         llm: LLMEvaluator,
-        appManager: AppManager,
         generateOutput: GenerateOutputHandler? = nil
     ) {
         self.llm = llm
-        self.appManager = appManager
-        self.generateOutput = generateOutput ?? { modelName, thread, systemPrompt in
-            await llm.generate(modelName: modelName, thread: thread, systemPrompt: systemPrompt)
+        self.generateOutput = generateOutput ?? { modelName, thread, systemPrompt, profile, onFirstToken in
+            await llm.generate(
+                modelName: modelName,
+                thread: thread,
+                systemPrompt: systemPrompt,
+                profile: profile,
+                onFirstToken: onFirstToken
+            )
         }
     }
 
@@ -51,14 +56,39 @@ final class AISuggestionService {
         projectName: String,
         now: Date = Date()
     ) async -> TaskFieldSuggestion? {
+        await refineFieldSuggestion(for: title, projectName: projectName, now: now)
+    }
+
+    /// Executes immediateFieldSuggestion.
+    func immediateFieldSuggestion(
+        for title: String,
+        projectName: String,
+        now: Date = Date()
+    ) -> TaskFieldSuggestion? {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 5 else { return nil }
+        let route = AIChatModeRouter.route(for: .addTaskSuggestion)
+        var suggestion = heuristicSuggestion(for: trimmed, projectName: projectName, now: now)
+        suggestion.modelName = nil
+        suggestion.routeBanner = route.bannerMessage
+        return suggestion
+    }
+
+    /// Executes refineFieldSuggestion.
+    func refineFieldSuggestion(
+        for title: String,
+        projectName: String,
+        now: Date = Date()
+    ) async -> TaskFieldSuggestion? {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > 5 else { return nil }
 
-        let route = AIChatModeRouter.route(for: .addTaskSuggestion, appManager: appManager)
+        let route = AIChatModeRouter.route(for: .addTaskSuggestion)
+        var fallback = heuristicSuggestion(for: trimmed, projectName: projectName, now: now)
+        fallback.modelName = nil
+        fallback.routeBanner = route.bannerMessage
+
         guard let modelName = route.selectedModelName else {
-            var fallback = heuristicSuggestion(for: trimmed, projectName: projectName, now: now)
-            fallback.modelName = nil
-            fallback.routeBanner = route.bannerMessage
             return fallback
         }
 
@@ -70,7 +100,7 @@ final class AISuggestionService {
         )
         let thread = Thread()
         thread.messages.append(Message(role: .user, content: payload.userPrompt, thread: thread))
-        let output = await generateOutput(modelName, thread, payload.systemPrompt)
+        let output = await generateOutput(modelName, thread, payload.systemPrompt, .addTaskSuggestion, nil)
 
         if let parsed = decodeSuggestion(from: output) {
             return TaskFieldSuggestion(
@@ -85,31 +115,50 @@ final class AISuggestionService {
             )
         }
 
-        var fallback = heuristicSuggestion(for: trimmed, projectName: projectName, now: now)
         fallback.modelName = modelName
-        fallback.routeBanner = route.bannerMessage
         return fallback
     }
 
-    /// Executes chooseTopThree.
-    func chooseTopThree(from tasks: [TaskDefinition]) async -> [AITopTaskSuggestion] {
+    /// Executes immediateTopThree.
+    func immediateTopThree(from tasks: [TaskDefinition]) -> [AITopTaskSuggestion] {
         guard tasks.isEmpty == false else { return [] }
         let openTasks = tasks.filter { !$0.isComplete }
         guard openTasks.isEmpty == false else { return [] }
 
-        let route = AIChatModeRouter.route(for: .topThree, appManager: appManager)
+        let route = AIChatModeRouter.route(for: .topThree)
+        return heuristicTopThree(
+            from: openTasks,
+            modelName: nil,
+            routeBanner: route.bannerMessage
+        )
+    }
+
+    /// Executes chooseTopThree.
+    func chooseTopThree(from tasks: [TaskDefinition]) async -> [AITopTaskSuggestion] {
+        await refineTopThree(from: tasks)
+    }
+
+    /// Executes refineTopThree.
+    func refineTopThree(from tasks: [TaskDefinition]) async -> [AITopTaskSuggestion] {
+        guard tasks.isEmpty == false else { return [] }
+        let openTasks = tasks.filter { !$0.isComplete }
+        guard openTasks.isEmpty == false else { return [] }
+
+        let route = AIChatModeRouter.route(for: .topThree)
+        let fallback = heuristicTopThree(
+            from: openTasks,
+            modelName: nil,
+            routeBanner: route.bannerMessage
+        )
+
         guard let modelName = route.selectedModelName else {
-            return heuristicTopThree(
-                from: openTasks,
-                modelName: nil,
-                routeBanner: route.bannerMessage
-            )
+            return fallback
         }
 
         let promptPayload = TopThreePromptPayload(tasks: Array(openTasks.prefix(40)))
         let thread = Thread()
         thread.messages.append(Message(role: .user, content: promptPayload.userPrompt, thread: thread))
-        let output = await generateOutput(modelName, thread, promptPayload.systemPrompt)
+        let output = await generateOutput(modelName, thread, promptPayload.systemPrompt, .topThree, nil)
 
         if let parsed = decodeTopThree(from: output, validIDs: Set(openTasks.map(\.id))) {
             let lookup = Dictionary(uniqueKeysWithValues: openTasks.map { ($0.id, $0.title) })
@@ -141,6 +190,50 @@ final class AISuggestionService {
             modelName: modelName,
             routeBanner: route.bannerMessage
         )
+    }
+
+    /// Executes refineDynamicChips.
+    func refineDynamicChips(
+        baseChips: [String],
+        openTaskCount: Int,
+        overdueCount: Int,
+        now: Date = Date()
+    ) async -> [String] {
+        let fallback = normalizeDynamicChips(baseChips)
+        guard fallback.isEmpty == false else { return [] }
+
+        let route = AIChatModeRouter.route(for: .dynamicChips)
+        guard let modelName = route.selectedModelName else {
+            return fallback
+        }
+
+        let systemPrompt = """
+        You generate short starter prompts for a task assistant empty state.
+        Return ONLY JSON with this schema:
+        {"chips":["string"]}
+        Rules:
+        - 3 to 6 chips
+        - each chip under 60 characters
+        - action-oriented and user-voiced
+        - no markdown and no numbering
+        """
+
+        let base = fallback.map { "\"\(escape($0))\"" }.joined(separator: ",")
+        let userPrompt = """
+        open_task_count: \(openTaskCount)
+        overdue_count: \(overdueCount)
+        weekday: \(Calendar.current.component(.weekday, from: now))
+        base_chips: [\(base)]
+        """
+
+        let thread = Thread()
+        thread.messages.append(Message(role: .user, content: userPrompt, thread: thread))
+        let output = await generateOutput(modelName, thread, systemPrompt, .dynamicChips, nil)
+
+        guard let decoded = decodeDynamicChips(from: output), decoded.isEmpty == false else {
+            return fallback
+        }
+        return decoded
     }
 
     private struct SuggestionPromptPayload {
@@ -227,6 +320,10 @@ final class AISuggestionService {
         }
     }
 
+    private struct DynamicChipsEnvelope: Decodable {
+        let chips: [String]
+    }
+
     /// Executes decodeSuggestion.
     private func decodeSuggestion(from raw: String) -> TaskFieldSuggestion? {
         for data in jsonDataCandidates(from: raw) {
@@ -274,6 +371,17 @@ final class AISuggestionService {
         return nil
     }
 
+    /// Executes decodeDynamicChips.
+    private func decodeDynamicChips(from raw: String) -> [String]? {
+        for data in jsonDataCandidates(from: raw) {
+            guard let data else { continue }
+            if let envelope = try? JSONDecoder().decode(DynamicChipsEnvelope.self, from: data) {
+                return normalizeDynamicChips(envelope.chips)
+            }
+        }
+        return nil
+    }
+
     /// Executes jsonDataCandidates.
     private func jsonDataCandidates(from raw: String) -> [Data?] {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -293,6 +401,21 @@ final class AISuggestionService {
             return String(stripped[firstBrace...lastBrace])
         }
         return stripped
+    }
+
+    /// Executes normalizeDynamicChips.
+    private func normalizeDynamicChips(_ chips: [String]) -> [String] {
+        var seen = Set<String>()
+        var normalized: [String] = []
+        for raw in chips {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.isEmpty == false else { continue }
+            let key = trimmed.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            normalized.append(trimmed)
+            if normalized.count == 6 { break }
+        }
+        return normalized
     }
 
     /// Executes parseTaskType.
@@ -437,5 +560,12 @@ final class AISuggestionService {
             return "high priority first"
         }
         return "good momentum candidate"
+    }
+
+    /// Executes escape.
+    private func escape(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
     }
 }
