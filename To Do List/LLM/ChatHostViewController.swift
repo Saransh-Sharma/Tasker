@@ -25,7 +25,7 @@ class ChatHostViewController: UIViewController {
     private let appManager = AppManager()
     private let llmEvaluator = LLMEvaluator()
     // Shared SwiftData container for the LLM module (persistent on-disk, CloudKit disabled)
-    private let container: ModelContainer = LLMDataController.shared
+    private let container: ModelContainer? = LLMDataController.shared
 
     private var hostingController: UIHostingController<AnyView>!
     private var themeCancellable: AnyCancellable?
@@ -33,16 +33,30 @@ class ChatHostViewController: UIViewController {
     /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
+        if LLMDataController.isDegradedModeActive {
+            logWarning(
+                event: "llm_data_controller_degraded_mode_active",
+                message: "LLM chat storage is running in degraded mode",
+                fields: ["reason": LLMDataController.degradedModeReason ?? "unknown"]
+            )
+        }
         let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
         view.backgroundColor = themeColors.bgCanvas
 
         // Root SwiftUI view that decides what to present.
-        let rootView = ChatContainerView()
-            .environmentObject(appManager)
-            .environment(llmEvaluator)
-            .modelContainer(container)
+        let rootView: AnyView
+        if let container {
+            rootView = AnyView(
+                ChatContainerView()
+                    .environmentObject(appManager)
+                    .environment(llmEvaluator)
+                    .modelContainer(container)
+            )
+        } else {
+            rootView = AnyView(LLMStoreUnavailableView())
+        }
 
-        hostingController = UIHostingController(rootView: AnyView(rootView))
+        hostingController = UIHostingController(rootView: rootView)
         addChild(hostingController)
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
         hostingController.view.backgroundColor = themeColors.bgCanvas
@@ -55,6 +69,9 @@ class ChatHostViewController: UIViewController {
         ])
         hostingController.didMove(toParent: self)
         setupNavigationBar()
+        Task { @MainActor in
+            LLMPrewarmCoordinator.shared.prewarmCurrentModelIfNeeded(reason: "chat_open")
+        }
 
         themeCancellable = TaskerThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
@@ -137,6 +154,26 @@ class ChatHostViewController: UIViewController {
 
     deinit {
         themeCancellable?.cancel()
+    }
+}
+
+private struct LLMStoreUnavailableView: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundColor(.orange)
+            Text("Assistant storage unavailable")
+                .font(.headline)
+                .foregroundColor(.tasker(.textPrimary))
+            Text("Restart the app to retry LLM storage initialization.")
+                .font(.subheadline)
+                .foregroundColor(.tasker(.textSecondary))
+                .multilineTextAlignment(.center)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.tasker(.bgCanvas))
     }
 }
 

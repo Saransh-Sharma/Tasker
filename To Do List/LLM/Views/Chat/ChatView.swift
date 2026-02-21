@@ -28,6 +28,7 @@ struct ChatView: View {
     @State var thinkingTime: TimeInterval?
 
     @State private var generatingThreadID: UUID?
+    @State private var isPreparingResponse = false
     @State private var isGeneratingProposal = false
     @State private var pendingDestructiveMessageID: UUID?
     @State private var pendingDestructivePayload: AssistantCardPayload?
@@ -37,6 +38,9 @@ struct ChatView: View {
     @State private var planModeShouldPromptDownload = false
     @State private var consecutiveApplyFailures = 0
     @State private var sessionPlanApplyDisabled = false
+    @State private var taskSignal: (openCount: Int, overdueCount: Int) = (0, 0)
+    @State private var dynamicSuggestionChips: [String] = []
+    @State private var chipRefreshToken = UUID()
     @AppStorage("assistantPlanModeHintShown") private var assistantPlanModeHintShown = false
     private static let pendingPromptKey = "assistant.pending_prompt"
     private static let pendingAssistantMessageKey = "assistant.pending_assistant_message"
@@ -234,13 +238,16 @@ struct ChatView: View {
 
     // MARK: - Empty State
 
-    private var contextualSuggestionChips: [String] {
-        let signal = fetchTaskSignal()
+    private var ruleBasedSuggestionChips: [String] {
+        buildRuleBasedSuggestionChips(for: taskSignal)
+    }
+
+    private func buildRuleBasedSuggestionChips(for signal: (openCount: Int, overdueCount: Int)) -> [String] {
         let calendar = Calendar.current
         var chips: [String] = []
 
-        if signal.overdueCount > 0 {
-            chips.append("I have \(signal.overdueCount) overdue tasks — help me triage")
+        if taskSignal.overdueCount > 0 {
+            chips.append("I have \(taskSignal.overdueCount) overdue tasks — help me triage")
         }
         if calendar.component(.weekday, from: Date()) == 2 {
             chips.append("plan my week")
@@ -248,13 +255,17 @@ struct ChatView: View {
         if calendar.component(.weekday, from: Date()) == 6 {
             chips.append("what did I accomplish this week?")
         }
-        if signal.openCount == 0 {
+        if taskSignal.openCount == 0 {
             chips.append("what should I do first?")
         }
 
         chips.append("summarize my week")
         chips.append("break down a big task")
         return Array(NSOrderedSet(array: chips).compactMap { $0 as? String }.prefix(6))
+    }
+
+    private var contextualSuggestionChips: [String] {
+        dynamicSuggestionChips.isEmpty ? ruleBasedSuggestionChips : dynamicSuggestionChips
     }
 
     private var modeToggle: some View {
@@ -350,6 +361,7 @@ struct ChatView: View {
                     ConversationView(
                         thread: currentThread,
                         generatingThreadID: generatingThreadID,
+                        isPreparingResponse: isPreparingResponse,
                         onApplyProposal: { message, payload in
                             handleApplyProposal(message: message, payload: payload)
                         },
@@ -478,6 +490,10 @@ struct ChatView: View {
                 }
                 .onAppear {
                     applyPendingChatSeedIfNeeded()
+                    refreshTaskSignalAndSuggestionChips()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .homeTaskMutation)) { _ in
+                    refreshTaskSignalAndSuggestionChips()
                 }
                 // MARK: - Main Toolbar
                 .toolbar {
@@ -563,27 +579,77 @@ struct ChatView: View {
             let message = prompt
             prompt = ""
             appManager.playHaptic()
+            let resolvedAction = await resolveSlashAction(action)
 
             var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
 
-            switch action {
+            switch resolvedAction {
             case let .summary(range, projectName):
                 let summary = PromptMiddleware.buildTasksSummary(range: range, projectName: projectName)
                 dynamicSystemPrompt += "\n\nTasks (\(range.description)):\n" + summary
             default:
                 break
             }
-            let injectedContext = buildLLMContextPayload(for: message)
-            dynamicSystemPrompt += "\n\n" + injectedContext
 
             await MainActor.run {
                 sendMessage(Message(role: .user, content: message, thread: currentThread))
-            }
-            await MainActor.run {
                 llm.isThinking = true
+                llm.output = "Building context..."
+                isPreparingResponse = true
             }
 
+            let selectedModelName = AIRuntimeSnapshot.current().selectedModelName
+            let isColdStart = selectedModelName.map { !llm.isWarm(modelName: $0) } ?? false
+            let warmupTask: _Concurrency.Task<Void, Never>? = {
+                guard let selectedModelName, isColdStart else { return nil }
+                let warmupStartedAt = Date()
+                logWarning(
+                    event: "assistant_model_warmup_started",
+                    message: "Started chat-path model warmup",
+                    fields: [
+                        "model": selectedModelName,
+                        "reason": "chat_generate"
+                    ]
+                )
+                return _Concurrency.Task {
+                    await MainActor.run {
+                        llm.output = "Preparing local model..."
+                    }
+                    let warmed = await llm.warmup(modelName: selectedModelName)
+                    let durationMS = Int(Date().timeIntervalSince(warmupStartedAt) * 1_000)
+                    if warmed {
+                        logWarning(
+                            event: "assistant_model_warmup_completed",
+                            message: "Completed chat-path model warmup",
+                            fields: [
+                                "model": selectedModelName,
+                                "reason": "chat_generate",
+                                "duration_ms": String(durationMS)
+                            ]
+                        )
+                    } else {
+                        logError(
+                            event: "assistant_model_warmup_failed",
+                            message: "Chat-path model warmup failed",
+                            fields: [
+                                "model": selectedModelName,
+                                "reason": "chat_generate",
+                                "duration_ms": String(durationMS)
+                            ]
+                        )
+                    }
+                }
+            }()
+
+            let injectedContext = await buildLLMContextPayload(for: message)
+            dynamicSystemPrompt += "\n\n" + injectedContext
+            await warmupTask?.value
+
             if isPlanMode {
+                await MainActor.run {
+                    isPreparingResponse = false
+                    llm.output = ""
+                }
                 await generateProposal(
                     message: message,
                     thread: currentThread,
@@ -592,21 +658,76 @@ struct ChatView: View {
                 return
             }
 
-            guard let modelName = appManager.currentModelName else {
+            guard let modelName = selectedModelName else {
                 await MainActor.run {
                     sendMessage(Message(role: .assistant, content: "No model selected", thread: currentThread))
                     generatingThreadID = nil
+                    isPreparingResponse = false
+                    llm.output = ""
                 }
                 return
             }
+            await MainActor.run {
+                llm.output = "Generating response..."
+            }
+            let surfaceStartedAt = Date()
             os_log("SystemPrompt length %d", dynamicSystemPrompt.count)
             logDebug("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
             logDebug("USER MESSAGE ->\n\(message)")
-            let output = await llm.generate(modelName: modelName, thread: currentThread, systemPrompt: dynamicSystemPrompt)
+            let output = await llm.generate(
+                modelName: modelName,
+                thread: currentThread,
+                systemPrompt: dynamicSystemPrompt,
+                profile: .chatAsk,
+                onFirstToken: {
+                    let latencyMS = llm.lastGenerationFirstTokenLatencyMS ?? 0
+                    logWarning(
+                        event: "assistant_first_token_latency",
+                        message: "Captured chat first-token latency",
+                        fields: [
+                            "surface": "chat_ask",
+                            "model": modelName,
+                            "is_cold_start": isColdStart ? "true" : "false",
+                            "duration_ms": String(latencyMS),
+                            "used_fallback": "false",
+                            "timeout_ms": String(Int(LLMGenerationProfile.chatAsk.timeoutSeconds * 1_000))
+                        ]
+                    )
+                }
+            )
+            let durationMS = Int(Date().timeIntervalSince(surfaceStartedAt) * 1_000)
+            logWarning(
+                event: "assistant_surface_latency",
+                message: "Chat ask generation completed",
+                fields: [
+                    "surface": "chat_ask",
+                    "model": modelName,
+                    "is_cold_start": isColdStart ? "true" : "false",
+                    "duration_ms": String(durationMS),
+                    "used_fallback": "false",
+                    "timeout_ms": String(Int(LLMGenerationProfile.chatAsk.timeoutSeconds * 1_000))
+                ]
+            )
+            if llm.lastGenerationTimedOut {
+                logWarning(
+                    event: "assistant_surface_timeout",
+                    message: "Chat ask hit timeout budget",
+                    fields: [
+                        "surface": "chat_ask",
+                        "model": modelName,
+                        "is_cold_start": isColdStart ? "true" : "false",
+                        "duration_ms": String(durationMS),
+                        "used_fallback": "false",
+                        "timeout_ms": String(Int(LLMGenerationProfile.chatAsk.timeoutSeconds * 1_000))
+                    ]
+                )
+            }
             logDebug("LLM RESPONSE ->\n\(output)")
             await MainActor.run {
                 sendMessage(Message(role: .assistant, content: output, thread: currentThread, generatingTime: llm.thinkingTime))
                 generatingThreadID = nil
+                isPreparingResponse = false
+                llm.output = ""
             }
         }
     }
@@ -692,8 +813,7 @@ struct ChatView: View {
         case "/project":
             if components.count == 2 {
                 let query = components[1].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                let match = LLMContextRepositoryProvider.findProjectNameSync(matching: query)
-                return .summary(.all, match)
+                return .summary(.all, query)
             }
             return .summary(.all, nil)
         case "/clear":
@@ -703,13 +823,16 @@ struct ChatView: View {
         }
     }
 
-    /// Executes buildTasksSummary.
-    private func buildTasksSummary() -> String {
-        PromptMiddleware.buildTasksSummary(range: .today)
+    /// Executes resolveSlashAction.
+    private func resolveSlashAction(_ action: SlashAction) async -> SlashAction {
+        guard case let .summary(range, projectQuery) = action else { return action }
+        guard range == .all, let projectQuery else { return action }
+        let match = await LLMContextRepositoryProvider.findProjectName(matching: projectQuery)
+        return .summary(.all, match)
     }
 
     /// Executes buildLLMContextPayload.
-    private func buildLLMContextPayload(for query: String) -> String {
+    private func buildLLMContextPayload(for query: String) async -> String {
         let startedAt = Date()
         guard let service = LLMContextRepositoryProvider.makeService() else {
             return """
@@ -719,16 +842,14 @@ struct ChatView: View {
             semantic={}
             """
         }
-        let todayJSON = fetchProjectionSync { completion in
-            service.buildTodayJSON(completion: completion)
-        }
-        let upcomingJSON = fetchProjectionSync { completion in
-            service.buildUpcomingJSON(completion: completion)
-        }
+        async let todayJSONTask = service.buildTodayJSON()
+        async let upcomingJSONTask = service.buildUpcomingJSON()
+        let todayJSON = await todayJSONTask
+        let upcomingJSON = await upcomingJSONTask
         let taskCount = extractTaskCount(from: todayJSON) + extractTaskCount(from: upcomingJSON)
         let hasTags = todayJSON.contains("\"tag_names\"") || upcomingJSON.contains("\"tag_names\"")
         let elapsedMS = Int(Date().timeIntervalSince(startedAt) * 1_000)
-        let semanticJSON = buildSemanticContextJSON(for: query)
+        let semanticJSON = await buildSemanticContextJSON(for: query)
         logWarning(
             event: "assistant_context_built",
             message: "Built fresh assistant context payload",
@@ -748,20 +869,21 @@ struct ChatView: View {
     }
 
     /// Executes buildSemanticContextJSON.
-    private func buildSemanticContextJSON(for query: String) -> String {
+    private func buildSemanticContextJSON(for query: String) async -> String {
         guard V2FeatureFlags.assistantSemanticRetrievalEnabled else {
             return "{}"
         }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return "{}" }
 
-        let tasks = fetchTaskDefinitionsSync()
-        let hits = TaskSemanticRetrievalService.shared.search(query: trimmed, topK: 6)
+        let tasks = await fetchTaskDefinitions()
+        let hitsResult = TaskSemanticRetrievalService.shared.searchDetailed(query: trimmed, topK: 6)
         let titleLookup = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0.title) })
 
         let payload: [String: Any] = [
             "query": trimmed,
-            "top_k": hits.map { hit in
+            "fallback_reason": hitsResult.fallbackReason ?? "",
+            "top_k": hitsResult.hits.map { hit in
                 [
                     "task_id": hit.taskID.uuidString,
                     "title": titleLookup[hit.taskID] ?? "",
@@ -795,49 +917,60 @@ struct ChatView: View {
         return 0
     }
 
-    /// Executes fetchProjectionSync.
-    private func fetchProjectionSync(
-        _ request: (@escaping (String) -> Void) -> Void
-    ) -> String {
-        let semaphore = DispatchSemaphore(value: 0)
-        var payload = "{}"
-        request { json in
-            payload = json
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + .seconds(3))
-        return payload
-    }
-
-    /// Executes fetchTaskDefinitionsSync.
-    private func fetchTaskDefinitionsSync() -> [TaskDefinition] {
+    /// Executes fetchTaskDefinitions.
+    private func fetchTaskDefinitions() async -> [TaskDefinition] {
         guard let repository = LLMContextRepositoryProvider.taskReadModelRepository else { return [] }
-        let semaphore = DispatchSemaphore(value: 0)
-        var tasks: [TaskDefinition] = []
-        repository.fetchTasks(
-            query: TaskReadQuery(
-                includeCompleted: true,
-                sortBy: .updatedAtDescending,
-                limit: 5_000,
-                offset: 0
-            )
-        ) { result in
-            if case .success(let slice) = result {
-                tasks = slice.tasks
+        return await withCheckedContinuation { continuation in
+            repository.fetchTasks(
+                query: TaskReadQuery(
+                    includeCompleted: true,
+                    sortBy: .updatedAtDescending,
+                    limit: 5_000,
+                    offset: 0
+                )
+            ) { result in
+                if case .success(let slice) = result {
+                    continuation.resume(returning: slice.tasks)
+                } else {
+                    continuation.resume(returning: [])
+                }
             }
-            semaphore.signal()
         }
-        _ = semaphore.wait(timeout: .now() + .seconds(3))
-        return tasks
     }
 
     /// Executes fetchTaskSignal.
-    private func fetchTaskSignal() -> (openCount: Int, overdueCount: Int) {
-        let tasks = fetchTaskDefinitionsSync()
+    private func fetchTaskSignal() async -> (openCount: Int, overdueCount: Int) {
+        let tasks = await fetchTaskDefinitions()
         let startOfToday = Calendar.current.startOfDay(for: Date())
         let open = tasks.filter { !$0.isComplete }
         let overdue = open.filter { ($0.dueDate ?? Date.distantFuture) < startOfToday }
         return (open.count, overdue.count)
+    }
+
+    /// Executes refreshTaskSignalAndSuggestionChips.
+    private func refreshTaskSignalAndSuggestionChips() {
+        let token = UUID()
+        chipRefreshToken = token
+
+        Task {
+            let signal = await fetchTaskSignal()
+            let base = buildRuleBasedSuggestionChips(for: signal)
+            await MainActor.run {
+                guard chipRefreshToken == token else { return }
+                taskSignal = signal
+                dynamicSuggestionChips = base
+            }
+
+            let refined = await AISuggestionService.shared.refineDynamicChips(
+                baseChips: base,
+                openTaskCount: signal.openCount,
+                overdueCount: signal.overdueCount
+            )
+            await MainActor.run {
+                guard chipRefreshToken == token else { return }
+                dynamicSuggestionChips = refined
+            }
+        }
     }
 
     /// Executes setChatMode.
@@ -852,7 +985,7 @@ struct ChatView: View {
             return
         }
 
-        let route = AIChatModeRouter.route(for: .planMode, appManager: appManager)
+        let route = AIChatModeRouter.route(for: .planMode)
         planModeRouteBanner = route.bannerMessage
         planModeShouldPromptDownload = route.shouldPromptDownload
 
@@ -896,9 +1029,9 @@ struct ChatView: View {
             isGeneratingProposal = true
             generatingThreadID = nil
         }
-        let tasks = fetchTaskDefinitionsSync()
+        let tasks = await fetchTaskDefinitions()
         let taskTitleByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0.title) })
-        var projectNameByID = LLMContextRepositoryProvider.projectNameLookupSync()
+        var projectNameByID = await LLMContextRepositoryProvider.projectNameLookup()
         for task in tasks {
             if let projectName = task.projectName, projectName.isEmpty == false {
                 projectNameByID[task.projectID] = projectName
@@ -906,7 +1039,7 @@ struct ChatView: View {
         }
         let knownTaskIDs = Set(tasks.map(\.id))
 
-        let planner = AssistantPlannerService(llm: llm, appManager: appManager)
+        let planner = AssistantPlannerService(llm: llm)
         let result = await planner.generatePlan(
             userPrompt: message,
             thread: thread,
@@ -1139,22 +1272,26 @@ struct ChatView: View {
     /// Executes handleRefreshContext.
     private func handleRefreshContext(message: Message, payload: AssistantCardPayload) {
         guard let currentThread else { return }
-        _ = buildLLMContextPayload(for: "")
         updateCardMessage(messageID: message.id) { card in
             card.message = "Context refreshed. Re-run your plan request."
         }
-        sendMessage(
-            Message(
-                role: .assistant,
-                content: "Context refreshed. Please submit the plan request again.",
-                thread: currentThread
-            )
-        )
-        logWarning(
-            event: "assistant_context_refresh_triggered",
-            message: "User triggered context refresh from failed proposal",
-            fields: ["run_id": payload.runID?.uuidString ?? "unknown"]
-        )
+        _Concurrency.Task {
+            _ = await buildLLMContextPayload(for: "")
+            await MainActor.run {
+                sendMessage(
+                    Message(
+                        role: .assistant,
+                        content: "Context refreshed. Please submit the plan request again.",
+                        thread: currentThread
+                    )
+                )
+                logWarning(
+                    event: "assistant_context_refresh_triggered",
+                    message: "User triggered context refresh from failed proposal",
+                    fields: ["run_id": payload.runID?.uuidString ?? "unknown"]
+                )
+            }
+        }
     }
 
     /// Executes handleRejectProposal.
