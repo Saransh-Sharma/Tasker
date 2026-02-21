@@ -158,6 +158,7 @@ public struct TaskerHeaderGradient {
 
     // MARK: - Scrim
 
+    /// Executes scrimColors.
     private static func scrimColors(traits: UITraitCollection) -> [CGColor] {
         let isDark = traits.userInterfaceStyle == .dark
         let topAlpha: CGFloat = isDark ? 0.26 : 0.18
@@ -169,6 +170,7 @@ public struct TaskerHeaderGradient {
         ]
     }
 
+    /// Executes bottomFadeColors.
     private static func bottomFadeColors(traits: UITraitCollection) -> [CGColor] {
         let colors = TaskerThemeManager.shared.currentTheme.tokens.color
         let target = colors.bgCanvas.resolvedColor(with: traits)
@@ -181,6 +183,7 @@ public struct TaskerHeaderGradient {
 
     // MARK: - Noise Texture
 
+    /// Executes noiseImage.
     private static func noiseImage(size: CGSize) -> UIImage? {
         let width = Int(size.width)
         let height = Int(size.height)
@@ -214,16 +217,19 @@ public struct TaskerHeaderGradient {
 /// A SwiftUI view that renders the header gradient via UIKit layers.
 @MainActor
 public struct HeaderGradientView: UIViewRepresentable {
+    /// Initializes a new instance.
     @ObservedObject private var themeManager = TaskerThemeManager.shared
 
     public init() {}
 
+    /// Executes makeUIView.
     public func makeUIView(context: Context) -> UIView {
         let view = UIView()
         view.backgroundColor = .clear
         return view
     }
 
+    /// Executes updateUIView.
     public func updateUIView(_ uiView: UIView, context: Context) {
         _ = themeManager.currentTheme.index
         TaskerHeaderGradient.apply(to: uiView.layer, bounds: uiView.bounds, traits: uiView.traitCollection)

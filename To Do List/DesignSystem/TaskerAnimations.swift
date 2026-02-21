@@ -33,6 +33,7 @@ public enum TaskerAnimation {
 public struct StaggeredAppearance: ViewModifier {
     let index: Int
     let totalItems: Int
+    /// Initializes a new instance.
     @State private var appeared = false
 
     public init(index: Int, totalItems: Int = 20) {
@@ -40,6 +41,7 @@ public struct StaggeredAppearance: ViewModifier {
         self.totalItems = totalItems
     }
 
+    /// Executes body.
     public func body(content: Content) -> some View {
         content
             .opacity(appeared ? 1 : 0)
@@ -55,6 +57,7 @@ public struct StaggeredAppearance: ViewModifier {
 // MARK: - Scale on Press Modifier
 
 public struct ScaleOnPress: ViewModifier {
+    /// Executes body.
     public func body(content: Content) -> some View {
         content
             .buttonStyle(TaskerScaleOnPressButtonStyle())
@@ -62,6 +65,7 @@ public struct ScaleOnPress: ViewModifier {
 }
 
 private struct TaskerScaleOnPressButtonStyle: ButtonStyle {
+    /// Executes makeBody.
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
@@ -72,6 +76,7 @@ private struct TaskerScaleOnPressButtonStyle: ButtonStyle {
 // MARK: - Shimmer Effect Modifier
 
 public struct ShimmerEffect: ViewModifier {
+    /// Executes body.
     @State private var phase: CGFloat = 0
 
     public func body(content: Content) -> some View {
@@ -103,18 +108,22 @@ public struct ShimmerEffect: ViewModifier {
 // MARK: - View Extensions
 
 public extension View {
+    /// Executes staggeredAppearance.
     func staggeredAppearance(index: Int, totalItems: Int = 20) -> some View {
         modifier(StaggeredAppearance(index: index, totalItems: totalItems))
     }
 
+    /// Executes scaleOnPress.
     func scaleOnPress() -> some View {
         modifier(ScaleOnPress())
     }
 
+    /// Executes shimmer.
     func shimmer() -> some View {
         modifier(ShimmerEffect())
     }
 
+    /// Executes bellShake.
     func bellShake(trigger: Binding<Bool>) -> some View {
         modifier(BellShake(trigger: trigger))
     }
@@ -123,6 +132,7 @@ public extension View {
 // MARK: - Bell Shake Modifier
 
 public struct BellShake: ViewModifier {
+    /// Executes body.
     @Binding var trigger: Bool
     @State private var shaking = false
 
@@ -149,6 +159,7 @@ public struct BellShake: ViewModifier {
 // MARK: - UIKit Spring Helpers
 
 public extension UIView {
+    /// Executes taskerSpringAnimate.
     @MainActor
     static func taskerSpringAnimate(
         _ params: (duration: Double, damping: CGFloat, velocity: CGFloat)? = nil,
@@ -173,18 +184,22 @@ public extension UIView {
 
 @MainActor
 public enum TaskerFeedback {
+    /// Executes light.
     public static func light() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
+    /// Executes medium.
     public static func medium() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
+    /// Executes success.
     public static func success() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
+    /// Executes selection.
     public static func selection() {
         UISelectionFeedbackGenerator().selectionChanged()
     }

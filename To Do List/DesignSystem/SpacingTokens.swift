@@ -21,6 +21,7 @@ public struct TaskerSpacingTokens: TaskerTokenGroup {
     public let chipSpacing: CGFloat
     public let buttonHeight: CGFloat
 
+    /// Executes value.
     public func value(for token: TaskerSpacingToken) -> CGFloat {
         token.rawValue
     }

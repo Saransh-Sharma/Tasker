@@ -12,6 +12,7 @@ public struct TaskerAccentTheme {
     public let accentBaseHex: String
     public let secondaryBaseHex: String
 
+    /// Initializes a new instance.
     public init(name: String, accentBaseHex: String, secondaryBaseHex: String) {
         self.name = name
         self.accentBaseHex = accentBaseHex
@@ -28,10 +29,12 @@ public struct TaskerAccentRamp {
     public let onAccent: UIColor
     public let ring: UIColor
 
+    /// Initializes a new instance.
     public init(base: UIColor) {
         let source = base.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
         let hsl = source.taskerHSL
 
+        /// Executes build.
         func build(sDelta: CGFloat, lDelta: CGFloat) -> UIColor {
             let saturation = TaskerAccentRamp.clamp(hsl.s + sDelta, min: 0.35, max: 0.95)
             let lightness = TaskerAccentRamp.clamp(hsl.l + lDelta, min: 0.10, max: 0.92)
@@ -53,6 +56,7 @@ public struct TaskerAccentRamp {
         self.ring = self.accent500.withAlphaComponent(0.40)
     }
 
+    /// Executes clamp.
     private static func clamp(_ value: CGFloat, min: CGFloat, max: CGFloat) -> CGFloat {
         Swift.max(min, Swift.min(max, value))
     }
@@ -90,6 +94,7 @@ public struct TaskerTheme: Equatable {
     public let secondaryRamp: TaskerAccentRamp
     public let tokens: TaskerTokens
 
+    /// Initializes a new instance.
     public init(index: Int) {
         let clampedIndex = TaskerTheme.clampIndex(index)
         self.index = clampedIndex
@@ -111,15 +116,18 @@ public struct TaskerTheme: Equatable {
         )
     }
 
+    /// Executes ==.
     public static func == (lhs: TaskerTheme, rhs: TaskerTheme) -> Bool {
         lhs.index == rhs.index
     }
 
+    /// Executes clampIndex.
     public static func clampIndex(_ index: Int) -> Int {
         guard !accentThemes.isEmpty else { return 0 }
         return Swift.max(0, Swift.min(accentThemes.count - 1, index))
     }
 
+    /// Executes migrateLegacyIndex.
     static func migrateLegacyIndex(_ index: Int) -> Int {
         if let migrated = legacyToCurrentIndexMap[index] {
             return migrated
@@ -162,12 +170,14 @@ public final class TaskerThemeManager: ObservableObject {
         }
     }
 
+    /// Initializes a new instance.
     private init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
         let persisted = Self.migratedPersistedThemeIndex(in: userDefaults)
         self.currentTheme = TaskerTheme(index: persisted)
     }
 
+    /// Executes selectTheme.
     public func selectTheme(index: Int) {
         let clamped = TaskerTheme.clampIndex(index)
         guard clamped != currentTheme.index else { return }
@@ -176,11 +186,13 @@ public final class TaskerThemeManager: ObservableObject {
         currentTheme = TaskerTheme(index: clamped)
     }
 
+    /// Executes reloadFromPersistence.
     public func reloadFromPersistence() {
         let persisted = Self.migratedPersistedThemeIndex(in: userDefaults)
         currentTheme = TaskerTheme(index: persisted)
     }
 
+    /// Executes migratedPersistedThemeIndex.
     static func migratedPersistedThemeIndex(in userDefaults: UserDefaults) -> Int {
         let hasPersistedTheme = userDefaults.object(forKey: TaskerTheme.userDefaultsKey) != nil
         let persisted = hasPersistedTheme ? userDefaults.integer(forKey: TaskerTheme.userDefaultsKey) : 0
@@ -256,6 +268,7 @@ private extension UIColor {
 }
 
 public extension UIColor {
+    /// Initializes a new instance.
     convenience init(taskerHex hex: String, alpha: CGFloat = 1.0) {
         var sanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         sanitized = sanitized.replacingOccurrences(of: "#", with: "")
@@ -277,6 +290,7 @@ public extension UIColor {
         }
     }
 
+    /// Executes taskerDynamic.
     static func taskerDynamic(lightHex: String, darkHex: String) -> UIColor {
         UIColor { traits in
             if traits.userInterfaceStyle == .dark {
@@ -286,6 +300,7 @@ public extension UIColor {
         }
     }
 
+    /// Initializes a new instance.
     convenience init(taskerHue hue: CGFloat, saturation: CGFloat, lightness: CGFloat, alpha: CGFloat) {
         let q: CGFloat
         if lightness < 0.5 {
@@ -295,6 +310,7 @@ public extension UIColor {
         }
         let p = (2 * lightness) - q
 
+        /// Executes hueToRGB.
         func hueToRGB(p: CGFloat, q: CGFloat, t: CGFloat) -> CGFloat {
             var value = t
             if value < 0 { value += 1 }

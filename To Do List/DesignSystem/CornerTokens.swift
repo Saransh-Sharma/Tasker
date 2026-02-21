@@ -15,6 +15,7 @@ public struct TaskerCornerTokens: TaskerTokenGroup {
     public let bottomBar: CGFloat
     public let modal: CGFloat
 
+    /// Executes value.
     public func value(for token: TaskerCornerToken, height: CGFloat? = nil) -> CGFloat {
         switch token {
         case .r0: return r0

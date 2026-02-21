@@ -50,6 +50,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
     public let priorityLow: UIColor
     public let priorityNone: UIColor
 
+    /// Executes color.
     public func color(for role: TaskerColorRole) -> UIColor {
         switch role {
         case .bgCanvas: return bgCanvas
@@ -94,6 +95,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
         }
     }
 
+    /// Executes make.
     public static func make(accentRamp: TaskerAccentRamp, secondaryRamp: TaskerAccentRamp) -> TaskerColorTokens {
         // Premium "Obsidian & Gems" palette — warm undertones throughout
         let bgCanvas = UIColor.taskerDynamic(lightHex: "#FAF8F5", darkHex: "#0F0E0C")

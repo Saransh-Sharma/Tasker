@@ -21,6 +21,7 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
     public let button: UIFont
     public let buttonSmall: UIFont
 
+    /// Executes font.
     public func font(for style: TaskerTextStyle) -> UIFont {
         switch style {
         case .display: return display
@@ -38,10 +39,12 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
         }
     }
 
+    /// Executes dynamicFont.
     public func dynamicFont(for style: TaskerTextStyle, compatibleWith traitCollection: UITraitCollection? = nil) -> UIFont {
         Self.font(for: Self.spec(for: style), compatibleWith: traitCollection)
     }
 
+    /// Executes makeDefault.
     public static func makeDefault() -> TaskerTypographyTokens {
         TaskerTypographyTokens(
             display: font(for: spec(for: .display), compatibleWith: nil),
@@ -59,6 +62,7 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
         )
     }
 
+    /// Executes spec.
     private static func spec(for style: TaskerTextStyle) -> Spec {
         switch style {
         case .display:
@@ -88,6 +92,7 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
         }
     }
 
+    /// Executes font.
     private static func font(for spec: Spec, compatibleWith traitCollection: UITraitCollection?) -> UIFont {
         let baseFont = UIFont.systemFont(ofSize: spec.pointSize, weight: spec.weight)
         let metrics = UIFontMetrics(forTextStyle: spec.textStyle)

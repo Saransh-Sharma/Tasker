@@ -37,6 +37,7 @@ public struct TaskerSwiftUIColorTokens {
     public let priorityLow: Color
     public let priorityNone: Color
 
+    /// Initializes a new instance.
     public init(_ ui: TaskerColorTokens) {
         self.bgCanvas = Color(uiColor: ui.bgCanvas)
         self.bgElevated = Color(uiColor: ui.bgElevated)
@@ -99,6 +100,7 @@ public extension Color {
         TaskerSwiftUITokens.color
     }
 
+    /// Executes tasker.
     static func tasker(_ role: TaskerColorRole) -> Color {
         Color(uiColor: TaskerThemeManager.shared.currentTheme.tokens.color.color(for: role))
     }
@@ -106,6 +108,7 @@ public extension Color {
 
 @MainActor
 public extension Font {
+    /// Executes tasker.
     static func tasker(_ style: TaskerTextStyle) -> Font {
         Font(TaskerSwiftUITokens.typography.font(for: style))
     }
@@ -117,6 +120,7 @@ private struct TaskerElevationModifier: ViewModifier {
     let cornerRadius: CGFloat
     let includesBorder: Bool
 
+    /// Executes body.
     @MainActor
     func body(content: Content) -> some View {
         let style = TaskerSwiftUITokens.elevation.style(for: level)
@@ -135,6 +139,7 @@ private struct TaskerElevationModifier: ViewModifier {
 }
 
 public extension View {
+    /// Executes taskerElevation.
     @MainActor
     func taskerElevation(
         _ level: TaskerElevationLevel,
@@ -148,10 +153,12 @@ public extension View {
 public struct TaskerTextFieldStyle: TextFieldStyle {
     public var isFocused: Bool
 
+    /// Initializes a new instance.
     public init(isFocused: Bool = false) {
         self.isFocused = isFocused
     }
 
+    /// Executes _body.
     public func _body(configuration: TextField<_Label>) -> some View {
         MainActor.assumeIsolated {
             taskerTextFieldBody(configuration: configuration, isFocused: isFocused)
@@ -188,6 +195,7 @@ public struct TaskerChip: View {
     public var selectedStyle: TaskerChipSelectionStyle
     public var action: (() -> Void)?
 
+    /// Initializes a new instance.
     public init(
         title: String,
         isSelected: Bool,
@@ -246,6 +254,7 @@ public struct TaskerCard<Content: View>: View {
     public var elevated: Bool
     private let content: Content
 
+    /// Initializes a new instance.
     public init(active: Bool = false, elevated: Bool = false, @ViewBuilder content: () -> Content) {
         self.active = active
         self.elevated = elevated
