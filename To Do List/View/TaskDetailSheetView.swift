@@ -153,6 +153,10 @@ struct TaskDetailSheetView: View {
         .onChange(of: viewModel.repeatPattern) { _ in
             viewModel.scheduleAutosave(debounced: false)
         }
+        .onChange(of: viewModel.aiBreakdownSteps) { _, updated in
+            guard showBreakdownSheet else { return }
+            reconcileBreakdownSelection(with: updated)
+        }
         .confirmationDialog(
             "Delete recurring task?",
             isPresented: $showDeleteScopeDialog,
@@ -183,6 +187,18 @@ struct TaskDetailSheetView: View {
                         .padding(.horizontal, TaskerTheme.Spacing.md)
                         .padding(.vertical, TaskerTheme.Spacing.sm)
                         .background(Color.tasker.surfaceSecondary)
+                    }
+
+                    if viewModel.isGeneratingAIBreakdown {
+                        HStack(spacing: TaskerTheme.Spacing.xs) {
+                            ProgressView()
+                            Text("Refining step suggestions...")
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker.textSecondary)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, TaskerTheme.Spacing.md)
+                        .padding(.vertical, TaskerTheme.Spacing.xs)
                     }
 
                     List {
@@ -359,6 +375,23 @@ struct TaskDetailSheetView: View {
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
         .accessibilityIdentifier("taskDetail.actionRow")
+    }
+
+    /// Executes reconcileBreakdownSelection.
+    private func reconcileBreakdownSelection(with updatedSteps: [String]) {
+        let updatedSet = Set(updatedSteps)
+        let intersection = selectedBreakdownSteps.intersection(updatedSet)
+        if intersection.isEmpty == false {
+            selectedBreakdownSteps = intersection
+            return
+        }
+
+        if selectedBreakdownSteps.isEmpty {
+            selectedBreakdownSteps = Set(updatedSteps.prefix(3))
+            return
+        }
+
+        selectedBreakdownSteps = Set(updatedSteps.prefix(min(selectedBreakdownSteps.count, updatedSteps.count)))
     }
 
     /// Executes actionChip.

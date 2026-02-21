@@ -52,18 +52,19 @@ struct AddTaskForedropView: View {
                     )
                     .staggeredAppearance(index: 0)
 
+                    if let suggestion = viewModel.aiSuggestion {
+                        aiSuggestionCard(suggestion)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     if viewModel.isGeneratingSuggestion {
                         HStack(spacing: spacing.s8) {
                             ProgressView()
-                            Text("Eva is suggesting fields...")
+                            Text(viewModel.aiSuggestion == nil ? "Generating instant suggestion..." : "Refining with AI...")
                                 .font(.tasker(.caption1))
                                 .foregroundColor(Color.tasker.textSecondary)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .transition(.opacity)
-                    } else if let suggestion = viewModel.aiSuggestion {
-                        aiSuggestionCard(suggestion)
-                            .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
                     // Date preset row
@@ -195,7 +196,7 @@ struct AddTaskForedropView: View {
                 }
             }
             HStack {
-                Text("AI suggestion")
+                Text(viewModel.aiSuggestionIsRefined ? "AI refined" : "Instant suggestion")
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textSecondary)
                 Spacer()
