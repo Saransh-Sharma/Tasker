@@ -3,17 +3,21 @@ import Foundation
 enum LLMContextRepositoryProvider {
     private static var taskReadModelRepositoryStorage: TaskReadModelRepositoryProtocol?
     private static var projectRepositoryStorage: ProjectRepositoryProtocol?
+    private static var tagRepositoryStorage: TagRepositoryProtocol?
 
     static var taskReadModelRepository: TaskReadModelRepositoryProtocol? { taskReadModelRepositoryStorage }
     static var projectRepository: ProjectRepositoryProtocol? { projectRepositoryStorage }
+    static var tagRepository: TagRepositoryProtocol? { tagRepositoryStorage }
 
     /// Executes configure.
     static func configure(
         taskReadModelRepository: TaskReadModelRepositoryProtocol?,
-        projectRepository: ProjectRepositoryProtocol?
+        projectRepository: ProjectRepositoryProtocol?,
+        tagRepository: TagRepositoryProtocol? = nil
     ) {
         self.taskReadModelRepositoryStorage = taskReadModelRepository
         self.projectRepositoryStorage = projectRepository
+        self.tagRepositoryStorage = tagRepository
     }
 
     /// Executes makeService.
@@ -24,7 +28,8 @@ enum LLMContextRepositoryProvider {
         }
         return LLMContextProjectionService(
             taskReadModelRepository: taskReadModelRepository,
-            projectRepository: projectRepository
+            projectRepository: projectRepository,
+            tagRepository: tagRepositoryStorage
         )
     }
 
@@ -45,11 +50,27 @@ enum LLMContextRepositoryProvider {
         _ = semaphore.wait(timeout: .now() + .seconds(3))
         return matched
     }
+
+    /// Executes projectNameLookupSync.
+    static func projectNameLookupSync() -> [UUID: String] {
+        guard let projectRepository = projectRepositoryStorage else { return [:] }
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var lookup: [UUID: String] = [:]
+        projectRepository.fetchAllProjects { result in
+            defer { semaphore.signal() }
+            guard case .success(let projects) = result else { return }
+            lookup = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0.name) })
+        }
+        _ = semaphore.wait(timeout: .now() + .seconds(3))
+        return lookup
+    }
 }
 
 struct LLMContextProjectionService {
     let taskReadModelRepository: TaskReadModelRepositoryProtocol
     let projectRepository: ProjectRepositoryProtocol
+    let tagRepository: TagRepositoryProtocol?
 
     /// Executes buildTodayJSON.
     func buildTodayJSON(completion: @escaping (String) -> Void) {
@@ -69,7 +90,13 @@ struct LLMContextProjectionService {
             )
         ) { result in
             let tasks = (try? result.get().tasks) ?? []
-            completion(Self.encode(tasks: tasks, contextType: "today"))
+            let tagNameLookup = buildTagNameLookupSync()
+            completion(Self.encode(
+                tasks: tasks,
+                contextType: "today",
+                metadata: defaultMetadata(),
+                tagNameLookup: tagNameLookup
+            ))
         }
     }
 
@@ -88,7 +115,13 @@ struct LLMContextProjectionService {
             )
         ) { result in
             let tasks = (try? result.get().tasks) ?? []
-            completion(Self.encode(tasks: tasks, contextType: "upcoming"))
+            let tagNameLookup = buildTagNameLookupSync()
+            completion(Self.encode(
+                tasks: tasks,
+                contextType: "upcoming",
+                metadata: defaultMetadata(),
+                tagNameLookup: tagNameLookup
+            ))
         }
     }
 
@@ -112,33 +145,81 @@ struct LLMContextProjectionService {
                 )
             ) { result in
                 let tasks = (try? result.get().tasks) ?? []
+                var metadata = defaultMetadata()
+                metadata["project_id"] = projectID.uuidString
+                metadata["project_name"] = projectName
                 completion(
                     Self.encode(
                         tasks: tasks,
                         contextType: "project",
-                        metadata: [
-                            "project_id": projectID.uuidString,
-                            "project_name": projectName
-                        ]
+                        metadata: metadata,
+                        tagNameLookup: buildTagNameLookupSync()
                     )
                 )
             }
         }
     }
 
+    /// Executes defaultMetadata.
+    private func defaultMetadata() -> [String: Any] {
+        [
+            "timezone": TimeZone.current.identifier,
+            "generated_at_iso": Date().ISO8601Format(),
+            "context_version": 2
+        ]
+    }
+
+    /// Executes buildTagNameLookupSync.
+    private func buildTagNameLookupSync() -> [UUID: String] {
+        guard let tagRepository else { return [:] }
+        let semaphore = DispatchSemaphore(value: 0)
+        var lookup: [UUID: String] = [:]
+
+        tagRepository.fetchAll { result in
+            defer { semaphore.signal() }
+            guard case .success(let tags) = result else { return }
+            lookup = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
+        }
+
+        _ = semaphore.wait(timeout: .now() + .seconds(3))
+        return lookup
+    }
+
     /// Executes encode.
-    private static func encode(tasks: [TaskDefinition], contextType: String, metadata: [String: Any] = [:]) -> String {
+    private static func encode(
+        tasks: [TaskDefinition],
+        contextType: String,
+        metadata: [String: Any] = [:],
+        tagNameLookup: [UUID: String] = [:]
+    ) -> String {
         var payload: [String: Any] = [
             "context_type": contextType,
             "count": tasks.count,
             "tasks": tasks.map { task in
-                [
+                let tagIDs = task.tagIDs
+                    .map(\.uuidString)
+                    .sorted()
+                let tagNames = task.tagIDs
+                    .compactMap { tagNameLookup[$0] }
+                    .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+                let projectName = task.projectName ?? ""
+
+                return [
                     "id": task.id.uuidString,
                     "title": task.title,
                     "is_completed": task.isComplete,
-                    "project": task.projectName ?? "",
+                    "project": projectName,
+                    "project_id": task.projectID.uuidString,
                     "priority": task.priority.rawValue,
-                    "due_date": task.dueDate?.ISO8601Format() as Any
+                    "energy": task.energy.rawValue,
+                    "context": task.context.rawValue,
+                    "type": task.type.rawValue,
+                    "estimated_duration_minutes": task.estimatedDuration.map { Int($0 / 60) } ?? NSNull(),
+                    "has_dependencies": !task.dependencies.isEmpty,
+                    "dependency_count": task.dependencies.count,
+                    "tag_ids": tagIDs,
+                    "tag_names": tagNames,
+                    "due_date": task.dueDate?.ISO8601Format() ?? NSNull()
                 ]
             }
         ]

@@ -6,12 +6,18 @@
 import SwiftUI
 import SwiftData
 
+enum AssistantChatMode: String, CaseIterable {
+    case ask
+    case plan
+}
+
 class AppManager: ObservableObject {
     @AppStorage("systemPrompt") var systemPrompt = "You are Eva, the user's upbeat and clever personal assistant, here to keep tasks and calendars in perfect harmony. Your responses sparkle with tidy markdown—bold headers, sleek italics, sharp lists, and clear tables. Always refer to dates casually—Today, Yesterday, next Thursday. Stay brief and witty, unless the user invites you to dive into details. Use the provided task and project details to keep their day breezy and productive."
     @AppStorage("currentModelName") var currentModelName: String?
     @AppStorage("shouldPlayHaptics") var shouldPlayHaptics = true
     @AppStorage("numberOfVisits") var numberOfVisits = 0
     @AppStorage("numberOfVisitsOfLastRequest") var numberOfVisitsOfLastRequest = 0
+    @AppStorage("assistantChatMode") var assistantChatMode = AssistantChatMode.ask.rawValue
     
     var userInterfaceIdiom: LayoutType {
         #if os(visionOS)
