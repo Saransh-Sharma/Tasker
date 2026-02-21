@@ -13,6 +13,7 @@ class ToDoTimeUtils {
     //----------------------- *************************** -----------------------
     //MARK:-                    get name of the month
     //----------------------- *************************** -----------------------
+    /// Executes getMonth.
     func getMonth(date: Date) -> String {
         
         let dateFormatter_Month = DateFormatter()
@@ -24,6 +25,7 @@ class ToDoTimeUtils {
     //----------------------- *************************** -----------------------
     //MARK:-                    get name of the weekday
     //----------------------- *************************** -----------------------
+    /// Executes getWeekday.
     func getWeekday(date: Date) -> String {
 
         let dateFormatter_Weekday = DateFormatter()
@@ -35,6 +37,7 @@ class ToDoTimeUtils {
     //----------------------- *************************** -----------------------
     //MARK:-                    get formatted date string
     //----------------------- *************************** -----------------------
+    /// Executes getFormattedDate.
     func getFormattedDate(_ date: Date) -> String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium  // e.g., "Jan 5, 2025"
@@ -46,6 +49,7 @@ class ToDoTimeUtils {
 
 // MARK: - Calendar Extension
 extension Calendar {
+    /// Executes daysWithSameWeekOfYear.
     func daysWithSameWeekOfYear(as date: Date) -> [Date] {
         let calendar = Calendar.autoupdatingCurrent
         let weekOfYear = calendar.component(.weekOfYear, from: date)
@@ -70,6 +74,7 @@ extension Calendar {
 
 // MARK: - Date Extension
 extension Date {
+    /// Executes onSameDay.
     func onSameDay(as date: Date) -> Bool {
         let calendar = Calendar.current
         return calendar.isDate(self, inSameDayAs: date)
@@ -80,6 +85,7 @@ extension Date {
 
 // MARK: - ToDoTimeUtils Extension
 extension ToDoTimeUtils {
+    /// Executes isNightTime.
     func isNightTime(date: Date) -> Bool {
         // Consider evening/night time to be 8 PM (20:00) or later
         return date.hour >= 20

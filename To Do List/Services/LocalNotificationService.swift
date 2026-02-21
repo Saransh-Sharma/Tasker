@@ -4,8 +4,10 @@ import UserNotifications
 public final class LocalNotificationService: NotificationServiceProtocol {
     private let center = UNUserNotificationCenter.current()
 
+    /// Initializes a new instance.
     public init() {}
 
+    /// Executes scheduleTaskReminder.
     public func scheduleTaskReminder(taskId: UUID, taskName: String, at date: Date) {
         let content = UNMutableNotificationContent()
         content.title = "Task Reminder"
@@ -19,14 +21,17 @@ public final class LocalNotificationService: NotificationServiceProtocol {
         center.add(request)
     }
 
+    /// Executes cancelTaskReminder.
     public func cancelTaskReminder(taskId: UUID) {
         center.removePendingNotificationRequests(withIdentifiers: [taskId.uuidString])
     }
 
+    /// Executes cancelAllReminders.
     public func cancelAllReminders() {
         center.removeAllPendingNotificationRequests()
     }
 
+    /// Executes send.
     public func send(_ notification: CollaborationNotification) {
         let content = UNMutableNotificationContent()
         content.title = "Tasker"
@@ -41,12 +46,14 @@ public final class LocalNotificationService: NotificationServiceProtocol {
         center.add(request)
     }
 
+    /// Executes requestPermission.
     public func requestPermission(completion: @escaping (Bool) -> Void) {
         center.requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
             completion(granted)
         }
     }
 
+    /// Executes checkAuthorizationStatus.
     public func checkAuthorizationStatus(completion: @escaping (Bool) -> Void) {
         center.getNotificationSettings { settings in
             completion(settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional)

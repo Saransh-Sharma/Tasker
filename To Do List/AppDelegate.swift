@@ -44,6 +44,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     private(set) var persistentContainer: NSPersistentCloudKitContainer?
 
 
+    /// Executes application.
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
 
@@ -190,6 +191,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
+    /// Executes applicationDidEnterBackground.
     func applicationDidEnterBackground(_ application: UIApplication) {
         guard case .ready = persistentBootstrapState else {
             return
@@ -200,6 +202,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes makeLaunchRootMode.
     func makeLaunchRootMode(state overrideState: PersistentBootstrapState? = nil) -> LaunchRootMode {
         let state = overrideState ?? persistentBootstrapState
         switch state {
@@ -272,12 +275,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // MARK: UISceneSession Lifecycle
 
+    /// Executes application.
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         // Called when a new scene session is being created.
         // Use this method to select a configuration to create the new scene with.
         return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
     }
 
+    /// Executes application.
     func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
         // Called when the user discards a scene session.
         // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
@@ -286,6 +291,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // MARK: - Core Data Saving support
     
+    /// Executes saveContext.
     func saveContext () {
         guard let context = persistentContainer?.viewContext else {
             return
@@ -310,6 +316,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     // MARK: - Push Notification Handling
     
+    /// Executes handlePersistentStoreRemoteChange.
     @objc
     func handlePersistentStoreRemoteChange(_ notification: Notification) {
         guard let context = persistentContainer?.viewContext else {
@@ -332,9 +339,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     // Remote notification registration success/failure callbacks
+    /// Executes application.
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
     }
     
+    /// Executes application.
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         logError(
             event: "apns_registration_failed",
@@ -347,6 +356,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     // MARK: - V3 Bootstrap
 
+    /// Executes performV3BootstrapCutoverIfNeeded.
     private func performV3BootstrapCutoverIfNeeded() {
         let defaults = UserDefaults.standard
         let epochKey = "tasker.v3.store.epoch"
@@ -359,10 +369,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         clearLegacyV1PreferenceKeys(defaults: defaults)
     }
 
+    /// Executes markV3BootstrapEpochApplied.
     private func markV3BootstrapEpochApplied() {
         UserDefaults.standard.set(v3StoreEpoch, forKey: "tasker.v3.store.epoch")
     }
 
+    /// Executes makeV3PersistentContainer.
     private func makeV3PersistentContainer() -> NSPersistentCloudKitContainer {
         let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
 
@@ -389,6 +401,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return container
     }
 
+    /// Executes bootstrapV3PersistentContainer.
     private func bootstrapV3PersistentContainer() -> PersistentBootstrapState {
         let initialContainer = makeV3PersistentContainer()
         let initialReport = loadPersistentStoresAndReport(container: initialContainer, phase: "initial")
@@ -457,6 +470,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return .failed(failureMessage)
     }
 
+    /// Executes loadPersistentStoresAndReport.
     private func loadPersistentStoresAndReport(
         container: NSPersistentCloudKitContainer,
         phase: String
@@ -512,10 +526,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         )
     }
 
+    /// Executes hasExpectedConfigurations.
     private func hasExpectedConfigurations(_ report: PersistentStoreLoadReport) -> Bool {
         expectedStoreConfigurations.isSubset(of: report.loadedConfigurations)
     }
 
+    /// Executes unloadPersistentStores.
     private func unloadPersistentStores(_ container: NSPersistentCloudKitContainer) {
         let coordinator = container.persistentStoreCoordinator
         for store in coordinator.persistentStores {
@@ -538,6 +554,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes isIncompatibleStoreError.
     private func isIncompatibleStoreError(_ error: NSError) -> Bool {
         let code = error.code
         let incompatibleCodes: Set<Int> = [
@@ -574,6 +591,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return false
     }
 
+    /// Executes wipeV3StoreFiles.
     private func wipeV3StoreFiles() {
         let storeDir = NSPersistentContainer.defaultDirectoryURL()
         let fileManager = FileManager.default
@@ -613,6 +631,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes clearLegacyV1PreferenceKeys.
     private func clearLegacyV1PreferenceKeys(defaults: UserDefaults) {
         let legacyKeys = [
             "home.focus.lastFilterState.v1",
@@ -624,6 +643,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes ensureV3Defaults.
     private func ensureV3Defaults() {
         guard let context = persistentContainer?.viewContext else {
             return
@@ -710,6 +730,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes fetchGeneralLifeArea.
     private func fetchGeneralLifeArea(in context: NSManagedObjectContext) throws -> NSManagedObject? {
         let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
         request.predicate = NSPredicate(format: "name ==[c] %@", "General")
@@ -717,6 +738,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return try context.fetch(request).first
     }
 
+    /// Executes fetchLifeArea.
     private func fetchLifeArea(id: UUID, in context: NSManagedObjectContext) throws -> NSManagedObject? {
         let request = NSFetchRequest<NSManagedObject>(entityName: "LifeArea")
         request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
@@ -724,6 +746,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return try context.fetch(request).first
     }
 
+    /// Executes backfillTaskLifeAreaIDsIfNeeded.
     private func backfillTaskLifeAreaIDsIfNeeded(in context: NSManagedObjectContext) throws {
         guard
             let taskEntity = NSEntityDescription.entity(forEntityName: "TaskDefinition", in: context),
@@ -772,6 +795,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes registerBackgroundTasks.
     private func registerBackgroundTasks() {
         BGTaskScheduler.shared.register(
             forTaskWithIdentifier: occurrenceRefreshTaskIdentifier,
@@ -796,6 +820,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes scheduleOccurrenceRefresh.
     private func scheduleOccurrenceRefresh() {
         let request = BGAppRefreshTaskRequest(identifier: occurrenceRefreshTaskIdentifier)
         request.earliestBeginDate = Calendar.current.date(byAdding: .hour, value: 12, to: Date())
@@ -810,6 +835,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes scheduleRemindersRefresh.
     private func scheduleRemindersRefresh() {
         let request = BGAppRefreshTaskRequest(identifier: remindersRefreshTaskIdentifier)
         request.earliestBeginDate = Calendar.current.date(byAdding: .hour, value: 6, to: Date())
@@ -824,6 +850,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes handleOccurrenceRefresh.
     private func handleOccurrenceRefresh(task: BGAppRefreshTask) {
         scheduleOccurrenceRefresh()
         task.expirationHandler = {
@@ -874,6 +901,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes handleRemindersRefresh.
     private func handleRemindersRefresh(task: BGAppRefreshTask) {
         scheduleRemindersRefresh()
         task.expirationHandler = {
@@ -925,6 +953,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    /// Executes processReminderReconcileQueue.
     private func processReminderReconcileQueue(
         mappings: [ExternalContainerMapDefinition],
         index: Int,
@@ -1059,6 +1088,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
+    /// Executes failClosedV3Runtime.
     private func failClosedV3Runtime(reason: String) -> Bool {
         let failureMessage = "Tasker failed to initialize required V3 runtime dependencies."
         persistentBootstrapState = .failed(failureMessage)
@@ -1071,6 +1101,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return false
     }
 
+    /// Executes repairProjectIdentityIfNeeded.
     private func repairProjectIdentityIfNeeded() {
         let manageProjects = PresentationDependencyContainer.shared.coordinator.manageProjects
         manageProjects.repairProjectIdentityCollisions { result in
