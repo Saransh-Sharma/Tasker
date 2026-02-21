@@ -40,4 +40,38 @@ final class LLMModelRegistryTests: XCTestCase {
     func testDefaultModelIsQwenPointSixB() {
         XCTAssertEqual(ModelConfiguration.defaultModel.name, qwenModelName)
     }
+
+    func testRouterUsesFastModelForTopThreeWhenFastModeEnabled() {
+        let snapshot = AIRuntimeSnapshot(
+            selectedModelName: nil,
+            installedModels: [
+                ModelConfiguration.qwen_3_0_6b_4bit.name,
+                ModelConfiguration.deepseek_r1_distill_qwen_1_5b_4bit.name
+            ],
+            availableMemoryGB: 8,
+            userInterfaceIdiom: .phone,
+            fastModeEnabled: true
+        )
+
+        let route = AIChatModeRouter.route(for: .topThree, snapshot: snapshot)
+
+        XCTAssertEqual(route.selectedModelName, ModelConfiguration.qwen_3_0_6b_4bit.name)
+    }
+
+    func testRouterKeepsPlanModeQualityModelWhenFastModeEnabled() {
+        let snapshot = AIRuntimeSnapshot(
+            selectedModelName: nil,
+            installedModels: [
+                ModelConfiguration.qwen_3_0_6b_4bit.name,
+                ModelConfiguration.deepseek_r1_distill_qwen_1_5b_4bit.name
+            ],
+            availableMemoryGB: 8,
+            userInterfaceIdiom: .phone,
+            fastModeEnabled: true
+        )
+
+        let route = AIChatModeRouter.route(for: .planMode, snapshot: snapshot)
+
+        XCTAssertEqual(route.selectedModelName, ModelConfiguration.deepseek_r1_distill_qwen_1_5b_4bit.name)
+    }
 }

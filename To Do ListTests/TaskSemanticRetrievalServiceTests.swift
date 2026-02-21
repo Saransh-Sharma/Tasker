@@ -21,10 +21,11 @@ final class TaskSemanticRetrievalServiceTests: XCTestCase {
         let financeTask = TaskDefinition(title: "Update budget", details: "finance review")
 
         service.rebuildIndex(tasks: [medicalTask, financeTask])
-        let hits = service.search(query: "doctor stuff", topK: 2)
+        let result = service.searchDetailed(query: "doctor stuff", topK: 2)
 
-        XCTAssertEqual(hits.first?.taskID, medicalTask.id)
-        XCTAssertGreaterThan((hits.first?.score ?? 0), (hits.last?.score ?? -1))
+        XCTAssertNil(result.fallbackReason)
+        XCTAssertEqual(result.hits.first?.taskID, medicalTask.id)
+        XCTAssertGreaterThan((result.hits.first?.score ?? 0), (result.hits.last?.score ?? -1))
     }
 
     func testRemoveDeletesTaskFromSemanticIndex() {
@@ -40,12 +41,24 @@ final class TaskSemanticRetrievalServiceTests: XCTestCase {
         XCTAssertTrue(service.search(query: "doctor", topK: 3).isEmpty)
     }
 
-    func testSearchReturnsEmptyWhenEmbeddingUnavailable() {
+    func testSearchReturnsFallbackReasonWhenEmbeddingUnavailable() {
         let service = makeService { _ in nil }
         let task = TaskDefinition(title: "Anything")
         service.rebuildIndex(tasks: [task])
 
-        XCTAssertTrue(service.search(query: "doctor stuff", topK: 5).isEmpty)
+        let result = service.searchDetailed(query: "doctor stuff", topK: 5)
+
+        XCTAssertTrue(result.hits.isEmpty)
+        XCTAssertEqual(result.fallbackReason, "embedding_unavailable")
+    }
+
+    func testSearchReturnsFallbackReasonWhenIndexIsEmpty() {
+        let service = makeService { _ in [1.0, 0.0] }
+
+        let result = service.searchDetailed(query: "doctor stuff", topK: 5)
+
+        XCTAssertTrue(result.hits.isEmpty)
+        XCTAssertEqual(result.fallbackReason, "index_empty")
     }
 
     func testCosineSimilarityIsDeterministic() {
