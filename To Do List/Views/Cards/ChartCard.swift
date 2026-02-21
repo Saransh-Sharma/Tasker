@@ -19,6 +19,7 @@ struct ChartCard: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
     
+    /// Initializes a new instance.
     init(
         title: String = "Weekly Progress",
         subtitle: String? = "Task completion scores",
@@ -94,16 +95,19 @@ struct LineChartViewRepresentable: UIViewRepresentable {
     let data: [ChartDataEntry]
     let referenceDate: Date?
     
+    /// Executes makeUIView.
     func makeUIView(context: Context) -> LineChartView {
         let chartView = LineChartView()
         setupChartView(chartView)
         return chartView
     }
     
+    /// Executes updateUIView.
     func updateUIView(_ uiView: LineChartView, context: Context) {
         updateChartData(uiView)
     }
     
+    /// Executes setupChartView.
     private func setupChartView(_ chartView: LineChartView) {
         let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
         let colors = themeTokens.color
@@ -172,6 +176,7 @@ struct LineChartViewRepresentable: UIViewRepresentable {
         chartView.animate(xAxisDuration: 0.8, yAxisDuration: 0.8, easingOption: .easeInOutCubic)
     }
     
+    /// Executes updateChartData.
     private func updateChartData(_ chartView: LineChartView) {
         guard !data.isEmpty else {
             chartView.data = nil
@@ -240,6 +245,7 @@ public struct TaskProgressCard: View {
     let referenceDate: Date?
     let viewModel: ChartCardViewModel
     
+    /// Initializes a new instance.
     init(referenceDate: Date? = nil, viewModel: ChartCardViewModel) {
         self.referenceDate = referenceDate
         self.viewModel = viewModel
@@ -276,14 +282,17 @@ struct ChartCard_Previews: PreviewProvider {
 }
 
 private final class PreviewTaskReadModelRepository: TaskReadModelRepositoryProtocol {
+    /// Executes fetchTasks.
     func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
+    /// Executes searchTasks.
     func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
+    /// Executes fetchProjectTaskCounts.
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
         completion: @escaping (Result<[UUID: Int], Error>) -> Void
@@ -291,6 +300,7 @@ private final class PreviewTaskReadModelRepository: TaskReadModelRepositoryProto
         completion(.success([:]))
     }
 
+    /// Executes fetchProjectCompletionScoreTotals.
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,

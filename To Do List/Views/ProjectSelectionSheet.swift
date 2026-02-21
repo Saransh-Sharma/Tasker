@@ -26,6 +26,7 @@ struct ProjectSelectionSheet: View {
 
     private let maxSelections = 5
 
+    /// Initializes a new instance.
     init(
         selectedProjectIDs: [UUID],
         onSave: @escaping ([UUID]) -> Void,
@@ -217,6 +218,7 @@ struct ProjectSelectionSheet: View {
 
     // MARK: - Actions
 
+    /// Executes toggleProjectPin.
     private func toggleProjectPin(_ projectID: UUID) {
         if pinnedProjects.contains(projectID) {
             // Unpin
@@ -231,6 +233,7 @@ struct ProjectSelectionSheet: View {
         }
     }
 
+    /// Executes saveSelection.
     private func saveSelection() {
         // 🔥 NEW: Automatically filter out stale pins before saving
         let validPinnedProjects = pinnedProjects.filter { pinnedUUID in
@@ -250,6 +253,7 @@ struct ProjectSelectionSheet: View {
         dismiss()
     }
 
+    /// Executes loadProjects.
     private func loadProjects() {
         logDebug("📋 [ProjectSelectionSheet] Loading projects...")
         viewModel.load { infos in
@@ -340,14 +344,17 @@ struct ProjectSelectionSheet_Previews: PreviewProvider {
 }
 
 private final class PreviewProjectSelectionReadModelRepository: TaskReadModelRepositoryProtocol {
+    /// Executes fetchTasks.
     func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
+    /// Executes searchTasks.
     func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
+    /// Executes fetchProjectTaskCounts.
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
         completion: @escaping (Result<[UUID: Int], Error>) -> Void
@@ -355,6 +362,7 @@ private final class PreviewProjectSelectionReadModelRepository: TaskReadModelRep
         completion(.success([:]))
     }
 
+    /// Executes fetchProjectCompletionScoreTotals.
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
@@ -365,20 +373,34 @@ private final class PreviewProjectSelectionReadModelRepository: TaskReadModelRep
 }
 
 private final class PreviewProjectSelectionProjectRepository: ProjectRepositoryProtocol {
+    /// Executes fetchAllProjects.
     func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    /// Executes fetchProject.
     func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    /// Executes fetchProject.
     func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    /// Executes fetchInboxProject.
     func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    /// Executes fetchCustomProjects.
     func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    /// Executes createProject.
     func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    /// Executes ensureInboxProject.
     func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    /// Executes repairProjectIdentityCollisions.
     func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
     }
+    /// Executes updateProject.
     func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    /// Executes renameProject.
     func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    /// Executes deleteProject.
     func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    /// Executes getTaskCount.
     func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
+    /// Executes moveTasks.
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    /// Executes isProjectNameAvailable.
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
 }

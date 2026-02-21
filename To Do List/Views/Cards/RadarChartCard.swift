@@ -21,6 +21,7 @@ struct RadarChartCard: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
+    /// Initializes a new instance.
     init(
         title: String = "Project Breakdown",
         subtitle: String? = "Weekly scores by project",
@@ -114,6 +115,7 @@ struct RadarChartCard: View {
 
     // MARK: - Empty State View
 
+    /// Executes emptyStateView.
     private func emptyStateView(
         icon: String,
         title: String,
@@ -169,16 +171,19 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
     let labels: [String]
     let referenceDate: Date?
 
+    /// Executes makeUIView.
     func makeUIView(context: Context) -> RadarChartView {
         let chartView = RadarChartView()
         setupChartView(chartView)
         return chartView
     }
 
+    /// Executes updateUIView.
     func updateUIView(_ uiView: RadarChartView, context: Context) {
         updateChartData(uiView)
     }
 
+    /// Executes setupChartView.
     private func setupChartView(_ chartView: RadarChartView) {
         let themeTokens = TaskerThemeManager.shared.currentTheme.tokens
         let colors = themeTokens.color
@@ -230,6 +235,7 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
         chartView.accessibilityIdentifier = "home.radarChartView"
     }
 
+    /// Executes updateChartData.
     private func updateChartData(_ chartView: RadarChartView) {
         let normalizedPayload = normalizedRenderPayload()
         guard !normalizedPayload.entries.isEmpty else {
@@ -280,6 +286,7 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
 
     }
 
+    /// Executes normalizedRenderPayload.
     private func normalizedRenderPayload() -> (entries: [RadarChartDataEntry], labels: [String]) {
         let pairedCount = min(data.count, labels.count)
         if data.count != labels.count {
@@ -309,10 +316,12 @@ struct RadarChartViewRepresentable: UIViewRepresentable {
 class RadarXAxisFormatter: AxisValueFormatter {
     private let labels: [String]
 
+    /// Initializes a new instance.
     init(labels: [String]) {
         self.labels = labels
     }
 
+    /// Executes stringForValue.
     func stringForValue(_ value: Double, axis: AxisBase?) -> String {
         let index = Int(value)
         guard index >= 0 && index < labels.count else {
@@ -352,14 +361,17 @@ struct RadarChartCard_Previews: PreviewProvider {
 }
 
 private final class PreviewRadarReadModelRepository: TaskReadModelRepositoryProtocol {
+    /// Executes fetchTasks.
     func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
+    /// Executes searchTasks.
     func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         completion(.success(TaskDefinitionSliceResult(tasks: [], totalCount: 0, limit: query.limit, offset: query.offset)))
     }
 
+    /// Executes fetchProjectTaskCounts.
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
         completion: @escaping (Result<[UUID: Int], Error>) -> Void
@@ -367,6 +379,7 @@ private final class PreviewRadarReadModelRepository: TaskReadModelRepositoryProt
         completion(.success([:]))
     }
 
+    /// Executes fetchProjectCompletionScoreTotals.
     func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
@@ -377,20 +390,34 @@ private final class PreviewRadarReadModelRepository: TaskReadModelRepositoryProt
 }
 
 private final class PreviewRadarProjectRepository: ProjectRepositoryProtocol {
+    /// Executes fetchAllProjects.
     func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    /// Executes fetchProject.
     func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    /// Executes fetchProject.
     func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) { completion(.success(nil)) }
+    /// Executes fetchInboxProject.
     func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    /// Executes fetchCustomProjects.
     func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) { completion(.success([])) }
+    /// Executes createProject.
     func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    /// Executes ensureInboxProject.
     func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    /// Executes repairProjectIdentityCollisions.
     func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
         completion(.success(ProjectRepairReport(scanned: 0, merged: 0, deleted: 0, inboxCandidates: 0, warnings: [])))
     }
+    /// Executes updateProject.
     func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) { completion(.success(project)) }
+    /// Executes renameProject.
     func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) { completion(.failure(NSError(domain: "preview", code: 1))) }
+    /// Executes deleteProject.
     func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    /// Executes getTaskCount.
     func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) { completion(.success(0)) }
+    /// Executes moveTasks.
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    /// Executes isProjectNameAvailable.
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(true)) }
 }
