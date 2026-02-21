@@ -16,6 +16,7 @@ extension HomeViewController {
     
     
     //setup chart
+    /// Executes setupPieChartView.
     func setupPieChartView(pieChartView chartView: PieChartView) {
         chartView.drawSlicesUnderHoleEnabled = false
         // Hide default 'no chart data available' label when there is no data
@@ -45,10 +46,12 @@ extension HomeViewController {
         setTinyChartShadow(chartView: chartView)
     }
     
+    /// Executes setTinyChartShadow.
     func setTinyChartShadow(chartView: PieChartView) {
         applyTinyChartShadowStyle(to: chartView, deferredIfNeeded: true)
     }
 
+    /// Executes applyTinyChartShadowStyle.
     private func applyTinyChartShadowStyle(to chartView: PieChartView, deferredIfNeeded: Bool) {
         let style = TaskerThemeManager.shared.currentTheme.tokens.elevation.e1
 

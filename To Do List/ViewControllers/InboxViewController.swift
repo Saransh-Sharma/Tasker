@@ -15,6 +15,7 @@ class InboxViewController: UIViewController, UITableViewDataSource, UITableViewD
     @IBOutlet weak var inboxTableView: UITableView!
     
     private let animations = [AnimationType.from(direction: .bottom, offset: 30.0)] //
+    /// Executes viewWillAppear.
     override func viewWillAppear(_ animated: Bool) {
         // right spring animation
 //        inboxTableView.reloadData(
@@ -29,6 +30,7 @@ class InboxViewController: UIViewController, UITableViewDataSource, UITableViewD
         
     }
     
+    /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -37,10 +39,12 @@ class InboxViewController: UIViewController, UITableViewDataSource, UITableViewD
         // Do any additional setup after loading the view.
     }
     
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return 15
     }
     
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         let inboxCell = UITableViewCell()
@@ -57,6 +61,7 @@ class InboxViewController: UIViewController, UITableViewDataSource, UITableViewD
      // MARK: - Navigation
      
      // In a storyboard-based application, you will often want to do a little preparation before navigation
+     /// Executes prepare.
      override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
      // Get the new view controller using segue.destination.
      // Pass the selected object to the new view controller.

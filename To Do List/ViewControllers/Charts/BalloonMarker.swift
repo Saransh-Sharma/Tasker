@@ -41,6 +41,7 @@ open class BalloonMarker: MarkerImage
         super.init()
     }
     
+    /// Executes offsetForDrawing.
     open override func offsetForDrawing(atPoint point: CGPoint) -> CGPoint
     {
         var offset = self.offset
@@ -86,6 +87,7 @@ open class BalloonMarker: MarkerImage
         return offset
     }
     
+    /// Executes draw.
     open override func draw(context: CGContext, point: CGPoint)
     {
         guard let label = label else { return }
@@ -183,6 +185,7 @@ open class BalloonMarker: MarkerImage
         context.restoreGState()
     }
     
+    /// Executes refreshContent.
     open override func refreshContent(entry: ChartDataEntry, highlight: Highlight)
     {
         setLabel(String(entry.y))

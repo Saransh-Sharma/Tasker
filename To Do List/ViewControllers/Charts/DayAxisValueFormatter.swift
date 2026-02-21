@@ -16,11 +16,13 @@ public class DayAxisValueFormatter: NSObject, AxisValueFormatter {
                   "Jul", "Aug", "Sep",
                   "Oct", "Nov", "Dec"]
     
+    /// Initializes a new instance.
     init(chart: BarLineChartViewBase) {
         self.chart = chart
     }
     
     
+    /// Executes stringForValue.
     public func stringForValue(_ value: Double, axis: AxisBase?) -> String {
         let days = Int(value)
         let year = determineYear(forDays: days)
@@ -49,6 +51,7 @@ public class DayAxisValueFormatter: NSObject, AxisValueFormatter {
     }
     
     
+    /// Executes days.
     private func days(forMonth month: Int, year: Int) -> Int {
         // month is 0-based
         switch month {
@@ -70,6 +73,7 @@ public class DayAxisValueFormatter: NSObject, AxisValueFormatter {
         }
     }
     
+    /// Executes determineMonth.
     private func determineMonth(forDayOfYear dayOfYear: Int) -> Int {
         var month = -1
         var days = 0
@@ -87,6 +91,7 @@ public class DayAxisValueFormatter: NSObject, AxisValueFormatter {
         return max(month, 0)
     }
     
+    /// Executes determineDayOfMonth.
     private func determineDayOfMonth(forDays days: Int, month: Int) -> Int {
         var count = 0
         var daysForMonth = 0
@@ -100,6 +105,7 @@ public class DayAxisValueFormatter: NSObject, AxisValueFormatter {
         return days - daysForMonth
     }
     
+    /// Executes determineYear.
     private func determineYear(forDays days: Int) -> Int {
         switch days {
         case ...366: return 2016

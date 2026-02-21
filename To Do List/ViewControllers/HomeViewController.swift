@@ -48,6 +48,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     // MARK: - Lifecycle
 
+    /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -62,6 +63,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         updateDailyScore(for: dateForTheView)
     }
 
+    /// Executes viewDidLayoutSubviews.
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         if navigationPieChartView != nil {
@@ -69,12 +71,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
+    /// Executes viewDidAppear.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         ensureNavigationPieChartAsRightItem()
         layoutNavigationPieChart()
     }
 
+    /// Executes viewDidDisappear.
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         if navigationController?.topViewController !== self {
@@ -88,6 +92,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     // MARK: - Setup
 
+    /// Executes injectDependenciesIfNeeded.
     private func injectDependenciesIfNeeded() {
         guard viewModel != nil else {
             fatalError("HomeViewController requires injected HomeViewModel")
@@ -103,6 +108,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
+    /// Executes configureNavigationBar.
     private func configureNavigationBar() {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
@@ -121,6 +127,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         updateNavigationDateHeader()
     }
 
+    /// Executes bindTheme.
     private func bindTheme() {
         TaskerThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
@@ -130,6 +137,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             .store(in: &cancellables)
     }
 
+    /// Executes bindViewModel.
     private func bindViewModel() {
         guard let viewModel else { return }
 
@@ -166,6 +174,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         viewModel.loadTodayTasks()
     }
 
+    /// Executes mountHomeShell.
     private func mountHomeShell() {
         guard let viewModel else { return }
 
@@ -236,6 +245,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         hostingController.didMove(toParent: self)
     }
 
+    /// Executes observeMutations.
     private func observeMutations() {
         notificationCenter.addObserver(
             self,
@@ -247,6 +257,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     // MARK: - Navigation Actions
 
+    /// Executes onMenuButtonTapped.
     @objc func onMenuButtonTapped() {
         let settingsVC = SettingsPageViewController()
         settingsVC.presentationDependencyContainer = presentationDependencyContainer
@@ -260,6 +271,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(navController, animated: true)
     }
 
+    /// Executes AddTaskAction.
     @objc func AddTaskAction() {
         guard let presentationDependencyContainer else {
             fatalError("HomeViewController missing PresentationDependencyContainer")
@@ -287,6 +299,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(navController, animated: true)
     }
 
+    /// Executes searchButtonTapped.
     @objc func searchButtonTapped() {
         let searchVC = LGSearchViewController()
         guard let presentationDependencyContainer else {
@@ -298,6 +311,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(searchVC, animated: true)
     }
 
+    /// Executes chatButtonTapped.
     @objc func chatButtonTapped() {
         let chatHostVC = ChatHostViewController()
         let navController = UINavigationController(rootViewController: chatHostVC)
@@ -308,10 +322,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     // MARK: - Task Routing
 
+    /// Executes handleTaskTap.
     private func handleTaskTap(_ task: TaskDefinition) {
         presentTaskDetailView(for: task)
     }
 
+    /// Executes handleTaskReschedule.
     private func handleTaskReschedule(_ task: TaskDefinition) {
         let rescheduleVC = RescheduleViewController(
             taskTitle: task.title,
@@ -325,6 +341,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(navController, animated: true)
     }
 
+    /// Executes handleTaskDeleteRequested.
     private func handleTaskDeleteRequested(_ task: TaskDefinition) {
         guard let viewModel else { return }
         guard task.recurrenceSeriesID != nil else {
@@ -351,6 +368,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(alert, animated: true)
     }
 
+    /// Executes presentTaskDetailView.
     private func presentTaskDetailView(for task: TaskDefinition) {
         let detailView = TaskDetailSheetView(
             task: task,
@@ -471,10 +489,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     // MARK: - Chart Refresh Contract
 
+    /// Executes refreshChartsAfterTaskCompletion.
     func refreshChartsAfterTaskCompletion() {
         refreshChartsAfterTaskMutation(reason: .completed)
     }
 
+    /// Executes refreshChartsAfterTaskMutation.
     func refreshChartsAfterTaskMutation(reason: HomeTaskMutationEvent? = nil) {
         if let reason {
             logDebug("🎯 HomeViewController chart refresh reason=\(reason.rawValue)")
@@ -499,6 +519,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     // MARK: - Score / Tiny Pie
 
+    /// Executes calculateTodaysScore.
     func calculateTodaysScore() -> Int {
         let targetDate = dateForTheView
         let doneTasks = viewModel?.completedTasks ?? []
@@ -512,6 +533,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
+    /// Executes priorityBreakdown.
     func priorityBreakdown(for date: Date) -> [Int32: Int] {
         var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0]
 
@@ -527,6 +549,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         return counts
     }
 
+    /// Executes updateDailyScore.
     func updateDailyScore(for date: Date? = nil) {
         let targetDate = date ?? dateForTheView
 
@@ -538,6 +561,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         applyScoreDisplay(calculateTodaysScore(), for: targetDate)
     }
 
+    /// Executes applyScoreDisplay.
     private func applyScoreDisplay(_ score: Int, for date: Date) {
         // Always show the nav pie chart (even at score 0 with empty ring)
         ensureNavigationPieChartAsRightItem()
@@ -561,6 +585,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     // MARK: - Nav Pie UI
 
+    /// Executes setNavigationPieChartVisible.
     private func setNavigationPieChartVisible(_ isVisible: Bool) {
         shouldShowNavigationPieChart = isVisible
 
@@ -576,6 +601,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         removeNavigationPieChartOverlay(resetChartState: true)
     }
 
+    /// Executes ensureNavigationPieChartAsRightItem.
     private func ensureNavigationPieChartAsRightItem() {
         guard isNavigationPieChartEnabled else {
             navigationItem.rightBarButtonItem = nil
@@ -649,6 +675,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         layoutNavigationPieChart()
     }
 
+    /// Executes updateNavigationDateHeader.
     private func updateNavigationDateHeader() {
         let dateView = HomeDateHeaderView(
             date: dateForTheView,
@@ -662,6 +689,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         navigationItem.titleView = hostingController.view
     }
 
+    /// Executes layoutNavigationPieChart.
     private func layoutNavigationPieChart() {
         guard let pieChart = navigationPieChartView, let container = navigationPieChartAnchorView else { return }
         let didUpdateAlignment = updateNavigationPieChartHorizontalAlignment()
@@ -675,6 +703,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         setTinyChartShadow(chartView: pieChart)
     }
 
+    /// Executes removeNavigationPieChartOverlay.
     private func removeNavigationPieChartOverlay(resetChartState: Bool) {
         navigationPieChartAnchorView?.removeFromSuperview()
         if resetChartState {
@@ -684,6 +713,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
+    /// Executes defaultNavigationPieChartCenterX.
     private func defaultNavigationPieChartCenterX(in navigationController: UINavigationController) -> CGFloat {
         let fallbackByNavBar = navigationController.navigationBar.frame.maxX - navigationPieChartTrailingInset - (navigationPieChartSize / 2)
         guard let navigationView = navigationController.view else {
@@ -695,6 +725,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         return navigationView.bounds.width - navigationView.safeAreaInsets.right - navigationPieChartTrailingInset - (navigationPieChartSize / 2)
     }
 
+    /// Executes updateNavigationPieChartHorizontalAlignment.
     @discardableResult
     private func updateNavigationPieChartHorizontalAlignment() -> Bool {
         guard let navigationController,
@@ -718,6 +749,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         return true
     }
 
+    /// Executes buildNavigationPieChartData.
     private func buildNavigationPieChartData(for date: Date) {
         guard let navPieChart = navigationPieChartView else { return }
 
@@ -775,17 +807,20 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         navPieChart.data = PieChartData(dataSet: set)
     }
 
+    /// Executes refreshNavigationPieChart.
     func refreshNavigationPieChart() {
         buildNavigationPieChartData(for: dateForTheView)
         navigationPieChartView?.animate(xAxisDuration: 0.3, easingOption: .easeOutBack)
     }
 
+    /// Executes reloadTinyPicChartWithAnimation.
     @objc func reloadTinyPicChartWithAnimation() {
         refreshNavigationPieChart()
     }
 
     // MARK: - Theme
 
+    /// Executes applyTheme.
     private func applyTheme() {
         todoColors = TaskerThemeManager.shared.currentTheme.tokens.color
 
@@ -802,6 +837,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         updateNavigationDateHeader()
     }
 
+    /// Executes setFont.
     func setFont(fontSize: CGFloat, fontweight: UIFont.Weight = .regular, fontDesign: UIFontDescriptor.SystemDesign = .default) -> UIFont {
         let descriptor = UIFont.systemFont(ofSize: fontSize, weight: fontweight).fontDescriptor
         if let designed = descriptor.withDesign(fontDesign) {
@@ -816,6 +852,7 @@ private final class RescheduleViewController: UIViewController {
     private let onDateSelected: (Date) -> Void
     private let datePicker = UIDatePicker()
 
+    /// Initializes a new instance.
     init(taskTitle: String, currentDueDate: Date?, onDateSelected: @escaping (Date) -> Void) {
         self.taskTitle = taskTitle
         self.onDateSelected = onDateSelected
@@ -823,11 +860,13 @@ private final class RescheduleViewController: UIViewController {
         datePicker.date = currentDueDate ?? Date()
     }
 
+    /// Initializes a new instance.
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
@@ -870,6 +909,7 @@ private final class RescheduleViewController: UIViewController {
 // MARK: - Snackbar Support
 
 extension HomeViewController {
+    /// Executes observeTaskCreatedForSnackbar.
     func observeTaskCreatedForSnackbar() {
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
             .receive(on: RunLoop.main)
@@ -880,6 +920,7 @@ extension HomeViewController {
             .store(in: &cancellables)
     }
 
+    /// Executes showTaskCreatedSnackbar.
     private func showTaskCreatedSnackbar(for task: TaskDefinition) {
         guard let hostingController = homeHostingController else { return }
 
