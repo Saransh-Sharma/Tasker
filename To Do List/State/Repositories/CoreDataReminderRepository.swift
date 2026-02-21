@@ -5,11 +5,13 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
     }
 
+    /// Executes fetchReminders.
     public func fetchReminders(completion: @escaping (Result<[ReminderDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -29,6 +31,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
         }
     }
 
+    /// Executes saveReminder.
     public func saveReminder(_ reminder: ReminderDefinition, completion: @escaping (Result<ReminderDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -56,6 +59,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
         }
     }
 
+    /// Executes fetchTriggers.
     public func fetchTriggers(reminderID: UUID, completion: @escaping (Result<[ReminderTriggerDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -76,6 +80,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
         }
     }
 
+    /// Executes saveTrigger.
     public func saveTrigger(_ trigger: ReminderTriggerDefinition, completion: @escaping (Result<ReminderTriggerDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -101,6 +106,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
         }
     }
 
+    /// Executes fetchDeliveries.
     public func fetchDeliveries(reminderID: UUID, completion: @escaping (Result<[ReminderDeliveryDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -121,14 +127,17 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
         }
     }
 
+    /// Executes saveDelivery.
     public func saveDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         persistDelivery(delivery, completion: completion)
     }
 
+    /// Executes updateDelivery.
     public func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         persistDelivery(delivery, completion: completion)
     }
 
+    /// Executes persistDelivery.
     private func persistDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -159,6 +168,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
         }
     }
 
+    /// Executes mapReminder.
     private static func mapReminder(_ object: NSManagedObject) -> ReminderDefinition {
         ReminderDefinition(
             id: object.value(forKey: "id") as? UUID ?? UUID(),
@@ -173,6 +183,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
         )
     }
 
+    /// Executes mapTrigger.
     private static func mapTrigger(_ object: NSManagedObject) -> ReminderTriggerDefinition {
         let offset = object.value(forKey: "offsetSeconds") as? Int32
         return ReminderTriggerDefinition(
@@ -186,6 +197,7 @@ public final class CoreDataReminderRepository: ReminderRepositoryProtocol {
         )
     }
 
+    /// Executes mapDelivery.
     private static func mapDelivery(_ object: NSManagedObject) -> ReminderDeliveryDefinition {
         ReminderDeliveryDefinition(
             id: object.value(forKey: "id") as? UUID ?? UUID(),

@@ -5,12 +5,14 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
         self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
+    /// Executes fetchContainerMappings.
     public func fetchContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -30,6 +32,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         }
     }
 
+    /// Executes fetchContainerMapping.
     public func fetchContainerMapping(
         provider: String,
         projectID: UUID,
@@ -53,6 +56,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         }
     }
 
+    /// Executes saveContainerMapping.
     public func saveContainerMapping(_ mapping: ExternalContainerMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         upsertContainerMapping(provider: mapping.provider, projectID: mapping.projectID, mutate: { _ in
             mapping
@@ -61,6 +65,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         }
     }
 
+    /// Executes upsertContainerMapping.
     public func upsertContainerMapping(
         provider: String,
         projectID: UUID,
@@ -106,6 +111,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         }
     }
 
+    /// Executes fetchItemMappings.
     public func fetchItemMappings(completion: @escaping (Result<[ExternalItemMapDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -126,6 +132,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         }
     }
 
+    /// Executes saveItemMapping.
     public func saveItemMapping(_ mapping: ExternalItemMapDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         upsertItemMappingByLocalKey(
             provider: mapping.provider,
@@ -138,6 +145,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         )
     }
 
+    /// Executes upsertItemMappingByLocalKey.
     public func upsertItemMappingByLocalKey(
         provider: String,
         localEntityType: String,
@@ -233,6 +241,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         }
     }
 
+    /// Executes upsertItemMappingByExternalKey.
     public func upsertItemMappingByExternalKey(
         provider: String,
         externalItemID: String,
@@ -316,6 +325,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         }
     }
 
+    /// Executes fetchItemMapping.
     public func fetchItemMapping(
         provider: String,
         localEntityType: String,
@@ -346,6 +356,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         }
     }
 
+    /// Executes fetchItemMapping.
     public func fetchItemMapping(
         provider: String,
         externalItemID: String,
@@ -373,6 +384,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         }
     }
 
+    /// Executes mapContainer.
     private static func mapContainer(_ object: NSManagedObject) -> ExternalContainerMapDefinition {
         ExternalContainerMapDefinition(
             id: object.value(forKey: "id") as? UUID ?? UUID(),
@@ -385,6 +397,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         )
     }
 
+    /// Executes mapItem.
     private static func mapItem(_ object: NSManagedObject) -> ExternalItemMapDefinition {
         ExternalItemMapDefinition(
             id: object.value(forKey: "id") as? UUID ?? UUID(),
@@ -400,6 +413,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         )
     }
 
+    /// Executes applyContainer.
     private func applyContainer(_ mapping: ExternalContainerMapDefinition, to object: NSManagedObject) {
         object.setValue(mapping.id, forKey: "id")
         object.setValue(mapping.provider, forKey: "provider")
@@ -410,6 +424,7 @@ public final class CoreDataExternalSyncRepository: ExternalSyncRepositoryProtoco
         object.setValue(mapping.createdAt, forKey: "createdAt")
     }
 
+    /// Executes applyItem.
     private func applyItem(_ mapping: ExternalItemMapDefinition, to object: NSManagedObject) {
         object.setValue(mapping.id, forKey: "id")
         object.setValue(mapping.provider, forKey: "provider")

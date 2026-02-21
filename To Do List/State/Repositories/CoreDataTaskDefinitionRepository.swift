@@ -5,16 +5,19 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
         self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
+    /// Executes fetchAll.
     public func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
         fetchAll(query: nil, completion: completion)
     }
 
+    /// Executes fetchAll.
     public func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -78,6 +81,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         }
     }
 
+    /// Executes fetchTaskDefinition.
     public func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) {
         viewContext.perform {
             do {
@@ -102,6 +106,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         }
     }
 
+    /// Executes create.
     public func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
         let request = CreateTaskDefinitionRequest(
             id: task.id,
@@ -130,6 +135,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         create(request: request, completion: completion)
     }
 
+    /// Executes create.
     public func create(
         request: CreateTaskDefinitionRequest,
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
@@ -162,6 +168,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         }
     }
 
+    /// Executes update.
     public func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
         let request = UpdateTaskDefinitionRequest(
             id: task.id,
@@ -192,6 +199,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         update(request: request, completion: completion)
     }
 
+    /// Executes update.
     public func update(
         request: UpdateTaskDefinitionRequest,
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
@@ -224,6 +232,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         }
     }
 
+    /// Executes fetchChildren.
     public func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) {
         do {
             _ = try V2CoreDataRepositorySupport.requireID(parentTaskID, field: "taskDefinition.parentTaskID")
@@ -237,6 +246,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         )
     }
 
+    /// Executes delete.
     public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -260,6 +270,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         }
     }
 
+    /// Executes mapTaskDefinition.
     static func mapTaskDefinition(_ entity: NSManagedObject) -> TaskDefinition {
         let taskID = attributeValue("taskID", from: entity) ?? attributeValue("id", from: entity) ?? UUID()
         let projectID = attributeValue("projectID", from: entity) ?? ProjectConstants.inboxProjectID
@@ -306,6 +317,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         )
     }
 
+    /// Executes mapTaskDefinitions.
     static func mapTaskDefinitions(
         _ entities: [NSManagedObject],
         context: NSManagedObjectContext
@@ -332,6 +344,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         }
     }
 
+    /// Executes hydrateTagIDsByTaskID.
     fileprivate static func hydrateTagIDsByTaskID(
         taskIDs: [UUID],
         context: NSManagedObjectContext
@@ -371,6 +384,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         return grouped
     }
 
+    /// Executes hydrateDependenciesByTaskID.
     fileprivate static func hydrateDependenciesByTaskID(
         taskIDs: [UUID],
         context: NSManagedObjectContext
@@ -424,6 +438,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         return grouped
     }
 
+    /// Executes hydrateProjectNamesByProjectID.
     fileprivate static func hydrateProjectNamesByProjectID(
         projectIDs: [UUID],
         context: NSManagedObjectContext
@@ -449,6 +464,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         return namesByID
     }
 
+    /// Executes applyCreateRequest.
     private static func applyCreateRequest(_ request: CreateTaskDefinitionRequest, to entity: NSManagedObject) {
         setAttribute("id", value: request.id, on: entity)
         setAttribute("taskID", value: request.id, on: entity)
@@ -479,6 +495,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         setAttribute("version", value: Int32(1), on: entity)
     }
 
+    /// Executes applyUpdateRequest.
     private static func applyUpdateRequest(_ request: UpdateTaskDefinitionRequest, to entity: NSManagedObject) {
         if let title = request.title {
             setAttribute("title", value: title, on: entity)
@@ -560,6 +577,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         return entity.value(forKey: key) as? T
     }
 
+    /// Executes resolvedProjectName.
     private static func resolvedProjectName(from entity: NSManagedObject) -> String? {
         guard let projectRef = entity.value(forKey: "projectRef") as? NSManagedObject else {
             return nil
@@ -567,16 +585,19 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         return attributeValue("name", from: projectRef)
     }
 
+    /// Executes setAttribute.
     private static func setAttribute(_ key: String, value: Any?, on entity: NSManagedObject) {
         guard entity.entity.attributesByName[key] != nil else { return }
         entity.setValue(value, forKey: key)
     }
 
+    /// Executes encodeRepeatPattern.
     private static func encodeRepeatPattern(_ repeatPattern: TaskRepeatPattern?) -> Data? {
         guard let repeatPattern else { return nil }
         return try? JSONEncoder().encode(repeatPattern)
     }
 
+    /// Executes decodeRepeatPattern.
     private static func decodeRepeatPattern(from entity: NSManagedObject) -> TaskRepeatPattern? {
         guard
             let data = attributeValue("repeatPatternData", from: entity) as Data?,
@@ -592,12 +613,14 @@ public final class CoreDataTaskTagLinkRepository: TaskTagLinkRepositoryProtocol 
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
         self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
+    /// Executes fetchTagIDs.
     public func fetchTagIDs(taskID: UUID, completion: @escaping (Result<[UUID], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -616,6 +639,7 @@ public final class CoreDataTaskTagLinkRepository: TaskTagLinkRepositoryProtocol 
         }
     }
 
+    /// Executes replaceTagLinks.
     public func replaceTagLinks(taskID: UUID, tagIDs: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -678,12 +702,14 @@ public final class CoreDataTaskDependencyRepository: TaskDependencyRepositoryPro
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
         self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
+    /// Executes fetchDependencies.
     public func fetchDependencies(taskID: UUID, completion: @escaping (Result<[TaskDependencyLinkDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -718,6 +744,7 @@ public final class CoreDataTaskDependencyRepository: TaskDependencyRepositoryPro
         }
     }
 
+    /// Executes replaceDependencies.
     public func replaceDependencies(
         taskID: UUID,
         dependencies: [TaskDependencyLinkDefinition],

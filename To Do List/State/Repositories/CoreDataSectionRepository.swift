@@ -5,12 +5,14 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
         self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
+    /// Executes fetchSections.
     public func fetchSections(projectID: UUID, completion: @escaping (Result<[TaskerProjectSection], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -31,6 +33,7 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol {
         }
     }
 
+    /// Executes create.
     public func create(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -51,10 +54,12 @@ public final class CoreDataSectionRepository: SectionRepositoryProtocol {
         }
     }
 
+    /// Executes update.
     public func update(_ section: TaskerProjectSection, completion: @escaping (Result<TaskerProjectSection, Error>) -> Void) {
         create(section, completion: completion)
     }
 
+    /// Executes delete.
     public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {

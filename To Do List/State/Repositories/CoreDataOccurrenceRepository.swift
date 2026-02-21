@@ -5,11 +5,13 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
     }
 
+    /// Executes fetchInRange.
     public func fetchInRange(start: Date, end: Date, completion: @escaping (Result<[OccurrenceDefinition], Error>) -> Void) {
         guard start <= end else {
             completion(.failure(NSError(
@@ -61,6 +63,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
         }
     }
 
+    /// Executes saveOccurrences.
     public func saveOccurrences(_ occurrences: [OccurrenceDefinition], completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -107,6 +110,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
         }
     }
 
+    /// Executes resolve.
     public func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -152,6 +156,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
         }
     }
 
+    /// Executes deleteOccurrences.
     public func deleteOccurrences(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -175,6 +180,7 @@ public final class CoreDataOccurrenceRepository: OccurrenceRepositoryProtocol {
         }
     }
 
+    /// Executes fallbackOccurrenceKey.
     private static func fallbackOccurrenceKey(
         scheduleTemplateID: UUID,
         scheduledAt: Date,

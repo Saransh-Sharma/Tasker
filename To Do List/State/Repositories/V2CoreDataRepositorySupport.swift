@@ -2,6 +2,7 @@ import Foundation
 import CoreData
 
 struct V2CoreDataRepositorySupport {
+    /// Executes requireID.
     static func requireID(_ id: UUID, field: String) throws -> UUID {
         let invalid = UUID(uuidString: "00000000-0000-0000-0000-000000000000")
         guard id != invalid else {
@@ -14,6 +15,7 @@ struct V2CoreDataRepositorySupport {
         return id
     }
 
+    /// Executes requireNonEmpty.
     static func requireNonEmpty(_ value: String, field: String) throws -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else {
@@ -26,12 +28,14 @@ struct V2CoreDataRepositorySupport {
         return trimmed
     }
 
+    /// Executes compositeKey.
     static func compositeKey(_ components: [String]) -> String {
         components
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
             .joined(separator: "|")
     }
 
+    /// Executes ensureNoNilIDs.
     static func ensureNoNilIDs(_ ids: [UUID?], context: String) throws {
         guard ids.allSatisfy({ $0 != nil }) else {
             throw NSError(
@@ -42,6 +46,7 @@ struct V2CoreDataRepositorySupport {
         }
     }
 
+    /// Executes fetchObjects.
     static func fetchObjects(
         in context: NSManagedObjectContext,
         entityName: String,
@@ -82,6 +87,7 @@ struct V2CoreDataRepositorySupport {
         return nil
     }
 
+    /// Executes fetchObject.
     static func fetchObject(
         in context: NSManagedObjectContext,
         entityName: String,
@@ -95,6 +101,7 @@ struct V2CoreDataRepositorySupport {
         return try context.fetch(request).first
     }
 
+    /// Executes upsertByPredicate.
     static func upsertByPredicate(
         in context: NSManagedObjectContext,
         entityName: String,
@@ -112,6 +119,7 @@ struct V2CoreDataRepositorySupport {
         return NSEntityDescription.insertNewObject(forEntityName: entityName, into: context)
     }
 
+    /// Executes upsertByID.
     static func upsertByID(
         in context: NSManagedObjectContext,
         entityName: String,

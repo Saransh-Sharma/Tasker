@@ -5,12 +5,14 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
         self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
+    /// Executes fetchAll.
     public func fetchAll(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -29,6 +31,7 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
         }
     }
 
+    /// Executes create.
     public func create(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -48,10 +51,12 @@ public final class CoreDataLifeAreaRepository: LifeAreaRepositoryProtocol {
         }
     }
 
+    /// Executes update.
     public func update(_ area: LifeArea, completion: @escaping (Result<LifeArea, Error>) -> Void) {
         create(area, completion: completion)
     }
 
+    /// Executes delete.
     public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
