@@ -113,11 +113,13 @@ struct ModelsSettingsView: View {
         }
     }
 
+    /// Executes deleteModel.
     private func deleteModel(_ name: String) {
         appManager.removeInstalledModel(name)
         postDeleteAdjustments(removedNames: [name])
     }
 
+    /// Executes deleteModels.
     private func deleteModels(at offsets: IndexSet) {
         let removedNames = offsets.map { appManager.installedModels[$0] }
         for name in removedNames {
@@ -126,6 +128,7 @@ struct ModelsSettingsView: View {
         postDeleteAdjustments(removedNames: removedNames)
     }
 
+    /// Executes postDeleteAdjustments.
     private func postDeleteAdjustments(removedNames: [String]) {
         if let current = appManager.currentModelName, removedNames.contains(current) {
             appManager.currentModelName = appManager.installedModels.first
@@ -141,6 +144,7 @@ struct ModelsSettingsView: View {
         }
     }
 
+    /// Executes switchModel.
     private func switchModel(_ modelName: String) async {
         if let model = ModelConfiguration.availableModels.first(where: {
             $0.name == modelName

@@ -30,6 +30,7 @@ class ChatHostViewController: UIViewController {
     private var hostingController: UIHostingController<AnyView>!
     private var themeCancellable: AnyCancellable?
 
+    /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
         let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
@@ -62,6 +63,7 @@ class ChatHostViewController: UIViewController {
             }
     }
     // MARK: - Navigation Bar Setup
+    /// Executes setupNavigationBar.
     private func setupNavigationBar() {
         // Configure navigation bar appearance using standard iOS APIs
         title = "Eva"
@@ -114,6 +116,7 @@ class ChatHostViewController: UIViewController {
 
     // MARK: - Theme Handling
 
+    /// Executes applyTheme.
     private func applyTheme() {
         let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
         view.backgroundColor = themeColors.bgCanvas

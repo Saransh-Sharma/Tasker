@@ -58,6 +58,7 @@ struct MessageView: View {
         !message.content.contains("</think>")
     }
 
+    /// Executes processThinkingContent.
     func processThinkingContent(_ content: String) -> (String?, String?) {
         guard let startRange = content.range(of: "<think>") else {
             return (nil, content.trimmingCharacters(in: .whitespacesAndNewlines))

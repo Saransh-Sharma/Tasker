@@ -16,6 +16,7 @@ final class DeviceStat: @unchecked Sendable {
     private let initialGPUSnapshot = GPU.snapshot()
     private var timer: Timer?
 
+    /// Initializes a new instance.
     init() {
         timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.updateGPUUsages()
@@ -26,6 +27,7 @@ final class DeviceStat: @unchecked Sendable {
         timer?.invalidate()
     }
 
+    /// Executes updateGPUUsages.
     private func updateGPUUsages() {
         let gpuSnapshotDelta = initialGPUSnapshot.delta(GPU.snapshot())
         DispatchQueue.main.async { [weak self] in

@@ -36,6 +36,7 @@ struct RequestLLMIntent: AppIntent {
         return ""
     }
     
+    /// Executes perform.
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
         let llm = LLMEvaluator()

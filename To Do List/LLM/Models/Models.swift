@@ -66,6 +66,7 @@ public extension ModelConfiguration {
         qwen_3_0_6b_4bit
     }
 
+    /// Executes getModelByName.
     static func getModelByName(_ name: String) -> ModelConfiguration? {
         if let model = availableModels.first(where: { $0.name == name }) {
             return model
@@ -74,6 +75,7 @@ public extension ModelConfiguration {
         }
     }
 
+    /// Executes getPromptHistory.
     internal func getPromptHistory(thread: Thread, systemPrompt: String) -> [[String: String]] {
         var history: [[String: String]] = []
 
@@ -96,6 +98,7 @@ public extension ModelConfiguration {
     }
 
     // TODO: Remove this function when Jinja gets updated
+    /// Executes formatForTokenizer.
     func formatForTokenizer(_ message: String) -> String {
         if modelType == .reasoning {
             let pattern = "<think>.*?(</think>|$)"

@@ -14,6 +14,7 @@ struct OnboardingInstallModelView: View {
     @State var selectedModel = ModelConfiguration.defaultModel
     let suggestedModel = ModelConfiguration.defaultModel
 
+    /// Executes sizeBadge.
     func sizeBadge(_ model: ModelConfiguration?) -> String? {
         guard let size = model?.modelSize else { return nil }
         return "\(size) GB"
@@ -174,6 +175,7 @@ struct OnboardingInstallModelView: View {
             .sorted { $0.name < $1.name }
     }
 
+    /// Executes checkModels.
     func checkModels() {
         if appManager.installedModels.contains(suggestedModel.name) {
             if let model = filteredModels.first {
@@ -182,6 +184,7 @@ struct OnboardingInstallModelView: View {
         }
     }
 
+    /// Executes checkMetal3Support.
     func checkMetal3Support() {
         #if os(iOS)
         if let device = MTLCreateSystemDefaultDevice() {
