@@ -51,6 +51,7 @@ public struct ParsedOccurrenceKey: Codable, Equatable, Hashable {
     public var sourceID: UUID?
     public var isCanonical: Bool
 
+    /// Initializes a new instance.
     public init(
         scheduleTemplateID: UUID,
         scheduledAt: Date,
@@ -65,6 +66,7 @@ public struct ParsedOccurrenceKey: Codable, Equatable, Hashable {
 }
 
 public enum OccurrenceKeyCodec {
+    /// Executes encode.
     public static func encode(
         scheduleTemplateID: UUID,
         scheduledAt: Date,
@@ -73,6 +75,7 @@ public enum OccurrenceKeyCodec {
         "\(scheduleTemplateID.uuidString)|\(isoFormatter.string(from: scheduledAt))|\(sourceID.uuidString)"
     }
 
+    /// Executes parse.
     public static func parse(_ rawValue: String) -> ParsedOccurrenceKey? {
         let key = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard key.isEmpty == false else { return nil }
@@ -106,6 +109,7 @@ public enum OccurrenceKeyCodec {
         return nil
     }
 
+    /// Executes canonicalize.
     public static func canonicalize(
         _ rawValue: String,
         fallbackTemplateID: UUID?,

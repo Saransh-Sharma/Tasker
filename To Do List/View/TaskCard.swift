@@ -17,6 +17,7 @@ struct TaskCard: View {
     @State private var isPressed = false
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
+    /// Initializes a new instance.
     init(
         task: TaskDefinition,
         onTap: (() -> Void)? = nil,

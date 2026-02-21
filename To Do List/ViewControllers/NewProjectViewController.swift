@@ -11,6 +11,7 @@ import SwiftUI
 import MaterialComponents.MaterialTextControls_OutlinedTextFields
 
 extension String {
+    /// Executes trimmingLeadingAndTrailingSpaces.
     func trimmingLeadingAndTrailingSpaces(using characterSet: CharacterSet = .whitespacesAndNewlines) -> String {
         return trimmingCharacters(in: characterSet)
     }
@@ -42,6 +43,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
     var useCaseCoordinator: UseCaseCoordinator!
     var presentationDependencyContainer: PresentationDependencyContainer?
     
+    /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
         guard useCaseCoordinator != nil else {
@@ -88,6 +90,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         // Do any additional setup after loading the view.
     }
     
+    /// Executes textField.
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         let oldText = textField.text!
         logDebug("old text is: \(oldText)")
@@ -113,6 +116,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         return true
     }
     
+    /// Executes addProjectDoneButton.
     func addProjectDoneButton() {
         
         button.setTitle("Add Project", for: UIControl.State.normal)
@@ -125,6 +129,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
     
     
     
+    /// Executes addOrModProject.
     @objc func addOrModProject() {
         if currentProjectInTexField != "" {
             button.isEnabled = true
@@ -189,6 +194,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         }
     }
     
+    /// Executes addLabel.
     @discardableResult
     func addLabel(text: String, alignment: NSTextAlignment = .natural) -> UILabel {
         let label = UILabel()
@@ -201,6 +207,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         return label
     }
     
+    /// Executes addSeparator.
     func addSeparator() -> UIView {
         let separator = UIView()
         separator.backgroundColor = .separator
@@ -209,6 +216,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         return separator
     }
     
+    /// Executes addSpacer.
     func addSpacer() -> UIView {
         let spacer = UIView()
         spacer.heightAnchor.constraint(equalToConstant: NewProjectViewController.margin).isActive = true
@@ -216,6 +224,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         return spacer
     }
     
+    /// Executes showMessage.
     func showMessage(_ message: String, autoDismiss: Bool = true, completion: (() -> Void)? = nil) {
         let alert = UIAlertController(title: message, message: nil, preferredStyle: .alert)
         present(alert, animated: true)
@@ -236,6 +245,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
     }
     
     // MARK: MAKE project name text field
+    /// Executes addProjectNameTexField.
     func addProjectNameTexField() {
         
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
@@ -265,6 +275,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
     }
     
     // MARK: MAKE project description ext field
+    /// Executes addProjectDesccriptionTexField.
     func addProjectDesccriptionTexField() {
         
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
@@ -290,6 +301,7 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
 
 
 
+    /// Executes createVerticalContainer.
     static func createVerticalContainer() -> UIStackView {
         let container = UIStackView(frame: .zero)
         container.axis = .vertical

@@ -141,11 +141,13 @@ struct AddTaskForedropView: View {
 
     // MARK: - Helpers
 
+    /// Executes submitTask.
     private func submitTask() {
         guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
         onCreate()
     }
 
+    /// Executes errorMessageView.
     private func errorMessageView(_ message: String) -> some View {
         HStack(spacing: spacing.s8) {
             Image(systemName: "exclamationmark.triangle.fill")

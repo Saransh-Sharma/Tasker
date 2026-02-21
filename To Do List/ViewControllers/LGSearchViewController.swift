@@ -37,11 +37,13 @@ class LGFilterButton: LGBaseView {
 
     // MARK: - Initialization
 
+    /// Initializes a new instance.
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
     }
 
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupUI()
@@ -49,6 +51,7 @@ class LGFilterButton: LGBaseView {
 
     // MARK: - Setup
 
+    /// Executes setupUI.
     private func setupUI() {
         cornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.r2
         borderWidth = 0
@@ -67,10 +70,12 @@ class LGFilterButton: LGBaseView {
 
     // MARK: - Public Methods
 
+    /// Executes setTitle.
     func setTitle(_ title: String, for state: UIControl.State) {
         titleLabel.text = title
     }
 
+    /// Executes addTapGesture.
     func addTapGesture(target: Any?, action: Selector) {
         let tapGesture = UITapGestureRecognizer(target: target, action: action)
         addGestureRecognizer(tapGesture)
@@ -79,6 +84,7 @@ class LGFilterButton: LGBaseView {
 
     // MARK: - Appearance Methods
 
+    /// Executes updateAppearance.
     func updateAppearance() {
         let todoColors = TaskerThemeManager.shared.currentTheme.tokens.color
         if isSelected {
@@ -231,6 +237,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     
     // MARK: - Lifecycle
 
+    /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
         guard useCaseCoordinator != nil else {
@@ -254,11 +261,13 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
+    /// Executes viewWillAppear.
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         applyTheme()
     }
 
+    /// Executes viewDidLayoutSubviews.
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateBackdropForedropLayout()
@@ -266,6 +275,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     
     // MARK: - Setup
 
+    /// Executes setupViewModel.
     private func setupViewModel() {
         viewModel = LGSearchViewModel(useCaseCoordinator: useCaseCoordinator)
         viewModel.loadProjects()
@@ -275,6 +285,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
+    /// Executes setupBackdropForedropArchitecture.
     private func setupBackdropForedropArchitecture() {
         // Add main containers to view hierarchy
         view.addSubview(backdropContainer)
@@ -306,6 +317,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         foredropContainer.applyTaskerElevation(.e1)
     }
 
+    /// Executes setupNavigationBar.
     private func setupNavigationBar() {
         // Add navigation bar to backdrop
         backdropContainer.addSubview(navigationBarView)
@@ -339,6 +351,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         ])
     }
 
+    /// Executes setupSearchBar.
     private func setupSearchBar() {
         // Add search bar to backdrop, below navigation
         backdropContainer.addSubview(searchBar)
@@ -357,6 +370,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         searchBar.animateGlassAppearance()
     }
 
+    /// Executes setupFilters.
     private func setupFilters() {
         // Add filter scroll view to backdrop, below search bar
         backdropContainer.addSubview(filterScrollView)
@@ -380,6 +394,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         setupFilterButtons()
     }
 
+    /// Executes setupForedropContent.
     private func setupForedropContent() {
         // Add scroll view to foredrop
         foredropContainer.addSubview(scrollView)
@@ -428,11 +443,13 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         ])
     }
 
+    /// Executes updateBackdropForedropLayout.
     private func updateBackdropForedropLayout() {
         // This method can be called from viewDidLayoutSubviews to update layout if needed
         // For now, constraints handle the layout automatically
     }
     
+    /// Executes setupFilterButtons.
     private func setupFilterButtons() {
         // Clear any existing buttons
         filterStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -475,6 +492,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         animateFilterButtons()
     }
 
+    /// Executes createGlassFilterButton.
     private func createGlassFilterButton(title: String, color: UIColor? = nil, filterType: FilterType) -> LGFilterButton {
         let button = LGFilterButton()
         button.setTitle(title, for: .normal)
@@ -490,6 +508,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         return button
     }
 
+    /// Executes animateFilterButtons.
     private func animateFilterButtons() {
         for (index, button) in filterStackView.arrangedSubviews.enumerated() {
             button.alpha = 0
@@ -519,6 +538,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         case all, today, overdue, completed
     }
     
+    /// Executes setupKeyboardHandling.
     private func setupKeyboardHandling() {
         NotificationCenter.default.addObserver(
             self,
@@ -537,6 +557,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
 
     // MARK: - Theme Application
 
+    /// Executes applyTheme.
     private func applyTheme() {
         view.backgroundColor = todoColors.bgCanvas
         backdropContainer.backgroundColor = todoColors.bgElevated
@@ -622,6 +643,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         applyFiltersAndSearch()
     }
 
+    /// Executes applyFiltersAndSearch.
     private func applyFiltersAndSearch() {
         // Clear existing filters
         viewModel.clearFilters()
@@ -663,6 +685,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
+    /// Executes applyStatusFilter.
     private func applyStatusFilter(_ statusType: StatusFilterType) {
         switch statusType {
         case .all:
@@ -676,14 +699,17 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
+    /// Executes filterTasksForToday.
     private func filterTasksForToday() {
         applyStatusFilter(.today)
     }
 
+    /// Executes filterTasksForOverdue.
     private func filterTasksForOverdue() {
         applyStatusFilter(.overdue)
     }
 
+    /// Executes filterTasksForCompleted.
     private func filterTasksForCompleted() {
         applyStatusFilter(.completed)
     }
@@ -707,6 +733,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     
     // MARK: - Update Results
 
+    /// Executes updateResults.
     private func updateResults() {
         // Clear existing cards
         contentStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -719,6 +746,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
+    /// Executes showEmptyState.
     private func showEmptyState() {
         emptyStateView.isHidden = false
         scrollView.isHidden = true
@@ -732,11 +760,13 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
+    /// Executes hideEmptyState.
     private func hideEmptyState() {
         emptyStateView.isHidden = true
         scrollView.isHidden = false
     }
 
+    /// Executes displayTaskResults.
     private func displayTaskResults() {
         // Group by project for better organization
         let grouped = viewModel.groupTasksByProject(tasks)
@@ -774,6 +804,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
+    /// Executes createProjectHeader.
     private func createProjectHeader(project: String, count: Int) -> UIView {
         let headerContainer = LGBaseView()
         headerContainer.cornerRadius = 12
@@ -798,6 +829,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         return headerContainer
     }
 
+    /// Executes animateCardAppearance.
     private func animateCardAppearance(_ card: LGTaskCard, delay: TimeInterval) {
         card.alpha = 0
         card.transform = CGAffineTransform(translationX: 0, y: 20)
@@ -813,10 +845,12 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
+    /// Executes showTaskDetail.
     private func showTaskDetail(_ task: TaskDefinition) {
         presentTaskDetailSheet(for: task)
     }
 
+    /// Executes presentTaskDetailSheet.
     private func presentTaskDetailSheet(for task: TaskDefinition) {
         logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=present_start taskID=\(task.id.uuidString)")
         let detailView = TaskDetailSheetView(
@@ -994,11 +1028,13 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.id.uuidString)")
     }
 
+    /// Executes refreshAfterTaskDetailMutation.
     private func refreshAfterTaskDetailMutation(reason: String) {
         applyFiltersAndSearch()
         logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=refresh reason=\(reason)")
     }
 
+    /// Executes toggleCompletion.
     private func toggleCompletion(for task: TaskDefinition) {
         viewModel.setTaskCompletion(taskID: task.id, to: !task.isComplete) { [weak self] success in
             guard success else { return }
@@ -1006,6 +1042,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
     }
 
+    /// Executes deleteTask.
     private func deleteTask(_ task: TaskDefinition) {
         guard task.recurrenceSeriesID != nil else {
             viewModel.deleteTask(taskID: task.id) { [weak self] success in
@@ -1046,6 +1083,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         present(alert, animated: true)
     }
 
+    /// Executes rescheduleTask.
     private func rescheduleTask(_ task: TaskDefinition, to date: Date) {
         viewModel.rescheduleTask(taskID: task.id, to: date) { [weak self] success in
             guard success else { return }
@@ -1061,6 +1099,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
 // MARK: - LGSearchBarDelegate
 
 extension LGSearchViewController: LGSearchBarDelegate {
+    /// Executes searchBar.
     func searchBar(_ searchBar: LGSearchBar, textDidChange text: String) {
         if text.isEmpty {
             viewModel.searchResults = []
@@ -1070,18 +1109,22 @@ extension LGSearchViewController: LGSearchBarDelegate {
         }
     }
     
+    /// Executes searchBarDidBeginEditing.
     func searchBarDidBeginEditing(_ searchBar: LGSearchBar) {
         // Optional: Handle begin editing
     }
     
+    /// Executes searchBarDidEndEditing.
     func searchBarDidEndEditing(_ searchBar: LGSearchBar) {
         // Optional: Handle end editing
     }
     
+    /// Executes searchBarSearchButtonTapped.
     func searchBarSearchButtonTapped(_ searchBar: LGSearchBar) {
         _ = searchBar.resignFirstResponder()
     }
     
+    /// Executes searchBarCancelButtonTapped.
     func searchBarCancelButtonTapped(_ searchBar: LGSearchBar) {
         dismiss(animated: true)
     }

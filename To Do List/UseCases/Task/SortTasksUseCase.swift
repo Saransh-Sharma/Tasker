@@ -18,6 +18,7 @@ public final class SortTasksUseCase {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     public init(cacheService: CacheServiceProtocol? = nil) {
         self.cacheService = cacheService
     }
@@ -289,6 +290,7 @@ public final class SortTasksUseCase {
     
     // MARK: - Private Helper Methods
     
+    /// Executes performSort.
     private func performSort(tasks: [TaskDefinition], criteria: SortCriteria) throws -> [TaskDefinition] {
         return tasks.sorted { task1, task2 in
             // Primary sort
@@ -315,6 +317,7 @@ public final class SortTasksUseCase {
         }
     }
     
+    /// Executes compareTasksBy.
     private func compareTasksBy(_ task1: TaskDefinition, _ task2: TaskDefinition, field: SortField) -> ComparisonResult {
         switch field {
         case .priority(let order):
@@ -371,6 +374,7 @@ public final class SortTasksUseCase {
         }
     }
     
+    /// Executes invertComparison.
     private func invertComparison(_ comparison: ComparisonResult) -> ComparisonResult {
         switch comparison {
         case .orderedAscending: return .orderedDescending
@@ -379,6 +383,7 @@ public final class SortTasksUseCase {
         }
     }
     
+    /// Executes compareInts.
     private func compareInts(_ int1: Int, _ int2: Int) -> ComparisonResult {
         if int1 < int2 {
             return .orderedAscending
@@ -389,6 +394,7 @@ public final class SortTasksUseCase {
         }
     }
     
+    /// Executes determineSmartSortCriteria.
     private func determineSmartSortCriteria(for context: SortContext) -> SortCriteria {
         switch context {
         case .general:
@@ -433,6 +439,7 @@ public final class SortTasksUseCase {
         }
     }
     
+    /// Executes groupTasks.
     private func groupTasks(_ tasks: [TaskDefinition], by criteria: GroupingCriteria, sortedBy sortField: SortField) -> [TaskGroup] {
         var groups: [String: [TaskDefinition]] = [:]
         
@@ -493,6 +500,7 @@ public struct SortCriteria {
     public let secondarySort: SortField?
     public let tertiarySort: SortField?
     
+    /// Initializes a new instance.
     public init(
         primarySort: SortField,
         secondarySort: SortField? = nil,

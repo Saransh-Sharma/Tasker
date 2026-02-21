@@ -8,10 +8,15 @@
 import UIKit
 
 protocol LGSearchBarDelegate: AnyObject {
+    /// Executes searchBar.
     func searchBar(_ searchBar: LGSearchBar, textDidChange text: String)
+    /// Executes searchBarDidBeginEditing.
     func searchBarDidBeginEditing(_ searchBar: LGSearchBar)
+    /// Executes searchBarDidEndEditing.
     func searchBarDidEndEditing(_ searchBar: LGSearchBar)
+    /// Executes searchBarSearchButtonTapped.
     func searchBarSearchButtonTapped(_ searchBar: LGSearchBar)
+    /// Executes searchBarCancelButtonTapped.
     func searchBarCancelButtonTapped(_ searchBar: LGSearchBar)
 }
 
@@ -78,11 +83,13 @@ class LGSearchBar: LGBaseView {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
     }
     
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupUI()
@@ -90,6 +97,7 @@ class LGSearchBar: LGBaseView {
     
     // MARK: - Setup
     
+    /// Executes setupUI.
     private func setupUI() {
         cornerRadius = corners.input
         
@@ -156,14 +164,17 @@ class LGSearchBar: LGBaseView {
     
     // MARK: - Public Methods
     
+    /// Executes becomeFirstResponder.
     override func becomeFirstResponder() -> Bool {
         return searchTextField.becomeFirstResponder()
     }
     
+    /// Executes resignFirstResponder.
     override func resignFirstResponder() -> Bool {
         return searchTextField.resignFirstResponder()
     }
     
+    /// Executes showCancelButton.
     private func showCancelButton() {
         cancelButtonWidthConstraint?.constant = 70
         
@@ -173,6 +184,7 @@ class LGSearchBar: LGBaseView {
         }
     }
     
+    /// Executes hideCancelButton.
     private func hideCancelButton() {
         cancelButtonWidthConstraint?.constant = 0
 
@@ -184,6 +196,7 @@ class LGSearchBar: LGBaseView {
 
     // MARK: - Theme Application
 
+    /// Executes applyTheme.
     func applyTheme() {
         // Update search icon color
         searchIconImageView.tintColor = todoColors.textPrimary.withAlphaComponent(0.6)
@@ -207,6 +220,7 @@ class LGSearchBar: LGBaseView {
 // MARK: - UITextFieldDelegate
 
 extension LGSearchBar: UITextFieldDelegate {
+    /// Executes textFieldDidBeginEditing.
     func textFieldDidBeginEditing(_ textField: UITextField) {
         showCancelButton()
         delegate?.searchBarDidBeginEditing(self)
@@ -218,6 +232,7 @@ extension LGSearchBar: UITextFieldDelegate {
         }
     }
 
+    /// Executes textFieldDidEndEditing.
     func textFieldDidEndEditing(_ textField: UITextField) {
         hideCancelButton()
         delegate?.searchBarDidEndEditing(self)
@@ -229,6 +244,7 @@ extension LGSearchBar: UITextFieldDelegate {
         }
     }
     
+    /// Executes textFieldShouldReturn.
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         delegate?.searchBarSearchButtonTapped(self)
         return true

@@ -45,6 +45,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     var homeTopBar = UIView()
     
     // MARK: - Lifecycle Methods
+    /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -75,6 +76,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         applyTheme()
     }
     
+    /// Executes viewWillAppear.
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         // Refresh table data when view appears
@@ -82,11 +84,13 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         settingsTableView.reloadData()
     }
     
+    /// Executes viewWillDisappear.
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
     }
     
     // MARK: - UI Setup
+    /// Executes setupTableView.
     private func setupTableView() {
         // Create and configure the table view
         settingsTableView = UITableView(frame: view.bounds, style: .insetGrouped)
@@ -102,6 +106,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     }
     
     // MARK: - Data Setup
+    /// Executes setupSettingsSections.
     private func setupSettingsSections() {
         // Compute LLM model display name to show as badge/detail
         let modelDisplayName = appManager.modelDisplayName(appManager.currentModelName ?? "")
@@ -133,17 +138,20 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     }
     
     // MARK: - Actions
+    /// Executes doneTapped.
     @objc func doneTapped() {
         self.dismiss(animated: true, completion: nil)
     }
     
     // MARK: - Theme Navigation
+    /// Executes navigateToThemeSelection.
     private func navigateToThemeSelection() {
         let vc = ThemeSelectionViewController()
         self.navigationController?.pushViewController(vc, animated: true)
     }
 
     // MARK: - LLM Navigation
+    /// Executes navigateToLLMChatsSettings.
     private func navigateToLLMChatsSettings() {
         let view = ChatsSettingsView(currentThread: .constant(nil))
             .environmentObject(appManager)
@@ -153,6 +161,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         self.navigationController?.pushViewController(vc, animated: true)
     }
     
+    /// Executes navigateToLLMModelsSettings.
     private func navigateToLLMModelsSettings() {
         let view = ModelsSettingsView()
             .environmentObject(appManager)
@@ -162,6 +171,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         self.navigationController?.pushViewController(vc, animated: true)
     }
     
+    /// Executes navigateToProjectManagement.
     private func navigateToProjectManagement() {
         guard let presentationDependencyContainer else {
             assertionFailure("SettingsPageViewController requires injected PresentationDependencyContainer")
@@ -174,12 +184,14 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         navigationController?.pushViewController(controller, animated: true)
     }
     
+    /// Executes showNotImplementedAlert.
     private func showNotImplementedAlert() {
         let alert = UIAlertController(title: "Coming Soon", message: "This feature is not yet implemented", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
         present(alert, animated: true)
     }
     
+    /// Executes showVersionInfo.
     private func showVersionInfo() {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
         let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
@@ -202,18 +214,22 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
 
 // MARK: - UITableViewDataSource
 extension SettingsPageViewController: UITableViewDataSource {
+    /// Executes numberOfSections.
     func numberOfSections(in tableView: UITableView) -> Int {
         return sections.count
     }
     
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return sections[section].items.count
     }
     
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         return sections[section].title
     }
     
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let sectionTitle = sections[indexPath.section].title
         let itemTitle = sections[indexPath.section].items[indexPath.row].title
@@ -265,6 +281,7 @@ extension SettingsPageViewController: UITableViewDataSource {
 
 // MARK: - UITableViewDelegate
 extension SettingsPageViewController: UITableViewDelegate {
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         guard sections[indexPath.section].title == "Appearance" else {
             return UITableView.automaticDimension
@@ -274,6 +291,7 @@ extension SettingsPageViewController: UITableViewDelegate {
         if itemTitle == "Dark Mode" { return 52 }
         return UITableView.automaticDimension
     }
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
@@ -352,6 +370,7 @@ private struct SettingsProjectManagementV2View: View {
         }
     }
 
+    /// Executes deleteProjects.
     private func deleteProjects(at offsets: IndexSet) {
         for index in offsets {
             guard viewModel.filteredProjects.indices.contains(index) else { continue }
@@ -361,11 +380,13 @@ private struct SettingsProjectManagementV2View: View {
         }
     }
 
+    /// Executes normalizedDescription.
     private func normalizedDescription() -> String? {
         let trimmed = newProjectDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// Executes resetDraft.
     private func resetDraft() {
         newProjectName = ""
         newProjectDescription = ""
@@ -374,6 +395,7 @@ private struct SettingsProjectManagementV2View: View {
 
 // MARK: - DarkModeToggleCellDelegate
 extension SettingsPageViewController: DarkModeToggleCellDelegate {
+    /// Executes darkModeToggleCell.
     func darkModeToggleCell(_ cell: DarkModeToggleCell, didToggle isDark: Bool) {
         isDarkMode = isDark
         let newStyle: UIUserInterfaceStyle = isDark ? .dark : .light
@@ -389,6 +411,7 @@ extension SettingsPageViewController: DarkModeToggleCellDelegate {
 
 // MARK: - Theme Change Handling
 extension SettingsPageViewController {
+    /// Executes applyTheme.
     private func applyTheme() {
         let colors = TaskerThemeManager.shared.currentTheme.tokens.color
         view.tintColor = colors.accentPrimary

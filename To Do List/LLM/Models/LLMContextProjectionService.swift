@@ -7,6 +7,7 @@ enum LLMContextRepositoryProvider {
     static var taskReadModelRepository: TaskReadModelRepositoryProtocol? { taskReadModelRepositoryStorage }
     static var projectRepository: ProjectRepositoryProtocol? { projectRepositoryStorage }
 
+    /// Executes configure.
     static func configure(
         taskReadModelRepository: TaskReadModelRepositoryProtocol?,
         projectRepository: ProjectRepositoryProtocol?
@@ -15,6 +16,7 @@ enum LLMContextRepositoryProvider {
         self.projectRepositoryStorage = projectRepository
     }
 
+    /// Executes makeService.
     static func makeService() -> LLMContextProjectionService? {
         guard let taskReadModelRepository = taskReadModelRepositoryStorage,
               let projectRepository = projectRepositoryStorage else {
@@ -26,6 +28,7 @@ enum LLMContextRepositoryProvider {
         )
     }
 
+    /// Executes findProjectNameSync.
     static func findProjectNameSync(matching query: String) -> String? {
         guard let projectRepository = projectRepositoryStorage else { return nil }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -48,6 +51,7 @@ struct LLMContextProjectionService {
     let taskReadModelRepository: TaskReadModelRepositoryProtocol
     let projectRepository: ProjectRepositoryProtocol
 
+    /// Executes buildTodayJSON.
     func buildTodayJSON(completion: @escaping (String) -> Void) {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: Date())
@@ -69,6 +73,7 @@ struct LLMContextProjectionService {
         }
     }
 
+    /// Executes buildUpcomingJSON.
     func buildUpcomingJSON(completion: @escaping (String) -> Void) {
         let calendar = Calendar.current
         let tomorrow = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date())
@@ -87,6 +92,7 @@ struct LLMContextProjectionService {
         }
     }
 
+    /// Executes buildProjectJSON.
     func buildProjectJSON(projectID: UUID, completion: @escaping (String) -> Void) {
         projectRepository.fetchProject(withId: projectID) { projectResult in
             let projectName: String
@@ -120,6 +126,7 @@ struct LLMContextProjectionService {
         }
     }
 
+    /// Executes encode.
     private static func encode(tasks: [TaskDefinition], contextType: String, metadata: [String: Any] = [:]) -> String {
         var payload: [String: Any] = [
             "context_type": contextType,

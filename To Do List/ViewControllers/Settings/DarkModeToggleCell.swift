@@ -4,6 +4,7 @@ import UIKit
 
 @MainActor
 protocol DarkModeToggleCellDelegate: AnyObject {
+    /// Executes darkModeToggleCell.
     func darkModeToggleCell(_ cell: DarkModeToggleCell, didToggle isDark: Bool)
 }
 
@@ -19,11 +20,13 @@ final class DarkModeToggleCell: UITableViewCell {
     private let iconView = UIImageView()
     private let titleLabel = UILabel()
 
+    /// Initializes a new instance.
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         configure()
     }
 
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         configure()
@@ -31,6 +34,7 @@ final class DarkModeToggleCell: UITableViewCell {
 
     // MARK: - Public API
 
+    /// Executes update.
     func update(isDarkMode: Bool) {
         modeSwitch.isOn = isDarkMode
         updateVisuals(isDark: isDarkMode, animated: false)
@@ -38,6 +42,7 @@ final class DarkModeToggleCell: UITableViewCell {
 
     // MARK: - Setup
 
+    /// Executes configure.
     private func configure() {
         selectionStyle = .none
         accessibilityIdentifier = "settings.darkModeToggle"
@@ -81,6 +86,7 @@ final class DarkModeToggleCell: UITableViewCell {
         updateVisuals(isDark: false, animated: false)
     }
 
+    /// Executes updateVisuals.
     private func updateVisuals(isDark: Bool, animated: Bool) {
         let iconName = isDark ? "moon.fill" : "sun.max.fill"
         let title = isDark ? "Dark Mode" : "Light Mode"

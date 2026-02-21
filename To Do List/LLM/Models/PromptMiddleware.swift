@@ -57,6 +57,7 @@ struct PromptMiddleware {
         return tasks.map { "• \($0.title)" }.joined(separator: "\n")
     }
 
+    /// Executes fetchAllTasksSync.
     private static func fetchAllTasksSync() -> [TaskDefinition] {
         guard let repository = LLMContextRepositoryProvider.taskReadModelRepository else {
             return []

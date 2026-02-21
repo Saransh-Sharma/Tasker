@@ -33,12 +33,14 @@ class LGSearchViewModel {
 
     // MARK: - Initialization
 
+    /// Initializes a new instance.
     init(useCaseCoordinator: UseCaseCoordinator) {
         self.useCaseCoordinator = useCaseCoordinator
     }
 
     // MARK: - Search Methods
 
+    /// Executes search.
     func search(query: String) {
         lastQuery = query
         fetchTasksForCurrentStatusFilter { [weak self] tasks in
@@ -50,10 +52,12 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes searchAll.
     func searchAll() {
         search(query: lastQuery)
     }
 
+    /// Executes loadProjects.
     func loadProjects(completion: (() -> Void)? = nil) {
         useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
             DispatchQueue.main.async {
@@ -65,10 +69,12 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes setStatusFilter.
     func setStatusFilter(_ filter: StatusFilterType) {
         currentStatusFilter = filter
     }
 
+    /// Executes setTaskCompletion.
     func setTaskCompletion(taskID: UUID, to isComplete: Bool, completion: @escaping (Bool) -> Void) {
         useCaseCoordinator.completeTaskDefinition.setCompletion(
             taskID: taskID,
@@ -90,6 +96,7 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes deleteTask.
     func deleteTask(taskID: UUID, scope: TaskDeleteScope = .single, completion: @escaping (Bool) -> Void) {
         useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID, scope: scope) { result in
             DispatchQueue.main.async {
@@ -108,6 +115,7 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes rescheduleTask.
     func rescheduleTask(taskID: UUID, to newDate: Date?, completion: @escaping (Bool) -> Void) {
         useCaseCoordinator.rescheduleTaskDefinition.execute(taskID: taskID, newDate: newDate) { result in
             DispatchQueue.main.async {
@@ -126,6 +134,7 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes updateTask.
     func updateTask(
         taskID: UUID,
         request: UpdateTaskDefinitionRequest,
@@ -150,6 +159,7 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes loadTaskDetailMetadata.
     func loadTaskDetailMetadata(
         projectID: UUID,
         completion: @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void
@@ -164,6 +174,7 @@ class LGSearchViewModel {
         var loadedTags: [TagDefinition] = []
         var availableTasks: [TaskDefinition] = []
 
+        /// Executes record.
         func record(_ error: Error) {
             lock.lock()
             if firstError == nil {
@@ -243,6 +254,7 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes loadTaskChildren.
     func loadTaskChildren(
         parentTaskID: UUID,
         completion: @escaping (Result<[TaskDefinition], Error>) -> Void
@@ -254,6 +266,7 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes createTaskDefinition.
     func createTaskDefinition(
         request: CreateTaskDefinitionRequest,
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
@@ -265,6 +278,7 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes createTagForTaskDetail.
     func createTagForTaskDetail(
         name: String,
         completion: @escaping (Result<TagDefinition, Error>) -> Void
@@ -276,6 +290,7 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes createProjectForTaskDetail.
     func createProjectForTaskDetail(
         name: String,
         completion: @escaping (Result<Project, Error>) -> Void
@@ -289,6 +304,7 @@ class LGSearchViewModel {
 
     // MARK: - Filter Methods
 
+    /// Executes toggleProjectFilter.
     func toggleProjectFilter(_ project: String) {
         if filteredProjects.contains(project) {
             filteredProjects.remove(project)
@@ -297,6 +313,7 @@ class LGSearchViewModel {
         }
     }
     
+    /// Executes togglePriorityFilter.
     func togglePriorityFilter(_ priority: Int32) {
         if filteredPriorities.contains(priority) {
             filteredPriorities.remove(priority)
@@ -305,6 +322,7 @@ class LGSearchViewModel {
         }
     }
     
+    /// Executes clearFilters.
     func clearFilters() {
         filteredProjects.removeAll()
         filteredPriorities.removeAll()
@@ -313,17 +331,20 @@ class LGSearchViewModel {
 
     // MARK: - Helper Methods
 
+    /// Executes getAllProjects.
     func getAllProjects() -> [String] {
         let projects = Set(searchResults.compactMap { $0.projectName })
         return Array(projects).sorted()
     }
 
+    /// Executes groupTasksByProject.
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
         let grouped = Dictionary(grouping: tasks) { $0.projectName ?? "Inbox" }
         return grouped.map { (project: $0.key, tasks: $0.value) }
             .sorted { $0.project < $1.project }
     }
 
+    /// Executes fetchTasksForCurrentStatusFilter.
     private func fetchTasksForCurrentStatusFilter(completion: @escaping ([TaskDefinition]) -> Void) {
         triggerRecurringTopUpIfNeeded()
         let handler: (Result<[TaskDefinition], Error>) -> Void = { result in
@@ -367,6 +388,7 @@ class LGSearchViewModel {
         }
     }
 
+    /// Executes triggerRecurringTopUpIfNeeded.
     private func triggerRecurringTopUpIfNeeded() {
         let now = Date()
         if let lastRecurringTopUpAt,
@@ -377,6 +399,7 @@ class LGSearchViewModel {
         useCaseCoordinator.createTaskDefinition.maintainRecurringSeries(daysAhead: 45) { _ in }
     }
 
+    /// Executes applyInMemoryFilters.
     private func applyInMemoryFilters(tasks: [TaskDefinition], query: String) -> [TaskDefinition] {
         let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let normalizedProjects = Set(filteredProjects.map { $0.lowercased() })

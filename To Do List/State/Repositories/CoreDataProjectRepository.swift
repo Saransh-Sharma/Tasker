@@ -17,6 +17,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     private let backgroundContext: NSManagedObjectContext
     // MARK: - Initialization
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
@@ -28,6 +29,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Fetch Operations
     
+    /// Executes fetchAllProjects.
     public func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
@@ -43,6 +45,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
+    /// Executes fetchProject.
     public func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
@@ -59,6 +62,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
+    /// Executes fetchProject.
     public func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
@@ -75,11 +79,13 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
+    /// Executes fetchInboxProject.
     public func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
         let inboxProject = Project.createInbox()
         completion(.success(inboxProject))
     }
     
+    /// Executes fetchCustomProjects.
     public func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
@@ -99,6 +105,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Create Operations
     
+    /// Executes createProject.
     public func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
         // First validate the name is unique
         isProjectNameAvailable(project.name, excludingId: nil) { [weak self] result in
@@ -132,6 +139,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
+    /// Executes ensureInboxProject.
     public func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
@@ -185,6 +193,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
 
+    /// Executes repairProjectIdentityCollisions.
     public func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -252,6 +261,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Update Operations
     
+    /// Executes updateProject.
     public func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
         backgroundContext.perform {
             // Find the existing entity
@@ -276,6 +286,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
+    /// Executes renameProject.
     public func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
         fetchProject(withId: id) { [weak self] result in
             switch result {
@@ -325,6 +336,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Delete Operations
     
+    /// Executes deleteProject.
     public func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
         fetchProject(withId: id) { [weak self] result in
             switch result {
@@ -392,6 +404,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Task Association
     
+    /// Executes getTaskCount.
     public func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<TaskDefinitionEntity> = TaskDefinitionEntity.fetchRequest()
@@ -406,6 +419,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
     
+    /// Executes moveTasks.
     public func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         fetchProject(withId: sourceProjectId) { [weak self] sourceResult in
             switch sourceResult {
@@ -457,6 +471,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
     
     // MARK: - Validation
     
+    /// Executes isProjectNameAvailable.
     public func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
         viewContext.perform {
             let request: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
@@ -485,6 +500,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
 
+    /// Executes normalizeProjectIdentity.
     private func normalizeProjectIdentity(_ entity: ProjectEntity) {
         if entity.id == nil {
             let derivedID: UUID
@@ -497,6 +513,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
 
+    /// Executes normalizeAsCanonicalInbox.
     private func normalizeAsCanonicalInbox(_ entity: ProjectEntity) {
         entity.id = ProjectConstants.inboxProjectID
         entity.isInbox = true
@@ -505,6 +522,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         entity.projectDescription = ProjectConstants.inboxProjectDescription
     }
 
+    /// Executes repointTasks.
     private func repointTasks(from source: ProjectEntity, to target: ProjectEntity) {
         let sourceIDs = Set([source.id].compactMap { $0 })
         let targetID = effectiveProjectID(for: target)
@@ -530,6 +548,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }
     }
 
+    /// Executes selectCanonicalInbox.
     private func selectCanonicalInbox(from candidates: [ProjectEntity]) -> ProjectEntity? {
         candidates.sorted { lhs, rhs in
             let lhsRank = inboxCanonicalRank(lhs)
@@ -541,6 +560,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         }.first
     }
 
+    /// Executes selectCanonicalProject.
     private func selectCanonicalProject(from candidates: [ProjectEntity], targetID: UUID) -> ProjectEntity {
         if targetID == ProjectConstants.inboxProjectID, let inbox = selectCanonicalInbox(from: candidates) {
             return inbox
@@ -548,6 +568,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         return candidates.min(by: { createdDate($0) < createdDate($1) }) ?? candidates[0]
     }
 
+    /// Executes inboxCanonicalRank.
     private func inboxCanonicalRank(_ entity: ProjectEntity) -> Int {
         let id = entity.id
         if id == ProjectConstants.inboxProjectID {
@@ -556,10 +577,12 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         return 1
     }
 
+    /// Executes createdDate.
     private func createdDate(_ entity: ProjectEntity) -> Date {
         entity.createdDate ?? entity.createdAt ?? .distantFuture
     }
 
+    /// Executes isInboxCandidate.
     private func isInboxCandidate(_ entity: ProjectEntity) -> Bool {
         if entity.id == ProjectConstants.inboxProjectID {
             return true
@@ -570,6 +593,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         return normalizedName(entity.name)?.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame
     }
 
+    /// Executes effectiveProjectID.
     private func effectiveProjectID(for entity: ProjectEntity) -> UUID {
         if let id = entity.id {
             return id
@@ -577,12 +601,14 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         return Self.stableUUID(from: entity.objectID.uriRepresentation().absoluteString)
     }
 
+    /// Executes normalizedName.
     private func normalizedName(_ name: String?) -> String? {
         guard let name else { return nil }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    /// Executes inboxCandidatePredicate.
     private func inboxCandidatePredicate() -> NSPredicate {
         NSCompoundPredicate(orPredicateWithSubpredicates: [
             NSPredicate(format: "id == %@", ProjectConstants.inboxProjectID as CVarArg),
@@ -592,6 +618,7 @@ public final class CoreDataProjectRepository: ProjectRepositoryProtocol {
         ])
     }
 
+    /// Executes stableUUID.
     private static func stableUUID(from string: String) -> UUID {
         var hash = UInt64(1469598103934665603)
         let prime: UInt64 = 1099511628211

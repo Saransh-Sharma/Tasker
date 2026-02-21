@@ -11,15 +11,18 @@ import SwiftUI
 // MARK: - Calendar Helpers
 
 extension Calendar {
+    /// Executes taskerStartOfWeek.
     func taskerStartOfWeek(for date: Date) -> Date {
         let components = dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
         return self.date(from: components) ?? date
     }
 
+    /// Executes taskerDaysOfWeek.
     func taskerDaysOfWeek(startingFrom weekStart: Date) -> [Date] {
         (0..<7).compactMap { self.date(byAdding: .day, value: $0, to: weekStart) }
     }
 
+    /// Executes taskerDaysOfMonth.
     func taskerDaysOfMonth(for date: Date) -> [Date?] {
         guard let range = self.range(of: .day, in: .month, for: date),
               let firstOfMonth = self.date(from: dateComponents([.year, .month], from: date))
@@ -58,6 +61,7 @@ struct WeeklyCalendarStripView: View {
     private let calendar = Calendar.current
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
+    /// Initializes a new instance.
     init(selectedDate: Binding<Date>, todayDate: Date = Date()) {
         self._selectedDate = selectedDate
         self.todayDate = todayDate
@@ -111,6 +115,7 @@ struct WeeklyCalendarStripView: View {
         .padding(.vertical, spacing.s8)
     }
 
+    /// Executes dayCell.
     private func dayCell(date: Date) -> some View {
         let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
         let isToday = calendar.isDate(date, inSameDayAs: todayDate)
@@ -180,6 +185,7 @@ struct WeeklyCalendarStripView: View {
         .padding(.top, spacing.s4)
     }
 
+    /// Executes monthDayCell.
     private func monthDayCell(date: Date) -> some View {
         let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
         let isToday = calendar.isDate(date, inSameDayAs: todayDate)
@@ -256,6 +262,7 @@ struct WeeklyCalendarStripView: View {
             }
     }
 
+    /// Executes advanceWeek.
     private func advanceWeek(by offset: Int) {
         guard let newStart = calendar.date(byAdding: .weekOfYear, value: offset, to: displayedWeekStart) else { return }
         withAnimation(TaskerAnimation.snappy) {
@@ -266,12 +273,14 @@ struct WeeklyCalendarStripView: View {
 
     // MARK: - Formatters
 
+    /// Executes dayAbbreviation.
     private func dayAbbreviation(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEE"
         return formatter.string(from: date).uppercased()
     }
 
+    /// Executes monthYearText.
     private func monthYearText(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"

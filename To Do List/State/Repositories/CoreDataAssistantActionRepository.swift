@@ -5,19 +5,23 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
     }
 
+    /// Executes createRun.
     public func createRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         persist(run, completion: completion)
     }
 
+    /// Executes updateRun.
     public func updateRun(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         persist(run, completion: completion)
     }
 
+    /// Executes fetchRun.
     public func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
         viewContext.perform {
             do {
@@ -37,6 +41,7 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
         }
     }
 
+    /// Executes persist.
     private func persist(_ run: AssistantActionRunDefinition, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -73,6 +78,7 @@ public final class CoreDataAssistantActionRepository: AssistantActionRepositoryP
         }
     }
 
+    /// Executes map.
     private static func map(_ object: NSManagedObject) -> AssistantActionRunDefinition {
         AssistantActionRunDefinition(
             id: object.value(forKey: "id") as? UUID ?? UUID(),

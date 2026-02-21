@@ -9,6 +9,7 @@ public struct TaskDetailMetadataPayload {
     public let tags: [TagDefinition]
     public let availableTasks: [TaskDefinition]
 
+    /// Initializes a new instance.
     public init(
         projects: [Project],
         lifeAreas: [LifeArea],
@@ -109,6 +110,7 @@ public final class TaskDetailViewModel: ObservableObject {
 
     private var metadataRequestID: UUID?
 
+    /// Initializes a new instance.
     public init(
         task: TaskDefinition,
         projects: [Project],
@@ -176,11 +178,13 @@ public final class TaskDetailViewModel: ObservableObject {
         availableTasks.filter { $0.id != persistedTask.id }
     }
 
+    /// Executes onAppear.
     public func onAppear() {
         refreshMetadata()
         refreshChildren()
     }
 
+    /// Executes refreshMetadata.
     public func refreshMetadata() {
         let requestID = UUID()
         metadataRequestID = requestID
@@ -212,6 +216,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes refreshChildren.
     public func refreshChildren() {
         onLoadChildren(persistedTask.id) { [weak self] result in
             DispatchQueue.main.async {
@@ -226,6 +231,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes scheduleAutosave.
     public func scheduleAutosave(debounced: Bool) {
         guard !suppressAutosave else { return }
 
@@ -248,6 +254,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes toggleRootCompletion.
     public func toggleRootCompletion() {
         let target = !isComplete
         withAnimation(TaskerAnimation.bouncy) {
@@ -269,6 +276,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes applyReschedule.
     public func applyReschedule(to date: Date?) {
         onReschedule(persistedTask.id, date) { [weak self] result in
             DispatchQueue.main.async {
@@ -284,6 +292,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes deleteTask.
     public func deleteTask(scope: TaskDeleteScope, completion: @escaping (Result<Void, Error>) -> Void) {
         onDelete(persistedTask.id, scope) { result in
             DispatchQueue.main.async {
@@ -292,6 +301,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes createProject.
     public func createProject(name: String, completion: @escaping (Bool) -> Void) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -319,6 +329,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes createTag.
     public func createTag(name: String, completion: @escaping (Bool) -> Void) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -356,6 +367,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes createStep.
     public func createStep(title: String, completion: @escaping (Bool) -> Void) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -403,6 +415,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes toggleStepCompletion.
     public func toggleStepCompletion(_ step: TaskDefinition) {
         onSetCompletion(step.id, !step.isComplete) { [weak self] result in
             DispatchQueue.main.async {
@@ -420,6 +433,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes deleteStep.
     public func deleteStep(_ step: TaskDefinition) {
         onDelete(step.id, .single) { [weak self] result in
             DispatchQueue.main.async {
@@ -434,16 +448,19 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes moveStepUp.
     public func moveStepUp(_ step: TaskDefinition) {
         guard let index = childSteps.firstIndex(where: { $0.id == step.id }), index > 0 else { return }
         childSteps.swapAt(index, index - 1)
     }
 
+    /// Executes moveStepDown.
     public func moveStepDown(_ step: TaskDefinition) {
         guard let index = childSteps.firstIndex(where: { $0.id == step.id }), index < childSteps.count - 1 else { return }
         childSteps.swapAt(index, index + 1)
     }
 
+    /// Executes performAutosave.
     private func performAutosave() {
         guard !suppressAutosave else { return }
 
@@ -482,6 +499,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes makeUpdateRequest.
     private func makeUpdateRequest() -> UpdateTaskDefinitionRequest? {
         let trimmedName = taskName.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedDetails = taskDescription.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -677,6 +695,7 @@ public final class TaskDetailViewModel: ObservableObject {
         )
     }
 
+    /// Executes syncDraftFromTask.
     private func syncDraftFromTask(_ updatedTask: TaskDefinition) {
         suppressAutosave = true
 
@@ -708,6 +727,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes dedupeProjects.
     private func dedupeProjects(_ projects: [Project]) -> [Project] {
         var byID: [UUID: Project] = [:]
         for project in projects {
@@ -730,6 +750,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes reconcileSelectionAfterMetadataRefresh.
     private func reconcileSelectionAfterMetadataRefresh() {
         if !projects.contains(where: { $0.id == selectedProjectID }) {
             selectedProjectID = projects.first(where: { $0.id == ProjectConstants.inboxProjectID })?.id
@@ -756,6 +777,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes sortTasksByDueThenName.
     private static func sortTasksByDueThenName(_ lhs: TaskDefinition, _ rhs: TaskDefinition) -> Bool {
         let lhsDue = lhs.dueDate ?? Date.distantFuture
         let rhsDue = rhs.dueDate ?? Date.distantFuture
@@ -765,6 +787,7 @@ public final class TaskDetailViewModel: ObservableObject {
         return lhsDue < rhsDue
     }
 
+    /// Executes sortSteps.
     private static func sortSteps(_ lhs: TaskDefinition, _ rhs: TaskDefinition) -> Bool {
         if lhs.isComplete != rhs.isComplete {
             return !lhs.isComplete
@@ -775,6 +798,7 @@ public final class TaskDetailViewModel: ObservableObject {
         return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
     }
 
+    /// Executes areDatesDifferent.
     private func areDatesDifferent(_ lhs: Date?, _ rhs: Date?) -> Bool {
         switch (lhs, rhs) {
         case (nil, nil):
@@ -786,6 +810,7 @@ public final class TaskDetailViewModel: ObservableObject {
         }
     }
 
+    /// Executes areDurationsDifferent.
     private func areDurationsDifferent(_ lhs: TimeInterval?, _ rhs: TimeInterval?) -> Bool {
         switch (lhs, rhs) {
         case (nil, nil):

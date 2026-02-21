@@ -54,6 +54,7 @@ public final class EnhancedDependencyContainer {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     private init() {}
     
     // MARK: - Configuration
@@ -151,6 +152,7 @@ public final class EnhancedDependencyContainer {
         logDebug("✅ EnhancedDependencyContainer: Configuration completed")
     }
 
+    /// Executes assertV3RuntimeReady.
     public func assertV3RuntimeReady() throws {
         guard v3RuntimeReady else {
             throw NSError(
@@ -164,6 +166,7 @@ public final class EnhancedDependencyContainer {
         }
     }
 
+    /// Executes evaluateV3RuntimeReadiness.
     private func evaluateV3RuntimeReadiness() {
         var missing: [String] = []
         if taskDefinitionRepository == nil { missing.append("taskDefinitionRepository") }
@@ -216,6 +219,7 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     private let repository: ProjectRepositoryProtocol
     private let cache: CacheServiceProtocol
     
+    /// Initializes a new instance.
     init(repository: ProjectRepositoryProtocol, cache: CacheServiceProtocol) {
         self.repository = repository
         self.cache = cache
@@ -224,6 +228,7 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     // Implement all ProjectRepositoryProtocol methods with caching
     // This is a simplified example
     
+    /// Executes fetchAllProjects.
     func fetchAllProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         if let cached = cache.getCachedProjects() {
             completion(.success(cached))
@@ -240,59 +245,72 @@ private class CachedProjectRepository: ProjectRepositoryProtocol {
     
     // ... implement other methods similarly
     
+    /// Executes fetchProject.
     func fetchProject(withId id: UUID, completion: @escaping (Result<Project?, Error>) -> Void) {
         repository.fetchProject(withId: id, completion: completion)
     }
     
+    /// Executes fetchProject.
     func fetchProject(withName name: String, completion: @escaping (Result<Project?, Error>) -> Void) {
         repository.fetchProject(withName: name, completion: completion)
     }
     
+    /// Executes fetchInboxProject.
     func fetchInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
         repository.fetchInboxProject(completion: completion)
     }
     
+    /// Executes fetchCustomProjects.
     func fetchCustomProjects(completion: @escaping (Result<[Project], Error>) -> Void) {
         repository.fetchCustomProjects(completion: completion)
     }
     
+    /// Executes createProject.
     func createProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
         cache.clearAll()
         repository.createProject(project, completion: completion)
     }
     
+    /// Executes ensureInboxProject.
     func ensureInboxProject(completion: @escaping (Result<Project, Error>) -> Void) {
         repository.ensureInboxProject(completion: completion)
     }
 
+    /// Executes repairProjectIdentityCollisions.
     func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, Error>) -> Void) {
         repository.repairProjectIdentityCollisions(completion: completion)
     }
     
+    /// Executes updateProject.
     func updateProject(_ project: Project, completion: @escaping (Result<Project, Error>) -> Void) {
         cache.clearAll()
         repository.updateProject(project, completion: completion)
     }
     
+    /// Executes renameProject.
     func renameProject(withId id: UUID, to newName: String, completion: @escaping (Result<Project, Error>) -> Void) {
         cache.clearAll()
         repository.renameProject(withId: id, to: newName, completion: completion)
     }
     
+    /// Executes deleteProject.
     func deleteProject(withId id: UUID, deleteTasks: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
         cache.clearAll()
         repository.deleteProject(withId: id, deleteTasks: deleteTasks, completion: completion)
     }
     
+    /// Executes getTaskCount.
     func getTaskCount(for projectId: UUID, completion: @escaping (Result<Int, Error>) -> Void) {
         repository.getTaskCount(for: projectId, completion: completion)
     }
     
+    /// Executes moveTasks.
     func moveTasks(from sourceProjectId: UUID, to targetProjectId: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         cache.clearAll()
         repository.moveTasks(from: sourceProjectId, to: targetProjectId, completion: completion)
     }
     
+    /// Executes isProjectNameAvailable.
     func isProjectNameAvailable(_ name: String, excludingId: UUID?, completion: @escaping (Result<Bool, Error>) -> Void) {
         repository.isProjectNameAvailable(name, excludingId: excludingId, completion: completion)
     }

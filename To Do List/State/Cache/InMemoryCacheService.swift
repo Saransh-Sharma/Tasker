@@ -105,12 +105,14 @@ public final class InMemoryCacheService: CacheServiceProtocol {
         return result
     }
     
+    /// Executes remove.
     public func remove(forKey key: String) {
         queue.async(flags: .barrier) {
             self.cache.removeValue(forKey: key)
         }
     }
     
+    /// Executes exists.
     public func exists(forKey key: String) -> Bool {
         var exists = false
         
@@ -123,6 +125,7 @@ public final class InMemoryCacheService: CacheServiceProtocol {
         return exists
     }
     
+    /// Executes clearAll.
     public func clearAll() {
         queue.async(flags: .barrier) {
             self.cache.removeAll()
@@ -130,6 +133,7 @@ public final class InMemoryCacheService: CacheServiceProtocol {
         }
     }
     
+    /// Executes clearExpired.
     public func clearExpired() {
         queue.async(flags: .barrier) {
             let expiredKeys = self.cache.compactMap { key, entry in
@@ -144,21 +148,25 @@ public final class InMemoryCacheService: CacheServiceProtocol {
     
     // MARK: - Task-specific Caching
     
+    /// Executes cacheTasks.
     public func cacheTasks(_ tasks: [TaskDefinition], forDate date: Date) {
         let key = "tasks_\(date.cacheKey)"
         set(tasks, forKey: key, expiration: .minutes(15))
     }
 
+    /// Executes getCachedTasks.
     public func getCachedTasks(forDate date: Date) -> [TaskDefinition]? {
         let key = "tasks_\(date.cacheKey)"
         return get([TaskDefinition].self, forKey: key)
     }
 
+    /// Executes cacheTasks.
     public func cacheTasks(_ tasks: [TaskDefinition], forProjectID projectID: UUID) {
         let key = "tasks_project_\(projectID.uuidString.lowercased())"
         set(tasks, forKey: key, expiration: .minutes(10))
     }
 
+    /// Executes getCachedTasks.
     public func getCachedTasks(forProjectID projectID: UUID) -> [TaskDefinition]? {
         let key = "tasks_project_\(projectID.uuidString.lowercased())"
         return get([TaskDefinition].self, forKey: key)
@@ -166,16 +174,19 @@ public final class InMemoryCacheService: CacheServiceProtocol {
     
     // MARK: - Project-specific Caching
     
+    /// Executes cacheProjects.
     public func cacheProjects(_ projects: [Project]) {
         set(projects, forKey: "all_projects", expiration: .minutes(30))
     }
     
+    /// Executes getCachedProjects.
     public func getCachedProjects() -> [Project]? {
         return get([Project].self, forKey: "all_projects")
     }
     
     // MARK: - Cache Statistics
     
+    /// Executes getCacheSize.
     public func getCacheSize() -> Int {
         var totalSize = 0
         
@@ -186,6 +197,7 @@ public final class InMemoryCacheService: CacheServiceProtocol {
         return totalSize
     }
     
+    /// Executes getCacheItemCount.
     public func getCacheItemCount() -> Int {
         var count = 0
         
@@ -196,6 +208,7 @@ public final class InMemoryCacheService: CacheServiceProtocol {
         return count
     }
     
+    /// Executes getCacheStatistics.
     public func getCacheStatistics() -> CacheStatistics {
         var stats: CacheStatistics!
 

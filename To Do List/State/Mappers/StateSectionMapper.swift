@@ -4,6 +4,7 @@ import CoreData
 enum StateSectionMapper {
     static let entityName = "ProjectSection"
 
+    /// Executes toDomain.
     static func toDomain(from object: NSManagedObject) -> TaskerProjectSection {
         TaskerProjectSection(
             id: object.value(forKey: "id") as? UUID ?? UUID(),
@@ -16,6 +17,7 @@ enum StateSectionMapper {
         )
     }
 
+    /// Executes apply.
     @discardableResult
     static func apply(_ model: TaskerProjectSection, to object: NSManagedObject) -> NSManagedObject {
         object.setValue(model.id, forKey: "id")

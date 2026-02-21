@@ -116,11 +116,13 @@ struct OnboardingDownloadingModelProgressView: View {
         #endif
     }
 
+    /// Executes loadLLM.
     func loadLLM() async {
         await llm.switchModel(selectedModel)
         didSwitchModel = true
     }
 
+    /// Executes addInstalledModel.
     func addInstalledModel() {
         if installed {
             logDebug("added installed model")

@@ -32,6 +32,7 @@ public struct HomeQuickFilterDropdown: View {
 
     // MARK: - Initialization
 
+    /// Initializes a new instance.
     public init(
         viewModel: HomeViewModel,
         isPresented: Binding<Bool>,
@@ -389,6 +390,7 @@ public struct HomeQuickFilterDropdown: View {
             .padding(.horizontal, spacing.s20)
     }
 
+    /// Executes sectionHeader.
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.tasker(.caption1))
@@ -398,12 +400,14 @@ public struct HomeQuickFilterDropdown: View {
             .padding(.bottom, spacing.s8)
     }
 
+    /// Executes provideHapticFeedback.
     private func provideHapticFeedback() {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.prepare()
         generator.impactOccurred()
     }
 
+    /// Executes dismissWithAnimation.
     private func dismissWithAnimation() {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
             isVisible = false
@@ -523,6 +527,7 @@ struct FilterRow: View {
 // MARK: - View Extension for Max Height
 
 extension View {
+    /// Executes maxHeight.
     func maxHeight(_ maxHeight: CGFloat) -> some View {
         self.modifier(MaxHeightModifier(maxHeight: maxHeight))
     }
@@ -531,6 +536,7 @@ extension View {
 struct MaxHeightModifier: ViewModifier {
     let maxHeight: CGFloat
 
+    /// Executes body.
     func body(content: Content) -> some View {
         GeometryReader { geometry in
             content

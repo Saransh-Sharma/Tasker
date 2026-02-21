@@ -11,6 +11,7 @@ import DGCharts
 
 class ToDoAnimations  {
     
+    /// Executes animateTinyPieChartAtHome.
     func animateTinyPieChartAtHome(pieChartView: PieChartView) {
         pieChartView.animate(xAxisDuration: 1.8, easingOption: .easeOutBack)
     }

@@ -19,6 +19,7 @@ public struct QuickViewSelector: View {
     var onShowAdvancedFilters: (() -> Void)? = nil
     var onResetFilters: (() -> Void)? = nil
 
+    /// Initializes a new instance.
     public init(
         selectedQuickView: Binding<HomeQuickView>,
         taskCounts: [HomeQuickView: Int]? = nil,
@@ -117,6 +118,7 @@ public struct CompactNavSelector: View {
     @Binding var selectedQuickView: HomeQuickView
     var onSelect: ((HomeQuickView) -> Void)? = nil
 
+    /// Initializes a new instance.
     @State private var isExpanded = false
 
     public init(
@@ -160,6 +162,7 @@ public struct CompactNavSelector: View {
         .accessibilityLabel("View: \(selectedQuickView.title)")
     }
 
+    /// Executes iconName.
     private func iconName(for quickView: HomeQuickView) -> String {
         switch quickView {
         case .today: return "sun.max"

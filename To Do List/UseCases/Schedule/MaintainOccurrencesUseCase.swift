@@ -4,6 +4,7 @@ public final class MaintainOccurrencesUseCase {
     private let occurrenceRepository: OccurrenceRepositoryProtocol
     private let tombstoneRepository: TombstoneRepositoryProtocol
 
+    /// Initializes a new instance.
     public init(
         occurrenceRepository: OccurrenceRepositoryProtocol,
         tombstoneRepository: TombstoneRepositoryProtocol
@@ -12,6 +13,7 @@ public final class MaintainOccurrencesUseCase {
         self.tombstoneRepository = tombstoneRepository
     }
 
+    /// Executes execute.
     public func execute(completion: @escaping (Result<Void, Error>) -> Void) {
         let now = Date()
         let pastWindow = Calendar.current.date(byAdding: .day, value: -365, to: now) ?? now
@@ -34,6 +36,7 @@ public final class MaintainOccurrencesUseCase {
                 var firstError: Error?
                 let lock = NSLock()
 
+                /// Executes captureError.
                 func captureError(_ error: Error) {
                     lock.lock()
                     if firstError == nil {
@@ -104,10 +107,12 @@ public final class MaintainOccurrencesUseCase {
 public final class PurgeExpiredTombstonesUseCase {
     private let tombstoneRepository: TombstoneRepositoryProtocol
 
+    /// Initializes a new instance.
     public init(tombstoneRepository: TombstoneRepositoryProtocol) {
         self.tombstoneRepository = tombstoneRepository
     }
 
+    /// Executes execute.
     public func execute(referenceDate: Date = Date(), completion: @escaping (Result<Void, Error>) -> Void) {
         tombstoneRepository.fetchExpired(before: referenceDate) { result in
             switch result {

@@ -24,6 +24,7 @@ public struct ScheduleTemplateDefinition: Codable, Equatable, Hashable {
     public var createdAt: Date
     public var updatedAt: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         sourceType: ScheduleSourceType,

@@ -11,18 +11,21 @@ final class UnifiedThemePickerCell: UITableViewCell {
     private var collectionView: UICollectionView!
     private var cancellables = Set<AnyCancellable>()
 
+    /// Initializes a new instance.
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         configureCollectionView()
         selectionStyle = .none
     }
 
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         configureCollectionView()
         selectionStyle = .none
     }
 
+    /// Executes configureCollectionView.
     private func configureCollectionView() {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
@@ -63,10 +66,12 @@ final class UnifiedThemePickerCell: UITableViewCell {
 // MARK: - Collection View DataSource & Delegate
 
 extension UnifiedThemePickerCell: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         TaskerTheme.accentThemes.count
     }
 
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: GemThemeCardCell.reuseID, for: indexPath) as! GemThemeCardCell
         let theme = TaskerTheme(index: indexPath.item)
@@ -75,11 +80,13 @@ extension UnifiedThemePickerCell: UICollectionViewDataSource, UICollectionViewDe
         return cell
     }
 
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         TaskerFeedback.selection()
         TaskerThemeManager.shared.selectTheme(index: indexPath.item)
     }
 
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         CGSize(width: 72, height: 112)
     }
@@ -95,15 +102,18 @@ private final class GemThemeCardCell: UICollectionViewCell {
     private let checkmarkView = UIImageView()
     private var gradientLayer: CAGradientLayer?
 
+    /// Initializes a new instance.
     override init(frame: CGRect) {
         super.init(frame: frame)
         setup()
     }
 
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Executes configure.
     func configure(theme: TaskerTheme, isSelected: Bool) {
         let colors = theme.tokens.color
 
@@ -147,11 +157,13 @@ private final class GemThemeCardCell: UICollectionViewCell {
         }
     }
 
+    /// Executes layoutSubviews.
     override func layoutSubviews() {
         super.layoutSubviews()
         gradientLayer?.frame = gradientContainer.bounds
     }
 
+    /// Executes setup.
     private func setup() {
         // Gradient card container
         gradientContainer.translatesAutoresizingMaskIntoConstraints = false

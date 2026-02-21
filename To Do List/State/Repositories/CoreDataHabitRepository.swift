@@ -5,12 +5,14 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
         self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
+    /// Executes fetchAll.
     public func fetchAll(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -29,6 +31,7 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
         }
     }
 
+    /// Executes create.
     public func create(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -55,10 +58,12 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol {
         }
     }
 
+    /// Executes update.
     public func update(_ habit: HabitDefinitionRecord, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
         create(habit, completion: completion)
     }
 
+    /// Executes delete.
     public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {

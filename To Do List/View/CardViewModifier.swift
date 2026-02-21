@@ -15,6 +15,7 @@ struct CardViewModifier: ViewModifier {
     let shadowOffset: CGSize
     let shadowOpacity: Double
     
+    /// Initializes a new instance.
     init(
         cornerRadius: CGFloat,
         shadowRadius: CGFloat,
@@ -27,6 +28,7 @@ struct CardViewModifier: ViewModifier {
         self.shadowOpacity = shadowOpacity
     }
     
+    /// Executes body.
     func body(content: Content) -> some View {
         content
             .background(
@@ -60,6 +62,7 @@ struct ThemedCardViewModifier: ViewModifier {
     let shadowOpacity: Double
     let useThemeColors: Bool
 
+    /// Initializes a new instance.
     init(
         cornerRadius: CGFloat,
         shadowRadius: CGFloat,
@@ -74,6 +77,7 @@ struct ThemedCardViewModifier: ViewModifier {
         self.useThemeColors = useThemeColors
     }
 
+    /// Executes body.
     func body(content: Content) -> some View {
         content
             .background(

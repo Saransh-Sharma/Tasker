@@ -27,6 +27,7 @@ struct TaskDetailSheetView: View {
         case tags
     }
 
+    /// Initializes a new instance.
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: TaskDetailViewModel
 
@@ -285,6 +286,7 @@ struct TaskDetailSheetView: View {
         .accessibilityIdentifier("taskDetail.actionRow")
     }
 
+    /// Executes actionChip.
     private func actionChip(icon: String, title: String, tint: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
@@ -820,12 +822,14 @@ struct TaskDetailSheetView: View {
         descriptionIsEmpty ? "Add details you'll want later (optional)." : viewModel.taskDescription
     }
 
+    /// Executes toggleEditor.
     private func toggleEditor(_ editor: ActiveEditor) {
         withAnimation(TaskerAnimation.snappy) {
             activeEditor = (activeEditor == editor) ? nil : editor
         }
     }
 
+    /// Executes addStep.
     private func addStep() {
         let candidate = newStepTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !candidate.isEmpty else { return }
@@ -837,6 +841,7 @@ struct TaskDetailSheetView: View {
         }
     }
 
+    /// Executes promptDeleteTask.
     private func promptDeleteTask() {
         if viewModel.persistedTask.recurrenceSeriesID != nil {
             showDeleteScopeDialog = true
@@ -845,6 +850,7 @@ struct TaskDetailSheetView: View {
         deleteTask(scope: .single)
     }
 
+    /// Executes deleteTask.
     private func deleteTask(scope: TaskDeleteScope) {
         viewModel.deleteTask(scope: scope) { result in
             switch result {

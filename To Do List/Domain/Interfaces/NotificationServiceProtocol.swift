@@ -51,6 +51,7 @@ public struct CollaborationNotification {
     public let recipientId: UUID
     public let timestamp: Date
     
+    /// Initializes a new instance.
     public init(
         type: CollaborationType,
         taskId: UUID? = nil,

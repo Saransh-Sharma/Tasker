@@ -43,6 +43,7 @@ public struct BaseDomainEvent: DomainEvent {
     public let aggregateId: UUID
     public let metadata: [String: Any]?
     
+    /// Initializes a new instance.
     public init(eventType: String, aggregateId: UUID, metadata: [String: Any]? = nil) {
         self.eventId = UUID()
         self.occurredAt = Date()

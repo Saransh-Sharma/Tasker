@@ -4,6 +4,7 @@ import CoreData
 enum StateHabitDefinitionMapper {
     static let entityName = "HabitDefinition"
 
+    /// Executes toDomain.
     static func toDomain(from object: NSManagedObject) -> HabitDefinitionRecord {
         HabitDefinitionRecord(
             id: object.value(forKey: "id") as? UUID ?? UUID(),
@@ -22,6 +23,7 @@ enum StateHabitDefinitionMapper {
         )
     }
 
+    /// Executes apply.
     @discardableResult
     static func apply(_ model: HabitDefinitionRecord, to object: NSManagedObject) -> NSManagedObject {
         object.setValue(model.id, forKey: "id")

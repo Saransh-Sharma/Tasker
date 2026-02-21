@@ -16,6 +16,7 @@ public final class GetProjectStatisticsUseCase {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     public init(
         projectRepository: ProjectRepositoryProtocol
     ) {
@@ -51,6 +52,7 @@ public struct ProjectOverview {
     public let activeProjects: Int
     public let completedProjects: Int
     
+    /// Initializes a new instance.
     public init(totalProjects: Int, activeProjects: Int, completedProjects: Int) {
         self.totalProjects = totalProjects
         self.activeProjects = activeProjects

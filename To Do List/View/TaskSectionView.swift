@@ -29,6 +29,7 @@ struct TaskSectionView: View {
         TaskerThemeManager.shared.currentTheme.tokens.color
     }
 
+    /// Initializes a new instance.
     init(
         project: Project,
         tasks: [TaskDefinition],
@@ -242,6 +243,7 @@ struct TaskSectionView: View {
         .accessibilityIdentifier("home.completedToggle.\(project.id.uuidString)")
     }
 
+    /// Executes taskRenderKey.
     private func taskRenderKey(for task: TaskDefinition) -> String {
         let completedAt = task.dateCompleted?.timeIntervalSince1970 ?? 0
         return "\(task.id.uuidString)-\(task.isComplete)-\(completedAt)"

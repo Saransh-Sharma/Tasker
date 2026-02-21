@@ -43,16 +43,19 @@ class AppManager: ObservableObject {
         }
     }
     
+    /// Initializes a new instance.
     init() {
         loadInstalledModelsFromUserDefaults()
     }
     
+    /// Executes incrementNumberOfVisits.
     func incrementNumberOfVisits() {
         numberOfVisits += 1
         logDebug("app visits: \(numberOfVisits)")
     }
     
     // Function to save the array to UserDefaults as JSON
+    /// Executes saveInstalledModelsToUserDefaults.
     private func saveInstalledModelsToUserDefaults() {
         if let jsonData = try? JSONEncoder().encode(installedModels) {
             UserDefaults.standard.set(jsonData, forKey: installedModelsKey)
@@ -60,6 +63,7 @@ class AppManager: ObservableObject {
     }
     
     // Function to load the array from UserDefaults
+    /// Executes loadInstalledModelsFromUserDefaults.
     private func loadInstalledModelsFromUserDefaults() {
         if let jsonData = UserDefaults.standard.data(forKey: installedModelsKey),
            let decodedArray = try? JSONDecoder().decode([String].self, from: jsonData) {
@@ -69,6 +73,7 @@ class AppManager: ObservableObject {
         }
     }
     
+    /// Executes playHaptic.
     func playHaptic() {
         if shouldPlayHaptics {
             #if os(iOS)
@@ -78,6 +83,7 @@ class AppManager: ObservableObject {
         }
     }
     
+    /// Executes removeInstalledModel.
     func removeInstalledModel(_ model: String) {
         // Remove from list if present
         if let idx = installedModels.firstIndex(of: model) {
@@ -103,16 +109,19 @@ class AppManager: ObservableObject {
         return nil
     }
     
+    /// Executes addInstalledModel.
     func addInstalledModel(_ model: String) {
         if !installedModels.contains(model) {
             installedModels.append(model)
         }
     }
     
+    /// Executes modelDisplayName.
     func modelDisplayName(_ modelName: String) -> String {
         return modelName.replacingOccurrences(of: "mlx-community/", with: "").lowercased()
     }
     
+    /// Executes getMoonPhaseIcon.
     func getMoonPhaseIcon() -> String {
         // Get current date
         let currentDate = Date()
@@ -165,6 +174,7 @@ class Message {
     var timestamp: Date
     var generatingTime: TimeInterval?
     
+    /// Initializes a new instance.
     @Relationship(inverse: \Thread.messages) var thread: Thread?
     
     init(role: Role, content: String, thread: Thread? = nil, generatingTime: TimeInterval? = nil) {
@@ -189,6 +199,7 @@ final class Thread {
         return messages.sorted { $0.timestamp < $1.timestamp }
     }
     
+    /// Initializes a new instance.
     init() {
         self.id = UUID()
         self.timestamp = Date()

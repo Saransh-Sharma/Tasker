@@ -32,6 +32,7 @@ public final class AssistantActionPipelineUseCase {
     private let taskRepository: TaskDefinitionRepositoryProtocol
     private let commandExecutor: AssistantCommandExecutor
 
+    /// Initializes a new instance.
     public init(
         repository: AssistantActionRepositoryProtocol,
         taskRepository: TaskDefinitionRepositoryProtocol,
@@ -42,6 +43,7 @@ public final class AssistantActionPipelineUseCase {
         self.commandExecutor = commandExecutor
     }
 
+    /// Executes propose.
     public func propose(threadID: String, envelope: AssistantCommandEnvelope, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         guard envelope.schemaVersion >= minimumSupportedSchemaVersion && envelope.schemaVersion <= supportedSchemaVersion else {
             completion(.failure(NSError(
@@ -74,6 +76,7 @@ public final class AssistantActionPipelineUseCase {
         repository.createRun(run, completion: completion)
     }
 
+    /// Executes confirm.
     public func confirm(runID: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         repository.fetchRun(id: runID) { result in
             switch result {
@@ -96,6 +99,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes applyConfirmedRun.
     public func applyConfirmedRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         guard V2FeatureFlags.assistantApplyEnabled else {
             completion(.failure(NSError(domain: "AssistantActionPipelineUseCase", code: 403, userInfo: [NSLocalizedDescriptionKey: "Assistant apply disabled by feature flag"])))
@@ -191,6 +195,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes reject.
     public func reject(runID: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         repository.fetchRun(id: runID) { result in
             switch result {
@@ -214,6 +219,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes undoAppliedRun.
     public func undoAppliedRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         guard V2FeatureFlags.assistantUndoEnabled else {
             completion(.failure(NSError(
@@ -293,6 +299,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes executeTransaction.
     private func executeTransaction(
         runID: UUID,
         commands: [AssistantCommand],
@@ -314,6 +321,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes executeTransactionAsync.
     private func executeTransactionAsync(
         runID: UUID,
         commands: [AssistantCommand]
@@ -366,6 +374,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes runTimedOutError.
     private func runTimedOutError() -> NSError {
         NSError(
             domain: "AssistantActionPipelineUseCase",
@@ -374,6 +383,7 @@ public final class AssistantActionPipelineUseCase {
         )
     }
 
+    /// Executes rollbackAndVerify.
     private func rollbackAndVerify(
         commands: [AssistantCommand],
         baselineMap: [UUID: TaskDefinition],
@@ -404,10 +414,12 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes tasksEquivalent.
     private func tasksEquivalent(_ lhs: TaskDefinition, _ rhs: TaskDefinition) -> Bool {
         AssistantTaskSnapshot(task: lhs) == AssistantTaskSnapshot(task: rhs)
     }
 
+    /// Executes apply.
     private func apply(
         command: AssistantCommand,
         taskMap: inout [UUID: TaskDefinition],
@@ -548,6 +560,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes validateUndoPlan.
     private func validateUndoPlan(forward: [AssistantCommand], inverse: [AssistantCommand]) -> Bool {
         guard inverse.isEmpty == false, inverse.count == forward.count else {
             return false
@@ -555,6 +568,7 @@ public final class AssistantActionPipelineUseCase {
         return isAllowlisted(commands: inverse)
     }
 
+    /// Executes encodeTrace.
     private func encodeTrace(_ trace: ExecutionTrace) -> Data? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -586,6 +600,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes fetchAllTasksAsync.
     private func fetchAllTasksAsync() async throws -> [TaskDefinition] {
         try await withCheckedThrowingContinuation { continuation in
             taskRepository.fetchAll { result in
@@ -594,6 +609,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes createTaskAsync.
     private func createTaskAsync(_ task: TaskDefinition) async throws -> TaskDefinition {
         try await withCheckedThrowingContinuation { continuation in
             taskRepository.create(task) { result in
@@ -602,6 +618,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes updateTaskAsync.
     private func updateTaskAsync(_ task: TaskDefinition) async throws -> TaskDefinition {
         try await withCheckedThrowingContinuation { continuation in
             taskRepository.update(task) { result in
@@ -610,6 +627,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes deleteTaskAsync.
     private func deleteTaskAsync(id: UUID) async throws {
         try await withCheckedThrowingContinuation { continuation in
             taskRepository.delete(id: id) { result in
@@ -618,6 +636,7 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes isAllowlisted.
     private func isAllowlisted(commands: [AssistantCommand]) -> Bool {
         for command in commands {
             switch command {

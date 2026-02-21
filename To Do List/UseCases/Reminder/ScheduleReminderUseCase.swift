@@ -4,11 +4,13 @@ public final class ScheduleReminderUseCase {
     private let repository: ReminderRepositoryProtocol
     private let notificationService: NotificationServiceProtocol?
 
+    /// Initializes a new instance.
     public init(repository: ReminderRepositoryProtocol, notificationService: NotificationServiceProtocol? = nil) {
         self.repository = repository
         self.notificationService = notificationService
     }
 
+    /// Executes execute.
     public func execute(
         reminder: ReminderDefinition,
         triggers: [ReminderTriggerDefinition],
@@ -30,10 +32,12 @@ public final class ScheduleReminderUseCase {
         }
     }
 
+    /// Executes execute.
     public func execute(reminder: ReminderDefinition, completion: @escaping (Result<ReminderDefinition, Error>) -> Void) {
         execute(reminder: reminder, triggers: [], referenceDate: nil, completion: completion)
     }
 
+    /// Executes acknowledgeDelivery.
     public func acknowledgeDelivery(
         reminderID: UUID,
         deliveryID: UUID,
@@ -59,6 +63,7 @@ public final class ScheduleReminderUseCase {
         }
     }
 
+    /// Executes snoozeDelivery.
     public func snoozeDelivery(
         reminderID: UUID,
         deliveryID: UUID,
@@ -92,6 +97,7 @@ public final class ScheduleReminderUseCase {
         }
     }
 
+    /// Executes persistTriggersAndDeliveries.
     private func persistTriggersAndDeliveries(
         reminder: ReminderDefinition,
         triggers: [ReminderTriggerDefinition],
@@ -148,6 +154,7 @@ public final class ScheduleReminderUseCase {
         }
     }
 
+    /// Executes persistDeliveries.
     private func persistDeliveries(
         reminder: ReminderDefinition,
         triggers: [ReminderTriggerDefinition],
@@ -204,6 +211,7 @@ public final class ScheduleReminderUseCase {
         }
     }
 
+    /// Executes resolveFireDate.
     private func resolveFireDate(
         trigger: ReminderTriggerDefinition,
         referenceDate: Date

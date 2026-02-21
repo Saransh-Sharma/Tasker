@@ -20,6 +20,7 @@ public protocol UUIDGeneratorProtocol {
 /// Default implementation of UUID generator
 public final class UUIDGenerator: UUIDGeneratorProtocol {
 
+    /// Initializes a new instance.
     public init() {}
 
     /// Generate a new random UUID

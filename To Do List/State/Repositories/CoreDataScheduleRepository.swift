@@ -5,11 +5,13 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
     }
 
+    /// Executes fetchTemplates.
     public func fetchTemplates(completion: @escaping (Result<[ScheduleTemplateDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -43,6 +45,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
         }
     }
 
+    /// Executes fetchRules.
     public func fetchRules(templateID: UUID, completion: @escaping (Result<[ScheduleRuleDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -77,6 +80,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
         }
     }
 
+    /// Executes saveTemplate.
     public func saveTemplate(_ template: ScheduleTemplateDefinition, completion: @escaping (Result<ScheduleTemplateDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -106,6 +110,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
         }
     }
 
+    /// Executes fetchExceptions.
     public func fetchExceptions(templateID: UUID, completion: @escaping (Result<[ScheduleExceptionDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -146,6 +151,7 @@ public final class CoreDataScheduleRepository: ScheduleRepositoryProtocol {
         }
     }
 
+    /// Executes saveException.
     public func saveException(_ exception: ScheduleExceptionDefinition, completion: @escaping (Result<ScheduleExceptionDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {

@@ -16,6 +16,7 @@ public struct TaskerElevationTokens: TaskerTokenGroup {
     public let e2: TaskerElevationStyle
     public let e3: TaskerElevationStyle
 
+    /// Executes style.
     public func style(for level: TaskerElevationLevel) -> TaskerElevationStyle {
         switch level {
         case .e0: return e0

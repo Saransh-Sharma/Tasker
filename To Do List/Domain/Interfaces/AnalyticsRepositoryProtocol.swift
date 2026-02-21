@@ -62,6 +62,7 @@ public struct AnalyticsData {
     public let completionRate: Double
     public let streakData: StreakData
     
+    /// Initializes a new instance.
     public init(
         timeRange: DateInterval,
         tasksCompleted: Int,
@@ -86,6 +87,7 @@ public struct StreakData {
     public let streakStartDate: Date?
     public let lastCompletionDate: Date?
     
+    /// Initializes a new instance.
     public init(
         currentStreak: Int,
         longestStreak: Int,
@@ -108,6 +110,7 @@ public struct CompletionPattern {
     public let successRate: Double
     public let averageCompletionTime: TimeInterval
     
+    /// Initializes a new instance.
     public init(
         userId: UUID? = nil,
         timeOfDay: TimeInterval,

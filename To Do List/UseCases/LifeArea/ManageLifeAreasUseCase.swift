@@ -3,14 +3,17 @@ import Foundation
 public final class ManageLifeAreasUseCase {
     private let repository: LifeAreaRepositoryProtocol
 
+    /// Initializes a new instance.
     public init(repository: LifeAreaRepositoryProtocol) {
         self.repository = repository
     }
 
+    /// Executes list.
     public func list(completion: @escaping (Result<[LifeArea], Error>) -> Void) {
         repository.fetchAll(completion: completion)
     }
 
+    /// Executes create.
     public func create(name: String, color: String?, icon: String?, completion: @escaping (Result<LifeArea, Error>) -> Void) {
         let normalizedDisplayName = Self.normalizedDisplayName(name)
         let normalizedKey = Self.normalizedNameKey(name)
@@ -40,6 +43,7 @@ public final class ManageLifeAreasUseCase {
         }
     }
 
+    /// Executes archive.
     public func archive(id: UUID, completion: @escaping (Result<LifeArea, Error>) -> Void) {
         repository.fetchAll { result in
             switch result {
@@ -57,11 +61,13 @@ public final class ManageLifeAreasUseCase {
         }
     }
 
+    /// Executes normalizedDisplayName.
     private static func normalizedDisplayName(_ name: String) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "General" : trimmed
     }
 
+    /// Executes normalizedNameKey.
     private static func normalizedNameKey(_ name: String) -> String {
         normalizedDisplayName(name).lowercased()
     }

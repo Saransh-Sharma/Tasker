@@ -50,11 +50,13 @@ class LGBaseView: UIView {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupGlassEffect()
     }
     
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupGlassEffect()
@@ -62,6 +64,7 @@ class LGBaseView: UIView {
     
     // MARK: - Setup
     
+    /// Executes setupGlassEffect.
     private func setupGlassEffect() {
         backgroundColor = .clear
         clipsToBounds = true
@@ -92,6 +95,7 @@ class LGBaseView: UIView {
         applyTokenElevation()
     }
     
+    /// Executes layoutSubviews.
     override func layoutSubviews() {
         super.layoutSubviews()
         blurEffectView.frame = bounds
@@ -103,21 +107,25 @@ class LGBaseView: UIView {
     
     // MARK: - Updates
     
+    /// Executes updateGlassEffect.
     private func updateGlassEffect() {
         blurEffectView.effect = UIBlurEffect(style: glassBlurStyle)
         alpha = glassOpacity
     }
     
+    /// Executes updateCornerRadius.
     private func updateCornerRadius() {
         layer.cornerRadius = cornerRadius
         layer.cornerCurve = .continuous
     }
     
+    /// Executes updateBorder.
     private func updateBorder() {
         borderLayer.strokeColor = borderColor.cgColor
         borderLayer.lineWidth = borderWidth
     }
 
+    /// Executes applyTokenElevation.
     private func applyTokenElevation() {
         let style = TaskerThemeManager.shared.currentTheme.tokens.elevation.style(for: elevationLevel)
         let colors = TaskerThemeManager.shared.currentTheme.tokens.color
@@ -140,6 +148,7 @@ class LGBaseView: UIView {
     
     // MARK: - Animation Helpers
     
+    /// Executes animateGlassAppearance.
     func animateGlassAppearance(duration: TimeInterval = 0.3) {
         alpha = 0
         transform = CGAffineTransform(scaleX: 0.96, y: 0.96)

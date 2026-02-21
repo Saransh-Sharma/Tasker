@@ -181,6 +181,7 @@ struct ChatsListView: View {
         }
     }
 
+    /// Executes requestReviewIfAppropriate.
     func requestReviewIfAppropriate() {
         if appManager.numberOfVisits - appManager.numberOfVisitsOfLastRequest >= 5 {
             requestReview() // can only be prompted if the user hasn't given a review in the last year, so it will prompt again when apple deems appropriate
@@ -188,6 +189,7 @@ struct ChatsListView: View {
         }
     }
 
+    /// Executes deleteThreads.
     private func deleteThreads(at offsets: IndexSet) {
         for offset in offsets {
             let thread = threads[offset]
@@ -206,6 +208,7 @@ struct ChatsListView: View {
         }
     }
 
+    /// Executes deleteThread.
     private func deleteThread(_ thread: Thread) {
         if let currentThread = currentThread {
             if currentThread.id == thread.id {
@@ -215,6 +218,7 @@ struct ChatsListView: View {
         modelContext.delete(thread)
     }
 
+    /// Executes setCurrentThread.
     private func setCurrentThread(_ thread: Thread? = nil) {
         currentThread = thread
         isPromptFocused = true

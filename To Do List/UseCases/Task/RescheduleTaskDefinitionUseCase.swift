@@ -3,10 +3,12 @@ import Foundation
 public final class RescheduleTaskDefinitionUseCase {
     private let updateTaskDefinition: UpdateTaskDefinitionUseCase
 
+    /// Initializes a new instance.
     public init(updateTaskDefinition: UpdateTaskDefinitionUseCase) {
         self.updateTaskDefinition = updateTaskDefinition
     }
 
+    /// Initializes a new instance.
     public convenience init(
         repository: TaskDefinitionRepositoryProtocol,
         taskTagLinkRepository: TaskTagLinkRepositoryProtocol? = nil,
@@ -21,6 +23,7 @@ public final class RescheduleTaskDefinitionUseCase {
         )
     }
 
+    /// Executes execute.
     public func execute(
         taskID: UUID,
         newDate: Date?,

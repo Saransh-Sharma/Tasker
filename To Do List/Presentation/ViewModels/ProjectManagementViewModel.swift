@@ -38,6 +38,7 @@ public final class ProjectManagementViewModel: ObservableObject {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     public init(
         manageProjectsUseCase: ManageProjectsUseCase,
         getTasksUseCase: GetTasksUseCase
@@ -192,6 +193,7 @@ public final class ProjectManagementViewModel: ObservableObject {
     
     // MARK: - Private Methods
     
+    /// Executes setupFilteringAndSorting.
     private func setupFilteringAndSorting() {
         // Apply filters and sorting whenever search or filter criteria change
         Publishers.CombineLatest3($searchText, $filterType, $sortOption)
@@ -202,6 +204,7 @@ public final class ProjectManagementViewModel: ObservableObject {
             .store(in: &cancellables)
     }
     
+    /// Executes applyFiltersAndSorting.
     private func applyFiltersAndSorting() {
         var filtered = projects
         

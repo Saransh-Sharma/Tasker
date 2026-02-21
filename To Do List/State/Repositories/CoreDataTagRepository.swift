@@ -5,12 +5,14 @@ public final class CoreDataTagRepository: TagRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
         self.backgroundContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
+    /// Executes fetchAll.
     public func fetchAll(completion: @escaping (Result<[TagDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -39,6 +41,7 @@ public final class CoreDataTagRepository: TagRepositoryProtocol {
         }
     }
 
+    /// Executes create.
     public func create(_ tag: TagDefinition, completion: @escaping (Result<TagDefinition, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -101,6 +104,7 @@ public final class CoreDataTagRepository: TagRepositoryProtocol {
         }
     }
 
+    /// Executes delete.
     public func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {

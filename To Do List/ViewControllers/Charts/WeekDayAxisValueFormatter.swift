@@ -14,6 +14,7 @@ class WeekDayAxisValueFormatter: AxisValueFormatter {
     
     private let weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
     
+    /// Executes stringForValue.
     func stringForValue(_ value: Double, axis: AxisBase?) -> String {
         let index = Int(value)
         

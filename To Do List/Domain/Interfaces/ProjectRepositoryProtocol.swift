@@ -14,6 +14,7 @@ public struct ProjectRepairReport {
     public let inboxCandidates: Int
     public let warnings: [String]
 
+    /// Initializes a new instance.
     public init(
         scanned: Int,
         merged: Int,

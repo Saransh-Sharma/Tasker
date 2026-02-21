@@ -30,16 +30,19 @@ class TaskDetailView: UIView {
     private let stackView = UIStackView()
 
     // MARK: – Init
+    /// Initializes a new instance.
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupView()
     }
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupView()
     }
 
     // MARK: – Setup
+    /// Executes setupView.
     private func setupView() {
         // Card styling
         card.translatesAutoresizingMaskIntoConstraints = false
@@ -79,6 +82,7 @@ class TaskDetailView: UIView {
     }
 
     // MARK: – Configuration
+    /// Executes configure.
     func configure(title: String,
                    description: String,
                    dueDate: String,

@@ -19,6 +19,7 @@ public struct ProjectConstants {
     /// Description of the Inbox project
     public static let inboxProjectDescription = "Default project for uncategorized tasks"
 
+    /// Initializes a new instance.
     private init() {
         // Prevent instantiation of constants struct
     }

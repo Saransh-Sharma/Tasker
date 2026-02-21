@@ -10,6 +10,7 @@ public struct TaskReadQuery: Codable, Equatable, Hashable {
     public var limit: Int
     public var offset: Int
 
+    /// Initializes a new instance.
     public init(
         projectID: UUID? = nil,
         includeCompleted: Bool = true,
@@ -44,6 +45,7 @@ public struct TaskSearchQuery: Codable, Equatable, Hashable {
     public var limit: Int
     public var offset: Int
 
+    /// Initializes a new instance.
     public init(
         text: String,
         projectID: UUID? = nil,
@@ -65,6 +67,7 @@ public struct TaskDefinitionSliceResult: Codable, Equatable, Hashable {
     public var limit: Int
     public var offset: Int
 
+    /// Initializes a new instance.
     public init(
         tasks: [TaskDefinition],
         totalCount: Int,

@@ -19,15 +19,18 @@ class ProjectPillCell: UICollectionViewCell {
         }
     }
     
+    /// Initializes a new instance.
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupView()
     }
     
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
+    /// Executes setupView.
     private func setupView() {
         contentView.backgroundColor = UIColor.tasker.chipUnselectedBackground
         contentView.layer.cornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.chip
@@ -53,11 +56,13 @@ class ProjectPillCell: UICollectionViewCell {
         contentView.widthAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true
     }
     
+    /// Executes configure.
     func configure(with projectName: String) {
         titleLabel.text = projectName
         updateAppearance()
     }
     
+    /// Executes updateAppearance.
     private func updateAppearance() {
         let colors = TaskerThemeManager.shared.currentTheme.tokens.color
         if isSelected {

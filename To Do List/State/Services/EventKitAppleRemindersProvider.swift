@@ -7,10 +7,12 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
     private let store: EKEventStore
     private let mergeEngine = ReminderMergeEngine()
 
+    /// Initializes a new instance.
     public init(store: EKEventStore = EKEventStore()) {
         self.store = store
     }
 
+    /// Executes requestAccess.
     public func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
         if #available(iOS 17.0, macOS 14.0, *) {
             store.requestFullAccessToReminders { granted, error in
@@ -31,12 +33,14 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
         }
     }
 
+    /// Executes fetchLists.
     public func fetchLists(completion: @escaping (Result<[AppleReminderListSnapshot], Error>) -> Void) {
         let calendars = store.calendars(for: .reminder)
         let lists = calendars.map { AppleReminderListSnapshot(listID: $0.calendarIdentifier, title: $0.title) }
         completion(.success(lists))
     }
 
+    /// Executes fetchReminders.
     public func fetchReminders(listID: String, completion: @escaping (Result<[AppleReminderItemSnapshot], Error>) -> Void) {
         guard let calendar = reminderCalendar(id: listID) else {
             completion(.success([]))
@@ -50,6 +54,7 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
         }
     }
 
+    /// Executes upsertReminder.
     public func upsertReminder(listID: String, snapshot: AppleReminderItemSnapshot, completion: @escaping (Result<AppleReminderItemSnapshot, Error>) -> Void) {
         guard let calendar = reminderCalendar(id: listID) else {
             let error = NSError(
@@ -115,6 +120,7 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
         }
     }
 
+    /// Executes deleteReminder.
     public func deleteReminder(itemID: String, completion: @escaping (Result<Void, Error>) -> Void) {
         guard let reminder = reminder(withItemID: itemID) else {
             completion(.success(()))
@@ -129,14 +135,17 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
         }
     }
 
+    /// Executes reminderCalendar.
     private func reminderCalendar(id: String) -> EKCalendar? {
         store.calendars(for: .reminder).first { $0.calendarIdentifier == id }
     }
 
+    /// Executes reminder.
     private func reminder(withItemID itemID: String) -> EKReminder? {
         store.calendarItem(withIdentifier: itemID) as? EKReminder
     }
 
+    /// Executes map.
     private func map(reminder: EKReminder, passthroughData: Data? = nil) -> AppleReminderItemSnapshot {
         let alarmDates = (reminder.alarms ?? []).compactMap { $0.absoluteDate }
         let known = ReminderMergeEnvelope.KnownFields(
@@ -169,10 +178,12 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
         )
     }
 
+    /// Executes decodeMergeEnvelope.
     private func decodeMergeEnvelope(_ data: Data?) -> ReminderMergeEnvelope? {
         mergeEngine.decodeEnvelope(data: data)
     }
 
+    /// Executes encodeMergeEnvelope.
     private func encodeMergeEnvelope(
         known: ReminderMergeEnvelope.KnownFields,
         passthroughData: Data?
@@ -186,24 +197,30 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
 }
 #else
 public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtocol {
+    /// Initializes a new instance.
     public init() {}
 
+    /// Executes requestAccess.
     public func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void) {
         completion(.success(false))
     }
 
+    /// Executes fetchLists.
     public func fetchLists(completion: @escaping (Result<[AppleReminderListSnapshot], Error>) -> Void) {
         completion(.success([]))
     }
 
+    /// Executes fetchReminders.
     public func fetchReminders(listID: String, completion: @escaping (Result<[AppleReminderItemSnapshot], Error>) -> Void) {
         completion(.success([]))
     }
 
+    /// Executes upsertReminder.
     public func upsertReminder(listID: String, snapshot: AppleReminderItemSnapshot, completion: @escaping (Result<AppleReminderItemSnapshot, Error>) -> Void) {
         completion(.success(snapshot))
     }
 
+    /// Executes deleteReminder.
     public func deleteReminder(itemID: String, completion: @escaping (Result<Void, Error>) -> Void) {
         completion(.success(()))
     }

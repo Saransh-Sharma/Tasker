@@ -12,6 +12,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
     private let defaults: UserDefaults
     private let storageKey: String
 
+    /// Initializes a new instance.
     public init(
         defaults: UserDefaults = .standard,
         storageKey: String = "home.focus.savedViews.v2"
@@ -20,6 +21,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
         self.storageKey = storageKey
     }
 
+    /// Executes fetchAll.
     public func fetchAll(completion: @escaping (Result<[SavedHomeView], Error>) -> Void) {
         do {
             let views = try loadViews()
@@ -29,6 +31,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
         }
     }
 
+    /// Executes save.
     public func save(_ view: SavedHomeView, completion: @escaping (Result<[SavedHomeView], Error>) -> Void) {
         do {
             var views = try loadViews()
@@ -46,6 +49,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
         }
     }
 
+    /// Executes delete.
     public func delete(id: UUID, completion: @escaping (Result<[SavedHomeView], Error>) -> Void) {
         do {
             var views = try loadViews()
@@ -57,6 +61,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
         }
     }
 
+    /// Executes replaceAll.
     public func replaceAll(_ views: [SavedHomeView], completion: @escaping (Result<[SavedHomeView], Error>) -> Void) {
         do {
             try persist(views)
@@ -66,6 +71,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
         }
     }
 
+    /// Executes loadViews.
     private func loadViews() throws -> [SavedHomeView] {
         guard let data = defaults.data(forKey: storageKey) else {
             return []
@@ -81,6 +87,7 @@ public final class UserDefaultsSavedHomeViewRepository: SavedHomeViewRepositoryP
         }
     }
 
+    /// Executes persist.
     private func persist(_ views: [SavedHomeView]) throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

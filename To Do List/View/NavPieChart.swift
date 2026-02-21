@@ -23,6 +23,7 @@ public struct NavPieChart: View {
     private let ringWidth: CGFloat = 4
     private let gapAngle: Double = 8 // degrees
 
+    /// Initializes a new instance.
     public init(score: Int, maxScore: Int = 18, onTap: (() -> Void)? = nil) {
         self.score = score
         self.maxScore = maxScore
@@ -111,6 +112,7 @@ public struct NavPieChartDetailed: View {
         ]
     }
 
+    /// Initializes a new instance.
     public init(score: Int, priorityBreakdown: [Int32: Int], onTap: (() -> Void)? = nil) {
         self.score = score
         self.priorityBreakdown = priorityBreakdown
@@ -198,6 +200,7 @@ public struct NavPieChartDetailed: View {
         return stops.isEmpty ? [Gradient.Stop(color: Color.tasker.accentMuted, location: 0)] : stops
     }
 
+    /// Executes animateSegments.
     private func animateSegments() {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(0.1)) {
             animatedScales = [1, 1, 1, 1]

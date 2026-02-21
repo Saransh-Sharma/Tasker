@@ -103,6 +103,7 @@ public struct CacheStatistics {
     public let cacheSize: Int
     public let itemCount: Int
     
+    /// Initializes a new instance.
     public init(
         totalRequests: Int = 0,
         cacheHits: Int = 0,

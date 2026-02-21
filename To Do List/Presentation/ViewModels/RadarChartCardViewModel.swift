@@ -13,6 +13,7 @@ public final class RadarChartCardViewModel: ObservableObject {
     private let projectRepository: ProjectRepositoryProtocol
     private let readModelRepository: TaskReadModelRepositoryProtocol?
 
+    /// Initializes a new instance.
     init(
         projectRepository: ProjectRepositoryProtocol,
         readModelRepository: TaskReadModelRepositoryProtocol? = nil
@@ -21,6 +22,7 @@ public final class RadarChartCardViewModel: ObservableObject {
         self.readModelRepository = readModelRepository
     }
 
+    /// Executes load.
     func load(referenceDate: Date?) {
         isLoading = true
 

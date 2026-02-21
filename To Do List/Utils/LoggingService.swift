@@ -63,6 +63,7 @@ final class LoggingService {
 
     // MARK: - Initialization
 
+    /// Initializes a new instance.
     private init() {
         self.osLog = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "com.tasker", category: "general")
         self.minimumLogLevel = .warning
@@ -148,6 +149,7 @@ final class LoggingService {
 
     // MARK: - Legacy Compatibility Methods
 
+    /// Executes debug.
     func debug(
         _ message: String,
         file: String = #file,
@@ -157,6 +159,7 @@ final class LoggingService {
         log(level: .debug, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
     }
 
+    /// Executes info.
     func info(
         _ message: String,
         file: String = #file,
@@ -166,6 +169,7 @@ final class LoggingService {
         log(level: .info, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
     }
 
+    /// Executes warning.
     func warning(
         _ message: String,
         file: String = #file,
@@ -175,6 +179,7 @@ final class LoggingService {
         log(level: .warning, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
     }
 
+    /// Executes error.
     func error(
         _ message: String,
         file: String = #file,
@@ -184,6 +189,7 @@ final class LoggingService {
         log(level: .error, event: "legacy_message", message: Self.singleLine(message), file: file, function: function, line: line)
     }
 
+    /// Executes fatal.
     func fatal(
         _ message: String,
         file: String = #file,
@@ -217,11 +223,13 @@ final class LoggingService {
 
     // MARK: - Helpers
 
+    /// Executes componentName.
     private static func componentName(from file: String) -> String {
         let name = URL(fileURLWithPath: file).deletingPathExtension().lastPathComponent
         return name.isEmpty ? "UnknownComponent" : name
     }
 
+    /// Executes sanitizeEvent.
     private static func sanitizeEvent(_ event: String) -> String {
         let trimmed = event.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "legacy_message" }
@@ -243,11 +251,13 @@ final class LoggingService {
             .isEmpty ? "legacy_message" : output.trimmingCharacters(in: CharacterSet(charactersIn: "_"))
     }
 
+    /// Executes sanitizeFieldKey.
     private static func sanitizeFieldKey(_ key: String) -> String {
         let sanitized = sanitizeEvent(key)
         return sanitized.isEmpty ? "field" : sanitized
     }
 
+    /// Executes singleLine.
     private static func singleLine(_ value: String) -> String {
         value
             .replacingOccurrences(of: "\n", with: " ")
@@ -255,6 +265,7 @@ final class LoggingService {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Executes formatMessage.
     private static func formatMessage(_ value: String) -> String {
         let escaped = singleLine(value)
             .replacingOccurrences(of: "\\", with: "\\\\")
@@ -262,6 +273,7 @@ final class LoggingService {
         return "\"\(escaped)\""
     }
 
+    /// Executes formatFieldValue.
     private static func formatFieldValue(_ value: String) -> String {
         let normalized = singleLine(value)
         let safePattern = "^[A-Za-z0-9._:/-]+$"
@@ -325,6 +337,7 @@ final class LoggingService {
 
 // MARK: - Global Convenience Functions
 
+/// Executes logDebug.
 public func logDebug(
     _ message: String,
     file: String = #file,
@@ -334,6 +347,7 @@ public func logDebug(
     LoggingService.shared.debug(message, file: file, function: function, line: line)
 }
 
+/// Executes logDebug.
 public func logDebug(
     _ items: Any...,
     separator: String = " ",
@@ -347,6 +361,7 @@ public func logDebug(
     LoggingService.shared.debug(message + suffix, file: file, function: function, line: line)
 }
 
+/// Executes logInfo.
 public func logInfo(
     _ message: String,
     file: String = #file,
@@ -356,6 +371,7 @@ public func logInfo(
     LoggingService.shared.info(message, file: file, function: function, line: line)
 }
 
+/// Executes logInfo.
 public func logInfo(
     _ items: Any...,
     separator: String = " ",
@@ -369,6 +385,7 @@ public func logInfo(
     LoggingService.shared.info(message + suffix, file: file, function: function, line: line)
 }
 
+/// Executes logWarning.
 public func logWarning(
     _ message: String,
     file: String = #file,
@@ -378,6 +395,7 @@ public func logWarning(
     LoggingService.shared.warning(message, file: file, function: function, line: line)
 }
 
+/// Executes logWarning.
 public func logWarning(
     _ items: Any...,
     separator: String = " ",
@@ -391,6 +409,7 @@ public func logWarning(
     LoggingService.shared.warning(message + suffix, file: file, function: function, line: line)
 }
 
+/// Executes logError.
 public func logError(
     _ message: String,
     file: String = #file,
@@ -400,6 +419,7 @@ public func logError(
     LoggingService.shared.error(message, file: file, function: function, line: line)
 }
 
+/// Executes logError.
 public func logError(
     _ items: Any...,
     separator: String = " ",
@@ -413,6 +433,7 @@ public func logError(
     LoggingService.shared.error(message + suffix, file: file, function: function, line: line)
 }
 
+/// Executes logFatal.
 public func logFatal(
     _ message: String,
     file: String = #file,
@@ -422,6 +443,7 @@ public func logFatal(
     LoggingService.shared.fatal(message, file: file, function: function, line: line)
 }
 
+/// Executes logFatal.
 public func logFatal(
     _ items: Any...,
     separator: String = " ",
@@ -435,6 +457,7 @@ public func logFatal(
     LoggingService.shared.fatal(message + suffix, file: file, function: function, line: line)
 }
 
+/// Executes logError.
 public func logError(
     _ error: Error,
     file: String = #file,
@@ -444,6 +467,7 @@ public func logError(
     LoggingService.shared.log(error: error, file: file, function: function, line: line)
 }
 
+/// Executes logWarning.
 public func logWarning(
     event: String,
     message: String,
@@ -465,6 +489,7 @@ public func logWarning(
     )
 }
 
+/// Executes logError.
 public func logError(
     event: String,
     message: String,
@@ -486,6 +511,7 @@ public func logError(
     )
 }
 
+/// Executes logFatal.
 public func logFatal(
     event: String,
     message: String,

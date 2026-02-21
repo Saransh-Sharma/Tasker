@@ -62,6 +62,7 @@ struct AddTaskEnumChipRow<T: Hashable & CaseIterable>: View where T.AllCases: Ra
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
+    /// Initializes a new instance.
     init(label: String, displayName: @escaping (T) -> String, icon: ((T) -> String)? = nil, selected: Binding<T>) {
         self.label = label
         self.displayName = displayName

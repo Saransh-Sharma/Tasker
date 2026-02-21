@@ -107,6 +107,7 @@ public enum TaskerCornerToken: String, CaseIterable {
         }
     }
 
+    /// Executes value.
     public func value(forHeight height: CGFloat) -> CGFloat {
         if self == .circle {
             return max(0, height / 2)
@@ -138,6 +139,7 @@ public struct TaskerTokens: TaskerTokenContainer {
     public let elevation: TaskerElevationTokens
     public let corner: TaskerCornerTokens
 
+    /// Initializes a new instance.
     public init(
         color: TaskerColorTokens,
         typography: TaskerTypographyTokens,

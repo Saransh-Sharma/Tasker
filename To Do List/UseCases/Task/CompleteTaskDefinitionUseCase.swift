@@ -4,15 +4,18 @@ public final class CompleteTaskDefinitionUseCase {
     private let repository: TaskDefinitionRepositoryProtocol
     private let gamification: RecordXPUseCase?
 
+    /// Initializes a new instance.
     public init(repository: TaskDefinitionRepositoryProtocol, gamification: RecordXPUseCase? = nil) {
         self.repository = repository
         self.gamification = gamification
     }
 
+    /// Executes execute.
     public func execute(taskID: UUID, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
         setCompletion(taskID: taskID, to: true, completion: completion)
     }
 
+    /// Executes setCompletion.
     public func setCompletion(
         taskID: UUID,
         to isComplete: Bool,
@@ -57,10 +60,12 @@ public final class CompleteTaskDefinitionUseCase {
         }
     }
 
+    /// Executes complete.
     public func complete(taskID: UUID, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
         setCompletion(taskID: taskID, to: true, completion: completion)
     }
 
+    /// Executes uncomplete.
     public func uncomplete(taskID: UUID, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
         setCompletion(taskID: taskID, to: false, completion: completion)
     }

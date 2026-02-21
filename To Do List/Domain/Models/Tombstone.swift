@@ -8,6 +8,7 @@ public struct TombstoneDefinition: Codable, Equatable, Hashable {
     public var deletedBy: String?
     public var purgeAfter: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         entityType: String,

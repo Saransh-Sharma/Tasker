@@ -4,6 +4,7 @@ public final class DeleteTaskDefinitionUseCase {
     private let repository: TaskDefinitionRepositoryProtocol
     private let tombstoneRepository: TombstoneRepositoryProtocol?
 
+    /// Initializes a new instance.
     public init(
         repository: TaskDefinitionRepositoryProtocol,
         tombstoneRepository: TombstoneRepositoryProtocol? = nil
@@ -12,6 +13,7 @@ public final class DeleteTaskDefinitionUseCase {
         self.tombstoneRepository = tombstoneRepository
     }
 
+    /// Executes execute.
     public func execute(
         taskID: UUID,
         scope: TaskDeleteScope = .single,
@@ -59,6 +61,7 @@ public final class DeleteTaskDefinitionUseCase {
         }
     }
 
+    /// Executes deleteSingle.
     private func deleteSingle(
         taskID: UUID,
         deletedTask: TaskDefinition?,
@@ -73,6 +76,7 @@ public final class DeleteTaskDefinitionUseCase {
         )
     }
 
+    /// Executes deleteMany.
     private func deleteMany(
         taskIDs: [UUID],
         deletedTask: TaskDefinition?,
@@ -134,6 +138,7 @@ public final class DeleteTaskDefinitionUseCase {
         }
     }
 
+    /// Executes createTombstoneIfNeeded.
     private func createTombstoneIfNeeded(taskID: UUID) {
         guard let tombstoneRepository else { return }
         let now = Date()

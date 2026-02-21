@@ -1,6 +1,7 @@
 import Foundation
 
 enum TaskNotificationDispatcher {
+    /// Executes postOnMain.
     static func postOnMain(
         name: Notification.Name,
         object: Any? = nil,

@@ -3,14 +3,17 @@ import Foundation
 public final class ManageHabitsUseCase {
     private let repository: HabitRepositoryProtocol
 
+    /// Initializes a new instance.
     public init(repository: HabitRepositoryProtocol) {
         self.repository = repository
     }
 
+    /// Executes list.
     public func list(completion: @escaping (Result<[HabitDefinitionRecord], Error>) -> Void) {
         repository.fetchAll(completion: completion)
     }
 
+    /// Executes create.
     public func create(
         title: String,
         habitType: String,
@@ -27,6 +30,7 @@ public final class ManageHabitsUseCase {
         repository.create(habit, completion: completion)
     }
 
+    /// Executes pause.
     public func pause(id: UUID, completion: @escaping (Result<HabitDefinitionRecord, Error>) -> Void) {
         repository.fetchAll { result in
             switch result {

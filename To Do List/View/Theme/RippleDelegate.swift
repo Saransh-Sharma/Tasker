@@ -11,12 +11,14 @@ import MaterialComponents.MaterialRipple
 
 class TinyPieChartRippleDelegate: NSObject, MDCRippleTouchControllerDelegate {
     
+    /// Executes rippleTouchController.
     func rippleTouchController(_ rippleTouchController: MDCRippleTouchController,
                                insert rippleView: MDCRippleView,
                                into view: UIView) {
         view.insertSubview(rippleView, at: 0)
     }
     
+    /// Executes rippleTouchController.
     func rippleTouchController(_ rippleTouchController: MDCRippleTouchController,
                                didProcessRippleView rippleView: MDCRippleView,
                                atTouchLocation location: CGPoint) {
@@ -30,6 +32,7 @@ class DateViewRippleDelegate: NSObject, MDCRippleTouchControllerDelegate {
     //    return exampleView.frame.contains(location)
     //  }
     
+    /// Executes rippleTouchController.
     func rippleTouchController(_ rippleTouchController: MDCRippleTouchController,
                                insert rippleView: MDCRippleView,
                                into view: UIView) {
@@ -37,6 +40,7 @@ class DateViewRippleDelegate: NSObject, MDCRippleTouchControllerDelegate {
         view.insertSubview(rippleView, at: 0)
     }
     
+    /// Executes rippleTouchController.
     func rippleTouchController(_ rippleTouchController: MDCRippleTouchController,
                                didProcessRippleView rippleView: MDCRippleView,
                                atTouchLocation location: CGPoint) {

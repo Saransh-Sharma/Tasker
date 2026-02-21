@@ -5,11 +5,13 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
     }
 
+    /// Executes fetchProfile.
     public func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
         viewContext.perform {
             do {
@@ -39,6 +41,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         }
     }
 
+    /// Executes saveProfile.
     public func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -63,6 +66,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         }
     }
 
+    /// Executes fetchXPEvents.
     public func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -89,6 +93,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         }
     }
 
+    /// Executes saveXPEvent.
     public func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -130,6 +135,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         }
     }
 
+    /// Executes fetchAchievementUnlocks.
     public func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -153,6 +159,7 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
         }
     }
 
+    /// Executes saveAchievementUnlock.
     public func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {

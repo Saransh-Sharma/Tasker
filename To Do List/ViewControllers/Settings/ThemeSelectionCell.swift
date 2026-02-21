@@ -16,18 +16,21 @@ class ThemeSelectionCell: UITableViewCell {
     private var cancellables = Set<AnyCancellable>()
     private var currentIndex: Int { TaskerThemeManager.shared.selectedThemeIndex }
     
+    /// Initializes a new instance.
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         configureCollectionView()
         selectionStyle = .none
     }
     
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         configureCollectionView()
         selectionStyle = .none
     }
     
+    /// Executes configureCollectionView.
     private func configureCollectionView() {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
@@ -66,10 +69,12 @@ class ThemeSelectionCell: UITableViewCell {
 
 // MARK: - CollectionView DataSource & Delegate
 extension ThemeSelectionCell: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         return TaskerThemeManager.shared.availableThemeSwatches.count
     }
     
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: ThemeCardCell.reuseID, for: indexPath) as! ThemeCardCell
         let swatch = TaskerThemeManager.shared.availableThemeSwatches[indexPath.item]
@@ -77,10 +82,12 @@ extension ThemeSelectionCell: UICollectionViewDataSource, UICollectionViewDelega
         return cell
     }
     
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         TaskerThemeManager.shared.selectTheme(index: indexPath.item)
     }
     
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         return CGSize(width: 60, height: 80)
     }
@@ -93,6 +100,7 @@ private class ThemeCardCell: UICollectionViewCell {
     private let primaryView = UIView()
     private let secondaryView = UIView()
     
+    /// Initializes a new instance.
     override init(frame: CGRect) {
         super.init(frame: frame)
         layer.cornerRadius = 8
@@ -119,10 +127,12 @@ private class ThemeCardCell: UICollectionViewCell {
         ])
     }
     
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
     
+    /// Executes configure.
     func configure(primary: UIColor, secondary: UIColor, selected: Bool) {
         primaryView.backgroundColor = primary
         secondaryView.backgroundColor = secondary

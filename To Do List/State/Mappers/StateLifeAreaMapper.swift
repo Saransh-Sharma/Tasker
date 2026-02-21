@@ -4,6 +4,7 @@ import CoreData
 enum StateLifeAreaMapper {
     static let entityName = "LifeArea"
 
+    /// Executes toDomain.
     static func toDomain(from object: NSManagedObject) -> LifeArea {
         LifeArea(
             id: object.value(forKey: "id") as? UUID ?? UUID(),
@@ -19,6 +20,7 @@ enum StateLifeAreaMapper {
         )
     }
 
+    /// Executes apply.
     @discardableResult
     static func apply(_ model: LifeArea, to object: NSManagedObject) -> NSManagedObject {
         object.setValue(model.id, forKey: "id")

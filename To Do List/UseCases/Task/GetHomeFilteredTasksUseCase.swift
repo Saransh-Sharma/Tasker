@@ -29,12 +29,14 @@ public final class GetHomeFilteredTasksUseCase {
 
     private let readModelRepository: TaskReadModelRepositoryProtocol?
 
+    /// Initializes a new instance.
     public init(
         readModelRepository: TaskReadModelRepositoryProtocol? = nil
     ) {
         self.readModelRepository = readModelRepository
     }
 
+    /// Executes execute.
     public func execute(
         state: HomeFilterState,
         scope: HomeListScope,
@@ -97,6 +99,7 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
+    /// Executes execute.
     public func execute(
         state: HomeFilterState,
         completion: @escaping (Result<HomeFilteredTasksResult, GetHomeFilteredTasksError>) -> Void
@@ -104,6 +107,7 @@ public final class GetHomeFilteredTasksUseCase {
         execute(state: state, scope: .fromQuickView(state.quickView), completion: completion)
     }
 
+    /// Executes computeQuickViewCounts.
     private func computeQuickViewCounts(from tasks: [TaskDefinition], scope: HomeListScope) -> [HomeQuickView: Int] {
         var counts: [HomeQuickView: Int] = [:]
         let anchorDate = scope.referenceDate
@@ -116,6 +120,7 @@ public final class GetHomeFilteredTasksUseCase {
         return counts
     }
 
+    /// Executes applyProjectAndAdvancedFacets.
     private func applyProjectAndAdvancedFacets(_ tasks: [TaskDefinition], state: HomeFilterState) -> [TaskDefinition] {
         let projectScoped: [TaskDefinition]
         if state.selectedProjectIDs.isEmpty {
@@ -202,6 +207,7 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
+    /// Executes applyScope.
     private func applyScope(_ scope: HomeListScope, to tasks: [TaskDefinition]) -> [TaskDefinition] {
         switch scope {
         case .today:
@@ -219,6 +225,7 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
+    /// Executes applyQuickView.
     private func applyQuickView(_ view: HomeQuickView, to tasks: [TaskDefinition], anchorDate: Date) -> [TaskDefinition] {
         let calendar = Calendar.current
         let startOfAnchorDay = calendar.startOfDay(for: anchorDate)
@@ -265,6 +272,7 @@ public final class GetHomeFilteredTasksUseCase {
         }
     }
 
+    /// Executes isMorningTaskHybrid.
     private func isMorningTaskHybrid(_ task: TaskDefinition) -> Bool {
         if task.type == .morning { return true }
         if task.type == .evening { return false }
@@ -274,6 +282,7 @@ public final class GetHomeFilteredTasksUseCase {
         return hour >= 4 && hour <= 11
     }
 
+    /// Executes isEveningTaskHybrid.
     private func isEveningTaskHybrid(_ task: TaskDefinition) -> Bool {
         if task.type == .evening { return true }
         if task.type == .morning { return false }
@@ -283,6 +292,7 @@ public final class GetHomeFilteredTasksUseCase {
         return hour >= 17 && hour <= 23
     }
 
+    /// Executes sortByPriorityThenDue.
     private func sortByPriorityThenDue(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
         if lhs.priority.scorePoints != rhs.priority.scorePoints {
             return lhs.priority.scorePoints > rhs.priority.scorePoints
@@ -293,6 +303,7 @@ public final class GetHomeFilteredTasksUseCase {
         return lhsDate < rhsDate
     }
 
+    /// Executes sortDoneTimeline.
     private func sortDoneTimeline(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
         let calendar = Calendar.current
         let lhsDay = lhs.dateCompleted.map { calendar.startOfDay(for: $0) } ?? Date.distantPast

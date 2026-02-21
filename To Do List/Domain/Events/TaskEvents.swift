@@ -26,6 +26,7 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
     public let projectName: String?
     public let dueDate: Date?
     
+    /// Initializes a new instance.
     public init(
         taskId: UUID,
         taskName: String,
@@ -54,6 +55,7 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
         ]
     }
     
+    /// Executes toDictionary.
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "eventId": eventId.uuidString,
@@ -79,6 +81,7 @@ public struct TaskCreatedEvent: SerializableDomainEvent {
         return dict
     }
     
+    /// Executes fromDictionary.
     public static func fromDictionary(_ dict: [String: Any]) -> TaskCreatedEvent? {
         guard let eventIdString = dict["eventId"] as? String,
               let eventId = UUID(uuidString: eventIdString),
@@ -129,6 +132,7 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
     public let scoreEarned: Int
     public let completionTime: TimeInterval? // Time taken to complete
     
+    /// Initializes a new instance.
     public init(
         taskId: UUID,
         taskName: String,
@@ -154,6 +158,7 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
         ]
     }
     
+    /// Executes toDictionary.
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "eventId": eventId.uuidString,
@@ -176,6 +181,7 @@ public struct TaskCompletedEvent: SerializableDomainEvent {
         return dict
     }
     
+    /// Executes fromDictionary.
     public static func fromDictionary(_ dict: [String: Any]) -> TaskCompletedEvent? {
         guard let eventIdString = dict["eventId"] as? String,
               let eventId = UUID(uuidString: eventIdString),
@@ -221,6 +227,7 @@ public struct TaskUpdatedEvent: SerializableDomainEvent {
     public let oldValues: [String: Any]
     public let newValues: [String: Any]
     
+    /// Initializes a new instance.
     public init(
         taskId: UUID,
         changedFields: [String],
@@ -243,6 +250,7 @@ public struct TaskUpdatedEvent: SerializableDomainEvent {
         ]
     }
     
+    /// Executes toDictionary.
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "eventId": eventId.uuidString,
@@ -262,6 +270,7 @@ public struct TaskUpdatedEvent: SerializableDomainEvent {
         return dict
     }
     
+    /// Executes fromDictionary.
     public static func fromDictionary(_ dict: [String: Any]) -> TaskUpdatedEvent? {
         guard let eventIdString = dict["eventId"] as? String,
               let eventId = UUID(uuidString: eventIdString),
@@ -301,6 +310,7 @@ public struct OccurrenceResolvedEvent: SerializableDomainEvent {
     public let resolutionType: String
     public let actor: String
 
+    /// Initializes a new instance.
     public init(
         occurrenceId: UUID,
         resolutionType: String,
@@ -320,6 +330,7 @@ public struct OccurrenceResolvedEvent: SerializableDomainEvent {
         ]
     }
 
+    /// Executes toDictionary.
     public func toDictionary() -> [String: Any] {
         [
             "eventId": eventId.uuidString,
@@ -332,6 +343,7 @@ public struct OccurrenceResolvedEvent: SerializableDomainEvent {
         ]
     }
 
+    /// Executes fromDictionary.
     public static func fromDictionary(_ dict: [String: Any]) -> OccurrenceResolvedEvent? {
         guard
             let eventIdString = dict["eventId"] as? String,
@@ -368,6 +380,7 @@ public struct XPAwardedEvent: SerializableDomainEvent {
     public let reason: String
     public let idempotencyKey: String
 
+    /// Initializes a new instance.
     public init(
         eventId: UUID = UUID(),
         occurredAt: Date = Date(),
@@ -389,6 +402,7 @@ public struct XPAwardedEvent: SerializableDomainEvent {
         ]
     }
 
+    /// Executes toDictionary.
     public func toDictionary() -> [String: Any] {
         [
             "eventId": eventId.uuidString,
@@ -402,6 +416,7 @@ public struct XPAwardedEvent: SerializableDomainEvent {
         ]
     }
 
+    /// Executes fromDictionary.
     public static func fromDictionary(_ dict: [String: Any]) -> XPAwardedEvent? {
         guard
             let eventIdString = dict["eventId"] as? String,
@@ -441,6 +456,7 @@ public struct TaskDeletedEvent: SerializableDomainEvent {
     public let taskName: String
     public let reason: String?
     
+    /// Initializes a new instance.
     public init(
         taskId: UUID,
         taskName: String,
@@ -461,6 +477,7 @@ public struct TaskDeletedEvent: SerializableDomainEvent {
         ]
     }
     
+    /// Executes toDictionary.
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "eventId": eventId.uuidString,
@@ -481,6 +498,7 @@ public struct TaskDeletedEvent: SerializableDomainEvent {
         return dict
     }
     
+    /// Executes fromDictionary.
     public static func fromDictionary(_ dict: [String: Any]) -> TaskDeletedEvent? {
         guard let eventIdString = dict["eventId"] as? String,
               let eventId = UUID(uuidString: eventIdString),

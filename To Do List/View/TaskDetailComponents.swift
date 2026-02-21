@@ -139,6 +139,7 @@ struct DetailRow<Trailing: View>: View {
     let trailing: Trailing
     var action: (() -> Void)?
 
+    /// Initializes a new instance.
     init(
         icon: String,
         iconColor: Color? = nil,
@@ -184,6 +185,7 @@ struct DetailRow<Trailing: View>: View {
 }
 
 extension DetailRow where Trailing == Text {
+    /// Initializes a new instance.
     init(
         icon: String,
         iconColor: Color? = nil,
@@ -285,6 +287,7 @@ struct InfoPill: View {
 struct TaskDetailSectionDivider: View {
     let title: String?
 
+    /// Initializes a new instance.
     init(_ title: String? = nil) {
         self.title = title
     }

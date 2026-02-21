@@ -66,6 +66,7 @@ struct ChatsSettingsView: View {
         #endif
     }
 
+    /// Executes deleteChats.
     func deleteChats() {
         do {
             currentThread = nil

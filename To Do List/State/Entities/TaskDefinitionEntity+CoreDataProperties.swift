@@ -17,6 +17,7 @@ extension TaskDefinitionEntity {
         return NSFetchRequest<TaskDefinitionEntity>(entityName: "TaskDefinition")
     }
 
+    /// Executes getTaskScore.
     @NSManaged public var taskID: UUID?
     @NSManaged public var projectID: UUID?
     @NSManaged public var lifeAreaID: UUID?

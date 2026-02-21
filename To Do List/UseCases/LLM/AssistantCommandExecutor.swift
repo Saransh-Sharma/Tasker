@@ -4,6 +4,7 @@ public actor AssistantCommandExecutor {
     private var isRunning = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
+    /// Initializes a new instance.
     public init() {}
 
     func enqueue<T>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
@@ -12,6 +13,7 @@ public actor AssistantCommandExecutor {
         return try await operation()
     }
 
+    /// Executes acquire.
     private func acquire() async {
         if isRunning == false {
             isRunning = true
@@ -22,6 +24,7 @@ public actor AssistantCommandExecutor {
         }
     }
 
+    /// Executes release.
     private func release() {
         if waiters.isEmpty {
             isRunning = false

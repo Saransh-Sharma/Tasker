@@ -15,12 +15,15 @@ import AppKit
 struct PlayerView: UIViewRepresentable {
     var videoName: String
 
+    /// Initializes a new instance.
     init(videoName: String) {
         self.videoName = videoName
     }
 
+    /// Executes updateUIView.
     func updateUIView(_: UIView, context _: UIViewRepresentableContext<PlayerView>) {}
 
+    /// Executes makeUIView.
     func makeUIView(context _: Context) -> UIView {
         return LoopingPlayerUIView(videoName: videoName)
     }
@@ -31,6 +34,7 @@ class LoopingPlayerUIView: UIView {
     private var playerLooper: AVPlayerLooper?
     private var player = AVQueuePlayer()
 
+    /// Initializes a new instance.
     init(videoName: String) {
         super.init(frame: .zero)
 
@@ -71,11 +75,13 @@ class LoopingPlayerUIView: UIView {
         player.play()
     }
 
+    /// Initializes a new instance.
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Executes layoutSubviews.
     override func layoutSubviews() {
         super.layoutSubviews()
         playerLayer.frame = bounds
@@ -87,14 +93,17 @@ class LoopingPlayerUIView: UIView {
 struct PlayerView: NSViewRepresentable {
     var videoName: String
 
+    /// Initializes a new instance.
     init(videoName: String) {
         self.videoName = videoName
     }
 
+    /// Executes updateNSView.
     func updateNSView(_ nsView: NSView, context: Context) {
         // No dynamic updates needed for this player
     }
 
+    /// Executes makeNSView.
     func makeNSView(context: Context) -> NSView {
         return LoopingPlayerNSView(videoName: videoName)
     }
@@ -105,6 +114,7 @@ class LoopingPlayerNSView: NSView {
     private var playerLooper: AVPlayerLooper?
     private var player = AVQueuePlayer()
 
+    /// Initializes a new instance.
     init(videoName: String) {
         // Ensure the video file exists
         guard let path = Bundle.main.path(forResource: videoName, ofType: "mp4") else {
@@ -129,11 +139,13 @@ class LoopingPlayerNSView: NSView {
         player.play()
     }
 
+    /// Initializes a new instance.
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Executes layout.
     override func layout() {
         super.layout()
         playerLayer.frame = self.bounds
@@ -146,6 +158,7 @@ class LoopingPlayerNSView: NSView {
 struct LottieView: UIViewRepresentable {
     let animationName: String
 
+    /// Executes makeUIView.
     func makeUIView(context: Context) -> LottieAnimationView {
                 let configuration = LottieConfiguration(renderingEngine: .coreAnimation)
         let animationView = LottieAnimationView(name: animationName, configuration: configuration)
@@ -156,6 +169,7 @@ struct LottieView: UIViewRepresentable {
         return animationView
     }
 
+    /// Executes updateUIView.
     func updateUIView(_ uiView: LottieAnimationView, context: Context) {
         // No dynamic updates needed yet
     }

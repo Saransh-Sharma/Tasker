@@ -367,6 +367,7 @@ struct ChatView: View {
         case none
     }
 
+    /// Executes generate.
     private func generate() {
         if !isPromptEmpty {
             let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -458,6 +459,7 @@ struct ChatView: View {
         }
     }
 
+    /// Executes sendMessage.
     private func sendMessage(_ message: Message) {
         appManager.playHaptic()
         modelContext.insert(message)
@@ -484,6 +486,7 @@ struct ChatView: View {
     }
 
     // MARK: - Slash command parsing
+    /// Executes parseSlashCommand.
     private func parseSlashCommand(_ text: String) -> SlashAction {
         guard text.hasPrefix("/") else { return .none }
         let components = text.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
@@ -512,10 +515,12 @@ struct ChatView: View {
         }
     }
 
+    /// Executes buildTasksSummary.
     private func buildTasksSummary() -> String {
         PromptMiddleware.buildTasksSummary(range: .today)
     }
 
+    /// Executes buildLLMContextPayload.
     private func buildLLMContextPayload() -> String {
         guard let service = LLMContextRepositoryProvider.makeService() else {
             return """
@@ -537,6 +542,7 @@ struct ChatView: View {
         """
     }
 
+    /// Executes fetchProjectionSync.
     private func fetchProjectionSync(
         _ request: (@escaping (String) -> Void) -> Void
     ) -> String {
@@ -551,6 +557,7 @@ struct ChatView: View {
     }
 
     #if os(macOS)
+    /// Executes handleShiftReturn.
     private func handleShiftReturn() {
         if NSApp.currentEvent?.modifierFlags.contains(.shift) == true {
             prompt.append("\n")

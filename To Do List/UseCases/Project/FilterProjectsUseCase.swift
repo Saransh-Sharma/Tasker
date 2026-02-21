@@ -16,6 +16,7 @@ public final class FilterProjectsUseCase {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     public init(projectRepository: ProjectRepositoryProtocol) {
         self.projectRepository = projectRepository
     }

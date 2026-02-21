@@ -15,12 +15,14 @@ public struct SyncClock: Codable, Equatable, Hashable, Comparable {
     public var logicalCounter: Int64
     public var nodeID: String
 
+    /// Initializes a new instance.
     public init(physicalMillis: Int64, logicalCounter: Int64, nodeID: String) {
         self.physicalMillis = physicalMillis
         self.logicalCounter = logicalCounter
         self.nodeID = nodeID
     }
 
+    /// Executes now.
     public static func now(nodeID: String, base: SyncClock? = nil, date: Date = Date()) -> SyncClock {
         next(
             nodeID: nodeID,
@@ -29,6 +31,7 @@ public struct SyncClock: Codable, Equatable, Hashable, Comparable {
         )
     }
 
+    /// Executes next.
     public static func next(
         nodeID: String,
         base: SyncClock?,
@@ -75,6 +78,7 @@ public struct ReminderFieldClock: Codable, Equatable, Hashable {
     public var priority: SyncClock?
     public var urlString: SyncClock?
 
+    /// Initializes a new instance.
     public init(
         title: SyncClock? = nil,
         notes: SyncClock? = nil,
@@ -140,6 +144,7 @@ public struct ReminderMergeState: Codable, Equatable, Hashable {
     public var tombstoneClock: SyncClock?
     public var lastWriteClock: SyncClock?
 
+    /// Initializes a new instance.
     public init(
         fieldClocks: ReminderFieldClock = ReminderFieldClock(),
         alarmAddSet: [String: SyncClock] = [:],
@@ -154,6 +159,7 @@ public struct ReminderMergeState: Codable, Equatable, Hashable {
         self.lastWriteClock = lastWriteClock
     }
 
+    /// Executes decode.
     public static func decode(from data: Data?) -> ReminderMergeState {
         guard let data else {
             return ReminderMergeState()
@@ -162,6 +168,7 @@ public struct ReminderMergeState: Codable, Equatable, Hashable {
         return (try? decoder.decode(ReminderMergeState.self, from: data)) ?? ReminderMergeState()
     }
 
+    /// Executes encodedData.
     public func encodedData() -> Data? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -180,6 +187,7 @@ public struct ReminderMergeEnvelope: Codable, Equatable, Hashable {
         public var urlString: String?
         public var alarmDates: [Date]
 
+        /// Initializes a new instance.
         public init(
             title: String,
             notes: String? = nil,
@@ -205,6 +213,7 @@ public struct ReminderMergeEnvelope: Codable, Equatable, Hashable {
     public var known: KnownFields
     public var passthroughData: Data?
 
+    /// Initializes a new instance.
     public init(
         schemaVersion: Int = 1,
         known: KnownFields,

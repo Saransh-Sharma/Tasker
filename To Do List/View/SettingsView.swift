@@ -17,6 +17,7 @@ struct SettingsView: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "N/A"
     }
 
+    /// Initializes a new instance.
     init(
         projectManagementDestination: AnyView = AnyView(
             Text("Project management requires injected dependencies.")

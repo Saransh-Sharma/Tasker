@@ -40,6 +40,7 @@ struct LiquidGlassSurface<S: Shape, Content: View>: View {
     private let emphasis: Emphasis
     private let content: Content
 
+    /// Initializes a new instance.
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 

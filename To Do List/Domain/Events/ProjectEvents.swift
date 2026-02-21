@@ -26,6 +26,7 @@ public struct ProjectCreatedEvent: SerializableDomainEvent {
     public let icon: ProjectIcon
     public let parentProjectId: UUID?
     
+    /// Initializes a new instance.
     public init(
         projectId: UUID,
         projectName: String,
@@ -52,6 +53,7 @@ public struct ProjectCreatedEvent: SerializableDomainEvent {
         ]
     }
     
+    /// Executes toDictionary.
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "eventId": eventId.uuidString,
@@ -77,6 +79,7 @@ public struct ProjectCreatedEvent: SerializableDomainEvent {
         return dict
     }
     
+    /// Executes fromDictionary.
     public static func fromDictionary(_ dict: [String: Any]) -> ProjectCreatedEvent? {
         guard let eventIdString = dict["eventId"] as? String,
               let eventId = UUID(uuidString: eventIdString),
@@ -125,6 +128,7 @@ public struct ProjectUpdatedEvent: SerializableDomainEvent {
     public let oldValues: [String: Any]
     public let newValues: [String: Any]
     
+    /// Initializes a new instance.
     public init(
         projectId: UUID,
         changedFields: [String],
@@ -147,6 +151,7 @@ public struct ProjectUpdatedEvent: SerializableDomainEvent {
         ]
     }
     
+    /// Executes toDictionary.
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "eventId": eventId.uuidString,
@@ -166,6 +171,7 @@ public struct ProjectUpdatedEvent: SerializableDomainEvent {
         return dict
     }
     
+    /// Executes fromDictionary.
     public static func fromDictionary(_ dict: [String: Any]) -> ProjectUpdatedEvent? {
         guard let eventIdString = dict["eventId"] as? String,
               let eventId = UUID(uuidString: eventIdString),
@@ -208,6 +214,7 @@ public struct ProjectArchivedEvent: SerializableDomainEvent {
     public let reason: String?
     public let taskCount: Int
     
+    /// Initializes a new instance.
     public init(
         projectId: UUID,
         projectName: String,
@@ -231,6 +238,7 @@ public struct ProjectArchivedEvent: SerializableDomainEvent {
         ]
     }
     
+    /// Executes toDictionary.
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "eventId": eventId.uuidString,
@@ -252,6 +260,7 @@ public struct ProjectArchivedEvent: SerializableDomainEvent {
         return dict
     }
     
+    /// Executes fromDictionary.
     public static func fromDictionary(_ dict: [String: Any]) -> ProjectArchivedEvent? {
         guard let eventIdString = dict["eventId"] as? String,
               let eventId = UUID(uuidString: eventIdString),
@@ -294,6 +303,7 @@ public struct ProjectDeletedEvent: SerializableDomainEvent {
     public let reason: String?
     public let taskCount: Int
     
+    /// Initializes a new instance.
     public init(
         projectId: UUID,
         projectName: String,
@@ -317,6 +327,7 @@ public struct ProjectDeletedEvent: SerializableDomainEvent {
         ]
     }
     
+    /// Executes toDictionary.
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
             "eventId": eventId.uuidString,
@@ -338,6 +349,7 @@ public struct ProjectDeletedEvent: SerializableDomainEvent {
         return dict
     }
     
+    /// Executes fromDictionary.
     public static func fromDictionary(_ dict: [String: Any]) -> ProjectDeletedEvent? {
         guard let eventIdString = dict["eventId"] as? String,
               let eventId = UUID(uuidString: eventIdString),

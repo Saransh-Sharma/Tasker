@@ -5,11 +5,13 @@ public final class CoreDataTombstoneRepository: TombstoneRepositoryProtocol {
     private let viewContext: NSManagedObjectContext
     private let backgroundContext: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.viewContext = container.viewContext
         self.backgroundContext = container.newBackgroundContext()
     }
 
+    /// Executes create.
     public func create(_ tombstone: TombstoneDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {
@@ -30,6 +32,7 @@ public final class CoreDataTombstoneRepository: TombstoneRepositoryProtocol {
         }
     }
 
+    /// Executes fetchExpired.
     public func fetchExpired(before date: Date, completion: @escaping (Result<[TombstoneDefinition], Error>) -> Void) {
         viewContext.perform {
             do {
@@ -49,6 +52,7 @@ public final class CoreDataTombstoneRepository: TombstoneRepositoryProtocol {
         }
     }
 
+    /// Executes delete.
     public func delete(ids: [UUID], completion: @escaping (Result<Void, Error>) -> Void) {
         backgroundContext.perform {
             do {

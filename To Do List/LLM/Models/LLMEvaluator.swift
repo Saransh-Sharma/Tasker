@@ -39,6 +39,7 @@ class LLMEvaluator {
 
     var modelConfiguration = ModelConfiguration.defaultModel
 
+    /// Executes switchModel.
     func switchModel(_ model: ModelConfiguration) async {
         progress = 0.0 // reset progress
         loadState = .idle
@@ -92,11 +93,13 @@ class LLMEvaluator {
         }
     }
 
+    /// Executes stop.
     func stop() {
         isThinking = false
         cancelled = true
     }
 
+    /// Executes generate.
     func generate(modelName: String, thread: Thread, systemPrompt: String) async -> String {
         guard !running else { return "" }
 

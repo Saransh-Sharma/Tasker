@@ -4,6 +4,7 @@ import CoreData
 enum StateTagMapper {
     static let entityName = "Tag"
 
+    /// Executes toDomain.
     static func toDomain(from object: NSManagedObject) -> TagDefinition {
         TagDefinition(
             id: object.value(forKey: "id") as? UUID ?? UUID(),
@@ -15,6 +16,7 @@ enum StateTagMapper {
         )
     }
 
+    /// Executes apply.
     @discardableResult
     static func apply(_ model: TagDefinition, to object: NSManagedObject) -> NSManagedObject {
         object.setValue(model.id, forKey: "id")

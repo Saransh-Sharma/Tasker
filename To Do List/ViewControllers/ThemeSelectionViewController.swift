@@ -17,6 +17,7 @@ class ThemeSelectionViewController: UIViewController {
     private let cellReuseIdentifier = "ThemeCardCell"
 
     // MARK: - Lifecycle
+    /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -27,6 +28,7 @@ class ThemeSelectionViewController: UIViewController {
     }
 
     // MARK: - UI Setup
+    /// Executes configureCollectionView.
     private func configureCollectionView() {
         let spacing = TaskerThemeManager.shared.currentTheme.tokens.spacing
         let layout = UICollectionViewFlowLayout()
@@ -57,10 +59,12 @@ class ThemeSelectionViewController: UIViewController {
 
 // MARK: - UICollectionViewDataSource
 extension ThemeSelectionViewController: UICollectionViewDataSource {
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         return TaskerThemeManager.shared.availableThemeSwatches.count
     }
 
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellReuseIdentifier, for: indexPath) as? ThemeCardCell else {
             return UICollectionViewCell()
@@ -77,6 +81,7 @@ extension ThemeSelectionViewController: UICollectionViewDataSource {
 
 // MARK: - UICollectionViewDelegate
 extension ThemeSelectionViewController: UICollectionViewDelegate {
+    /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         // Persist selection
         TaskerThemeManager.shared.selectTheme(index: indexPath.item)
@@ -95,6 +100,7 @@ private class ThemeCardCell: UICollectionViewCell {
     private let primaryView = UIView()
     private let secondaryView = UIView()
 
+    /// Initializes a new instance.
     override init(frame: CGRect) {
         super.init(frame: frame)
 
@@ -122,10 +128,12 @@ private class ThemeCardCell: UICollectionViewCell {
         ])
     }
 
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// Executes configure.
     func configure(primary: UIColor, secondary: UIColor, isSelected: Bool) {
         primaryView.backgroundColor = primary
         secondaryView.backgroundColor = secondary
@@ -139,6 +147,7 @@ final class ThemeDebugSwatchesViewController: UIViewController {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private let reuseIdentifier = "ThemeDebugSwatchCell"
 
+    /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Theme QA Swatches"
@@ -146,6 +155,7 @@ final class ThemeDebugSwatchesViewController: UIViewController {
         setupTableView()
     }
 
+    /// Executes setupTableView.
     private func setupTableView() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.dataSource = self
@@ -163,6 +173,7 @@ final class ThemeDebugSwatchesViewController: UIViewController {
         ])
     }
 
+    /// Executes summary.
     private func summary(for index: Int) -> String {
         let theme = TaskerTheme(index: index)
         let colors = theme.tokens.color
@@ -175,6 +186,7 @@ final class ThemeDebugSwatchesViewController: UIViewController {
         return "accent500 \(accent.taskerHexString) • ring \(ring.taskerHexString) • onAccent \(onAccent.taskerHexString) • contrast \(String(format: "%.2f", ratio)):1"
     }
 
+    /// Executes contrastRatio.
     private func contrastRatio(between lhs: UIColor, and rhs: UIColor) -> Double {
         let lhsL = lhs.taskerRelativeLuminance
         let rhsL = rhs.taskerRelativeLuminance
@@ -185,18 +197,22 @@ final class ThemeDebugSwatchesViewController: UIViewController {
 }
 
 extension ThemeDebugSwatchesViewController: UITableViewDataSource, UITableViewDelegate {
+    /// Executes numberOfSections.
     func numberOfSections(in tableView: UITableView) -> Int {
         1
     }
 
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         TaskerTheme.accentThemes.count
     }
 
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         "Tap a swatch to preview/apply"
     }
 
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: reuseIdentifier)
             ?? UITableViewCell(style: .subtitle, reuseIdentifier: reuseIdentifier)
@@ -215,6 +231,7 @@ extension ThemeDebugSwatchesViewController: UITableViewDataSource, UITableViewDe
         return cell
     }
 
+    /// Executes tableView.
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         TaskerThemeManager.shared.selectTheme(index: indexPath.row)
         tableView.reloadData()
@@ -241,6 +258,7 @@ private extension UIColor {
         var alpha: CGFloat = 0
         guard getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return 0 }
 
+        /// Executes convert.
         func convert(_ value: CGFloat) -> Double {
             let srgb = Double(value)
             if srgb <= 0.04045 {

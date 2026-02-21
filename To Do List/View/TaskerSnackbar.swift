@@ -15,12 +15,14 @@ struct SnackbarData: Equatable {
     let actions: [SnackbarAction]
     let autoDismissSeconds: TimeInterval
 
+    /// Initializes a new instance.
     init(message: String, actions: [SnackbarAction] = [], autoDismissSeconds: TimeInterval = 5.0) {
         self.message = message
         self.actions = actions
         self.autoDismissSeconds = autoDismissSeconds
     }
 
+    /// Executes ==.
     static func == (lhs: SnackbarData, rhs: SnackbarData) -> Bool {
         lhs.message == rhs.message
     }
@@ -30,6 +32,7 @@ struct SnackbarAction: Equatable {
     let title: String
     let action: () -> Void
 
+    /// Executes ==.
     static func == (lhs: SnackbarAction, rhs: SnackbarAction) -> Bool {
         lhs.title == rhs.title
     }
@@ -113,6 +116,7 @@ struct TaskerSnackbar: View {
         }
     }
 
+    /// Executes dismissSnackbar.
     private func dismissSnackbar() {
         withAnimation(TaskerAnimation.gentle) {
             isVisible = false
@@ -126,6 +130,7 @@ struct TaskerSnackbar: View {
 // MARK: - Snackbar Modifier
 
 struct SnackbarModifier: ViewModifier {
+    /// Executes body.
     @Binding var snackbar: SnackbarData?
 
     func body(content: Content) -> some View {
@@ -145,6 +150,7 @@ struct SnackbarModifier: ViewModifier {
 }
 
 extension View {
+    /// Executes taskerSnackbar.
     func taskerSnackbar(_ snackbar: Binding<SnackbarData?>) -> some View {
         modifier(SnackbarModifier(snackbar: snackbar))
     }

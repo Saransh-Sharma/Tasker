@@ -28,6 +28,7 @@ struct HomeTaskTodayLayout: Equatable {
 }
 
 enum HomeTaskSectionBuilder {
+    /// Executes buildTodayLayout.
     static func buildTodayLayout(
         mode: HomeProjectGroupingMode,
         nonOverdueTasks: [TaskDefinition],
@@ -53,6 +54,7 @@ enum HomeTaskSectionBuilder {
         }
     }
 
+    /// Executes buildPrioritizeOverdueLayout.
     private static func buildPrioritizeOverdueLayout(
         nonOverdueTasks: [TaskDefinition],
         overdueTasks: [TaskDefinition],
@@ -88,6 +90,7 @@ enum HomeTaskSectionBuilder {
         )
     }
 
+    /// Executes buildGroupByProjectsLayout.
     private static func buildGroupByProjectsLayout(
         nonOverdueTasks: [TaskDefinition],
         overdueTasks: [TaskDefinition],
@@ -112,6 +115,7 @@ enum HomeTaskSectionBuilder {
         )
     }
 
+    /// Executes buildProjectSections.
     private static func buildProjectSections(
         from tasks: [TaskDefinition],
         projects: [Project],
@@ -147,6 +151,7 @@ enum HomeTaskSectionBuilder {
         return sections
     }
 
+    /// Executes compareSections.
     private static func compareSections(
         lhs: HomeTaskProjectSection,
         rhs: HomeTaskProjectSection,
@@ -171,6 +176,7 @@ enum HomeTaskSectionBuilder {
         return lhs.project.name.localizedCaseInsensitiveCompare(rhs.project.name) == .orderedAscending
     }
 
+    /// Executes resolveProject.
     private static func resolveProject(
         projectID: UUID,
         tasks: [TaskDefinition],
@@ -198,10 +204,12 @@ enum HomeTaskSectionBuilder {
         return Project(id: projectID, name: "Uncategorized", icon: .folder)
     }
 
+    /// Executes isInboxProject.
     private static func isInboxProject(_ project: Project) -> Bool {
         project.isInbox || project.id == ProjectConstants.inboxProjectID || project.name.caseInsensitiveCompare(ProjectConstants.inboxProjectName) == .orderedSame
     }
 
+    /// Executes sortByPriorityThenDue.
     private static func sortByPriorityThenDue(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
         tasks.sorted { lhs, rhs in
             if lhs.priority.scorePoints != rhs.priority.scorePoints {
@@ -213,6 +221,7 @@ enum HomeTaskSectionBuilder {
         }
     }
 
+    /// Executes sortWithNonOverdueFirst.
     private static func sortWithNonOverdueFirst(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
         tasks.sorted { lhs, rhs in
             if lhs.isOverdue != rhs.isOverdue {

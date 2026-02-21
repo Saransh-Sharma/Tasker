@@ -29,6 +29,7 @@ public extension UIColor {
         TaskerUIKitTokens.color
     }
 
+    /// Executes tasker.
     static func tasker(_ role: TaskerColorRole) -> UIColor {
         TaskerUIKitTokens.color.color(for: role)
     }
@@ -42,6 +43,7 @@ public extension UIFont {
 }
 
 public extension UIView {
+    /// Executes applyTaskerElevation.
     @MainActor
     func applyTaskerElevation(_ level: TaskerElevationLevel) {
         let style = TaskerUIKitTokens.elevation.style(for: level)
@@ -54,6 +56,7 @@ public extension UIView {
         layer.masksToBounds = false
     }
 
+    /// Executes applyTaskerCorner.
     @MainActor
     func applyTaskerCorner(_ token: TaskerCornerToken) {
         let value = TaskerUIKitTokens.corner.value(for: token, height: bounds.height)
@@ -68,6 +71,7 @@ public struct TaskerNavButtonStyle {
     public static let pressedAlpha: CGFloat = 0.6
     public static let pressedDuration: TimeInterval = 0.12
 
+    /// Executes titleColor.
     public static func titleColor(
         context: TaskerNavButtonContext,
         emphasis: TaskerNavButtonEmphasis,
@@ -92,6 +96,7 @@ public struct TaskerNavButtonStyle {
         return enabled ? base : base.withAlphaComponent(0.3)
     }
 
+    /// Executes attributes.
     public static func attributes(
         context: TaskerNavButtonContext,
         emphasis: TaskerNavButtonEmphasis,
@@ -103,6 +108,7 @@ public struct TaskerNavButtonStyle {
         ]
     }
 
+    /// Executes apply.
     public static func apply(
         to item: UIBarButtonItem,
         context: TaskerNavButtonContext,
@@ -138,18 +144,21 @@ public final class TaskerTextField: UITextField {
     private let colors = TaskerUIKitTokens.color
     private let corners = TaskerUIKitTokens.corner
 
+    /// Initializes a new instance.
     public init(kind: Kind = .singleLine) {
         self.kind = kind
         super.init(frame: .zero)
         configure()
     }
 
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         self.kind = .singleLine
         super.init(coder: coder)
         configure()
     }
 
+    /// Executes configure.
     private func configure() {
         font = TaskerUIKitTokens.typography.body
         textColor = colors.textPrimary
@@ -170,6 +179,7 @@ public final class TaskerTextField: UITextField {
         heightAnchor.constraint(greaterThanOrEqualToConstant: targetHeight).isActive = true
     }
 
+    /// Executes setTaskerPlaceholder.
     public func setTaskerPlaceholder(_ text: String) {
         attributedPlaceholder = NSAttributedString(
             string: text,
@@ -202,20 +212,24 @@ public final class TaskerChipView: UIControl {
         didSet { refreshAppearance() }
     }
 
+    /// Initializes a new instance.
     public override init(frame: CGRect) {
         super.init(frame: frame)
         configure()
     }
 
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         configure()
     }
 
+    /// Executes setTitle.
     public func setTitle(_ text: String) {
         titleLabel.text = text
     }
 
+    /// Executes configure.
     private func configure() {
         let spacing = TaskerUIKitTokens.spacing
         addSubview(titleLabel)
@@ -238,6 +252,7 @@ public final class TaskerChipView: UIControl {
         refreshAppearance()
     }
 
+    /// Executes refreshAppearance.
     private func refreshAppearance() {
         let colors = TaskerUIKitTokens.color
         if isSelected {
@@ -272,16 +287,19 @@ public final class TaskerCardView: UIView {
         didSet { applyStyle() }
     }
 
+    /// Initializes a new instance.
     public override init(frame: CGRect) {
         super.init(frame: frame)
         applyStyle()
     }
 
+    /// Initializes a new instance.
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         applyStyle()
     }
 
+    /// Executes applyStyle.
     private func applyStyle() {
         let colors = TaskerUIKitTokens.color
         backgroundColor = colors.surfacePrimary

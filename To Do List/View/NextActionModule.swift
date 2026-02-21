@@ -60,6 +60,7 @@ struct NextActionModule: View {
         }
     }
 
+    /// Executes actionRow.
     private func actionRow(icon: String, title: String, showChevron: Bool = false) -> some View {
         HStack(spacing: spacing.s8) {
             Image(systemName: icon)
@@ -93,6 +94,7 @@ struct NextActionModule: View {
         .accessibilityHint("Opens the task creation screen")
     }
 
+    /// Executes randomEmptyStateTitle.
     private static func randomEmptyStateTitle() -> String {
         emptyStateTitles.randomElement() ?? "Add your first task today"
     }

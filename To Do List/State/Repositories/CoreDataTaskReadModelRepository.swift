@@ -4,11 +4,13 @@ import CoreData
 public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProtocol {
     private let context: NSManagedObjectContext
 
+    /// Initializes a new instance.
     public init(container: NSPersistentContainer) {
         self.context = container.newBackgroundContext()
         self.context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
+    /// Executes fetchTasks.
     public func fetchTasks(query: TaskReadQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         context.perform {
             do {
@@ -33,6 +35,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
     }
 
+    /// Executes searchTasks.
     public func searchTasks(query: TaskSearchQuery, completion: @escaping (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         context.perform {
             do {
@@ -57,6 +60,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
     }
 
+    /// Executes fetchProjectTaskCounts.
     public func fetchProjectTaskCounts(
         includeCompleted: Bool,
         completion: @escaping (Result<[UUID: Int], Error>) -> Void
@@ -90,6 +94,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
     }
 
+    /// Executes fetchProjectCompletionScoreTotals.
     public func fetchProjectCompletionScoreTotals(
         from startDate: Date,
         to endDate: Date,
@@ -130,6 +135,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
     }
 
+    /// Executes countTasks.
     private func countTasks(predicate: NSPredicate?) throws -> Int {
         let countRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "TaskDefinition")
         countRequest.predicate = predicate
@@ -137,6 +143,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         return max(0, count)
     }
 
+    /// Executes fetchTaskEntities.
     private func fetchTaskEntities(
         predicate: NSPredicate?,
         sortDescriptors: [NSSortDescriptor],
@@ -151,6 +158,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         return try context.fetch(request)
     }
 
+    /// Executes predicate.
     private func predicate(for query: TaskReadQuery) -> NSPredicate? {
         var predicates: [NSPredicate] = []
         if let projectID = query.projectID {
@@ -172,6 +180,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         return NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
     }
 
+    /// Executes searchPredicate.
     private func searchPredicate(for query: TaskSearchQuery) -> NSPredicate? {
         var predicates: [NSPredicate] = []
         if let projectID = query.projectID {
@@ -193,6 +202,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         return NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
     }
 
+    /// Executes sortDescriptors.
     private func sortDescriptors(for sort: TaskReadSort) -> [NSSortDescriptor] {
         switch sort {
         case .dueDateAscending:
