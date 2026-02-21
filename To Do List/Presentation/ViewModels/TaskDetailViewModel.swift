@@ -91,6 +91,9 @@ public final class TaskDetailViewModel: ObservableObject {
     @Published public var showAdvancedDetails: Bool = false
     @Published public var autosaveState: TaskDetailAutosaveState = .idle
     @Published public var errorMessage: String?
+    @Published public private(set) var aiBreakdownSteps: [String] = []
+    @Published public private(set) var aiBreakdownRouteBanner: String?
+    @Published public private(set) var isGeneratingAIBreakdown = false
 
     private let onUpdate: UpdateHandler
     private let onSetCompletion: CompletionHandler
@@ -412,6 +415,61 @@ public final class TaskDetailViewModel: ObservableObject {
                     completion(false)
                 }
             }
+        }
+    }
+
+    /// Executes generateAIBreakdown.
+    public func generateAIBreakdown(completion: @escaping () -> Void = {}) {
+        guard V2FeatureFlags.assistantBreakdownEnabled else {
+            aiBreakdownSteps = []
+            aiBreakdownRouteBanner = nil
+            completion()
+            return
+        }
+        isGeneratingAIBreakdown = true
+        Task { [weak self] in
+            guard let self else { return }
+            let result = await TaskBreakdownService.shared.generate(
+                taskTitle: self.taskName,
+                taskDetails: self.taskDescription,
+                projectName: self.selectedProjectName
+            )
+            await MainActor.run {
+                self.aiBreakdownSteps = result.steps
+                self.aiBreakdownRouteBanner = result.routeBanner
+                self.isGeneratingAIBreakdown = false
+                logWarning(
+                    event: "assistant_breakdown_generated",
+                    message: "Generated task breakdown suggestions",
+                    fields: [
+                        "count": String(result.steps.count),
+                        "model": result.modelName ?? "none"
+                    ]
+                )
+                completion()
+            }
+        }
+    }
+
+    /// Executes addBreakdownSteps.
+    public func addBreakdownSteps(_ steps: [String], completion: @escaping () -> Void = {}) {
+        let cleaned = steps
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+        guard cleaned.isEmpty == false else {
+            completion()
+            return
+        }
+
+        let group = DispatchGroup()
+        for step in cleaned {
+            group.enter()
+            createStep(title: step) { _ in
+                group.leave()
+            }
+        }
+        group.notify(queue: .main) {
+            completion()
         }
     }
 

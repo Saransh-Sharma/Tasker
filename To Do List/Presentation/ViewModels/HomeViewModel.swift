@@ -69,6 +69,13 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var emptyStateActionTitle: String?
     @Published public private(set) var focusEngineEnabled: Bool = true
     @Published public private(set) var activeScope: HomeListScope = .today
+    @Published private(set) var aiTopSuggestions: [AITopTaskSuggestion] = []
+    @Published public private(set) var aiTopSuggestionsRouteBanner: String?
+    @Published public private(set) var isGeneratingAITopSuggestions: Bool = false
+    @Published public private(set) var energyAwareSuggestedTasks: [TaskDefinition] = []
+    @Published private(set) var overdueTriageSuggestion: OverdueTriageSuggestion?
+    @Published public private(set) var shouldShowOverdueTriage: Bool = false
+    @Published public private(set) var isApplyingOverdueTriage: Bool = false
 
     // Next Action Module: total open tasks for today
     public var todayOpenTaskCount: Int {
@@ -85,6 +92,7 @@ public final class HomeViewModel: ObservableObject {
     private let homeFilteredTasksUseCase: GetHomeFilteredTasksUseCase
     private let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
     private let analyticsService: AnalyticsServiceProtocol?
+    private let aiSuggestionService: AISuggestionService?
     private let userDefaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
 
@@ -102,26 +110,33 @@ public final class HomeViewModel: ObservableObject {
     private var reloadGeneration: Int = 0
     private var suppressCompletionReloadUntil: Date?
     private var lastRecurringTopUpAt: Date?
+    private let overdueTriageService = OverdueTriageService()
 
     private let completionNotificationDebounceMS = 120
     private let completionReloadSuppressionSeconds: TimeInterval = 0.35
     private let mutationNotificationDebounceMS = 90
     private let recurringTopUpThrottleSeconds: TimeInterval = 90
     private static let mutationNotificationSource = "homeViewModel"
+    private static let triageDismissedKey = "assistant.triage.lastDismissed"
+    private static let pendingChatPromptKey = "assistant.pending_prompt"
+    private static let pendingChatAssistantMessageKey = "assistant.pending_assistant_message"
+    private static let pendingChatModeKey = "assistant.pending_chat_mode"
 
     // MARK: - Initialization
 
     /// Initializes a new instance.
-    public init(
+    init(
         useCaseCoordinator: UseCaseCoordinator,
         savedHomeViewRepository: SavedHomeViewRepositoryProtocol = UserDefaultsSavedHomeViewRepository(),
         analyticsService: AnalyticsServiceProtocol? = nil,
+        aiSuggestionService: AISuggestionService? = nil,
         userDefaults: UserDefaults = .standard
     ) {
         self.useCaseCoordinator = useCaseCoordinator
         self.homeFilteredTasksUseCase = useCaseCoordinator.getHomeFilteredTasks
         self.savedHomeViewRepository = savedHomeViewRepository
         self.analyticsService = analyticsService
+        self.aiSuggestionService = aiSuggestionService
         self.userDefaults = userDefaults
 
         setupBindings()
@@ -153,6 +168,157 @@ public final class HomeViewModel: ObservableObject {
     /// Load tasks for today.
     public func loadTodayTasks() {
         loadTodayTasks(generation: nextReloadGeneration())
+    }
+
+    /// Executes helpMeChooseTop3.
+    public func helpMeChooseTop3() {
+        guard V2FeatureFlags.assistantCopilotEnabled else {
+            aiTopSuggestions = []
+            aiTopSuggestionsRouteBanner = nil
+            isGeneratingAITopSuggestions = false
+            return
+        }
+        let candidates = focusTasks.isEmpty ? (morningTasks + eveningTasks + overdueTasks) : focusTasks
+        guard candidates.isEmpty == false else {
+            aiTopSuggestions = []
+            aiTopSuggestionsRouteBanner = nil
+            isGeneratingAITopSuggestions = false
+            return
+        }
+
+        isGeneratingAITopSuggestions = true
+        Task { [weak self] in
+            guard let self else { return }
+            guard let aiSuggestionService = self.aiSuggestionService else {
+                await MainActor.run {
+                    self.aiTopSuggestions = []
+                    self.aiTopSuggestionsRouteBanner = nil
+                    self.isGeneratingAITopSuggestions = false
+                }
+                return
+            }
+            let suggestions = await aiSuggestionService.chooseTopThree(from: candidates)
+            await MainActor.run {
+                self.aiTopSuggestions = suggestions
+                self.aiTopSuggestionsRouteBanner = suggestions.first?.routeBanner
+                self.isGeneratingAITopSuggestions = false
+                logWarning(
+                    event: "assistant_top3_generated",
+                    message: "Generated home top-3 suggestions",
+                    fields: [
+                        "count": String(suggestions.count),
+                        "model": suggestions.first?.modelName ?? "none",
+                        "has_route_banner": suggestions.first?.routeBanner == nil ? "false" : "true"
+                    ]
+                )
+            }
+        }
+    }
+
+    /// Executes dismissOverdueTriage.
+    public func dismissOverdueTriage() {
+        shouldShowOverdueTriage = false
+        userDefaults.set(Date(), forKey: Self.triageDismissedKey)
+        logWarning(
+            event: "assistant_overdue_triage_dismissed",
+            message: "User dismissed overdue triage sheet",
+            fields: [:]
+        )
+    }
+
+    /// Executes customizeOverdueTriageInChat.
+    public func customizeOverdueTriageInChat() {
+        shouldShowOverdueTriage = false
+        userDefaults.set(Date(), forKey: Self.triageDismissedKey)
+        let summaryLines = overdueTriageSuggestion?.summaryLines ?? []
+        let summary = summaryLines.isEmpty
+            ? "No prebuilt summary available."
+            : summaryLines.map { "• \($0)" }.joined(separator: "\n")
+        let prompt = """
+        Customize this overdue triage plan:
+        \(summary)
+        Keep critical tasks visible today and rebalance the rest.
+        """
+        userDefaults.set(prompt, forKey: Self.pendingChatPromptKey)
+        userDefaults.set(summary, forKey: Self.pendingChatAssistantMessageKey)
+        userDefaults.set(AssistantChatMode.plan.rawValue, forKey: Self.pendingChatModeKey)
+        logWarning(
+            event: "assistant_overdue_triage_customized",
+            message: "User chose to customize overdue triage in chat",
+            fields: [:]
+        )
+    }
+
+    /// Executes applyOverdueTriage.
+    public func applyOverdueTriage(completion: @escaping (Result<Void, Error>) -> Void) {
+        guard V2FeatureFlags.assistantCopilotEnabled else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 403,
+                userInfo: [NSLocalizedDescriptionKey: "Assistant copilot is disabled"]
+            )))
+            return
+        }
+        guard let suggestion = overdueTriageSuggestion else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "No overdue triage suggestion is available"]
+            )))
+            return
+        }
+        guard let pipeline = LLMAssistantPipelineProvider.pipeline else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 503,
+                userInfo: [NSLocalizedDescriptionKey: "Assistant pipeline unavailable"]
+            )))
+            return
+        }
+
+        isApplyingOverdueTriage = true
+        let triageThreadID = "home-triage-\(UUID().uuidString)"
+        pipeline.propose(threadID: triageThreadID, envelope: suggestion.envelope) { [weak self] proposeResult in
+            guard let self else { return }
+            switch proposeResult {
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    self.isApplyingOverdueTriage = false
+                    completion(.failure(error))
+                }
+            case .success(let run):
+                pipeline.confirm(runID: run.id) { confirmResult in
+                    switch confirmResult {
+                    case .failure(let error):
+                        DispatchQueue.main.async {
+                            self.isApplyingOverdueTriage = false
+                            completion(.failure(error))
+                        }
+                    case .success:
+                        pipeline.applyConfirmedRun(id: run.id) { applyResult in
+                            DispatchQueue.main.async {
+                                self.isApplyingOverdueTriage = false
+                                switch applyResult {
+                                case .failure(let error):
+                                    completion(.failure(error))
+                                case .success:
+                                    self.shouldShowOverdueTriage = false
+                                    self.userDefaults.set(Date(), forKey: Self.triageDismissedKey)
+                                    self.invalidateTaskCaches()
+                                    self.reloadCurrentModeTasks()
+                                    logWarning(
+                                        event: "assistant_overdue_triage_applied",
+                                        message: "Applied overdue triage through assistant pipeline",
+                                        fields: ["run_id": run.id.uuidString]
+                                    )
+                                    completion(.success(()))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Executes loadTodayTasks.
@@ -1254,6 +1420,8 @@ public final class HomeViewModel: ObservableObject {
         }
 
         updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
+        refreshEnergyAwareSuggestions()
+        evaluateOverdueTriageIfNeeded()
     }
 
     /// Executes updateCompletionRateFromFocusResult.
@@ -1276,6 +1444,67 @@ public final class HomeViewModel: ObservableObject {
             streakDays: streakDays,
             isStreakSafeToday: earnedXP > 0
         )
+    }
+
+    /// Executes refreshEnergyAwareSuggestions.
+    private func refreshEnergyAwareSuggestions() {
+        guard V2FeatureFlags.assistantCopilotEnabled else {
+            energyAwareSuggestedTasks = []
+            return
+        }
+        let hour = Calendar.current.component(.hour, from: Date())
+        let candidates = (morningTasks + eveningTasks + overdueTasks).filter { !$0.isComplete }
+        guard candidates.isEmpty == false else {
+            energyAwareSuggestedTasks = []
+            return
+        }
+
+        let filtered: [TaskDefinition]
+        switch hour {
+        case 6...9:
+            filtered = candidates.filter { $0.energy == .high }
+        case 13...15:
+            filtered = candidates.filter { $0.energy == .low }
+        case 19...21:
+            filtered = candidates.filter { $0.type == .evening || $0.energy == .low }
+        default:
+            filtered = candidates
+        }
+
+        energyAwareSuggestedTasks = Array(filtered.sorted(by: sortByPriorityThenDue).prefix(3))
+    }
+
+    /// Executes evaluateOverdueTriageIfNeeded.
+    private func evaluateOverdueTriageIfNeeded() {
+        guard V2FeatureFlags.assistantCopilotEnabled else {
+            overdueTriageSuggestion = nil
+            shouldShowOverdueTriage = false
+            return
+        }
+        guard overdueTasks.count >= 3 else {
+            overdueTriageSuggestion = nil
+            shouldShowOverdueTriage = false
+            return
+        }
+        if let dismissedAt = userDefaults.object(forKey: Self.triageDismissedKey) as? Date,
+           Date().timeIntervalSince(dismissedAt) < 24 * 60 * 60 {
+            return
+        }
+        guard let suggestion = overdueTriageService.buildSuggestion(from: overdueTasks) else {
+            overdueTriageSuggestion = nil
+            shouldShowOverdueTriage = false
+            return
+        }
+        let firstDisplay = shouldShowOverdueTriage == false
+        overdueTriageSuggestion = suggestion
+        shouldShowOverdueTriage = true
+        if firstDisplay {
+            logWarning(
+                event: "assistant_overdue_triage_shown",
+                message: "Showing overdue triage suggestion sheet",
+                fields: ["overdue_count": String(overdueTasks.count)]
+            )
+        }
     }
 
     /// Executes persistLastFilterState.
