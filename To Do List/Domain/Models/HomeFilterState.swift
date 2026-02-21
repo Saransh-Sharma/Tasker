@@ -16,6 +16,7 @@ public struct HomeDateRange: Codable, Equatable {
     public let start: Date
     public let end: Date
 
+    /// Initializes a new instance.
     public init(start: Date, end: Date) {
         self.start = start
         self.end = end
@@ -34,6 +35,7 @@ public struct HomeAdvancedFilter: Codable, Equatable {
     public let dateRange: HomeDateRange?
     public let tagMatchMode: HomeTagMatchMode
 
+    /// Initializes a new instance.
     public init(
         priorities: [TaskPriority] = [],
         categories: [TaskCategory] = [],
@@ -84,6 +86,7 @@ public struct HomeFilterState: Codable, Equatable {
     public var showCompletedInline: Bool
     public var selectedSavedViewID: UUID?
 
+    /// Initializes a new instance.
     public init(
         version: Int = HomeFilterState.schemaVersion,
         quickView: HomeQuickView = .defaultView,
@@ -147,6 +150,7 @@ public struct HomeFilterState: Codable, Equatable {
         case selectedSavedViewID
     }
 
+    /// Initializes a new instance.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 

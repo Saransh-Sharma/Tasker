@@ -71,6 +71,7 @@ public enum HomeListScope: Equatable, Codable {
         }
     }
 
+    /// Executes fromQuickView.
     public static func fromQuickView(_ quickView: HomeQuickView) -> HomeListScope {
         switch quickView {
         case .today:
@@ -100,6 +101,7 @@ public enum HomeListScope: Equatable, Codable {
         case evening
     }
 
+    /// Initializes a new instance.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(Kind.self, forKey: .kind)
@@ -120,6 +122,7 @@ public enum HomeListScope: Equatable, Codable {
         }
     }
 
+    /// Executes encode.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {

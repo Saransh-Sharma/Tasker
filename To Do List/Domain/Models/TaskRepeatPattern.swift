@@ -20,6 +20,7 @@ public enum TaskRepeatPattern: Codable, Equatable, Hashable {
     public struct DaysOfWeek: OptionSet, Codable, Hashable {
         public let rawValue: Int
         
+        /// Initializes a new instance.
         public init(rawValue: Int) {
             self.rawValue = rawValue
         }
@@ -53,6 +54,7 @@ public enum TaskRepeatPattern: Codable, Equatable, Hashable {
         public let endDate: Date?
         public let maxOccurrences: Int?
         
+        /// Initializes a new instance.
         public init(intervalDays: Int, endDate: Date? = nil, maxOccurrences: Int? = nil) {
             self.intervalDays = intervalDays
             self.endDate = endDate
@@ -122,6 +124,7 @@ public enum TaskRepeatPattern: Codable, Equatable, Hashable {
     
     // MARK: - Private Helper Methods
     
+    /// Executes nextWeeklyOccurrence.
     private func nextWeeklyOccurrence(after date: Date, days: DaysOfWeek) -> Date? {
         let calendar = Calendar.current
         
@@ -138,6 +141,7 @@ public enum TaskRepeatPattern: Codable, Equatable, Hashable {
         return nil
     }
     
+    /// Executes nextBiweeklyOccurrence.
     private func nextBiweeklyOccurrence(after date: Date, days: DaysOfWeek) -> Date? {
         // First try next week
         if let nextWeek = nextWeeklyOccurrence(after: date, days: days) {
@@ -150,6 +154,7 @@ public enum TaskRepeatPattern: Codable, Equatable, Hashable {
         return nextWeeklyOccurrence(after: twoWeeksLater, days: days)
     }
     
+    /// Executes nextMonthlyOccurrence.
     private func nextMonthlyOccurrence(after date: Date, pattern: MonthlyPattern) -> Date? {
         let calendar = Calendar.current
         
@@ -168,6 +173,7 @@ public enum TaskRepeatPattern: Codable, Equatable, Hashable {
         }
     }
     
+    /// Executes nextYearlyOccurrence.
     private func nextYearlyOccurrence(after date: Date, pattern: YearlyPattern) -> Date? {
         let calendar = Calendar.current
         

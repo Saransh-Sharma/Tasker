@@ -37,6 +37,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
     public var createdAt: Date
     public var updatedAt: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         recurrenceSeriesID: UUID? = nil,
@@ -123,6 +124,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
         type == .upcoming
     }
 
+    /// Executes canBeCompletedToday.
     public func canBeCompletedToday() -> Bool {
         guard !isBlocked() else { return false }
 
@@ -143,6 +145,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
         return true
     }
 
+    /// Executes calculateEfficiencyScore.
     public func calculateEfficiencyScore() -> Double {
         guard let estimated = estimatedDuration,
               let actual = actualDuration,
@@ -152,6 +155,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
         return estimated / actual
     }
 
+    /// Executes isBlocked.
     public func isBlocked() -> Bool {
         !dependencies.isEmpty
     }
@@ -164,6 +168,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
         }
     }
 
+    /// Executes fitsContext.
     public func fitsContext(_ currentContext: TaskContext) -> Bool {
         context == .anywhere || context == currentContext
     }
@@ -181,6 +186,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable {
         return max(score, 1)
     }
 
+    /// Executes validate.
     public func validate() throws {
         if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw TaskValidationError.emptyName
@@ -228,6 +234,7 @@ public struct TaskDependencyLinkDefinition: Codable, Equatable, Hashable {
     public var kind: TaskDependencyKind
     public var createdAt: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         taskID: UUID,
@@ -249,6 +256,7 @@ public struct TaskTagLinkDefinition: Codable, Equatable, Hashable {
     public var tagID: UUID
     public var createdAt: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         taskID: UUID,
@@ -286,6 +294,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
     public var repeatPattern: TaskRepeatPattern?
     public var createdAt: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         recurrenceSeriesID: UUID? = nil,
@@ -334,6 +343,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable {
         self.createdAt = createdAt
     }
 
+    /// Executes toTaskDefinition.
     public func toTaskDefinition(projectName: String?) -> TaskDefinition {
         TaskDefinition(
             id: id,
@@ -400,6 +410,7 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable {
     public var clearRepeatPattern: Bool
     public var updatedAt: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID,
         recurrenceSeriesID: UUID? = nil,
@@ -477,6 +488,7 @@ public struct TaskDefinitionQuery: Codable, Equatable, Hashable {
     public var limit: Int?
     public var offset: Int?
 
+    /// Initializes a new instance.
     public init(
         projectID: UUID? = nil,
         sectionID: UUID? = nil,

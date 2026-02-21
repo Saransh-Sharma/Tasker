@@ -31,6 +31,7 @@ public struct User {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         name: String,
@@ -109,6 +110,7 @@ public struct User {
         }
     }
     
+    /// Executes isValidEmail.
     private func isValidEmail(_ email: String) -> Bool {
         let emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
         return NSPredicate(format: "SELF MATCHES %@", emailRegex).evaluate(with: email)
@@ -124,6 +126,7 @@ public struct UserPreferences {
     public var reminderOffset: TimeInterval
     public var autoCompleteSubtasks: Bool
     
+    /// Initializes a new instance.
     public init(
         taskViewStyle: TaskViewStyle = .list,
         defaultProject: String? = nil,
@@ -147,6 +150,7 @@ public struct NotificationSettings {
     public var achievementNotifications: Bool
     public var quietHours: QuietHours?
     
+    /// Initializes a new instance.
     public init(
         pushNotificationsEnabled: Bool = true,
         emailNotificationsEnabled: Bool = true,
@@ -169,6 +173,7 @@ public struct WorkingHours {
     public var endTime: Date
     public var workDays: Set<Weekday>
     
+    /// Initializes a new instance.
     public init(
         startTime: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date(),
         endTime: Date = Calendar.current.date(bySettingHour: 17, minute: 0, second: 0, of: Date()) ?? Date(),
@@ -185,6 +190,7 @@ public struct QuietHours {
     public var endTime: Date
     public var enabled: Bool
     
+    /// Initializes a new instance.
     public init(
         startTime: Date = Calendar.current.date(bySettingHour: 22, minute: 0, second: 0, of: Date()) ?? Date(),
         endTime: Date = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date(),
@@ -201,6 +207,7 @@ public struct UserAvailability {
     public var message: String?
     public var until: Date?
     
+    /// Initializes a new instance.
     public init(
         status: AvailabilityStatus = .available,
         message: String? = nil,
@@ -327,6 +334,7 @@ public enum UserValidationError: LocalizedError {
 // MARK: - Equatable
 
 extension User: Equatable {
+    /// Executes ==.
     public static func == (lhs: User, rhs: User) -> Bool {
         return lhs.id == rhs.id
     }
@@ -335,6 +343,7 @@ extension User: Equatable {
 // MARK: - Hashable
 
 extension User: Hashable {
+    /// Executes hash.
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }

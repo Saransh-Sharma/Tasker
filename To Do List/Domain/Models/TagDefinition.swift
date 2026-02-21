@@ -8,6 +8,7 @@ public struct TagDefinition: Codable, Equatable, Hashable {
     public var sortOrder: Int
     public var createdAt: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         name: String,

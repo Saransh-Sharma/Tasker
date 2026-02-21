@@ -18,6 +18,7 @@ public struct HomeQuickFilterSummary: Equatable {
     /// Whether any non-default filters are active
     public let hasActiveFilters: Bool
 
+    /// Initializes a new instance.
     public init(primaryText: String, secondaryText: String? = nil, hasActiveFilters: Bool = false) {
         self.primaryText = primaryText
         self.secondaryText = secondaryText

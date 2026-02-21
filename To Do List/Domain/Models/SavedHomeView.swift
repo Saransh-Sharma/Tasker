@@ -20,6 +20,7 @@ public struct SavedHomeView: Codable, Equatable, Identifiable {
     public let createdAt: Date
     public var updatedAt: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         version: Int = SavedHomeView.schemaVersion,
@@ -42,6 +43,7 @@ public struct SavedHomeView: Codable, Equatable, Identifiable {
         self.updatedAt = updatedAt
     }
 
+    /// Executes asFilterState.
     public func asFilterState(pinnedProjectIDs: [UUID]) -> HomeFilterState {
         HomeFilterState(
             quickView: quickView,

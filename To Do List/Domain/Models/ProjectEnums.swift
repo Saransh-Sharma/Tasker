@@ -207,6 +207,7 @@ public struct ProjectSettings: Codable, Equatable {
     public var reminderSettings: ProjectReminderSettings
     public var viewSettings: ProjectViewSettings
     
+    /// Initializes a new instance.
     public init(
         autoArchiveCompletedTasks: Bool = false,
         defaultTaskPriority: TaskPriority = .low,  // Use .low instead of .medium
@@ -233,6 +234,7 @@ public struct ProjectReminderSettings: Codable, Equatable {
     public var enableDailyDigest: Bool
     public var digestTime: String // HH:mm format
     
+    /// Initializes a new instance.
     public init(
         enableDueDateReminders: Bool = true,
         reminderOffsetDays: Int = 1,
@@ -253,6 +255,7 @@ public struct ProjectViewSettings: Codable, Equatable {
     public var groupTasksByDate: Bool
     public var showTaskCount: Bool
     
+    /// Initializes a new instance.
     public init(
         defaultSortOrder: ProjectSortOrder = .priority,
         showCompletedTasks: Bool = true,

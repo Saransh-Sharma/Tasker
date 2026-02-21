@@ -36,6 +36,7 @@ public struct Project: Codable {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         name: String,
@@ -223,6 +224,7 @@ public enum ProjectValidationError: LocalizedError {
 // MARK: - Equatable
 
 extension Project: Equatable {
+    /// Executes ==.
     public static func == (lhs: Project, rhs: Project) -> Bool {
         return lhs.id == rhs.id
     }
@@ -231,6 +233,7 @@ extension Project: Equatable {
 // MARK: - Hashable
 
 extension Project: Hashable {
+    /// Executes hash.
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }

@@ -22,6 +22,7 @@ public struct ExternalItemMapDefinition: Codable, Equatable, Hashable {
     public var syncStateData: Data?
     public var createdAt: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID,
         provider: String,

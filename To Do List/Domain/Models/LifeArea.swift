@@ -12,6 +12,7 @@ public struct LifeArea: Codable, Equatable, Hashable {
     public var updatedByDeviceID: String?
     public var version: Int
 
+    /// Initializes a new instance.
     public init(
         id: UUID = UUID(),
         name: String,

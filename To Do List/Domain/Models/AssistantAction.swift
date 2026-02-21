@@ -21,6 +21,7 @@ public struct AssistantCommandEnvelope: Codable, Equatable, Hashable {
     public var undoCommands: [AssistantCommand]?
     public var rationaleText: String?
 
+    /// Initializes a new instance.
     public init(
         schemaVersion: Int,
         commands: [AssistantCommand],
@@ -59,6 +60,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public var createdAt: Date
     public var updatedAt: Date
 
+    /// Initializes a new instance.
     public init(task: TaskDefinition) {
         self.id = task.id
         self.projectID = task.projectID
@@ -88,6 +90,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
         self.updatedAt = task.updatedAt
     }
 
+    /// Executes toTaskDefinition.
     public func toTaskDefinition() -> TaskDefinition {
         TaskDefinition(
             id: id,
@@ -150,6 +153,7 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
         case moveTask
     }
 
+    /// Initializes a new instance.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(Kind.self, forKey: .type)
@@ -196,6 +200,7 @@ public enum AssistantCommand: Codable, Equatable, Hashable {
         }
     }
 
+    /// Executes encode.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
@@ -253,6 +258,7 @@ public struct AssistantActionRunDefinition: Codable, Equatable, Hashable {
     public var lastErrorCode: String?
     public var createdAt: Date
 
+    /// Initializes a new instance.
     public init(
         id: UUID,
         threadID: String? = nil,
