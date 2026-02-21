@@ -33,37 +33,32 @@ enum LLMContextRepositoryProvider {
         )
     }
 
-    /// Executes findProjectNameSync.
-    static func findProjectNameSync(matching query: String) -> String? {
+    /// Executes findProjectName.
+    static func findProjectName(matching query: String) async -> String? {
         guard let projectRepository = projectRepositoryStorage else { return nil }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return nil }
 
-        let semaphore = DispatchSemaphore(value: 0)
-        var matched: String?
-        projectRepository.fetchAllProjects { result in
-            defer { semaphore.signal() }
-            guard case .success(let projects) = result else { return }
-            let normalized = trimmed.lowercased()
-            matched = projects.first(where: { $0.name.lowercased().contains(normalized) })?.name
+        let projects = await withCheckedContinuation { continuation in
+            projectRepository.fetchAllProjects { result in
+                let resolved = (try? result.get()) ?? []
+                continuation.resume(returning: resolved)
+            }
         }
-        _ = semaphore.wait(timeout: .now() + .seconds(3))
-        return matched
+        let normalized = trimmed.lowercased()
+        return projects.first(where: { $0.name.lowercased().contains(normalized) })?.name
     }
 
-    /// Executes projectNameLookupSync.
-    static func projectNameLookupSync() -> [UUID: String] {
+    /// Executes projectNameLookup.
+    static func projectNameLookup() async -> [UUID: String] {
         guard let projectRepository = projectRepositoryStorage else { return [:] }
-
-        let semaphore = DispatchSemaphore(value: 0)
-        var lookup: [UUID: String] = [:]
-        projectRepository.fetchAllProjects { result in
-            defer { semaphore.signal() }
-            guard case .success(let projects) = result else { return }
-            lookup = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0.name) })
+        let projects = await withCheckedContinuation { continuation in
+            projectRepository.fetchAllProjects { result in
+                let resolved = (try? result.get()) ?? []
+                continuation.resume(returning: resolved)
+            }
         }
-        _ = semaphore.wait(timeout: .now() + .seconds(3))
-        return lookup
+        return Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0.name) })
     }
 }
 
@@ -73,13 +68,13 @@ struct LLMContextProjectionService {
     let tagRepository: TagRepositoryProtocol?
 
     /// Executes buildTodayJSON.
-    func buildTodayJSON(completion: @escaping (String) -> Void) {
+    func buildTodayJSON() async -> String {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: Date())
         let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? Date()
         let endOfDay = startOfTomorrow.addingTimeInterval(-1)
 
-        taskReadModelRepository.fetchTasks(
+        let tasks = await fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: true,
                 dueDateStart: startOfDay,
@@ -88,24 +83,22 @@ struct LLMContextProjectionService {
                 limit: 1_000,
                 offset: 0
             )
-        ) { result in
-            let tasks = (try? result.get().tasks) ?? []
-            let tagNameLookup = buildTagNameLookupSync()
-            completion(Self.encode(
-                tasks: tasks,
-                contextType: "today",
-                metadata: defaultMetadata(),
-                tagNameLookup: tagNameLookup
-            ))
-        }
+        )
+        let tagNameLookup = await buildTagNameLookup()
+        return Self.encode(
+            tasks: tasks,
+            contextType: "today",
+            metadata: defaultMetadata(),
+            tagNameLookup: tagNameLookup
+        )
     }
 
     /// Executes buildUpcomingJSON.
-    func buildUpcomingJSON(completion: @escaping (String) -> Void) {
+    func buildUpcomingJSON() async -> String {
         let calendar = Calendar.current
         let tomorrow = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date())
 
-        taskReadModelRepository.fetchTasks(
+        let tasks = await fetchTasks(
             query: TaskReadQuery(
                 includeCompleted: false,
                 dueDateStart: tomorrow,
@@ -113,49 +106,80 @@ struct LLMContextProjectionService {
                 limit: 1_000,
                 offset: 0
             )
-        ) { result in
-            let tasks = (try? result.get().tasks) ?? []
-            let tagNameLookup = buildTagNameLookupSync()
-            completion(Self.encode(
-                tasks: tasks,
-                contextType: "upcoming",
-                metadata: defaultMetadata(),
-                tagNameLookup: tagNameLookup
-            ))
+        )
+        let tagNameLookup = await buildTagNameLookup()
+        return Self.encode(
+            tasks: tasks,
+            contextType: "upcoming",
+            metadata: defaultMetadata(),
+            tagNameLookup: tagNameLookup
+        )
+    }
+
+    /// Executes buildProjectJSON.
+    func buildProjectJSON(projectID: UUID) async -> String {
+        let projectName = await fetchProjectName(id: projectID) ?? ""
+        let tasks = await fetchTasks(
+            query: TaskReadQuery(
+                projectID: projectID,
+                includeCompleted: true,
+                sortBy: .dueDateAscending,
+                limit: 1_000,
+                offset: 0
+            )
+        )
+        var metadata = defaultMetadata()
+        metadata["project_id"] = projectID.uuidString
+        metadata["project_name"] = projectName
+        return Self.encode(
+            tasks: tasks,
+            contextType: "project",
+            metadata: metadata,
+            tagNameLookup: await buildTagNameLookup()
+        )
+    }
+
+    /// Executes buildTodayJSON.
+    func buildTodayJSON(completion: @escaping (String) -> Void) {
+        Task {
+            completion(await buildTodayJSON())
+        }
+    }
+
+    /// Executes buildUpcomingJSON.
+    func buildUpcomingJSON(completion: @escaping (String) -> Void) {
+        Task {
+            completion(await buildUpcomingJSON())
         }
     }
 
     /// Executes buildProjectJSON.
     func buildProjectJSON(projectID: UUID, completion: @escaping (String) -> Void) {
-        projectRepository.fetchProject(withId: projectID) { projectResult in
-            let projectName: String
-            switch projectResult {
-            case .success(let project):
-                projectName = project?.name ?? ""
-            case .failure:
-                projectName = ""
-            }
-            taskReadModelRepository.fetchTasks(
-                query: TaskReadQuery(
-                    projectID: projectID,
-                    includeCompleted: true,
-                    sortBy: .dueDateAscending,
-                    limit: 1_000,
-                    offset: 0
-                )
-            ) { result in
+        Task {
+            completion(await buildProjectJSON(projectID: projectID))
+        }
+    }
+
+    /// Executes fetchTasks.
+    private func fetchTasks(query: TaskReadQuery) async -> [TaskDefinition] {
+        await withCheckedContinuation { continuation in
+            taskReadModelRepository.fetchTasks(query: query) { result in
                 let tasks = (try? result.get().tasks) ?? []
-                var metadata = defaultMetadata()
-                metadata["project_id"] = projectID.uuidString
-                metadata["project_name"] = projectName
-                completion(
-                    Self.encode(
-                        tasks: tasks,
-                        contextType: "project",
-                        metadata: metadata,
-                        tagNameLookup: buildTagNameLookupSync()
-                    )
-                )
+                continuation.resume(returning: tasks)
+            }
+        }
+    }
+
+    /// Executes fetchProjectName.
+    private func fetchProjectName(id: UUID) async -> String? {
+        await withCheckedContinuation { continuation in
+            projectRepository.fetchProject(withId: id) { result in
+                switch result {
+                case .success(let project):
+                    continuation.resume(returning: project?.name)
+                case .failure:
+                    continuation.resume(returning: nil)
+                }
             }
         }
     }
@@ -165,24 +189,22 @@ struct LLMContextProjectionService {
         [
             "timezone": TimeZone.current.identifier,
             "generated_at_iso": Date().ISO8601Format(),
-            "context_version": 2
+            "context_version": 3
         ]
     }
 
-    /// Executes buildTagNameLookupSync.
-    private func buildTagNameLookupSync() -> [UUID: String] {
+    /// Executes buildTagNameLookup.
+    private func buildTagNameLookup() async -> [UUID: String] {
         guard let tagRepository else { return [:] }
-        let semaphore = DispatchSemaphore(value: 0)
-        var lookup: [UUID: String] = [:]
-
-        tagRepository.fetchAll { result in
-            defer { semaphore.signal() }
-            guard case .success(let tags) = result else { return }
-            lookup = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
+        return await withCheckedContinuation { continuation in
+            tagRepository.fetchAll { result in
+                guard case .success(let tags) = result else {
+                    continuation.resume(returning: [:])
+                    return
+                }
+                continuation.resume(returning: Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) }))
+            }
         }
-
-        _ = semaphore.wait(timeout: .now() + .seconds(3))
-        return lookup
     }
 
     /// Executes encode.
