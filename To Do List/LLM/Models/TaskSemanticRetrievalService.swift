@@ -6,6 +6,11 @@ struct TaskSemanticHit {
     let text: String
 }
 
+struct TaskSemanticSearchResult {
+    let hits: [TaskSemanticHit]
+    let fallbackReason: String?
+}
+
 final class TaskSemanticRetrievalService {
     static let shared = TaskSemanticRetrievalService()
 
@@ -57,16 +62,31 @@ final class TaskSemanticRetrievalService {
 
     /// Executes search.
     func search(query: String, topK: Int = 8) -> [TaskSemanticHit] {
+        searchDetailed(query: query, topK: topK).hits
+    }
+
+    /// Executes searchDetailed.
+    func searchDetailed(query: String, topK: Int = 8) -> TaskSemanticSearchResult {
         guard let queryVector = embeddingEngine.vector(for: query) else {
             logWarning(
                 event: "assistant_semantic_fallback_lexical",
                 message: "Semantic fallback to lexical because embedding unavailable",
                 fields: ["reason": "embedding_unavailable"]
             )
-            return []
+            return TaskSemanticSearchResult(hits: [], fallbackReason: "embedding_unavailable")
         }
 
-        let hits = indexStore.snapshot().map { item in
+        let snapshot = indexStore.snapshot()
+        guard snapshot.isEmpty == false else {
+            logWarning(
+                event: "assistant_semantic_fallback_lexical",
+                message: "Semantic fallback to lexical because semantic index is empty",
+                fields: ["reason": "index_empty"]
+            )
+            return TaskSemanticSearchResult(hits: [], fallbackReason: "index_empty")
+        }
+
+        let hits = snapshot.map { item in
             TaskSemanticHit(
                 taskID: item.taskID,
                 score: TaskEmbeddingEngine.cosineSimilarity(queryVector, item.vector),
@@ -74,17 +94,19 @@ final class TaskSemanticRetrievalService {
             )
         }
 
-        return hits
-            .sorted { $0.score > $1.score }
-            .prefix(topK)
-            .map { $0 }
+        return TaskSemanticSearchResult(
+            hits: hits
+                .sorted { $0.score > $1.score }
+                .prefix(topK)
+                .map { $0 },
+            fallbackReason: nil
+        )
     }
 
     /// Executes rerank.
     func rerank(taskIDs: [UUID], query: String) -> [UUID] {
-        let scores = Dictionary(
-            uniqueKeysWithValues: search(query: query, topK: max(20, taskIDs.count)).map { ($0.taskID, $0.score) }
-        )
+        let result = searchDetailed(query: query, topK: max(20, taskIDs.count))
+        let scores = Dictionary(uniqueKeysWithValues: result.hits.map { ($0.taskID, $0.score) })
         guard scores.isEmpty == false else { return taskIDs }
         let originalOrder = Dictionary(uniqueKeysWithValues: taskIDs.enumerated().map { ($1, $0) })
         return taskIDs.sorted { lhs, rhs in
