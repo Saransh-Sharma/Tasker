@@ -72,6 +72,7 @@ public final class HomeViewModel: ObservableObject {
     @Published private(set) var aiTopSuggestions: [AITopTaskSuggestion] = []
     @Published public private(set) var aiTopSuggestionsRouteBanner: String?
     @Published public private(set) var isGeneratingAITopSuggestions: Bool = false
+    @Published public private(set) var aiTopSuggestionsIsRefined: Bool = false
     @Published public private(set) var energyAwareSuggestedTasks: [TaskDefinition] = []
     @Published private(set) var overdueTriageSuggestion: OverdueTriageSuggestion?
     @Published public private(set) var shouldShowOverdueTriage: Bool = false
@@ -121,6 +122,8 @@ public final class HomeViewModel: ObservableObject {
     private static let pendingChatPromptKey = "assistant.pending_prompt"
     private static let pendingChatAssistantMessageKey = "assistant.pending_assistant_message"
     private static let pendingChatModeKey = "assistant.pending_chat_mode"
+    private var topSuggestionsTask: Task<Void, Never>?
+    private var topSuggestionsRequestToken = UUID()
 
     // MARK: - Initialization
 
@@ -171,11 +174,17 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes helpMeChooseTop3.
+    @MainActor
     public func helpMeChooseTop3() {
+        topSuggestionsTask?.cancel()
+        let requestToken = UUID()
+        topSuggestionsRequestToken = requestToken
+
         guard V2FeatureFlags.assistantCopilotEnabled else {
             aiTopSuggestions = []
             aiTopSuggestionsRouteBanner = nil
             isGeneratingAITopSuggestions = false
+            aiTopSuggestionsIsRefined = false
             return
         }
         let candidates = focusTasks.isEmpty ? (morningTasks + eveningTasks + overdueTasks) : focusTasks
@@ -183,25 +192,73 @@ public final class HomeViewModel: ObservableObject {
             aiTopSuggestions = []
             aiTopSuggestionsRouteBanner = nil
             isGeneratingAITopSuggestions = false
+            aiTopSuggestionsIsRefined = false
             return
         }
 
+        guard let aiSuggestionService else {
+            aiTopSuggestions = []
+            aiTopSuggestionsRouteBanner = nil
+            isGeneratingAITopSuggestions = false
+            aiTopSuggestionsIsRefined = false
+            return
+        }
+
+        let instantSuggestions = aiSuggestionService.immediateTopThree(from: candidates)
+        aiTopSuggestions = instantSuggestions
+        aiTopSuggestionsRouteBanner = instantSuggestions.first?.routeBanner
+        aiTopSuggestionsIsRefined = false
         isGeneratingAITopSuggestions = true
-        Task { [weak self] in
+        logWarning(
+            event: "assistant_fast_fallback_used",
+            message: "Home top-3 instant heuristic suggestions shown",
+            fields: [
+                "surface": "home_top3",
+                "used_fallback": "true"
+            ]
+        )
+
+        let surfaceStartedAt = Date()
+        topSuggestionsTask = Task { [weak self] in
             guard let self else { return }
-            guard let aiSuggestionService = self.aiSuggestionService else {
-                await MainActor.run {
-                    self.aiTopSuggestions = []
-                    self.aiTopSuggestionsRouteBanner = nil
-                    self.isGeneratingAITopSuggestions = false
-                }
-                return
-            }
-            let suggestions = await aiSuggestionService.chooseTopThree(from: candidates)
+            let suggestions = await aiSuggestionService.refineTopThree(from: candidates)
+            guard Task.isCancelled == false else { return }
             await MainActor.run {
+                guard self.topSuggestionsRequestToken == requestToken else {
+                    self.isGeneratingAITopSuggestions = false
+                    return
+                }
                 self.aiTopSuggestions = suggestions
                 self.aiTopSuggestionsRouteBanner = suggestions.first?.routeBanner
+                self.aiTopSuggestionsIsRefined = suggestions.first?.modelName != nil
                 self.isGeneratingAITopSuggestions = false
+                let durationMS = Int(Date().timeIntervalSince(surfaceStartedAt) * 1_000)
+                logWarning(
+                    event: "assistant_surface_latency",
+                    message: "Home top-3 suggestions updated",
+                    fields: [
+                        "surface": "home_top3",
+                        "model": suggestions.first?.modelName ?? "none",
+                        "is_cold_start": "unknown",
+                        "duration_ms": String(durationMS),
+                        "used_fallback": self.aiTopSuggestionsIsRefined ? "false" : "true",
+                        "timeout_ms": String(Int(LLMGenerationProfile.topThree.timeoutSeconds * 1_000))
+                    ]
+                )
+                if suggestions.first?.modelName != nil && aiSuggestionService.lastGenerationTimedOut {
+                    logWarning(
+                        event: "assistant_surface_timeout",
+                        message: "Home top-3 refinement timed out",
+                        fields: [
+                            "surface": "home_top3",
+                            "model": suggestions.first?.modelName ?? "none",
+                            "is_cold_start": "unknown",
+                            "duration_ms": String(durationMS),
+                            "used_fallback": self.aiTopSuggestionsIsRefined ? "false" : "true",
+                            "timeout_ms": String(Int(LLMGenerationProfile.topThree.timeoutSeconds * 1_000))
+                        ]
+                    )
+                }
                 logWarning(
                     event: "assistant_top3_generated",
                     message: "Generated home top-3 suggestions",

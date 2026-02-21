@@ -112,6 +112,7 @@ public final class TaskDetailViewModel: ObservableObject {
     private let textAutosaveDebounceSeconds: TimeInterval = 0.4
 
     private var metadataRequestID: UUID?
+    private var breakdownRequestToken = UUID()
 
     /// Initializes a new instance.
     public init(
@@ -426,18 +427,73 @@ public final class TaskDetailViewModel: ObservableObject {
             completion()
             return
         }
+
+        let service = TaskBreakdownService.shared
+        let requestToken = UUID()
+        breakdownRequestToken = requestToken
+        let surfaceStartedAt = Date()
+
+        let immediate = service.immediateHeuristicSteps(
+            taskTitle: taskName,
+            taskDetails: taskDescription,
+            projectName: selectedProjectName
+        )
+        aiBreakdownSteps = immediate.steps
+        aiBreakdownRouteBanner = immediate.routeBanner
         isGeneratingAIBreakdown = true
+        completion()
+
+        logWarning(
+            event: "assistant_fast_fallback_used",
+            message: "Task breakdown heuristic steps shown instantly",
+            fields: [
+                "surface": "task_breakdown",
+                "used_fallback": "true"
+            ]
+        )
+
         Task { [weak self] in
             guard let self else { return }
-            let result = await TaskBreakdownService.shared.generate(
+            let result = await service.refine(
                 taskTitle: self.taskName,
                 taskDetails: self.taskDescription,
                 projectName: self.selectedProjectName
             )
             await MainActor.run {
+                guard self.breakdownRequestToken == requestToken else {
+                    self.isGeneratingAIBreakdown = false
+                    return
+                }
                 self.aiBreakdownSteps = result.steps
                 self.aiBreakdownRouteBanner = result.routeBanner
                 self.isGeneratingAIBreakdown = false
+                let durationMS = Int(Date().timeIntervalSince(surfaceStartedAt) * 1_000)
+                logWarning(
+                    event: "assistant_surface_latency",
+                    message: "Task breakdown surface updated",
+                    fields: [
+                        "surface": "task_breakdown",
+                        "model": result.modelName ?? "none",
+                        "is_cold_start": "unknown",
+                        "duration_ms": String(durationMS),
+                        "used_fallback": result.modelName == nil ? "true" : "false",
+                        "timeout_ms": String(Int(LLMGenerationProfile.breakdown.timeoutSeconds * 1_000))
+                    ]
+                )
+                if result.modelName != nil && service.lastGenerationTimedOut {
+                    logWarning(
+                        event: "assistant_surface_timeout",
+                        message: "Task breakdown refinement timed out",
+                        fields: [
+                            "surface": "task_breakdown",
+                            "model": result.modelName ?? "none",
+                            "is_cold_start": "unknown",
+                            "duration_ms": String(durationMS),
+                            "used_fallback": result.modelName == nil ? "true" : "false",
+                            "timeout_ms": String(Int(LLMGenerationProfile.breakdown.timeoutSeconds * 1_000))
+                        ]
+                    )
+                }
                 logWarning(
                     event: "assistant_breakdown_generated",
                     message: "Generated task breakdown suggestions",
@@ -446,7 +502,6 @@ public final class TaskDetailViewModel: ObservableObject {
                         "model": result.modelName ?? "none"
                     ]
                 )
-                completion()
             }
         }
     }

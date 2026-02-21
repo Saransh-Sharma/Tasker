@@ -24,6 +24,7 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public private(set) var validationErrors: [ValidationError] = []
     @Published var aiSuggestion: TaskFieldSuggestion?
     @Published var isGeneratingSuggestion: Bool = false
+    @Published public private(set) var aiSuggestionIsRefined: Bool = false
     
     // Form state — Primary Capture
     @Published public var taskName: String = ""
@@ -87,6 +88,7 @@ public final class AddTaskViewModel: ObservableObject {
     private let aiSuggestionService: AISuggestionService?
     private var cancellables = Set<AnyCancellable>()
     private var suggestionTask: Task<Void, Never>?
+    private var suggestionRequestToken = UUID()
     
     // MARK: - Initialization
     
@@ -358,6 +360,7 @@ public final class AddTaskViewModel: ObservableObject {
         isTaskCreated = false
         aiSuggestion = nil
         isGeneratingSuggestion = false
+        aiSuggestionIsRefined = false
     }
 
     /// Executes applyAISuggestion.
@@ -451,19 +454,24 @@ public final class AddTaskViewModel: ObservableObject {
             return
         }
         $taskName
-            .debounce(for: .milliseconds(800), scheduler: RunLoop.main)
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .removeDuplicates()
             .sink { [weak self] taskName in
-                self?.requestAISuggestionIfNeeded(for: taskName)
+                guard let self else { return }
+                Task { @MainActor in
+                    self.requestAISuggestionIfNeeded(for: taskName)
+                }
             }
             .store(in: &cancellables)
     }
 
     /// Executes requestAISuggestionIfNeeded.
+    @MainActor
     private func requestAISuggestionIfNeeded(for taskName: String) {
         guard V2FeatureFlags.assistantCopilotEnabled, let aiSuggestionService else {
             aiSuggestion = nil
             isGeneratingSuggestion = false
+            aiSuggestionIsRefined = false
             return
         }
         suggestionTask?.cancel()
@@ -478,26 +486,80 @@ public final class AddTaskViewModel: ObservableObject {
             }
             aiSuggestion = nil
             isGeneratingSuggestion = false
+            aiSuggestionIsRefined = false
             return
         }
 
         let titleAtRequestStart = normalized
+        let requestToken = UUID()
+        suggestionRequestToken = requestToken
+        let surfaceStartedAt = Date()
+
+        let instant = aiSuggestionService.immediateFieldSuggestion(
+            for: titleAtRequestStart,
+            projectName: selectedProject
+        )
+        if let instant {
+            aiSuggestion = instant
+            aiSuggestionIsRefined = false
+            logWarning(
+                event: "assistant_fast_fallback_used",
+                message: "Add-task instant heuristic suggestion shown",
+                fields: [
+                    "surface": "add_task",
+                    "used_fallback": "true"
+                ]
+            )
+        }
+
         isGeneratingSuggestion = true
         suggestionTask = Task { [weak self] in
             guard let self else { return }
-            let suggestion = await aiSuggestionService.suggestFields(
+            let suggestion = await aiSuggestionService.refineFieldSuggestion(
                 for: titleAtRequestStart,
                 projectName: self.selectedProject
             )
             guard Task.isCancelled == false else { return }
 
             await MainActor.run {
+                guard self.suggestionRequestToken == requestToken else {
+                    self.isGeneratingSuggestion = false
+                    return
+                }
                 guard self.taskName.trimmingCharacters(in: .whitespacesAndNewlines) == titleAtRequestStart else {
                     self.isGeneratingSuggestion = false
                     return
                 }
                 self.aiSuggestion = suggestion
+                self.aiSuggestionIsRefined = suggestion?.modelName != nil
                 self.isGeneratingSuggestion = false
+                let durationMS = Int(Date().timeIntervalSince(surfaceStartedAt) * 1_000)
+                logWarning(
+                    event: "assistant_surface_latency",
+                    message: "Add-task suggestion surface updated",
+                    fields: [
+                        "surface": "add_task",
+                        "model": suggestion?.modelName ?? "none",
+                        "is_cold_start": "unknown",
+                        "duration_ms": String(durationMS),
+                        "used_fallback": self.aiSuggestionIsRefined ? "false" : "true",
+                        "timeout_ms": String(Int(LLMGenerationProfile.addTaskSuggestion.timeoutSeconds * 1_000))
+                    ]
+                )
+                if suggestion?.modelName != nil && aiSuggestionService.lastGenerationTimedOut {
+                    logWarning(
+                        event: "assistant_surface_timeout",
+                        message: "Add-task suggestion refine timed out",
+                        fields: [
+                            "surface": "add_task",
+                            "model": suggestion?.modelName ?? "none",
+                            "is_cold_start": "unknown",
+                            "duration_ms": String(durationMS),
+                            "used_fallback": self.aiSuggestionIsRefined ? "false" : "true",
+                            "timeout_ms": String(Int(LLMGenerationProfile.addTaskSuggestion.timeoutSeconds * 1_000))
+                        ]
+                    )
+                }
                 if let suggestion {
                     logWarning(
                         event: "assistant_suggestion_shown",
