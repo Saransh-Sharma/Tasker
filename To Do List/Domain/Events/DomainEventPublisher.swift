@@ -35,6 +35,7 @@ public final class DomainEventPublisher: ObservableObject {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     private init() {
         setupEventLogging()
     }
@@ -151,6 +152,7 @@ public final class DomainEventPublisher: ObservableObject {
     
     // MARK: - Private Methods
     
+    /// Executes setupEventLogging.
     private func setupEventLogging() {
         eventSubject
             .sink { event in
@@ -159,6 +161,7 @@ public final class DomainEventPublisher: ObservableObject {
             .store(in: &cancellables)
     }
     
+    /// Executes logEvent.
     private func logEvent(_ event: DomainEvent) {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss.SSS"
@@ -173,6 +176,7 @@ public final class DomainEventPublisher: ObservableObject {
 /// Analytics event handler
 public final class AnalyticsEventHandler: DomainEventHandler {
     
+    /// Executes handle.
     public func handle(_ event: DomainEvent) {
         switch event.eventType {
         case "TaskCompleted":
@@ -192,20 +196,24 @@ public final class AnalyticsEventHandler: DomainEventHandler {
         }
     }
     
+    /// Executes canHandle.
     public func canHandle(_ eventType: String) -> Bool {
         return ["TaskCompleted", "TaskCreated", "ProjectCreated"].contains(eventType)
     }
     
+    /// Executes recordTaskCompletion.
     private func recordTaskCompletion(_ event: TaskCompletedEvent) {
         // Record analytics for task completion
         logDebug("📊 Analytics: Task completed - Score: \(event.scoreEarned)")
     }
     
+    /// Executes recordTaskCreation.
     private func recordTaskCreation(_ event: TaskCreatedEvent) {
         // Record analytics for task creation
         logDebug("📊 Analytics: Task created - Priority: \(event.taskPriority.displayName)")
     }
     
+    /// Executes recordProjectCreation.
     private func recordProjectCreation(_ event: ProjectCreatedEvent) {
         // Record analytics for project creation
         logDebug("📊 Analytics: Project created - \(event.projectName)")
@@ -215,6 +223,7 @@ public final class AnalyticsEventHandler: DomainEventHandler {
 /// Notification event handler
 public final class NotificationEventHandler: DomainEventHandler {
     
+    /// Executes handle.
     public func handle(_ event: DomainEvent) {
         switch event.eventType {
         case "TaskCompleted":
@@ -230,10 +239,12 @@ public final class NotificationEventHandler: DomainEventHandler {
         }
     }
     
+    /// Executes canHandle.
     public func canHandle(_ eventType: String) -> Bool {
         return ["TaskCompleted", "ProjectArchived"].contains(eventType)
     }
     
+    /// Executes sendCompletionNotification.
     private func sendCompletionNotification(_ event: TaskCompletedEvent) {
         // Send notification for task completion
         NotificationCenter.default.post(
@@ -243,6 +254,7 @@ public final class NotificationEventHandler: DomainEventHandler {
         )
     }
     
+    /// Executes sendArchiveNotification.
     private func sendArchiveNotification(_ event: ProjectArchivedEvent) {
         // Send notification for project archive
         NotificationCenter.default.post(

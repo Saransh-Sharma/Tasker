@@ -8,9 +8,13 @@
 import Foundation
 
 public protocol SavedHomeViewRepositoryProtocol {
+    /// Executes fetchAll.
     func fetchAll(completion: @escaping (Result<[SavedHomeView], Error>) -> Void)
+    /// Executes save.
     func save(_ view: SavedHomeView, completion: @escaping (Result<[SavedHomeView], Error>) -> Void)
+    /// Executes delete.
     func delete(id: UUID, completion: @escaping (Result<[SavedHomeView], Error>) -> Void)
+    /// Executes replaceAll.
     func replaceAll(_ views: [SavedHomeView], completion: @escaping (Result<[SavedHomeView], Error>) -> Void)
 }
 

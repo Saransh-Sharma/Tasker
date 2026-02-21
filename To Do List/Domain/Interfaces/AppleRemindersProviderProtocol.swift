@@ -14,6 +14,7 @@ public struct AppleReminderItemSnapshot: Codable, Equatable, Hashable {
     public var lastModifiedAt: Date?
     public var payloadData: Data?
 
+    /// Initializes a new instance.
     public init(
         itemID: String,
         calendarID: String,
@@ -47,6 +48,7 @@ public struct AppleReminderListSnapshot: Codable, Equatable, Hashable {
     public let listID: String
     public let title: String
 
+    /// Initializes a new instance.
     public init(listID: String, title: String) {
         self.listID = listID
         self.title = title
@@ -54,9 +56,14 @@ public struct AppleReminderListSnapshot: Codable, Equatable, Hashable {
 }
 
 public protocol AppleRemindersProviderProtocol {
+    /// Executes requestAccess.
     func requestAccess(completion: @escaping (Result<Bool, Error>) -> Void)
+    /// Executes fetchLists.
     func fetchLists(completion: @escaping (Result<[AppleReminderListSnapshot], Error>) -> Void)
+    /// Executes fetchReminders.
     func fetchReminders(listID: String, completion: @escaping (Result<[AppleReminderItemSnapshot], Error>) -> Void)
+    /// Executes upsertReminder.
     func upsertReminder(listID: String, snapshot: AppleReminderItemSnapshot, completion: @escaping (Result<AppleReminderItemSnapshot, Error>) -> Void)
+    /// Executes deleteReminder.
     func deleteReminder(itemID: String, completion: @escaping (Result<Void, Error>) -> Void)
 }
