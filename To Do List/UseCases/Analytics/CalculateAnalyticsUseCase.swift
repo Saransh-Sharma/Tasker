@@ -18,6 +18,7 @@ public final class CalculateAnalyticsUseCase {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     public init(
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         scoringService: TaskScoringServiceProtocol? = nil,
@@ -229,6 +230,7 @@ public final class CalculateAnalyticsUseCase {
         }
     }
 
+    /// Executes fetchTasksForDay.
     private func fetchTasksForDay(
         _ date: Date,
         completion: @escaping (Result<[TaskDefinition], Error>) -> Void
@@ -250,6 +252,7 @@ public final class CalculateAnalyticsUseCase {
         )
     }
 
+    /// Executes fetchTasks.
     private func fetchTasks(
         query: TaskReadQuery,
         completion: @escaping (Result<[TaskDefinition], Error>) -> Void
@@ -270,6 +273,7 @@ public final class CalculateAnalyticsUseCase {
     
     // MARK: - Private Computation Methods
     
+    /// Executes computeDailyAnalytics.
     private func computeDailyAnalytics(tasks: [TaskDefinition], date: Date) -> DailyAnalytics {
         let completedTasks = tasks.filter { $0.isComplete }
         let totalTasks = tasks.count
@@ -304,6 +308,7 @@ public final class CalculateAnalyticsUseCase {
         )
     }
     
+    /// Executes computePeriodAnalytics.
     private func computePeriodAnalytics(tasks: [TaskDefinition], startDate: Date, endDate: Date) -> PeriodAnalytics {
         let calendar = Calendar.current
         var dailyBreakdown: [DailyAnalytics] = []
@@ -363,6 +368,7 @@ public final class CalculateAnalyticsUseCase {
         )
     }
     
+    /// Executes computeProductivityScore.
     private func computeProductivityScore(tasks: [TaskDefinition]) -> ProductivityScore {
         let completedTasks = tasks.filter { $0.isComplete }
         let totalScore = completedTasks.reduce(0) { sum, task in
@@ -383,6 +389,7 @@ public final class CalculateAnalyticsUseCase {
         )
     }
     
+    /// Executes computeStreak.
     private func computeStreak(completedTasks: [TaskDefinition]) -> StreakInfo {
         let calendar = Calendar.current
         let sortedTasks = completedTasks
@@ -437,6 +444,7 @@ public final class CalculateAnalyticsUseCase {
         )
     }
     
+    /// Executes determineRank.
     private func determineRank(level: Int) -> String {
         switch level {
         case 0..<5: return "Beginner"
@@ -463,6 +471,7 @@ public struct DailyAnalytics {
     public let eveningTasksCompleted: Int
     public let priorityBreakdown: [TaskPriority: Int]
     
+    /// Initializes a new instance.
     init(
         date: Date,
         totalTasks: Int = 0,
@@ -521,6 +530,7 @@ public struct PeriodAnalytics {
     public let projectBreakdown: [String: Int]
     public let priorityBreakdown: [TaskPriority: Int]
     
+    /// Initializes a new instance.
     init(
         startDate: Date,
         endDate: Date,
@@ -555,6 +565,7 @@ public struct ProductivityScore {
     public let nextLevelRequirement: Int
     public let rank: String
     
+    /// Initializes a new instance.
     init(
         totalScore: Int = 0,
         level: Int = 0,
@@ -575,6 +586,7 @@ public struct StreakInfo {
     public let longestStreak: Int
     public let lastCompletionDate: Date?
     
+    /// Initializes a new instance.
     init(currentStreak: Int = 0, longestStreak: Int = 0, lastCompletionDate: Date? = nil) {
         self.currentStreak = currentStreak
         self.longestStreak = longestStreak
@@ -604,8 +616,11 @@ public enum AnalyticsError: LocalizedError {
 // MARK: - Scoring Service Protocol
 
 public protocol TaskScoringServiceProtocol {
+    /// Executes calculateScore.
     func calculateScore(for task: TaskDefinition) -> Int
+    /// Executes getTotalScore.
     func getTotalScore(completion: @escaping (Int) -> Void)
+    /// Executes getScoreHistory.
     func getScoreHistory(days: Int, completion: @escaping ([DailyScore]) -> Void)
 }
 
@@ -613,6 +628,7 @@ public struct DailyScore {
     public let date: Date
     public let score: Int
     
+    /// Initializes a new instance.
     public init(date: Date, score: Int) {
         self.date = date
         self.score = score
@@ -623,18 +639,22 @@ public struct DailyScore {
 
 public class DefaultTaskScoringService: TaskScoringServiceProtocol {
     
+    /// Initializes a new instance.
     public init() {}
     
+    /// Executes calculateScore.
     public func calculateScore(for task: TaskDefinition) -> Int {
         guard task.isComplete else { return 0 }
         return task.priority.scorePoints
     }
     
+    /// Executes getTotalScore.
     public func getTotalScore(completion: @escaping (Int) -> Void) {
         // This would typically fetch from a persistent store
         completion(0)
     }
     
+    /// Executes getScoreHistory.
     public func getScoreHistory(days: Int, completion: @escaping ([DailyScore]) -> Void) {
         // This would typically fetch from a persistent store
         completion([])

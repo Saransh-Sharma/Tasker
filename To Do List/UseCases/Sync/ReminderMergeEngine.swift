@@ -25,6 +25,7 @@ public final class ReminderMergeEngine {
         public var hasRemoteItem: Bool
         public var lastSeenRemoteModification: Date?
 
+        /// Initializes a new instance.
         public init(
             nodeID: String,
             provider: String,
@@ -56,6 +57,7 @@ public final class ReminderMergeEngine {
         public var tombstoneDecision: TombstoneDecision
         public var winner: MergeWinner
 
+        /// Initializes a new instance.
         public init(
             known: ReminderMergeEnvelope.KnownFields,
             state: ReminderMergeState,
@@ -69,8 +71,10 @@ public final class ReminderMergeEngine {
         }
     }
 
+    /// Initializes a new instance.
     public init() {}
 
+    /// Executes merge.
     public func merge(input: MergeInput) -> MergeResult {
         var state = input.state
         var localWins = 0
@@ -78,6 +82,7 @@ public final class ReminderMergeEngine {
         var localWriteClock: SyncClock?
         var remoteWriteClock: SyncClock?
 
+        /// Executes localCandidate.
         func localCandidate(for field: ReminderScalarField, changed: Bool) -> SyncClock? {
             guard changed else {
                 return nil
@@ -93,6 +98,7 @@ public final class ReminderMergeEngine {
             return next
         }
 
+        /// Executes remoteCandidate.
         func remoteCandidate(changed: Bool) -> SyncClock? {
             guard changed else {
                 return nil
@@ -223,6 +229,7 @@ public final class ReminderMergeEngine {
         )
     }
 
+    /// Executes decodeEnvelope.
     public func decodeEnvelope(data: Data?) -> ReminderMergeEnvelope? {
         guard let data else { return nil }
         let decoder = JSONDecoder()
@@ -249,6 +256,7 @@ public final class ReminderMergeEngine {
         return ReminderMergeEnvelope(known: known, passthroughData: data)
     }
 
+    /// Executes encodeEnvelope.
     public func encodeEnvelope(
         known: ReminderMergeEnvelope.KnownFields,
         preferredPassthroughData: Data?,
@@ -263,6 +271,7 @@ public final class ReminderMergeEngine {
         return try? encoder.encode(envelope)
     }
 
+    /// Executes alarmDateKey.
     public static func alarmDateKey(_ date: Date) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
@@ -270,6 +279,7 @@ public final class ReminderMergeEngine {
         return formatter.string(from: date)
     }
 
+    /// Executes alarmDate.
     public static func alarmDate(from key: String) -> Date? {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
@@ -277,6 +287,7 @@ public final class ReminderMergeEngine {
         return formatter.date(from: key)
     }
 
+    /// Executes decodeDate.
     private static func decodeDate(_ raw: Any?) -> Date? {
         switch raw {
         case let value as Date:
@@ -290,6 +301,7 @@ public final class ReminderMergeEngine {
         }
     }
 
+    /// Executes mergeAlarmDates.
     private func mergeAlarmDates(
         state: inout ReminderMergeState,
         localAlarmDates: [Date],
@@ -342,6 +354,7 @@ public final class ReminderMergeEngine {
         return merged.sorted()
     }
 
+    /// Executes resolveTombstone.
     private func resolveTombstone(
         hasRemoteItem: Bool,
         provider: String,
@@ -384,6 +397,7 @@ public final class ReminderMergeEngine {
         return .applyDelete(clock: tombstone)
     }
 
+    /// Executes decideWinner.
     private func decideWinner(local: SyncClock?, remote: SyncClock?) -> MergeWinner {
         switch (local, remote) {
         case let (local?, remote?):
@@ -398,6 +412,7 @@ public final class ReminderMergeEngine {
         }
     }
 
+    /// Executes winningClockFor.
     private func winningClockFor(
         local: SyncClock?,
         remote: SyncClock?,
@@ -406,6 +421,7 @@ public final class ReminderMergeEngine {
         maxClock(maxClock(local, remote), fallback)
     }
 
+    /// Executes maxClock.
     private func maxClock(_ lhs: SyncClock?, _ rhs: SyncClock?) -> SyncClock? {
         switch (lhs, rhs) {
         case let (lhs?, rhs?):

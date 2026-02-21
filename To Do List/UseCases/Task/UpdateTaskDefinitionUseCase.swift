@@ -5,6 +5,7 @@ public final class UpdateTaskDefinitionUseCase {
     private let taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
     private let taskDependencyRepository: TaskDependencyRepositoryProtocol?
 
+    /// Initializes a new instance.
     public init(
         repository: TaskDefinitionRepositoryProtocol,
         taskTagLinkRepository: TaskTagLinkRepositoryProtocol? = nil,
@@ -15,6 +16,7 @@ public final class UpdateTaskDefinitionUseCase {
         self.taskDependencyRepository = taskDependencyRepository
     }
 
+    /// Executes execute.
     public func execute(
         request: UpdateTaskDefinitionRequest,
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
@@ -48,6 +50,7 @@ public final class UpdateTaskDefinitionUseCase {
         }
     }
 
+    /// Executes persistLinks.
     private func persistLinks(
         taskID: UUID,
         request: UpdateTaskDefinitionRequest,
@@ -57,6 +60,7 @@ public final class UpdateTaskDefinitionUseCase {
         var firstError: Error?
         let lock = NSLock()
 
+        /// Executes capture.
         func capture(_ error: Error) {
             lock.lock()
             if firstError == nil {

@@ -16,6 +16,7 @@ public final class GenerateProductivityReportUseCase {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     public init(taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil) {
         self.taskReadModelRepository = taskReadModelRepository
     }
@@ -71,6 +72,7 @@ public extension GenerateProductivityReportUseCase {
         public let tasksCompleted: Int
         public let totalScore: Int
         
+        /// Initializes a new instance.
         public init(period: ReportPeriod, tasksCompleted: Int, totalScore: Int) {
             self.period = period
             self.tasksCompleted = tasksCompleted

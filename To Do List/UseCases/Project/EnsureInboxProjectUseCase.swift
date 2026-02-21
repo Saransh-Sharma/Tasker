@@ -17,6 +17,7 @@ public final class EnsureInboxProjectUseCase {
 
     // MARK: - Initialization
 
+    /// Initializes a new instance.
     public init(projectRepository: ProjectRepositoryProtocol) {
         self.projectRepository = projectRepository
     }
@@ -49,6 +50,7 @@ public final class EnsureInboxProjectUseCase {
 
     // MARK: - Private Methods
 
+    /// Executes createInboxProject.
     private func createInboxProject(completion: @escaping (Result<Project, EnsureInboxError>) -> Void) {
         let inboxProject = Project.createInbox()
 

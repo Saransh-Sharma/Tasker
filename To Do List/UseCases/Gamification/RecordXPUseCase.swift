@@ -3,10 +3,12 @@ import Foundation
 public final class RecordXPUseCase {
     private let repository: GamificationRepositoryProtocol
 
+    /// Initializes a new instance.
     public init(repository: GamificationRepositoryProtocol) {
         self.repository = repository
     }
 
+    /// Executes recordTaskCompletion.
     public func recordTaskCompletion(taskID: UUID, completion: @escaping (Result<Void, Error>) -> Void) {
         let dayKey = ISO8601DateFormatter().string(from: Calendar.current.startOfDay(for: Date()))
         let idempotencyKey = "complete_\(taskID.uuidString)_\(dayKey)"
@@ -45,6 +47,7 @@ public final class RecordXPUseCase {
         }
     }
 
+    /// Executes reconcileProfile.
     public func reconcileProfile(completion: @escaping (Result<GamificationSnapshot, Error>) -> Void) {
         repository.fetchXPEvents { result in
             switch result {
@@ -75,6 +78,7 @@ public final class RecordXPUseCase {
         }
     }
 
+    /// Executes evaluateAchievements.
     private func evaluateAchievements(triggerEvent: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         repository.fetchXPEvents { eventsResult in
             switch eventsResult {
@@ -118,6 +122,7 @@ public final class RecordXPUseCase {
         }
     }
 
+    /// Executes pendingUnlocks.
     private func pendingUnlocks(
         from events: [XPEventDefinition],
         alreadyUnlocked: Set<String>,
@@ -164,6 +169,7 @@ public final class RecordXPUseCase {
         return unlocks
     }
 
+    /// Executes hasSevenDayCompletionStreak.
     private func hasSevenDayCompletionStreak(events: [XPEventDefinition]) -> Bool {
         let calendar = Calendar.current
         let distinctDays = Set(

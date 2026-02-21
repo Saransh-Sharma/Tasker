@@ -10,6 +10,7 @@ public final class ReconcileExternalRemindersUseCase {
         public let externalModifiedAt: Date?
         public let externalPayloadData: Data?
 
+        /// Initializes a new instance.
         public init(
             provider: String = "apple_reminders",
             localEntityType: String,
@@ -35,6 +36,7 @@ public final class ReconcileExternalRemindersUseCase {
         public var mappedExisting: Int
         public var importedNew: Int
 
+        /// Initializes a new instance.
         public init(
             pulledFromExternal: Int = 0,
             pushedToExternal: Int = 0,
@@ -54,6 +56,7 @@ public final class ReconcileExternalRemindersUseCase {
     private let nodeID: String
     private let mergeEngine: ReminderMergeEngine
 
+    /// Initializes a new instance.
     public init(
         externalRepository: ExternalSyncRepositoryProtocol,
         remindersProvider: AppleRemindersProviderProtocol? = nil,
@@ -69,6 +72,7 @@ public final class ReconcileExternalRemindersUseCase {
         self.mergeEngine = mergeEngine
     }
 
+    /// Executes execute.
     public func execute(completion: @escaping (Result<Int, Error>) -> Void) {
         guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
@@ -84,6 +88,7 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
+    /// Executes reconcile.
     public func reconcile(
         snapshots: [ExternalReminderSnapshot],
         completion: @escaping (Result<Int, Error>) -> Void
@@ -171,6 +176,7 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
+    /// Executes reconcileProject.
     public func reconcileProject(
         projectID: UUID,
         completion: @escaping (Result<ReconcileSummary, Error>) -> Void
@@ -258,6 +264,7 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
+    /// Executes reconcileTwoWay.
     private func reconcileTwoWay(
         projectID: UUID,
         listID: String,
@@ -770,6 +777,7 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
+    /// Executes matchTask.
     private func matchTask(external: AppleReminderItemSnapshot, tasks: [TaskDefinition]) -> TaskDefinition? {
         let normalized = normalize(external.title)
         return tasks.first { task in
@@ -785,17 +793,20 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
+    /// Executes localModificationDate.
     private func localModificationDate(task: TaskDefinition) -> Date {
         [task.updatedAt, task.dateCompleted, task.dueDate, task.dateAdded]
             .compactMap { $0 }
             .max() ?? task.updatedAt
     }
 
+    /// Executes localSyncClock.
     private func localSyncClock(task: TaskDefinition, base: SyncClock?) -> SyncClock {
         let observedMillis = Int64(localModificationDate(task: task).timeIntervalSince1970 * 1_000)
         return SyncClock.next(nodeID: nodeID, base: base, observedMillis: observedMillis)
     }
 
+    /// Executes remoteSyncClock.
     private func remoteSyncClock(for reminder: AppleReminderItemSnapshot, provider: String) -> SyncClock {
         let modifiedAt = reminder.lastModifiedAt ?? Date()
         let millis = Int64(modifiedAt.timeIntervalSince1970 * 1_000)
@@ -806,6 +817,7 @@ public final class ReconcileExternalRemindersUseCase {
         )
     }
 
+    /// Executes remoteSyncClock.
     private func remoteSyncClock(for mapping: ExternalItemMapDefinition, provider: String) -> SyncClock {
         let modifiedAt = mapping.lastSeenExternalModAt ?? Date()
         let millis = Int64(modifiedAt.timeIntervalSince1970 * 1_000)
@@ -816,12 +828,14 @@ public final class ReconcileExternalRemindersUseCase {
         )
     }
 
+    /// Executes markAllScalarClocks.
     private func markAllScalarClocks(state: inout ReminderMergeState, clock: SyncClock) {
         for field in ReminderScalarField.allCases {
             state.fieldClocks[field] = clock
         }
     }
 
+    /// Executes maxClock.
     private func maxClock(_ lhs: SyncClock?, _ rhs: SyncClock?) -> SyncClock {
         switch (lhs, rhs) {
         case let (lhs?, rhs?):
@@ -835,10 +849,12 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
+    /// Executes decodeMergeEnvelope.
     private func decodeMergeEnvelope(data: Data?) -> ReminderMergeEnvelope? {
         mergeEngine.decodeEnvelope(data: data)
     }
 
+    /// Executes encodedMergeEnvelope.
     private func encodedMergeEnvelope(
         known: ReminderMergeEnvelope.KnownFields,
         preferredPassthroughData: Data?,
@@ -851,6 +867,7 @@ public final class ReconcileExternalRemindersUseCase {
         )
     }
 
+    /// Executes payloadDataForLocalTask.
     private func payloadDataForLocalTask(
         task: TaskDefinition,
         alarmDates: [Date],
@@ -875,6 +892,7 @@ public final class ReconcileExternalRemindersUseCase {
         )
     }
 
+    /// Executes payloadDataForPersistedRemote.
     private func payloadDataForPersistedRemote(
         remote: AppleReminderItemSnapshot,
         fallbackPayloadData: Data?
@@ -900,6 +918,7 @@ public final class ReconcileExternalRemindersUseCase {
         )
     }
 
+    /// Executes initialMergeStateForRemote.
     private func initialMergeStateForRemote(_ remote: AppleReminderItemSnapshot) -> ReminderMergeState {
         let clock = remoteSyncClock(for: remote, provider: "apple_reminders")
         var state = ReminderMergeState(lastWriteClock: clock)
@@ -910,6 +929,7 @@ public final class ReconcileExternalRemindersUseCase {
         return state
     }
 
+    /// Executes initialMergeStateForLocal.
     private func initialMergeStateForLocal(_ task: TaskDefinition) -> ReminderMergeState {
         let clock = localSyncClock(task: task, base: nil)
         var state = ReminderMergeState(lastWriteClock: clock)
@@ -917,6 +937,7 @@ public final class ReconcileExternalRemindersUseCase {
         return state
     }
 
+    /// Executes snapshot.
     private func snapshot(
         from task: TaskDefinition,
         listID: String,
@@ -942,6 +963,7 @@ public final class ReconcileExternalRemindersUseCase {
         )
     }
 
+    /// Executes knownFields.
     private func knownFields(
         from task: TaskDefinition?,
         fallbackURL: String?,
@@ -971,6 +993,7 @@ public final class ReconcileExternalRemindersUseCase {
         )
     }
 
+    /// Executes knownFields.
     private func knownFields(from reminder: AppleReminderItemSnapshot) -> ReminderMergeEnvelope.KnownFields {
         ReminderMergeEnvelope.KnownFields(
             title: reminder.title,
@@ -984,6 +1007,7 @@ public final class ReconcileExternalRemindersUseCase {
         )
     }
 
+    /// Executes applyKnownFields.
     private func applyKnownFields(_ known: ReminderMergeEnvelope.KnownFields, to task: inout TaskDefinition) {
         task.title = known.title
         task.details = known.notes
@@ -993,6 +1017,7 @@ public final class ReconcileExternalRemindersUseCase {
         task.priority = priorityFromEventKit(known.priority)
     }
 
+    /// Executes defaultNodeID.
     public static func defaultNodeID() -> String {
         let defaults = UserDefaults.standard
         let key = "tasker.sync.node_id"
@@ -1004,6 +1029,7 @@ public final class ReconcileExternalRemindersUseCase {
         return generated
     }
 
+    /// Executes priorityFromEventKit.
     private func priorityFromEventKit(_ raw: Int) -> TaskPriority {
         switch raw {
         case 1:
@@ -1017,6 +1043,7 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
+    /// Executes eventKitPriority.
     private func eventKitPriority(from priority: TaskPriority) -> Int {
         switch priority {
         case .max:
@@ -1030,10 +1057,12 @@ public final class ReconcileExternalRemindersUseCase {
         }
     }
 
+    /// Executes normalize.
     private func normalize(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
+    /// Executes syncDisabledError.
     private func syncDisabledError() -> Error {
         NSError(
             domain: "ReconcileExternalRemindersUseCase",

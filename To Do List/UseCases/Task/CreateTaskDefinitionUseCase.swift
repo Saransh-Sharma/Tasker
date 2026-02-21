@@ -6,6 +6,7 @@ public final class CreateTaskDefinitionUseCase {
     private let taskDependencyRepository: TaskDependencyRepositoryProtocol?
     private let recurrenceMaterializer: RecurringTaskMaterializer
 
+    /// Initializes a new instance.
     public init(
         repository: TaskDefinitionRepositoryProtocol,
         taskTagLinkRepository: TaskTagLinkRepositoryProtocol? = nil,
@@ -20,6 +21,7 @@ public final class CreateTaskDefinitionUseCase {
         )
     }
 
+    /// Executes execute.
     public func execute(
         title: String,
         projectID: UUID,
@@ -37,6 +39,7 @@ public final class CreateTaskDefinitionUseCase {
         execute(request: request, completion: completion)
     }
 
+    /// Executes execute.
     public func execute(
         request: CreateTaskDefinitionRequest,
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
@@ -82,10 +85,12 @@ public final class CreateTaskDefinitionUseCase {
         }
     }
 
+    /// Executes maintainRecurringSeries.
     public func maintainRecurringSeries(daysAhead: Int = 45, completion: @escaping (Result<Int, Error>) -> Void) {
         recurrenceMaterializer.maintainAllSeries(daysAhead: daysAhead, completion: completion)
     }
 
+    /// Executes persistLinks.
     private func persistLinks(
         taskID: UUID,
         request: CreateTaskDefinitionRequest,
@@ -132,6 +137,7 @@ public final class CreateTaskDefinitionUseCase {
         }
     }
 
+    /// Executes normalizedRequestForSeriesRoot.
     private func normalizedRequestForSeriesRoot(_ request: CreateTaskDefinitionRequest) -> CreateTaskDefinitionRequest {
         guard request.repeatPattern != nil else { return request }
         var normalized = request
@@ -139,6 +145,7 @@ public final class CreateTaskDefinitionUseCase {
         return normalized
     }
 
+    /// Executes materializeRecurringTasksIfNeeded.
     private func materializeRecurringTasksIfNeeded(
         rootTask: TaskDefinition,
         rootRequest: CreateTaskDefinitionRequest,
@@ -166,6 +173,7 @@ private final class RecurringTaskMaterializer {
     private let repository: TaskDefinitionRepositoryProtocol
     private let taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
 
+    /// Initializes a new instance.
     init(
         repository: TaskDefinitionRepositoryProtocol,
         taskTagLinkRepository: TaskTagLinkRepositoryProtocol?
@@ -174,6 +182,7 @@ private final class RecurringTaskMaterializer {
         self.taskTagLinkRepository = taskTagLinkRepository
     }
 
+    /// Executes maintainAllSeries.
     func maintainAllSeries(daysAhead: Int, completion: @escaping (Result<Int, Error>) -> Void) {
         repository.fetchAll(query: nil) { result in
             switch result {
@@ -250,6 +259,7 @@ private final class RecurringTaskMaterializer {
         }
     }
 
+    /// Executes materializeSeries.
     func materializeSeries(
         rootTask: TaskDefinition,
         rootRequest: CreateTaskDefinitionRequest,
@@ -267,6 +277,7 @@ private final class RecurringTaskMaterializer {
         }
     }
 
+    /// Executes materializeSeriesCountingCreated.
     private func materializeSeriesCountingCreated(
         rootTask: TaskDefinition,
         rootRequest: CreateTaskDefinitionRequest,
@@ -367,6 +378,7 @@ private final class RecurringTaskMaterializer {
         }
     }
 
+    /// Executes createTaskWithoutNotifications.
     private func createTaskWithoutNotifications(
         request: CreateTaskDefinitionRequest,
         completion: @escaping (Result<Void, Error>) -> Void
@@ -381,6 +393,7 @@ private final class RecurringTaskMaterializer {
         }
     }
 
+    /// Executes persistTagLinks.
     private func persistTagLinks(
         taskID: UUID,
         tagIDs: [UUID],
@@ -393,6 +406,7 @@ private final class RecurringTaskMaterializer {
         taskTagLinkRepository.replaceTagLinks(taskID: taskID, tagIDs: tagIDs, completion: completion)
     }
 
+    /// Executes seriesDates.
     private static func seriesDates(
         startDate: Date,
         repeatPattern: TaskRepeatPattern,
@@ -421,10 +435,12 @@ private final class RecurringTaskMaterializer {
 public final class GetTaskChildrenUseCase {
     private let repository: TaskDefinitionRepositoryProtocol
 
+    /// Initializes a new instance.
     public init(repository: TaskDefinitionRepositoryProtocol) {
         self.repository = repository
     }
 
+    /// Executes execute.
     public func execute(
         parentTaskID: UUID,
         completion: @escaping (Result<[TaskDefinition], Error>) -> Void

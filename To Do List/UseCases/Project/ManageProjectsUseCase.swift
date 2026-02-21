@@ -17,6 +17,7 @@ public final class ManageProjectsUseCase {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     public init(
         projectRepository: ProjectRepositoryProtocol
     ) {
@@ -233,6 +234,7 @@ public final class ManageProjectsUseCase {
         }
     }
 
+    /// Executes repairProjectIdentityCollisions.
     public func repairProjectIdentityCollisions(completion: @escaping (Result<ProjectRepairReport, ProjectError>) -> Void) {
         projectRepository.repairProjectIdentityCollisions { result in
             switch result {
@@ -309,11 +311,13 @@ public final class ManageProjectsUseCase {
     
     // MARK: - Private Methods
     
+    /// Executes validateProjectName.
     private func validateProjectName(_ name: String) -> Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && trimmed.count <= 100
     }
     
+    /// Executes performProjectUpdate.
     private func performProjectUpdate(project: Project, completion: @escaping (Result<Project, ProjectError>) -> Void) {
         // Validate the updated project
         do {
@@ -339,6 +343,7 @@ public final class ManageProjectsUseCase {
         }
     }
 
+    /// Executes dedupeProjects.
     private func dedupeProjects(_ projects: [Project]) -> [Project] {
         var byID: [UUID: Project] = [:]
         for project in projects {
@@ -363,6 +368,7 @@ public struct CreateProjectRequest {
     public let name: String
     public let description: String?
     
+    /// Initializes a new instance.
     public init(name: String, description: String? = nil) {
         self.name = name
         self.description = description
@@ -373,6 +379,7 @@ public struct UpdateProjectRequest {
     public let name: String?
     public let description: String?
     
+    /// Initializes a new instance.
     public init(name: String? = nil, description: String? = nil) {
         self.name = name
         self.description = description

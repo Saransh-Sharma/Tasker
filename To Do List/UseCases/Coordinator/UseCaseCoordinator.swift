@@ -28,6 +28,7 @@ public final class UseCaseCoordinator {
         public let externalSyncRepository: ExternalSyncRepositoryProtocol
         public let remindersProvider: AppleRemindersProviderProtocol?
 
+        /// Initializes a new instance.
         public init(
             lifeAreaRepository: LifeAreaRepositoryProtocol,
             sectionRepository: SectionRepositoryProtocol,
@@ -106,6 +107,7 @@ public final class UseCaseCoordinator {
 
     // MARK: - Initialization
 
+    /// Initializes a new instance.
     public init(
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         projectRepository: ProjectRepositoryProtocol,

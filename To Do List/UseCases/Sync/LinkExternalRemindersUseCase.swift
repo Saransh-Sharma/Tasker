@@ -9,6 +9,7 @@ public final class LinkExternalRemindersUseCase {
         public let externalModifiedAt: Date?
         public let externalPayloadData: Data?
 
+        /// Initializes a new instance.
         public init(
             localEntityType: String,
             localEntityID: UUID,
@@ -30,6 +31,7 @@ public final class LinkExternalRemindersUseCase {
     private let remindersProvider: AppleRemindersProviderProtocol?
     private let taskRepository: TaskDefinitionRepositoryProtocol?
 
+    /// Initializes a new instance.
     public init(
         externalRepository: ExternalSyncRepositoryProtocol,
         remindersProvider: AppleRemindersProviderProtocol? = nil,
@@ -40,6 +42,7 @@ public final class LinkExternalRemindersUseCase {
         self.taskRepository = taskRepository
     }
 
+    /// Executes listContainerMappings.
     public func listContainerMappings(completion: @escaping (Result<[ExternalContainerMapDefinition], Error>) -> Void) {
         guard V2FeatureFlags.remindersSyncEnabled else {
             completion(.failure(syncDisabledError()))
@@ -48,6 +51,7 @@ public final class LinkExternalRemindersUseCase {
         externalRepository.fetchContainerMappings(completion: completion)
     }
 
+    /// Executes linkProject.
     public func linkProject(
         projectID: UUID,
         externalContainerID: String,
@@ -146,6 +150,7 @@ public final class LinkExternalRemindersUseCase {
         }
     }
 
+    /// Executes linkProjectWithBootstrapImport.
     public func linkProjectWithBootstrapImport(
         projectID: UUID,
         externalContainerID: String,
@@ -205,6 +210,7 @@ public final class LinkExternalRemindersUseCase {
         }
     }
 
+    /// Executes bootstrapImportedItems.
     private func bootstrapImportedItems(
         projectID: UUID,
         snapshots: [AppleReminderItemSnapshot],
@@ -289,6 +295,7 @@ public final class LinkExternalRemindersUseCase {
         }
     }
 
+    /// Executes matchExistingTask.
     private func matchExistingTask(
         snapshot: AppleReminderItemSnapshot,
         tasks: [TaskDefinition]
@@ -308,10 +315,12 @@ public final class LinkExternalRemindersUseCase {
         }
     }
 
+    /// Executes normalize.
     private func normalize(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
+    /// Executes syncDisabledError.
     private func syncDisabledError() -> Error {
         NSError(
             domain: "LinkExternalRemindersUseCase",
@@ -320,6 +329,7 @@ public final class LinkExternalRemindersUseCase {
         )
     }
 
+    /// Executes initialSyncStateData.
     private func initialSyncStateData(for item: ImportedReminderItem) -> Data? {
         let modifiedAt = item.externalModifiedAt ?? Date()
         let clock = SyncClock(

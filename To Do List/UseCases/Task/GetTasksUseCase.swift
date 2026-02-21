@@ -18,6 +18,7 @@ public final class GetTasksUseCase {
 
     // MARK: - Initialization
 
+    /// Initializes a new instance.
     public init(
         readModelRepository: TaskReadModelRepositoryProtocol? = nil,
         cacheService: CacheServiceProtocol? = nil
@@ -320,6 +321,7 @@ public final class GetTasksUseCase {
 
     // MARK: - Private Helpers
 
+    /// Executes fetchReadSlice.
     private func fetchReadSlice(
         query: TaskReadQuery,
         completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void
@@ -338,6 +340,7 @@ public final class GetTasksUseCase {
         }
     }
 
+    /// Executes searchReadSlice.
     private func searchReadSlice(
         query: TaskSearchQuery,
         completion: @escaping (Result<[TaskDefinition], GetTasksError>) -> Void
@@ -356,6 +359,7 @@ public final class GetTasksUseCase {
         }
     }
 
+    /// Executes applySearchFilter.
     private func applySearchFilter(query: String, in tasks: [TaskDefinition]) -> [TaskDefinition] {
         guard !query.isEmpty else { return tasks }
         return tasks.filter { task in
@@ -364,6 +368,7 @@ public final class GetTasksUseCase {
         }
     }
 
+    /// Executes categorizeTodayTasks.
     private func categorizeTodayTasks(_ tasks: [TaskDefinition]) -> TodayTasksResult {
         let startOfDay = Calendar.current.startOfDay(for: Date())
 
@@ -393,6 +398,7 @@ public final class GetTasksUseCase {
         )
     }
 
+    /// Executes categorizeTasksForDate.
     private func categorizeTasksForDate(_ tasks: [TaskDefinition], date: Date) -> DateTasksResult {
         var morningTasks: [TaskDefinition] = []
         var eveningTasks: [TaskDefinition] = []
@@ -423,6 +429,7 @@ public final class GetTasksUseCase {
         )
     }
 
+    /// Executes categorizeUpcomingTasks.
     private func categorizeUpcomingTasks(_ tasks: [TaskDefinition]) -> UpcomingTasksResult {
         var thisWeek: [TaskDefinition] = []
         var nextWeek: [TaskDefinition] = []
@@ -460,6 +467,7 @@ public final class GetTasksUseCase {
         )
     }
 
+    /// Executes sortByPriorityThenDue.
     private func sortByPriorityThenDue(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
         if lhs.priority.rawValue != rhs.priority.rawValue {
             return lhs.priority.rawValue < rhs.priority.rawValue
@@ -477,6 +485,7 @@ public struct TodayTasksResult {
     public let completedTasks: [TaskDefinition]
     public let totalCount: Int
 
+    /// Initializes a new instance.
     init(
         morningTasks: [TaskDefinition] = [],
         eveningTasks: [TaskDefinition] = [],
@@ -500,6 +509,7 @@ public struct DateTasksResult {
     public let completedTasks: [TaskDefinition]
     public let totalCount: Int
 
+    /// Initializes a new instance.
     init(
         date: Date,
         morningTasks: [TaskDefinition] = [],
