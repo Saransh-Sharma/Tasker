@@ -22,6 +22,7 @@ extension XCUIApplication {
         case enableDebugLogging = "-ENABLE_DEBUG_LOGGING"
         case mockInboxTasks = "-MOCK_INBOX_TASKS"
         case disableLLM = "-DISABLE_LLM"
+        case disableAIForUITests = "-DISABLE_AI_FOR_UI_TESTS"
     }
 
     // MARK: - Convenience Launch Methods

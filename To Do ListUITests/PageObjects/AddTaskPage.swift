@@ -692,12 +692,20 @@ class AddTaskPage {
     /// Verify add task screen is displayed
     @discardableResult
     func verifyIsDisplayed(timeout: TimeInterval = 5) -> Bool {
-        // Check for title field or navigation bar
-        let navBar = app.navigationBars.firstMatch
-        let titleFieldExists = titleField.waitForExistence(timeout: timeout)
-        let navBarExists = navBar.waitForExistence(timeout: timeout)
+        // Require Add Task-specific affordances; a generic navigation bar is not sufficient.
+        if titleField.waitForExistence(timeout: timeout) {
+            return true
+        }
 
-        return titleFieldExists || navBarExists
+        let addTaskSignals: [XCUIElement] = [
+            app.otherElements[AccessibilityIdentifiers.AddTask.view],
+            app.textFields[AccessibilityIdentifiers.AddTask.descriptionField],
+            app.segmentedControls[AccessibilityIdentifiers.AddTask.prioritySegmentedControl],
+            app.segmentedControls[AccessibilityIdentifiers.AddTask.taskTypeSelector],
+            app.buttons[AccessibilityIdentifiers.AddTask.saveButton]
+        ]
+        let perSignalTimeout = min(1.0, max(0.25, timeout / Double(max(1, addTaskSignals.count))))
+        return addTaskSignals.contains { $0.waitForExistence(timeout: perSignalTimeout) }
     }
 
     /// Verify validation error is shown

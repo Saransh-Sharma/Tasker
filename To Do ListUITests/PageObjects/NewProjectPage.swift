@@ -62,23 +62,49 @@ class NewProjectPage {
     }
 
     var saveButton: XCUIElement {
-        // Try accessibility identifier first
-        var button = app.buttons[AccessibilityIdentifiers.NewProject.saveButton]
+        let saveLabelPredicate = NSPredicate(
+            format: "label ==[c] 'Create' OR label ==[c] 'Save' OR identifier == %@",
+            AccessibilityIdentifiers.NewProject.saveButton
+        )
 
-        // Fallback: find by label
-        if !button.exists {
-            button = app.buttons["Save"]
-        }
-
-        // Last fallback: right bar button
-        if !button.exists {
-            let navBar = app.navigationBars.firstMatch
-            if navBar.exists {
-                button = navBar.buttons.element(boundBy: navBar.buttons.count - 1)
+        let newProjectAlert = app.alerts["New Project"]
+        if newProjectAlert.exists {
+            let alertButtons = newProjectAlert.buttons.matching(saveLabelPredicate)
+            if alertButtons.count > 0 {
+                return alertButtons.firstMatch
             }
         }
 
-        return button
+        let newProjectSheet = app.sheets["New Project"]
+        if newProjectSheet.exists {
+            let sheetButtons = newProjectSheet.buttons.matching(saveLabelPredicate)
+            if sheetButtons.count > 0 {
+                return sheetButtons.firstMatch
+            }
+        }
+
+        let identifiedButton = app.buttons[AccessibilityIdentifiers.NewProject.saveButton]
+        if identifiedButton.exists {
+            return identifiedButton
+        }
+
+        if app.buttons["Create"].exists {
+            return app.buttons["Create"]
+        }
+
+        if app.buttons["Save"].exists {
+            return app.buttons["Save"]
+        }
+
+        let navBar = app.navigationBars.firstMatch
+        if navBar.exists {
+            let navButtons = navBar.buttons
+            if navButtons.count > 0 {
+                return navButtons.element(boundBy: navButtons.count - 1)
+            }
+        }
+
+        return app.buttons.firstMatch
     }
 
     var cancelButton: XCUIElement {
@@ -165,7 +191,16 @@ class NewProjectPage {
     /// Tap save button
     @discardableResult
     func tapSave() -> ProjectManagementPage {
-        saveButton.tap()
+        let button = saveButton
+        if button.waitForExistence(timeout: 2) {
+            if button.isHittable {
+                button.tap()
+            } else {
+                button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+        } else {
+            XCTFail("Save button should exist before tapping")
+        }
         return ProjectManagementPage(app: app)
     }
 
@@ -178,7 +213,28 @@ class NewProjectPage {
 
     /// Dismiss keyboard
     func dismissKeyboard() {
-        app.toolbars.buttons["Done"].tap()
+        guard app.keyboards.firstMatch.exists else { return }
+
+        // Prefer explicit toolbar done buttons when present.
+        let doneCandidates: [XCUIElement] = [
+            app.toolbars.buttons["Done"],
+            app.keyboards.buttons["Done"],
+            app.navigationBars.buttons["Done"]
+        ]
+        for candidate in doneCandidates where candidate.exists {
+            candidate.tap()
+            if app.keyboards.firstMatch.exists == false {
+                return
+            }
+        }
+
+        // Final fallback: submit newline only from the currently focused control.
+        let focusedElement = app.descendants(matching: .any).matching(
+            NSPredicate(format: "hasKeyboardFocus == true")
+        ).firstMatch
+        if focusedElement.exists {
+            focusedElement.typeText("\n")
+        }
     }
 
     // MARK: - Complex Actions
@@ -209,8 +265,8 @@ class NewProjectPage {
             selectIcon(icon)
         }
 
-        // Dismiss keyboard before saving
-        if app.keyboards.firstMatch.exists {
+        // Only dismiss keyboard when save button is not hittable.
+        if app.keyboards.firstMatch.exists && saveButton.isHittable == false {
             dismissKeyboard()
         }
 
