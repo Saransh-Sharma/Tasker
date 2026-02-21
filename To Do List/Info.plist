@@ -6,6 +6,7 @@
 	<array>
 		<string>com.tasker.refresh.occurrences</string>
 		<string>com.tasker.refresh.reminders</string>
+		<string>com.tasker.refresh.daily_brief</string>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>

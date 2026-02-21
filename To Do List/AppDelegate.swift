@@ -11,6 +11,7 @@ import CoreData
 import CloudKit
 import Firebase
 import BackgroundTasks
+import UserNotifications
 
 enum PersistentBootstrapState {
     case ready(NSPersistentCloudKitContainer)
@@ -27,13 +28,22 @@ struct PersistentStoreLoadReport {
     let errors: [NSError]
 }
 
+extension Notification.Name {
+    static let assistantOpenChatRequested = Notification.Name("assistantOpenChatRequested")
+}
+
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     private let occurrenceRefreshTaskIdentifier = "com.tasker.refresh.occurrences"
     private let remindersRefreshTaskIdentifier = "com.tasker.refresh.reminders"
+    private let dailyBriefRefreshTaskIdentifier = "com.tasker.refresh.daily_brief"
     private let expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"]
     private let v3StoreEpoch = 4
+    private var semanticIndexObserver: NSObjectProtocol?
+    private let pendingChatPromptKey = "assistant.pending_prompt"
+    private let pendingChatAssistantMessageKey = "assistant.pending_assistant_message"
+    private let pendingChatModeKey = "assistant.pending_chat_mode"
 
     private(set) static var persistentBootstrapFailureMessage: String?
     static var isPersistentStoreReady: Bool {
@@ -63,6 +73,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             // Reset app state for clean test runs
             if launchArguments.contains("-RESET_APP_STATE") {
                 resetAppState()
+            }
+
+            if launchArguments.contains("-DISABLE_AI_FOR_UI_TESTS") {
+                applyUITestAssistantOverrides()
             }
         }
 
@@ -122,6 +136,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         
         // Register for CloudKit silent pushes
         application.registerForRemoteNotifications()
+        UNUserNotificationCenter.current().delegate = self
 
         // Hard-reset cutover to V3 model/container.
         performV3BootstrapCutoverIfNeeded()
@@ -142,6 +157,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             if V2FeatureFlags.remindersBackgroundRefreshEnabled {
                 scheduleRemindersRefresh()
             }
+            if V2FeatureFlags.assistantBriefEnabled {
+                scheduleDailyBriefRefresh()
+            }
+            configureSemanticRetrievalIndexingIfNeeded()
 
             // 2) Observe remote-change notifications so your viewContext merges them
             NotificationCenter.default.addObserver(
@@ -200,6 +219,65 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if V2FeatureFlags.remindersBackgroundRefreshEnabled {
             scheduleRemindersRefresh()
         }
+        if V2FeatureFlags.assistantBriefEnabled {
+            scheduleDailyBriefRefresh()
+        }
+        if V2FeatureFlags.assistantSemanticRetrievalEnabled {
+            TaskSemanticRetrievalService.shared.persistIndex()
+        }
+    }
+
+    /// Executes applicationDidBecomeActive.
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        guard V2FeatureFlags.assistantBriefEnabled else { return }
+        let hour = Calendar.current.component(.hour, from: Date())
+        guard (6...10).contains(hour) else { return }
+        guard DailyBriefService.shared.cachedBrief(for: Date()) == nil else { return }
+        generateAndCacheDailyBrief(sendNotification: false, completion: { _ in })
+    }
+
+    /// Executes userNotificationCenter.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        if response.notification.request.identifier.hasPrefix("assistant.daily_brief.") {
+            let cachedBrief = DailyBriefService.shared.cachedBrief(for: Date())
+                ?? (response.notification.request.content.userInfo["brief"] as? String)
+            if let cachedBrief {
+                seedAssistantChat(
+                    mode: .ask,
+                    prompt: "Use this brief to plan my day.",
+                    assistantMessage: cachedBrief
+                )
+            }
+            logWarning(
+                event: "assistant_daily_brief_opened",
+                message: "User opened assistant daily brief notification",
+                fields: [:]
+            )
+        }
+        completionHandler()
+    }
+
+    /// Executes seedAssistantChat.
+    private func seedAssistantChat(
+        mode: AssistantChatMode,
+        prompt: String?,
+        assistantMessage: String?
+    ) {
+        let defaults = UserDefaults.standard
+        defaults.set(mode.rawValue, forKey: pendingChatModeKey)
+        if let prompt,
+           prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            defaults.set(prompt, forKey: pendingChatPromptKey)
+        }
+        if let assistantMessage,
+           assistantMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            defaults.set(assistantMessage, forKey: pendingChatAssistantMessageKey)
+        }
+        NotificationCenter.default.post(name: .assistantOpenChatRequested, object: nil)
     }
 
     /// Executes makeLaunchRootMode.
@@ -214,6 +292,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     // MARK: - UI Testing Helpers
+
+    /// Executes applyUITestAssistantOverrides.
+    private func applyUITestAssistantOverrides() {
+        V2FeatureFlags.assistantCopilotEnabled = false
+        V2FeatureFlags.assistantPlanModeEnabled = false
+        V2FeatureFlags.assistantSemanticRetrievalEnabled = false
+        V2FeatureFlags.assistantBriefEnabled = false
+        V2FeatureFlags.assistantBreakdownEnabled = false
+        logWarning(
+            event: "ui_testing_ai_overrides_enabled",
+            message: "Disabled AI assistant features for this UI test run",
+            fields: ["launch_argument": "-DISABLE_AI_FOR_UI_TESTS"]
+        )
+    }
 
     /// Reset app state for UI testing
     /// This clears UserDefaults and Core Data to ensure clean test runs
@@ -547,7 +639,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                         "code": String(nsError.code),
                         "error": nsError.localizedDescription,
                         "url": store.url?.absoluteString ?? "unknown",
-                        "configuration": store.configurationName ?? "unknown"
+                        "configuration": store.configurationName
                     ]
                 )
             }
@@ -818,6 +910,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
             self?.handleRemindersRefresh(task: refreshTask)
         }
+
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: dailyBriefRefreshTaskIdentifier,
+            using: nil
+        ) { [weak self] task in
+            guard let refreshTask = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self?.handleDailyBriefRefresh(task: refreshTask)
+        }
     }
 
     /// Executes scheduleOccurrenceRefresh.
@@ -845,6 +948,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             logWarning(
                 event: "bg_reminders_schedule_failed",
                 message: "Failed to schedule reminders background refresh task",
+                fields: ["error": error.localizedDescription]
+            )
+        }
+    }
+
+    /// Executes scheduleDailyBriefRefresh.
+    private func scheduleDailyBriefRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: dailyBriefRefreshTaskIdentifier)
+        var nextRun = Calendar.current.date(
+            bySettingHour: 8,
+            minute: 0,
+            second: 0,
+            of: Date()
+        ) ?? Calendar.current.date(byAdding: .hour, value: 12, to: Date()) ?? Date()
+        if nextRun <= Date() {
+            nextRun = Calendar.current.date(byAdding: .day, value: 1, to: nextRun) ?? nextRun
+        }
+        request.earliestBeginDate = nextRun
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            logWarning(
+                event: "bg_daily_brief_schedule_failed",
+                message: "Failed to schedule daily brief background refresh task",
                 fields: ["error": error.localizedDescription]
             )
         }
@@ -948,6 +1075,96 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                     failureCount: 0
                 ) { failureCount in
                     task.setTaskCompleted(success: failureCount == 0)
+                }
+            }
+        }
+    }
+
+    /// Executes handleDailyBriefRefresh.
+    private func handleDailyBriefRefresh(task: BGAppRefreshTask) {
+        scheduleDailyBriefRefresh()
+        task.expirationHandler = {
+            task.setTaskCompleted(success: false)
+        }
+
+        guard V2FeatureFlags.assistantBriefEnabled else {
+            task.setTaskCompleted(success: true)
+            return
+        }
+
+        if DailyBriefService.shared.cachedBrief(for: Date()) != nil {
+            task.setTaskCompleted(success: true)
+            return
+        }
+        generateAndCacheDailyBrief(sendNotification: true) { success in
+            task.setTaskCompleted(success: success)
+        }
+    }
+
+    /// Executes postDailyBriefNotification.
+    private func postDailyBriefNotification(_ brief: String) {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else {
+                return
+            }
+
+            let content = UNMutableNotificationContent()
+            content.title = "Tasker Daily Brief"
+            content.body = brief
+            content.sound = .default
+            content.userInfo = ["brief": brief]
+
+            let request = UNNotificationRequest(
+                identifier: "assistant.daily_brief.\(Date().ISO8601Format())",
+                content: content,
+                trigger: nil
+            )
+            center.add(request)
+        }
+    }
+
+    /// Executes generateAndCacheDailyBrief.
+    private func generateAndCacheDailyBrief(
+        sendNotification: Bool,
+        completion: @escaping (Bool) -> Void
+    ) {
+        let coordinator = PresentationDependencyContainer.shared.coordinator
+        coordinator.getDailyDashboard { result in
+            switch result {
+            case .failure(let error):
+                logWarning(
+                    event: "assistant_daily_brief_generation_failed",
+                    message: "Failed generating daily brief from dashboard",
+                    fields: ["error": error.localizedDescription]
+                )
+                completion(false)
+            case .success(let dashboard):
+                let todayOpen = dashboard.todayTasks.morningTasks.filter { !$0.isComplete }.count
+                    + dashboard.todayTasks.eveningTasks.filter { !$0.isComplete }.count
+                let overdueCount = dashboard.todayTasks.overdueTasks.filter { !$0.isComplete }.count
+                let completedToday = dashboard.analytics.completedTasks
+                let streak = dashboard.streak.currentStreak
+                Task { @MainActor in
+                    let output = await DailyBriefService.shared.generateBriefOutput(
+                        todayOpenCount: todayOpen,
+                        overdueCount: overdueCount,
+                        completedTodayCount: completedToday,
+                        streak: streak
+                    )
+                    DailyBriefService.shared.saveBrief(output.brief, for: Date())
+                    if sendNotification {
+                        self.postDailyBriefNotification(output.brief)
+                    }
+                    logWarning(
+                        event: "assistant_daily_brief_generated",
+                        message: "Generated daily brief",
+                        fields: [
+                            "model": output.modelName ?? "none",
+                            "has_route_banner": output.routeBanner == nil ? "false" : "true"
+                        ]
+                    )
+                    completion(true)
                 }
             }
         }
@@ -1083,7 +1300,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Configure LLM access through repositories (no direct Core Data context pulls).
         LLMContextRepositoryProvider.configure(
             taskReadModelRepository: stateContainer.taskReadModelRepository,
-            projectRepository: stateContainer.projectRepository
+            projectRepository: stateContainer.projectRepository,
+            tagRepository: stateContainer.tagRepository
+        )
+        LLMAssistantPipelineProvider.configure(
+            pipeline: stateContainer.useCaseCoordinator.assistantActionPipeline
         )
         return true
     }
@@ -1126,5 +1347,123 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 )
             }
         }
+    }
+
+    /// Executes configureSemanticRetrievalIndexingIfNeeded.
+    private func configureSemanticRetrievalIndexingIfNeeded() {
+        guard V2FeatureFlags.assistantSemanticRetrievalEnabled else { return }
+        TaskSemanticRetrievalService.shared.loadPersistedIndex()
+        rebuildSemanticIndexSnapshot()
+
+        if semanticIndexObserver == nil {
+            semanticIndexObserver = NotificationCenter.default.addObserver(
+                forName: .homeTaskMutation,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                self?.handleSemanticMutation(notification)
+            }
+        }
+    }
+
+    /// Executes handleSemanticMutation.
+    private func handleSemanticMutation(_ notification: Notification) {
+        guard V2FeatureFlags.assistantSemanticRetrievalEnabled else { return }
+        guard let userInfo = notification.userInfo else {
+            rebuildSemanticIndexSnapshot()
+            return
+        }
+
+        let reason = (userInfo["reason"] as? String ?? "").lowercased()
+        guard let taskIDRaw = userInfo["taskID"] as? String, let taskID = UUID(uuidString: taskIDRaw) else {
+            rebuildSemanticIndexSnapshot()
+            return
+        }
+
+        if reason == "deleted" {
+            TaskSemanticRetrievalService.shared.remove(taskID: taskID)
+            return
+        }
+
+        guard let taskRepository = EnhancedDependencyContainer.shared.taskDefinitionRepository else {
+            rebuildSemanticIndexSnapshot()
+            return
+        }
+        let tagLookup = buildTagLookupSync(from: EnhancedDependencyContainer.shared.tagRepository)
+
+        DispatchQueue.global(qos: .utility).async {
+            let task = self.fetchTaskDefinitionSync(id: taskID, from: taskRepository)
+            if let task {
+                TaskSemanticRetrievalService.shared.index(tasks: [task], tagNameLookup: tagLookup)
+            } else {
+                TaskSemanticRetrievalService.shared.remove(taskID: taskID)
+            }
+        }
+    }
+
+    /// Executes rebuildSemanticIndexSnapshot.
+    private func rebuildSemanticIndexSnapshot() {
+        guard V2FeatureFlags.assistantSemanticRetrievalEnabled else { return }
+        guard let taskRepository = EnhancedDependencyContainer.shared.taskReadModelRepository else { return }
+        let tagRepository = EnhancedDependencyContainer.shared.tagRepository
+
+        DispatchQueue.global(qos: .utility).async {
+            let tasks = self.loadAllTasksSync(from: taskRepository)
+            let tagLookup = self.buildTagLookupSync(from: tagRepository)
+            TaskSemanticRetrievalService.shared.rebuildIndex(tasks: tasks, tagNameLookup: tagLookup)
+        }
+    }
+
+    /// Executes loadAllTasksSync.
+    private func loadAllTasksSync(from repository: TaskReadModelRepositoryProtocol) -> [TaskDefinition] {
+        let semaphore = DispatchSemaphore(value: 0)
+        var fetched: [TaskDefinition] = []
+        repository.fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: true,
+                sortBy: .updatedAtDescending,
+                limit: 5_000,
+                offset: 0
+            )
+        ) { result in
+            defer { semaphore.signal() }
+            if case .success(let slice) = result {
+                fetched = slice.tasks
+            }
+        }
+        _ = semaphore.wait(timeout: .now() + .seconds(5))
+        return fetched
+    }
+
+    /// Executes fetchTaskDefinitionSync.
+    private func fetchTaskDefinitionSync(
+        id: UUID,
+        from repository: TaskDefinitionRepositoryProtocol
+    ) -> TaskDefinition? {
+        let semaphore = DispatchSemaphore(value: 0)
+        var fetched: TaskDefinition?
+        repository.fetchTaskDefinition(id: id) { result in
+            defer { semaphore.signal() }
+            if case .success(let task) = result {
+                fetched = task
+            }
+        }
+        _ = semaphore.wait(timeout: .now() + .seconds(5))
+        return fetched
+    }
+
+    /// Executes buildTagLookupSync.
+    private func buildTagLookupSync(from repository: TagRepositoryProtocol?) -> [UUID: String] {
+        guard let repository else { return [:] }
+        let semaphore = DispatchSemaphore(value: 0)
+        var lookup: [UUID: String] = [:]
+        repository.fetchAll { result in
+            defer { semaphore.signal() }
+            if case .success(let tags) = result {
+                lookup = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
+            }
+        }
+        _ = semaphore.wait(timeout: .now() + .seconds(5))
+        return lookup
     }
 }

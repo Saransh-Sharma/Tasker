@@ -58,6 +58,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         bindViewModel()
         mountHomeShell()
         observeMutations()
+        observeAssistantChatRequests()
         observeTaskCreatedForSnackbar()
 
         updateDailyScore(for: dateForTheView)
@@ -255,6 +256,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         )
     }
 
+    /// Executes observeAssistantChatRequests.
+    private func observeAssistantChatRequests() {
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(assistantOpenChatRequested(_:)),
+            name: .assistantOpenChatRequested,
+            object: nil
+        )
+    }
+
     // MARK: - Navigation Actions
 
     /// Executes onMenuButtonTapped.
@@ -318,6 +329,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         navController.modalPresentationStyle = .fullScreen
         navController.navigationBar.prefersLargeTitles = false
         present(navController, animated: true)
+    }
+
+    /// Executes assistantOpenChatRequested.
+    @objc private func assistantOpenChatRequested(_ notification: Notification) {
+        guard presentedViewController == nil else { return }
+        chatButtonTapped()
     }
 
     // MARK: - Task Routing
