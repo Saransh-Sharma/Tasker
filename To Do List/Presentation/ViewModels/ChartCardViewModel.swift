@@ -9,12 +9,14 @@ public final class ChartCardViewModel: ObservableObject {
 
     private let readModelRepository: TaskReadModelRepositoryProtocol?
 
+    /// Initializes a new instance.
     init(
         readModelRepository: TaskReadModelRepositoryProtocol? = nil
     ) {
         self.readModelRepository = readModelRepository
     }
 
+    /// Executes load.
     func load(referenceDate: Date?) {
         isLoading = true
         guard let readModel = readModelRepository else {

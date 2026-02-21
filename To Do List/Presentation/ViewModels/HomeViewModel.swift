@@ -111,6 +111,7 @@ public final class HomeViewModel: ObservableObject {
 
     // MARK: - Initialization
 
+    /// Initializes a new instance.
     public init(
         useCaseCoordinator: UseCaseCoordinator,
         savedHomeViewRepository: SavedHomeViewRepositoryProtocol = UserDefaultsSavedHomeViewRepository(),
@@ -141,6 +142,7 @@ public final class HomeViewModel: ObservableObject {
         applyFocusFilters(trackAnalytics: false, generation: nextReloadGeneration())
     }
 
+    /// Executes loadTasksForSelectedDate.
     private func loadTasksForSelectedDate(generation: Int) {
         triggerRecurringTopUpIfNeeded()
         focusEngineEnabled = true
@@ -153,6 +155,7 @@ public final class HomeViewModel: ObservableObject {
         loadTodayTasks(generation: nextReloadGeneration())
     }
 
+    /// Executes loadTodayTasks.
     private func loadTodayTasks(generation: Int) {
         triggerRecurringTopUpIfNeeded()
         focusEngineEnabled = true
@@ -167,6 +170,7 @@ public final class HomeViewModel: ObservableObject {
         loadDailyAnalytics()
     }
 
+    /// Executes triggerRecurringTopUpIfNeeded.
     private func triggerRecurringTopUpIfNeeded() {
         let now = Date()
         if let lastRecurringTopUpAt,
@@ -222,6 +226,7 @@ public final class HomeViewModel: ObservableObject {
         deleteTask(taskID: task.id) { _ in }
     }
 
+    /// Executes deleteTask.
     public func deleteTask(
         taskID: UUID,
         scope: TaskDeleteScope = .single,
@@ -250,6 +255,7 @@ public final class HomeViewModel: ObservableObject {
         rescheduleTask(taskID: task.id, to: newDate) { _ in }
     }
 
+    /// Executes rescheduleTask.
     public func rescheduleTask(
         taskID: UUID,
         to newDate: Date?,
@@ -272,6 +278,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes updateTask.
     public func updateTask(
         taskID: UUID,
         request: UpdateTaskDefinitionRequest,
@@ -296,6 +303,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes loadTaskDetailMetadata.
     public func loadTaskDetailMetadata(
         projectID: UUID,
         completion: @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void
@@ -310,6 +318,7 @@ public final class HomeViewModel: ObservableObject {
         var loadedTags: [TagDefinition] = []
         var availableTasks: [TaskDefinition] = []
 
+        /// Executes record.
         func record(_ error: Error) {
             lock.lock()
             if firstError == nil {
@@ -388,6 +397,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes loadTaskChildren.
     public func loadTaskChildren(
         parentTaskID: UUID,
         completion: @escaping (Result<[TaskDefinition], Error>) -> Void
@@ -399,6 +409,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes createTaskDefinition.
     public func createTaskDefinition(
         request: CreateTaskDefinitionRequest,
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
@@ -419,6 +430,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes createTagForTaskDetail.
     public func createTagForTaskDetail(
         name: String,
         completion: @escaping (Result<TagDefinition, Error>) -> Void
@@ -430,6 +442,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes createProjectForTaskDetail.
     public func createProjectForTaskDetail(
         name: String,
         completion: @escaping (Result<Project, Error>) -> Void
@@ -456,6 +469,7 @@ public final class HomeViewModel: ObservableObject {
         activeScope == .today
     }
 
+    /// Executes pinTaskToFocus.
     @discardableResult
     public func pinTaskToFocus(_ taskID: UUID) -> FocusPinResult {
         guard canUseManualFocusDrag else {
@@ -481,6 +495,7 @@ public final class HomeViewModel: ObservableObject {
         return .pinned
     }
 
+    /// Executes unpinTaskFromFocus.
     public func unpinTaskFromFocus(_ taskID: UUID) {
         guard pinnedFocusTaskIDs.contains(taskID) else { return }
         pinnedFocusTaskIDs.removeAll { $0 == taskID }
@@ -763,6 +778,7 @@ public final class HomeViewModel: ObservableObject {
         loadProjects(generation: nextReloadGeneration())
     }
 
+    /// Executes loadProjects.
     private func loadProjects(generation: Int) {
         useCaseCoordinator.manageProjects.getAllProjects { [weak self] result in
             DispatchQueue.main.async {
@@ -791,6 +807,7 @@ public final class HomeViewModel: ObservableObject {
         logDebug("HOME_CACHE invalidated scope=all")
     }
 
+    /// Executes completionOverride.
     func completionOverride(for taskID: UUID) -> Bool? {
         completionOverrides[taskID]
     }
@@ -841,6 +858,7 @@ public final class HomeViewModel: ObservableObject {
 
     // MARK: - Private Methods
 
+    /// Executes setupBindings.
     private func setupBindings() {
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
             .receive(on: RunLoop.main)
@@ -901,6 +919,7 @@ public final class HomeViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
+    /// Executes setTaskCompletion.
     private func setTaskCompletion(
         taskID: UUID,
         to requestedCompletion: Bool,
@@ -953,11 +972,13 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes currentTaskSnapshot.
     private func currentTaskSnapshot(for id: UUID) -> TaskDefinition? {
         let candidates = morningTasks + eveningTasks + overdueTasks + dailyCompletedTasks + upcomingTasks + completedTasks + doneTimelineTasks
         return candidates.first(where: { $0.id == id })
     }
 
+    /// Executes mutationReason.
     private func mutationReason(for request: UpdateTaskDefinitionRequest) -> HomeTaskMutationEvent {
         if request.projectID != nil {
             return .projectChanged
@@ -974,6 +995,7 @@ public final class HomeViewModel: ObservableObject {
         return .updated
     }
 
+    /// Executes loadInitialData.
     private func loadInitialData() {
         homeOpenedAt = Date()
         didTrackFirstCompletionLatency = false
@@ -991,6 +1013,7 @@ public final class HomeViewModel: ObservableObject {
         loadDailyAnalytics()
     }
 
+    /// Executes loadDailyAnalytics.
     private func loadDailyAnalytics() {
         refreshDailyScoreFromCompletedTasksToday()
 
@@ -1012,6 +1035,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes refreshDailyScoreFromCompletedTasksToday.
     private func refreshDailyScoreFromCompletedTasksToday(referenceDate: Date = Date()) {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: referenceDate)
@@ -1055,10 +1079,12 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes loadProjectTasks.
     private func loadProjectTasks(_ projectID: UUID) {
         loadProjectTasks(projectID, generation: nextReloadGeneration())
     }
 
+    /// Executes loadProjectTasks.
     private func loadProjectTasks(_ projectID: UUID, generation: Int) {
         isLoading = true
 
@@ -1087,16 +1113,19 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes reloadCurrentModeTasks.
     private func reloadCurrentModeTasks() {
         let generation = nextReloadGeneration()
         loadProjects(generation: generation)
         applyFocusFilters(trackAnalytics: false, generation: generation)
     }
 
+    /// Executes applyFocusFilters.
     private func applyFocusFilters(trackAnalytics: Bool) {
         applyFocusFilters(trackAnalytics: trackAnalytics, generation: nextReloadGeneration())
     }
 
+    /// Executes applyFocusFilters.
     private func applyFocusFilters(trackAnalytics: Bool, generation: Int) {
         isLoading = true
         errorMessage = nil
@@ -1134,6 +1163,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes applyResultToSections.
     private func applyResultToSections(_ result: HomeFilteredTasksResult) {
         let overriddenResult = applyCompletionOverrides(
             openTasks: result.openTasks,
@@ -1226,11 +1256,13 @@ public final class HomeViewModel: ObservableObject {
         updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
     }
 
+    /// Executes updateCompletionRateFromFocusResult.
     private func updateCompletionRateFromFocusResult(openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) {
         let total = openTasks.count + doneTasks.count
         completionRate = total > 0 ? Double(doneTasks.count) / Double(total) : 0
     }
 
+    /// Executes refreshProgressState.
     private func refreshProgressState() {
         let earnedXP = max(0, dailyScore)
         let remainingPotentialXP = max(0, pointsPotential)
@@ -1246,6 +1278,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
+    /// Executes persistLastFilterState.
     private func persistLastFilterState() {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -1255,6 +1288,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes restorePinnedFocusTaskIDs.
     private func restorePinnedFocusTaskIDs() {
         let persistedIDs = userDefaults
             .stringArray(forKey: Self.pinnedFocusTaskIDsKey)?
@@ -1263,6 +1297,7 @@ public final class HomeViewModel: ObservableObject {
         pinnedFocusTaskIDs = normalizedPinnedFocusTaskIDs(persistedIDs)
     }
 
+    /// Executes persistPinnedFocusTaskIDs.
     private func persistPinnedFocusTaskIDs() {
         let normalized = normalizedPinnedFocusTaskIDs(pinnedFocusTaskIDs)
         if normalized != pinnedFocusTaskIDs {
@@ -1271,6 +1306,7 @@ public final class HomeViewModel: ObservableObject {
         userDefaults.set(normalized.map(\.uuidString), forKey: Self.pinnedFocusTaskIDsKey)
     }
 
+    /// Executes seedPinnedProjectsIfNeeded.
     private func seedPinnedProjectsIfNeeded(from projects: [Project]) {
         guard activeFilterState.pinnedProjectIDs.isEmpty else { return }
         let seeded = Array(projects.prefix(5).map(\.id))
@@ -1279,6 +1315,7 @@ public final class HomeViewModel: ObservableObject {
         persistLastFilterState()
     }
 
+    /// Executes normalizeCustomProjectOrderIfNeeded.
     private func normalizeCustomProjectOrderIfNeeded(from projects: [Project]) {
         let normalized = normalizedCustomProjectOrder(
             from: activeFilterState.customProjectOrderIDs,
@@ -1290,6 +1327,7 @@ public final class HomeViewModel: ObservableObject {
         persistLastFilterState()
     }
 
+    /// Executes bumpPinnedProject.
     private func bumpPinnedProject(_ id: UUID) {
         var pinned = activeFilterState.pinnedProjectIDs
         pinned.removeAll { $0 == id }
@@ -1302,6 +1340,7 @@ public final class HomeViewModel: ObservableObject {
         activeFilterState.pinnedProjectIDs = pinned
     }
 
+    /// Executes sanitizeFilterState.
     private func sanitizeFilterState(_ state: HomeFilterState, availableProjects: [Project]) -> HomeFilterState {
         var sanitized = state
         sanitized.customProjectOrderIDs = normalizedCustomProjectOrder(
@@ -1312,6 +1351,7 @@ public final class HomeViewModel: ObservableObject {
         return sanitized
     }
 
+    /// Executes normalizedCustomProjectOrder.
     private func normalizedCustomProjectOrder(
         from requestedOrder: [UUID],
         currentOrder: [UUID],
@@ -1351,6 +1391,7 @@ public final class HomeViewModel: ObservableObject {
         return merged + missing
     }
 
+    /// Executes sortByPriorityThenDue.
     private func sortByPriorityThenDue(lhs: TaskDefinition, rhs: TaskDefinition) -> Bool {
         if lhs.priority.scorePoints != rhs.priority.scorePoints {
             return lhs.priority.scorePoints > rhs.priority.scorePoints
@@ -1361,6 +1402,7 @@ public final class HomeViewModel: ObservableObject {
         return lhsDate < rhsDate
     }
 
+    /// Executes isEveningTaskHybrid.
     private func isEveningTaskHybrid(_ task: TaskDefinition) -> Bool {
         if task.type == .evening { return true }
         if task.type == .morning { return false }
@@ -1370,6 +1412,7 @@ public final class HomeViewModel: ObservableObject {
         return hour >= 17 && hour <= 23
     }
 
+    /// Executes rankedFocusTasks.
     private func rankedFocusTasks(from tasks: [TaskDefinition], relativeTo scope: HomeListScope) -> [TaskDefinition] {
         guard !tasks.isEmpty else { return [] }
 
@@ -1377,11 +1420,13 @@ public final class HomeViewModel: ObservableObject {
         let anchorStart = calendar.startOfDay(for: scope.referenceDate)
         let anchorEnd = calendar.date(byAdding: .day, value: 1, to: anchorStart) ?? anchorStart
 
+        /// Executes isOverdue.
         func isOverdue(_ task: TaskDefinition) -> Bool {
             guard let dueDate = task.dueDate else { return false }
             return dueDate < anchorStart
         }
 
+        /// Executes isDueToday.
         func isDueToday(_ task: TaskDefinition) -> Bool {
             guard let dueDate = task.dueDate else { return false }
             return dueDate >= anchorStart && dueDate < anchorEnd
@@ -1416,6 +1461,7 @@ public final class HomeViewModel: ObservableObject {
         return Array(sorted.prefix(Self.maxPinnedFocusTasks))
     }
 
+    /// Executes composedFocusTasks.
     private func composedFocusTasks(from openTasks: [TaskDefinition]) -> [TaskDefinition] {
         guard !openTasks.isEmpty else { return [] }
 
@@ -1434,6 +1480,7 @@ public final class HomeViewModel: ObservableObject {
         return Array((pinnedOpen + rankedAutoFill).prefix(Self.maxPinnedFocusTasks))
     }
 
+    /// Executes prunePinnedFocusTaskIDs.
     private func prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set<UUID>) {
         let filtered = pinnedFocusTaskIDs.filter { keepingOpenTaskIDs.contains($0) }
         guard filtered != pinnedFocusTaskIDs else { return }
@@ -1441,6 +1488,7 @@ public final class HomeViewModel: ObservableObject {
         persistPinnedFocusTaskIDs()
     }
 
+    /// Executes removePinnedFocusTaskID.
     private func removePinnedFocusTaskID(_ taskID: UUID) {
         guard pinnedFocusTaskIDs.contains(taskID) else { return }
         pinnedFocusTaskIDs.removeAll { $0 == taskID }
@@ -1448,6 +1496,7 @@ public final class HomeViewModel: ObservableObject {
         focusTasks = composedFocusTasks(from: focusOpenTasksForCurrentState())
     }
 
+    /// Executes normalizedPinnedFocusTaskIDs.
     private func normalizedPinnedFocusTaskIDs(_ ids: [UUID]) -> [UUID] {
         var deduped: [UUID] = []
         deduped.reserveCapacity(min(ids.count, Self.maxPinnedFocusTasks))
@@ -1462,6 +1511,7 @@ public final class HomeViewModel: ObservableObject {
         return deduped
     }
 
+    /// Executes focusOpenTasksForCurrentState.
     private func focusOpenTasksForCurrentState() -> [TaskDefinition] {
         switch activeScope.quickView {
         case .done:
@@ -1473,6 +1523,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes refreshFocusTasksFromCurrentState.
     private func refreshFocusTasksFromCurrentState() {
         if activeScope.quickView == .done {
             focusTasks = []
@@ -1486,10 +1537,12 @@ public final class HomeViewModel: ObservableObject {
         focusTasks = composedFocusTasks(from: openTasks)
     }
 
+    /// Executes trackFeatureUsage.
     private func trackFeatureUsage(action: String, metadata: [String: Any]? = nil) {
         analyticsService?.trackFeatureUsage(feature: "home_filter", action: action, metadata: metadata)
     }
 
+    /// Executes handleExternalMutation.
     public func handleExternalMutation(reason: HomeTaskMutationEvent, repostEvent: Bool = true) {
         invalidateTaskCaches()
         reloadCurrentModeTasks()
@@ -1499,6 +1552,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes requestChartRefresh.
     public func requestChartRefresh(reason: HomeTaskMutationEvent) {
         NotificationCenter.default.post(
             name: .homeTaskMutation,
@@ -1510,6 +1564,7 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
+    /// Executes scopeAnalyticsAction.
     private func scopeAnalyticsAction(_ scope: HomeListScope) -> String {
         switch scope {
         case .today:
@@ -1527,6 +1582,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes trackFirstCompletionLatencyIfNeeded.
     private func trackFirstCompletionLatencyIfNeeded() {
         guard !didTrackFirstCompletionLatency else { return }
         didTrackFirstCompletionLatency = true
@@ -1535,18 +1591,21 @@ public final class HomeViewModel: ObservableObject {
         trackFeatureUsage(action: "home_filter_time_to_first_completion_sec", metadata: ["seconds": latency])
     }
 
+    /// Executes updateCompletionRate.
     private func updateCompletionRate(_ result: TodayTasksResult) {
         let total = result.totalCount
         let completed = result.completedTasks.count
         completionRate = total > 0 ? Double(completed) / Double(total) : 0
     }
 
+    /// Executes updateCompletionRate.
     private func updateCompletionRate(_ result: DateTasksResult) {
         let total = result.totalCount
         let completed = result.completedTasks.count
         completionRate = total > 0 ? Double(completed) / Double(total) : 0
     }
 
+    /// Executes applyCompletionResultLocally.
     private func applyCompletionResultLocally(_ updatedTask: TaskDefinition) {
         let keepsCompletedInline = shouldKeepCompletedInline(for: activeScope)
 
@@ -1660,12 +1719,14 @@ public final class HomeViewModel: ObservableObject {
         refreshProgressState()
     }
 
+    /// Executes replacingTask.
     private func replacingTask(in tasks: [TaskDefinition], with updatedTask: TaskDefinition) -> [TaskDefinition] {
         tasks.map { task in
             task.id == updatedTask.id ? updatedTask : task
         }
     }
 
+    /// Executes upsertingTaskInPlace.
     private func upsertingTaskInPlace(in tasks: [TaskDefinition], with updatedTask: TaskDefinition) -> [TaskDefinition] {
         guard let index = tasks.firstIndex(where: { $0.id == updatedTask.id }) else {
             return tasks + [updatedTask]
@@ -1676,6 +1737,7 @@ public final class HomeViewModel: ObservableObject {
         return updated
     }
 
+    /// Executes replacingTaskIfPresent.
     private func replacingTaskIfPresent(in tasks: [TaskDefinition], with updatedTask: TaskDefinition) -> [TaskDefinition] {
         guard let index = tasks.firstIndex(where: { $0.id == updatedTask.id }) else {
             return tasks
@@ -1686,10 +1748,12 @@ public final class HomeViewModel: ObservableObject {
         return updated
     }
 
+    /// Executes removingTask.
     private func removingTask(id: UUID, from tasks: [TaskDefinition]) -> [TaskDefinition] {
         tasks.filter { $0.id != id }
     }
 
+    /// Executes removeTaskFromOpenProjections.
     private func removeTaskFromOpenProjections(id: UUID) {
         morningTasks = removingTask(id: id, from: morningTasks)
         eveningTasks = removingTask(id: id, from: eveningTasks)
@@ -1697,6 +1761,7 @@ public final class HomeViewModel: ObservableObject {
         upcomingTasks = removingTask(id: id, from: upcomingTasks)
     }
 
+    /// Executes upsertTaskInOpenProjectionPreservingPosition.
     private func upsertTaskInOpenProjectionPreservingPosition(_ task: TaskDefinition) {
         if morningTasks.contains(where: { $0.id == task.id }) {
             morningTasks = replacingTaskIfPresent(in: morningTasks, with: task)
@@ -1718,6 +1783,7 @@ public final class HomeViewModel: ObservableObject {
         insertTaskIntoOpenProjection(task)
     }
 
+    /// Executes insertTaskIntoOpenProjection.
     private func insertTaskIntoOpenProjection(_ task: TaskDefinition) {
         if task.isOverdue {
             overdueTasks = sortTasksByPriorityThenDue(upsertingTaskInPlace(in: overdueTasks, with: task))
@@ -1731,6 +1797,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes sortTasksByPriorityThenDue.
     private func sortTasksByPriorityThenDue(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
         tasks.sorted(by: sortByPriorityThenDue)
     }
@@ -1741,6 +1808,7 @@ public final class HomeViewModel: ObservableObject {
         case overdue
     }
 
+    /// Executes retainingInlineCompletedRows.
     private func retainingInlineCompletedRows(
         computedMorning: [TaskDefinition],
         computedEvening: [TaskDefinition],
@@ -1803,6 +1871,7 @@ public final class HomeViewModel: ObservableObject {
         return (morning: morning, evening: evening, overdue: overdue)
     }
 
+    /// Executes insertTaskIfMissing.
     private func insertTaskIfMissing(_ tasks: inout [TaskDefinition], task: TaskDefinition, preferredIndex: Int) {
         if let existingIndex = tasks.firstIndex(where: { $0.id == task.id }) {
             tasks[existingIndex] = task
@@ -1813,6 +1882,7 @@ public final class HomeViewModel: ObservableObject {
         tasks.insert(task, at: targetIndex)
     }
 
+    /// Executes isTaskOverdue.
     private func isTaskOverdue(_ task: TaskDefinition, relativeTo scope: HomeListScope) -> Bool {
         guard let dueDate = task.dueDate else { return false }
 
@@ -1826,6 +1896,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes shouldKeepCompletedInline.
     private func shouldKeepCompletedInline(for scope: HomeListScope) -> Bool {
         switch scope {
         case .today, .customDate:
@@ -1835,6 +1906,7 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes isTaskCompletedOnScopeDay.
     private func isTaskCompletedOnScopeDay(_ task: TaskDefinition, scope: HomeListScope) -> Bool {
         guard task.isComplete, let completionDate = task.dateCompleted else { return false }
         let calendar = Calendar.current
@@ -1845,10 +1917,12 @@ public final class HomeViewModel: ObservableObject {
         return completionDate >= startOfScopeDay && completionDate < startOfNextScopeDay
     }
 
+    /// Executes isTaskCompletedOnActiveScopeDay.
     private func isTaskCompletedOnActiveScopeDay(_ task: TaskDefinition) -> Bool {
         isTaskCompletedOnScopeDay(task, scope: activeScope)
     }
 
+    /// Executes mergedInlineDoneTasks.
     private func mergedInlineDoneTasks(
         incomingDoneTasks: [TaskDefinition],
         openTasks: [TaskDefinition],
@@ -1873,6 +1947,7 @@ public final class HomeViewModel: ObservableObject {
         return merged
     }
 
+    /// Executes normalizedSections.
     private func normalizedSections(
         morning: [TaskDefinition],
         evening: [TaskDefinition],
@@ -1898,16 +1973,19 @@ public final class HomeViewModel: ObservableObject {
         )
     }
 
+    /// Executes nextReloadGeneration.
     @discardableResult
     private func nextReloadGeneration() -> Int {
         reloadGeneration += 1
         return reloadGeneration
     }
 
+    /// Executes isCurrentReloadGeneration.
     private func isCurrentReloadGeneration(_ generation: Int) -> Bool {
         generation == reloadGeneration
     }
 
+    /// Executes applyCompletionOverrides.
     private func applyCompletionOverrides(openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) -> (openTasks: [TaskDefinition], doneTasks: [TaskDefinition]) {
         let normalizedOpen = openTasks.map(applyingCompletionOverrideIfNeeded)
         let normalizedDone = doneTasks.map(applyingCompletionOverrideIfNeeded)
@@ -1942,6 +2020,7 @@ public final class HomeViewModel: ObservableObject {
         return (openTasks: mergedOpen, doneTasks: mergedDone)
     }
 
+    /// Executes applyingCompletionOverrideIfNeeded.
     private func applyingCompletionOverrideIfNeeded(_ task: TaskDefinition) -> TaskDefinition {
         guard let expectedCompletion = completionOverrides[task.id],
               expectedCompletion != task.isComplete else {
@@ -1954,6 +2033,7 @@ public final class HomeViewModel: ObservableObject {
         return updated
     }
 
+    /// Executes reconcileCompletionOverrides.
     private func reconcileCompletionOverrides(persistedTasks: [TaskDefinition]) {
         guard !completionOverrides.isEmpty else { return }
 
@@ -1974,6 +2054,7 @@ public final class HomeViewModel: ObservableObject {
         logDebug("HOME_ROW_STATE vm.override_cleared ids=[\(resolvedSummary)]")
     }
 
+    /// Executes summarizeRowState.
     private func summarizeRowState(_ tasks: [TaskDefinition], limit: Int = 4) -> String {
         let summary = tasks.prefix(limit).map { task in
             let state = task.isComplete ? "done" : "open"

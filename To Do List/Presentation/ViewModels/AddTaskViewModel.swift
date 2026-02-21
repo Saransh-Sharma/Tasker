@@ -86,6 +86,7 @@ public final class AddTaskViewModel: ObservableObject {
     
     // MARK: - Initialization
     
+    /// Initializes a new instance.
     public init(
         taskReadModelRepository: TaskReadModelRepositoryProtocol? = nil,
         manageProjectsUseCase: ManageProjectsUseCase,
@@ -171,6 +172,7 @@ public final class AddTaskViewModel: ObservableObject {
         }
     }
 
+    /// Executes parseImplicitTagIDs.
     private func parseImplicitTagIDs(from title: String) -> Set<UUID> {
         let tokens = title
             .split(whereSeparator: \.isWhitespace)
@@ -364,6 +366,7 @@ public final class AddTaskViewModel: ObservableObject {
     
     // MARK: - Private Methods
     
+    /// Executes setupValidation.
     private func setupValidation() {
         // Validate input whenever relevant fields change
         Publishers.CombineLatest4($taskName, $dueDate, $hasReminder, $reminderTime)
@@ -400,6 +403,7 @@ public final class AddTaskViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
+    /// Executes dedupeProjects.
     private func dedupeProjects(_ projects: [Project]) -> [Project] {
         var byID: [UUID: Project] = [:]
         for project in projects {
@@ -422,6 +426,7 @@ public final class AddTaskViewModel: ObservableObject {
         }
     }
 
+    /// Executes loadLifeAreas.
     private func loadLifeAreas() {
         manageLifeAreasUseCase?.list { [weak self] result in
             DispatchQueue.main.async {
@@ -457,6 +462,7 @@ public final class AddTaskViewModel: ObservableObject {
         }
     }
 
+    /// Executes dedupeLifeAreasByNormalizedName.
     private func dedupeLifeAreasByNormalizedName(
         _ lifeAreas: [LifeArea],
         preferredID: UUID?
@@ -489,11 +495,13 @@ public final class AddTaskViewModel: ObservableObject {
         return deduped
     }
 
+    /// Executes normalizedLifeAreaName.
     private func normalizedLifeAreaName(_ name: String) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         return (trimmed.isEmpty ? "General" : trimmed).lowercased()
     }
 
+    /// Executes loadSections.
     private func loadSections(projectID: UUID) {
         manageSectionsUseCase?.list(projectID: projectID) { [weak self] result in
             DispatchQueue.main.async {
@@ -514,6 +522,7 @@ public final class AddTaskViewModel: ObservableObject {
         }
     }
 
+    /// Executes loadTags.
     private func loadTags() {
         manageTagsUseCase?.list { [weak self] result in
             DispatchQueue.main.async {
@@ -527,6 +536,7 @@ public final class AddTaskViewModel: ObservableObject {
         }
     }
 
+    /// Executes loadTaskMetadataOptions.
     private func loadTaskMetadataOptions(projectID: UUID) {
         guard let taskReadModelRepository else {
             availableParentTasks = []
@@ -578,6 +588,7 @@ public final class AddTaskViewModel: ObservableObject {
         }
     }
 
+    /// Executes loadCalendarTaskCounts.
     public func loadCalendarTaskCounts(
         windowStart: Date,
         windowEnd: Date,

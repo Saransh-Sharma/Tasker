@@ -46,6 +46,7 @@ public final class PresentationDependencyContainer {
 
     // MARK: - Initialization
 
+    /// Initializes a new instance.
     private init() {}
 
     // MARK: - Configuration
@@ -96,6 +97,7 @@ public final class PresentationDependencyContainer {
         }
     }
 
+    /// Executes assertV3RuntimeReady.
     public func assertV3RuntimeReady() throws {
         guard v3RuntimeReady else {
             throw NSError(
@@ -109,6 +111,7 @@ public final class PresentationDependencyContainer {
         }
     }
 
+    /// Executes evaluateV3RuntimeReadiness.
     private func evaluateV3RuntimeReadiness() {
         var missingDependencies: [String] = []
         if taskReadModelRepository == nil {
@@ -176,6 +179,7 @@ public final class PresentationDependencyContainer {
         return viewModel
     }
 
+    /// Executes makeChartCardViewModel.
     public func makeChartCardViewModel() -> ChartCardViewModel {
         assertConfigured()
         if let existing = _chartCardViewModel {
@@ -189,6 +193,7 @@ public final class PresentationDependencyContainer {
         return viewModel
     }
 
+    /// Executes makeRadarChartCardViewModel.
     public func makeRadarChartCardViewModel() -> RadarChartCardViewModel {
         assertConfigured()
         if let existing = _radarChartCardViewModel {
@@ -203,6 +208,7 @@ public final class PresentationDependencyContainer {
         return viewModel
     }
 
+    /// Executes makeProjectSelectionViewModel.
     public func makeProjectSelectionViewModel() -> ProjectSelectionViewModel {
         assertConfigured()
         if let existing = _projectSelectionViewModel {

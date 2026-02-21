@@ -9,6 +9,7 @@ public final class ProjectSelectionViewModel: ObservableObject {
     private let projectRepository: ProjectRepositoryProtocol
     private let readModelRepository: TaskReadModelRepositoryProtocol?
 
+    /// Initializes a new instance.
     init(
         projectRepository: ProjectRepositoryProtocol,
         readModelRepository: TaskReadModelRepositoryProtocol? = nil
@@ -17,6 +18,7 @@ public final class ProjectSelectionViewModel: ObservableObject {
         self.readModelRepository = readModelRepository
     }
 
+    /// Executes load.
     func load(completion: @escaping ([ProjectInfo]) -> Void) {
         isLoading = true
         projectRepository.fetchCustomProjects { [weak self] projectResult in
