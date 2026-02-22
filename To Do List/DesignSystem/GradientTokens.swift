@@ -235,3 +235,290 @@ public struct HeaderGradientView: UIViewRepresentable {
         TaskerHeaderGradient.apply(to: uiView.layer, bounds: uiView.bounds, traits: uiView.traitCollection)
     }
 }
+
+// MARK: - Animated Gradient System (Calm Clarity)
+
+public enum TaskerGradientDebugSettings {
+    public static let disableMotionKey = "tasker.design.gradientMotionDisabled"
+
+    public static var isMotionDisabled: Bool {
+        UserDefaults.standard.bool(forKey: disableMotionKey)
+    }
+
+    public static func setMotionDisabled(_ disabled: Bool) {
+        UserDefaults.standard.set(disabled, forKey: disableMotionKey)
+    }
+}
+
+@MainActor
+public struct TaskerAnimatedGradientBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @ObservedObject private var themeManager = TaskerThemeManager.shared
+
+    private let layerCount: Int
+    private let cornerRadius: CGFloat
+    private let usesDrawingGroup: Bool
+    private let baseOpacity: CGFloat
+    @State private var phase: CGFloat = 0
+    @State private var cycleDuration: TimeInterval = 15
+    @State private var didLogFallback = false
+
+    public init(
+        layerCount: Int = 2,
+        cornerRadius: CGFloat = 0,
+        baseOpacity: CGFloat = 1,
+        usesDrawingGroup: Bool = false
+    ) {
+        self.layerCount = layerCount
+        self.cornerRadius = cornerRadius
+        self.baseOpacity = baseOpacity
+        self.usesDrawingGroup = usesDrawingGroup
+    }
+
+    public var body: some View {
+        let tokens = themeManager.currentTheme.tokens
+        let motion = tokens.motion
+        let colors = tokens.color
+        let resolvedLayerCount = max(1, min(layerCount, motion.maxAnimatedGradientLayers))
+        let shouldAnimate = !reduceMotion && !TaskerGradientDebugSettings.isMotionDisabled
+        let opacity = reduceTransparency ? 1.0 : baseOpacity
+
+        return ZStack {
+            LinearGradient(
+                colors: gradientColors(
+                    primary: colors.accentPrimary,
+                    secondary: colors.accentSecondary,
+                    phase: shouldAnimate ? phase : 0,
+                    saturationBias: 0.0
+                ),
+                startPoint: startPoint(for: 0, phase: shouldAnimate ? phase : 0),
+                endPoint: endPoint(for: 0, phase: shouldAnimate ? phase : 0)
+            )
+
+            if resolvedLayerCount > 1 {
+                LinearGradient(
+                    colors: gradientColors(
+                        primary: colors.accentSecondary,
+                        secondary: colors.accentPrimary,
+                        phase: shouldAnimate ? (1 - phase) : 0,
+                        saturationBias: -0.4
+                    ),
+                    startPoint: startPoint(for: 1, phase: shouldAnimate ? phase : 0),
+                    endPoint: endPoint(for: 1, phase: shouldAnimate ? phase : 0)
+                )
+                .opacity(0.42)
+            }
+        }
+        .opacity(opacity)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .modifier(TaskerGradientDrawingGroupModifier(enabled: usesDrawingGroup))
+        .onAppear {
+            if shouldAnimate {
+                startAnimating()
+            } else if !didLogFallback {
+                logWarning(
+                    "gradient_motion_fallback_triggered reduceMotion=\(reduceMotion) debugDisabled=\(TaskerGradientDebugSettings.isMotionDisabled)"
+                )
+                didLogFallback = true
+            }
+        }
+        .onChange(of: themeManager.currentTheme.index) { _, _ in
+            phase = 0
+            didLogFallback = false
+            if shouldAnimate {
+                startAnimating()
+            }
+        }
+        .onChange(of: reduceMotion) { _, _ in
+            phase = 0
+            didLogFallback = false
+            if shouldAnimate {
+                startAnimating()
+            }
+        }
+        .onChange(of: TaskerGradientDebugSettings.isMotionDisabled) { _, _ in
+            phase = 0
+            didLogFallback = false
+            if shouldAnimate {
+                startAnimating()
+            }
+        }
+    }
+
+    private func startAnimating() {
+        let motion = themeManager.currentTheme.tokens.motion
+        cycleDuration = motion.gradientCycleDuration + .random(in: (-motion.gradientCycleRandomness)...motion.gradientCycleRandomness)
+        phase = 0
+        withAnimation(
+            .easeInOut(duration: cycleDuration)
+                .repeatForever(autoreverses: true)
+        ) {
+            phase = 1
+        }
+    }
+
+    private func gradientColors(
+        primary: UIColor,
+        secondary: UIColor,
+        phase: CGFloat,
+        saturationBias: CGFloat
+    ) -> [Color] {
+        let motion = themeManager.currentTheme.tokens.motion
+        let hueShift = sin(phase * .pi * 2) * motion.gradientHueShiftDegrees
+        let saturationShift = sin((phase + 0.17 + saturationBias) * .pi * 2) * motion.gradientSaturationShiftPercent
+        let opacityShift = sin((phase + 0.09) * .pi * 2) * motion.gradientOpacityDeltaMax
+
+        let first = primary.taskerAdjustedColor(
+            hueDegrees: hueShift,
+            saturationPercent: saturationShift,
+            opacityDelta: opacityShift
+        )
+        let second = secondary.taskerAdjustedColor(
+            hueDegrees: -hueShift * 0.72,
+            saturationPercent: -saturationShift * 0.66,
+            opacityDelta: -opacityShift * 0.5
+        )
+        return [Color(uiColor: first), Color(uiColor: second)]
+    }
+
+    private func startPoint(for layer: Int, phase: CGFloat) -> UnitPoint {
+        if layer == 0 {
+            return UnitPoint(x: 0.18 + (0.08 * phase), y: 0.06 + (0.03 * phase))
+        }
+        return UnitPoint(x: 0.84 - (0.06 * phase), y: 0.18 + (0.04 * phase))
+    }
+
+    private func endPoint(for layer: Int, phase: CGFloat) -> UnitPoint {
+        if layer == 0 {
+            return UnitPoint(x: 0.82 - (0.06 * phase), y: 0.96 - (0.03 * phase))
+        }
+        return UnitPoint(x: 0.12 + (0.05 * phase), y: 0.90 - (0.04 * phase))
+    }
+}
+
+private struct TaskerGradientDrawingGroupModifier: ViewModifier {
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.compositingGroup().drawingGroup(opaque: false, colorMode: .extendedLinear)
+        } else {
+            content
+        }
+    }
+}
+
+public final class TaskerAnimatedGradientLayer: CAGradientLayer {
+    private var configuredThemeIndex: Int?
+
+    public func configure(
+        theme: TaskerTheme,
+        traits: UITraitCollection,
+        respectsReduceMotion: Bool = true
+    ) {
+        frame = bounds
+        startPoint = CGPoint(x: 0.15, y: 0.0)
+        endPoint = CGPoint(x: 0.85, y: 1.0)
+        cornerRadius = theme.tokens.corner.modal
+        maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        colors = staticColors(theme: theme, traits: traits)
+        locations = [0, 1]
+
+        let shouldReduceMotion = respectsReduceMotion && (UIAccessibility.isReduceMotionEnabled || TaskerGradientDebugSettings.isMotionDisabled)
+        if shouldReduceMotion {
+            removeAllAnimations()
+            logWarning("gradient_motion_fallback_triggered UIKit reduceMotion/debug toggle active")
+            return
+        }
+
+        if configuredThemeIndex == theme.index { return }
+        configuredThemeIndex = theme.index
+        addMotionAnimations(theme: theme, traits: traits)
+    }
+
+    public func setStaticTransformRasterizationEnabled(_ enabled: Bool) {
+        shouldRasterize = enabled
+        rasterizationScale = UIScreen.main.scale
+    }
+
+    private func addMotionAnimations(theme: TaskerTheme, traits: UITraitCollection) {
+        removeAllAnimations()
+        let motion = theme.tokens.motion
+        let duration = motion.gradientCycleDuration + .random(in: (-motion.gradientCycleRandomness)...motion.gradientCycleRandomness)
+
+        let fromColors = staticColors(theme: theme, traits: traits)
+        let toColors = shiftedColors(theme: theme, traits: traits)
+
+        let colorAnimation = CABasicAnimation(keyPath: "colors")
+        colorAnimation.fromValue = fromColors
+        colorAnimation.toValue = toColors
+        colorAnimation.duration = duration
+        colorAnimation.autoreverses = true
+        colorAnimation.repeatCount = .infinity
+        colorAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        add(colorAnimation, forKey: "taskerGradientColors")
+
+        let startAnimation = CABasicAnimation(keyPath: "startPoint")
+        startAnimation.fromValue = NSValue(cgPoint: CGPoint(x: 0.15, y: 0.0))
+        startAnimation.toValue = NSValue(cgPoint: CGPoint(x: 0.22, y: 0.04))
+        startAnimation.duration = duration
+        startAnimation.autoreverses = true
+        startAnimation.repeatCount = .infinity
+        startAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        add(startAnimation, forKey: "taskerGradientStartPoint")
+
+        let endAnimation = CABasicAnimation(keyPath: "endPoint")
+        endAnimation.fromValue = NSValue(cgPoint: CGPoint(x: 0.85, y: 1.0))
+        endAnimation.toValue = NSValue(cgPoint: CGPoint(x: 0.78, y: 0.96))
+        endAnimation.duration = duration
+        endAnimation.autoreverses = true
+        endAnimation.repeatCount = .infinity
+        endAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        add(endAnimation, forKey: "taskerGradientEndPoint")
+    }
+
+    private func staticColors(theme: TaskerTheme, traits: UITraitCollection) -> [CGColor] {
+        let tokens = theme.tokens.color
+        return [
+            tokens.accentPrimary.resolvedColor(with: traits).cgColor,
+            tokens.accentSecondary.resolvedColor(with: traits).cgColor
+        ]
+    }
+
+    private func shiftedColors(theme: TaskerTheme, traits: UITraitCollection) -> [CGColor] {
+        let motion = theme.tokens.motion
+        let tokens = theme.tokens.color
+        let primary = tokens.accentPrimary.resolvedColor(with: traits)
+        let secondary = tokens.accentSecondary.resolvedColor(with: traits)
+        return [
+            primary.taskerAdjustedColor(
+                hueDegrees: motion.gradientHueShiftDegrees,
+                saturationPercent: motion.gradientSaturationShiftPercent,
+                opacityDelta: motion.gradientOpacityDeltaMax
+            ).cgColor,
+            secondary.taskerAdjustedColor(
+                hueDegrees: -motion.gradientHueShiftDegrees * 0.72,
+                saturationPercent: -motion.gradientSaturationShiftPercent * 0.72,
+                opacityDelta: -motion.gradientOpacityDeltaMax * 0.5
+            ).cgColor
+        ]
+    }
+}
+
+private extension UIColor {
+    func taskerAdjustedColor(hueDegrees: CGFloat, saturationPercent: CGFloat, opacityDelta: CGFloat) -> UIColor {
+        var hue: CGFloat = 0
+        var saturation: CGFloat = 0
+        var brightness: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha) else {
+            return self
+        }
+
+        let shiftedHue = ((hue * 360 + hueDegrees).truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(dividingBy: 360) / 360
+        let shiftedSaturation = max(0, min(1, saturation + (saturationPercent / 100)))
+        let shiftedAlpha = max(0.08, min(1, alpha + opacityDelta))
+        return UIColor(hue: shiftedHue, saturation: shiftedSaturation, brightness: brightness, alpha: shiftedAlpha)
+    }
+}
