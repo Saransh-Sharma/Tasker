@@ -45,7 +45,7 @@ final class DarkModeToggleCell: UITableViewCell {
     /// Executes configure.
     private func configure() {
         selectionStyle = .none
-        accessibilityIdentifier = "settings.darkModeToggle"
+        accessibilityIdentifier = "settings.darkModeCell"
 
         let colors = TaskerUIKitTokens.color
 
@@ -63,6 +63,7 @@ final class DarkModeToggleCell: UITableViewCell {
 
         // Switch
         modeSwitch.translatesAutoresizingMaskIntoConstraints = false
+        modeSwitch.accessibilityIdentifier = "settings.darkModeToggle"
         modeSwitch.onTintColor = colors.accentPrimary
         modeSwitch.addTarget(self, action: #selector(switchChanged), for: .valueChanged)
         contentView.addSubview(modeSwitch)

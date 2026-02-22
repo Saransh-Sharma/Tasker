@@ -62,8 +62,8 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         
         addProjectContainer.backgroundColor = todoColors.bgCanvas
         _ = addSpacer()
-        _ = addLabel(text: "Add new project")
-        _ = addLabel(text: "Add new project & set it's description")
+        _ = addLabel(text: "Create project")
+        _ = addLabel(text: "Add a clear name and optional description.")
         _ = addSeparator()
         _ = addSpacer()
         
@@ -119,8 +119,14 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
     /// Executes addProjectDoneButton.
     func addProjectDoneButton() {
         
-        button.setTitle("Add Project", for: UIControl.State.normal)
+        button.setTitle("Create project", for: UIControl.State.normal)
         button.titleLabel?.numberOfLines = 0
+        button.titleLabel?.font = .tasker.button
+        button.backgroundColor = todoColors.accentPrimary
+        button.tintColor = todoColors.accentOnPrimary
+        button.layer.cornerRadius = TaskerUIKitTokens.corner.r2
+        button.layer.cornerCurve = .continuous
+        button.heightAnchor.constraint(greaterThanOrEqualToConstant: TaskerUIKitTokens.interaction.minInteractiveSize).isActive = true
         button.addTarget(self, action: #selector(addOrModProject), for: UIControl.Event.touchUpInside)
         
         addProjectContainer.addArrangedSubview(button)
@@ -182,14 +188,14 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
 
                     case .failure(let error):
                         logError(" Failed to create project: \(error)")
-                        self.showMessage("Failed to create project")
+                        self.showMessage(TaskerCopy.Errors.projectCreateFailed)
                     }
                 }
             }
 
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {}
-            showMessage("No New Project")
+            showMessage("Please enter a project name.")
             return
         }
     }
@@ -251,8 +257,8 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
         projectNameTextField = MDCOutlinedTextField(frame: estimatedFrame)
         projectNameTextField.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
-        projectNameTextField.label.text = "project name"
-        projectNameTextField.leadingAssistiveLabel.text = "Fill in the new project name"
+        projectNameTextField.label.text = "Project name"
+        projectNameTextField.leadingAssistiveLabel.text = "Enter a project name."
         projectNameTextField.font = UIFont.tasker.body
         projectNameTextField.delegate = self
         projectNameTextField.clearButtonMode = .whileEditing
@@ -281,8 +287,8 @@ class NewProjectViewController: UIViewController, UITextFieldDelegate, UseCaseCo
         let estimatedFrame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
         projecDescriptionTextField = MDCOutlinedTextField(frame: estimatedFrame)
         projecDescriptionTextField.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 25)
-        projecDescriptionTextField.label.text = "add description"
-        projecDescriptionTextField.leadingAssistiveLabel.text = "Add project description"
+        projecDescriptionTextField.label.text = "Description"
+        projecDescriptionTextField.leadingAssistiveLabel.text = "Optional description."
         projecDescriptionTextField.font = UIFont.tasker.body
         projecDescriptionTextField.delegate = self
         projecDescriptionTextField.clearButtonMode = .whileEditing
