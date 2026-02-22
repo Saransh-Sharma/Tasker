@@ -4,12 +4,12 @@ import UIKit
 
 final class ColorTokenGenerationTests: XCTestCase {
     func testDefaultAccentMatchesSpec() {
-        XCTAssertEqual(TaskerTheme.accentThemes.first?.accentBaseHex.uppercased(), "#C49832")
+        XCTAssertEqual(TaskerTheme.accentThemes.first?.accentBaseHex.uppercased(), "#0D9488")
     }
 
     func testNeutralsAreStableAcrossThemes() {
         let first = TaskerTheme(index: 0).tokens.color
-        let second = TaskerTheme(index: 8).tokens.color
+        let second = TaskerTheme(index: 2).tokens.color
 
         assertEqualColor(
             first.bgCanvas.resolvedColor(with: .init(userInterfaceStyle: .light)),
@@ -29,18 +29,36 @@ final class ColorTokenGenerationTests: XCTestCase {
         assertNotEqualColor(first.accentMuted, second.accentMuted)
     }
 
-    func testThemePaletteReducedToNineUniqueBases() {
-        XCTAssertEqual(TaskerTheme.accentThemes.count, 9)
+    func testThemePaletteReducedToThreeCuratedBases() {
+        XCTAssertEqual(TaskerTheme.accentThemes.count, 3)
         let uniqueBases = Set(TaskerTheme.accentThemes.map { $0.accentBaseHex.uppercased() })
-        XCTAssertEqual(uniqueBases.count, 9)
+        XCTAssertEqual(uniqueBases.count, 3)
+        XCTAssertTrue(uniqueBases.contains("#0D9488"))
+        XCTAssertTrue(uniqueBases.contains("#3B82F6"))
+        XCTAssertTrue(uniqueBases.contains("#16A34A"))
     }
 
     func testStatusColorsMatchSpec() {
         let colors = TaskerTheme(index: 0).tokens.color
 
-        assertEqualColor(colors.statusSuccess, UIColor(taskerHex: "#38C8A8"))
-        assertEqualColor(colors.statusWarning, UIColor(taskerHex: "#E8A040"))
-        assertEqualColor(colors.statusDanger, UIColor(taskerHex: "#E05058"))
+        assertEqualColor(colors.statusSuccess, UIColor(taskerHex: "#16A34A"))
+        assertEqualColor(colors.statusWarning, UIColor(taskerHex: "#D97706"))
+        assertEqualColor(colors.statusDanger, UIColor(taskerHex: "#DC2626"))
+    }
+
+    func testThemePressedAndWashColorsMatchLockedSpec() {
+        let harbor = TaskerTheme(index: 0).tokens.color
+        let horizon = TaskerTheme(index: 1).tokens.color
+        let canopy = TaskerTheme(index: 2).tokens.color
+
+        assertEqualColor(harbor.accentPrimaryPressed, UIColor(taskerHex: "#0F766E"))
+        assertEqualColor(harbor.accentWash, UIColor(taskerHex: "#CCFBF1"))
+
+        assertEqualColor(horizon.accentPrimaryPressed, UIColor(taskerHex: "#2563EB"))
+        assertEqualColor(horizon.accentWash, UIColor(taskerHex: "#DBEAFE"))
+
+        assertEqualColor(canopy.accentPrimaryPressed, UIColor(taskerHex: "#15803D"))
+        assertEqualColor(canopy.accentWash, UIColor(taskerHex: "#DCFCE7"))
     }
 
     func testAccentRampUsesSpecifiedHSLTransformAndClampRules() {

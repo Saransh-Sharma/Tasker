@@ -103,3 +103,37 @@ final class AISuggestionServiceTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "currentModelName")
     }
 }
+
+@MainActor
+final class LLMEvaluatorGuardTests: XCTestCase {
+    func testWarmupFailsFastWhenInferenceNotAllowed() async {
+        let evaluator = LLMEvaluator(
+            inferenceAllowedProvider: { false },
+            appStateDescriptionProvider: { "background" }
+        )
+
+        let succeeded = await evaluator.warmup(modelName: ModelConfiguration.defaultModel.name)
+
+        XCTAssertFalse(succeeded)
+        XCTAssertTrue(evaluator.modelInfo.contains("Local AI is unavailable"))
+        XCTAssertTrue(evaluator.modelInfo.contains("background"))
+    }
+
+    func testGenerateReturnsSafeFailureWhenInferenceNotAllowed() async {
+        let evaluator = LLMEvaluator(
+            inferenceAllowedProvider: { false },
+            appStateDescriptionProvider: { "background" }
+        )
+        let thread = To_Do_List.Thread()
+        thread.messages.append(Message(role: .user, content: "Hello", thread: thread))
+
+        let output = await evaluator.generate(
+            modelName: ModelConfiguration.defaultModel.name,
+            thread: thread,
+            systemPrompt: "You are a helpful assistant."
+        )
+
+        XCTAssertTrue(output.contains("Local AI is unavailable"))
+        XCTAssertTrue(output.contains("background"))
+    }
+}
