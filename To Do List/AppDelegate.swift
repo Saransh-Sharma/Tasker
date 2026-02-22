@@ -30,6 +30,8 @@ struct PersistentStoreLoadReport {
 
 extension Notification.Name {
     static let assistantOpenChatRequested = Notification.Name("assistantOpenChatRequested")
+    static let taskCreationOptimistic = Notification.Name("taskCreationOptimistic")
+    static let taskCreationRollback = Notification.Name("taskCreationRollback")
 }
 
 @UIApplicationMain
@@ -181,6 +183,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                 Task { @MainActor in
+                    guard UIApplication.shared.applicationState == .active else {
+                        let state: String = {
+                            switch UIApplication.shared.applicationState {
+                            case .active: return "active"
+                            case .inactive: return "inactive"
+                            case .background: return "background"
+                            @unknown default: return "unknown"
+                            }
+                        }()
+                        logWarning(
+                            event: "assistant_model_warmup_skipped",
+                            message: "Skipped app-launch model prewarm while app is not active",
+                            fields: [
+                                "reason": "app_not_active",
+                                "app_state": state
+                            ]
+                        )
+                        return
+                    }
                     LLMPrewarmCoordinator.shared.prewarmCurrentModelIfNeeded(reason: "app_launch")
                 }
             }
@@ -1182,6 +1203,25 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
     }
 
+    /// Executes isAppActiveForLocalInference.
+    private func isAppActiveForLocalInference() -> Bool {
+        UIApplication.shared.applicationState == .active
+    }
+
+    /// Executes localInferenceAppState.
+    private func localInferenceAppState() -> String {
+        switch UIApplication.shared.applicationState {
+        case .active:
+            return "active"
+        case .inactive:
+            return "inactive"
+        case .background:
+            return "background"
+        @unknown default:
+            return "unknown"
+        }
+    }
+
     /// Executes generateAndCacheDailyBrief.
     private func generateAndCacheDailyBrief(
         sendNotification: Bool,
@@ -1204,6 +1244,34 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 let completedToday = dashboard.analytics.completedTasks
                 let streak = dashboard.streak.currentStreak
                 Task { @MainActor in
+                    let appState = self.localInferenceAppState()
+                    if self.isAppActiveForLocalInference() == false {
+                        let brief = DailyBriefService.shared.generateBrief(
+                            todayOpenCount: todayOpen,
+                            overdueCount: overdueCount,
+                            completedTodayCount: completedToday,
+                            streak: streak
+                        )
+                        DailyBriefService.shared.saveBrief(brief, for: Date())
+                        if sendNotification {
+                            self.postDailyBriefNotification(brief)
+                        }
+                        logWarning(
+                            event: "assistant_daily_brief_generated",
+                            message: "Generated daily brief with background-safe heuristic",
+                            fields: [
+                                "model": "none",
+                                "has_route_banner": "false",
+                                "generation_mode": "heuristic_background_safe",
+                                "used_fallback": "true",
+                                "reason": "background_gpu_unavailable",
+                                "app_state": appState
+                            ]
+                        )
+                        completion(true)
+                        return
+                    }
+
                     let output = await DailyBriefService.shared.generateBriefOutput(
                         todayOpenCount: todayOpen,
                         overdueCount: overdueCount,
@@ -1219,7 +1287,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         message: "Generated daily brief",
                         fields: [
                             "model": output.modelName ?? "none",
-                            "has_route_banner": output.routeBanner == nil ? "false" : "true"
+                            "has_route_banner": output.routeBanner == nil ? "false" : "true",
+                            "generation_mode": output.modelName == nil ? "heuristic_foreground_fallback" : "mlx_foreground",
+                            "used_fallback": output.modelName == nil ? "true" : "false",
+                            "app_state": appState
                         ]
                     )
                     completion(true)
@@ -1411,117 +1482,39 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func configureSemanticRetrievalIndexingIfNeeded() {
         guard V2FeatureFlags.assistantSemanticRetrievalEnabled else { return }
         TaskSemanticRetrievalService.shared.loadPersistedIndex()
-        rebuildSemanticIndexSnapshot()
-
-        if semanticIndexObserver == nil {
-            semanticIndexObserver = NotificationCenter.default.addObserver(
-                forName: .homeTaskMutation,
-                object: nil,
-                queue: .main
-            ) { [weak self] notification in
-                self?.handleSemanticMutation(notification)
-            }
-        }
-    }
-
-    /// Executes handleSemanticMutation.
-    private func handleSemanticMutation(_ notification: Notification) {
-        guard V2FeatureFlags.assistantSemanticRetrievalEnabled else { return }
-        guard let userInfo = notification.userInfo else {
-            rebuildSemanticIndexSnapshot()
-            return
-        }
-
-        let reason = (userInfo["reason"] as? String ?? "").lowercased()
-        guard let taskIDRaw = userInfo["taskID"] as? String, let taskID = UUID(uuidString: taskIDRaw) else {
-            rebuildSemanticIndexSnapshot()
-            return
-        }
-
-        if reason == "deleted" {
-            TaskSemanticRetrievalService.shared.remove(taskID: taskID)
-            return
-        }
-
-        guard let taskRepository = EnhancedDependencyContainer.shared.taskDefinitionRepository else {
-            rebuildSemanticIndexSnapshot()
-            return
-        }
-        let tagLookup = buildTagLookupSync(from: EnhancedDependencyContainer.shared.tagRepository)
-
-        DispatchQueue.global(qos: .utility).async {
-            let task = self.fetchTaskDefinitionSync(id: taskID, from: taskRepository)
-            if let task {
-                TaskSemanticRetrievalService.shared.index(tasks: [task], tagNameLookup: tagLookup)
-            } else {
-                TaskSemanticRetrievalService.shared.remove(taskID: taskID)
-            }
-        }
-    }
-
-    /// Executes rebuildSemanticIndexSnapshot.
-    private func rebuildSemanticIndexSnapshot() {
-        guard V2FeatureFlags.assistantSemanticRetrievalEnabled else { return }
-        guard let taskRepository = EnhancedDependencyContainer.shared.taskReadModelRepository else { return }
-        let tagRepository = EnhancedDependencyContainer.shared.tagRepository
-
-        DispatchQueue.global(qos: .utility).async {
-            let tasks = self.loadAllTasksSync(from: taskRepository)
-            let tagLookup = self.buildTagLookupSync(from: tagRepository)
-            TaskSemanticRetrievalService.shared.rebuildIndex(tasks: tasks, tagNameLookup: tagLookup)
-        }
-    }
-
-    /// Executes loadAllTasksSync.
-    private func loadAllTasksSync(from repository: TaskReadModelRepositoryProtocol) -> [TaskDefinition] {
-        let semaphore = DispatchSemaphore(value: 0)
-        var fetched: [TaskDefinition] = []
-        repository.fetchTasks(
-            query: TaskReadQuery(
-                includeCompleted: true,
-                sortBy: .updatedAtDescending,
-                limit: 5_000,
-                offset: 0
+        Task {
+            await TaskSemanticIndexRefreshCoordinator.shared.configure(
+                taskReadModelRepository: EnhancedDependencyContainer.shared.taskReadModelRepository,
+                tagRepository: EnhancedDependencyContainer.shared.tagRepository
             )
-        ) { result in
-            defer { semaphore.signal() }
-            if case .success(let slice) = result {
-                fetched = slice.tasks
-            }
         }
-        _ = semaphore.wait(timeout: .now() + .seconds(5))
-        return fetched
-    }
 
-    /// Executes fetchTaskDefinitionSync.
-    private func fetchTaskDefinitionSync(
-        id: UUID,
-        from repository: TaskDefinitionRepositoryProtocol
-    ) -> TaskDefinition? {
-        let semaphore = DispatchSemaphore(value: 0)
-        var fetched: TaskDefinition?
-        repository.fetchTaskDefinition(id: id) { result in
-            defer { semaphore.signal() }
-            if case .success(let task) = result {
-                fetched = task
+        if V2FeatureFlags.assistantSemanticMutationIndexingEnabled {
+            if semanticIndexObserver == nil {
+                semanticIndexObserver = NotificationCenter.default.addObserver(
+                    forName: .homeTaskMutation,
+                    object: nil,
+                    queue: .main
+                ) { _ in
+                    TaskSemanticIndexRefreshCoordinator.shared.requestRefreshSoon(reason: "task_mutation")
+                }
+                logWarning(
+                    event: "assistant_semantic_mutation_indexing_enabled",
+                    message: "Semantic mutation indexing enabled via feature flag; refresh remains non-blocking",
+                    fields: [:]
+                )
             }
+        } else if let semanticIndexObserver {
+            NotificationCenter.default.removeObserver(semanticIndexObserver)
+            self.semanticIndexObserver = nil
         }
-        _ = semaphore.wait(timeout: .now() + .seconds(5))
-        return fetched
-    }
 
-    /// Executes buildTagLookupSync.
-    private func buildTagLookupSync(from repository: TagRepositoryProtocol?) -> [UUID: String] {
-        guard let repository else { return [:] }
-        let semaphore = DispatchSemaphore(value: 0)
-        var lookup: [UUID: String] = [:]
-        repository.fetchAll { result in
-            defer { semaphore.signal() }
-            if case .success(let tags) = result {
-                lookup = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
-            }
-        }
-        _ = semaphore.wait(timeout: .now() + .seconds(5))
-        return lookup
+        logWarning(
+            event: "assistant_semantic_crud_indexing_disabled",
+            message: "CRUD-triggered semantic indexing is disabled to keep task mutations fast",
+            fields: [
+                "mutation_indexing_flag": V2FeatureFlags.assistantSemanticMutationIndexingEnabled ? "true" : "false"
+            ]
+        )
     }
 }
