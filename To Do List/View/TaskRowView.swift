@@ -215,6 +215,8 @@ struct TaskRowView: View {
 
                 // Right column: urgency badge + XP badge
                 HStack(spacing: 6) {
+                    priorityIndicatorBadge
+
                     let urgencyLevel = TaskRowUrgencyLevel.from(task: task)
 
                     // Urgency badge (only for incomplete tasks with urgency)
@@ -339,6 +341,7 @@ struct TaskRowView: View {
     private var accessibilityLabel: String {
         var parts: [String] = ["Task: \(task.title)"]
         if task.isComplete { parts.append("completed") }
+        parts.append("\(task.priority.displayName) priority")
         parts.append(displayModel.rowMetaText)
         if let urgencyLabel = displayModel.urgencyLabel {
             parts.append(urgencyLabel.lowercased())
@@ -403,6 +406,26 @@ struct TaskRowView: View {
                     .stroke(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary.opacity(0.3) : .clear, lineWidth: 1)
             )
             .fixedSize()
+    }
+
+    private var priorityIndicatorBadge: some View {
+        let descriptor = task.priority.indicator
+        return HStack(spacing: 3) {
+            Image(systemName: descriptor.symbolName)
+                .font(.system(size: TaskerSwiftUITokens.iconSize.small, weight: .semibold))
+            Text(descriptor.shortLabel)
+                .font(.tasker(.caption2))
+                .fontWeight(.medium)
+        }
+        .foregroundColor(task.isComplete ? Color.tasker.textTertiary : stripeColor)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 3)
+        .background(
+            Capsule().fill(
+                (task.isComplete ? Color.tasker.textTertiary : stripeColor).opacity(0.12)
+            )
+        )
+        .accessibilityLabel(descriptor.accessibilityLabel)
     }
 }
 

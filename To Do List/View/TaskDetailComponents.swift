@@ -16,19 +16,39 @@ struct PriorityPillSelector: View {
 
     var body: some View {
         HStack(spacing: TaskerTheme.Spacing.sm) {
-            PriorityPill(label: "None", color: Color.tasker.priorityNone, isSelected: selectedPriority == 1) {
+            PriorityPill(
+                label: "None",
+                color: Color.tasker.priorityNone,
+                symbol: TaskerSwiftUITokens.priorityIndicator.none.symbolName,
+                isSelected: selectedPriority == 1
+            ) {
                 withAnimation(TaskerAnimation.snappy) { selectedPriority = 1 }
                 TaskerFeedback.selection()
             }
-            PriorityPill(label: "Low", color: Color.tasker.priorityLow, isSelected: selectedPriority == 2) {
+            PriorityPill(
+                label: "Low",
+                color: Color.tasker.priorityLow,
+                symbol: TaskerSwiftUITokens.priorityIndicator.low.symbolName,
+                isSelected: selectedPriority == 2
+            ) {
                 withAnimation(TaskerAnimation.snappy) { selectedPriority = 2 }
                 TaskerFeedback.selection()
             }
-            PriorityPill(label: "High", color: Color.tasker.priorityHigh, isSelected: selectedPriority == 3) {
+            PriorityPill(
+                label: "High",
+                color: Color.tasker.priorityHigh,
+                symbol: TaskerSwiftUITokens.priorityIndicator.high.symbolName,
+                isSelected: selectedPriority == 3
+            ) {
                 withAnimation(TaskerAnimation.snappy) { selectedPriority = 3 }
                 TaskerFeedback.selection()
             }
-            PriorityPill(label: "Max", color: Color.tasker.priorityMax, isSelected: selectedPriority == 4) {
+            PriorityPill(
+                label: "Max",
+                color: Color.tasker.priorityMax,
+                symbol: TaskerSwiftUITokens.priorityIndicator.max.symbolName,
+                isSelected: selectedPriority == 4
+            ) {
                 withAnimation(TaskerAnimation.snappy) { selectedPriority = 4 }
                 TaskerFeedback.selection()
             }
@@ -40,24 +60,29 @@ struct PriorityPillSelector: View {
 private struct PriorityPill: View {
     let label: String
     let color: Color
+    let symbol: String
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(label)
-                .font(.tasker(.callout))
-                .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundColor(isSelected ? .white : color)
-                .padding(.horizontal, TaskerTheme.Spacing.md)
-                .padding(.vertical, TaskerTheme.Spacing.sm)
-                .frame(minHeight: 36)
-                .background(isSelected ? color : color.opacity(0.12))
-                .overlay(
-                    Capsule()
-                        .stroke(isSelected ? color : color.opacity(0.3), lineWidth: isSelected ? 0 : 1)
-                )
-                .clipShape(Capsule())
+            HStack(spacing: TaskerTheme.Spacing.xs) {
+                Image(systemName: symbol)
+                    .font(.system(size: TaskerSwiftUITokens.iconSize.small, weight: .semibold))
+                Text(label)
+                    .font(.tasker(.callout))
+                    .fontWeight(isSelected ? .semibold : .regular)
+            }
+            .foregroundColor(isSelected ? .white : color)
+            .padding(.horizontal, TaskerTheme.Spacing.md)
+            .padding(.vertical, TaskerTheme.Spacing.sm)
+            .frame(minHeight: TaskerTheme.Interaction.minInteractiveSize)
+            .background(isSelected ? color : color.opacity(0.12))
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? color : color.opacity(0.3), lineWidth: isSelected ? 0 : 1)
+            )
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
         .scaleOnPress()
@@ -94,9 +119,8 @@ struct PriorityBadge: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Circle()
-                .fill(priorityColor)
-                .frame(width: 6, height: 6)
+            Image(systemName: indicator.symbolName)
+                .font(.system(size: TaskerSwiftUITokens.iconSize.small, weight: .semibold))
             Text(priorityLabel)
                 .font(.tasker(.caption1))
                 .fontWeight(.medium)
@@ -106,6 +130,7 @@ struct PriorityBadge: View {
         .padding(.vertical, 4)
         .background(priorityColor.opacity(0.12))
         .clipShape(Capsule())
+        .accessibilityLabel(indicator.accessibilityLabel)
     }
 
     private var priorityLabel: String {
@@ -125,6 +150,16 @@ struct PriorityBadge: View {
         case 3: return Color.tasker.priorityHigh
         case 4: return Color.tasker.priorityMax
         default: return Color.tasker.priorityLow
+        }
+    }
+
+    private var indicator: TaskerPriorityIndicatorDescriptor {
+        switch priority {
+        case 1: return TaskerSwiftUITokens.priorityIndicator.none
+        case 2: return TaskerSwiftUITokens.priorityIndicator.low
+        case 3: return TaskerSwiftUITokens.priorityIndicator.high
+        case 4: return TaskerSwiftUITokens.priorityIndicator.max
+        default: return TaskerSwiftUITokens.priorityIndicator.low
         }
     }
 }
@@ -353,4 +388,3 @@ struct CompletionCheckbox: View {
         .accessibilityHint("Double tap to toggle completion")
     }
 }
-

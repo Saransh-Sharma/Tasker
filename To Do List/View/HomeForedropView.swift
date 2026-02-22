@@ -398,11 +398,17 @@ struct HomeBackdropForedropRootView: View {
     /// Executes backdropLayer.
     private func backdropLayer(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
-            Rectangle()
-                .fill(
+            TaskerAnimatedGradientBackground(
+                layerCount: 2,
+                baseOpacity: 0.34,
+                usesDrawingGroup: true
+            )
+                .overlay(
                     LinearGradient(
                         colors: [
-                            Color.tasker.accentPrimary.opacity(0.24),
+                            Color.black.opacity(0.06),
+                            Color.clear,
+                            Color.tasker.bgCanvas.opacity(0.86),
                             Color.tasker.bgCanvas
                         ],
                         startPoint: .top,
@@ -540,6 +546,9 @@ struct HomeBackdropForedropRootView: View {
                 },
                 onScrollOffsetChange: { newOffset in
                     let delta = newOffset - lastTaskListOffset
+                    if abs(delta) > 1 {
+                        viewModel.noteTaskListScrollInteraction()
+                    }
                     bottomBarState.updateMinimizeState(fromScrollDelta: delta)
                     lastTaskListOffset = newOffset
                 },
@@ -583,11 +592,11 @@ struct HomeBackdropForedropRootView: View {
             (viewModel.activeScope.quickView == .today || viewModel.isGeneratingAITopSuggestions || !viewModel.aiTopSuggestions.isEmpty) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 HStack {
-                    Text("Eva suggestions")
+                    Text(TaskerCopy.Assistant.suggestions)
                         .font(.tasker(.caption1))
                         .foregroundColor(Color.tasker.textSecondary)
                     Spacer()
-                    Button("Help me choose") {
+                    Button(TaskerCopy.Assistant.helpChoose) {
                         viewModel.helpMeChooseTop3()
                     }
                     .font(.tasker(.caption1))
@@ -595,7 +604,7 @@ struct HomeBackdropForedropRootView: View {
                 }
 
                 HStack {
-                    Text(viewModel.aiTopSuggestionsIsRefined ? "AI refined" : "Instant suggestions")
+                    Text(viewModel.aiTopSuggestionsIsRefined ? TaskerCopy.Assistant.refinedSuggestion : TaskerCopy.Assistant.instantSuggestion)
                         .font(.tasker(.caption2))
                         .foregroundColor(Color.tasker.textTertiary)
                     Spacer(minLength: 0)
@@ -630,7 +639,7 @@ struct HomeBackdropForedropRootView: View {
                 }
 
                 if !viewModel.energyAwareSuggestedTasks.isEmpty {
-                    Text("Right now energy fit:")
+                    Text("Best fit for your current energy:")
                         .font(.tasker(.caption2))
                         .foregroundColor(Color.tasker.textTertiary)
                     Text(viewModel.energyAwareSuggestedTasks.map(\.title).joined(separator: " • "))
@@ -712,7 +721,7 @@ struct HomeBackdropForedropRootView: View {
                     HStack(spacing: spacing.s4) {
                         Image(systemName: "chevron.up")
                             .font(.system(size: 10, weight: .semibold))
-                        Text("collapse")
+                        Text("Collapse")
                             .font(.tasker(.caption2))
                     }
                     .foregroundColor(Color.tasker.textQuaternary.opacity(0.85))

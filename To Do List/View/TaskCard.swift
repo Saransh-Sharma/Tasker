@@ -84,7 +84,7 @@ struct TaskCard: View {
                             Text(task.priority.displayName)
                                 .font(.tasker(.caption2))
                         } icon: {
-                            Image(systemName: "exclamationmark")
+                            Image(systemName: task.priority.indicator.symbolName)
                                 .font(.tasker(.caption2))
                         }
                         .foregroundColor(priorityColor)
@@ -230,9 +230,18 @@ struct CompactTaskCard: View {
             Spacer()
 
             if task.priority != .none {
-                Circle()
-                    .fill(priorityColor)
-                    .frame(width: 8, height: 8)
+                HStack(spacing: spacing.s4) {
+                    Image(systemName: task.priority.indicator.symbolName)
+                        .font(.system(size: TaskerSwiftUITokens.iconSize.small, weight: .semibold))
+                    Text(task.priority.indicator.shortLabel)
+                        .font(.tasker(.caption2))
+                        .fontWeight(.medium)
+                }
+                .foregroundColor(priorityColor)
+                .padding(.horizontal, spacing.s8)
+                .padding(.vertical, spacing.s4)
+                .background(priorityColor.opacity(0.12))
+                .clipShape(Capsule())
             }
         }
         .padding(spacing.listRowVerticalPadding)
@@ -281,13 +290,16 @@ struct FeaturedTaskCard: View {
                 Spacer()
 
                 if task.priority != .none {
-                    Text("\(task.priority.displayName) Priority")
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(priorityColor.opacity(0.2))
-                        .foregroundColor(priorityColor)
-                        .clipShape(Capsule())
+                    HStack(spacing: 4) {
+                        Image(systemName: task.priority.indicator.symbolName)
+                        Text("\(task.priority.displayName) priority")
+                    }
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(priorityColor.opacity(0.2))
+                    .foregroundColor(priorityColor)
+                    .clipShape(Capsule())
                 }
             }
 
