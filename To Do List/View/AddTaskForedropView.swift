@@ -59,7 +59,7 @@ struct AddTaskForedropView: View {
                     if viewModel.isGeneratingSuggestion {
                         HStack(spacing: spacing.s8) {
                             ProgressView()
-                            Text(viewModel.aiSuggestion == nil ? "Generating instant suggestion..." : "Refining with AI...")
+                            Text(viewModel.aiSuggestion == nil ? "Generating an instant suggestion..." : "Refining suggestion...")
                                 .font(.tasker(.caption1))
                                 .foregroundColor(Color.tasker.textSecondary)
                         }
@@ -196,11 +196,11 @@ struct AddTaskForedropView: View {
                 }
             }
             HStack {
-                Text(viewModel.aiSuggestionIsRefined ? "AI refined" : "Instant suggestion")
+                Text(viewModel.aiSuggestionIsRefined ? TaskerCopy.Assistant.refinedSuggestion : TaskerCopy.Assistant.instantSuggestion)
                     .font(.tasker(.caption1))
                     .foregroundColor(Color.tasker.textSecondary)
                 Spacer()
-                Button("Accept all") {
+                Button(TaskerCopy.Actions.acceptAll) {
                     viewModel.applyAISuggestion(suggestion)
                     TaskerFeedback.selection()
                 }
@@ -210,22 +210,25 @@ struct AddTaskForedropView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: spacing.chipSpacing) {
-                    suggestionChip("⚡ \(suggestion.priority.displayName)") {
+                    suggestionChip(
+                        icon: suggestion.priority.indicatorSymbolName,
+                        text: suggestion.priority.displayName
+                    ) {
                         viewModel.selectedPriority = suggestion.priority
                     }
-                    suggestionChip("🔋 \(suggestion.energy.displayName)") {
+                    suggestionChip(icon: "bolt.fill", text: suggestion.energy.displayName) {
                         viewModel.selectedEnergy = suggestion.energy
                     }
-                    suggestionChip("📍 \(suggestion.context.displayName)") {
+                    suggestionChip(icon: "location.fill", text: suggestion.context.displayName) {
                         viewModel.selectedContext = suggestion.context
                     }
-                    suggestionChip("🕒 \(suggestion.type.displayName)") {
+                    suggestionChip(icon: suggestion.type.systemImageName, text: suggestion.type.displayName) {
                         viewModel.selectedType = suggestion.type
                     }
                 }
             }
 
-            Text("Eva: \"\(suggestion.rationale)\"")
+            Text("Why this helps: \(suggestion.rationale)")
                 .font(.tasker(.caption2))
                 .foregroundColor(Color.tasker.textTertiary)
         }
@@ -242,17 +245,22 @@ struct AddTaskForedropView: View {
     }
 
     /// Executes suggestionChip.
-    private func suggestionChip(_ text: String, action: @escaping () -> Void) -> some View {
+    private func suggestionChip(icon: String, text: String, action: @escaping () -> Void) -> some View {
         Button {
             action()
         } label: {
-            Text(text)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.accentPrimary)
-                .padding(.horizontal, spacing.s12)
-                .padding(.vertical, spacing.s8)
-                .background(Color.tasker.accentWash)
-                .clipShape(Capsule())
+            HStack(spacing: spacing.s4) {
+                Image(systemName: icon)
+                    .font(.system(size: TaskerSwiftUITokens.iconSize.small, weight: .semibold))
+                Text(text)
+                    .font(.tasker(.caption1))
+            }
+            .foregroundColor(Color.tasker.accentPrimary)
+            .padding(.horizontal, spacing.s12)
+            .padding(.vertical, spacing.s8)
+            .frame(minHeight: TaskerTheme.Interaction.minInteractiveSize)
+            .background(Color.tasker.accentWash)
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -284,6 +292,17 @@ struct AddTaskTypeChips: View {
                     }
                 }
             }
+        }
+    }
+}
+
+private extension TaskType {
+    var systemImageName: String {
+        switch self {
+        case .morning: return "sun.max.fill"
+        case .evening: return "moon.stars.fill"
+        case .upcoming: return "calendar.badge.clock"
+        case .inbox: return "tray.fill"
         }
     }
 }

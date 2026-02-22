@@ -16,6 +16,7 @@ struct AddTaskTitleField: View {
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var interaction: TaskerInteractionTokens { TaskerThemeManager.shared.currentTheme.tokens.interaction }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s4) {
@@ -26,20 +27,21 @@ struct AddTaskTitleField: View {
                 .submitLabel(.done)
                 .onSubmit(onSubmit)
                 .padding(.horizontal, spacing.s16)
-                .frame(height: spacing.buttonHeight)
+                .frame(minHeight: max(spacing.buttonHeight, interaction.minInteractiveSize))
                 .background(Color.tasker.surfaceSecondary)
                 .overlay(
                     RoundedRectangle(cornerRadius: corner.r2)
                         .stroke(
                             isFocused ? Color.tasker.accentRing : Color.tasker.strokeHairline,
-                            lineWidth: isFocused ? 2 : 1
+                            lineWidth: isFocused ? interaction.focusRingWidth : 1
                         )
+                        .padding(isFocused ? -interaction.focusRingOffset : 0)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: corner.r2))
                 .animation(TaskerAnimation.quick, value: isFocused)
                 .accessibilityIdentifier("addTask.titleField")
 
-            Text("Keep it short. You can clarify later.")
+            Text("Keep it short. You can add details after capture.")
                 .font(.tasker(.caption2))
                 .foregroundColor(Color.tasker.textQuaternary)
                 .padding(.horizontal, spacing.s4)
