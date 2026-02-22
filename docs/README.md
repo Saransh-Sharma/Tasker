@@ -35,6 +35,7 @@ flowchart TD
 | `docs/architecture/risk-register-v2.md` | Migration risk register, guardrails, review checklist |
 | `docs/architecture/state-repositories-and-services-v2.md` | State layer repository/service internals and ownership |
 | `docs/architecture/domain-events-and-observability-v2.md` | Domain events, handlers, notification bridge, observability |
+| `docs/architecture/uxdesign-design-system-v2.md` | Canonical UX design system contracts: tokens, themes, adapters, motion, accessibility, migration, and component recipes |
 | `docs/architecture/llm-assistant-stack-v2.md` | LLM context pipeline and assistant transaction stack |
 | `docs/architecture/llm-feature-integration-handbook.md` | Mixed audience guide for AI surfaces, safety, rollout, and incident response |
 
