@@ -42,7 +42,7 @@ public final class CompleteTaskDefinitionUseCase {
                             name: NSNotification.Name("TaskCompletionChanged"),
                             object: updatedTask
                         )
-                        TaskNotificationDispatcher.postOnMain(
+                        TaskNotificationDispatcher.postAsyncOnMain(
                             name: .homeTaskMutation,
                             userInfo: [
                                 "reason": "completionChanged",

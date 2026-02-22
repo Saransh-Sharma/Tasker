@@ -134,6 +134,7 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     // Backdrop/Foredrop Architecture (like HomeViewController)
     private let backdropContainer = UIView()
     private let foredropContainer = UIView()
+    private let backdropGradientLayer = TaskerAnimatedGradientLayer()
 
     // Navigation
     private let navigationBarView = UIView()
@@ -210,13 +211,15 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         imageView.image = UIImage(systemName: "magnifyingglass")
         imageView.tintColor = .secondaryLabel
         imageView.contentMode = .scaleAspectFit
+        imageView.layer.cornerCurve = .continuous
+        imageView.layer.masksToBounds = true
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
 
     private let emptyStateLabel: UILabel = {
         let label = UILabel()
-        label.text = "No tasks found"
+        label.text = TaskerCopy.EmptyStates.searchNoResultsTitle
         label.font = .tasker.font(for: .title2)
         label.textColor = .label // Will be updated in applyTheme
         label.textAlignment = .center
@@ -226,13 +229,23 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
 
     private let emptyStateSubtitleLabel: UILabel = {
         let label = UILabel()
-        label.text = "Try different search terms or filters"
+        label.text = TaskerCopy.EmptyStates.searchNoResultsBody
         label.font = .tasker.font(for: .body)
         label.textColor = .label.withAlphaComponent(0.7) // Will be updated in applyTheme
         label.textAlignment = .center
         label.numberOfLines = 0
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
+    }()
+
+    private let emptyStateActionButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle(TaskerCopy.Actions.addTask, for: .normal)
+        button.titleLabel?.font = .tasker.font(for: .buttonSmall)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.contentEdgeInsets = UIEdgeInsets(top: 10, left: 16, bottom: 10, right: 16)
+        button.layer.cornerCurve = .continuous
+        return button
     }()
     
     // MARK: - Lifecycle
@@ -270,6 +283,8 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     /// Executes viewDidLayoutSubviews.
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        backdropGradientLayer.frame = backdropContainer.bounds
+        backdropGradientLayer.configure(theme: TaskerThemeManager.shared.currentTheme, traits: traitCollection)
         updateBackdropForedropLayout()
     }
     
@@ -287,6 +302,10 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
 
     /// Executes setupBackdropForedropArchitecture.
     private func setupBackdropForedropArchitecture() {
+        view.accessibilityIdentifier = "search.view"
+        backdropContainer.accessibilityIdentifier = "search.backdrop"
+        foredropContainer.accessibilityIdentifier = "search.foredrop"
+
         // Add main containers to view hierarchy
         view.addSubview(backdropContainer)
         view.addSubview(foredropContainer)
@@ -315,10 +334,16 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         foredropContainer.layer.cornerRadius = 24
         foredropContainer.layer.cornerCurve = .continuous
         foredropContainer.applyTaskerElevation(.e1)
+        backdropGradientLayer.removeFromSuperlayer()
+        backdropContainer.layer.insertSublayer(backdropGradientLayer, at: 0)
     }
 
     /// Executes setupNavigationBar.
     private func setupNavigationBar() {
+        navigationBarView.accessibilityIdentifier = "search.navigationBar"
+        backButton.accessibilityIdentifier = "search.backButton"
+        navigationTitleLabel.accessibilityIdentifier = "search.title"
+
         // Add navigation bar to backdrop
         backdropContainer.addSubview(navigationBarView)
         navigationBarView.translatesAutoresizingMaskIntoConstraints = false
@@ -405,6 +430,8 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         emptyStateView.addSubview(emptyStateImageView)
         emptyStateView.addSubview(emptyStateLabel)
         emptyStateView.addSubview(emptyStateSubtitleLabel)
+        emptyStateView.addSubview(emptyStateActionButton)
+        emptyStateActionButton.addTarget(self, action: #selector(addTaskFromEmptyStateTapped), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
             // Scroll view fills foredrop
@@ -439,7 +466,11 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
             emptyStateSubtitleLabel.topAnchor.constraint(equalTo: emptyStateLabel.bottomAnchor, constant: 8),
             emptyStateSubtitleLabel.leadingAnchor.constraint(equalTo: emptyStateView.leadingAnchor, constant: 32),
             emptyStateSubtitleLabel.trailingAnchor.constraint(equalTo: emptyStateView.trailingAnchor, constant: -32),
-            emptyStateSubtitleLabel.bottomAnchor.constraint(equalTo: emptyStateView.bottomAnchor)
+            // Empty state action
+            emptyStateActionButton.topAnchor.constraint(equalTo: emptyStateSubtitleLabel.bottomAnchor, constant: 16),
+            emptyStateActionButton.centerXAnchor.constraint(equalTo: emptyStateView.centerXAnchor),
+            emptyStateActionButton.heightAnchor.constraint(greaterThanOrEqualToConstant: TaskerUIKitTokens.interaction.minInteractiveSize),
+            emptyStateActionButton.bottomAnchor.constraint(equalTo: emptyStateView.bottomAnchor)
         ])
     }
 
@@ -470,10 +501,10 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
 
         // Priority filters - using TaskPriorityConfig colors for consistency
         let priorities: [(title: String, value: Int32, color: UIColor)] = [
-            ("P0", 1, TaskPriorityConfig.Priority.none.color),   // None - Gray
-            ("P1", 2, TaskPriorityConfig.Priority.low.color),    // Low - Blue
-            ("P2", 3, TaskPriorityConfig.Priority.high.color),   // High - Orange
-            ("P3", 4, TaskPriorityConfig.Priority.max.color)     // Max - Red
+            ("P0 None", 1, TaskPriorityConfig.Priority.none.color),
+            ("P1 Low", 2, TaskPriorityConfig.Priority.low.color),
+            ("P2 High", 3, TaskPriorityConfig.Priority.high.color),
+            ("P3 Max", 4, TaskPriorityConfig.Priority.max.color)
         ]
 
         for priority in priorities {
@@ -503,25 +534,37 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
 
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        button.heightAnchor.constraint(greaterThanOrEqualToConstant: TaskerUIKitTokens.interaction.minInteractiveSize).isActive = true
 
         return button
     }
 
     /// Executes animateFilterButtons.
     private func animateFilterButtons() {
+        let shouldReduceMotion = UIAccessibility.isReduceMotionEnabled || TaskerGradientDebugSettings.isMotionDisabled
+        let duration = TaskerUIKitTokens.transition.pushPopDuration
         for (index, button) in filterStackView.arrangedSubviews.enumerated() {
             button.alpha = 0
             button.transform = CGAffineTransform(translationX: 0, y: 20)
 
-            UIView.animate(
-                withDuration: 0.4,
-                delay: Double(index) * 0.08,
-                usingSpringWithDamping: 0.8,
-                initialSpringVelocity: 0.5
-            ) {
-                button.alpha = 1
-                button.transform = .identity
+            if shouldReduceMotion {
+                UIView.animate(
+                    withDuration: TaskerUIKitTokens.transition.reduceMotionCrossfadeDuration,
+                    delay: Double(index) * 0.03
+                ) {
+                    button.alpha = 1
+                    button.transform = .identity
+                }
+            } else {
+                UIView.animate(
+                    withDuration: duration,
+                    delay: Double(index) * 0.06,
+                    usingSpringWithDamping: 0.85,
+                    initialSpringVelocity: 0.5
+                ) {
+                    button.alpha = 1
+                    button.transform = .identity
+                }
             }
         }
     }
@@ -561,21 +604,28 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
     private func applyTheme() {
         view.backgroundColor = todoColors.bgCanvas
         backdropContainer.backgroundColor = todoColors.bgElevated
-        navigationBarView.backgroundColor = todoColors.surfacePrimary
+        navigationBarView.backgroundColor = todoColors.bgElevated.withAlphaComponent(0.28)
         backButton.tintColor = todoColors.accentPrimary
         navigationTitleLabel.textColor = todoColors.textPrimary
-        searchBar.backgroundColor = todoColors.surfaceSecondary
+        searchBar.backgroundColor = todoColors.surfacePrimary.withAlphaComponent(0.68)
         searchBar.layer.borderColor = todoColors.divider.cgColor
 
         // Apply theme to search bar internal elements
         searchBar.applyTheme()
 
-        filterScrollView.backgroundColor = todoColors.bgElevated
+        filterScrollView.backgroundColor = .clear
 
         // Update empty state colors to match theme
         emptyStateLabel.textColor = todoColors.textPrimary
-        emptyStateSubtitleLabel.textColor = todoColors.textPrimary.withAlphaComponent(0.7)
-        emptyStateImageView.tintColor = todoColors.textPrimary.withAlphaComponent(0.5)
+        emptyStateSubtitleLabel.textColor = todoColors.textSecondary
+        emptyStateImageView.tintColor = todoColors.accentPrimary.withAlphaComponent(0.72)
+        emptyStateImageView.backgroundColor = todoColors.accentWash
+        emptyStateImageView.layer.cornerRadius = 30
+        emptyStateActionButton.backgroundColor = todoColors.accentPrimary
+        emptyStateActionButton.setTitleColor(todoColors.accentOnPrimary, for: .normal)
+        emptyStateActionButton.layer.cornerRadius = TaskerUIKitTokens.corner.r2
+        emptyStateActionButton.layer.borderColor = todoColors.accentRing.cgColor
+        emptyStateActionButton.layer.borderWidth = 1
 
         // Apply theme to filter buttons - match home screen styling
         filterStackView.arrangedSubviews.forEach { view in
@@ -584,6 +634,8 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                 button.updateAppearance()
             }
         }
+
+        backdropGradientLayer.configure(theme: TaskerThemeManager.shared.currentTheme, traits: traitCollection)
     }
 
     // MARK: - Actions
@@ -607,8 +659,18 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         }
 
         // Animate selection
-        UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
-            button.transform = button.isSelected ? CGAffineTransform(scaleX: 1.05, y: 1.05) : .identity
+        let shouldReduceMotion = UIAccessibility.isReduceMotionEnabled
+        UIView.animate(
+            withDuration: shouldReduceMotion
+                ? TaskerUIKitTokens.transition.reduceMotionCrossfadeDuration
+                : TaskerUIKitTokens.transition.pushPopDuration,
+            delay: 0,
+            usingSpringWithDamping: 0.85,
+            initialSpringVelocity: 0.5
+        ) {
+            button.transform = shouldReduceMotion
+                ? .identity
+                : (button.isSelected ? CGAffineTransform(scaleX: 1.05, y: 1.05) : .identity)
         }
 
         // Apply filter and re-run search
@@ -621,8 +683,18 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         button.isSelected.toggle()
 
         // Animate selection
-        UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
-            button.transform = button.isSelected ? CGAffineTransform(scaleX: 1.05, y: 1.05) : .identity
+        let shouldReduceMotion = UIAccessibility.isReduceMotionEnabled
+        UIView.animate(
+            withDuration: shouldReduceMotion
+                ? TaskerUIKitTokens.transition.reduceMotionCrossfadeDuration
+                : TaskerUIKitTokens.transition.pushPopDuration,
+            delay: 0,
+            usingSpringWithDamping: 0.85,
+            initialSpringVelocity: 0.5
+        ) {
+            button.transform = shouldReduceMotion
+                ? .identity
+                : (button.isSelected ? CGAffineTransform(scaleX: 1.05, y: 1.05) : .identity)
         }
 
         // Apply filter and re-run search
@@ -635,8 +707,18 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         button.isSelected.toggle()
 
         // Animate selection
-        UIView.animate(withDuration: 0.2, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
-            button.transform = button.isSelected ? CGAffineTransform(scaleX: 1.05, y: 1.05) : .identity
+        let shouldReduceMotion = UIAccessibility.isReduceMotionEnabled
+        UIView.animate(
+            withDuration: shouldReduceMotion
+                ? TaskerUIKitTokens.transition.reduceMotionCrossfadeDuration
+                : TaskerUIKitTokens.transition.pushPopDuration,
+            delay: 0,
+            usingSpringWithDamping: 0.85,
+            initialSpringVelocity: 0.5
+        ) {
+            button.transform = shouldReduceMotion
+                ? .identity
+                : (button.isSelected ? CGAffineTransform(scaleX: 1.05, y: 1.05) : .identity)
         }
 
         // Apply filter and re-run search
@@ -752,11 +834,11 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
         scrollView.isHidden = true
 
         if searchBar.text.isEmpty {
-            emptyStateLabel.text = "Start searching"
-            emptyStateSubtitleLabel.text = "Type to search your tasks or use filters above"
+            emptyStateLabel.text = TaskerCopy.EmptyStates.searchStartTitle
+            emptyStateSubtitleLabel.text = TaskerCopy.EmptyStates.searchStartBody
         } else {
-            emptyStateLabel.text = "No tasks found"
-            emptyStateSubtitleLabel.text = "Try different search terms or adjust your filters"
+            emptyStateLabel.text = TaskerCopy.EmptyStates.searchNoResultsTitle
+            emptyStateSubtitleLabel.text = TaskerCopy.EmptyStates.searchNoResultsBody
         }
     }
 
@@ -831,18 +913,33 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
 
     /// Executes animateCardAppearance.
     private func animateCardAppearance(_ card: LGTaskCard, delay: TimeInterval) {
+        let shouldReduceMotion = UIAccessibility.isReduceMotionEnabled
         card.alpha = 0
         card.transform = CGAffineTransform(translationX: 0, y: 20)
 
-        UIView.animate(
-            withDuration: 0.4,
-            delay: delay,
-            usingSpringWithDamping: 0.8,
-            initialSpringVelocity: 0.5
-        ) {
-            card.alpha = 1
-            card.transform = .identity
+        if shouldReduceMotion {
+            UIView.animate(
+                withDuration: TaskerUIKitTokens.transition.reduceMotionCrossfadeDuration,
+                delay: delay
+            ) {
+                card.alpha = 1
+                card.transform = .identity
+            }
+        } else {
+            UIView.animate(
+                withDuration: TaskerUIKitTokens.transition.pushPopDuration,
+                delay: delay,
+                usingSpringWithDamping: 0.85,
+                initialSpringVelocity: 0.5
+            ) {
+                card.alpha = 1
+                card.transform = .identity
+            }
         }
+    }
+
+    @objc private func addTaskFromEmptyStateTapped() {
+        dismiss(animated: true)
     }
 
     /// Executes showTaskDetail.

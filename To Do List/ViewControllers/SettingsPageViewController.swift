@@ -208,7 +208,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     
     // MARK: - Status Bar Style
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        return .lightContent
+        return .default
     }
 }
 
@@ -287,7 +287,7 @@ extension SettingsPageViewController: UITableViewDelegate {
             return UITableView.automaticDimension
         }
         let itemTitle = sections[indexPath.section].items[indexPath.row].title
-        if itemTitle == "Theme" { return 128 }
+        if itemTitle == "Theme" { return 136 }
         if itemTitle == "Dark Mode" { return 52 }
         return UITableView.automaticDimension
     }

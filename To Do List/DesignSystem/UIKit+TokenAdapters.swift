@@ -21,6 +21,26 @@ public enum TaskerUIKitTokens {
     public static var corner: TaskerCornerTokens {
         TaskerThemeManager.shared.currentTheme.tokens.corner
     }
+
+    public static var interaction: TaskerInteractionTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.interaction
+    }
+
+    public static var iconSize: TaskerIconSizeTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.iconSize
+    }
+
+    public static var motion: TaskerMotionTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.motion
+    }
+
+    public static var transition: TaskerTransitionTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.transition
+    }
+
+    public static var priorityIndicator: TaskerPriorityIndicatorTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.priorityIndicator
+    }
 }
 
 @MainActor
@@ -67,8 +87,14 @@ public extension UIView {
 
 @MainActor
 public struct TaskerNavButtonStyle {
-    public static let minimumHitTarget = CGSize(width: 44, height: 44)
-    public static let pressedAlpha: CGFloat = 0.6
+    public static var minimumHitTarget: CGSize {
+        let minSize = TaskerUIKitTokens.interaction.minInteractiveSize
+        return CGSize(width: minSize, height: minSize)
+    }
+
+    public static var pressedAlpha: CGFloat {
+        TaskerUIKitTokens.interaction.pressOpacity
+    }
     public static let pressedDuration: TimeInterval = 0.12
 
     /// Executes titleColor.
@@ -176,7 +202,8 @@ public final class TaskerTextField: UITextField {
         let targetHeight: CGFloat = kind == .singleLine
             ? TaskerTextFieldTokens.singleLineHeight
             : TaskerTextFieldTokens.multilineMinHeight
-        heightAnchor.constraint(greaterThanOrEqualToConstant: targetHeight).isActive = true
+        let minHeight = max(targetHeight, TaskerUIKitTokens.interaction.minInteractiveSize)
+        heightAnchor.constraint(greaterThanOrEqualToConstant: minHeight).isActive = true
     }
 
     /// Executes setTaskerPlaceholder.
@@ -192,7 +219,7 @@ public final class TaskerTextField: UITextField {
 
     @objc private func editingDidBegin() {
         layer.borderColor = colors.accentRing.cgColor
-        layer.borderWidth = 2
+        layer.borderWidth = TaskerUIKitTokens.interaction.focusRingWidth
     }
 
     @objc private func editingDidEnd() {
@@ -243,8 +270,8 @@ public final class TaskerChipView: UIControl {
             titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -spacing.s12),
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: spacing.s8),
             titleLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -spacing.s8),
-            widthAnchor.constraint(greaterThanOrEqualToConstant: 44),
-            heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
+            widthAnchor.constraint(greaterThanOrEqualToConstant: TaskerUIKitTokens.interaction.minInteractiveSize),
+            heightAnchor.constraint(greaterThanOrEqualToConstant: TaskerUIKitTokens.interaction.minInteractiveSize)
         ])
 
         layer.cornerRadius = TaskerUIKitTokens.corner.chip
@@ -321,6 +348,11 @@ public extension TaskPriorityConfig.Priority {
         case .high: return colors.priorityHigh
         case .max:  return colors.priorityMax
         }
+    }
+
+    @MainActor
+    var indicator: TaskerPriorityIndicatorDescriptor {
+        TaskerUIKitTokens.priorityIndicator.descriptor(for: self)
     }
 }
 

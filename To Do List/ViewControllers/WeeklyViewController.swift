@@ -2,72 +2,76 @@
 //  WeeklyViewController.swift
 //  To Do List
 //
-//  Created by Saransh Sharma on 23/04/20.
-//  Copyright © 2020 saransh1337. All rights reserved.
+//  Legacy storyboard weekly surface modernized with Tasker tokens.
 //
 
 import UIKit
 
-class WeeklyViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
-    
-    /// Executes viewDidLoad.
+final class WeeklyViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     @IBOutlet weak var weeklyTableView: UITableView!
-    
+
+    private let weeklyItems: [(day: String, summary: String)] = [
+        ("Monday", "Plan top 3 priorities"),
+        ("Tuesday", "Deep work block"),
+        ("Wednesday", "Project checkpoint"),
+        ("Thursday", "Follow-ups and clean-up"),
+        ("Friday", "Weekly reflection")
+    ]
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        self.title = "Week"
-        // Do any additional setup after loading the view.
-        
+        title = "Week"
+        view.accessibilityIdentifier = "weekly.view"
+        configureTableView()
+        applyTheme()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        applyTheme()
+    }
+
+    private func configureTableView() {
         weeklyTableView.delegate = self
         weeklyTableView.dataSource = self
-        
+        weeklyTableView.separatorStyle = .none
+        weeklyTableView.rowHeight = UITableView.automaticDimension
+        weeklyTableView.estimatedRowHeight = 72
+        weeklyTableView.contentInset = UIEdgeInsets(top: 12, left: 0, bottom: 24, right: 0)
+        weeklyTableView.register(UITableViewCell.self, forCellReuseIdentifier: "WeeklyTaskCellModern")
     }
-    
-    /// Executes tableView.
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        
-        return UITableView.automaticDimension
+
+    private func applyTheme() {
+        let colors = TaskerUIKitTokens.color
+        view.backgroundColor = colors.bgCanvas
+        weeklyTableView.backgroundColor = colors.bgCanvas
     }
-    
-    /// Executes tableView.
-    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-        return UITableView.automaticDimension
-    }
-    
-    /// Executes tableView.
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return 5
+        weeklyItems.count
     }
-    
-    /// Executes tableView.
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        
-        let cell = tableView.dequeueReusableCell(withIdentifier: "weeklyTaskCell", for: indexPath)
-        
-        cell.textLabel?.text = "This is a really long title that has no hope of fittinng in. blah blah blah.... blah blah blah.... blah blah blah.... \(indexPath.row)"
-        
-        if (indexPath.row == 3) {
-            cell.textLabel?.text = "This is compact \(indexPath.row)"
-        }
-        
-        cell.textLabel?.numberOfLines = 0
-        //        weeklyTaskTitleLabel.text = "This is weekly Cell \(indexPath.row)"
-        //inboxCell.textLabel?.text = "This is weekly cell \(indexPath.row)"
-        
+        let cell = tableView.dequeueReusableCell(withIdentifier: "WeeklyTaskCellModern", for: indexPath)
+        let item = weeklyItems[indexPath.row]
+        let colors = TaskerUIKitTokens.color
+
+        var content = cell.defaultContentConfiguration()
+        content.text = item.day
+        content.secondaryText = item.summary
+        content.textProperties.font = TaskerUIKitTokens.typography.bodyEmphasis
+        content.textProperties.color = colors.textPrimary
+        content.secondaryTextProperties.font = TaskerUIKitTokens.typography.callout
+        content.secondaryTextProperties.color = colors.textSecondary
+        content.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14)
+        cell.contentConfiguration = content
+
+        cell.backgroundColor = colors.surfacePrimary
+        cell.layer.cornerRadius = TaskerUIKitTokens.corner.r2
+        cell.layer.cornerCurve = .continuous
+        cell.layer.borderWidth = 1
+        cell.layer.borderColor = colors.strokeHairline.cgColor
+        cell.selectionStyle = .none
         return cell
     }
-    
-    
-    /*
-     // MARK: - Navigation
-     
-     // In a storyboard-based application, you will often want to do a little preparation before navigation
-     /// Executes prepare.
-     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-     // Get the new view controller using segue.destination.
-     // Pass the selected object to the new view controller.
-     }
-     */
-    
 }

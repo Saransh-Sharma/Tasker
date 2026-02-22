@@ -21,16 +21,17 @@ struct AddTaskNavigationBar: View {
             Button {
                 onCancel()
             } label: {
-                Text("Cancel")
+                Text(TaskerCopy.Actions.cancel)
                     .font(.tasker(.callout))
                     .foregroundColor(Color.tasker.textSecondary)
             }
             .buttonStyle(.plain)
+            .frame(minHeight: TaskerTheme.Interaction.minInteractiveSize)
 
             Spacer()
 
             Text("New Task")
-                .font(.tasker(.headline))
+                .font(.tasker(.title3))
                 .foregroundColor(Color.tasker.textPrimary)
 
             Spacer()
@@ -41,11 +42,12 @@ struct AddTaskNavigationBar: View {
                     onSave()
                 }
             } label: {
-                Text("Done")
+                Text(TaskerCopy.Actions.done)
                     .font(.tasker(.callout).weight(.semibold))
                     .foregroundColor(canSave ? Color.tasker.accentPrimary : Color.tasker.textQuaternary)
             }
             .buttonStyle(.plain)
+            .frame(minHeight: TaskerTheme.Interaction.minInteractiveSize)
             .disabled(!canSave)
         }
         .padding(.vertical, spacing.s8)

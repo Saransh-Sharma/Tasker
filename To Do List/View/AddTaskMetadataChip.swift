@@ -35,6 +35,7 @@ struct AddTaskMetadataChip: View {
             .foregroundColor(isActive ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
+            .frame(minHeight: TaskerTheme.Interaction.minInteractiveSize)
             .background(
                 Capsule()
                     .fill(isActive ? Color.tasker.accentWash : Color.tasker.surfaceSecondary)

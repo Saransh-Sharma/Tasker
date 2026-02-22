@@ -226,6 +226,10 @@ final class InMemoryTaskReadModelRepositoryStub: TaskReadModelRepositoryProtocol
         )))
     }
 
+    func fetchLatestTaskUpdatedAt(completion: @escaping (Result<Date?, Error>) -> Void) {
+        completion(.success(tasks.map(\.updatedAt).max()))
+    }
+
     func fetchProjectTaskCounts(includeCompleted: Bool, completion: @escaping (Result<[UUID: Int], Error>) -> Void) {
         var counts: [UUID: Int] = [:]
         for task in tasks where includeCompleted || !task.isComplete {

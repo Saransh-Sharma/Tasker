@@ -44,13 +44,23 @@ public struct TaskPriorityConfig {
             return TaskPriorityConfig.scoreForPriority(self)
         }
 
-        /// Hex color string for UI representation ("Four Jewels" — maximally distinct)
+        /// Hex color string for UI representation.
         public var colorHex: String {
             switch self {
-            case .none: return "#B09080"  // Antique Bronze
-            case .low: return "#38C8A8"   // Jade Teal
-            case .high: return "#7C68D8"  // Imperial Violet
-            case .max: return "#E05058"   // Scarlet Garnet
+            case .none: return "#6B7280"
+            case .low: return "#2563EB"
+            case .high: return "#EA580C"
+            case .max: return "#DC2626"
+            }
+        }
+
+        /// SF Symbol paired with the priority color so state is not color-only.
+        public var indicatorSymbolName: String {
+            switch self {
+            case .none: return "minus.circle"
+            case .low: return "arrow.down.circle.fill"
+            case .high: return "arrow.up.circle.fill"
+            case .max: return "exclamationmark.triangle.fill"
             }
         }
 

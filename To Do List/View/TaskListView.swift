@@ -439,17 +439,23 @@ struct TaskListView: View {
 
     private var emptyStateView: some View {
         VStack(spacing: TaskerTheme.Spacing.md) {
-            Image(systemName: "checkmark.circle")
-                .font(.system(size: 40, weight: .light))
-                .foregroundColor(Color.tasker.accentPrimary.opacity(0.5))
+            ZStack {
+                TaskerAnimatedGradientBackground(layerCount: 2, cornerRadius: 34, baseOpacity: 0.28)
+                    .frame(width: 68, height: 68)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: TaskerSwiftUITokens.iconSize.hero, weight: .semibold))
+                    .foregroundColor(Color.tasker.accentPrimary)
+            }
 
-            Text("All clear")
-                .font(.tasker(.title3))
-                .foregroundColor(Color.tasker.textTertiary)
+            Text(TaskerCopy.EmptyStates.allClearTitle)
+                .font(.tasker(.title2))
+                .foregroundColor(Color.tasker.textPrimary)
 
             Text(resolvedEmptyStateMessage)
                 .font(.tasker(.callout))
-                .foregroundColor(Color.tasker.textQuaternary)
+                .foregroundColor(Color.tasker.textSecondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 280)
 
             if let title = emptyStateActionTitle {
                 Button(title) {
@@ -471,15 +477,15 @@ struct TaskListView: View {
 
         switch activeQuickView {
         case .upcoming:
-            return "No upcoming tasks in 14 days"
+            return TaskerCopy.EmptyStates.upcoming
         case .done:
-            return "No completed tasks in last 30 days"
+            return TaskerCopy.EmptyStates.done
         case .morning:
-            return "No morning tasks. Add one to start strong."
+            return TaskerCopy.EmptyStates.morning
         case .evening:
-            return "No evening tasks. Plan your wind-down."
+            return TaskerCopy.EmptyStates.evening
         case .today, .none:
-            return "No tasks for today"
+            return TaskerCopy.EmptyStates.today
         }
     }
 }

@@ -26,6 +26,18 @@ public enum TaskerAnimation {
 
     // Stagger delay per item (seconds)
     public static let staggerInterval: Double = 0.04
+
+    public static var pushPop: Animation {
+        .easeInOut(duration: TaskerThemeManager.shared.currentTheme.tokens.transition.pushPopDuration)
+    }
+
+    public static var modal: Animation {
+        .easeInOut(duration: TaskerThemeManager.shared.currentTheme.tokens.transition.modalDuration)
+    }
+
+    public static var reducedMotionCrossfade: Animation {
+        .easeInOut(duration: TaskerThemeManager.shared.currentTheme.tokens.transition.reduceMotionCrossfadeDuration)
+    }
 }
 
 // MARK: - Staggered Appearance Modifier
@@ -65,11 +77,18 @@ public struct ScaleOnPress: ViewModifier {
 }
 
 private struct TaskerScaleOnPressButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// Executes makeBody.
     func makeBody(configuration: Configuration) -> some View {
+        let interaction = TaskerThemeManager.shared.currentTheme.tokens.interaction
+        let pressedScale = reduceMotion ? interaction.reducedMotionPressScale : interaction.pressScale
+        let pressedOpacity = reduceMotion ? interaction.pressOpacity : 1.0
+
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(TaskerAnimation.quick, value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? pressedScale : 1.0)
+            .opacity(configuration.isPressed ? pressedOpacity : 1.0)
+            .animation(.easeInOut(duration: 0.14), value: configuration.isPressed)
     }
 }
 
@@ -184,14 +203,28 @@ public extension UIView {
 
 @MainActor
 public enum TaskerFeedback {
+    private static var themeTapProfile: Int {
+        TaskerThemeManager.shared.selectedThemeIndex
+    }
+
     /// Executes light.
     public static func light() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        switch themeTapProfile {
+        case 2:
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        default:
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
     }
 
     /// Executes medium.
     public static func medium() {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        switch themeTapProfile {
+        case 0:
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        default:
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
     }
 
     /// Executes success.
@@ -201,6 +234,15 @@ public enum TaskerFeedback {
 
     /// Executes selection.
     public static func selection() {
-        UISelectionFeedbackGenerator().selectionChanged()
+        switch themeTapProfile {
+        case 0:
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        case 1:
+            UISelectionFeedbackGenerator().selectionChanged()
+        case 2:
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        default:
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
     }
 }

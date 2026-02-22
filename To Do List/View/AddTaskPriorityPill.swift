@@ -15,6 +15,8 @@ struct AddTaskPriorityPill: View {
     let action: () -> Void
 
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+    private var interaction: TaskerInteractionTokens { TaskerThemeManager.shared.currentTheme.tokens.interaction }
+    private var iconSize: TaskerIconSizeTokens { TaskerThemeManager.shared.currentTheme.tokens.iconSize }
 
     private var priorityColor: Color {
         switch priority {
@@ -34,20 +36,20 @@ struct AddTaskPriorityPill: View {
         }
     }
 
+    private var indicator: TaskerPriorityIndicatorDescriptor {
+        priority.indicator
+    }
+
     var body: some View {
         Button {
             TaskerFeedback.selection()
             action()
         } label: {
             HStack(spacing: 6) {
-                // Jewel dot with glow
-                Circle()
-                    .fill(priorityColor)
-                    .frame(width: 10, height: 10)
-                    .shadow(
-                        color: isSelected ? priorityColor.opacity(0.5) : .clear,
-                        radius: isSelected ? 4 : 0
-                    )
+                Image(systemName: indicator.symbolName)
+                    .font(.system(size: iconSize.small, weight: .semibold))
+                    .foregroundColor(priorityColor)
+                    .frame(width: iconSize.medium, height: iconSize.medium)
 
                 Text(priorityName)
                     .font(.tasker(.callout))
@@ -57,6 +59,7 @@ struct AddTaskPriorityPill: View {
             .foregroundColor(isSelected ? priorityColor : Color.tasker.textSecondary)
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
+            .frame(minHeight: interaction.minInteractiveSize)
             .background(
                 RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
                     .fill(isSelected ? priorityColor.opacity(0.12) : Color.tasker.surfaceTertiary)
@@ -72,6 +75,8 @@ struct AddTaskPriorityPill: View {
         .buttonStyle(.plain)
         .scaleOnPress()
         .animation(TaskerAnimation.quick, value: isSelected)
+        .accessibilityLabel(indicator.accessibilityLabel)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
     }
 }
 

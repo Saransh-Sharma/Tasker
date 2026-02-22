@@ -10,6 +10,24 @@ import SwiftUI
 import Combine
 import DGCharts
 
+private final class SnackbarPassthroughContainerView: UIView {
+    weak var interactiveView: UIView?
+
+    /// Executes point.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        guard let interactiveView else { return false }
+        let converted = convert(point, to: interactiveView)
+        return interactiveView.point(inside: converted, with: event)
+    }
+}
+
+private struct QueuedSnackbarPresentation {
+    let snackbar: TaskerSnackbar
+    let token: UUID
+    let preferredHeight: CGFloat?
+    let source: String
+}
+
 final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware {
 
     // MARK: - Dependencies
@@ -39,6 +57,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private let notificationCenter = NotificationCenter.default
     private var cancellables = Set<AnyCancellable>()
+    private var pendingCreateRetryRequests: [UUID: CreateTaskDefinitionRequest] = [:]
+    private var pendingCreateStartedAtByTaskID: [UUID: Date] = [:]
+    private var activeSnackbarContainerView: SnackbarPassthroughContainerView?
+    private var activeSnackbarHostController: UIHostingController<TaskerSnackbar>?
+    private var activeSnackbarHeightConstraint: NSLayoutConstraint?
+    private var activeSnackbarCleanupWorkItem: DispatchWorkItem?
+    private var activeSnackbarToken: UUID?
+    private var queuedSnackbarPresentation: QueuedSnackbarPresentation?
+    private let standardTaskCreatedSnackbarHeight: CGFloat = 72
     private var pendingChartRefreshWorkItem: DispatchWorkItem?
     private let chartRefreshDebounceSeconds: TimeInterval = 0.12
 
@@ -59,7 +86,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         mountHomeShell()
         observeMutations()
         observeAssistantChatRequests()
+        observeTaskCreateOptimisticStart()
         observeTaskCreatedForSnackbar()
+        observeTaskCreateRollbackForRetry()
 
         updateDailyScore(for: dateForTheView)
     }
@@ -84,6 +113,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         super.viewDidDisappear(animated)
         if navigationController?.topViewController !== self {
             removeNavigationPieChartOverlay(resetChartState: true)
+            teardownSnackbarPresenter()
         }
     }
 
@@ -926,22 +956,65 @@ private final class RescheduleViewController: UIViewController {
 // MARK: - Snackbar Support
 
 extension HomeViewController {
+    /// Executes observeTaskCreateOptimisticStart.
+    func observeTaskCreateOptimisticStart() {
+        NotificationCenter.default.publisher(for: .taskCreationOptimistic)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let self else { return }
+                guard let task = notification.object as? TaskDefinition else { return }
+                guard let startedAt = notification.userInfo?["startedAt"] as? Date else { return }
+                self.pendingCreateStartedAtByTaskID[task.id] = startedAt
+            }
+            .store(in: &cancellables)
+    }
+
     /// Executes observeTaskCreatedForSnackbar.
     func observeTaskCreatedForSnackbar() {
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
             .receive(on: RunLoop.main)
             .compactMap { $0.object as? TaskDefinition }
             .sink { [weak self] createdTask in
+                self?.pendingCreateRetryRequests.removeValue(forKey: createdTask.id)
                 self?.showTaskCreatedSnackbar(for: createdTask)
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Executes observeTaskCreateRollbackForRetry.
+    func observeTaskCreateRollbackForRetry() {
+        NotificationCenter.default.publisher(for: .taskCreationRollback)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let self else { return }
+                guard let request = notification.userInfo?["request"] as? CreateTaskDefinitionRequest else { return }
+                pendingCreateRetryRequests[request.id] = request
+                if let task = notification.object as? TaskDefinition {
+                    pendingCreateStartedAtByTaskID.removeValue(forKey: task.id)
+                }
+                let errorMessage = (notification.userInfo?["error"] as? String) ?? "Couldn't add task."
+                showTaskCreateRollbackSnackbar(requestID: request.id, errorMessage: errorMessage)
             }
             .store(in: &cancellables)
     }
 
     /// Executes showTaskCreatedSnackbar.
     private func showTaskCreatedSnackbar(for task: TaskDefinition) {
-        guard let hostingController = homeHostingController else { return }
+        let startedAt = pendingCreateStartedAtByTaskID.removeValue(forKey: task.id)
+        let durationMS = startedAt.map { Int(Date().timeIntervalSince($0) * 1_000) }
+        logWarning(
+            event: "task_create_to_toast_ms",
+            message: "Task create snackbar rendered",
+            fields: [
+                "source": "home_task_created_snackbar",
+                "was_optimistic": startedAt == nil ? "false" : "true",
+                "reconcile_deferred": startedAt == nil ? "false" : "true",
+                "duration_ms": durationMS.map(String.init) ?? "unknown"
+            ]
+        )
 
         let taskID = task.id
+        let token = UUID()
         let snackbar = TaskerSnackbar(
             data: SnackbarData(
                 message: "Task added.",
@@ -951,27 +1024,275 @@ extension HomeViewController {
                     }
                 ]
             ),
-            onDismiss: {}
+            onDismiss: { [weak self] in
+                self?.clearActiveSnackbar(ifMatches: token)
+            }
+        )
+        presentSnackbar(
+            snackbar,
+            token: token,
+            preferredHeight: standardTaskCreatedSnackbarHeight,
+            source: "task_created"
+        )
+    }
+
+    /// Executes showTaskCreateRollbackSnackbar.
+    private func showTaskCreateRollbackSnackbar(requestID: UUID, errorMessage: String) {
+        let token = UUID()
+        let snackbar = TaskerSnackbar(
+            data: SnackbarData(
+                message: errorMessage,
+                actions: [
+                    SnackbarAction(title: "Retry") { [weak self] in
+                        self?.retryTaskCreation(requestID: requestID)
+                    }
+                ]
+            ),
+            onDismiss: { [weak self] in
+                self?.clearActiveSnackbar(ifMatches: token)
+            }
+        )
+        presentSnackbar(
+            snackbar,
+            token: token,
+            source: "task_create_rollback"
+        )
+    }
+
+    /// Executes retryTaskCreation.
+    private func retryTaskCreation(requestID: UUID) {
+        guard let request = pendingCreateRetryRequests[requestID] else { return }
+        viewModel?.createTaskDefinition(request: request) { [weak self] result in
+            guard let self else { return }
+            if case .failure(let error) = result {
+                self.showTaskCreateRollbackSnackbar(requestID: requestID, errorMessage: error.localizedDescription)
+            }
+        }
+    }
+
+    /// Executes presentSnackbar.
+    private func presentSnackbar(
+        _ snackbar: TaskerSnackbar,
+        token: UUID,
+        preferredHeight: CGFloat? = nil,
+        source: String
+    ) {
+        guard homeHostingController != nil else { return }
+        if queueSnackbarPresentationIfNeeded(
+            snackbar,
+            token: token,
+            preferredHeight: preferredHeight,
+            source: source
+        ) {
+            return
+        }
+        presentSnackbarNow(
+            snackbar,
+            token: token,
+            preferredHeight: preferredHeight,
+            source: source,
+            queuedForTransition: false
+        )
+    }
+
+    private func queueSnackbarPresentationIfNeeded(
+        _ snackbar: TaskerSnackbar,
+        token: UUID,
+        preferredHeight: CGFloat?,
+        source: String
+    ) -> Bool {
+        guard let coordinator = snackbarDeferringTransitionCoordinator() else { return false }
+        queuedSnackbarPresentation = QueuedSnackbarPresentation(
+            snackbar: snackbar,
+            token: token,
+            preferredHeight: preferredHeight,
+            source: source
         )
 
-        let snackbarVC = UIHostingController(rootView: snackbar)
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            self?.flushQueuedSnackbarPresentation(trigger: "transition_completion")
+        }
+        DispatchQueue.main.async { [weak self] in
+            self?.flushQueuedSnackbarPresentation(trigger: "next_turn_fallback")
+        }
+        return true
+    }
+
+    private func flushQueuedSnackbarPresentation(trigger: String) {
+        guard let queued = queuedSnackbarPresentation else { return }
+        guard snackbarDeferringTransitionCoordinator() == nil else { return }
+        queuedSnackbarPresentation = nil
+        presentSnackbarNow(
+            queued.snackbar,
+            token: queued.token,
+            preferredHeight: queued.preferredHeight,
+            source: queued.source,
+            queuedForTransition: true,
+            queueTrigger: trigger
+        )
+    }
+
+    private func snackbarDeferringTransitionCoordinator() -> UIViewControllerTransitionCoordinator? {
+        if let presented = presentedViewController,
+           (presented.isBeingDismissed || presented.isBeingPresented),
+           let coordinator = presented.transitionCoordinator {
+            return coordinator
+        }
+        if let coordinator = transitionCoordinator {
+            return coordinator
+        }
+        if let coordinator = navigationController?.transitionCoordinator {
+            return coordinator
+        }
+        if (isBeingDismissed || isBeingPresented), let coordinator = transitionCoordinator {
+            return coordinator
+        }
+        return nil
+    }
+
+    private func ensureSnackbarPresenter(
+        initialSnackbar: TaskerSnackbar
+    ) -> (SnackbarPassthroughContainerView, UIHostingController<TaskerSnackbar>) {
+        if let container = activeSnackbarContainerView, let host = activeSnackbarHostController {
+            return (container, host)
+        }
+
+        let passthroughContainer = SnackbarPassthroughContainerView()
+        passthroughContainer.translatesAutoresizingMaskIntoConstraints = false
+        passthroughContainer.backgroundColor = .clear
+
+        let snackbarVC = UIHostingController(rootView: initialSnackbar)
         snackbarVC.view.backgroundColor = .clear
         snackbarVC.view.translatesAutoresizingMaskIntoConstraints = false
 
-        addChild(snackbarVC)
-        view.addSubview(snackbarVC.view)
+        view.addSubview(passthroughContainer)
         NSLayoutConstraint.activate([
-            snackbarVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            snackbarVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            snackbarVC.view.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            passthroughContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            passthroughContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            passthroughContainer.topAnchor.constraint(equalTo: view.topAnchor),
+            passthroughContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
+        addChild(snackbarVC)
+        passthroughContainer.addSubview(snackbarVC.view)
+        let heightConstraint = snackbarVC.view.heightAnchor.constraint(equalToConstant: standardTaskCreatedSnackbarHeight)
+        NSLayoutConstraint.activate([
+            snackbarVC.view.leadingAnchor.constraint(equalTo: passthroughContainer.leadingAnchor),
+            snackbarVC.view.trailingAnchor.constraint(equalTo: passthroughContainer.trailingAnchor),
+            snackbarVC.view.bottomAnchor.constraint(equalTo: passthroughContainer.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            heightConstraint
         ])
         snackbarVC.didMove(toParent: self)
+        passthroughContainer.interactiveView = nil
+        passthroughContainer.isHidden = true
+        snackbarVC.view.isHidden = true
 
-        // Auto-remove after snackbar's auto-dismiss (5s + 0.4s animation)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
-            snackbarVC.willMove(toParent: nil)
-            snackbarVC.view.removeFromSuperview()
-            snackbarVC.removeFromParent()
+        activeSnackbarContainerView = passthroughContainer
+        activeSnackbarHostController = snackbarVC
+        activeSnackbarHeightConstraint = heightConstraint
+
+        return (passthroughContainer, snackbarVC)
+    }
+
+    private func presentSnackbarNow(
+        _ snackbar: TaskerSnackbar,
+        token: UUID,
+        preferredHeight: CGFloat?,
+        source: String,
+        queuedForTransition: Bool,
+        queueTrigger: String? = nil
+    ) {
+        let presentStartedAt = Date()
+        let (passthroughContainer, snackbarVC) = ensureSnackbarPresenter(initialSnackbar: snackbar)
+        activeSnackbarToken = token
+        activeSnackbarCleanupWorkItem?.cancel()
+
+        // Replace the hosted SwiftUI view instead of rebuilding the UIKit container each time.
+        snackbarVC.rootView = snackbar
+        passthroughContainer.isHidden = false
+        snackbarVC.view.isHidden = false
+        passthroughContainer.interactiveView = snackbarVC.view
+        view.bringSubviewToFront(passthroughContainer)
+
+        let snackbarHeight: CGFloat
+        if let preferredHeight {
+            snackbarHeight = preferredHeight
+        } else {
+            let targetSize = CGSize(width: view.bounds.width, height: 1_024)
+            let measuredHeight = snackbarVC.sizeThatFits(in: targetSize).height
+            snackbarHeight = min(max(measuredHeight, 56), 220)
+        }
+        activeSnackbarHeightConstraint?.constant = min(max(snackbarHeight, 56), 220)
+
+        passthroughContainer.layoutIfNeeded()
+        let snackbarFrame = snackbarVC.view.convert(snackbarVC.view.bounds, to: view)
+        let expectedMinimumY = view.bounds.height - (view.safeAreaInsets.bottom + 260)
+        if snackbarFrame.minY < expectedMinimumY {
+            logWarning(
+                event: "task_create_snackbar_frame_exceeded",
+                message: "Snackbar host expanded outside expected bottom envelope",
+                fields: [
+                    "min_y": String(format: "%.1f", snackbarFrame.minY),
+                    "expected_min_y": String(format: "%.1f", expectedMinimumY),
+                    "height": String(format: "%.1f", snackbarFrame.height)
+                ]
+            )
+        }
+
+        // Fallback cleanup in case onDismiss is skipped.
+        activeSnackbarCleanupWorkItem?.cancel()
+        let cleanupToken = token
+        let cleanupWorkItem = DispatchWorkItem { [weak self] in
+            self?.clearActiveSnackbar(ifMatches: cleanupToken)
+        }
+        activeSnackbarCleanupWorkItem = cleanupWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0, execute: cleanupWorkItem)
+
+        let presentMS = Int(Date().timeIntervalSince(presentStartedAt) * 1_000)
+        logWarning(
+            event: "task_create_snackbar_present_ms",
+            message: "Snackbar presentation completed",
+            fields: [
+                "source": source,
+                "duration_ms": String(presentMS),
+                "queued_for_transition": queuedForTransition ? "true" : "false",
+                "queue_trigger": queueTrigger ?? "none"
+            ]
+        )
+    }
+
+    /// Executes clearActiveSnackbar.
+    private func clearActiveSnackbar() {
+        clearActiveSnackbar(ifMatches: nil)
+    }
+
+    private func clearActiveSnackbar(ifMatches token: UUID?) {
+        if let token, activeSnackbarToken != token {
+            return
+        }
+        activeSnackbarCleanupWorkItem?.cancel()
+        activeSnackbarCleanupWorkItem = nil
+        activeSnackbarToken = nil
+        activeSnackbarContainerView?.interactiveView = nil
+        activeSnackbarHostController?.view.isHidden = true
+        activeSnackbarContainerView?.isHidden = true
+    }
+
+    private func teardownSnackbarPresenter() {
+        clearActiveSnackbar()
+        queuedSnackbarPresentation = nil
+
+        if let hostController = activeSnackbarHostController {
+            hostController.willMove(toParent: nil)
+            hostController.view.removeFromSuperview()
+            hostController.removeFromParent()
+            activeSnackbarHostController = nil
+        }
+        activeSnackbarHeightConstraint = nil
+
+        if let containerView = activeSnackbarContainerView {
+            containerView.removeFromSuperview()
+            activeSnackbarContainerView = nil
         }
     }
 }

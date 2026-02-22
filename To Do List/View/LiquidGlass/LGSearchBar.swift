@@ -100,7 +100,9 @@ class LGSearchBar: LGBaseView {
     /// Executes setupUI.
     private func setupUI() {
         cornerRadius = corners.input
-        
+        borderWidth = 1
+        borderColor = todoColors.strokeHairline
+
         addSubview(searchIconImageView)
         addSubview(searchTextField)
         addSubview(clearButton)
@@ -135,9 +137,9 @@ class LGSearchBar: LGBaseView {
             cancelButton.leadingAnchor.constraint(equalTo: trailingAnchor, constant: spacing.s8),
             cancelButton.centerYAnchor.constraint(equalTo: centerYAnchor),
             cancelButtonWidthConstraint!,
-            
+
             // Height
-            heightAnchor.constraint(equalToConstant: spacing.buttonHeight)
+            heightAnchor.constraint(greaterThanOrEqualToConstant: max(spacing.buttonHeight, TaskerUIKitTokens.interaction.minInteractiveSize))
         ])
     }
     
@@ -214,6 +216,8 @@ class LGSearchBar: LGBaseView {
         // Update button colors
         clearButton.tintColor = todoColors.textPrimary.withAlphaComponent(0.6)
         cancelButton.setTitleColor(todoColors.textPrimary, for: .normal)
+        borderColor = todoColors.strokeHairline
+        borderWidth = 1
     }
 }
 
@@ -228,7 +232,7 @@ extension LGSearchBar: UITextFieldDelegate {
         // Animate focus with theme colors
         UIView.animate(withDuration: 0.2) {
             self.borderColor = self.todoColors.accentRing
-            self.borderWidth = 1.0
+            self.borderWidth = TaskerUIKitTokens.interaction.focusRingWidth
         }
     }
 
@@ -240,7 +244,7 @@ extension LGSearchBar: UITextFieldDelegate {
         // Animate unfocus with theme colors
         UIView.animate(withDuration: 0.2) {
             self.borderColor = self.todoColors.strokeHairline
-            self.borderWidth = 0.5
+            self.borderWidth = 1
         }
     }
     

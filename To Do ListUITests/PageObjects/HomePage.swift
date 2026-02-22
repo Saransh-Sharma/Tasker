@@ -42,11 +42,38 @@ class HomePage {
     }
 
     var addTaskButton: XCUIElement {
-        return app.buttons[AccessibilityIdentifiers.Home.addTaskButton]
+        let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.addTaskButton]
+        if byIdentifier.exists {
+            return byIdentifier
+        }
+
+        let byAnyIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.addTaskButton]
+        if byAnyIdentifier.exists {
+            return byAnyIdentifier
+        }
+
+        let byLabel = app.buttons["Add Task"]
+        if byLabel.exists {
+            return byLabel
+        }
+
+        return app.buttons.matching(
+            NSPredicate(
+                format: "identifier == %@ AND label ==[c] 'Add Task'",
+                AccessibilityIdentifiers.Home.bottomBar
+            )
+        ).firstMatch
     }
 
     var bottomBar: XCUIElement {
-        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.bottomBar]
+        app.descendants(matching: .any)
+            .matching(
+                NSPredicate(
+                    format: "identifier == %@",
+                    AccessibilityIdentifiers.Home.bottomBar
+                )
+            )
+            .firstMatch
     }
 
     var chartsButton: XCUIElement {
@@ -72,7 +99,37 @@ class HomePage {
     }
 
     var searchButton: XCUIElement {
-        return app.buttons[AccessibilityIdentifiers.Home.searchButton]
+        let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.searchButton]
+        if byIdentifier.exists {
+            return byIdentifier
+        }
+
+        let byAnyIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.searchButton]
+        if byAnyIdentifier.exists {
+            return byAnyIdentifier
+        }
+
+        let byLabel = app.buttons["Search"]
+        if byLabel.exists {
+            return byLabel
+        }
+
+        let bottomBarSearch = app.buttons.matching(
+            NSPredicate(
+                format: "identifier == %@ AND label ==[c] 'Search'",
+                AccessibilityIdentifiers.Home.bottomBar
+            )
+        ).firstMatch
+        if bottomBarSearch.exists {
+            return bottomBarSearch
+        }
+
+        return app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "label ==[c] 'Search' AND identifier != %@",
+                AccessibilityIdentifiers.Home.bottomBar
+            )
+        ).firstMatch
     }
 
     var chatButton: XCUIElement {
@@ -326,7 +383,51 @@ class HomePage {
 
     /// Tap search button
     func tapSearch() {
-        searchButton.tap()
+        let candidates: [XCUIElement] = [
+            app.buttons[AccessibilityIdentifiers.Home.searchButton],
+            app.descendants(matching: .any)[AccessibilityIdentifiers.Home.searchButton],
+            app.buttons["Search"],
+            app.buttons.matching(
+                NSPredicate(
+                    format: "identifier == %@ AND label ==[c] 'Search'",
+                    AccessibilityIdentifiers.Home.bottomBar
+                )
+            ).firstMatch,
+            app.descendants(matching: .any).matching(
+                NSPredicate(
+                    format: "label ==[c] 'Search' AND identifier != %@",
+                    AccessibilityIdentifiers.Home.bottomBar
+                )
+            ).firstMatch,
+            app.descendants(matching: .any).matching(
+                NSPredicate(
+                    format: "identifier == %@ AND identifier != %@",
+                    AccessibilityIdentifiers.Home.searchButton,
+                    AccessibilityIdentifiers.Home.bottomBar
+                )
+            ).firstMatch
+        ]
+
+        for candidate in candidates {
+            guard candidate.waitForExistence(timeout: 2) else { continue }
+
+            if candidate.identifier == AccessibilityIdentifiers.Home.bottomBar,
+               candidate.label.caseInsensitiveCompare("Search") != .orderedSame {
+                continue
+            }
+
+            if candidate.isHittable {
+                candidate.tap()
+            } else {
+                candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            }
+
+            if app.otherElements["search.view"].waitForExistence(timeout: 2) {
+                return
+            }
+        }
+
+        XCTFail("Failed to tap \(AccessibilityIdentifiers.Home.searchButton)")
     }
 
     /// Tap charts button

@@ -33,13 +33,13 @@ public struct TaskerCornerTokens: TaskerTokenGroup {
         r0: 0,
         r1: 8,
         r2: 12,
-        r3: 20,
-        r4: 28,
+        r3: 16,
+        r4: 24,
         pill: 999,
-        card: 20,
+        card: 16,
         input: 12,
         chip: 999,
-        bottomBar: 28,
-        modal: 28
+        bottomBar: 24,
+        modal: 24
     )
 }

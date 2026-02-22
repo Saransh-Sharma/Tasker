@@ -43,13 +43,13 @@ struct AddTaskCreateButton: View {
                             .font(.system(size: 16, weight: .medium))
                     }
 
-                    Text(isLoading ? "Creating..." : successFlash ? "Added!" : "Add Task")
+                    Text(isLoading ? "Creating..." : successFlash ? "Added" : TaskerCopy.Actions.addTask)
                         .font(.tasker(.button))
                         .contentTransition(.numericText())
                 }
                 .foregroundColor(isEnabled ? Color.tasker.accentOnPrimary : Color.tasker.textQuaternary)
                 .frame(maxWidth: .infinity)
-                .frame(height: spacing.buttonHeight)
+                .frame(height: max(spacing.buttonHeight, TaskerTheme.Interaction.minInteractiveSize))
                 .background(
                     RoundedRectangle(cornerRadius: corner.r2, style: .continuous)
                         .fill(successFlash
@@ -74,7 +74,7 @@ struct AddTaskCreateButton: View {
                     TaskerFeedback.selection()
                     onAddAnotherAction()
                 } label: {
-                    Text("Add Another")
+                    Text(TaskerCopy.Actions.addAnother)
                         .font(.tasker(.callout))
                         .foregroundColor(Color.tasker.accentPrimary)
                 }

@@ -92,6 +92,26 @@ public enum TaskerSwiftUITokens {
     public static var elevation: TaskerElevationTokens {
         TaskerThemeManager.shared.currentTheme.tokens.elevation
     }
+
+    public static var interaction: TaskerInteractionTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.interaction
+    }
+
+    public static var iconSize: TaskerIconSizeTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.iconSize
+    }
+
+    public static var motion: TaskerMotionTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.motion
+    }
+
+    public static var transition: TaskerTransitionTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.transition
+    }
+
+    public static var priorityIndicator: TaskerPriorityIndicatorTokens {
+        TaskerThemeManager.shared.currentTheme.tokens.priorityIndicator
+    }
 }
 
 @MainActor
@@ -177,14 +197,15 @@ private func taskerTextFieldBody<Label: View>(
         .foregroundColor(.tasker(.textPrimary))
         .tint(.tasker(.accentPrimary))
         .padding(.horizontal, tokens.spacing.s12)
-        .frame(height: TaskerTextFieldTokens.singleLineHeight)
+        .frame(minHeight: max(TaskerTextFieldTokens.singleLineHeight, tokens.interaction.minInteractiveSize))
         .background(Color.tasker.surfaceSecondary)
         .overlay(
             RoundedRectangle(cornerRadius: tokens.corner.r2)
                 .stroke(
                     isFocused ? Color.tasker.accentRing : Color.tasker.divider,
-                    lineWidth: isFocused ? 2 : 1
+                    lineWidth: isFocused ? tokens.interaction.focusRingWidth : 1
                 )
+                .padding(isFocused ? -tokens.interaction.focusRingOffset : 0)
         )
         .clipShape(RoundedRectangle(cornerRadius: tokens.corner.r2))
 }
@@ -209,13 +230,14 @@ public struct TaskerChip: View {
     }
 
     public var body: some View {
+        let interaction = TaskerSwiftUITokens.interaction
         Button(action: { action?() }) {
             Text(title)
                 .font(.tasker(.callout))
                 .foregroundColor(textColor)
                 .padding(.horizontal, TaskerSwiftUITokens.spacing.s12)
                 .padding(.vertical, TaskerSwiftUITokens.spacing.s8)
-                .frame(minWidth: 44, minHeight: 44)
+                .frame(minWidth: interaction.minInteractiveSize, minHeight: interaction.minInteractiveSize)
                 .background(background)
                 .overlay(border)
                 .clipShape(Capsule())

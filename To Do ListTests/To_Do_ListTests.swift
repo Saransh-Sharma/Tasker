@@ -218,6 +218,17 @@ private final class ShimTaskReadModelAdapter: TaskReadModelRepositoryProtocol {
         }
     }
 
+    func fetchLatestTaskUpdatedAt(completion: @escaping (Result<Date?, Error>) -> Void) {
+        legacyRepository.fetchAllTasks { result in
+            switch result {
+            case .success(let tasks):
+                completion(.success(tasks.map(\.updatedAt).max()))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
     func fetchProjectTaskCounts(
         includeCompleted: Bool,
         completion: @escaping (Result<[UUID : Int], Error>) -> Void
@@ -1512,11 +1523,260 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
         )
     }
 
+    func testDailyBriefBackgroundPathUsesHeuristicGeneration() throws {
+        let appDelegateSource = try loadWorkspaceFile("To Do List/AppDelegate.swift")
+
+        XCTAssertTrue(
+            appDelegateSource.contains("isAppActiveForLocalInference() == false"),
+            "AppDelegate daily brief generation must check app active state before MLX inference"
+        )
+        XCTAssertTrue(
+            appDelegateSource.contains("DailyBriefService.shared.generateBrief("),
+            "Background daily brief path must use heuristic generation"
+        )
+        XCTAssertTrue(
+            appDelegateSource.contains("DailyBriefService.shared.generateBriefOutput("),
+            "Foreground daily brief path should retain MLX-capable generation"
+        )
+    }
+
+    func testAddTaskSubmitCallsOnAcceptedBeforeOptimisticDispatch() throws {
+        let source = try loadWorkspaceFile("To Do List/Presentation/ViewModels/AddTaskViewModel.swift")
+
+        guard
+            let acceptedRange = source.range(of: "onAccepted?(submission)"),
+            let optimisticRange = source.range(of: "TaskNotificationDispatcher.postAsyncOnMain(")
+        else {
+            return XCTFail("AddTaskViewModel submitTask must contain accepted callback and async optimistic dispatch")
+        }
+
+        XCTAssertLessThan(
+            source.distance(from: source.startIndex, to: acceptedRange.lowerBound),
+            source.distance(from: source.startIndex, to: optimisticRange.lowerBound),
+            "submitTask should invoke onAccepted before async optimistic dispatch enqueue"
+        )
+    }
+
+    func testTaskNotificationDispatcherHasAsyncMainPostHelper() throws {
+        let source = try loadWorkspaceFile("To Do List/Domain/Events/TaskNotificationDispatcher.swift")
+
+        XCTAssertTrue(
+            source.contains("static func postAsyncOnMain("),
+            "TaskNotificationDispatcher should provide an explicit async main post helper"
+        )
+    }
+
+    func testHomeCreatePathUsesIncrementalSortedUpsert() throws {
+        let source = try loadWorkspaceFile("To Do List/Presentation/ViewModels/HomeViewModel.swift")
+
+        XCTAssertTrue(
+            source.contains("private func upsertingTaskPreservingSort"),
+            "HomeViewModel should define incremental sorted upsert helper for create-path local updates"
+        )
+        XCTAssertTrue(
+            source.contains("upcomingTasks = upsertingTaskPreservingSort(in: upcomingTasks, with: task)"),
+            "Optimistic create path should use incremental sorted upsert for upcoming tasks"
+        )
+        XCTAssertFalse(
+            source.contains("upcomingTasks = sortTasksByPriorityThenDue(upsertingTaskInPlace(in: upcomingTasks, with: task))"),
+            "Optimistic create path should avoid full-array re-sort for upcomingTasks"
+        )
+    }
+
     private func loadWorkspaceFile(_ relativePath: String) throws -> String {
         let testsFilePath = URL(fileURLWithPath: #filePath)
         let workspaceRoot = testsFilePath.deletingLastPathComponent().deletingLastPathComponent()
         let targetURL = workspaceRoot.appendingPathComponent(relativePath)
         return try String(contentsOf: targetURL, encoding: .utf8)
+    }
+}
+
+final class AddTaskViewModelSubmitLatencyOrderingTests: XCTestCase {
+    func testSubmitCallsOnAcceptedBeforeOptimisticDeliveryAndReturnsBeforeCommit() {
+        let deferredRepository = DeferredCreateTaskDefinitionRepository()
+        let createTaskUseCase = CreateTaskDefinitionUseCase(
+            repository: deferredRepository,
+            taskTagLinkRepository: nil,
+            taskDependencyRepository: nil
+        )
+        let manageProjectsUseCase = ManageProjectsUseCase(
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+        )
+        let viewModel = AddTaskViewModel(
+            taskReadModelRepository: nil,
+            manageProjectsUseCase: manageProjectsUseCase,
+            createTaskDefinitionUseCase: createTaskUseCase,
+            rescheduleTaskDefinitionUseCase: nil,
+            manageLifeAreasUseCase: nil,
+            manageSectionsUseCase: nil,
+            manageTagsUseCase: nil
+        )
+        viewModel.taskName = "Latency ordering"
+
+        var events: [String] = []
+        let optimisticDelivered = expectation(description: "optimistic delivered")
+        let commitCompletion = expectation(description: "commit completion")
+
+        let observer = NotificationCenter.default.addObserver(
+            forName: .taskCreationOptimistic,
+            object: nil,
+            queue: .main
+        ) { _ in
+            events.append("optimistic")
+            optimisticDelivered.fulfill()
+        }
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        let submission = viewModel.submitTask(
+            onAccepted: { _ in
+                events.append("accepted")
+            },
+            completion: { result in
+                if case .success = result {
+                    events.append("commit")
+                } else {
+                    events.append("commit_failure")
+                }
+                commitCompletion.fulfill()
+            }
+        )
+        events.append("returned")
+
+        XCTAssertNotNil(submission)
+        XCTAssertEqual(Array(events.prefix(2)), ["accepted", "returned"])
+        XCTAssertTrue(viewModel.isSubmitting, "submitTask should return before create commit finishes")
+        XCTAssertFalse(viewModel.isTaskCreated)
+        XCTAssertNil(viewModel.lastCreatedTaskID)
+
+        wait(for: [optimisticDelivered], timeout: 1.0)
+        XCTAssertLessThan(indexOf("accepted", in: events), indexOf("optimistic", in: events))
+
+        deferredRepository.completePendingCreateSuccess()
+        wait(for: [commitCompletion], timeout: 1.0)
+
+        XCTAssertLessThan(indexOf("returned", in: events), indexOf("commit", in: events))
+        XCTAssertFalse(viewModel.isSubmitting)
+        XCTAssertTrue(viewModel.isTaskCreated)
+        XCTAssertNotNil(viewModel.lastCreatedTaskID)
+    }
+
+    private func indexOf(_ event: String, in events: [String]) -> Int {
+        events.firstIndex(of: event) ?? .max
+    }
+}
+
+final class HomeViewModelOptimisticCreateNotificationTests: XCTestCase {
+    func testOptimisticCreateThenCommitDoesNotDuplicateVisibleRow() {
+        let suiteName = "HomeViewModelOptimisticCreateNotificationTests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create isolated UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let inbox = Project.createInbox()
+        let seedTask = Task(
+            id: UUID(),
+            projectID: inbox.id,
+            name: "Seed",
+            priority: .low,
+            dueDate: Date(),
+            project: inbox.name
+        )
+        let taskRepository = MockTaskRepository(seed: seedTask)
+        let projectRepository = MockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueueFlush()
+
+        let createdID = UUID()
+        let createdTask = makeVisibleTaskDefinition(id: createdID, title: "Optimistic Create")
+        let startedAt = Date()
+
+        NotificationCenter.default.post(
+            name: .taskCreationOptimistic,
+            object: createdTask,
+            userInfo: ["startedAt": startedAt]
+        )
+        waitForMainQueueFlush(seconds: 0.05)
+        XCTAssertEqual(visibleTaskOccurrenceCount(in: viewModel, taskID: createdID), 1)
+
+        NotificationCenter.default.post(name: NSNotification.Name("TaskCreated"), object: createdTask)
+        waitForMainQueueFlush(seconds: 0.05)
+        XCTAssertEqual(visibleTaskOccurrenceCount(in: viewModel, taskID: createdID), 1)
+    }
+
+    func testOptimisticCreateRollbackRemovesVisibleRow() {
+        let suiteName = "HomeViewModelOptimisticRollbackTests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create isolated UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let inbox = Project.createInbox()
+        let seedTask = Task(
+            id: UUID(),
+            projectID: inbox.id,
+            name: "Seed",
+            priority: .low,
+            dueDate: Date(),
+            project: inbox.name
+        )
+        let taskRepository = MockTaskRepository(seed: seedTask)
+        let projectRepository = MockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueueFlush()
+
+        let provisional = makeVisibleTaskDefinition(id: UUID(), title: "Will Roll Back")
+        NotificationCenter.default.post(
+            name: .taskCreationOptimistic,
+            object: provisional,
+            userInfo: ["startedAt": Date()]
+        )
+        waitForMainQueueFlush(seconds: 0.05)
+        XCTAssertEqual(visibleTaskOccurrenceCount(in: viewModel, taskID: provisional.id), 1)
+
+        NotificationCenter.default.post(name: .taskCreationRollback, object: provisional)
+        waitForMainQueueFlush(seconds: 0.05)
+        XCTAssertEqual(visibleTaskOccurrenceCount(in: viewModel, taskID: provisional.id), 0)
+    }
+
+    private func visibleTaskOccurrenceCount(in viewModel: HomeViewModel, taskID: UUID) -> Int {
+        (viewModel.morningTasks + viewModel.eveningTasks + viewModel.overdueTasks + viewModel.upcomingTasks)
+            .filter { $0.id == taskID }
+            .count
+    }
+
+    private func makeVisibleTaskDefinition(id: UUID, title: String) -> TaskDefinition {
+        let dueDate = Calendar.current.date(byAdding: .hour, value: 2, to: Date()) ?? Date()
+        return TaskDefinition(
+            id: id,
+            projectID: ProjectConstants.inboxProjectID,
+            projectName: ProjectConstants.inboxProjectName,
+            title: title,
+            priority: .high,
+            type: .morning,
+            dueDate: dueDate,
+            isComplete: false,
+            dateAdded: Date(),
+            isEveningTask: false,
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+    }
+
+    private func waitForMainQueueFlush(seconds: TimeInterval = 0.15) {
+        let expectation = expectation(description: "MainQueueFlush")
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: max(3.0, seconds + 2.5))
     }
 }
 
@@ -1571,6 +1831,37 @@ private final class NoopTaskDefinitionRepository: TaskDefinitionRepositoryProtoc
     }
     func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
     func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+}
+
+private final class DeferredCreateTaskDefinitionRepository: TaskDefinitionRepositoryProtocol {
+    private var pendingCreateRequest: CreateTaskDefinitionRequest?
+    private var pendingCreateCompletion: ((Result<TaskDefinition, Error>) -> Void)?
+
+    func fetchAll(completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchAll(query: TaskDefinitionQuery?, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchTaskDefinition(id: UUID, completion: @escaping (Result<TaskDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func create(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        completion(.success(task))
+    }
+
+    func create(request: CreateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        pendingCreateRequest = request
+        pendingCreateCompletion = completion
+    }
+
+    func update(_ task: TaskDefinition, completion: @escaping (Result<TaskDefinition, Error>) -> Void) { completion(.success(task)) }
+    func update(request: UpdateTaskDefinitionRequest, completion: @escaping (Result<TaskDefinition, Error>) -> Void) {
+        completion(.failure(NSError(domain: "DeferredCreateTaskDefinitionRepository", code: 1)))
+    }
+    func fetchChildren(parentTaskID: UUID, completion: @escaping (Result<[TaskDefinition], Error>) -> Void) { completion(.success([])) }
+    func delete(id: UUID, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+
+    func completePendingCreateSuccess() {
+        guard let request = pendingCreateRequest, let completion = pendingCreateCompletion else { return }
+        pendingCreateRequest = nil
+        pendingCreateCompletion = nil
+        completion(.success(request.toTaskDefinition(projectName: request.projectName)))
+    }
 }
 
 private final class NoopExternalSyncRepository: ExternalSyncRepositoryProtocol {
@@ -1656,6 +1947,10 @@ private final class MockTaskRepository: LegacyTaskRepositoryShim, TaskReadModelR
             limit: query.limit,
             offset: query.offset
         )))
+    }
+
+    func fetchLatestTaskUpdatedAt(completion: @escaping (Result<Date?, Error>) -> Void) {
+        completion(.success(readStoredTask().updatedAt))
     }
 
     func fetchProjectTaskCounts(

@@ -37,7 +37,7 @@ public struct AddTaskSheetView: View {
         .presentationDetents([.medium, .large], selection: $selectedDetent)
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(24)
-        .interactiveDismissDisabled(viewModel.hasUnsavedChanges)
+        .interactiveDismissDisabled(viewModel.hasUnsavedChanges && !viewModel.isSubmitting)
         .confirmationDialog(
             "Discard changes?",
             isPresented: $showDiscardConfirmation,
@@ -68,25 +68,41 @@ public struct AddTaskSheetView: View {
     /// Executes handleCreate.
     private func handleCreate() {
         guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
-        viewModel.createTask()
-
-        // Observe success
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            if viewModel.isTaskCreated {
+        let tapAt = Date()
+        _ = viewModel.submitTask(
+            onAccepted: { _ in
+                let dismissMS = Int(Date().timeIntervalSince(tapAt) * 1_000)
+                logWarning(
+                    event: "task_create_tap_to_dismiss_ms",
+                    message: "Add-task sheet dismissed after accepted submission",
+                    fields: [
+                        "duration_ms": String(dismissMS),
+                        "flow": "add_and_close"
+                    ]
+                )
                 TaskerFeedback.success()
                 dismiss()
+            },
+            completion: { result in
+                guard case .failure(let error) = result else { return }
+                logWarning(
+                    event: "task_create_submit_failed",
+                    message: "Add-task submission failed after sheet dismissal",
+                    fields: [
+                        "flow": "add_and_close",
+                        "error": error.localizedDescription
+                    ]
+                )
             }
-        }
+        )
     }
 
     /// Executes handleAddAnother.
     private func handleAddAnother() {
         guard viewModel.viewState.canSubmit, !viewModel.isLoading else { return }
-        viewModel.createTask()
-
-        // Observe success, then reset for another
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            if viewModel.isTaskCreated {
+        _ = viewModel.submitTask(completion: { result in
+            switch result {
+            case .success:
                 TaskerFeedback.success()
                 withAnimation(TaskerAnimation.snappy) {
                     successFlash = true
@@ -99,8 +115,17 @@ public struct AddTaskSheetView: View {
                         selectedDetent = .medium
                     }
                 }
+            case .failure(let error):
+                logWarning(
+                    event: "task_create_submit_failed",
+                    message: "Add-task submission failed in add-another flow",
+                    fields: [
+                        "flow": "add_another",
+                        "error": error.localizedDescription
+                    ]
+                )
             }
-        }
+        })
     }
 
     /// Executes expandToLarge.

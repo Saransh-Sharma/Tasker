@@ -184,7 +184,13 @@ class ThemeAndAppearanceTests: BaseUITest {
         XCTAssertTrue(settingsPage.verifyIsDisplayed(), "Settings should be displayed")
 
         XCTAssertTrue(app.staticTexts["Appearance"].exists, "Appearance section should exist")
-        XCTAssertTrue(app.staticTexts["Theme"].exists, "Theme row should exist")
+        let hasThemeRowText = app.staticTexts["Theme"].exists
+        let hasThemePicker = app.descendants(matching: .any).matching(
+            NSPredicate(
+                format: "identifier == 'settings.themePicker' OR identifier == 'settings.themePicker.collection' OR label == 'Harbor' OR label == 'Horizon' OR label == 'Canopy'"
+            )
+        ).firstMatch.exists
+        XCTAssertTrue(hasThemeRowText || hasThemePicker, "Theme controls should exist")
         XCTAssertTrue(app.staticTexts["LLM Settings"].exists, "LLM settings section should exist")
         XCTAssertTrue(app.staticTexts["Chats"].exists, "Chats setting should exist")
         XCTAssertTrue(app.staticTexts["Models"].exists, "Models setting should exist")
@@ -208,13 +214,16 @@ class ThemeAndAppearanceTests: BaseUITest {
         let searchView = app.otherElements["search.view"]
         XCTAssertTrue(searchView.waitForExistence(timeout: 3), "Search screen should be displayed")
         takeScreenshot(named: "theme_surface_search")
-        if app.buttons["Cancel"].firstMatch.exists {
-            app.buttons["Cancel"].firstMatch.tap()
+        if app.buttons["search.backButton"].firstMatch.exists {
+            app.buttons["search.backButton"].firstMatch.tap()
         } else if app.buttons["Back"].firstMatch.exists {
             app.buttons["Back"].firstMatch.tap()
-        } else {
+        } else if app.navigationBars.buttons.element(boundBy: 0).exists {
             app.navigationBars.buttons.element(boundBy: 0).tap()
+        } else if app.buttons["Cancel"].firstMatch.exists {
+            app.buttons["Cancel"].firstMatch.tap()
         }
+        XCTAssertTrue(homePage.verifyIsDisplayed(timeout: 3), "Home should be displayed after closing search")
 
         // Settings + LLM surfaces
         settingsPage = homePage.tapSettings()

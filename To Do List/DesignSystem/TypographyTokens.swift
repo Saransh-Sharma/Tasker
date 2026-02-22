@@ -66,29 +66,29 @@ public struct TaskerTypographyTokens: TaskerTokenGroup {
     private static func spec(for style: TaskerTextStyle) -> Spec {
         switch style {
         case .display:
-            return Spec(textStyle: .largeTitle, pointSize: 30, weight: .semibold, maximumPointSize: 40)
+            return Spec(textStyle: .largeTitle, pointSize: 34, weight: .semibold, maximumPointSize: 44)
         case .title1:
-            return Spec(textStyle: .title1, pointSize: 22, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .title1, pointSize: 28, weight: .semibold, maximumPointSize: nil)
         case .title2:
-            return Spec(textStyle: .title2, pointSize: 18, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .title2, pointSize: 22, weight: .semibold, maximumPointSize: nil)
         case .title3:
-            return Spec(textStyle: .headline, pointSize: 16, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .title3, pointSize: 18, weight: .semibold, maximumPointSize: nil)
         case .headline:
-            return Spec(textStyle: .headline, pointSize: 16, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .headline, pointSize: 17, weight: .semibold, maximumPointSize: nil)
         case .body:
-            return Spec(textStyle: .body, pointSize: 16, weight: .regular, maximumPointSize: nil)
+            return Spec(textStyle: .body, pointSize: 17, weight: .regular, maximumPointSize: nil)
         case .bodyEmphasis:
-            return Spec(textStyle: .body, pointSize: 16, weight: .medium, maximumPointSize: nil)
+            return Spec(textStyle: .body, pointSize: 17, weight: .medium, maximumPointSize: nil)
         case .callout:
-            return Spec(textStyle: .callout, pointSize: 14, weight: .regular, maximumPointSize: nil)
+            return Spec(textStyle: .callout, pointSize: 15, weight: .regular, maximumPointSize: nil)
         case .caption1:
-            return Spec(textStyle: .caption1, pointSize: 13, weight: .regular, maximumPointSize: nil)
+            return Spec(textStyle: .caption1, pointSize: 13, weight: .medium, maximumPointSize: nil)
         case .caption2:
             return Spec(textStyle: .caption2, pointSize: 12, weight: .regular, maximumPointSize: nil)
         case .button:
-            return Spec(textStyle: .body, pointSize: 16, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .body, pointSize: 17, weight: .semibold, maximumPointSize: nil)
         case .buttonSmall:
-            return Spec(textStyle: .callout, pointSize: 14, weight: .semibold, maximumPointSize: nil)
+            return Spec(textStyle: .callout, pointSize: 15, weight: .semibold, maximumPointSize: nil)
         }
     }
 

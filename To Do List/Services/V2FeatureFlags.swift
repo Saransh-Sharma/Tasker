@@ -38,6 +38,11 @@ public enum V2FeatureFlags {
         set { defaults.set(newValue, forKey: "feature.assistant.semantic_retrieval") }
     }
 
+    public static var assistantSemanticMutationIndexingEnabled: Bool {
+        get { defaults.object(forKey: "feature.assistant.semantic_mutation_indexing") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: "feature.assistant.semantic_mutation_indexing") }
+    }
+
     public static var assistantBriefEnabled: Bool {
         get { defaults.object(forKey: "feature.assistant.brief") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.assistant.brief") }

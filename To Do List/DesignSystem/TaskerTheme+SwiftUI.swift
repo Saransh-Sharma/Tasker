@@ -113,3 +113,18 @@ extension TaskerTheme {
         public static var pill: CGFloat { tokens.pill }
     }
 }
+
+// MARK: - TaskerTheme.Interaction
+
+extension TaskerTheme {
+    @MainActor
+    public enum Interaction {
+        private static var tokens: TaskerInteractionTokens {
+            TaskerThemeManager.shared.currentTheme.tokens.interaction
+        }
+
+        public static var minInteractiveSize: CGFloat { tokens.minInteractiveSize }
+        public static var focusRingWidth: CGFloat { tokens.focusRingWidth }
+        public static var focusRingOffset: CGFloat { tokens.focusRingOffset }
+    }
+}

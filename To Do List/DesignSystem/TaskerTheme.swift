@@ -9,13 +9,26 @@ public struct TaskerThemeSwatch {
 
 public struct TaskerAccentTheme {
     public let name: String
+    public let subtitle: String
     public let accentBaseHex: String
+    public let accentPressedHex: String
+    public let accentWashHex: String
     public let secondaryBaseHex: String
 
     /// Initializes a new instance.
-    public init(name: String, accentBaseHex: String, secondaryBaseHex: String) {
+    public init(
+        name: String,
+        subtitle: String,
+        accentBaseHex: String,
+        accentPressedHex: String,
+        accentWashHex: String,
+        secondaryBaseHex: String
+    ) {
         self.name = name
+        self.subtitle = subtitle
         self.accentBaseHex = accentBaseHex
+        self.accentPressedHex = accentPressedHex
+        self.accentWashHex = accentWashHex
         self.secondaryBaseHex = secondaryBaseHex
     }
 }
@@ -66,19 +79,35 @@ public struct TaskerTheme: Equatable {
     public static let userDefaultsKey = "selectedThemeIndex"
 
     public static let accentThemes: [TaskerAccentTheme] = [
-        TaskerAccentTheme(name: "Royal Gold",  accentBaseHex: "#C49832", secondaryBaseHex: "#E8C868"),
-        TaskerAccentTheme(name: "Ruby",        accentBaseHex: "#C94444", secondaryBaseHex: "#E86868"),
-        TaskerAccentTheme(name: "Ice Crystal", accentBaseHex: "#78ACCA", secondaryBaseHex: "#A8D0EE"),
-        TaskerAccentTheme(name: "Sapphire",    accentBaseHex: "#5580C0", secondaryBaseHex: "#88B5E8"),
-        TaskerAccentTheme(name: "Emerald",     accentBaseHex: "#38A868", secondaryBaseHex: "#60D090"),
-        TaskerAccentTheme(name: "Topaz",       accentBaseHex: "#D0A830", secondaryBaseHex: "#F0D060"),
-        TaskerAccentTheme(name: "Aquamarine",  accentBaseHex: "#40A8C0", secondaryBaseHex: "#68CCE0"),
-        TaskerAccentTheme(name: "Rose Quartz", accentBaseHex: "#D05A78", secondaryBaseHex: "#E8A0B8"),
-        TaskerAccentTheme(name: "Amethyst",    accentBaseHex: "#A868C0", secondaryBaseHex: "#CC9EE0")
+        TaskerAccentTheme(
+            name: "Harbor",
+            subtitle: "Calm and trustworthy",
+            accentBaseHex: "#0D9488",
+            accentPressedHex: "#0F766E",
+            accentWashHex: "#CCFBF1",
+            secondaryBaseHex: "#14B8A6"
+        ),
+        TaskerAccentTheme(
+            name: "Horizon",
+            subtitle: "Focused and productive",
+            accentBaseHex: "#3B82F6",
+            accentPressedHex: "#2563EB",
+            accentWashHex: "#DBEAFE",
+            secondaryBaseHex: "#60A5FA"
+        ),
+        TaskerAccentTheme(
+            name: "Canopy",
+            subtitle: "Grounded and natural",
+            accentBaseHex: "#16A34A",
+            accentPressedHex: "#15803D",
+            accentWashHex: "#DCFCE7",
+            secondaryBaseHex: "#22C55E"
+        )
     ]
 
     static let legacyThemeCount = 28
-    static let legacyToCurrentIndexMap: [Int: Int] = [
+    static let v1ThemeCount = 9
+    static let legacyToV1IndexMap: [Int: Int] = [
         0: 0, 1: 1, 2: 2, 3: 3,
         4: 1, 5: 2, 6: 3,
         7: 4, 8: 4, 9: 4, 10: 4, 11: 4,
@@ -86,6 +115,17 @@ public struct TaskerTheme: Equatable {
         17: 6, 18: 6, 19: 6, 20: 6,
         21: 7, 22: 7, 23: 7,
         24: 8, 25: 8, 26: 8, 27: 8
+    ]
+    static let v1ToV2IndexMap: [Int: Int] = [
+        0: 0,
+        1: 1,
+        2: 0,
+        3: 1,
+        4: 2,
+        5: 0,
+        6: 0,
+        7: 1,
+        8: 1
     ]
 
     public let index: Int
@@ -108,11 +148,16 @@ public struct TaskerTheme: Equatable {
         self.secondaryRamp = secondaryRamp
 
         self.tokens = TaskerTokens(
-            color: TaskerColorTokens.make(accentRamp: primaryRamp, secondaryRamp: secondaryRamp),
+            color: TaskerColorTokens.make(accentTheme: accentTheme, accentRamp: primaryRamp, secondaryRamp: secondaryRamp),
             typography: TaskerTypographyTokens.makeDefault(),
             spacing: TaskerSpacingTokens.default,
             elevation: TaskerElevationTokens.default,
-            corner: TaskerCornerTokens.default
+            corner: TaskerCornerTokens.default,
+            interaction: TaskerInteractionTokens.default,
+            iconSize: TaskerIconSizeTokens.default,
+            motion: TaskerMotionTokens.default,
+            transition: TaskerTransitionTokens.default,
+            priorityIndicator: TaskerPriorityIndicatorTokens.default
         )
     }
 
@@ -129,10 +174,23 @@ public struct TaskerTheme: Equatable {
 
     /// Executes migrateLegacyIndex.
     static func migrateLegacyIndex(_ index: Int) -> Int {
-        if let migrated = legacyToCurrentIndexMap[index] {
+        let v1 = migrateLegacy28ToV1Index(index)
+        return migrateV1ToV2Index(v1)
+    }
+
+    static func migrateLegacy28ToV1Index(_ index: Int) -> Int {
+        if let migrated = legacyToV1IndexMap[index] {
             return migrated
         }
-        return clampIndex(index)
+        return max(0, min(v1ThemeCount - 1, index))
+    }
+
+    static func migrateV1ToV2Index(_ index: Int) -> Int {
+        if let migrated = v1ToV2IndexMap[index] {
+            return migrated
+        }
+        logWarning("theme_migration_v1_to_v2_unmapped_index \(index), defaulting to Harbor")
+        return 0
     }
 }
 
@@ -140,7 +198,7 @@ public struct TaskerTheme: Equatable {
 public final class TaskerThemeManager: ObservableObject {
     public static let shared = TaskerThemeManager()
     static let themeMigrationKey = "selectedThemeIndexMigrationVersion"
-    static let themeMigrationVersion = 1
+    static let themeMigrationVersion = 2
 
     @Published public private(set) var currentTheme: TaskerTheme
     private let userDefaults: UserDefaults
@@ -199,10 +257,20 @@ public final class TaskerThemeManager: ObservableObject {
         let migrationVersion = userDefaults.integer(forKey: themeMigrationKey)
 
         if migrationVersion < themeMigrationVersion {
-            let migrated = TaskerTheme.migrateLegacyIndex(persisted)
-            userDefaults.set(migrated, forKey: TaskerTheme.userDefaultsKey)
+            var migrated = persisted
+
+            if migrationVersion < 1 {
+                migrated = TaskerTheme.migrateLegacy28ToV1Index(migrated)
+            }
+
+            if migrationVersion < 2 {
+                migrated = TaskerTheme.migrateV1ToV2Index(migrated)
+            }
+
+            let clamped = TaskerTheme.clampIndex(migrated)
+            userDefaults.set(clamped, forKey: TaskerTheme.userDefaultsKey)
             userDefaults.set(themeMigrationVersion, forKey: themeMigrationKey)
-            return migrated
+            return clamped
         }
 
         return TaskerTheme.clampIndex(persisted)

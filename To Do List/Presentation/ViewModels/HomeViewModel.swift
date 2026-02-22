@@ -124,6 +124,14 @@ public final class HomeViewModel: ObservableObject {
     private static let pendingChatModeKey = "assistant.pending_chat_mode"
     private var topSuggestionsTask: Task<Void, Never>?
     private var topSuggestionsRequestToken = UUID()
+    private var optimisticCreateStartedAtByTaskID: [UUID: Date] = [:]
+    private var deferredCreateReconcileWorkItem: DispatchWorkItem?
+    private let deferredCreateReconcileDelaySeconds: TimeInterval = 0.30
+    private var pendingPostCreateScrollMetricStartedAt: Date?
+    private var pendingPostCreateScrollMetricTaskID: UUID?
+    private var pendingCreateLocalMaintenanceWorkItem: DispatchWorkItem?
+    private var pendingCreateLocalMaintenanceTasksByID: [UUID: TaskDefinition] = [:]
+    private var pendingCreateLocalMaintenanceRemovedTaskIDs: Set<UUID> = []
 
     // MARK: - Initialization
 
@@ -688,6 +696,25 @@ public final class HomeViewModel: ObservableObject {
         trackFeatureUsage(action: action, metadata: metadata)
     }
 
+    /// Tracks first post-create list scroll to capture perceived blocked-scroll window.
+    public func noteTaskListScrollInteraction() {
+        guard let startedAt = pendingPostCreateScrollMetricStartedAt else { return }
+        let durationMS = Int(Date().timeIntervalSince(startedAt) * 1_000)
+        logWarning(
+            event: "task_create_scroll_block_window_ms",
+            message: "Captured first list scroll after task create commit",
+            fields: [
+                "source": "home_list_scroll",
+                "was_optimistic": "true",
+                "reconcile_deferred": "true",
+                "duration_ms": String(durationMS),
+                "task_id": pendingPostCreateScrollMetricTaskID?.uuidString ?? "unknown"
+            ]
+        )
+        pendingPostCreateScrollMetricStartedAt = nil
+        pendingPostCreateScrollMetricTaskID = nil
+    }
+
     public var canUseManualFocusDrag: Bool {
         activeScope == .today
     }
@@ -1083,12 +1110,31 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes setupBindings.
     private func setupBindings() {
+        NotificationCenter.default.publisher(for: .taskCreationOptimistic)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                self?.handleOptimisticTaskCreation(notification)
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .taskCreationRollback)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                self?.handleOptimisticTaskRollback(notification)
+            }
+            .store(in: &cancellables)
+
         NotificationCenter.default.publisher(for: NSNotification.Name("TaskCreated"))
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.invalidateTaskCaches()
-                self?.reloadCurrentModeTasks()
-                self?.requestChartRefresh(reason: .created)
+            .sink { [weak self] notification in
+                guard let self else { return }
+                if let createdTask = notification.object as? TaskDefinition {
+                    let wasOptimistic = self.handleOptimisticTaskCommit(createdTask)
+                    self.reconcileAfterCreateEvent(taskID: createdTask.id, wasOptimistic: wasOptimistic)
+                } else {
+                    self.reconcileAfterCreateEvent(taskID: nil, wasOptimistic: false)
+                }
+                self.requestChartRefresh(reason: .created)
             }
             .store(in: &cancellables)
 
@@ -1137,9 +1183,482 @@ public final class HomeViewModel: ObservableObject {
 
                 let reasonRaw = notification.userInfo?["reason"] as? String
                 let reason = reasonRaw.flatMap(HomeTaskMutationEvent.init(rawValue:)) ?? .updated
+                if reason == .created, source == "createTaskDefinitionUseCase" {
+                    // TaskCreated notification is already the canonical create trigger.
+                    // Skipping this avoids duplicate reload work in the post-create critical window.
+                    return
+                }
                 self.handleExternalMutation(reason: reason, repostEvent: false)
             }
             .store(in: &cancellables)
+    }
+
+    /// Applies optimistic create rows immediately for fast add-task UX.
+    private func handleOptimisticTaskCreation(_ notification: Notification) {
+        guard let provisionalTask = notification.object as? TaskDefinition else { return }
+        let startedAt = (notification.userInfo?["startedAt"] as? Date) ?? Date()
+        optimisticCreateStartedAtByTaskID[provisionalTask.id] = startedAt
+
+        guard shouldRenderCreatedTaskImmediately(provisionalTask) else {
+            logWarning(
+                event: "task_create_filter_mismatch_suppressed",
+                message: "Optimistic task create suppressed due to current scope/filter",
+                fields: [
+                    "task_id": provisionalTask.id.uuidString,
+                    "quick_view": activeScope.quickView.rawValue
+                ]
+            )
+            return
+        }
+
+        _ = applyCreatedTaskLocally(
+            provisionalTask,
+            source: "optimistic",
+            deferMaintenance: true
+        )
+        let visibleMS = Int(Date().timeIntervalSince(startedAt) * 1_000)
+        logWarning(
+            event: "task_create_tap_to_visible_ms",
+            message: "Optimistic task became visible on home",
+            fields: [
+                "duration_ms": String(visibleMS),
+                "source": "optimistic"
+            ]
+        )
+    }
+
+    /// Reconciles optimistic rows with committed task payloads.
+    @discardableResult
+    private func handleOptimisticTaskCommit(_ createdTask: TaskDefinition) -> Bool {
+        let createStartedAt = optimisticCreateStartedAtByTaskID[createdTask.id]
+        let wasOptimistic = createStartedAt != nil
+
+        defer {
+            optimisticCreateStartedAtByTaskID.removeValue(forKey: createdTask.id)
+            if wasOptimistic {
+                pendingPostCreateScrollMetricStartedAt = Date()
+                pendingPostCreateScrollMetricTaskID = createdTask.id
+            }
+        }
+
+        guard shouldRenderCreatedTaskImmediately(createdTask) else {
+            return wasOptimistic
+        }
+
+        let becameVisible = applyCreatedTaskLocally(
+            createdTask,
+            source: "commit",
+            deferMaintenance: wasOptimistic
+        )
+        if becameVisible, let startedAt = createStartedAt {
+            let visibleMS = Int(Date().timeIntervalSince(startedAt) * 1_000)
+            logWarning(
+                event: "task_create_tap_to_visible_ms",
+                message: "Committed task became visible on home",
+                fields: [
+                    "duration_ms": String(visibleMS),
+                    "source": "commit"
+                ]
+            )
+        }
+        return wasOptimistic
+    }
+
+    /// Rolls back optimistic task rows on create failure.
+    private func handleOptimisticTaskRollback(_ notification: Notification) {
+        guard let task = notification.object as? TaskDefinition else { return }
+        optimisticCreateStartedAtByTaskID.removeValue(forKey: task.id)
+        if pendingPostCreateScrollMetricTaskID == task.id {
+            pendingPostCreateScrollMetricTaskID = nil
+            pendingPostCreateScrollMetricStartedAt = nil
+        }
+        removeCreatedTaskLocally(task, deferMaintenance: true)
+        logWarning(
+            event: "task_create_rollback_count",
+            message: "Optimistic task create rolled back",
+            fields: [
+                "task_id": task.id.uuidString
+            ]
+        )
+    }
+
+    /// Reconciles post-create state with deferred refresh when optimistic row already exists.
+    private func reconcileAfterCreateEvent(taskID: UUID?, wasOptimistic: Bool) {
+        if wasOptimistic {
+            scheduleDeferredCreateReconcile(taskID: taskID)
+        } else {
+            runImmediateCreateReconcile(taskID: taskID)
+        }
+    }
+
+    /// Schedules a debounced non-blocking reconcile pass after optimistic create commit.
+    private func scheduleDeferredCreateReconcile(taskID: UUID?) {
+        deferredCreateReconcileWorkItem?.cancel()
+        let scheduledAt = Date()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let durationMS = Int(Date().timeIntervalSince(scheduledAt) * 1_000)
+            logWarning(
+                event: "task_create_reconcile_deferred_ms",
+                message: "Running deferred post-create reconcile",
+                fields: [
+                    "source": "task_created_notification",
+                    "was_optimistic": "true",
+                    "reconcile_deferred": "true",
+                    "duration_ms": String(durationMS),
+                    "task_id": taskID?.uuidString ?? "unknown"
+                ]
+            )
+            self.invalidateTaskCaches()
+            self.reloadCurrentModeTasks(showLoading: false, source: "post_create_optimistic")
+        }
+
+        deferredCreateReconcileWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + deferredCreateReconcileDelaySeconds,
+            execute: workItem
+        )
+    }
+
+    /// Runs immediate non-blocking reconcile for non-optimistic create sources.
+    private func runImmediateCreateReconcile(taskID: UUID?) {
+        logWarning(
+            event: "task_create_reconcile_deferred_ms",
+            message: "Running immediate post-create reconcile",
+            fields: [
+                "source": "task_created_notification",
+                "was_optimistic": "false",
+                "reconcile_deferred": "false",
+                "duration_ms": "0",
+                "task_id": taskID?.uuidString ?? "unknown"
+            ]
+        )
+        invalidateTaskCaches()
+        reloadCurrentModeTasks(showLoading: false, source: "post_create_non_optimistic")
+    }
+
+    /// Checks whether a created task should be shown immediately in current scope/filter.
+    private func shouldRenderCreatedTaskImmediately(_ task: TaskDefinition) -> Bool {
+        guard !task.isComplete else { return false }
+        guard matchesProjectFacet(task) else { return false }
+        guard matchesAdvancedFacets(task) else { return false }
+        return matchesActiveScope(task)
+    }
+
+    /// Checks project facet match for immediate optimistic rendering.
+    private func matchesProjectFacet(_ task: TaskDefinition) -> Bool {
+        guard !activeFilterState.selectedProjectIDs.isEmpty else { return true }
+        return activeFilterState.selectedProjectIDSet.contains(task.projectID)
+    }
+
+    /// Checks advanced facet match for immediate optimistic rendering.
+    private func matchesAdvancedFacets(_ task: TaskDefinition) -> Bool {
+        guard let advanced = activeFilterState.advancedFilter, !advanced.isEmpty else {
+            return true
+        }
+
+        if !advanced.priorities.isEmpty && !advanced.priorities.contains(task.priority) {
+            return false
+        }
+        if !advanced.categories.isEmpty && !advanced.categories.contains(task.category) {
+            return false
+        }
+        if !advanced.contexts.isEmpty && !advanced.contexts.contains(task.context) {
+            return false
+        }
+        if !advanced.energyLevels.isEmpty && !advanced.energyLevels.contains(task.energy) {
+            return false
+        }
+
+        if let dateRange = advanced.dateRange {
+            guard let dueDate = task.dueDate else {
+                return !advanced.requireDueDate
+            }
+            if dueDate < dateRange.start || dueDate > dateRange.end {
+                return false
+            }
+        } else if advanced.requireDueDate && task.dueDate == nil {
+            return false
+        }
+
+        if !advanced.tags.isEmpty {
+            let requestedTagIDs = Set(
+                advanced.tags.compactMap { rawValue in
+                    UUID(uuidString: rawValue.trimmingCharacters(in: .whitespacesAndNewlines))
+                }
+            )
+            if requestedTagIDs.isEmpty {
+                return false
+            }
+            let taskTagIDs = Set(task.tagIDs)
+            switch advanced.tagMatchMode {
+            case .any:
+                if taskTagIDs.isDisjoint(with: requestedTagIDs) {
+                    return false
+                }
+            case .all:
+                if !requestedTagIDs.isSubset(of: taskTagIDs) {
+                    return false
+                }
+            }
+        }
+
+        if let hasEstimate = advanced.hasEstimate {
+            if hasEstimate && task.estimatedDuration == nil {
+                return false
+            }
+            if !hasEstimate && task.estimatedDuration != nil {
+                return false
+            }
+        }
+
+        if let hasDependencies = advanced.hasDependencies {
+            if hasDependencies && task.dependencies.isEmpty {
+                return false
+            }
+            if !hasDependencies && !task.dependencies.isEmpty {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    /// Checks current quick-view scope match for immediate optimistic rendering.
+    private func matchesActiveScope(_ task: TaskDefinition) -> Bool {
+        let calendar = Calendar.current
+        switch activeScope {
+        case .today:
+            return matchesTodayScope(task, anchorDate: Date())
+        case .customDate(let date):
+            return matchesTodayScope(task, anchorDate: date)
+        case .upcoming:
+            guard let dueDate = task.dueDate else { return false }
+            let startOfToday = calendar.startOfDay(for: Date())
+            let startOfNextDay = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday
+            let endOfWindow = calendar.date(byAdding: .day, value: 14, to: startOfToday) ?? startOfToday
+            return dueDate >= startOfNextDay && dueDate <= endOfWindow
+        case .done:
+            return false
+        case .morning:
+            return isMorningTaskHybrid(task)
+        case .evening:
+            return isEveningTaskHybrid(task)
+        }
+    }
+
+    /// Checks if a task belongs to the current "today" scope window.
+    private func matchesTodayScope(_ task: TaskDefinition, anchorDate: Date) -> Bool {
+        let calendar = Calendar.current
+        let startOfAnchorDay = calendar.startOfDay(for: anchorDate)
+        let startOfNextDay = calendar.date(byAdding: .day, value: 1, to: startOfAnchorDay) ?? startOfAnchorDay
+
+        guard let dueDate = task.dueDate else { return false }
+        let dueOnAnchorDay = dueDate >= startOfAnchorDay && dueDate < startOfNextDay
+        let overdue = dueDate < startOfAnchorDay
+        return dueOnAnchorDay || overdue
+    }
+
+    /// Inserts/updates created task in visible lists before background reconcile.
+    @discardableResult
+    private func applyCreatedTaskLocally(
+        _ task: TaskDefinition,
+        source: String,
+        deferMaintenance: Bool = false
+    ) -> Bool {
+        let localApplyStartedAt = Date()
+        let wasVisible = containsTaskInOpenProjections(id: task.id)
+
+        insertTaskIntoOpenProjection(task)
+        selectedProjectTasks = upsertingTaskInPlace(in: selectedProjectTasks, with: task)
+        if activeFilterState.quickView == .upcoming {
+            upcomingTasks = upsertingTaskPreservingSort(in: upcomingTasks, with: task)
+        }
+
+        if !wasVisible {
+            pointsPotential += task.priority.scorePoints
+            quickViewCounts[activeScope.quickView, default: 0] += 1
+        }
+
+        if deferMaintenance {
+            scheduleDeferredCreateLocalMaintenance(upserting: task, source: source)
+        } else {
+            updateTodaySnapshotForCreatedTask(task)
+            refreshFocusTasksFromCurrentState()
+        }
+        refreshProgressState()
+
+        let localApplyMS = Int(Date().timeIntervalSince(localApplyStartedAt) * 1_000)
+        logWarning(
+            event: "task_create_optimistic_local_apply_ms",
+            message: "Task create local apply completed",
+            fields: [
+                "task_id": task.id.uuidString,
+                "source": source,
+                "duration_ms": String(localApplyMS),
+                "deferred_maintenance": deferMaintenance ? "true" : "false"
+            ]
+        )
+
+        logWarning(
+            event: "task_create_visible_source",
+            message: "Task create rendered locally",
+            fields: [
+                "task_id": task.id.uuidString,
+                "source": source,
+                "was_visible": wasVisible ? "true" : "false"
+            ]
+        )
+
+        return !wasVisible
+    }
+
+    /// Removes optimistic row from visible lists when create fails.
+    private func removeCreatedTaskLocally(_ task: TaskDefinition, deferMaintenance: Bool = false) {
+        let wasVisible = containsTaskInOpenProjections(id: task.id)
+        removeTaskFromOpenProjections(id: task.id)
+        upcomingTasks = removingTask(id: task.id, from: upcomingTasks)
+        selectedProjectTasks = removingTask(id: task.id, from: selectedProjectTasks)
+
+        if wasVisible {
+            pointsPotential = max(0, pointsPotential - task.priority.scorePoints)
+            if let currentCount = quickViewCounts[activeScope.quickView] {
+                quickViewCounts[activeScope.quickView] = max(0, currentCount - 1)
+            }
+        }
+
+        if deferMaintenance {
+            scheduleDeferredCreateLocalMaintenance(removingTaskID: task.id, source: "rollback")
+        } else {
+            removeTaskFromTodaySnapshot(id: task.id)
+            removePinnedFocusTaskID(task.id)
+            refreshFocusTasksFromCurrentState()
+        }
+        refreshProgressState()
+    }
+
+    /// Coalesces heavy optimistic create maintenance onto the next main-queue turn.
+    private func scheduleDeferredCreateLocalMaintenance(
+        upserting task: TaskDefinition? = nil,
+        removingTaskID: UUID? = nil,
+        source: String
+    ) {
+        if let task {
+            pendingCreateLocalMaintenanceTasksByID[task.id] = task
+            pendingCreateLocalMaintenanceRemovedTaskIDs.remove(task.id)
+        }
+        if let removingTaskID {
+            pendingCreateLocalMaintenanceTasksByID.removeValue(forKey: removingTaskID)
+            pendingCreateLocalMaintenanceRemovedTaskIDs.insert(removingTaskID)
+        }
+
+        pendingCreateLocalMaintenanceWorkItem?.cancel()
+        let scheduledAt = Date()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingCreateLocalMaintenanceWorkItem = nil
+
+            let removedIDs = Array(self.pendingCreateLocalMaintenanceRemovedTaskIDs)
+            let upserts = Array(self.pendingCreateLocalMaintenanceTasksByID.values)
+            self.pendingCreateLocalMaintenanceRemovedTaskIDs.removeAll()
+            self.pendingCreateLocalMaintenanceTasksByID.removeAll()
+
+            guard removedIDs.isEmpty == false || upserts.isEmpty == false else { return }
+
+            for id in removedIDs {
+                self.removeTaskFromTodaySnapshot(id: id)
+                self.removePinnedFocusTaskID(id)
+            }
+            for task in upserts {
+                self.updateTodaySnapshotForCreatedTask(task)
+            }
+            self.refreshFocusTasksFromCurrentState()
+
+            let durationMS = Int(Date().timeIntervalSince(scheduledAt) * 1_000)
+            logWarning(
+                event: "task_create_optimistic_deferred_maintenance_ms",
+                message: "Optimistic create local maintenance completed",
+                fields: [
+                    "duration_ms": String(durationMS),
+                    "upsert_count": String(upserts.count),
+                    "remove_count": String(removedIDs.count),
+                    "source": source
+                ]
+            )
+        }
+
+        pendingCreateLocalMaintenanceWorkItem = workItem
+        DispatchQueue.main.async(execute: workItem)
+    }
+
+    /// Keeps legacy today snapshot coherent during optimistic task insertion.
+    private func updateTodaySnapshotForCreatedTask(_ task: TaskDefinition) {
+        guard var snapshot = todayTasks else { return }
+
+        var morning = snapshot.morningTasks
+        var evening = snapshot.eveningTasks
+        var overdue = snapshot.overdueTasks
+        let alreadyPresent =
+            morning.contains(where: { $0.id == task.id }) ||
+            evening.contains(where: { $0.id == task.id }) ||
+            overdue.contains(where: { $0.id == task.id }) ||
+            snapshot.completedTasks.contains(where: { $0.id == task.id })
+
+        if isTaskOverdue(task, relativeTo: activeScope) {
+            overdue = upsertingTaskPreservingSort(in: overdue, with: task)
+        } else if isEveningTaskHybrid(task) {
+            evening = upsertingTaskPreservingSort(in: evening, with: task)
+        } else {
+            morning = upsertingTaskPreservingSort(in: morning, with: task)
+        }
+
+        if !alreadyPresent {
+            snapshot = TodayTasksResult(
+                morningTasks: morning,
+                eveningTasks: evening,
+                overdueTasks: overdue,
+                completedTasks: snapshot.completedTasks,
+                totalCount: snapshot.totalCount + 1
+            )
+        } else {
+            snapshot = TodayTasksResult(
+                morningTasks: morning,
+                eveningTasks: evening,
+                overdueTasks: overdue,
+                completedTasks: snapshot.completedTasks,
+                totalCount: snapshot.totalCount
+            )
+        }
+        todayTasks = snapshot
+    }
+
+    /// Keeps legacy today snapshot coherent during optimistic rollback.
+    private func removeTaskFromTodaySnapshot(id: UUID) {
+        guard let snapshot = todayTasks else { return }
+        let hadTask =
+            snapshot.morningTasks.contains(where: { $0.id == id }) ||
+            snapshot.eveningTasks.contains(where: { $0.id == id }) ||
+            snapshot.overdueTasks.contains(where: { $0.id == id }) ||
+            snapshot.completedTasks.contains(where: { $0.id == id })
+
+        guard hadTask else { return }
+
+        todayTasks = TodayTasksResult(
+            morningTasks: removingTask(id: id, from: snapshot.morningTasks),
+            eveningTasks: removingTask(id: id, from: snapshot.eveningTasks),
+            overdueTasks: removingTask(id: id, from: snapshot.overdueTasks),
+            completedTasks: removingTask(id: id, from: snapshot.completedTasks),
+            totalCount: max(0, snapshot.totalCount - 1)
+        )
+    }
+
+    /// Checks if task currently exists in visible open projections.
+    private func containsTaskInOpenProjections(id: UUID) -> Bool {
+        morningTasks.contains(where: { $0.id == id }) ||
+            eveningTasks.contains(where: { $0.id == id }) ||
+            overdueTasks.contains(where: { $0.id == id }) ||
+            upcomingTasks.contains(where: { $0.id == id })
     }
 
     /// Executes setTaskCompletion.
@@ -1338,19 +1857,41 @@ public final class HomeViewModel: ObservableObject {
 
     /// Executes reloadCurrentModeTasks.
     private func reloadCurrentModeTasks() {
+        reloadCurrentModeTasks(showLoading: true, source: "standard")
+    }
+
+    /// Executes reloadCurrentModeTasks.
+    private func reloadCurrentModeTasks(showLoading: Bool, source: String) {
         let generation = nextReloadGeneration()
         loadProjects(generation: generation)
-        applyFocusFilters(trackAnalytics: false, generation: generation)
+        applyFocusFilters(trackAnalytics: false, generation: generation, showLoading: showLoading, source: source)
     }
 
     /// Executes applyFocusFilters.
     private func applyFocusFilters(trackAnalytics: Bool) {
-        applyFocusFilters(trackAnalytics: trackAnalytics, generation: nextReloadGeneration())
+        applyFocusFilters(trackAnalytics: trackAnalytics, generation: nextReloadGeneration(), showLoading: true, source: "standard")
     }
 
     /// Executes applyFocusFilters.
     private func applyFocusFilters(trackAnalytics: Bool, generation: Int) {
-        isLoading = true
+        applyFocusFilters(trackAnalytics: trackAnalytics, generation: generation, showLoading: true, source: "standard")
+    }
+
+    /// Executes applyFocusFilters.
+    private func applyFocusFilters(trackAnalytics: Bool, generation: Int, showLoading: Bool, source: String) {
+        if source == "post_create_optimistic" && showLoading {
+            logWarning(
+                event: "task_create_reconcile_loading_mismatch",
+                message: "Optimistic create reconcile attempted with loading spinner enabled",
+                fields: [
+                    "source": source,
+                    "show_loading": "true"
+                ]
+            )
+        }
+        if showLoading {
+            isLoading = true
+        }
         errorMessage = nil
 
         homeFilteredTasksUseCase.execute(state: activeFilterState, scope: activeScope) { [weak self] result in
@@ -1360,7 +1901,9 @@ public final class HomeViewModel: ObservableObject {
                     logDebug("HOME_ROW_STATE vm.drop_stale_reload source=focus generation=\(generation)")
                     return
                 }
-                self.isLoading = false
+                if showLoading {
+                    self.isLoading = false
+                }
 
                 switch result {
                 case .success(let filteredResult):
@@ -1686,6 +2229,16 @@ public final class HomeViewModel: ObservableObject {
         let lhsDate = lhs.dueDate ?? Date.distantFuture
         let rhsDate = rhs.dueDate ?? Date.distantFuture
         return lhsDate < rhsDate
+    }
+
+    /// Executes isMorningTaskHybrid.
+    private func isMorningTaskHybrid(_ task: TaskDefinition) -> Bool {
+        if task.type == .morning { return true }
+        if task.type == .evening { return false }
+
+        guard let dueDate = task.dueDate else { return false }
+        let hour = Calendar.current.component(.hour, from: dueDate)
+        return hour >= 4 && hour <= 11
     }
 
     /// Executes isEveningTaskHybrid.
@@ -2072,20 +2625,35 @@ public final class HomeViewModel: ObservableObject {
     /// Executes insertTaskIntoOpenProjection.
     private func insertTaskIntoOpenProjection(_ task: TaskDefinition) {
         if task.isOverdue {
-            overdueTasks = sortTasksByPriorityThenDue(upsertingTaskInPlace(in: overdueTasks, with: task))
+            overdueTasks = upsertingTaskPreservingSort(in: overdueTasks, with: task)
             return
         }
 
         if isEveningTaskHybrid(task) {
-            eveningTasks = sortTasksByPriorityThenDue(upsertingTaskInPlace(in: eveningTasks, with: task))
+            eveningTasks = upsertingTaskPreservingSort(in: eveningTasks, with: task)
         } else {
-            morningTasks = sortTasksByPriorityThenDue(upsertingTaskInPlace(in: morningTasks, with: task))
+            morningTasks = upsertingTaskPreservingSort(in: morningTasks, with: task)
         }
     }
 
     /// Executes sortTasksByPriorityThenDue.
     private func sortTasksByPriorityThenDue(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
         tasks.sorted(by: sortByPriorityThenDue)
+    }
+
+    /// Upserts a single task while preserving sort order without re-sorting the entire array.
+    private func upsertingTaskPreservingSort(in tasks: [TaskDefinition], with updatedTask: TaskDefinition) -> [TaskDefinition] {
+        var updated = tasks
+        if let existingIndex = updated.firstIndex(where: { $0.id == updatedTask.id }) {
+            updated.remove(at: existingIndex)
+        }
+
+        if let insertionIndex = updated.firstIndex(where: { sortByPriorityThenDue(lhs: updatedTask, rhs: $0) }) {
+            updated.insert(updatedTask, at: insertionIndex)
+        } else {
+            updated.append(updatedTask)
+        }
+        return updated
     }
 
     private enum InlineSection {

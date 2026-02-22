@@ -55,6 +55,13 @@ class LGTaskCard: LGBaseView {
         return view
     }()
 
+    private let priorityLabel: UILabel = {
+        let label = UILabel()
+        label.font = UIFont.tasker.caption2
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+
     private let projectLabel: UILabel = {
         let label = UILabel()
         label.font = UIFont.tasker.caption1
@@ -88,6 +95,7 @@ class LGTaskCard: LGBaseView {
         addSubview(titleLabel)
         addSubview(detailsLabel)
         addSubview(priorityIndicator)
+        addSubview(priorityLabel)
         addSubview(projectLabel)
         
         checkboxButton.addTarget(self, action: #selector(checkboxTapped), for: .touchUpInside)
@@ -107,9 +115,12 @@ class LGTaskCard: LGBaseView {
             priorityIndicator.centerYAnchor.constraint(equalTo: checkboxButton.centerYAnchor),
             priorityIndicator.widthAnchor.constraint(equalToConstant: spacing.s4),
             priorityIndicator.heightAnchor.constraint(equalToConstant: spacing.s24),
-            
+
+            priorityLabel.leadingAnchor.constraint(equalTo: priorityIndicator.trailingAnchor, constant: spacing.s8),
+            priorityLabel.centerYAnchor.constraint(equalTo: priorityIndicator.centerYAnchor),
+
             // Title
-            titleLabel.leadingAnchor.constraint(equalTo: priorityIndicator.trailingAnchor, constant: spacing.cardStackVertical),
+            titleLabel.leadingAnchor.constraint(equalTo: priorityLabel.trailingAnchor, constant: spacing.cardStackVertical),
             titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -spacing.cardPadding),
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: spacing.cardPadding),
             
@@ -155,6 +166,8 @@ class LGTaskCard: LGBaseView {
 
         // Priority indicator - using TaskPriorityConfig for consistency
         priorityIndicator.backgroundColor = task.priority.color
+        priorityLabel.text = "\(task.priority.code)"
+        priorityLabel.textColor = task.priority.color
 
         // Project
         projectLabel.text = task.projectName ?? "Inbox"

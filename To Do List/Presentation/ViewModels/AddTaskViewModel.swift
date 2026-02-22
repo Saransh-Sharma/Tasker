@@ -8,6 +8,26 @@
 import Foundation
 import Combine
 
+public struct TaskCreateSubmission {
+    public let requestID: UUID
+    public let request: CreateTaskDefinitionRequest
+    public let provisionalTask: TaskDefinition
+    public let startedAt: Date
+
+    /// Initializes a new instance.
+    public init(
+        requestID: UUID,
+        request: CreateTaskDefinitionRequest,
+        provisionalTask: TaskDefinition,
+        startedAt: Date
+    ) {
+        self.requestID = requestID
+        self.request = request
+        self.provisionalTask = provisionalTask
+        self.startedAt = startedAt
+    }
+}
+
 /// ViewModel for the Add Task screen
 /// Manages task creation state and validation
 public final class AddTaskViewModel: ObservableObject {
@@ -19,6 +39,7 @@ public final class AddTaskViewModel: ObservableObject {
     @Published public private(set) var sections: [TaskerProjectSection] = []
     @Published public private(set) var tags: [TagDefinition] = []
     @Published public private(set) var isLoading: Bool = false
+    @Published public private(set) var isSubmitting: Bool = false
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var isTaskCreated: Bool = false
     @Published public private(set) var validationErrors: [ValidationError] = []
@@ -127,62 +148,83 @@ public final class AddTaskViewModel: ObservableObject {
     
     /// Create a new task
     public func createTask() {
+        _ = submitTask()
+    }
+
+    /// Submit the current task form with deterministic lifecycle callbacks.
+    @discardableResult
+    public func submitTask(
+        onAccepted: ((TaskCreateSubmission) -> Void)? = nil,
+        completion: ((Result<TaskDefinition, Error>) -> Void)? = nil
+    ) -> TaskCreateSubmission? {
+        guard !isSubmitting else {
+            return nil
+        }
         guard validateInput() else {
-            return
+            return nil
         }
 
+        suggestionTask?.cancel()
+        suggestionRequestToken = UUID()
+        isGeneratingSuggestion = false
         isLoading = true
+        isSubmitting = true
+        isTaskCreated = false
         errorMessage = nil
-        
-        // Resolve projectID from selectedProject name
-        let projectID = projects.first(where: { $0.name == selectedProject })?.id ?? ProjectConstants.inboxProjectID
+        let submission = buildSubmission()
 
-        let resolvedTagIDs = selectedTagIDs.isEmpty ? parseImplicitTagIDs(from: taskName) : selectedTagIDs
-        let requestID = UUID()
-        let definitionRequest = CreateTaskDefinitionRequest(
-            id: requestID,
-            title: taskName,
-            details: taskDetails.isEmpty ? nil : taskDetails,
-            projectID: projectID,
-            projectName: selectedProject,
-            lifeAreaID: selectedLifeAreaID,
-            sectionID: selectedSectionID,
-            dueDate: dueDate,
-            parentTaskID: selectedParentTaskID,
-            tagIDs: Array(resolvedTagIDs),
-            dependencies: selectedDependencyTaskIDs.map { dependsOnTaskID in
-                TaskDependencyLinkDefinition(
-                    taskID: requestID,
-                    dependsOnTaskID: dependsOnTaskID,
-                    kind: selectedDependencyKind
-                )
-            },
-            priority: selectedPriority,
-            type: selectedType,
-            energy: selectedEnergy,
-            category: selectedCategory,
-            context: selectedContext,
-            isEveningTask: selectedType == .evening,
-            alertReminderTime: hasReminder ? reminderTime : nil,
-            estimatedDuration: estimatedDuration,
-            repeatPattern: repeatPattern
+        onAccepted?(submission)
+        TaskNotificationDispatcher.postAsyncOnMain(
+            name: .taskCreationOptimistic,
+            object: submission.provisionalTask,
+            userInfo: [
+                "requestID": submission.requestID.uuidString,
+                "taskID": submission.provisionalTask.id.uuidString,
+                "request": submission.request,
+                "startedAt": submission.startedAt
+            ]
         )
+        let submissionStart = submission.startedAt
 
         createTaskDefinitionUseCase.execute(
-            request: definitionRequest
+            request: submission.request
         ) { [weak self] result in
             DispatchQueue.main.async {
-                self?.isLoading = false
-
+                guard let self else { return }
+                self.isLoading = false
+                self.isSubmitting = false
                 switch result {
-                case .success:
-                    self?.lastCreatedTaskID = requestID
-                    self?.isTaskCreated = true
+                case .success(let createdTask):
+                    self.lastCreatedTaskID = createdTask.id
+                    self.isTaskCreated = true
+                    let visibleLatencyMS = Int(Date().timeIntervalSince(submissionStart) * 1_000)
+                    logWarning(
+                        event: "task_create_submission_success",
+                        message: "Add-task submission committed",
+                        fields: [
+                            "request_id": submission.requestID.uuidString,
+                            "duration_ms": String(visibleLatencyMS)
+                        ]
+                    )
+                    completion?(.success(createdTask))
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    self.errorMessage = error.localizedDescription
+                    TaskNotificationDispatcher.postOnMain(
+                        name: .taskCreationRollback,
+                        object: submission.provisionalTask,
+                        userInfo: [
+                            "requestID": submission.requestID.uuidString,
+                            "taskID": submission.provisionalTask.id.uuidString,
+                            "request": submission.request,
+                            "startedAt": submission.startedAt,
+                            "error": error.localizedDescription
+                        ]
+                    )
+                    completion?(.failure(error))
                 }
             }
         }
+        return submission
     }
 
     /// Executes parseImplicitTagIDs.
@@ -357,6 +399,8 @@ public final class AddTaskViewModel: ObservableObject {
         showAdvancedPlanning = false
         validationErrors = []
         errorMessage = nil
+        isSubmitting = false
+        isLoading = false
         isTaskCreated = false
         aiSuggestion = nil
         isGeneratingSuggestion = false
@@ -408,7 +452,52 @@ public final class AddTaskViewModel: ObservableObject {
     }
     
     // MARK: - Private Methods
-    
+
+    /// Builds a deterministic task-create submission payload.
+    private func buildSubmission() -> TaskCreateSubmission {
+        let projectID = projects.first(where: { $0.name == selectedProject })?.id ?? ProjectConstants.inboxProjectID
+        let resolvedTagIDs = selectedTagIDs.isEmpty ? parseImplicitTagIDs(from: taskName) : selectedTagIDs
+        let requestID = UUID()
+        let now = Date()
+        let request = CreateTaskDefinitionRequest(
+            id: requestID,
+            title: taskName,
+            details: taskDetails.isEmpty ? nil : taskDetails,
+            projectID: projectID,
+            projectName: selectedProject,
+            lifeAreaID: selectedLifeAreaID,
+            sectionID: selectedSectionID,
+            dueDate: dueDate,
+            parentTaskID: selectedParentTaskID,
+            tagIDs: Array(resolvedTagIDs),
+            dependencies: selectedDependencyTaskIDs.map { dependsOnTaskID in
+                TaskDependencyLinkDefinition(
+                    taskID: requestID,
+                    dependsOnTaskID: dependsOnTaskID,
+                    kind: selectedDependencyKind
+                )
+            },
+            priority: selectedPriority,
+            type: selectedType,
+            energy: selectedEnergy,
+            category: selectedCategory,
+            context: selectedContext,
+            isEveningTask: selectedType == .evening,
+            alertReminderTime: hasReminder ? reminderTime : nil,
+            estimatedDuration: estimatedDuration,
+            repeatPattern: repeatPattern,
+            createdAt: now
+        )
+
+        let provisionalTask = request.toTaskDefinition(projectName: selectedProject)
+        return TaskCreateSubmission(
+            requestID: requestID,
+            request: request,
+            provisionalTask: provisionalTask,
+            startedAt: now
+        )
+    }
+
     /// Executes setupValidation.
     private func setupValidation() {
         // Validate input whenever relevant fields change

@@ -16,6 +16,7 @@ final class UnifiedThemePickerCell: UITableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         configureCollectionView()
         selectionStyle = .none
+        accessibilityIdentifier = "settings.themePicker"
     }
 
     /// Initializes a new instance.
@@ -23,6 +24,7 @@ final class UnifiedThemePickerCell: UITableViewCell {
         super.init(coder: coder)
         configureCollectionView()
         selectionStyle = .none
+        accessibilityIdentifier = "settings.themePicker"
     }
 
     /// Executes configureCollectionView.
@@ -30,13 +32,14 @@ final class UnifiedThemePickerCell: UITableViewCell {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
         layout.minimumLineSpacing = TaskerUIKitTokens.spacing.s12
-        layout.sectionInset = UIEdgeInsets(top: 8, left: 20, bottom: 8, right: 20)
-        layout.itemSize = CGSize(width: 72, height: 112)
+        layout.sectionInset = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+        layout.itemSize = CGSize(width: 132, height: 118)
 
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.showsHorizontalScrollIndicator = false
         collectionView.backgroundColor = .clear
+        collectionView.accessibilityIdentifier = "settings.themePicker.collection"
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.register(GemThemeCardCell.self, forCellWithReuseIdentifier: GemThemeCardCell.reuseID)
@@ -47,7 +50,7 @@ final class UnifiedThemePickerCell: UITableViewCell {
             collectionView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             collectionView.topAnchor.constraint(equalTo: contentView.topAnchor),
             collectionView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            collectionView.heightAnchor.constraint(equalToConstant: 120)
+            collectionView.heightAnchor.constraint(equalToConstant: 126)
         ])
 
         TaskerThemeManager.shared.publisher
@@ -88,7 +91,7 @@ extension UnifiedThemePickerCell: UICollectionViewDataSource, UICollectionViewDe
 
     /// Executes collectionView.
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        CGSize(width: 72, height: 112)
+        CGSize(width: 132, height: 118)
     }
 }
 
@@ -99,6 +102,7 @@ private final class GemThemeCardCell: UICollectionViewCell {
 
     private let gradientContainer = UIView()
     private let nameLabel = UILabel()
+    private let subtitleLabel = UILabel()
     private let checkmarkView = UIImageView()
     private var gradientLayer: CAGradientLayer?
 
@@ -133,6 +137,7 @@ private final class GemThemeCardCell: UICollectionViewCell {
 
         // Theme name
         nameLabel.text = theme.accentTheme.name
+        subtitleLabel.text = theme.accentTheme.subtitle
 
         // Selection state
         checkmarkView.isHidden = !isSelected
@@ -187,26 +192,38 @@ private final class GemThemeCardCell: UICollectionViewCell {
 
         // Theme name label
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        nameLabel.font = TaskerUIKitTokens.typography.caption2
-        nameLabel.textColor = TaskerUIKitTokens.color.textSecondary
+        nameLabel.font = TaskerUIKitTokens.typography.callout
+        nameLabel.textColor = TaskerUIKitTokens.color.textPrimary
         nameLabel.textAlignment = .center
         nameLabel.numberOfLines = 1
         nameLabel.adjustsFontSizeToFitWidth = true
         nameLabel.minimumScaleFactor = 0.75
         contentView.addSubview(nameLabel)
 
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        subtitleLabel.font = TaskerUIKitTokens.typography.caption2
+        subtitleLabel.textColor = TaskerUIKitTokens.color.textTertiary
+        subtitleLabel.textAlignment = .center
+        subtitleLabel.numberOfLines = 2
+        contentView.addSubview(subtitleLabel)
+
         NSLayoutConstraint.activate([
             gradientContainer.topAnchor.constraint(equalTo: contentView.topAnchor),
             gradientContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             gradientContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            gradientContainer.heightAnchor.constraint(equalToConstant: 80),
+            gradientContainer.heightAnchor.constraint(equalToConstant: 62),
 
             checkmarkView.centerXAnchor.constraint(equalTo: gradientContainer.centerXAnchor),
             checkmarkView.centerYAnchor.constraint(equalTo: gradientContainer.centerYAnchor),
 
             nameLabel.topAnchor.constraint(equalTo: gradientContainer.bottomAnchor, constant: 4),
             nameLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor)
+            nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+
+            subtitleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 2),
+            subtitleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 4),
+            subtitleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -4),
+            subtitleLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor)
         ])
     }
 }

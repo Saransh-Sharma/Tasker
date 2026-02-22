@@ -16,7 +16,7 @@ final class TypographyTokenTests: XCTestCase {
         let typography = TaskerTheme(index: 0).tokens.typography
         let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
         let display = typography.dynamicFont(for: .display, compatibleWith: largeAccessibility)
-        XCTAssertLessThanOrEqual(display.pointSize, 40)
+        XCTAssertLessThanOrEqual(display.pointSize, 44)
         XCTAssertGreaterThanOrEqual(display.pointSize, 20)
     }
 
@@ -54,6 +54,6 @@ final class TypographyTokenTests: XCTestCase {
         let typography = TaskerTheme(index: 0).tokens.typography
         let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
         let scaledTitle1 = typography.dynamicFont(for: .title1, compatibleWith: largeAccessibility)
-        XCTAssertGreaterThan(scaledTitle1.pointSize, 22)
+        XCTAssertGreaterThan(scaledTitle1.pointSize, 28)
     }
 }

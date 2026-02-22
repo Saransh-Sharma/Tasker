@@ -31,7 +31,7 @@ public final class UpdateTaskDefinitionUseCase {
                             name: NSNotification.Name("TaskUpdated"),
                             object: updatedTask
                         )
-                        TaskNotificationDispatcher.postOnMain(
+                        TaskNotificationDispatcher.postAsyncOnMain(
                             name: .homeTaskMutation,
                             userInfo: [
                                 "reason": "updated",

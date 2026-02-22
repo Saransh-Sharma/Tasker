@@ -96,48 +96,51 @@ public struct TaskerColorTokens: TaskerTokenGroup {
     }
 
     /// Executes make.
-    public static func make(accentRamp: TaskerAccentRamp, secondaryRamp: TaskerAccentRamp) -> TaskerColorTokens {
-        // Premium "Obsidian & Gems" palette — warm undertones throughout
-        let bgCanvas = UIColor.taskerDynamic(lightHex: "#FAF8F5", darkHex: "#0F0E0C")
-        let bgElevated = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#171513")
+    public static func make(
+        accentTheme: TaskerAccentTheme,
+        accentRamp: TaskerAccentRamp,
+        secondaryRamp: TaskerAccentRamp
+    ) -> TaskerColorTokens {
+        // Calm Clarity cool-neutral palette.
+        let bgCanvas = UIColor.taskerDynamic(lightHex: "#F8FAFB", darkHex: "#0F1114")
+        let bgElevated = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#1A1D22")
 
-        let surfacePrimary = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#1D1B18")
-        let surfaceSecondary = UIColor.taskerDynamic(lightHex: "#F5F2EE", darkHex: "#252320")
-        let surfaceTertiary = UIColor.taskerDynamic(lightHex: "#EDE9E3", darkHex: "#2E2B27")
+        let surfacePrimary = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#22262D")
+        let surfaceSecondary = UIColor.taskerDynamic(lightHex: "#F1F4F7", darkHex: "#2A2E36")
+        let surfaceTertiary = UIColor.taskerDynamic(lightHex: "#E7EDF3", darkHex: "#323844")
 
-        let divider = UIColor.taskerDynamic(lightHex: "#E8E2DA", darkHex: "#363230")
-        let strokeHairline = UIColor.taskerDynamic(lightHex: "#E8E2DA", darkHex: "#363230")
-        let strokeStrong = UIColor.taskerDynamic(lightHex: "#D4CCC2", darkHex: "#443F3A")
+        let divider = UIColor.taskerDynamic(lightHex: "#D8E0E8", darkHex: "#3A414C")
+        let strokeHairline = UIColor.taskerDynamic(lightHex: "#D8E0E8", darkHex: "#3A414C")
+        let strokeStrong = UIColor.taskerDynamic(lightHex: "#BAC6D3", darkHex: "#505B69")
 
-        let textPrimary = UIColor.taskerDynamic(lightHex: "#1A1714", darkHex: "#F5F0EB")
-        let textSecondary = UIColor.taskerDynamic(lightHex: "#6B6259", darkHex: "#C9C1B8")
-        let textTertiary = UIColor.taskerDynamic(lightHex: "#9C9389", darkHex: "#9A9188")
-        let textQuaternary = UIColor.taskerDynamic(lightHex: "#B8B0A6", darkHex: "#6B6359")
-        let textInverse = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#0F0E0C")
+        let textPrimary = UIColor.taskerDynamic(lightHex: "#111827", darkHex: "#F1F4F7")
+        let textSecondary = UIColor.taskerDynamic(lightHex: "#4B5563", darkHex: "#9CA3AF")
+        let textTertiary = UIColor.taskerDynamic(lightHex: "#9CA3AF", darkHex: "#6B7280")
+        let textQuaternary = UIColor.taskerDynamic(lightHex: "#B6C0CC", darkHex: "#596373")
+        let textInverse = UIColor.taskerDynamic(lightHex: "#FFFFFF", darkHex: "#0F1114")
 
-        // Dark-luxe status colors
-        let statusSuccess = UIColor(taskerHex: "#38C8A8")  // Jade Teal
-        let statusWarning = UIColor(taskerHex: "#E8A040")  // Warm Amber
-        let statusDanger = UIColor(taskerHex: "#E05058")   // Scarlet Garnet
+        let statusSuccess = UIColor(taskerHex: "#16A34A")
+        let statusWarning = UIColor(taskerHex: "#D97706")
+        let statusDanger = UIColor(taskerHex: "#DC2626")
 
-        // "Four Jewels" priority colors — ~90° apart on color wheel for max distinction on tiny pie charts
-        let priorityMax  = UIColor(taskerHex: "#E05058")  // Scarlet Garnet  (~358°)
-        let priorityHigh = UIColor(taskerHex: "#7C68D8")  // Imperial Violet (~248°)
-        let priorityLow  = UIColor(taskerHex: "#38C8A8")  // Jade Teal       (~168°)
-        let priorityNone = UIColor(taskerHex: "#B09080")  // Antique Bronze  (~20°)
+        // Keep semantic distinctions obvious for charting + badges.
+        let priorityMax = UIColor(taskerHex: "#DC2626")
+        let priorityHigh = UIColor(taskerHex: "#EA580C")
+        let priorityLow = UIColor(taskerHex: "#2563EB")
+        let priorityNone = UIColor(taskerHex: "#6B7280")
 
         let overlayScrim = UIColor { traits in
             if traits.userInterfaceStyle == .dark {
-                return UIColor.black.withAlphaComponent(0.50)
+                return UIColor.black.withAlphaComponent(0.56)
             }
-            return UIColor(taskerHex: "#1A1714").withAlphaComponent(0.22)
+            return UIColor(taskerHex: "#111827").withAlphaComponent(0.20)
         }
 
         let overlayGlassTint = UIColor { traits in
             if traits.userInterfaceStyle == .dark {
-                return UIColor(taskerHex: "#171513").withAlphaComponent(0.72)
+                return UIColor(taskerHex: "#1A1D22").withAlphaComponent(0.74)
             }
-            return UIColor(taskerHex: "#FAF8F5").withAlphaComponent(0.74)
+            return UIColor(taskerHex: "#F8FAFB").withAlphaComponent(0.76)
         }
 
         return TaskerColorTokens(
@@ -155,9 +158,9 @@ public struct TaskerColorTokens: TaskerTokenGroup {
             textQuaternary: textQuaternary,
             textInverse: textInverse,
             accentPrimary: accentRamp.accent500,
-            accentPrimaryPressed: accentRamp.accent600,
+            accentPrimaryPressed: UIColor(taskerHex: accentTheme.accentPressedHex),
             accentMuted: accentRamp.accent100,
-            accentWash: accentRamp.accent050,
+            accentWash: UIColor(taskerHex: accentTheme.accentWashHex),
             accentOnPrimary: accentRamp.onAccent,
             accentRing: accentRamp.ring,
             accentSecondary: secondaryRamp.accent500,
@@ -171,7 +174,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
             overlayGlassTint: overlayGlassTint,
             taskCheckboxBorder: strokeStrong,
             taskCheckboxFill: accentRamp.accent500,
-            taskOverdue: UIColor(taskerHex: "#D43860"),  // Blood Rose — distinct from danger
+            taskOverdue: UIColor(taskerHex: "#BE123C"),
             chartPrimary: accentRamp.accent500,
             chartSecondary: secondaryRamp.accent500,
             chipSelectedBackground: accentRamp.accent500,
