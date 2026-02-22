@@ -58,7 +58,7 @@ struct ChatView: View {
     }
 
     private var promptPlaceholder: String {
-        isPlanMode ? "describe what you want to plan..." : "ask Eva anything..."
+        isPlanMode ? "Describe what you want to plan..." : "Ask Eva anything..."
     }
 
     var isPromptEmpty: Bool {
@@ -233,7 +233,7 @@ struct ChatView: View {
             }
         }
 
-        return "chat"
+        return "Chat"
     }
 
     // MARK: - Empty State
@@ -491,6 +491,7 @@ struct ChatView: View {
                 .onAppear {
                     applyPendingChatSeedIfNeeded()
                     refreshTaskSignalAndSuggestionChips()
+                    TaskSemanticIndexRefreshCoordinator.shared.requestRefreshIfStaleSoon(reason: "assistant_chat_open")
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .homeTaskMutation)) { _ in
                     refreshTaskSignalAndSuggestionChips()
@@ -877,16 +878,22 @@ struct ChatView: View {
         guard trimmed.isEmpty == false else { return "{}" }
 
         let tasks = await fetchTaskDefinitions()
-        let hitsResult = TaskSemanticRetrievalService.shared.searchDetailed(query: trimmed, topK: 6)
+        let shouldUseSemanticIndex = await TaskSemanticIndexRefreshCoordinator.shared.shouldUseSemanticIndex(
+            reason: "assistant_semantic_query"
+        )
+        let hitsResult = shouldUseSemanticIndex
+            ? TaskSemanticRetrievalService.shared.searchDetailed(query: trimmed, topK: 6)
+            : TaskSemanticSearchResult(hits: [], fallbackReason: "index_stale")
         let titleLookup = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0.title) })
 
         let payload: [String: Any] = [
             "query": trimmed,
             "fallback_reason": hitsResult.fallbackReason ?? "",
-            "top_k": hitsResult.hits.map { hit in
-                [
+            "top_k": hitsResult.hits.compactMap { hit -> [String: Any]? in
+                guard let title = titleLookup[hit.taskID] else { return nil }
+                return [
                     "task_id": hit.taskID.uuidString,
-                    "title": titleLookup[hit.taskID] ?? "",
+                    "title": title,
                     "score": hit.score
                 ]
             }

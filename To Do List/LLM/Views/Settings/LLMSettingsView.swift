@@ -25,7 +25,7 @@ struct LLMSettingsView: View {
                                     .font(.system(size: 14))
                                     .foregroundColor(Color.tasker(.accentPrimary))
                             }
-                            Text("chats")
+                            Text("Chats")
                                 .font(.tasker(.body))
                                 .foregroundColor(Color.tasker(.textPrimary))
                         }
@@ -41,7 +41,7 @@ struct LLMSettingsView: View {
                                     .font(.system(size: 14))
                                     .foregroundColor(Color.tasker(.accentPrimary))
                             }
-                            Text("models")
+                            Text("Models")
                                 .font(.tasker(.body))
                                 .foregroundColor(Color.tasker(.textPrimary))
                                 .fixedSize()
@@ -56,7 +56,7 @@ struct LLMSettingsView: View {
                 Section {} footer: {
                     HStack {
                         Spacer()
-                        Text("made with care by Saransh")
+                        Text("Made with care by Saransh")
                             .font(.tasker(.caption2))
                             .foregroundColor(Color.tasker(.textQuaternary))
                         Spacer()
@@ -67,7 +67,7 @@ struct LLMSettingsView: View {
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
             .background(Color.tasker(.bgCanvas))
-            .navigationTitle("settings")
+            .navigationTitle("Settings")
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -81,7 +81,7 @@ struct LLMSettingsView: View {
                     #elseif os(macOS)
                     ToolbarItem(placement: .destructiveAction) {
                         Button(action: { dismiss() }) {
-                            Text("close")
+                            Text(TaskerCopy.Actions.close)
                         }
                     }
                     #endif

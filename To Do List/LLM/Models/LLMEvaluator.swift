@@ -9,9 +9,22 @@ import MLXLLM
 import MLXLMCommon
 import MLXRandom
 import SwiftUI
+#if os(iOS) || os(visionOS)
+import UIKit
+#endif
 
-enum LLMEvaluatorError: Error {
+enum LLMEvaluatorError: Error, LocalizedError {
     case modelNotFound(String)
+    case localInferenceUnavailable(appState: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .modelNotFound(let modelName):
+            return "Model not found: \(modelName)"
+        case .localInferenceUnavailable(let appState):
+            return "Local AI is unavailable while the app is \(appState). Open Tasker and try again."
+        }
+    }
 }
 
 struct LLMGenerationProfile: Sendable {
@@ -98,6 +111,9 @@ class LLMEvaluator {
         }
     }
 
+    typealias InferenceAllowedProvider = @MainActor () -> Bool
+    typealias AppStateDescriptionProvider = @MainActor () -> String
+
     var running = false
     var cancelled = false
     var output = ""
@@ -111,6 +127,11 @@ class LLMEvaluator {
     var lastGenerationFirstTokenLatencyMS: Int?
     var lastGenerationProfileName: String?
     private let cancellationToken = CancellationToken()
+    private let inferenceAllowedProvider: InferenceAllowedProvider
+    private let appStateDescriptionProvider: AppStateDescriptionProvider
+    #if os(iOS) || os(visionOS)
+    private var lifecycleObserverTokens: [NSObjectProtocol] = []
+    #endif
 
     var elapsedTime: TimeInterval? {
         if let startTime {
@@ -123,6 +144,25 @@ class LLMEvaluator {
     private var startTime: Date?
 
     var modelConfiguration = ModelConfiguration.defaultModel
+
+    init(
+        inferenceAllowedProvider: @escaping InferenceAllowedProvider = { LLMEvaluator.defaultInferenceAllowed() },
+        appStateDescriptionProvider: @escaping AppStateDescriptionProvider = { LLMEvaluator.defaultAppStateDescription() }
+    ) {
+        self.inferenceAllowedProvider = inferenceAllowedProvider
+        self.appStateDescriptionProvider = appStateDescriptionProvider
+        registerLifecycleObservers()
+    }
+
+    deinit {
+        #if os(iOS) || os(visionOS)
+        MainActor.assumeIsolated {
+            for token in lifecycleObserverTokens {
+                NotificationCenter.default.removeObserver(token)
+            }
+        }
+        #endif
+    }
 
     /// Executes switchModel.
     func switchModel(_ model: ModelConfiguration) async {
@@ -142,6 +182,8 @@ class LLMEvaluator {
     /// load and return the model -- can be called multiple times, subsequent calls will
     /// just return the loaded model unless modelName changes.
     func load(modelName: String) async throws -> ModelContainer {
+        try ensureInferenceAllowed(operation: "load")
+
         guard let model = ModelConfiguration.getModelByName(modelName) else {
             throw LLMEvaluatorError.modelNotFound(modelName)
         }
@@ -173,6 +215,7 @@ class LLMEvaluator {
     @discardableResult
     func warmup(modelName: String) async -> Bool {
         do {
+            try ensureInferenceAllowed(operation: "warmup")
             _ = try await load(modelName: modelName)
             return true
         } catch {
@@ -233,7 +276,9 @@ class LLMEvaluator {
         }
 
         do {
+            try ensureInferenceAllowed(operation: "generate", surface: profile.name)
             let modelContainer = try await load(modelName: modelName)
+            try ensureInferenceAllowed(operation: "generate", surface: profile.name)
 
             // augment the prompt as needed
             let promptHistory = await modelContainer.configuration.getPromptHistory(thread: thread, systemPrompt: systemPrompt)
@@ -299,10 +344,76 @@ class LLMEvaluator {
             thinkingTime = elapsedTime
 
         } catch {
-            output = "Failed: \(error)"
+            if let localized = (error as? LocalizedError)?.errorDescription,
+               localized.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                output = "Failed: \(localized)"
+            } else {
+                output = "Failed: \(error)"
+            }
         }
 
         return output
+    }
+
+    private func ensureInferenceAllowed(operation: String, surface: String? = nil) throws {
+        guard inferenceAllowedProvider() else {
+            let appState = appStateDescriptionProvider()
+            var fields: [String: String] = [
+                "operation": operation,
+                "app_state": appState
+            ]
+            if let surface {
+                fields["surface"] = surface
+            }
+            logWarning(
+                event: "assistant_local_inference_blocked",
+                message: "Blocked local inference while app is not active",
+                fields: fields
+            )
+            throw LLMEvaluatorError.localInferenceUnavailable(appState: appState)
+        }
+    }
+
+    private func registerLifecycleObservers() {
+        #if os(iOS) || os(visionOS)
+        let center = NotificationCenter.default
+        let names: [Notification.Name] = [
+            UIApplication.willResignActiveNotification,
+            UIApplication.didEnterBackgroundNotification
+        ]
+        lifecycleObserverTokens = names.map { name in
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in
+                    self?.stop()
+                }
+            }
+        }
+        #endif
+    }
+
+    private static func defaultInferenceAllowed() -> Bool {
+        #if os(iOS) || os(visionOS)
+        UIApplication.shared.applicationState == .active
+        #else
+        true
+        #endif
+    }
+
+    private static func defaultAppStateDescription() -> String {
+        #if os(iOS) || os(visionOS)
+        switch UIApplication.shared.applicationState {
+        case .active:
+            return "active"
+        case .inactive:
+            return "inactive"
+        case .background:
+            return "background"
+        @unknown default:
+            return "unknown"
+        }
+        #else
+        return "active"
+        #endif
     }
 }
 

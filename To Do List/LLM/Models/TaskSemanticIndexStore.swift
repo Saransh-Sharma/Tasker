@@ -4,11 +4,13 @@ final class TaskSemanticIndexStore {
     private struct PersistedIndex: Codable {
         var vectorsByTaskID: [String: [Double]]
         var textByTaskID: [String: String]
+        var lastIndexedAt: Date?
         var updatedAt: Date
     }
 
     private var vectorsByTaskID: [UUID: [Double]] = [:]
     private var textByTaskID: [UUID: String] = [:]
+    private var lastIndexedAt: Date?
     private let lock = NSLock()
     private let fileURL: URL
 
@@ -24,6 +26,7 @@ final class TaskSemanticIndexStore {
         lock.lock()
         vectorsByTaskID[taskID] = vector
         textByTaskID[taskID] = text
+        lastIndexedAt = Date()
         lock.unlock()
     }
 
@@ -32,6 +35,7 @@ final class TaskSemanticIndexStore {
         lock.lock()
         vectorsByTaskID.removeValue(forKey: taskID)
         textByTaskID.removeValue(forKey: taskID)
+        lastIndexedAt = Date()
         lock.unlock()
     }
 
@@ -45,21 +49,31 @@ final class TaskSemanticIndexStore {
         }
     }
 
+    /// Executes metadataSnapshot.
+    func metadataSnapshot() -> (taskCount: Int, lastIndexedAt: Date?) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (vectorsByTaskID.count, lastIndexedAt)
+    }
+
     /// Executes replaceAll.
     func replaceAll(_ items: [(taskID: UUID, text: String, vector: [Double])]) {
         lock.lock()
         vectorsByTaskID = Dictionary(uniqueKeysWithValues: items.map { ($0.taskID, $0.vector) })
         textByTaskID = Dictionary(uniqueKeysWithValues: items.map { ($0.taskID, $0.text) })
+        lastIndexedAt = Date()
         lock.unlock()
     }
 
     /// Executes persist.
     func persist() {
         lock.lock()
+        let indexedAt = lastIndexedAt ?? Date()
         let payload = PersistedIndex(
             vectorsByTaskID: Dictionary(uniqueKeysWithValues: vectorsByTaskID.map { ($0.key.uuidString, $0.value) }),
             textByTaskID: Dictionary(uniqueKeysWithValues: textByTaskID.map { ($0.key.uuidString, $0.value) }),
-            updatedAt: Date()
+            lastIndexedAt: indexedAt,
+            updatedAt: indexedAt
         )
         lock.unlock()
 
@@ -92,6 +106,7 @@ final class TaskSemanticIndexStore {
                 partial[id] = pair.value
             }
         }
+        lastIndexedAt = payload.lastIndexedAt ?? payload.updatedAt
         lock.unlock()
     }
 }

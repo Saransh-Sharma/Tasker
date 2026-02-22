@@ -43,12 +43,12 @@ struct OnboardingView: View {
     @Binding var showOnboarding: Bool
 
     private let features: [(icon: String, title: String, subtitle: String)] = [
-        ("bolt.fill", "fast", "optimized for apple silicon"),
-        ("checkmark.shield.fill", "offline", "runs locally on your device"),
-        ("lightbulb.fill", "insightful", "smart productivity suggestions"),
-        ("brain.head.profile", "context-aware", "adapts to your current projects"),
-        ("battery.100.bolt", "battery-light", "tiny power footprint"),
-        ("list.bullet.rectangle.fill", "smart recap", "daily / weekly digests")
+        ("bolt.fill", "Fast", "Optimized for Apple silicon"),
+        ("checkmark.shield.fill", "Offline", "Runs locally on your device"),
+        ("lightbulb.fill", "Insightful", "Suggests clear next steps"),
+        ("brain.head.profile", "Context-aware", "Adapts to your projects"),
+        ("battery.100.bolt", "Battery-light", "Designed for low power use"),
+        ("list.bullet.rectangle.fill", "Smart recap", "Daily and weekly summaries")
     ]
 
     var body: some View {
@@ -72,10 +72,10 @@ struct OnboardingView: View {
                     }
 
                     VStack(spacing: TaskerTheme.Spacing.xs) {
-                        Text("I am Eva !")
+                        Text(TaskerCopy.Onboarding.welcomeTitle)
                             .font(.tasker(.display))
                             .foregroundColor(Color.tasker(.textPrimary))
-                        Text("your personal AI assistant")
+                        Text(TaskerCopy.Onboarding.welcomeSubtitle)
                             .font(.tasker(.callout))
                             .fontWeight(.semibold)
                             .foregroundColor(Color.tasker(.textSecondary))
@@ -103,7 +103,7 @@ struct OnboardingView: View {
 
                 // CTA button
                 NavigationLink(destination: OnboardingInstallModelView(showOnboarding: $showOnboarding)) {
-                    Text("get started")
+                    Text(TaskerCopy.Onboarding.getStarted)
                         #if os(iOS) || os(visionOS)
                         .font(.tasker(.button))
                         .foregroundColor(Color.tasker(.accentOnPrimary))
@@ -121,7 +121,7 @@ struct OnboardingView: View {
             }
             .padding()
             .background(Color.tasker(.bgCanvas))
-            .navigationTitle("welcome")
+            .navigationTitle("Welcome")
             .toolbar(.hidden)
         }
         .tint(Color.tasker(.accentPrimary))
