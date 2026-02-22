@@ -46,39 +46,27 @@ public final class CreateTaskDefinitionUseCase {
     ) {
         let normalizedRequest = normalizedRequestForSeriesRoot(request)
 
-        repository.create(request: normalizedRequest) { result in
+        repository.create(request: normalizedRequest) { [weak self] result in
+            guard let self else { return }
             switch result {
             case .success(let createdTask):
-                self.persistLinks(taskID: createdTask.id, request: normalizedRequest) { linkResult in
-                    switch linkResult {
-                    case .success:
-                        self.materializeRecurringTasksIfNeeded(
-                            rootTask: createdTask,
-                            rootRequest: normalizedRequest
-                        ) { recurrenceResult in
-                            switch recurrenceResult {
-                            case .success:
-                                TaskNotificationDispatcher.postOnMain(
-                                    name: NSNotification.Name("TaskCreated"),
-                                    object: createdTask
-                                )
-                                TaskNotificationDispatcher.postOnMain(
-                                    name: .homeTaskMutation,
-                                    userInfo: [
-                                        "reason": "created",
-                                        "source": "createTaskDefinitionUseCase",
-                                        "taskID": createdTask.id.uuidString
-                                    ]
-                                )
-                                completion(.success(createdTask))
-                            case .failure(let error):
-                                completion(.failure(error))
-                            }
-                        }
-                    case .failure(let error):
-                        completion(.failure(error))
-                    }
-                }
+                TaskNotificationDispatcher.postOnMain(
+                    name: NSNotification.Name("TaskCreated"),
+                    object: createdTask
+                )
+                TaskNotificationDispatcher.postOnMain(
+                    name: .homeTaskMutation,
+                    userInfo: [
+                        "reason": "created",
+                        "source": "createTaskDefinitionUseCase",
+                        "taskID": createdTask.id.uuidString
+                    ]
+                )
+                completion(.success(createdTask))
+                self.runPostCommitProcessing(
+                    rootTask: createdTask,
+                    rootRequest: normalizedRequest
+                )
             case .failure(let error):
                 completion(.failure(error))
             }
@@ -166,6 +154,45 @@ public final class CreateTaskDefinitionUseCase {
             daysAhead: 45,
             completion: completion
         )
+    }
+
+    /// Runs non-blocking post-commit processing so create UX is not held by secondary writes.
+    private func runPostCommitProcessing(
+        rootTask: TaskDefinition,
+        rootRequest: CreateTaskDefinitionRequest
+    ) {
+        persistLinks(taskID: rootTask.id, request: rootRequest) { [weak self] linkResult in
+            guard let self else { return }
+            switch linkResult {
+            case .success:
+                self.materializeRecurringTasksIfNeeded(
+                    rootTask: rootTask,
+                    rootRequest: rootRequest
+                ) { recurrenceResult in
+                    if case .failure(let error) = recurrenceResult {
+                        logWarning(
+                            event: "task_create_post_commit_failed",
+                            message: "Recurring series materialization failed after task commit",
+                            fields: [
+                                "task_id": rootTask.id.uuidString,
+                                "stage": "recurrence_materialization",
+                                "error": error.localizedDescription
+                            ]
+                        )
+                    }
+                }
+            case .failure(let error):
+                logWarning(
+                    event: "task_create_post_commit_failed",
+                    message: "Link persistence failed after task commit",
+                    fields: [
+                        "task_id": rootTask.id.uuidString,
+                        "stage": "persist_links",
+                        "error": error.localizedDescription
+                    ]
+                )
+            }
+        }
     }
 }
 
