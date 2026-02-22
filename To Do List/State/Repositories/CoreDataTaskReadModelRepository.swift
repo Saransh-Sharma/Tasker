@@ -60,6 +60,25 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
     }
 
+    /// Executes fetchLatestTaskUpdatedAt.
+    public func fetchLatestTaskUpdatedAt(completion: @escaping (Result<Date?, Error>) -> Void) {
+        context.perform {
+            do {
+                let request = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+                request.sortDescriptors = [
+                    NSSortDescriptor(key: "updatedAt", ascending: false),
+                    NSSortDescriptor(key: "taskID", ascending: true),
+                    NSSortDescriptor(key: "id", ascending: true)
+                ]
+                request.fetchLimit = 1
+                let latest = try self.context.fetch(request).first?.value(forKey: "updatedAt") as? Date
+                completion(.success(latest))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
     /// Executes fetchProjectTaskCounts.
     public func fetchProjectTaskCounts(
         includeCompleted: Bool,

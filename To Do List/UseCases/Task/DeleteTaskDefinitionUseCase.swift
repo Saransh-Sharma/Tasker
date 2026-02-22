@@ -130,7 +130,7 @@ public final class DeleteTaskDefinitionUseCase {
             if let recurrenceSeriesID {
                 userInfo["recurrenceSeriesID"] = recurrenceSeriesID.uuidString
             }
-            TaskNotificationDispatcher.postOnMain(
+            TaskNotificationDispatcher.postAsyncOnMain(
                 name: .homeTaskMutation,
                 userInfo: userInfo
             )

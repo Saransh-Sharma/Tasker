@@ -54,7 +54,7 @@ public final class CreateTaskDefinitionUseCase {
                     name: NSNotification.Name("TaskCreated"),
                     object: createdTask
                 )
-                TaskNotificationDispatcher.postOnMain(
+                TaskNotificationDispatcher.postAsyncOnMain(
                     name: .homeTaskMutation,
                     userInfo: [
                         "reason": "created",
