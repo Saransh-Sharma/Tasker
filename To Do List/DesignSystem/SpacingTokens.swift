@@ -36,12 +36,12 @@ public struct TaskerSpacingTokens: TaskerTokenGroup {
         s24: 24,
         s32: 32,
         s40: 40,
-        screenHorizontal: 20,
-        cardPadding: 20,
-        cardStackVertical: 12,
-        sectionGap: 28,
-        listRowVerticalPadding: 12,
-        titleSubtitleGap: 4,
+        screenHorizontal: 16,
+        cardPadding: 16,
+        cardStackVertical: 10,
+        sectionGap: 24,
+        listRowVerticalPadding: 10,
+        titleSubtitleGap: 6,
         chipSpacing: 8,
         buttonHeight: 48
     )
