@@ -194,7 +194,9 @@ class HomePage {
         if byOtherElementsQuery.exists {
             return byOtherElementsQuery
         }
-        return app.otherElements["home.navXpPieChart.container"]
+        return app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", "home.navXpPieChart.button")
+        ).firstMatch
     }
 
     var taskListScrollView: XCUIElement {
