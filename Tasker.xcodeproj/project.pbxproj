@@ -221,7 +221,6 @@
 		78824D15E7415EDE2EBA903C /* HabitRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEC0DEA9E6D02E2F991F11A1 /* HabitRepositoryProtocol.swift */; };
 		7AF141A3F67EC19A0961D749 /* TaskerTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6442D619CAA8E6CA77B46126 /* TaskerTokens.swift */; };
 		7F7D8255FC6F6CFC199943F2 /* LifeAreaMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECB224DA34C6529E86C73875 /* LifeAreaMapper.swift */; };
-		7F7EB577ACD1D0E4495420B5 /* HomeDateHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4644C4A070EF40143E3F1C1E /* HomeDateHeaderView.swift */; };
 		807193C0B8E13112AFE45388 /* Tombstone.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A9A2796943621DC66C4703 /* Tombstone.swift */; };
 		816AAF82986408293F48FA7C /* HabitDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A30108580052CC2C67D2058 /* HabitDefinition.swift */; };
 		83EFBFC4977B6ABACDEA352B /* CoreDataTaskDefinitionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4687654CCFC97DCFDA3E695 /* CoreDataTaskDefinitionRepository.swift */; };
@@ -385,7 +384,6 @@
 		42AD2BFC988A80E8157AD2B2 /* V2RepositoryProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/V2RepositoryProtocols.swift"; sourceTree = SOURCE_ROOT; };
 		432D634291596A7CBBCFA76B /* AssistantActionRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/AssistantActionRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
 		44CFBD9F581CA1A255A49A85 /* CoreDataHabitRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataHabitRepository.swift"; sourceTree = SOURCE_ROOT; };
-		4644C4A070EF40143E3F1C1E /* HomeDateHeaderView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeDateHeaderView.swift; sourceTree = "<group>"; };
 		4A2D7A866EC5053C29F5AE6F /* Pods_Tasker_TaskerUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Tasker_TaskerUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C109B5D75A091971FB33633 /* LinkExternalRemindersUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Sync/LinkExternalRemindersUseCase.swift"; sourceTree = SOURCE_ROOT; };
 		4FCA458CC709E59AA20BC5C8 /* NextActionModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NextActionModule.swift; sourceTree = "<group>"; };
@@ -1199,7 +1197,6 @@
 				F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */,
 				F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */,
 				F2A1B2C3D4E5F60718293A52 /* HomeGlassBottomBar.swift */,
-				4644C4A070EF40143E3F1C1E /* HomeDateHeaderView.swift */,
 				CFF019E9E7D0253D5D139030 /* WeeklyCalendarStripView.swift */,
 				4FCA458CC709E59AA20BC5C8 /* NextActionModule.swift */,
 				A10000000000000000000003 /* FocusZone.swift */,
@@ -2099,7 +2096,6 @@
 				F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */,
 				F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */,
 				F2A1B2C3D4E5F60718293B52 /* HomeGlassBottomBar.swift in Sources */,
-				7F7EB577ACD1D0E4495420B5 /* HomeDateHeaderView.swift in Sources */,
 				A81985165D5E3A5F46B5A5FB /* WeeklyCalendarStripView.swift in Sources */,
 				2F8630D073B32E4FB52F1DAE /* NextActionModule.swift in Sources */,
 				664B05702E92F236C487E1AD /* HomeQuickFilterDropdown.swift in Sources */,
