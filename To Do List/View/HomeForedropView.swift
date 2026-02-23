@@ -95,14 +95,6 @@ private struct AnalyticsSectionHeightPreferenceKey: PreferenceKey {
     }
 }
 
-private struct SettingsButtonFramePreferenceKey: PreferenceKey {
-    static var defaultValue: CGRect = .null
-    /// Executes reduce.
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
-}
-
 private extension TimeInterval {
     var nanoseconds: UInt64 {
         UInt64((self * 1_000_000_000).rounded())
@@ -138,7 +130,6 @@ struct HomeBackdropForedropRootView: View {
     let onOpenChat: () -> Void
     let onOpenProjectCreator: () -> Void
     let onOpenSettings: () -> Void
-    let onSettingsButtonFrameChange: (CGRect) -> Void
 
     @State private var foredropAnchor: ForedropAnchor = .collapsed
     @State private var calendarExpandedHeight: CGFloat = 0
@@ -308,9 +299,6 @@ struct HomeBackdropForedropRootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             triggerForedropHintIfEligible()
-        }
-        .onPreferenceChange(SettingsButtonFramePreferenceKey.self) { frame in
-            onSettingsButtonFrameChange(frame)
         }
         .onReceive(viewModel.$dailyScore.receive(on: RunLoop.main)) { newScore in
             handleDailyScoreUpdate(newScore)
@@ -635,14 +623,7 @@ struct HomeBackdropForedropRootView: View {
         .padding(.horizontal, spacing.s16)
         .padding(.top, spacing.s8)
         .padding(.bottom, spacing.s8)
-        .background(
-            Color.tasker.surfacePrimary
-                .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(Color.tasker.divider.opacity(0.5))
-                        .frame(height: 1)
-                }
-        )
+        .background(Color.tasker.surfacePrimary)
     }
 
     private var topSearchButton: some View {
@@ -678,14 +659,6 @@ struct HomeBackdropForedropRootView: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.settingsButton")
-        .background(
-            GeometryReader { proxy in
-                Color.clear.preference(
-                    key: SettingsButtonFramePreferenceKey.self,
-                    value: proxy.frame(in: .global)
-                )
-            }
-        )
     }
 
     private var hasActiveQuickFilters: Bool {
