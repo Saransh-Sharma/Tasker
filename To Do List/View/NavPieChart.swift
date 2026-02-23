@@ -16,58 +16,76 @@ public struct NavPieChart: View {
     let score: Int
     let maxScore: Int
     var onTap: (() -> Void)? = nil
+    var accessibilityContainerID: String? = nil
+    var accessibilityButtonID: String? = nil
 
     @State private var animatedProgress: Double = 0
 
     private let size: CGFloat = 32
+    private let minimumTapTargetSize: CGFloat = 44
     private let ringWidth: CGFloat = 4
     private let gapAngle: Double = 8 // degrees
 
     /// Initializes a new instance.
-    public init(score: Int, maxScore: Int = 18, onTap: (() -> Void)? = nil) {
+    public init(
+        score: Int,
+        maxScore: Int = 18,
+        accessibilityContainerID: String? = nil,
+        accessibilityButtonID: String? = nil,
+        onTap: (() -> Void)? = nil
+    ) {
         self.score = score
         self.maxScore = maxScore
+        self.accessibilityContainerID = accessibilityContainerID
+        self.accessibilityButtonID = accessibilityButtonID
         self.onTap = onTap
     }
 
     public var body: some View {
-        Button(action: { onTap?() }) {
-            ZStack {
-                // Background ring
-                Circle()
-                    .stroke(
-                        Color.tasker.surfaceSecondary,
-                        lineWidth: ringWidth
-                    )
+        ZStack {
+            Button(action: { onTap?() }) {
+                ZStack {
+                    // Background ring
+                    Circle()
+                        .stroke(
+                            Color.tasker.surfaceSecondary,
+                            lineWidth: ringWidth
+                        )
 
-                // Progress arc
-                Circle()
-                    .trim(from: 0, to: animatedProgress)
-                    .stroke(
-                        AngularGradient(
-                            colors: [
-                                Color.tasker.accentPrimary,
-                                Color.tasker.accentSecondary,
-                                Color.tasker.accentPrimary
-                            ],
-                            center: .center,
-                            startAngle: .degrees(-90),
-                            endAngle: .degrees(270)
-                        ),
-                        style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
-                    )
-                    .rotationEffect(.degrees(-90))
+                    // Progress arc
+                    Circle()
+                        .trim(from: 0, to: animatedProgress)
+                        .stroke(
+                            AngularGradient(
+                                colors: [
+                                    Color.tasker.accentPrimary,
+                                    Color.tasker.accentSecondary,
+                                    Color.tasker.accentPrimary
+                                ],
+                                center: .center,
+                                startAngle: .degrees(-90),
+                                endAngle: .degrees(270)
+                            ),
+                            style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
 
-                // Score text
-                Text("\(score)")
-                    .font(.system(size: scoreFont, weight: .semibold, design: .rounded))
-                    .foregroundColor(Color.tasker.accentPrimary)
+                    // Score text
+                    Text("\(score)")
+                        .font(.system(size: scoreFont, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color.tasker.accentPrimary)
+                }
+                .frame(width: size, height: size)
             }
-            .frame(width: size, height: size)
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .frame(width: minimumTapTargetSize, height: minimumTapTargetSize)
+            .optionalAccessibilityIdentifier(accessibilityButtonID)
+            .accessibilityLabel("Today's score: \(score) points")
+            .accessibilityHint("Double tap to view analytics")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Today's score: \(score) points")
-        .accessibilityHint("Double tap to view analytics")
+        .frame(width: minimumTapTargetSize, height: minimumTapTargetSize)
+        .optionalAccessibilityIdentifier(accessibilityContainerID)
         .onAppear {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.7).delay(0.2)) {
                 animatedProgress = progressRatio
@@ -86,6 +104,17 @@ public struct NavPieChart: View {
 
     private var scoreFont: CGFloat {
         score >= 10 ? 11 : 13
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func optionalAccessibilityIdentifier(_ identifier: String?) -> some View {
+        if let identifier {
+            accessibilityIdentifier(identifier)
+        } else {
+            self
+        }
     }
 }
 
