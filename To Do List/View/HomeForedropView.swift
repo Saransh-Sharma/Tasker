@@ -294,6 +294,9 @@ struct HomeBackdropForedropRootView: View {
         .overlay(alignment: .bottom) {
             homeBottomBar
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            topNavigationBar
+        }
         .onAppear {
             isHomeVisible = true
             lastDailyScore = viewModel.dailyScore
@@ -459,9 +462,11 @@ struct HomeBackdropForedropRootView: View {
             handleBar
                 .padding(.top, spacing.s8)
 
-            homeHeader
-                .padding(.horizontal, spacing.s16)
-                .padding(.top, spacing.s8)
+            if hasActiveQuickFilters {
+                quickFilterPills
+                    .padding(.horizontal, spacing.s16)
+                    .padding(.top, spacing.s8)
+            }
 
             if viewModel.canUseManualFocusDrag || !viewModel.focusTasks.isEmpty {
                 focusStrip
@@ -586,11 +591,9 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private var homeHeader: some View {
-        VStack(alignment: .leading, spacing: spacing.s8) {
-            // Navigation bar with quick view selector, pie chart, and actions
+    private var topNavigationBar: some View {
+        VStack(spacing: spacing.s8) {
             HStack(spacing: spacing.s8) {
-                // Quick view selector
                 QuickViewSelector(
                     selectedQuickView: Binding(
                         get: { viewModel.activeScope.quickView },
@@ -608,50 +611,86 @@ struct HomeBackdropForedropRootView: View {
                         viewModel.resetAllFilters()
                     }
                 )
+                .frame(minHeight: 44)
 
-                Spacer()
+                Spacer(minLength: spacing.s4)
 
-                // Score pie chart
                 NavPieChart(
                     score: viewModel.dailyScore,
-                    maxScore: viewModel.progressState.todayTargetXP
+                    maxScore: viewModel.progressState.todayTargetXP,
+                    accessibilityContainerID: "home.navXpPieChart",
+                    accessibilityButtonID: "home.navXpPieChart.button"
                 ) {
                     withAnimation(TaskerAnimation.snappy) {
                         foredropAnchor = foredropAnchor == .fullReveal ? .collapsed : .fullReveal
                     }
                 }
 
-                // Settings button
-                Button {
-                    onOpenSettings()
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color.tasker.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(Color.tasker.surfaceSecondary))
+                topSearchButton
+                topSettingsButton
+            }
+
+            cockpitStats
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.top, spacing.s8)
+        .padding(.bottom, spacing.s8)
+        .background(
+            Color.tasker.surfacePrimary
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color.tasker.divider.opacity(0.5))
+                        .frame(height: 1)
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("home.settingsButton")
+        )
+    }
+
+    private var topSearchButton: some View {
+        Button {
+            onOpenSearch()
+        } label: {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(Color.tasker.textSecondary)
+                .frame(width: 44, height: 44)
                 .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: SettingsButtonFramePreferenceKey.self,
-                            value: proxy.frame(in: .global)
-                        )
-                    }
+                    Circle()
+                        .fill(Color.tasker.surfaceSecondary)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.topNav.searchButton")
+        .accessibilityLabel("Search")
+    }
+
+    private var topSettingsButton: some View {
+        Button {
+            onOpenSettings()
+        } label: {
+            Image(systemName: "gearshape")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(Color.tasker.textSecondary)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle()
+                        .fill(Color.tasker.surfaceSecondary)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.settingsButton")
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(
+                    key: SettingsButtonFramePreferenceKey.self,
+                    value: proxy.frame(in: .global)
                 )
             }
+        )
+    }
 
-            // XP progress bar with streak
-            cockpitStats
-
-            // Quick filter pills (when filters are active)
-            if !viewModel.activeFilterState.selectedProjectIDs.isEmpty
-                || viewModel.activeFilterState.advancedFilter != nil {
-                quickFilterPills
-            }
-        }
+    private var hasActiveQuickFilters: Bool {
+        !viewModel.activeFilterState.selectedProjectIDs.isEmpty
+            || viewModel.activeFilterState.advancedFilter != nil
     }
 
     private var quickFilterPills: some View {
@@ -690,6 +729,7 @@ struct HomeBackdropForedropRootView: View {
         let progress = viewModel.progressState
         let denominator = max(1, progress.todayTargetXP)
         let progressRatio = min(1, Double(progress.earnedXP) / Double(denominator))
+        let completionPercent = Int((viewModel.completionRate * 100).rounded())
 
         return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: spacing.s8) {
@@ -697,13 +737,19 @@ struct HomeBackdropForedropRootView: View {
                     .font(.tasker(.bodyEmphasis))
                     .foregroundColor(Color.tasker.textPrimary)
                     .accessibilityIdentifier("home.dailyScoreLabel")
+                    .lineLimit(1)
 
-                Text("\u{00B7}")
-                    .foregroundColor(Color.tasker.textQuaternary)
+                Spacer(minLength: spacing.s8)
+
+                Text("\(completionPercent)% complete")
+                    .font(.tasker(.body))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .accessibilityIdentifier("home.completionRateLabel")
+                    .lineLimit(1)
 
                 streakIndicator(for: progress)
+                    .accessibilityIdentifier("home.streakLabel")
 
-                Spacer()
             }
 
             // Enhanced progress bar with gradient and glow
@@ -812,29 +858,6 @@ struct HomeBackdropForedropRootView: View {
             .padding(.top, 100)
             .allowsHitTesting(false)
     }
-
-    private var headerTitle: String {
-        switch viewModel.activeScope {
-        case .today:
-            return "Today"
-        case .customDate(let date):
-            return Self.dateFormatter.string(from: date)
-        case .upcoming:
-            return "Upcoming"
-        case .done:
-            return "Done"
-        case .morning:
-            return "Morning"
-        case .evening:
-            return "Evening"
-        }
-    }
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "E, MMM d"
-        return formatter
-    }()
 
     /// Executes trackTaskToggle.
     private func trackTaskToggle(_ task: TaskDefinition, source: String) {
