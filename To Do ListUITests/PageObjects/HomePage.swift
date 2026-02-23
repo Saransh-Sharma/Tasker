@@ -75,6 +75,10 @@ class HomePage {
         return app.buttons[AccessibilityIdentifiers.Home.searchButton]
     }
 
+    var topNavSearchButton: XCUIElement {
+        return app.buttons[AccessibilityIdentifiers.Home.topNavSearchButton]
+    }
+
     var chatButton: XCUIElement {
         return app.buttons[AccessibilityIdentifiers.Home.chatButton]
     }
@@ -168,7 +172,17 @@ class HomePage {
     }
 
     var navXpPieChart: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.navXpPieChart]
+        let byIdentifier = app.otherElements[AccessibilityIdentifiers.Home.navXpPieChart]
+        if byIdentifier.exists {
+            return byIdentifier
+        }
+
+        let predicate = NSPredicate(
+            format: "identifier == %@ OR identifier == %@",
+            AccessibilityIdentifiers.Home.navXpPieChart,
+            "home.navXpPieChart.button"
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     var navXpPieChartButton: XCUIElement {
@@ -353,6 +367,12 @@ class HomePage {
 
     /// Tap floating nav XP pie chart.
     func tapNavXpPieChart() {
+        let chartButton = navXpPieChartButton
+        if chartButton.waitForExistence(timeout: 3) {
+            chartButton.tap()
+            return
+        }
+
         let chart = navXpPieChart
         XCTAssertTrue(chart.waitForExistence(timeout: 5), "Navigation XP pie chart should exist before tapping")
         chart.tap()
@@ -820,7 +840,8 @@ class HomePage {
     /// Verify floating nav XP pie chart can be interacted with.
     @discardableResult
     func verifyNavXpPieChartIsHittable(file: StaticString = #file, line: UInt = #line) -> Bool {
-        let isHittable = navXpPieChart.isHittable
+        let chartButton = navXpPieChartButton
+        let isHittable = chartButton.exists ? chartButton.isHittable : navXpPieChart.isHittable
         if !isHittable {
             XCTFail("Navigation XP pie chart should be hittable", file: file, line: line)
         }
@@ -830,8 +851,8 @@ class HomePage {
     /// Verify floating nav XP pie chart size is approximately expected.
     @discardableResult
     func verifyNavXpPieChartSize(
-        expected: CGFloat = 136,
-        tolerance: CGFloat = 10,
+        expected: CGFloat = 44,
+        tolerance: CGFloat = 8,
         file: StaticString = #file,
         line: UInt = #line
     ) -> Bool {
