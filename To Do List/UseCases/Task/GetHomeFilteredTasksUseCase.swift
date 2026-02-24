@@ -482,6 +482,115 @@ public struct EvaTriageQueueItem: Codable, Equatable, Hashable {
     }
 }
 
+public enum EvaTriageScope: String, Codable, Equatable, Hashable, CaseIterable {
+    case visible
+    case allInbox
+}
+
+public enum EvaTriageDeferPreset: String, Codable, Equatable, Hashable, CaseIterable {
+    case tomorrow
+    case hours72
+    case weekendSaturday
+
+    /// Resolves deterministic defer date at local start-of-day.
+    public func resolveDueDate(now: Date = Date(), calendar: Calendar = .current) -> Date {
+        let startOfToday = calendar.startOfDay(for: now)
+        switch self {
+        case .tomorrow:
+            return calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday
+        case .hours72:
+            let plus72 = calendar.date(byAdding: .hour, value: 72, to: now) ?? now
+            return calendar.startOfDay(for: plus72)
+        case .weekendSaturday:
+            let weekday = calendar.component(.weekday, from: startOfToday)
+            // Calendar weekday is 1=Sunday ... 7=Saturday.
+            let daysUntilSaturday = (7 - weekday + 7) % 7
+            let offset = daysUntilSaturday == 0 ? 7 : daysUntilSaturday
+            return calendar.date(byAdding: .day, value: offset, to: startOfToday) ?? startOfToday
+        }
+    }
+}
+
+public struct EvaTriageDecision: Codable, Equatable, Hashable {
+    public var selectedProjectID: UUID?
+    public var useSuggestedProject: Bool
+    public var selectedDueDate: Date?
+    public var clearDueDate: Bool
+    public var useSuggestedDue: Bool
+    public var selectedDurationSeconds: TimeInterval?
+    public var clearDuration: Bool
+    public var useSuggestedDuration: Bool
+    public var stateHint: String?
+    public var useSuggestedState: Bool
+    public var deferPreset: EvaTriageDeferPreset?
+
+    /// Initializes a new instance.
+    public init(
+        selectedProjectID: UUID? = nil,
+        useSuggestedProject: Bool = false,
+        selectedDueDate: Date? = nil,
+        clearDueDate: Bool = false,
+        useSuggestedDue: Bool = false,
+        selectedDurationSeconds: TimeInterval? = nil,
+        clearDuration: Bool = false,
+        useSuggestedDuration: Bool = false,
+        stateHint: String? = nil,
+        useSuggestedState: Bool = false,
+        deferPreset: EvaTriageDeferPreset? = nil
+    ) {
+        self.selectedProjectID = selectedProjectID
+        self.useSuggestedProject = useSuggestedProject
+        self.selectedDueDate = selectedDueDate
+        self.clearDueDate = clearDueDate
+        self.useSuggestedDue = useSuggestedDue
+        self.selectedDurationSeconds = selectedDurationSeconds
+        self.clearDuration = clearDuration
+        self.useSuggestedDuration = useSuggestedDuration
+        self.stateHint = stateHint
+        self.useSuggestedState = useSuggestedState
+        self.deferPreset = deferPreset
+    }
+}
+
+public enum EvaSplitCreateStatus: String, Codable, Equatable, Hashable {
+    case idle
+    case creating
+    case succeeded
+    case failed
+}
+
+public struct EvaSplitDraftChild: Codable, Equatable, Hashable {
+    public var title: String
+
+    /// Initializes a new instance.
+    public init(title: String) {
+        self.title = title
+    }
+}
+
+public struct EvaSplitDraft: Codable, Equatable, Hashable {
+    public var parentTaskID: UUID
+    public var children: [EvaSplitDraftChild]
+    public var childDuePreset: EvaTriageDeferPreset?
+    public var createStatus: EvaSplitCreateStatus
+    public var createdChildIDs: [UUID]
+
+    /// Initializes a new instance.
+    public init(
+        parentTaskID: UUID,
+        children: [EvaSplitDraftChild] = [],
+        childDuePreset: EvaTriageDeferPreset? = nil,
+        createStatus: EvaSplitCreateStatus = .idle,
+        createdChildIDs: [UUID] = []
+    ) {
+        self.parentTaskID = parentTaskID
+        self.children = children
+        self.childDuePreset = childDuePreset
+        self.createStatus = createStatus
+        self.createdChildIDs = createdChildIDs
+    }
+}
+
 public enum EvaRescueActionType: String, Codable, Equatable, Hashable {
     case doToday
     case move
@@ -863,6 +972,7 @@ public final class GetInboxTriageQueueUseCase {
             let projectSuggestion = suggestProject(for: task, allTasks: allTasks, projects: projects)
             let dueSuggestion = suggestDueBucket(for: task, now: now)
             let durationSuggestion = suggestDuration(for: task)
+            let stateSuggestion = suggestStateHint(for: task)
 
             let suggestion = EvaTriageSuggestion(
                 projectID: projectSuggestion.projectID,
@@ -871,7 +981,7 @@ public final class GetInboxTriageQueueUseCase {
                 dueConfidence: dueSuggestion.confidence,
                 durationSeconds: durationSuggestion.seconds,
                 durationConfidence: durationSuggestion.confidence,
-                stateHint: task.dependencies.isEmpty ? nil : "blocked"
+                stateHint: stateSuggestion
             )
             return EvaTriageQueueItem(task: task, suggestions: suggestion)
         }
@@ -904,16 +1014,29 @@ public final class GetInboxTriageQueueUseCase {
             }
         }
 
-        guard let top = scoreByProject.max(by: { $0.value < $1.value }) else {
-            return (nil, 0)
+        if let top = scoreByProject.max(by: { $0.value < $1.value }) {
+            let second = scoreByProject.filter { $0.key != top.key }.max(by: { $0.value < $1.value })?.value ?? 0
+            let margin = top.value - second
+            let confidence = min(0.95, max(0.30, 0.45 + (margin * 0.08)))
+            return (top.key, confidence)
         }
-        let second = scoreByProject.filter { $0.key != top.key }.max(by: { $0.value < $1.value })?.value ?? 0
-        let margin = top.value - second
-        let confidence = min(0.95, max(0.30, 0.45 + (margin * 0.08)))
-        return (top.key, confidence)
+
+        let recentTasks = allTasks
+            .filter { !$0.isComplete && $0.projectID != ProjectConstants.inboxProjectID }
+            .sorted { lhs, rhs in lhs.updatedAt > rhs.updatedAt }
+        if let fallbackProjectID = recentTasks.first?.projectID {
+            return (fallbackProjectID, 0.38)
+        }
+
+        if customProjects.count == 1, let only = customProjects.first {
+            return (only.id, 0.34)
+        }
+
+        return (nil, 0)
     }
 
     private func suggestDueBucket(for task: TaskDefinition, now: Date) -> (bucket: EvaDueBucket?, confidence: Double) {
+        let calendar = Calendar.current
         let text = (task.title + " " + (task.details ?? "")).lowercased()
         if text.contains("today") || text.contains("eod") {
             return (.today, 0.90)
@@ -928,11 +1051,34 @@ public final class GetInboxTriageQueueUseCase {
             return (.today, 0.62)
         }
 
-        let ageDays = max(0, Calendar.current.dateComponents([.day], from: task.createdAt, to: now).day ?? 0)
+        if let dueDate = task.dueDate {
+            let startOfToday = calendar.startOfDay(for: now)
+            if dueDate < startOfToday {
+                return (.today, 0.86)
+            }
+            if calendar.isDateInToday(dueDate) {
+                return (.today, 0.95)
+            }
+            if calendar.isDateInTomorrow(dueDate) {
+                return (.tomorrow, 0.95)
+            }
+            let withinWeek = calendar.date(byAdding: .day, value: 7, to: startOfToday) ?? startOfToday
+            if dueDate < withinWeek {
+                return (.thisWeek, 0.78)
+            }
+        }
+
+        let ageDays = max(0, calendar.dateComponents([.day], from: task.createdAt, to: now).day ?? 0)
+        if task.priority == .high || task.priority == .max {
+            return (.today, 0.56)
+        }
         if task.dueDate == nil && ageDays >= 7 {
             return (.thisWeek, 0.58)
         }
-        return (nil, 0)
+        if task.dueDate == nil && ageDays >= 2 {
+            return (.tomorrow, 0.42)
+        }
+        return (.thisWeek, 0.33)
     }
 
     private func suggestDuration(for task: TaskDefinition) -> (seconds: TimeInterval?, confidence: Double) {
@@ -943,7 +1089,24 @@ public final class GetInboxTriageQueueUseCase {
         for entry in Self.durationKeywordMap where entry.tokens.contains(where: { text.contains($0) }) {
             return (nearestDurationPreset(to: entry.seconds), 0.72)
         }
-        return (nil, 0)
+        if task.priority == .high || task.priority == .max {
+            return (30 * 60, 0.46)
+        }
+        if (task.details ?? "").count > 120 {
+            return (60 * 60, 0.44)
+        }
+        return (15 * 60, 0.34)
+    }
+
+    private func suggestStateHint(for task: TaskDefinition) -> String? {
+        if !task.dependencies.isEmpty {
+            return "blocked"
+        }
+        let text = (task.title + " " + (task.details ?? "")).lowercased()
+        if text.contains("waiting") || text.contains("awaiting") || text.contains("follow up") {
+            return "waiting"
+        }
+        return nil
     }
 
     private func tokenize(_ text: String) -> [String] {
@@ -1018,7 +1181,7 @@ public final class GetOverdueRescuePlanUseCase {
                     taskID: task.id,
                     action: .dropCandidate,
                     toDate: nil,
-                    reasons: ["Stale \(staleDays)d", "Consider Someday"],
+                    reasons: ["No updates for \(staleDays)d", "Overdue \(overdueDays)d"],
                     confidence: 0.60
                 ))
                 continue
@@ -1029,7 +1192,7 @@ public final class GetOverdueRescuePlanUseCase {
                     taskID: task.id,
                     action: .split,
                     toDate: nil,
-                    reasons: ["Blocked", "Needs manual split"],
+                    reasons: ["Blocked by dependencies", "Overdue \(overdueDays)d"],
                     confidence: 0.66
                 ))
                 continue
@@ -1049,7 +1212,7 @@ public final class GetOverdueRescuePlanUseCase {
                     taskID: task.id,
                     action: .move,
                     toDate: suggestedDate,
-                    reasons: ["Long task", "Reduce today load"],
+                    reasons: ["Long task", "Overdue \(overdueDays)d"],
                     confidence: 0.72
                 ))
             } else {
@@ -1058,7 +1221,7 @@ public final class GetOverdueRescuePlanUseCase {
                     taskID: task.id,
                     action: .move,
                     toDate: suggestedDate,
-                    reasons: ["Recover gradually"],
+                    reasons: ["Recover gradually", "Overdue \(overdueDays)d"],
                     confidence: 0.65
                 ))
             }
@@ -1085,6 +1248,31 @@ public final class GetOverdueRescuePlanUseCase {
             debtLevel = .medium
         } else {
             debtLevel = .low
+        }
+
+        doToday.sort { lhs, rhs in
+            if lhs.confidence != rhs.confidence {
+                return lhs.confidence > rhs.confidence
+            }
+            return lhs.taskID.uuidString < rhs.taskID.uuidString
+        }
+        move.sort { lhs, rhs in
+            if lhs.confidence != rhs.confidence {
+                return lhs.confidence > rhs.confidence
+            }
+            return lhs.taskID.uuidString < rhs.taskID.uuidString
+        }
+        split.sort { lhs, rhs in
+            if lhs.confidence != rhs.confidence {
+                return lhs.confidence > rhs.confidence
+            }
+            return lhs.taskID.uuidString < rhs.taskID.uuidString
+        }
+        drop.sort { lhs, rhs in
+            if lhs.confidence != rhs.confidence {
+                return lhs.confidence > rhs.confidence
+            }
+            return lhs.taskID.uuidString < rhs.taskID.uuidString
         }
 
         return EvaRescuePlan(
