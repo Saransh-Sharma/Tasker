@@ -14,6 +14,7 @@ import UIKit
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
+    private var chatPrewarmTask: Task<Void, Never>?
 
 
     /// Executes scene.
@@ -33,6 +34,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         switch rootMode {
         case .home:
+            _ = LLMRuntimeCoordinator.shared
             // Load HomeViewController from storyboard
             let storyboard = UIStoryboard(name: "Main", bundle: nil)
             guard let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController else {
@@ -78,12 +80,24 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidBecomeActive(_ scene: UIScene) {
         // Called when the scene has moved from an inactive state to an active state.
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
+        chatPrewarmTask?.cancel()
+        chatPrewarmTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 5_000_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            await LLMRuntimeCoordinator.shared.prewarmIfEligibleCurrentModel()
+        }
     }
 
     /// Executes sceneWillResignActive.
     func sceneWillResignActive(_ scene: UIScene) {
         // Called when the scene will move from an active state to an inactive state.
         // This may occur due to temporary interruptions (ex. an incoming phone call).
+        chatPrewarmTask?.cancel()
+        chatPrewarmTask = nil
     }
 
     /// Executes sceneWillEnterForeground.
@@ -97,6 +111,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called as the scene transitions from the foreground to the background.
         // Use this method to save data, release shared resources, and store enough scene-specific state information
         // to restore the scene back to its current state.
+        chatPrewarmTask?.cancel()
+        chatPrewarmTask = nil
     }
 
 
