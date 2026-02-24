@@ -48,7 +48,7 @@ public struct NavPieChart: View {
                     // Background ring
                     Circle()
                         .stroke(
-                            Color.tasker.surfaceSecondary,
+                            Color.tasker.accentSecondaryMuted,
                             lineWidth: ringWidth
                         )
 
@@ -154,7 +154,7 @@ public struct NavPieChartDetailed: View {
                 // Background ring
                 Circle()
                     .stroke(
-                        Color.tasker.surfaceSecondary,
+                        Color.tasker.accentSecondaryMuted,
                         lineWidth: ringWidth
                     )
 
