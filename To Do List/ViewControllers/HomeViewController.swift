@@ -142,6 +142,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         )
 
         let hostingController = UIHostingController(rootView: root)
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.isOpaque = false
         homeHostingController?.willMove(toParent: nil)
         homeHostingController?.view.removeFromSuperview()
         homeHostingController?.removeFromParent()

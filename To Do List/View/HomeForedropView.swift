@@ -182,39 +182,46 @@ struct HomeBackdropForedropRootView: View {
     var body: some View {
         ZStack {
             GeometryReader { geometry in
-                ZStack(alignment: .top) {
-                    backdropLayer(geometry: geometry)
+                VStack(spacing: 0) {
+                    topNavigationBar()
+                        .accessibilityIdentifier("home.topNav.container")
 
-                    foredropLayer(geometry: geometry)
-                        .offset(y: foredropOffset(for: geometry.size.height) + foredropHintOffset)
-                        .animation(TaskerAnimation.snappy, value: foredropAnchor)
-                        .animation(TaskerAnimation.snappy, value: calendarExpandedHeight)
-                        .animation(TaskerAnimation.snappy, value: analyticsSectionHeight)
-                        .gesture(
-                            DragGesture(minimumDistance: 8)
-                                .onEnded { value in
-                                    let threshold: CGFloat = 50
-                                    withAnimation(TaskerAnimation.snappy) {
-                                        if value.translation.height > threshold {
-                                            // Pull down: advance to next stop
-                                            switch foredropAnchor {
-                                            case .collapsed:  foredropAnchor = .midReveal
-                                            case .midReveal:  foredropAnchor = .fullReveal
-                                            case .fullReveal: break
-                                            }
-                                        } else if value.translation.height < -threshold {
-                                            // Pull up: retreat to previous stop
-                                            switch foredropAnchor {
-                                            case .collapsed:  break
-                                            case .midReveal:  foredropAnchor = .collapsed
-                                            case .fullReveal: foredropAnchor = .midReveal
+                    GeometryReader { contentGeometry in
+                        ZStack(alignment: .top) {
+                            backdropLayer(geometry: contentGeometry)
+
+                            foredropLayer(geometry: contentGeometry)
+                                .offset(y: foredropOffset(for: contentGeometry.size.height) + foredropHintOffset)
+                                .animation(TaskerAnimation.snappy, value: foredropAnchor)
+                                .animation(TaskerAnimation.snappy, value: calendarExpandedHeight)
+                                .animation(TaskerAnimation.snappy, value: analyticsSectionHeight)
+                                .gesture(
+                                    DragGesture(minimumDistance: 8)
+                                        .onEnded { value in
+                                            let threshold: CGFloat = 50
+                                            withAnimation(TaskerAnimation.snappy) {
+                                                if value.translation.height > threshold {
+                                                    // Pull down: advance to next stop
+                                                    switch foredropAnchor {
+                                                    case .collapsed:  foredropAnchor = .midReveal
+                                                    case .midReveal:  foredropAnchor = .fullReveal
+                                                    case .fullReveal: break
+                                                    }
+                                                } else if value.translation.height < -threshold {
+                                                    // Pull up: retreat to previous stop
+                                                    switch foredropAnchor {
+                                                    case .collapsed:  break
+                                                    case .midReveal:  foredropAnchor = .collapsed
+                                                    case .fullReveal: foredropAnchor = .midReveal
+                                                    }
+                                                }
                                             }
                                         }
-                                    }
-                                }
-                        )
+                                )
+                        }
+                    }
                 }
-                .background(Color.tasker.bgCanvas)
+                .background(Color.clear)
                 .sheet(isPresented: $showDatePicker) {
                     NavigationView {
                         VStack(spacing: spacing.s16) {
@@ -284,9 +291,6 @@ struct HomeBackdropForedropRootView: View {
         .accessibilityIdentifier("home.view")
         .overlay(alignment: .bottom) {
             homeBottomBar
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            topNavigationBar
         }
         .onAppear {
             isHomeVisible = true
@@ -438,7 +442,6 @@ struct HomeBackdropForedropRootView: View {
                         .opacity(foredropAnchor == .fullReveal ? 1 : 0.001)
                     }
                     .padding(.horizontal, spacing.s16)
-                    .padding(.top, spacing.s8)
                 }
             Spacer(minLength: 0)
         }
@@ -579,7 +582,7 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
-    private var topNavigationBar: some View {
+    private func topNavigationBar() -> some View {
         VStack(spacing: spacing.s8) {
             HStack(spacing: spacing.s8) {
                 QuickViewSelector(
@@ -621,9 +624,8 @@ struct HomeBackdropForedropRootView: View {
             cockpitStats
         }
         .padding(.horizontal, spacing.s16)
-        .padding(.top, spacing.s8)
+        .padding(.top, 0)
         .padding(.bottom, spacing.s8)
-        .background(Color.tasker.surfacePrimary)
     }
 
     private var topSearchButton: some View {
