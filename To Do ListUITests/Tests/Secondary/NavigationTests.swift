@@ -164,10 +164,13 @@ class NavigationTests: BaseUITest {
 
         homePage.taskListScrollView.swipeUp()
         homePage.taskListScrollView.swipeUp()
-        XCTAssertTrue(homePage.waitForBottomBarState("minimized"), "Bottom bar should minimize after downward scroll")
+        XCTAssertTrue(homePage.waitForBottomBarState("minimized", timeout: 2), "Bottom bar should minimize after downward scroll")
+
+        waitForAnimations(duration: 0.55)
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should auto-restore after scroll idle")
 
         homePage.taskListScrollView.swipeDown()
-        XCTAssertTrue(homePage.waitForBottomBarState("expanded"), "Bottom bar should expand after upward scroll")
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should expand after upward scroll")
     }
 
     // MARK: - Bonus: Navigation Stack - Settings → Projects → Back

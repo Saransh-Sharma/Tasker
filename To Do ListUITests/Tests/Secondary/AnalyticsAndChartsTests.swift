@@ -448,13 +448,11 @@ class AnalyticsAndChartsTests: BaseUITest {
 
         let scrollView = homePage.taskListScrollView
         scrollView.swipeUp()
-        waitForAnimations(duration: 0.5)
-        if !homePage.waitForBottomBarState("minimized", timeout: 2) {
+        if !homePage.waitForBottomBarState("minimized", timeout: 1.5) {
             scrollView.swipeUp()
-            waitForAnimations(duration: 0.5)
         }
 
-        XCTAssertTrue(homePage.waitForBottomBarState("minimized", timeout: 3), "Bottom bar should minimize on list scroll")
+        XCTAssertTrue(homePage.waitForBottomBarState("minimized", timeout: 2), "Bottom bar should minimize on list scroll")
         XCTAssertGreaterThan(
             homePage.taskListScrollView.frame.maxY,
             homePage.bottomBar.frame.minY,
@@ -465,6 +463,9 @@ class AnalyticsAndChartsTests: BaseUITest {
             homePage.view.frame.maxY - 2,
             "Foredrop surface should reach screen edge when minimized"
         )
+
+        waitForAnimations(duration: 0.55)
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should auto-restore after scroll idle")
 
         scrollView.swipeDown()
         waitForAnimations(duration: 0.5)
@@ -512,6 +513,42 @@ class AnalyticsAndChartsTests: BaseUITest {
         XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Collapse hint should return foredrop to default state")
         XCTAssertFalse(homePage.foredropCollapseHint.waitForExistence(timeout: 1), "Collapse hint should hide after collapsing")
         takeScreenshot(named: "home_foredrop_full_reveal_collapse_hint")
+    }
+
+    // MARK: - Test 60K: FAB Remains Visible While Cluster Hides/Reveals
+
+    func testBottomBarFabRemainsVisibleWhenClusterHidesAndAutoReveals() throws {
+        XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be visible")
+        XCTAssertTrue(homePage.bottomBar.waitForExistence(timeout: 3), "Bottom bar should exist")
+        XCTAssertTrue(homePage.addTaskButton.waitForExistence(timeout: 3), "FAB should exist")
+
+        for index in 1...8 {
+            let addTaskPage = homePage.tapAddTask()
+            addTaskPage.createTask(title: "FAB Stability \(index)", priority: .low, taskType: .morning)
+            _ = homePage.waitForTask(withTitle: "FAB Stability \(index)", timeout: 5)
+        }
+
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Bottom bar should start expanded")
+        XCTAssertTrue(homePage.addTaskButton.isHittable, "FAB should start hittable")
+
+        let scrollView = homePage.taskListScrollView
+        scrollView.swipeUp()
+        if !homePage.waitForBottomBarState("minimized", timeout: 1.5) {
+            scrollView.swipeUp()
+        }
+
+        XCTAssertTrue(homePage.waitForBottomBarState("minimized", timeout: 2), "Cluster should hide while scrolling down")
+        XCTAssertTrue(homePage.addTaskButton.exists, "FAB should remain visible in hierarchy")
+        XCTAssertTrue(homePage.addTaskButton.isHittable, "FAB should remain hittable while cluster is hidden")
+
+        waitForAnimations(duration: 0.55)
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Cluster should reappear after idle stop")
+        XCTAssertTrue(homePage.addTaskButton.isHittable, "FAB should remain hittable after idle reveal")
+
+        scrollView.swipeUp()
+        _ = homePage.waitForBottomBarState("minimized", timeout: 2)
+        scrollView.swipeDown()
+        XCTAssertTrue(homePage.waitForBottomBarState("expanded", timeout: 2), "Cluster should reappear on upward scroll")
     }
 
     // MARK: - Test 61: Analytics Streak Display
