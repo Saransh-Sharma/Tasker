@@ -14,6 +14,9 @@ import SwiftUI
 public struct FocusZone: View {
     let tasks: [TaskDefinition]
     let canDrag: Bool
+    let insightForTaskID: (UUID) -> EvaFocusTaskInsight?
+    let onShuffle: () -> Void
+    let onWhy: () -> Void
     let onTaskTap: (TaskDefinition) -> Void
     let onToggleComplete: (TaskDefinition) -> Void
     let onTaskDragStarted: (TaskDefinition) -> Void
@@ -23,12 +26,14 @@ public struct FocusZone: View {
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
-    private var themeColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
 
     /// Initializes a new instance.
     public init(
         tasks: [TaskDefinition],
         canDrag: Bool,
+        insightForTaskID: @escaping (UUID) -> EvaFocusTaskInsight? = { _ in nil },
+        onShuffle: @escaping () -> Void = {},
+        onWhy: @escaping () -> Void = {},
         onTaskTap: @escaping (TaskDefinition) -> Void,
         onToggleComplete: @escaping (TaskDefinition) -> Void,
         onTaskDragStarted: @escaping (TaskDefinition) -> Void,
@@ -36,6 +41,9 @@ public struct FocusZone: View {
     ) {
         self.tasks = tasks
         self.canDrag = canDrag
+        self.insightForTaskID = insightForTaskID
+        self.onShuffle = onShuffle
+        self.onWhy = onWhy
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
         self.onTaskDragStarted = onTaskDragStarted
@@ -90,41 +98,64 @@ public struct FocusZone: View {
 
     private var focusHeader: some View {
         HStack(spacing: spacing.s8) {
-            // Flame icon with animation
-            Image(systemName: "flame.fill")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color.tasker.accentSecondary)
-                .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !tasks.isEmpty)
+            Button(action: onWhy) {
+                HStack(spacing: spacing.s8) {
+                    // Flame icon with animation
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color.tasker.accentSecondary)
+                        .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !tasks.isEmpty)
 
-            // Title
-            Text("FOCUS NOW")
-                .font(.tasker(.caption1))
-                .fontWeight(.semibold)
-                .foregroundColor(Color.tasker.accentSecondary)
+                    // Title
+                    Text("FOCUS NOW")
+                        .font(.tasker(.caption1))
+                        .fontWeight(.semibold)
+                        .foregroundColor(Color.tasker.accentSecondary)
 
-            // Count badge
-            if !tasks.isEmpty {
-                Text("\(tasks.count)")
-                    .font(.tasker(.caption2))
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.tasker.accentOnPrimary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(Color.tasker.accentSecondary)
-                    )
+                    // Count badge
+                    if !tasks.isEmpty {
+                        Text("\(tasks.count)")
+                            .font(.tasker(.caption2))
+                            .fontWeight(.medium)
+                            .foregroundColor(Color.tasker.accentOnPrimary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color.tasker.accentSecondary)
+                            )
+                    }
+                }
+                .frame(minHeight: 44, alignment: .leading)
             }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("home.focus.titleTap")
+            .accessibilityHint("Opens why Eva picked these tasks")
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Empty state hint
-            if tasks.isEmpty && canDrag {
+            if !tasks.isEmpty {
+                actionButton(title: "Shuffle", action: onShuffle, accessibilityID: "home.focus.shuffle")
+            } else if canDrag {
                 Text("Drag tasks here")
                     .font(.tasker(.caption2))
                     .foregroundColor(Color.tasker.textQuaternary)
             }
         }
+    }
+
+    private func actionButton(title: String, action: @escaping () -> Void, accessibilityID: String) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.tasker(.caption2))
+                .foregroundColor(Color.tasker.accentSecondary)
+                .padding(.horizontal, 8)
+                .frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .accessibilityIdentifier(accessibilityID)
     }
 
     // MARK: - Empty State
@@ -157,6 +188,7 @@ public struct FocusZone: View {
 
                 FocusZoneRow(
                     task: task,
+                    insight: insightForTaskID(task.id),
                     canDrag: canDrag,
                     onTap: { onTaskTap(task) },
                     onToggleComplete: { onToggleComplete(task) },
@@ -174,6 +206,7 @@ public struct FocusZone: View {
 /// Compact row for focus zone tasks.
 private struct FocusZoneRow: View {
     let task: TaskDefinition
+    let insight: EvaFocusTaskInsight?
     let canDrag: Bool
     let onTap: () -> Void
     let onToggleComplete: () -> Void
@@ -181,6 +214,9 @@ private struct FocusZoneRow: View {
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var displayModel: TaskRowDisplayModel { TaskRowDisplayModel.from(task: task, showTypeBadge: false) }
+    private var rationaleBadge: String? {
+        insight?.badge ?? insight?.rationale.first?.label
+    }
 
     var body: some View {
         HStack(spacing: spacing.s8) {
@@ -196,8 +232,19 @@ private struct FocusZoneRow: View {
 
             Spacer(minLength: 0)
 
-            // Urgency indicator
-            if let urgencyLabel = displayModel.urgencyLabel {
+            if let rationaleBadge, !rationaleBadge.isEmpty {
+                Text(rationaleBadge)
+                    .font(.tasker(.caption2))
+                    .fontWeight(.medium)
+                    .foregroundColor(focusUrgencyColor(for: rationaleBadge))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(focusUrgencyColor(for: rationaleBadge).opacity(0.15))
+                    )
+                    .fixedSize()
+            } else if let urgencyLabel = displayModel.urgencyLabel {
                 Text(urgencyLabel)
                     .font(.tasker(.caption2))
                     .fontWeight(.medium)
@@ -211,22 +258,6 @@ private struct FocusZoneRow: View {
                     .fixedSize()
             }
 
-            // XP badge
-            Text("+\(displayModel.xpValue)")
-                .font(.tasker(.caption2))
-                .fontWeight(task.priority == .max || task.priority == .high ? .bold : .medium)
-                .foregroundColor(task.priority == .max || task.priority == .high ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
-                )
-                .overlay(
-                    Capsule()
-                        .stroke(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary.opacity(0.3) : .clear, lineWidth: 1)
-                )
-                .fixedSize()
         }
         .padding(.vertical, 6)
         .padding(.horizontal, spacing.s4)
@@ -234,7 +265,7 @@ private struct FocusZoneRow: View {
         .contentShape(Rectangle())
         .opacity(task.isComplete ? 0.5 : 1.0)
         .onTapGesture { onTap() }
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
             Button {
                 onToggleComplete()
             } label: {
@@ -261,6 +292,10 @@ private struct FocusZoneRow: View {
             return Color.tasker.statusWarning
         case "Today":
             return Color.tasker.statusSuccess
+        case "Quick win":
+            return Color.tasker.statusSuccess
+        case "Unblocked":
+            return Color.tasker.accentPrimary
         default:
             return Color.tasker.textSecondary
         }
