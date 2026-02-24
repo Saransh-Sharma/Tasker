@@ -2117,7 +2117,6 @@ struct HomeBackdropForedropRootView: View {
     @State private var showXPBurst = false
     @State private var xpBurstValue = 0
     @State private var bottomBarState = HomeBottomBarState()
-    @State private var lastTaskListOffset: CGFloat = 0
     @State private var foredropHintOffset: CGFloat = 0
     @State private var hintAnimationTask: _Concurrency.Task<Void, Never>?
     @State private var lastHintTriggerAt: Date?
@@ -2164,6 +2163,8 @@ struct HomeBackdropForedropRootView: View {
         ZStack {
             GeometryReader { geometry in
                 let backdropGradientHeight = geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom
+                let bottomOverlayObstruction = (spacing.s12 * 2) + 56 + 6
+                let taskListBottomInset = bottomOverlayObstruction + geometry.safeAreaInsets.bottom + spacing.s20
 
                 ZStack(alignment: .top) {
                     Color.tasker.bgCanvas
@@ -2194,7 +2195,10 @@ struct HomeBackdropForedropRootView: View {
                             ZStack(alignment: .top) {
                                 backdropLayer(geometry: contentGeometry)
 
-                                foredropLayer(geometry: contentGeometry)
+                                foredropLayer(
+                                    geometry: contentGeometry,
+                                    taskListBottomInset: taskListBottomInset
+                                )
                                     .offset(y: foredropOffset(for: contentGeometry.size.height) + foredropHintOffset)
                                     .animation(TaskerAnimation.snappy, value: foredropAnchor)
                                     .animation(TaskerAnimation.snappy, value: calendarExpandedHeight)
@@ -2527,7 +2531,7 @@ struct HomeBackdropForedropRootView: View {
     }
 
     /// Executes foredropLayer.
-    private func foredropLayer(geometry: GeometryProxy) -> some View {
+    private func foredropLayer(geometry: GeometryProxy, taskListBottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
             handleBar
                 .padding(.top, spacing.s8)
@@ -2604,11 +2608,9 @@ struct HomeBackdropForedropRootView: View {
                     trackTaskDragStarted(task, source: "task_list")
                 },
                 onScrollOffsetChange: { newOffset in
-                    let delta = newOffset - lastTaskListOffset
-                    bottomBarState.updateMinimizeState(fromScrollDelta: delta)
-                    lastTaskListOffset = newOffset
+                    bottomBarState.handleScrollOffsetChange(newOffset)
                 },
-                bottomContentInset: 0
+                bottomContentInset: taskListBottomInset
             )
             .padding(.top, spacing.s4)
             .onDrop(of: ["public.text"], isTargeted: nil, perform: handleListDrop)
