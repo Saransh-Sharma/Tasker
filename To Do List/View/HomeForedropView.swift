@@ -181,32 +181,6 @@ struct HomeBackdropForedropRootView: View {
         return min(max(preferred, lowerBound), upperBound)
     }
 
-    private var topSurfaceFillOpacity: Double {
-        colorScheme == .dark ? 0.46 : 0.62
-    }
-
-    private var topSurfaceTintOpacity: Double {
-        colorScheme == .dark ? 0.18 : 0.30
-    }
-
-    private var topSurfaceBorderOpacity: Double {
-        colorScheme == .dark ? 0.38 : 0.55
-    }
-
-    @ViewBuilder
-    private func homeTopSurfaceBackground(cornerRadius: CGFloat = 16) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(Color.tasker(.overlayGlassTint).opacity(topSurfaceFillOpacity))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.tasker(.accentSecondaryWash).opacity(topSurfaceTintOpacity))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.tasker.strokeHairline.opacity(topSurfaceBorderOpacity), lineWidth: 1)
-            )
-    }
-
     var body: some View {
         let _ = themeManager.currentTheme.index
 
@@ -447,7 +421,6 @@ struct HomeBackdropForedropRootView: View {
                         )
                         .padding(.horizontal, spacing.s16)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(homeTopSurfaceBackground())
                         .background(
                             GeometryReader { calGeo in
                                 Color.clear.preference(
@@ -683,7 +656,6 @@ struct HomeBackdropForedropRootView: View {
         .padding(.horizontal, spacing.s16)
         .padding(.top, 0)
         .padding(.bottom, spacing.s8)
-        .background(homeTopSurfaceBackground())
     }
 
     private var topSearchButton: some View {
