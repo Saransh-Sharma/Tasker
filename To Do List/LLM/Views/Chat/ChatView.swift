@@ -26,6 +26,7 @@ struct ChatView: View {
 
     @State private var generatingThreadID: UUID?
     static private var contextInjectedThreads = Set<UUID>()
+    private let contextFetchTimeoutMs: UInt64 = 800
 
     var isPromptEmpty: Bool {
         prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -389,21 +390,10 @@ struct ChatView: View {
                 modelContext.insert(newThread)
                 do {
                     try modelContext.save()
-                    logDebug("[DEBUG] saved new thread OK")
                 } catch {
                     logError(
                         event: "chat_thread_save_failed",
                         message: "Failed to save chat thread",
-                        fields: ["error": error.localizedDescription]
-                    )
-                }
-                do {
-                    let all = try modelContext.fetch(FetchDescriptor<Thread>())
-                    logDebug("[DEBUG] after creating thread, total threads: \(all.count)")
-                } catch {
-                    logError(
-                        event: "chat_thread_fetch_failed",
-                        message: "Failed to fetch chat threads",
                         fields: ["error": error.localizedDescription]
                     )
                 }
@@ -427,7 +417,19 @@ struct ChatView: View {
                     }
                     let tID = currentThread.id
                     if !ChatView.contextInjectedThreads.contains(tID) {
-                        let injectedContext = buildLLMContextPayload()
+                        let contextStartedAt = Date()
+                        let contextPayload = await buildLLMContextPayloadAsync(timeoutMs: contextFetchTimeoutMs)
+                        let contextBuildMs = Int(Date().timeIntervalSince(contextStartedAt) * 1_000)
+                        logWarning(
+                            event: "chat_context_build_ms",
+                            message: "Built chat context payload for first message in thread",
+                            fields: [
+                                "thread_id": tID.uuidString,
+                                "duration_ms": String(contextBuildMs),
+                                "timeout_fallback_used": contextPayload.usedTimeoutFallback ? "true" : "false"
+                            ]
+                        )
+                        let injectedContext = contextPayload.payload
                         dynamicSystemPrompt += "\n\n" + injectedContext
                         ChatView.contextInjectedThreads.insert(tID)
                     }
@@ -438,21 +440,51 @@ struct ChatView: View {
                     await MainActor.run {
                         llm.isThinking = true
                     }
-                    DispatchQueue.main.async {
-                        _Concurrency.Task {
-                            guard let modelName = appManager.currentModelName else {
-                                sendMessage(Message(role: .assistant, content: "No model selected", thread: currentThread))
-                                generatingThreadID = nil
-                                return
-                            }
-                            os_log("SystemPrompt length %d", dynamicSystemPrompt.count)
-                            logDebug("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
-                            logDebug("USER MESSAGE ->\n\(message)")
-                            let output = await llm.generate(modelName: modelName, thread: currentThread, systemPrompt: dynamicSystemPrompt)
-                            logDebug("LLM RESPONSE ->\n\(output)")
-                            sendMessage(Message(role: .assistant, content: output, thread: currentThread, generatingTime: llm.thinkingTime))
+                    guard let modelName = appManager.currentModelName else {
+                        await MainActor.run {
+                            sendMessage(Message(role: .assistant, content: "No model selected", thread: currentThread))
                             generatingThreadID = nil
                         }
+                        return
+                    }
+
+                    let prepareStartedAt = Date()
+                    let prepareResult = await LLMRuntimeCoordinator.shared.ensureReady(modelName: modelName)
+                    let prepareMs = Int(Date().timeIntervalSince(prepareStartedAt) * 1_000)
+                    logWarning(
+                        event: "chat_model_prepare_ms",
+                        message: "Prepared selected model prior to chat generation",
+                        fields: [
+                            "model_name": modelName,
+                            "duration_ms": String(prepareMs),
+                            "prewarm_eligible": prepareResult.prewarmEligible ? "true" : "false",
+                            "prewarm_hit": prepareResult.prewarmHit ? "true" : "false",
+                            "ready": prepareResult.ready ? "true" : "false"
+                        ]
+                    )
+
+                    guard prepareResult.ready else {
+                        await MainActor.run {
+                            sendMessage(
+                                Message(
+                                    role: .assistant,
+                                    content: "Model failed to prepare. Please switch models or retry.",
+                                    thread: currentThread
+                                )
+                            )
+                            generatingThreadID = nil
+                        }
+                        return
+                    }
+
+                    os_log("SystemPrompt length %d", dynamicSystemPrompt.count)
+                    logDebug("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
+                    logDebug("USER MESSAGE ->\n\(message)")
+                    let output = await llm.generate(modelName: modelName, thread: currentThread, systemPrompt: dynamicSystemPrompt)
+                    logDebug("LLM RESPONSE ->\n\(output)")
+                    await MainActor.run {
+                        sendMessage(Message(role: .assistant, content: output, thread: currentThread, generatingTime: llm.thinkingTime))
+                        generatingThreadID = nil
                     }
                 }
             }
@@ -465,21 +497,10 @@ struct ChatView: View {
         modelContext.insert(message)
         do {
             try modelContext.save()
-            logDebug("[DEBUG] saved message OK")
         } catch {
             logError(
                 event: "chat_message_save_failed",
                 message: "Failed to save chat message",
-                fields: ["error": error.localizedDescription]
-            )
-        }
-        do {
-            let all = try modelContext.fetch(FetchDescriptor<Message>())
-            logDebug("[DEBUG] after inserting message, total messages: \(all.count)")
-        } catch {
-            logError(
-                event: "chat_message_fetch_failed",
-                message: "Failed to fetch chat messages",
                 fields: ["error": error.localizedDescription]
             )
         }
@@ -520,40 +541,32 @@ struct ChatView: View {
         PromptMiddleware.buildTasksSummary(range: .today)
     }
 
-    /// Executes buildLLMContextPayload.
-    private func buildLLMContextPayload() -> String {
+    /// Executes buildLLMContextPayloadAsync.
+    private func buildLLMContextPayloadAsync(timeoutMs: UInt64) async -> (payload: String, usedTimeoutFallback: Bool) {
         guard let service = LLMContextRepositoryProvider.makeService() else {
-            return """
+            return ("""
             Context JSON:
             today={}
             upcoming={}
-            """
+            """, true)
         }
-        let todayJSON = fetchProjectionSync { completion in
-            service.buildTodayJSON(completion: completion)
-        }
-        let upcomingJSON = fetchProjectionSync { completion in
-            service.buildUpcomingJSON(completion: completion)
-        }
-        return """
-        Context JSON:
-        today=\(todayJSON)
-        upcoming=\(upcomingJSON)
-        """
-    }
 
-    /// Executes fetchProjectionSync.
-    private func fetchProjectionSync(
-        _ request: (@escaping (String) -> Void) -> Void
-    ) -> String {
-        let semaphore = DispatchSemaphore(value: 0)
-        var payload = "{}"
-        request { json in
-            payload = json
-            semaphore.signal()
+        async let todayResult = LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+            await service.buildTodayJSON()
         }
-        _ = semaphore.wait(timeout: .now() + .seconds(3))
-        return payload
+        async let upcomingResult = LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+            await service.buildUpcomingJSON()
+        }
+
+        let todayResultValue = await todayResult
+        let upcomingResultValue = await upcomingResult
+
+        let payload = """
+        Context JSON:
+        today=\(todayResultValue.payload)
+        upcoming=\(upcomingResultValue.payload)
+        """
+        return (payload, todayResultValue.timedOut || upcomingResultValue.timedOut)
     }
 
     #if os(macOS)
