@@ -79,6 +79,10 @@ class HomePage {
         return app.buttons[AccessibilityIdentifiers.Home.topNavSearchButton]
     }
 
+    var topNavContainer: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.topNavContainer]
+    }
+
     var chatButton: XCUIElement {
         return app.buttons[AccessibilityIdentifiers.Home.chatButton]
     }
@@ -169,6 +173,10 @@ class HomePage {
 
     var radarChartView: XCUIElement {
         return app.otherElements[AccessibilityIdentifiers.Home.radarChartView]
+    }
+
+    var weeklyCalendar: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.weeklyCalendar]
     }
 
     var navXpPieChart: XCUIElement {
@@ -920,6 +928,45 @@ class HomePage {
             )
         }
         return isAligned
+    }
+
+    /// Verify weekly calendar starts below (or at) the end of the top nav container.
+    @discardableResult
+    func verifyWeeklyCalendarStartsAfterTopNav(
+        tolerance: CGFloat = 4,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        let calendarExists = weeklyCalendar.waitForExistence(timeout: 5)
+        let topNavExists = topNavContainer.waitForExistence(timeout: 5)
+        guard calendarExists, topNavExists else {
+            XCTFail(
+                "Expected weekly calendar and top nav container to exist for position check",
+                file: file,
+                line: line
+            )
+            return false
+        }
+
+        let isBelow = weeklyCalendar.frame.minY >= topNavContainer.frame.maxY - tolerance
+        if !isBelow {
+            XCTFail(
+                "Expected weekly calendar to start below top nav. calendar=\(weeklyCalendar.frame), topNav=\(topNavContainer.frame)",
+                file: file,
+                line: line
+            )
+        }
+        return isBelow
+    }
+
+    /// Verify weekly calendar appears below the top nav controls.
+    @discardableResult
+    func verifyWeeklyCalendarBelowTopNav(
+        tolerance: CGFloat = 4,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        verifyWeeklyCalendarStartsAfterTopNav(tolerance: tolerance, file: file, line: line)
     }
 
     /// Verify nav XP pie chart button/container is absent.

@@ -28,6 +28,7 @@ enum AccessibilityIdentifiers {
         static let bottomBarCharts = "home.bottomBar.charts"
         static let searchButton = "home.searchButton"
         static let topNavSearchButton = "home.topNav.searchButton"
+        static let topNavContainer = "home.topNav.container"
         static let chatButton = "home.chatButton"
         static let inboxButton = "home.inboxButton"
         static let settingsButton = "home.settingsButton"
@@ -43,6 +44,7 @@ enum AccessibilityIdentifiers {
         static let chartView = "home.chartView"
         static let radarChartView = "home.radarChartView"
         static let navXpPieChart = "home.navXpPieChart"
+        static let weeklyCalendar = "home.weeklyCalendar"
         static let taskListScrollView = "home.taskList.scrollView"
 
         // Task Cell
