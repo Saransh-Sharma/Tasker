@@ -158,6 +158,7 @@
 		75D827552E8C89BA000F04E1 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D827522E8C89BA000F04E1 /* User.swift */; };
 		75DFF2D72DF22FC300EB8850 /* LoggingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF2D42DF22FC300EB8850 /* LoggingService.swift */; };
 		75DFF2D82DF22FC300EB8850 /* DateUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF2D32DF22FC300EB8850 /* DateUtils.swift */; };
+		B7C8D9E0F1A2233445566779 /* OverdueAgeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */; };
 		75DFF3212DF4E2BE00EB8850 /* BalloonMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */; };
 		75DFF3222DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */; };
 		75E5ACAE2E048D3A00535D0A /* ChartCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E5ACAA2E048D3A00535D0A /* ChartCard.swift */; };
@@ -310,6 +311,8 @@
 		F0A1B2C3D4E5F60718293B4C /* HomeTaskSectionBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4C /* HomeTaskSectionBuilder.swift */; };
 		F0A1B2C3D4E5F60718293B4D /* HomeFilterStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */; };
 		F0A1B2C3D4E5F60718293B4E /* HomeTaskSectionBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */; };
+		B7C8D9E0F1A223344556677B /* OverdueAgeFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */; };
+		B7C8D9E0F1A223344556677D /* FocusZoneStatusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */; };
 		F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E3 /* TaskerTheme+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E2 /* TaskerTheme+SwiftUI.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E5 /* TaskerAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E4 /* TaskerAnimations.swift */; };
@@ -498,6 +501,7 @@
 		75D8274B2E8C8995000F04E1 /* UserRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserRepositoryProtocol.swift; sourceTree = "<group>"; };
 		75D827522E8C89BA000F04E1 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		75DFF2D32DF22FC300EB8850 /* DateUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateUtils.swift; sourceTree = "<group>"; };
+		B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatter.swift; sourceTree = "<group>"; };
 		75DFF2D42DF22FC300EB8850 /* LoggingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingService.swift; sourceTree = "<group>"; };
 		75DFF31F2DF4E2BE00EB8850 /* BalloonMarker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalloonMarker.swift; sourceTree = "<group>"; };
 		75DFF3202DF4E2BE00EB8850 /* WeekDayAxisValueFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekDayAxisValueFormatter.swift; sourceTree = "<group>"; };
@@ -663,6 +667,8 @@
 		F0A1B2C3D4E5F60718293A4C /* HomeTaskSectionBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskSectionBuilder.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeFilterStateTests.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskSectionBuilderTests.swift; sourceTree = "<group>"; };
+		B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatterTests.swift; sourceTree = "<group>"; };
+		B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FocusZoneStatusTests.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeViewModelPersistenceTests.swift; sourceTree = "<group>"; };
 		F0E3799E6AD3B71C2BCAA18D /* CoreDataSectionRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/State/Repositories/CoreDataSectionRepository.swift"; sourceTree = SOURCE_ROOT; };
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* TaskerTheme+SwiftUI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "TaskerTheme+SwiftUI.swift"; sourceTree = "<group>"; };
@@ -1032,6 +1038,8 @@
 				C1A2B3C4D5E6F7001122334B /* LLMProjectionTimeoutTests.swift */,
 				F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */,
 				F0A1B2C3D4E5F60718293A4E /* HomeTaskSectionBuilderTests.swift */,
+				B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */,
+				B7C8D9E0F1A223344556677C /* FocusZoneStatusTests.swift */,
 				F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */,
 				F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */,
 				F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */,
@@ -1141,6 +1149,7 @@
 			children = (
 				7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */,
 				75DFF2D32DF22FC300EB8850 /* DateUtils.swift */,
+				B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */,
 				75DFF2D42DF22FC300EB8850 /* LoggingService.swift */,
 			);
 			path = Utils;
@@ -1974,6 +1983,7 @@
 				75F1810B245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataClass.swift in Sources */,
 				75DFF2D72DF22FC300EB8850 /* LoggingService.swift in Sources */,
 				75DFF2D82DF22FC300EB8850 /* DateUtils.swift in Sources */,
+				B7C8D9E0F1A2233445566779 /* OverdueAgeFormatter.swift in Sources */,
 				75F18102245C99CD004D9A69 /* TaskModelV3.xcdatamodeld in Sources */,
 				7529F6F82DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
 				758D4D7C24A940C300AB57A8 /* ProjectEntity+CoreDataClass.swift in Sources */,
@@ -2245,6 +2255,8 @@
 				600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4D /* HomeFilterStateTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4E /* HomeTaskSectionBuilderTests.swift in Sources */,
+				B7C8D9E0F1A223344556677B /* OverdueAgeFormatterTests.swift in Sources */,
+				B7C8D9E0F1A223344556677D /* FocusZoneStatusTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */,
 				F2A1B2C3D4E5F60718293B53 /* HomeBottomBarStateTests.swift in Sources */,
 				F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */,
