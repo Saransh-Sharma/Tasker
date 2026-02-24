@@ -9,6 +9,7 @@ import MLXLLM
 import MLXLMCommon
 import MLXRandom
 import SwiftUI
+import Foundation
 
 enum LLMEvaluatorError: Error {
     case modelNotFound(String)
@@ -17,6 +18,10 @@ enum LLMEvaluatorError: Error {
 @Observable
 @MainActor
 class LLMEvaluator {
+    struct PrepareResult {
+        let wasAlreadyLoaded: Bool
+    }
+
     var running = false
     var cancelled = false
     var output = ""
@@ -42,7 +47,7 @@ class LLMEvaluator {
     /// Executes switchModel.
     func switchModel(_ model: ModelConfiguration) async {
         progress = 0.0 // reset progress
-        loadState = .idle
+        unload()
         modelConfiguration = model
         _ = try? await load(modelName: model.name)
     }
@@ -58,10 +63,20 @@ class LLMEvaluator {
 
     enum LoadState {
         case idle
-        case loaded(ModelContainer)
+        case loaded(modelName: String, container: ModelContainer)
     }
 
     var loadState = LoadState.idle
+    private var inFlightLoadTask: (modelName: String, task: Task<ModelContainer, Error>)?
+
+    var loadedModelName: String? {
+        switch loadState {
+        case .idle:
+            return nil
+        case .loaded(let modelName, _):
+            return modelName
+        }
+    }
 
     /// load and return the model -- can be called multiple times, subsequent calls will
     /// just return the loaded model
@@ -69,28 +84,71 @@ class LLMEvaluator {
         guard let model = ModelConfiguration.getModelByName(modelName) else {
             throw LLMEvaluatorError.modelNotFound(modelName)
         }
+        modelConfiguration = model
 
         switch loadState {
+        case let .loaded(loadedModelName, modelContainer):
+            if loadedModelName == modelName {
+                return modelContainer
+            }
+            unload()
         case .idle:
-            // limit the buffer cache
-            MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
+            break
+        }
 
-            let modelContainer = try await LLMModelFactory.shared.loadContainer(configuration: model) {
-                [modelConfiguration] progress in
+        if let inFlightLoadTask {
+            if inFlightLoadTask.modelName == modelName {
+                return try await inFlightLoadTask.task.value
+            }
+            inFlightLoadTask.task.cancel()
+            self.inFlightLoadTask = nil
+        }
+
+        // limit the buffer cache
+        MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
+
+        let task = Task<ModelContainer, Error> {
+            try await LLMModelFactory.shared.loadContainer(configuration: model) { progress in
                 _Concurrency.Task { @MainActor in
                     self.modelInfo =
-                        "Downloading \(modelConfiguration.name): \(Int(progress.fractionCompleted * 100))%"
+                        "Downloading \(model.name): \(Int(progress.fractionCompleted * 100))%"
                     self.progress = progress.fractionCompleted
                 }
             }
-            modelInfo =
-                "Loaded \(modelConfiguration.id).  Weights: \(MLX.GPU.activeMemory / 1024 / 1024)M"
-            loadState = .loaded(modelContainer)
-            return modelContainer
-
-        case let .loaded(modelContainer):
-            return modelContainer
         }
+
+        inFlightLoadTask = (modelName, task)
+
+        do {
+            let modelContainer = try await task.value
+            modelInfo =
+                "Loaded \(model.id).  Weights: \(MLX.GPU.activeMemory / 1024 / 1024)M"
+            loadState = .loaded(modelName: modelName, container: modelContainer)
+            if inFlightLoadTask?.modelName == modelName {
+                inFlightLoadTask = nil
+            }
+            return modelContainer
+        } catch {
+            if inFlightLoadTask?.modelName == modelName {
+                inFlightLoadTask = nil
+            }
+            throw error
+        }
+    }
+
+    func prepare(modelName: String) async throws -> PrepareResult {
+        let wasAlreadyLoaded = loadedModelName == modelName
+        _ = try await load(modelName: modelName)
+        return PrepareResult(wasAlreadyLoaded: wasAlreadyLoaded)
+    }
+
+    func unload() {
+        inFlightLoadTask?.task.cancel()
+        inFlightLoadTask = nil
+        loadState = .idle
+        progress = 0
+        isThinking = false
+        modelInfo = "Model unloaded"
     }
 
     /// Executes stop.
@@ -107,9 +165,12 @@ class LLMEvaluator {
         cancelled = false
         output = ""
         startTime = Date()
+        let generationStartedAt = Date()
+        let prewarmHit = loadedModelName == modelName
 
         do {
             let modelContainer = try await load(modelName: modelName)
+            var firstTokenLogged = false
 
             // augment the prompt as needed
             let promptHistory = await modelContainer.configuration.getPromptHistory(thread: thread, systemPrompt: systemPrompt)
@@ -130,6 +191,22 @@ class LLMEvaluator {
                     parameters: generateParameters,
                     context: context
                 ) { tokens in
+                    if !firstTokenLogged, !tokens.isEmpty {
+                        firstTokenLogged = true
+                        let firstTokenLatencyMs = Int(Date().timeIntervalSince(generationStartedAt) * 1_000)
+                        _Concurrency.Task { @MainActor in
+                            logWarning(
+                                event: "chat_first_token_latency_ms",
+                                message: "First token latency measured for chat generation",
+                                fields: [
+                                    "model_name": modelName,
+                                    "latency_ms": String(firstTokenLatencyMs),
+                                    "prewarm_hit": prewarmHit ? "true" : "false"
+                                ]
+                            )
+                        }
+                    }
+
                     var shouldCancel = false
                     _Concurrency.Task { @MainActor in
                         shouldCancel = self.cancelled
@@ -158,11 +235,23 @@ class LLMEvaluator {
 
             stat = " Tokens/second: \(String(format: "%.3f", result.tokensPerSecond))"
             thinkingTime = elapsedTime
+            let firstResponseLatencyMs = Int(Date().timeIntervalSince(generationStartedAt) * 1_000)
+            logWarning(
+                event: "chat_first_response_latency_ms",
+                message: "First response latency measured for chat generation",
+                fields: [
+                    "model_name": modelName,
+                    "latency_ms": String(firstResponseLatencyMs),
+                    "tokens_per_second": String(format: "%.3f", result.tokensPerSecond),
+                    "prewarm_hit": prewarmHit ? "true" : "false"
+                ]
+            )
 
         } catch {
             output = "Failed: \(error)"
         }
 
+        isThinking = false
         running = false
         return output
     }
