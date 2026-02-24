@@ -423,6 +423,1576 @@ private struct EvaOverdueRescueSheetView: View {
     }
 }
 
+private struct EvaTriageCardDraftState: Equatable {
+    var useSuggestedProject: Bool
+    var useSuggestedDue: Bool
+    var useSuggestedDuration: Bool
+    var useSuggestedState: Bool
+    var selectedProjectID: UUID?
+    var selectedDueBucket: EvaDueBucket?
+    var customDueDate: Date?
+    var clearDueDate: Bool
+    var selectedDurationSeconds: TimeInterval?
+    var clearDuration: Bool
+    var stateHint: String?
+    var deferPreset: EvaTriageDeferPreset?
+
+    init(item: EvaTriageQueueItem) {
+        self.useSuggestedProject = item.suggestions.projectID != nil
+        self.useSuggestedDue = item.suggestions.dueBucket != nil
+        self.useSuggestedDuration = item.suggestions.durationSeconds != nil
+        self.useSuggestedState = item.suggestions.stateHint != nil
+        self.selectedProjectID = nil
+        self.selectedDueBucket = nil
+        self.customDueDate = nil
+        self.clearDueDate = false
+        self.selectedDurationSeconds = nil
+        self.clearDuration = false
+        self.stateHint = item.suggestions.stateHint
+        self.deferPreset = nil
+    }
+}
+
+private struct EvaTriageSprintSheetV2: View {
+    let queue: [EvaTriageQueueItem]
+    let projectsByID: [UUID: Project]
+    let activeScope: EvaTriageScope
+    let isLoadingScope: Bool
+    let queueErrorMessage: String?
+    let lastBatchRunID: UUID?
+    let onScopeChange: (EvaTriageScope, @escaping (Result<Void, Error>) -> Void) -> Void
+    let onApplyDecision: (EvaTriageQueueItem, EvaTriageDecision, @escaping (Result<TaskDefinition, Error>) -> Void) -> Void
+    let onApplyAll: (@escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    let onUndoBulkApply: ((@escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void)?
+    let onSkip: (UUID) -> Void
+    let onDelete: (UUID, @escaping (Result<Void, Error>) -> Void) -> Void
+    let onTrack: (String, [String: Any]) -> Void
+
+    @State private var currentIndex: Int = 0
+    @State private var selectedScope: EvaTriageScope = .visible
+    @State private var draftByTaskID: [UUID: EvaTriageCardDraftState] = [:]
+    @State private var isChangingScope = false
+    @State private var isApplying = false
+    @State private var isUndoingBulk = false
+    @State private var showDeleteConfirm = false
+    @State private var showBulkConfirm = false
+    @State private var showEditFields = false
+    @State private var errorMessage: String?
+    @State private var acceptedCount = 0
+    @State private var deferredCount = 0
+    @State private var skippedCount = 0
+    @State private var deletedCount = 0
+    @State private var snackbar: SnackbarData?
+    @Environment(\.dismiss) private var dismiss
+
+    private let durationPresets: [TimeInterval] = [15 * 60, 30 * 60, 60 * 60, 2 * 60 * 60, 4 * 60 * 60]
+    private let suggestionThreshold: Double = 0.45
+
+    private var currentItem: EvaTriageQueueItem? {
+        guard queue.isEmpty == false else { return nil }
+        let clamped = min(max(0, currentIndex), queue.count - 1)
+        return queue[clamped]
+    }
+
+    private var currentDraft: EvaTriageCardDraftState? {
+        guard let currentItem else { return nil }
+        return draftByTaskID[currentItem.task.id] ?? EvaTriageCardDraftState(item: currentItem)
+    }
+
+    private var isBusy: Bool {
+        isApplying || isChangingScope || isLoadingScope || isUndoingBulk
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        Text("Triage Sprint")
+                            .font(.tasker(.headline))
+                            .foregroundColor(Color.tasker.textPrimary)
+                        Text("\(queue.count)")
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.tasker.surfaceSecondary)
+                            .clipShape(Capsule())
+                        Spacer()
+                        Text(selectedScope == .allInbox ? "Backlog" : "Visible")
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.accentPrimary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.tasker.surfaceSecondary)
+                            .clipShape(Capsule())
+                    }
+
+                    Toggle(isOn: Binding(
+                        get: { selectedScope == .allInbox },
+                        set: { isAllInbox in
+                            let nextScope: EvaTriageScope = isAllInbox ? .allInbox : .visible
+                            changeScope(to: nextScope)
+                        }
+                    )) {
+                        Text("Include backlog")
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                    }
+                    .toggleStyle(.switch)
+                    .frame(minHeight: 44)
+                    .disabled(isBusy)
+                    .accessibilityLabel("Include backlog")
+                    .accessibilityHint("Toggle between visible inbox tasks and all inbox tasks")
+
+                    if let queueErrorMessage {
+                        Text(queueErrorMessage)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.statusDanger)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+                Divider()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        if isBusy && queue.isEmpty {
+                            ProgressView("Loading triage queue...")
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.top, 20)
+                        } else if let currentItem, let draft = currentDraft {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Card \(min(currentIndex + 1, queue.count)) of \(queue.count)")
+                                    .font(.tasker(.caption1))
+                                    .foregroundColor(Color.tasker.textSecondary)
+                                ProgressView(
+                                    value: Double(min(currentIndex + 1, queue.count)),
+                                    total: Double(max(queue.count, 1))
+                                )
+                                .tint(Color.tasker.accentPrimary)
+                            }
+
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(currentItem.task.title)
+                                    .font(.tasker(.headline))
+                                    .foregroundColor(Color.tasker.textPrimary)
+                                    .lineLimit(3)
+                                Text(contextLine(for: currentItem.task))
+                                    .font(.tasker(.caption1))
+                                    .foregroundColor(Color.tasker.textSecondary)
+                            }
+                            .padding(14)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.tasker.surfaceSecondary)
+                            )
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                suggestionRow(
+                                    title: "Project",
+                                    value: projectText(for: currentItem, draft: draft),
+                                    confidence: confidenceLabel(
+                                        currentItem.suggestions.projectID == nil ? nil : currentItem.suggestions.projectConfidence
+                                    )
+                                )
+                                suggestionRow(
+                                    title: "Due",
+                                    value: dueText(for: currentItem, draft: draft),
+                                    confidence: confidenceLabel(
+                                        currentItem.suggestions.dueBucket == nil ? nil : currentItem.suggestions.dueConfidence
+                                    )
+                                )
+                                suggestionRow(
+                                    title: "Duration",
+                                    value: durationText(for: currentItem, draft: draft),
+                                    confidence: confidenceLabel(
+                                        currentItem.suggestions.durationSeconds == nil ? nil : currentItem.suggestions.durationConfidence
+                                    )
+                                )
+                                suggestionRow(
+                                    title: "State",
+                                    value: stateText(for: currentItem, draft: draft),
+                                    confidence: confidenceLabel(
+                                        currentItem.suggestions.stateHint == nil ? nil : 0.65
+                                    )
+                                )
+                            }
+                            .padding(14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.tasker.surfaceSecondary.opacity(0.55))
+                            )
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Quick defer")
+                                    .font(.tasker(.caption1))
+                                    .foregroundColor(Color.tasker.textSecondary)
+                                HStack(spacing: 8) {
+                                    deferChip(title: "Tomorrow", preset: .tomorrow, draft: draft, item: currentItem)
+                                    deferChip(title: "72h", preset: .hours72, draft: draft, item: currentItem)
+                                    deferChip(title: "Weekend", preset: .weekendSaturday, draft: draft, item: currentItem)
+                                }
+                            }
+
+                            if showEditFields {
+                                editPanel(item: currentItem, draft: draft)
+                            }
+
+                            if let errorMessage {
+                                Text(errorMessage)
+                                    .font(.tasker(.caption1))
+                                    .foregroundColor(Color.tasker.statusDanger)
+                            }
+
+                            if highConfidencePreviewCount > 0 {
+                                Button {
+                                    showBulkConfirm = true
+                                    onTrack("triage_bulk_apply_open", [
+                                        "preview_count": highConfidencePreviewCount
+                                    ])
+                                } label: {
+                                    Text("Apply all high confidence (\(highConfidencePreviewCount))")
+                                        .font(.tasker(.caption1))
+                                        .foregroundColor(Color.tasker.accentPrimary)
+                                        .frame(maxWidth: .infinity, minHeight: 44)
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(isBusy)
+                            }
+                        } else {
+                            completionSummary
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 24)
+                }
+
+                if currentItem != nil {
+                    Divider()
+                    triageStickyActionBar
+                }
+            }
+            .navigationTitle("Start triage")
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                selectedScope = activeScope
+                syncDraftsWithQueue()
+            }
+            .onChange(of: activeScope) { _, newValue in
+                selectedScope = newValue
+            }
+            .onChange(of: queue.map(\.task.id)) { _, _ in
+                syncDraftsWithQueue()
+                if currentIndex >= queue.count {
+                    currentIndex = max(queue.count - 1, 0)
+                }
+                if queue.isEmpty {
+                    showEditFields = false
+                }
+            }
+            .alert("Delete task?", isPresented: $showDeleteConfirm) {
+                Button("Delete", role: .destructive) {
+                    deleteCurrentItem()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently removes the task.")
+            }
+            .alert("Apply all high confidence?", isPresented: $showBulkConfirm) {
+                Button("Apply") {
+                    applyAllHighConfidence()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This applies high-confidence triage suggestions in one review-confirmed batch.")
+            }
+        }
+        .taskerSnackbar($snackbar)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var completionSummary: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Triage complete")
+                .font(.tasker(.headline))
+                .foregroundColor(Color.tasker.textPrimary)
+
+            Text("Accepted \(acceptedCount) • Deferred \(deferredCount) • Skipped \(skippedCount) • Deleted \(deletedCount)")
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.textSecondary)
+
+            if let onUndoBulkApply, lastBatchRunID != nil {
+                Button("Undo last bulk apply") {
+                    isUndoingBulk = true
+                    onUndoBulkApply { result in
+                        DispatchQueue.main.async {
+                            isUndoingBulk = false
+                            switch result {
+                            case .success:
+                                snackbar = SnackbarData(message: "Bulk triage undone")
+                            case .failure(let error):
+                                errorMessage = error.localizedDescription
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .frame(minHeight: 44)
+                .disabled(isUndoingBulk)
+            }
+
+            Button("Done") {
+                dismiss()
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(minHeight: 44)
+        }
+        .padding(.top, 28)
+    }
+
+    private var triageStickyActionBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let currentItem, let draft = currentDraft, !hasActionableChange(for: currentItem, draft: draft) {
+                Text("Pick at least one change or a defer option to continue.")
+                    .font(.tasker(.caption2))
+                    .foregroundColor(Color.tasker.textSecondary)
+            }
+
+            HStack(spacing: 8) {
+                Button("Apply & Next") {
+                    applyCurrentItem()
+                }
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .disabled(!canApplyCurrentItem)
+
+                Button("Skip") {
+                    skipCurrentItem()
+                }
+                .buttonStyle(.bordered)
+                .frame(minHeight: 44)
+                .disabled(isBusy)
+
+                Button("Delete") {
+                    showDeleteConfirm = true
+                }
+                .buttonStyle(.bordered)
+                .tint(Color.tasker.statusDanger)
+                .frame(minHeight: 44)
+                .disabled(isBusy)
+            }
+
+            Button(showEditFields ? "Done editing" : "Edit fields") {
+                showEditFields.toggle()
+                TaskerFeedback.selection()
+            }
+            .buttonStyle(.bordered)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .disabled(isBusy)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .background(.ultraThinMaterial)
+    }
+
+    private var canApplyCurrentItem: Bool {
+        guard let currentItem, let draft = currentDraft else { return false }
+        return !isBusy && hasActionableChange(for: currentItem, draft: draft)
+    }
+
+    private var highConfidencePreviewCount: Int {
+        queue.reduce(into: 0) { partialResult, item in
+            var hasChange = false
+            if item.suggestions.projectConfidence >= 0.75,
+               let projectID = item.suggestions.projectID,
+               projectID != item.task.projectID {
+                hasChange = true
+            }
+            if item.suggestions.dueConfidence >= 0.75 {
+                switch item.suggestions.dueBucket {
+                case .someday:
+                    hasChange = hasChange || item.task.dueDate != nil
+                case .none:
+                    break
+                default:
+                    let suggestedDate = resolvedDueDate(for: item.suggestions.dueBucket)
+                    hasChange = hasChange || item.task.dueDate != suggestedDate
+                }
+            }
+            if item.suggestions.durationConfidence >= 0.75,
+               let duration = item.suggestions.durationSeconds,
+               item.task.estimatedDuration != duration {
+                hasChange = true
+            }
+            if hasChange { partialResult += 1 }
+        }
+    }
+
+    private func editPanel(item: EvaTriageQueueItem, draft: EvaTriageCardDraftState) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Edit fields")
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.textSecondary)
+
+            if !projectsByID.isEmpty {
+                Menu {
+                    Button("Use suggestion") {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedProject = true
+                            draft.selectedProjectID = nil
+                        }
+                    }
+                    ForEach(projectsByID.values.sorted(by: { $0.name < $1.name }), id: \.id) { project in
+                        Button(project.name) {
+                            updateDraft(for: item) { draft in
+                                draft.useSuggestedProject = false
+                                draft.selectedProjectID = project.id
+                            }
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text("Project")
+                            .font(.tasker(.caption1))
+                        Spacer()
+                        Text(projectText(for: item, draft: draft))
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    dueChip("Suggested", isSelected: draft.useSuggestedDue && item.suggestions.dueBucket != nil) {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedDue = true
+                            draft.clearDueDate = false
+                            draft.selectedDueBucket = nil
+                            draft.customDueDate = nil
+                        }
+                    }
+                    dueChip("Today", isSelected: !draft.useSuggestedDue && draft.selectedDueBucket == .today) {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedDue = false
+                            draft.clearDueDate = false
+                            draft.selectedDueBucket = .today
+                            draft.customDueDate = nil
+                        }
+                    }
+                    dueChip("Tomorrow", isSelected: !draft.useSuggestedDue && draft.selectedDueBucket == .tomorrow) {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedDue = false
+                            draft.clearDueDate = false
+                            draft.selectedDueBucket = .tomorrow
+                            draft.customDueDate = nil
+                        }
+                    }
+                    dueChip("This week", isSelected: !draft.useSuggestedDue && draft.selectedDueBucket == .thisWeek) {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedDue = false
+                            draft.clearDueDate = false
+                            draft.selectedDueBucket = .thisWeek
+                            draft.customDueDate = nil
+                        }
+                    }
+                    dueChip("Someday", isSelected: !draft.useSuggestedDue && draft.clearDueDate) {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedDue = false
+                            draft.clearDueDate = true
+                            draft.selectedDueBucket = nil
+                            draft.customDueDate = nil
+                        }
+                    }
+                    dueChip("Custom", isSelected: !draft.useSuggestedDue && draft.customDueDate != nil) {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedDue = false
+                            draft.clearDueDate = false
+                            draft.selectedDueBucket = nil
+                            draft.customDueDate = draft.customDueDate ?? Calendar.current.startOfDay(for: Date())
+                        }
+                    }
+                }
+            }
+
+            if !draft.useSuggestedDue, let customDate = draft.customDueDate {
+                DatePicker(
+                    "Custom due date",
+                    selection: Binding(
+                        get: { customDate },
+                        set: { newValue in
+                            updateDraft(for: item) { draft in
+                                draft.customDueDate = Calendar.current.startOfDay(for: newValue)
+                            }
+                        }
+                    ),
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.compact)
+                .font(.tasker(.caption1))
+                .frame(minHeight: 44)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    durationChip("Suggested", isSelected: draft.useSuggestedDuration && item.suggestions.durationSeconds != nil) {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedDuration = true
+                            draft.selectedDurationSeconds = nil
+                            draft.clearDuration = false
+                        }
+                    }
+                    ForEach(durationPresets, id: \.self) { preset in
+                        durationChip(durationLabel(for: preset), isSelected: !draft.useSuggestedDuration && draft.selectedDurationSeconds == preset) {
+                            updateDraft(for: item) { draft in
+                                draft.useSuggestedDuration = false
+                                draft.selectedDurationSeconds = preset
+                                draft.clearDuration = false
+                            }
+                        }
+                    }
+                    durationChip("None", isSelected: !draft.useSuggestedDuration && draft.clearDuration) {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedDuration = false
+                            draft.selectedDurationSeconds = nil
+                            draft.clearDuration = true
+                        }
+                    }
+                }
+            }
+
+            if item.suggestions.stateHint != nil {
+                Menu {
+                    Button("Use suggestion") {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedState = true
+                            draft.stateHint = item.suggestions.stateHint
+                        }
+                    }
+                    Button("Blocked") {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedState = false
+                            draft.stateHint = "blocked"
+                        }
+                    }
+                    Button("Waiting") {
+                        updateDraft(for: item) { draft in
+                            draft.useSuggestedState = false
+                            draft.stateHint = "waiting"
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text("State")
+                            .font(.tasker(.caption1))
+                        Spacer()
+                        Text(stateText(for: item, draft: draft))
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.tasker.surfaceSecondary.opacity(0.5))
+        )
+    }
+
+    private func changeScope(to nextScope: EvaTriageScope) {
+        guard selectedScope != nextScope else { return }
+        selectedScope = nextScope
+        isChangingScope = true
+        errorMessage = nil
+        onTrack("triage_scope_changed", [
+            "scope": nextScope.rawValue
+        ])
+        onScopeChange(nextScope) { result in
+            DispatchQueue.main.async {
+                isChangingScope = false
+                switch result {
+                case .success:
+                    break
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func applyCurrentItem() {
+        guard let currentItem, let draft = currentDraft else { return }
+        guard hasActionableChange(for: currentItem, draft: draft) else {
+            errorMessage = "Pick at least one change or defer option."
+            return
+        }
+
+        let decision = EvaTriageDecision(
+            selectedProjectID: draft.selectedProjectID,
+            useSuggestedProject: draft.useSuggestedProject,
+            selectedDueDate: draft.customDueDate,
+            clearDueDate: draft.clearDueDate,
+            useSuggestedDue: draft.useSuggestedDue,
+            selectedDurationSeconds: draft.selectedDurationSeconds,
+            clearDuration: draft.clearDuration,
+            useSuggestedDuration: draft.useSuggestedDuration,
+            stateHint: draft.stateHint,
+            useSuggestedState: draft.useSuggestedState,
+            deferPreset: draft.deferPreset
+        )
+
+        isApplying = true
+        onTrack("triage_apply_next", [
+            "task_id": currentItem.task.id.uuidString,
+            "defer": draft.deferPreset?.rawValue ?? "none"
+        ])
+        onApplyDecision(currentItem, decision) { result in
+            DispatchQueue.main.async {
+                isApplying = false
+                switch result {
+                case .success:
+                    errorMessage = nil
+                    if draft.deferPreset != nil {
+                        deferredCount += 1
+                    } else {
+                        acceptedCount += 1
+                    }
+                    TaskerFeedback.success()
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func skipCurrentItem() {
+        guard let currentItem else { return }
+        onSkip(currentItem.task.id)
+        skippedCount += 1
+        onTrack("triage_skip", ["task_id": currentItem.task.id.uuidString])
+        TaskerFeedback.selection()
+    }
+
+    private func deleteCurrentItem() {
+        guard let currentItem else { return }
+        isApplying = true
+        onDelete(currentItem.task.id) { result in
+            DispatchQueue.main.async {
+                isApplying = false
+                switch result {
+                case .success:
+                    deletedCount += 1
+                    errorMessage = nil
+                    onTrack("triage_delete_confirmed", ["task_id": currentItem.task.id.uuidString])
+                    TaskerFeedback.medium()
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func applyAllHighConfidence() {
+        isApplying = true
+        onApplyAll { result in
+            DispatchQueue.main.async {
+                isApplying = false
+                switch result {
+                case .success:
+                    errorMessage = nil
+                    snackbar = SnackbarData(message: "High-confidence updates applied")
+                    onTrack("triage_bulk_apply_confirmed", [
+                        "preview_count": highConfidencePreviewCount
+                    ])
+                    TaskerFeedback.success()
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                    onTrack("triage_error", [
+                        "error": error.localizedDescription
+                    ])
+                }
+            }
+        }
+    }
+
+    private func updateDraft(for item: EvaTriageQueueItem, mutate: (inout EvaTriageCardDraftState) -> Void) {
+        var draft = draftByTaskID[item.task.id] ?? EvaTriageCardDraftState(item: item)
+        mutate(&draft)
+        draftByTaskID[item.task.id] = draft
+    }
+
+    private func syncDraftsWithQueue() {
+        let queueIDs = Set(queue.map(\.task.id))
+        draftByTaskID = draftByTaskID.filter { queueIDs.contains($0.key) }
+        for item in queue where draftByTaskID[item.task.id] == nil {
+            draftByTaskID[item.task.id] = EvaTriageCardDraftState(item: item)
+        }
+    }
+
+    private func hasActionableChange(for item: EvaTriageQueueItem, draft: EvaTriageCardDraftState) -> Bool {
+        if let preset = draft.deferPreset {
+            let dueDate = preset.resolveDueDate()
+            if item.task.dueDate != dueDate {
+                return true
+            }
+        }
+
+        if draft.useSuggestedProject,
+           item.suggestions.projectConfidence >= suggestionThreshold,
+           let projectID = item.suggestions.projectID,
+           projectID != item.task.projectID {
+            return true
+        }
+        if !draft.useSuggestedProject,
+           let selectedProjectID = draft.selectedProjectID,
+           selectedProjectID != item.task.projectID {
+            return true
+        }
+
+        if draft.deferPreset == nil {
+            if draft.useSuggestedDue, item.suggestions.dueConfidence >= suggestionThreshold {
+                switch item.suggestions.dueBucket {
+                case .someday:
+                    if item.task.dueDate != nil { return true }
+                case .none:
+                    break
+                default:
+                    let dueDate = resolvedDueDate(for: item.suggestions.dueBucket)
+                    if item.task.dueDate != dueDate { return true }
+                }
+            } else if !draft.useSuggestedDue {
+                if draft.clearDueDate {
+                    if item.task.dueDate != nil { return true }
+                } else if let customDate = draft.customDueDate, item.task.dueDate != customDate {
+                    return true
+                } else if let dueBucket = draft.selectedDueBucket {
+                    let dueDate = resolvedDueDate(for: dueBucket)
+                    if item.task.dueDate != dueDate { return true }
+                }
+            }
+        }
+
+        if draft.useSuggestedDuration,
+           item.suggestions.durationConfidence >= suggestionThreshold,
+           let suggestedDuration = item.suggestions.durationSeconds,
+           item.task.estimatedDuration != suggestedDuration {
+            return true
+        }
+        if !draft.useSuggestedDuration {
+            if draft.clearDuration {
+                if item.task.estimatedDuration != nil { return true }
+            } else if let selectedDuration = draft.selectedDurationSeconds,
+                      item.task.estimatedDuration != selectedDuration {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func suggestionRow(title: String, value: String, confidence: String?) -> some View {
+        HStack(spacing: 8) {
+            Text(title)
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.textSecondary)
+            Spacer()
+            if let confidence {
+                Text(confidence)
+                    .font(.tasker(.caption2))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Color.tasker.surfacePrimary)
+                    .clipShape(Capsule())
+                    .accessibilityLabel("\(title) confidence \(confidence)")
+            }
+            Text(value)
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.textPrimary)
+        }
+        .frame(minHeight: 24)
+    }
+
+    private func deferChip(title: String, preset: EvaTriageDeferPreset, draft: EvaTriageCardDraftState, item: EvaTriageQueueItem) -> some View {
+        let isSelected = draft.deferPreset == preset
+        return Button {
+            updateDraft(for: item) { draft in
+                draft.deferPreset = (draft.deferPreset == preset) ? nil : preset
+            }
+            onTrack("triage_defer_selected", [
+                "preset": preset.rawValue,
+                "task_id": item.task.id.uuidString
+            ])
+            TaskerFeedback.selection()
+        } label: {
+            Text(title)
+                .font(.tasker(.caption1))
+                .foregroundColor(isSelected ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+    }
+
+    private func dueChip(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.tasker(.caption2))
+                .foregroundColor(isSelected ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 36)
+                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func durationChip(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.tasker(.caption2))
+                .foregroundColor(isSelected ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 36)
+                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func projectText(for item: EvaTriageQueueItem, draft: EvaTriageCardDraftState) -> String {
+        if !draft.useSuggestedProject, let selectedProjectID = draft.selectedProjectID {
+            return projectsByID[selectedProjectID]?.name ?? "Project"
+        }
+        if draft.useSuggestedProject, let suggestionID = item.suggestions.projectID {
+            return projectsByID[suggestionID]?.name ?? "Suggested project"
+        }
+        return "No suggestion"
+    }
+
+    private func dueText(for item: EvaTriageQueueItem, draft: EvaTriageCardDraftState) -> String {
+        if let preset = draft.deferPreset {
+            switch preset {
+            case .tomorrow: return "Tomorrow"
+            case .hours72: return "72h"
+            case .weekendSaturday: return "Weekend"
+            }
+        }
+        if !draft.useSuggestedDue {
+            if draft.clearDueDate { return "Someday" }
+            if let customDueDate = draft.customDueDate {
+                return shortDate(customDueDate)
+            }
+            if let dueBucket = draft.selectedDueBucket {
+                return dueBucketText(dueBucket)
+            }
+        }
+        if draft.useSuggestedDue, let dueBucket = item.suggestions.dueBucket {
+            return dueBucketText(dueBucket)
+        }
+        return "No suggestion"
+    }
+
+    private func durationText(for item: EvaTriageQueueItem, draft: EvaTriageCardDraftState) -> String {
+        if !draft.useSuggestedDuration {
+            if draft.clearDuration { return "None" }
+            if let duration = draft.selectedDurationSeconds {
+                return durationLabel(for: duration)
+            }
+        }
+        if draft.useSuggestedDuration, let duration = item.suggestions.durationSeconds {
+            return durationLabel(for: duration)
+        }
+        return "No suggestion"
+    }
+
+    private func stateText(for item: EvaTriageQueueItem, draft: EvaTriageCardDraftState) -> String {
+        if !draft.useSuggestedState, let stateHint = draft.stateHint {
+            return stateHint.capitalized
+        }
+        if draft.useSuggestedState, let stateHint = item.suggestions.stateHint {
+            return stateHint.capitalized
+        }
+        return "No suggestion"
+    }
+
+    private func confidenceLabel(_ value: Double?) -> String? {
+        guard let value else { return nil }
+        switch value {
+        case 0.75...:
+            return "High"
+        case 0.45..<0.75:
+            return "Medium"
+        default:
+            return "Low"
+        }
+    }
+
+    private func durationLabel(for duration: TimeInterval) -> String {
+        let minutes = Int(round(duration / 60))
+        if minutes >= 60 {
+            if minutes % 60 == 0 {
+                return "\(minutes / 60)h"
+            }
+            return String(format: "%.1fh", Double(minutes) / 60.0)
+        }
+        return "\(minutes)m"
+    }
+
+    private func dueBucketText(_ bucket: EvaDueBucket) -> String {
+        switch bucket {
+        case .today:
+            return "Today"
+        case .tomorrow:
+            return "Tomorrow"
+        case .thisWeek:
+            return "This Week"
+        case .someday:
+            return "Someday"
+        }
+    }
+
+    private func resolvedDueDate(for bucket: EvaDueBucket?) -> Date? {
+        guard let bucket else { return nil }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        switch bucket {
+        case .today:
+            return today
+        case .tomorrow:
+            return calendar.date(byAdding: .day, value: 1, to: today)
+        case .thisWeek:
+            let daysUntilEndOfWeek = 7 - calendar.component(.weekday, from: today)
+            return calendar.date(byAdding: .day, value: max(daysUntilEndOfWeek, 2), to: today)
+        case .someday:
+            return nil
+        }
+    }
+
+    private func shortDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+
+    private func contextLine(for task: TaskDefinition) -> String {
+        let calendar = Calendar.current
+        let createdDays = max(0, calendar.dateComponents([.day], from: task.createdAt, to: Date()).day ?? 0)
+        if let dueDate = task.dueDate {
+            return "Created \(createdDays)d ago • Due \(shortDate(dueDate))"
+        }
+        return "Created \(createdDays)d ago • No due date"
+    }
+}
+
+private enum EvaRescueMoveChoice: String, CaseIterable {
+    case tomorrow
+    case weekend
+    case custom
+
+    var title: String {
+        switch self {
+        case .tomorrow: return "Tomorrow"
+        case .weekend: return "Weekend"
+        case .custom: return "Custom"
+        }
+    }
+}
+
+private struct EvaRescueSplitComposerState {
+    var isOpen = false
+    var childTitles: [String] = ["", ""]
+    var duePreset: EvaTriageDeferPreset?
+    var isCreating = false
+    var errorMessage: String?
+    var completed = false
+    var createdChildIDs: [UUID] = []
+}
+
+private struct EvaOverdueRescueSheetV2: View {
+    let plan: EvaRescuePlan?
+    let tasksByID: [UUID: TaskDefinition]
+    let lastBatchRunID: UUID?
+    let onApply: ([EvaBatchMutationInstruction], @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    let onUndo: (@escaping (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    let onCreateSplit: (UUID, EvaSplitDraft, @escaping (Result<[TaskDefinition], Error>) -> Void) -> Void
+    let onUndoSplit: ([UUID], @escaping (Result<Void, Error>) -> Void) -> Void
+    let onTrack: (String, [String: Any]) -> Void
+
+    @State private var selectedActionByTaskID: [UUID: EvaRescueActionType] = [:]
+    @State private var moveChoiceByTaskID: [UUID: EvaRescueMoveChoice] = [:]
+    @State private var customMoveDateByTaskID: [UUID: Date] = [:]
+    @State private var splitStateByTaskID: [UUID: EvaRescueSplitComposerState] = [:]
+    @State private var showDropConfirm = false
+    @State private var pendingMutations: [EvaBatchMutationInstruction] = []
+    @State private var isApplying = false
+    @State private var isUndoing = false
+    @State private var errorMessage: String?
+    @State private var snackbar: SnackbarData?
+
+    private var allRecommendations: [EvaRescueRecommendation] {
+        guard let plan else { return [] }
+        return plan.doToday + plan.move + plan.split + plan.dropCandidate
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                if let plan {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Debt: \(plan.debtLevel.rawValue.capitalized)")
+                                .font(.tasker(.headline))
+                                .foregroundColor(Color.tasker.textPrimary)
+                            Spacer()
+                            Text("\(allRecommendations.count) overdue")
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker.textSecondary)
+                            Text("all overdue")
+                                .font(.tasker(.caption2))
+                                .foregroundColor(Color.tasker.textSecondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.tasker.surfaceSecondary)
+                                .clipShape(Capsule())
+                        }
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .font(.tasker(.caption2))
+                                .foregroundColor(Color.tasker.statusDanger)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+
+                    Divider()
+
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 14) {
+                            rescueGroup(title: "Do today", items: plan.doToday)
+                            rescueGroup(title: "Move", items: plan.move)
+                            rescueGroup(title: "Split", items: plan.split)
+                            rescueGroup(title: "Drop?", items: plan.dropCandidate)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .padding(.bottom, 24)
+                    }
+
+                    Divider()
+                    stickyRescueActionBar(plan: plan)
+                } else {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("No overdue tasks to rescue.")
+                            .font(.tasker(.body))
+                            .foregroundColor(Color.tasker.textSecondary)
+                        Spacer()
+                    }
+                    .padding(16)
+                }
+            }
+            .navigationTitle("Rescue")
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                initializeDefaults()
+            }
+            .alert("Apply drop actions?", isPresented: $showDropConfirm) {
+                Button("Apply", role: .destructive) {
+                    runApply(mutations: pendingMutations)
+                    pendingMutations = []
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingMutations = []
+                }
+            } message: {
+                Text("Tasks marked Drop? will be moved to Inbox and their due dates cleared.")
+            }
+        }
+        .taskerSnackbar($snackbar)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func stickyRescueActionBar(plan: EvaRescuePlan) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if buildMutations(plan: plan).isEmpty {
+                Text("Select at least one Today, Move, or Drop action to apply.")
+                    .font(.tasker(.caption2))
+                    .foregroundColor(Color.tasker.textSecondary)
+            }
+
+            HStack(spacing: 8) {
+                Button("Apply plan") {
+                    let mutations = buildMutations(plan: plan)
+                    if hasDropSelection(plan: plan) {
+                        pendingMutations = mutations
+                        showDropConfirm = true
+                    } else {
+                        runApply(mutations: mutations)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .disabled(isApplying || buildMutations(plan: plan).isEmpty)
+
+                if lastBatchRunID != nil {
+                    Button("Undo apply") {
+                        isUndoing = true
+                        onTrack("rescue_undo_tap", [:])
+                        onUndo { result in
+                            DispatchQueue.main.async {
+                                isUndoing = false
+                                switch result {
+                                case .success:
+                                    snackbar = SnackbarData(message: "Rescue plan undone")
+                                    TaskerFeedback.success()
+                                case .failure(let error):
+                                    errorMessage = error.localizedDescription
+                                }
+                            }
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(minHeight: 44)
+                    .disabled(isApplying || isUndoing)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 10)
+        .background(.ultraThinMaterial)
+    }
+
+    @ViewBuilder
+    private func rescueGroup(title: String, items: [EvaRescueRecommendation]) -> some View {
+        if items.isEmpty == false {
+            Text(title)
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.textSecondary)
+
+            ForEach(items, id: \.taskID) { item in
+                let selectedAction = selectedActionByTaskID[item.taskID] ?? item.action
+                let splitState = splitStateByTaskID[item.taskID] ?? EvaRescueSplitComposerState()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text(tasksByID[item.taskID]?.title ?? "Task")
+                            .font(.tasker(.body))
+                            .foregroundColor(Color.tasker.textPrimary)
+                            .lineLimit(2)
+
+                        Spacer()
+
+                        Text(confidenceText(for: item.confidence))
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Color.tasker.surfaceSecondary)
+                            .clipShape(Capsule())
+                    }
+
+                    Text(item.reasons.joined(separator: " • "))
+                        .font(.tasker(.caption2))
+                        .foregroundColor(Color.tasker.textSecondary)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            rescueActionChip(item: item, action: .doToday, selectedAction: selectedAction)
+                            rescueActionChip(item: item, action: .move, selectedAction: selectedAction)
+                            rescueActionChip(item: item, action: .split, selectedAction: selectedAction)
+                            rescueActionChip(item: item, action: .dropCandidate, selectedAction: selectedAction)
+                        }
+                    }
+
+                    if selectedAction == .move {
+                        moveChoiceRow(for: item)
+                    }
+
+                    if selectedAction == .split {
+                        splitComposer(for: item, state: splitState)
+                    }
+
+                    if splitState.completed {
+                        Text("Split done")
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.accentPrimary)
+                    }
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.tasker.surfaceSecondary.opacity(0.55))
+                )
+            }
+        }
+    }
+
+    private func moveChoiceRow(for item: EvaRescueRecommendation) -> some View {
+        let selectedChoice = moveChoiceByTaskID[item.taskID] ?? .tomorrow
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                ForEach(EvaRescueMoveChoice.allCases, id: \.self) { choice in
+                    Button {
+                        moveChoiceByTaskID[item.taskID] = choice
+                        onTrack("rescue_action_changed", [
+                            "task_id": item.taskID.uuidString,
+                            "action": "move_\(choice.rawValue)"
+                        ])
+                        TaskerFeedback.selection()
+                    } label: {
+                        Text(choice.title)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(selectedChoice == choice ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
+                            .padding(.horizontal, 10)
+                            .frame(minHeight: 36)
+                            .background(selectedChoice == choice ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if selectedChoice == .custom {
+                let selectedDate = customMoveDateByTaskID[item.taskID] ?? Calendar.current.startOfDay(for: Date())
+                DatePicker(
+                    "Move date",
+                    selection: Binding(
+                        get: { selectedDate },
+                        set: { customMoveDateByTaskID[item.taskID] = Calendar.current.startOfDay(for: $0) }
+                    ),
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.compact)
+                .frame(minHeight: 44)
+            }
+        }
+    }
+
+    private func splitComposer(for item: EvaRescueRecommendation, state: EvaRescueSplitComposerState) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !state.isOpen {
+                Button("Open split helper") {
+                    var next = state
+                    next.isOpen = true
+                    splitStateByTaskID[item.taskID] = next
+                    onTrack("rescue_split_open", [
+                        "task_id": item.taskID.uuidString
+                    ])
+                    TaskerFeedback.selection()
+                }
+                .buttonStyle(.bordered)
+                .frame(minHeight: 44)
+            } else {
+                ForEach(Array(state.childTitles.enumerated()), id: \.offset) { index, title in
+                    TextField(
+                        "Subtask \(index + 1)",
+                        text: Binding(
+                            get: { splitStateByTaskID[item.taskID]?.childTitles[safe: index] ?? title },
+                            set: { newValue in
+                                var next = splitStateByTaskID[item.taskID] ?? state
+                                guard next.childTitles.indices.contains(index) else { return }
+                                next.childTitles[index] = newValue
+                                splitStateByTaskID[item.taskID] = next
+                            }
+                        )
+                    )
+                    .textInputAutocapitalization(.sentences)
+                    .font(.tasker(.caption1))
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 40)
+                    .background(Color.tasker.surfacePrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+
+                if state.childTitles.count < 3 {
+                    Button("Add child") {
+                        var next = splitStateByTaskID[item.taskID] ?? state
+                        next.childTitles.append("")
+                        splitStateByTaskID[item.taskID] = next
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(minHeight: 36)
+                }
+
+                HStack(spacing: 8) {
+                    splitDueChip(item: item, title: "No due", preset: nil, state: state)
+                    splitDueChip(item: item, title: "Tomorrow", preset: .tomorrow, state: state)
+                    splitDueChip(item: item, title: "Weekend", preset: .weekendSaturday, state: state)
+                }
+
+                if let splitError = state.errorMessage {
+                    Text(splitError)
+                        .font(.tasker(.caption2))
+                        .foregroundColor(Color.tasker.statusDanger)
+                }
+
+                Button("Create subtasks") {
+                    runSplitCreation(for: item, state: state)
+                }
+                .buttonStyle(.borderedProminent)
+                .frame(minHeight: 44)
+                .disabled(state.isCreating || validSplitTitles(state).count < 2)
+            }
+        }
+    }
+
+    private func splitDueChip(
+        item: EvaRescueRecommendation,
+        title: String,
+        preset: EvaTriageDeferPreset?,
+        state: EvaRescueSplitComposerState
+    ) -> some View {
+        let isSelected = state.duePreset == preset
+        return Button {
+            var next = splitStateByTaskID[item.taskID] ?? state
+            next.duePreset = preset
+            splitStateByTaskID[item.taskID] = next
+            TaskerFeedback.selection()
+        } label: {
+            Text(title)
+                .font(.tasker(.caption2))
+                .foregroundColor(isSelected ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 36)
+                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func rescueActionChip(
+        item: EvaRescueRecommendation,
+        action: EvaRescueActionType,
+        selectedAction: EvaRescueActionType
+    ) -> some View {
+        let isSelected = selectedAction == action
+        return Button {
+            selectedActionByTaskID[item.taskID] = action
+            onTrack("rescue_action_changed", [
+                "task_id": item.taskID.uuidString,
+                "action": action.rawValue
+            ])
+            TaskerFeedback.selection()
+        } label: {
+            Text(actionTitle(for: action))
+                .font(.tasker(.caption2))
+                .foregroundColor(isSelected ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
+                .padding(.horizontal, 10)
+                .frame(minHeight: 36)
+                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(actionTitle(for: action))
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+    }
+
+    private func runSplitCreation(for item: EvaRescueRecommendation, state: EvaRescueSplitComposerState) {
+        var next = state
+        next.isCreating = true
+        next.errorMessage = nil
+        splitStateByTaskID[item.taskID] = next
+
+        let draft = EvaSplitDraft(
+            parentTaskID: item.taskID,
+            children: validSplitTitles(state).map { EvaSplitDraftChild(title: $0) },
+            childDuePreset: state.duePreset,
+            createStatus: .creating,
+            createdChildIDs: []
+        )
+
+        onCreateSplit(item.taskID, draft) { result in
+            DispatchQueue.main.async {
+                var updated = splitStateByTaskID[item.taskID] ?? state
+                updated.isCreating = false
+                switch result {
+                case .success(let createdChildren):
+                    let createdIDs = createdChildren.map(\.id)
+                    updated.completed = true
+                    updated.createdChildIDs = createdIDs
+                    updated.errorMessage = nil
+                    splitStateByTaskID[item.taskID] = updated
+                    snackbar = SnackbarData(
+                        message: "Split created (\(createdIDs.count))",
+                        actions: [
+                            SnackbarAction(title: "Undo") {
+                                onUndoSplit(createdIDs) { undoResult in
+                                    DispatchQueue.main.async {
+                                        switch undoResult {
+                                        case .success:
+                                            var reset = splitStateByTaskID[item.taskID] ?? updated
+                                            reset.completed = false
+                                            reset.createdChildIDs = []
+                                            splitStateByTaskID[item.taskID] = reset
+                                        case .failure(let error):
+                                            errorMessage = error.localizedDescription
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    )
+                    TaskerFeedback.success()
+                case .failure(let error):
+                    updated.errorMessage = error.localizedDescription
+                    splitStateByTaskID[item.taskID] = updated
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func validSplitTitles(_ state: EvaRescueSplitComposerState) -> [String] {
+        state.childTitles.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+    }
+
+    private func runApply(mutations: [EvaBatchMutationInstruction]) {
+        guard mutations.isEmpty == false else {
+            errorMessage = "No rescue changes selected."
+            return
+        }
+        isApplying = true
+        errorMessage = nil
+        onTrack("rescue_apply_tap", ["mutation_count": mutations.count])
+        onApply(mutations) { result in
+            DispatchQueue.main.async {
+                isApplying = false
+                switch result {
+                case .success:
+                    snackbar = SnackbarData(
+                        message: "Rescue plan applied",
+                        actions: [
+                            SnackbarAction(title: "Undo") {
+                                onUndo { undoResult in
+                                    DispatchQueue.main.async {
+                                        switch undoResult {
+                                        case .success:
+                                            snackbar = SnackbarData(message: "Rescue plan undone")
+                                        case .failure(let error):
+                                            errorMessage = error.localizedDescription
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    )
+                    TaskerFeedback.success()
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func initializeDefaults() {
+        guard let plan else { return }
+        var defaults: [UUID: EvaRescueActionType] = [:]
+        for item in plan.doToday { defaults[item.taskID] = .doToday }
+        for item in plan.move { defaults[item.taskID] = .move }
+        for item in plan.split { defaults[item.taskID] = .split }
+        for item in plan.dropCandidate { defaults[item.taskID] = .dropCandidate }
+        selectedActionByTaskID = defaults
+
+        for item in plan.move {
+            moveChoiceByTaskID[item.taskID] = .tomorrow
+            if let toDate = item.toDate {
+                customMoveDateByTaskID[item.taskID] = toDate
+            }
+        }
+    }
+
+    private func actionTitle(for action: EvaRescueActionType) -> String {
+        switch action {
+        case .doToday: return "Today"
+        case .move: return "Move"
+        case .split: return "Split"
+        case .dropCandidate: return "Drop"
+        }
+    }
+
+    private func confidenceText(for confidence: Double) -> String {
+        switch confidence {
+        case 0.75...:
+            return "High"
+        case 0.45..<0.75:
+            return "Medium"
+        default:
+            return "Low"
+        }
+    }
+
+    private func buildMutations(plan: EvaRescuePlan) -> [EvaBatchMutationInstruction] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let recommendations = plan.doToday + plan.move + plan.split + plan.dropCandidate
+
+        return recommendations.compactMap { item in
+            let selected = selectedActionByTaskID[item.taskID] ?? item.action
+            switch selected {
+            case .doToday:
+                return EvaBatchMutationInstruction(taskID: item.taskID, dueDate: today)
+            case .move:
+                let choice = moveChoiceByTaskID[item.taskID] ?? .tomorrow
+                let dueDate: Date?
+                switch choice {
+                case .tomorrow:
+                    dueDate = calendar.date(byAdding: .day, value: 1, to: today)
+                case .weekend:
+                    dueDate = EvaTriageDeferPreset.weekendSaturday.resolveDueDate()
+                case .custom:
+                    dueDate = customMoveDateByTaskID[item.taskID] ?? item.toDate ?? calendar.date(byAdding: .day, value: 1, to: today)
+                }
+                return EvaBatchMutationInstruction(taskID: item.taskID, dueDate: dueDate)
+            case .dropCandidate:
+                return EvaBatchMutationInstruction(
+                    taskID: item.taskID,
+                    projectID: ProjectConstants.inboxProjectID,
+                    clearDueDate: true
+                )
+            case .split:
+                return nil
+            }
+        }
+    }
+
+    private func hasDropSelection(plan: EvaRescuePlan) -> Bool {
+        let recommendations = plan.doToday + plan.move + plan.split + plan.dropCandidate
+        return recommendations.contains { item in
+            (selectedActionByTaskID[item.taskID] ?? item.action) == .dropCandidate
+        }
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? {
+        guard indices.contains(index) else { return nil }
+        return self[index]
+    }
+}
+
 struct HomeForedropLayoutMetrics {
     static let midRevealBaseOffset: CGFloat = 94
     static let extraFullRevealPadding: CGFloat = 72
@@ -593,15 +2163,15 @@ struct HomeBackdropForedropRootView: View {
 
         ZStack {
             GeometryReader { geometry in
-                let topGradientHeight = max(420, geometry.size.height * 0.58)
+                let backdropGradientHeight = geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom
 
                 ZStack(alignment: .top) {
                     Color.tasker.bgCanvas
                         .ignoresSafeArea()
 
                     HeaderGradientView()
-                        .frame(height: topGradientHeight)
-                        .ignoresSafeArea(.container, edges: .top)
+                        .frame(height: backdropGradientHeight)
+                        .ignoresSafeArea()
                         .allowsHitTesting(false)
 
                     LinearGradient(
@@ -612,8 +2182,8 @@ struct HomeBackdropForedropRootView: View {
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                        .frame(height: topGradientHeight)
-                        .ignoresSafeArea(.container, edges: .top)
+                        .frame(height: backdropGradientHeight)
+                        .ignoresSafeArea()
                         .allowsHitTesting(false)
 
                     VStack(spacing: 0) {
@@ -757,31 +2327,41 @@ struct HomeBackdropForedropRootView: View {
             get: { viewModel.evaTriageSheetPresented },
             set: { viewModel.setEvaTriagePresented($0) }
         )) {
-            EvaTriageSprintSheetView(
+            EvaTriageSprintSheetV2(
                 queue: viewModel.evaTriageQueue,
                 projectsByID: Dictionary(uniqueKeysWithValues: viewModel.projects.map { ($0.id, $0) }),
-                onApplySuggestion: { item, completion in
-                    viewModel.applyTriageSuggestion(for: item, completion: completion)
+                activeScope: viewModel.evaTriageScope,
+                isLoadingScope: viewModel.evaTriageQueueLoading,
+                queueErrorMessage: viewModel.evaTriageQueueErrorMessage,
+                lastBatchRunID: viewModel.evaLastBatchRunID,
+                onScopeChange: { scope, completion in
+                    viewModel.refreshTriageQueue(scope: scope, completion: completion)
+                },
+                onApplyDecision: { item, decision, completion in
+                    viewModel.applyTriageDecision(for: item, decision: decision, completion: completion)
                 },
                 onApplyAll: { completion in
                     viewModel.applyAllTriageSuggestions(completion: completion)
                 },
+                onUndoBulkApply: { completion in
+                    viewModel.undoEvaBatchPlan(completion: completion)
+                },
                 onSkip: { taskID in
                     viewModel.removeTriageQueueItem(taskID: taskID)
-                    viewModel.trackHomeInteraction(action: "triage_skip", metadata: ["task_id": taskID.uuidString])
                 },
-                onDelete: { taskID in
-                    if let task = viewModel.evaTriageQueue.first(where: { $0.task.id == taskID })?.task {
-                        onDeleteTask(task)
+                onDelete: { taskID, completion in
+                    viewModel.deleteTask(taskID: taskID, scope: .single) { result in
+                        switch result {
+                        case .success:
+                            viewModel.removeTriageQueueItem(taskID: taskID)
+                            completion(.success(()))
+                        case .failure(let error):
+                            completion(.failure(error))
+                        }
                     }
-                    viewModel.removeTriageQueueItem(taskID: taskID)
-                    viewModel.trackHomeInteraction(action: "triage_delete", metadata: ["task_id": taskID.uuidString])
                 },
-                onEdit: { taskID in
-                    if let task = viewModel.evaTriageQueue.first(where: { $0.task.id == taskID })?.task {
-                        onTaskTap(task)
-                    }
-                    viewModel.trackHomeInteraction(action: "triage_edit", metadata: ["task_id": taskID.uuidString])
+                onTrack: { action, metadata in
+                    viewModel.trackHomeInteraction(action: action, metadata: metadata)
                 }
             )
         }
@@ -789,20 +2369,27 @@ struct HomeBackdropForedropRootView: View {
             get: { viewModel.evaRescueSheetPresented },
             set: { viewModel.setEvaRescuePresented($0) }
         )) {
-            EvaOverdueRescueSheetView(
+            EvaOverdueRescueSheetV2(
                 plan: viewModel.evaRescuePlan,
-                tasksByID: Dictionary(uniqueKeysWithValues: viewModel.overdueTasks.map { ($0.id, $0) }),
+                tasksByID: (viewModel.overdueTasks + viewModel.morningTasks + viewModel.eveningTasks + viewModel.evaTriageQueue.map(\.task))
+                    .reduce(into: [UUID: TaskDefinition]()) { partialResult, task in
+                        partialResult[task.id] = task
+                    },
                 lastBatchRunID: viewModel.evaLastBatchRunID,
-                onApply: { mutations in
-                    viewModel.applyEvaBatchPlan(source: .rescue, mutations: mutations) { _ in }
+                onApply: { mutations, completion in
+                    viewModel.applyRescuePlan(mutations: mutations, completion: completion)
                 },
-                onUndo: {
-                    viewModel.undoEvaBatchPlan { _ in }
+                onUndo: { completion in
+                    viewModel.undoRescueRun(completion: completion)
                 },
-                onSplitTask: { taskID in
-                    if let task = viewModel.overdueTasks.first(where: { $0.id == taskID }) {
-                        onTaskTap(task)
-                    }
+                onCreateSplit: { taskID, draft, completion in
+                    viewModel.createSplitChildren(parentTaskID: taskID, draft: draft, completion: completion)
+                },
+                onUndoSplit: { childIDs, completion in
+                    viewModel.undoCreatedSplitChildren(childTaskIDs: childIDs, completion: completion)
+                },
+                onTrack: { action, metadata in
+                    viewModel.trackHomeInteraction(action: action, metadata: metadata)
                 }
             )
         }
