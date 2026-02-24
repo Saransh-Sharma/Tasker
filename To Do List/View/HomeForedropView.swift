@@ -118,7 +118,9 @@ struct HomeBackdropForedropRootView: View {
     @ObservedObject var viewModel: HomeViewModel
     @ObservedObject var chartCardViewModel: ChartCardViewModel
     @ObservedObject var radarChartCardViewModel: RadarChartCardViewModel
+    @ObservedObject private var themeManager = TaskerThemeManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
 
     let onTaskTap: (TaskDefinition) -> Void
     let onToggleComplete: (TaskDefinition) -> Void
@@ -179,45 +181,97 @@ struct HomeBackdropForedropRootView: View {
         return min(max(preferred, lowerBound), upperBound)
     }
 
+    private var topSurfaceFillOpacity: Double {
+        colorScheme == .dark ? 0.46 : 0.62
+    }
+
+    private var topSurfaceTintOpacity: Double {
+        colorScheme == .dark ? 0.18 : 0.30
+    }
+
+    private var topSurfaceBorderOpacity: Double {
+        colorScheme == .dark ? 0.38 : 0.55
+    }
+
+    @ViewBuilder
+    private func homeTopSurfaceBackground(cornerRadius: CGFloat = 16) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.tasker(.overlayGlassTint).opacity(topSurfaceFillOpacity))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.tasker(.accentSecondaryWash).opacity(topSurfaceTintOpacity))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.tasker.strokeHairline.opacity(topSurfaceBorderOpacity), lineWidth: 1)
+            )
+    }
+
     var body: some View {
+        let _ = themeManager.currentTheme.index
+
         ZStack {
             GeometryReader { geometry in
-                VStack(spacing: 0) {
-                    topNavigationBar()
-                        .accessibilityIdentifier("home.topNav.container")
+                let topGradientHeight = max(420, geometry.size.height * 0.58)
 
-                    GeometryReader { contentGeometry in
-                        ZStack(alignment: .top) {
-                            backdropLayer(geometry: contentGeometry)
+                ZStack(alignment: .top) {
+                    Color.tasker.bgCanvas
+                        .ignoresSafeArea()
 
-                            foredropLayer(geometry: contentGeometry)
-                                .offset(y: foredropOffset(for: contentGeometry.size.height) + foredropHintOffset)
-                                .animation(TaskerAnimation.snappy, value: foredropAnchor)
-                                .animation(TaskerAnimation.snappy, value: calendarExpandedHeight)
-                                .animation(TaskerAnimation.snappy, value: analyticsSectionHeight)
-                                .gesture(
-                                    DragGesture(minimumDistance: 8)
-                                        .onEnded { value in
-                                            let threshold: CGFloat = 50
-                                            withAnimation(TaskerAnimation.snappy) {
-                                                if value.translation.height > threshold {
-                                                    // Pull down: advance to next stop
-                                                    switch foredropAnchor {
-                                                    case .collapsed:  foredropAnchor = .midReveal
-                                                    case .midReveal:  foredropAnchor = .fullReveal
-                                                    case .fullReveal: break
-                                                    }
-                                                } else if value.translation.height < -threshold {
-                                                    // Pull up: retreat to previous stop
-                                                    switch foredropAnchor {
-                                                    case .collapsed:  break
-                                                    case .midReveal:  foredropAnchor = .collapsed
-                                                    case .fullReveal: foredropAnchor = .midReveal
+                    HeaderGradientView()
+                        .frame(height: topGradientHeight)
+                        .ignoresSafeArea(.container, edges: .top)
+                        .allowsHitTesting(false)
+
+                    LinearGradient(
+                        colors: [
+                            Color.tasker(.overlayScrim).opacity(0.12),
+                            .clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                        .frame(height: topGradientHeight)
+                        .ignoresSafeArea(.container, edges: .top)
+                        .allowsHitTesting(false)
+
+                    VStack(spacing: 0) {
+                        topNavigationBar()
+                            .accessibilityIdentifier("home.topNav.container")
+
+                        GeometryReader { contentGeometry in
+                            ZStack(alignment: .top) {
+                                backdropLayer(geometry: contentGeometry)
+
+                                foredropLayer(geometry: contentGeometry)
+                                    .offset(y: foredropOffset(for: contentGeometry.size.height) + foredropHintOffset)
+                                    .animation(TaskerAnimation.snappy, value: foredropAnchor)
+                                    .animation(TaskerAnimation.snappy, value: calendarExpandedHeight)
+                                    .animation(TaskerAnimation.snappy, value: analyticsSectionHeight)
+                                    .gesture(
+                                        DragGesture(minimumDistance: 8)
+                                            .onEnded { value in
+                                                let threshold: CGFloat = 50
+                                                withAnimation(TaskerAnimation.snappy) {
+                                                    if value.translation.height > threshold {
+                                                        // Pull down: advance to next stop
+                                                        switch foredropAnchor {
+                                                        case .collapsed:  foredropAnchor = .midReveal
+                                                        case .midReveal:  foredropAnchor = .fullReveal
+                                                        case .fullReveal: break
+                                                        }
+                                                    } else if value.translation.height < -threshold {
+                                                        // Pull up: retreat to previous stop
+                                                        switch foredropAnchor {
+                                                        case .collapsed:  break
+                                                        case .midReveal:  foredropAnchor = .collapsed
+                                                        case .fullReveal: foredropAnchor = .midReveal
+                                                        }
                                                     }
                                                 }
                                             }
-                                        }
-                                )
+                                    )
+                            }
                         }
                     }
                 }
@@ -379,16 +433,7 @@ struct HomeBackdropForedropRootView: View {
     private func backdropLayer(geometry: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.tasker.accentPrimary.opacity(0.24),
-                            Color.tasker.bgCanvas
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+                .fill(Color.clear)
                 .frame(height: max(480, geometry.size.height * 0.65))
                 .overlay(alignment: .topLeading) {
                     VStack(alignment: .leading, spacing: spacing.s8) {
@@ -400,6 +445,9 @@ struct HomeBackdropForedropRootView: View {
                             ),
                             todayDate: Date()
                         )
+                        .padding(.horizontal, spacing.s16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(homeTopSurfaceBackground())
                         .background(
                             GeometryReader { calGeo in
                                 Color.clear.preference(
@@ -428,6 +476,7 @@ struct HomeBackdropForedropRootView: View {
                             )
                                 .frame(height: chartCardsViewportHeight(for: geometry))
                         }
+                        .padding(.horizontal, spacing.s16)
                         .background(
                             GeometryReader { analyticsGeo in
                                 Color.clear.preference(
@@ -441,7 +490,6 @@ struct HomeBackdropForedropRootView: View {
                         }
                         .opacity(foredropAnchor == .fullReveal ? 1 : 0.001)
                     }
-                    .padding(.horizontal, spacing.s16)
                 }
             Spacer(minLength: 0)
         }
@@ -538,7 +586,16 @@ struct HomeBackdropForedropRootView: View {
                 bottomTrailingRadius: 0,
                 topTrailingRadius: corner.modal
             )
-                .fill(Color.tasker.surfacePrimary)
+                .fill(Color.tasker.surfaceTertiary)
+                .overlay(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: corner.modal,
+                        bottomLeadingRadius: 0,
+                        bottomTrailingRadius: 0,
+                        topTrailingRadius: corner.modal
+                    )
+                        .stroke(Color.tasker.strokeHairline.opacity(0.35), lineWidth: 1)
+                )
                 .taskerElevation(.e2, cornerRadius: corner.modal, includesBorder: false)
         )
         .clipShape(
@@ -626,6 +683,7 @@ struct HomeBackdropForedropRootView: View {
         .padding(.horizontal, spacing.s16)
         .padding(.top, 0)
         .padding(.bottom, spacing.s8)
+        .background(homeTopSurfaceBackground())
     }
 
     private var topSearchButton: some View {
@@ -638,7 +696,7 @@ struct HomeBackdropForedropRootView: View {
                 .frame(width: 44, height: 44)
                 .background(
                     Circle()
-                        .fill(Color.tasker.surfaceSecondary)
+                        .fill(Color.tasker.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.44 : 0.68))
                 )
         }
         .buttonStyle(.plain)
@@ -656,7 +714,7 @@ struct HomeBackdropForedropRootView: View {
                 .frame(width: 44, height: 44)
                 .background(
                     Circle()
-                        .fill(Color.tasker.surfaceSecondary)
+                        .fill(Color.tasker.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.44 : 0.68))
                 )
         }
         .buttonStyle(.plain)
