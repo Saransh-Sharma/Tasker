@@ -82,6 +82,7 @@ struct TaskSectionView: View {
     let project: Project
     let tasks: [TaskDefinition]
     let isOverdueSection: Bool
+    let tagNameByID: [UUID: String]
     let completedCollapsed: Bool?
     let isTaskDragEnabled: Bool
     var onTaskTap: ((TaskDefinition) -> Void)?
@@ -105,6 +106,7 @@ struct TaskSectionView: View {
         project: Project,
         tasks: [TaskDefinition],
         isOverdueSection: Bool = false,
+        tagNameByID: [UUID: String] = [:],
         completedCollapsed: Bool? = nil,
         isTaskDragEnabled: Bool = false,
         onTaskTap: ((TaskDefinition) -> Void)? = nil,
@@ -120,6 +122,7 @@ struct TaskSectionView: View {
         self.project = project
         self.tasks = tasks
         self.isOverdueSection = isOverdueSection
+        self.tagNameByID = tagNameByID
         self.completedCollapsed = completedCollapsed
         self.isTaskDragEnabled = isTaskDragEnabled
         self.onTaskTap = onTaskTap
@@ -170,11 +173,13 @@ struct TaskSectionView: View {
     // MARK: - Task List
 
     private var taskList: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             ForEach(openRenderItems, id: \.renderKey) { item in
                 TaskRowView(
                     task: item.task,
                     showTypeBadge: hasMixedTypes,
+                    isInOverdueSection: isOverdueSection,
+                    tagNameByID: tagNameByID,
                     isTaskDragEnabled: isTaskDragEnabled,
                     onTap: { onTaskTap?(item.task) },
                     onToggleComplete: { onToggleComplete?(item.task) },
@@ -195,6 +200,8 @@ struct TaskSectionView: View {
                         TaskRowView(
                             task: item.task,
                             showTypeBadge: hasMixedTypes,
+                            isInOverdueSection: isOverdueSection,
+                            tagNameByID: tagNameByID,
                             isTaskDragEnabled: false,
                             onTap: { onTaskTap?(item.task) },
                             onToggleComplete: { onToggleComplete?(item.task) },

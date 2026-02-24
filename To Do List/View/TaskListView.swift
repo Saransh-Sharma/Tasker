@@ -29,6 +29,7 @@ struct TaskListView: View {
     let inlineCompletedTasks: [TaskDefinition]
     let projects: [Project]
     let doneTimelineTasks: [TaskDefinition]
+    let tagNameByID: [UUID: String]
     let activeQuickView: HomeQuickView?
     let projectGroupingMode: HomeProjectGroupingMode
     let customProjectOrderIDs: [UUID]
@@ -61,6 +62,7 @@ struct TaskListView: View {
         inlineCompletedTasks: [TaskDefinition] = [],
         projects: [Project],
         doneTimelineTasks: [TaskDefinition] = [],
+        tagNameByID: [UUID: String] = [:],
         activeQuickView: HomeQuickView? = nil,
         projectGroupingMode: HomeProjectGroupingMode = .defaultMode,
         customProjectOrderIDs: [UUID] = [],
@@ -88,6 +90,7 @@ struct TaskListView: View {
         self.inlineCompletedTasks = inlineCompletedTasks
         self.projects = projects
         self.doneTimelineTasks = doneTimelineTasks
+        self.tagNameByID = tagNameByID
         self.activeQuickView = activeQuickView
         self.projectGroupingMode = projectGroupingMode
         self.customProjectOrderIDs = customProjectOrderIDs
@@ -189,6 +192,7 @@ struct TaskListView: View {
             TaskSectionView(
                 project: inboxSection.project,
                 tasks: inboxSection.tasks,
+                tagNameByID: tagNameByID,
                 completedCollapsed: isCompletedCollapsedBySection[inboxSection.project.id],
                 isTaskDragEnabled: isTaskDragEnabled,
                 onTaskTap: onTaskTap,
@@ -211,6 +215,7 @@ struct TaskListView: View {
         if projectGroupingMode == .prioritizeOverdue, !layout.overdueGroups.isEmpty {
             OverdueGroupedSectionView(
                 groups: layout.overdueGroups,
+                tagNameByID: tagNameByID,
                 isTaskDragEnabled: isTaskDragEnabled,
                 headerActionTitle: overdueHeaderActionTitle,
                 onHeaderAction: onOverdueHeaderAction,
@@ -230,6 +235,7 @@ struct TaskListView: View {
             TaskSectionView(
                 project: section.project,
                 tasks: section.tasks,
+                tagNameByID: tagNameByID,
                 completedCollapsed: isCompletedCollapsedBySection[section.project.id],
                 isTaskDragEnabled: isTaskDragEnabled,
                 onTaskTap: onTaskTap,
@@ -269,6 +275,7 @@ struct TaskListView: View {
                 project: overdueProject,
                 tasks: overdueTasks,
                 isOverdueSection: true,
+                tagNameByID: tagNameByID,
                 completedCollapsed: isCompletedCollapsedBySection[overdueProject.id],
                 isTaskDragEnabled: isTaskDragEnabled,
                 onTaskTap: onTaskTap,
@@ -292,6 +299,7 @@ struct TaskListView: View {
             TaskSectionView(
                 project: section.project,
                 tasks: section.tasks,
+                tagNameByID: tagNameByID,
                 completedCollapsed: isCompletedCollapsedBySection[section.project.id],
                 isTaskDragEnabled: isTaskDragEnabled,
                 onTaskTap: onTaskTap,
@@ -318,6 +326,7 @@ struct TaskListView: View {
                 project: group.project,
                 tasks: group.tasks,
                 isOverdueSection: false,
+                tagNameByID: tagNameByID,
                 completedCollapsed: isCompletedCollapsedBySection[group.project.id],
                 isTaskDragEnabled: false,
                 onTaskTap: onTaskTap,
@@ -514,6 +523,7 @@ private struct ProjectSection: Identifiable {
 
 private struct OverdueGroupedSectionView: View {
     let groups: [HomeTaskOverdueGroup]
+    let tagNameByID: [UUID: String]
     let isTaskDragEnabled: Bool
     var headerActionTitle: String?
     var onHeaderAction: (() -> Void)?
@@ -555,6 +565,8 @@ private struct OverdueGroupedSectionView: View {
                             TaskRowView(
                                 task: task,
                                 showTypeBadge: false,
+                                isInOverdueSection: true,
+                                tagNameByID: tagNameByID,
                                 isTaskDragEnabled: isTaskDragEnabled,
                                 onTap: { onTaskTap?(task) },
                                 onToggleComplete: { onToggleComplete?(task) },
