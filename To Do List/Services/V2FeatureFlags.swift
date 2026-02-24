@@ -27,4 +27,19 @@ public enum V2FeatureFlags {
         get { defaults.object(forKey: "feature.llm.chat_prewarm") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.llm.chat_prewarm") }
     }
+
+    public static var evaFocusEnabled: Bool {
+        get { defaults.object(forKey: "feature.eva.focus") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.eva.focus") }
+    }
+
+    public static var evaTriageEnabled: Bool {
+        get { defaults.object(forKey: "feature.eva.triage") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.eva.triage") }
+    }
+
+    public static var evaRescueEnabled: Bool {
+        get { defaults.object(forKey: "feature.eva.rescue") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.eva.rescue") }
+    }
 }
