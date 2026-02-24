@@ -69,6 +69,13 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var emptyStateActionTitle: String?
     @Published public private(set) var focusEngineEnabled: Bool = true
     @Published public private(set) var activeScope: HomeListScope = .today
+    @Published public private(set) var evaHomeInsights: EvaHomeInsights?
+    @Published public private(set) var evaFocusWhySheetPresented: Bool = false
+    @Published public private(set) var evaTriageSheetPresented: Bool = false
+    @Published public private(set) var evaRescueSheetPresented: Bool = false
+    @Published public private(set) var evaTriageQueue: [EvaTriageQueueItem] = []
+    @Published public private(set) var evaRescuePlan: EvaRescuePlan?
+    @Published public private(set) var evaLastBatchRunID: UUID?
 
     // Next Action Module: total open tasks for today
     public var todayOpenTaskCount: Int {
@@ -83,6 +90,10 @@ public final class HomeViewModel: ObservableObject {
 
     private let useCaseCoordinator: UseCaseCoordinator
     private let homeFilteredTasksUseCase: GetHomeFilteredTasksUseCase
+    private let computeEvaHomeInsightsUseCase: ComputeEvaHomeInsightsUseCase
+    private let getInboxTriageQueueUseCase: GetInboxTriageQueueUseCase
+    private let getOverdueRescuePlanUseCase: GetOverdueRescuePlanUseCase
+    private let buildEvaBatchProposalUseCase: BuildEvaBatchProposalUseCase
     private let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
     private let analyticsService: AnalyticsServiceProtocol?
     private let userDefaults: UserDefaults
@@ -92,7 +103,10 @@ public final class HomeViewModel: ObservableObject {
 
     private static let lastFilterStateKey = "home.focus.lastFilterState.v2"
     private static let pinnedFocusTaskIDsKey = "home.focus.pinnedTaskIDs.v2"
+    private static let recentShuffleTaskIDsKey = "home.eva.recentShuffleTaskIDs.v1"
     private static let maxPinnedFocusTasks = 3
+    private static let maxShuffleHistorySize = 10
+    private static let defaultShuffleExclusionWindow = 3
 
     // MARK: - Session State
 
@@ -102,6 +116,7 @@ public final class HomeViewModel: ObservableObject {
     private var reloadGeneration: Int = 0
     private var suppressCompletionReloadUntil: Date?
     private var lastRecurringTopUpAt: Date?
+    private var recentShuffledFocusTaskIDs: [UUID] = []
 
     private let completionNotificationDebounceMS = 120
     private let completionReloadSuppressionSeconds: TimeInterval = 0.35
@@ -120,6 +135,10 @@ public final class HomeViewModel: ObservableObject {
     ) {
         self.useCaseCoordinator = useCaseCoordinator
         self.homeFilteredTasksUseCase = useCaseCoordinator.getHomeFilteredTasks
+        self.computeEvaHomeInsightsUseCase = useCaseCoordinator.computeEvaHomeInsights
+        self.getInboxTriageQueueUseCase = useCaseCoordinator.getInboxTriageQueue
+        self.getOverdueRescuePlanUseCase = useCaseCoordinator.getOverdueRescuePlan
+        self.buildEvaBatchProposalUseCase = useCaseCoordinator.buildEvaBatchProposal
         self.savedHomeViewRepository = savedHomeViewRepository
         self.analyticsService = analyticsService
         self.userDefaults = userDefaults
@@ -492,6 +511,7 @@ public final class HomeViewModel: ObservableObject {
         pinnedFocusTaskIDs.append(taskID)
         persistPinnedFocusTaskIDs()
         focusTasks = composedFocusTasks(from: openTasks)
+        refreshEvaInsights(openTasks: openTasks)
         return .pinned
     }
 
@@ -500,7 +520,9 @@ public final class HomeViewModel: ObservableObject {
         guard pinnedFocusTaskIDs.contains(taskID) else { return }
         pinnedFocusTaskIDs.removeAll { $0 == taskID }
         persistPinnedFocusTaskIDs()
-        focusTasks = composedFocusTasks(from: focusOpenTasksForCurrentState())
+        let openTasks = focusOpenTasksForCurrentState()
+        focusTasks = composedFocusTasks(from: openTasks)
+        refreshEvaInsights(openTasks: openTasks)
     }
 
     /// Change selected date.
@@ -856,6 +878,308 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    public func evaFocusInsight(for taskID: UUID) -> EvaFocusTaskInsight? {
+        evaHomeInsights?.focus.taskInsights.first(where: { $0.taskID == taskID })
+    }
+
+    public func setEvaFocusWhyPresented(_ value: Bool) {
+        evaFocusWhySheetPresented = value
+    }
+
+    public func setEvaTriagePresented(_ value: Bool) {
+        evaTriageSheetPresented = value
+    }
+
+    public func setEvaRescuePresented(_ value: Bool) {
+        evaRescueSheetPresented = value
+    }
+
+    public func openFocusWhy() {
+        guard V2FeatureFlags.evaFocusEnabled else { return }
+        evaFocusWhySheetPresented = true
+        trackHomeInteraction(action: "focus_now_why_open", metadata: [:])
+    }
+
+    public func shuffleFocusNow() {
+        guard V2FeatureFlags.evaFocusEnabled else { return }
+        guard canUseManualFocusDrag else { return }
+        guard activeScope.quickView != .done else { return }
+
+        let openTasks = focusOpenTasksForCurrentState()
+        guard openTasks.count > 1 else { return }
+        let pinnedSet = Set(pinnedFocusTaskIDs)
+        let candidates = openTasks.filter { !pinnedSet.contains($0.id) }
+        guard candidates.isEmpty == false else { return }
+
+        let excluded = Set(recentShuffledFocusTaskIDs.suffix(shuffleExclusionWindow))
+        let preferred = candidates.filter { !excluded.contains($0.id) }
+        let effective = preferred.isEmpty ? candidates : preferred
+        let ranked = rankedFocusTasks(from: effective, relativeTo: activeScope)
+        let autoFill = Array(ranked.prefix(max(0, Self.maxPinnedFocusTasks - pinnedFocusTaskIDs.count)))
+        let pinned = pinnedFocusTaskIDs.compactMap { id in openTasks.first(where: { $0.id == id }) }
+        let newSelection = Array((pinned + autoFill).prefix(Self.maxPinnedFocusTasks))
+        guard newSelection.isEmpty == false else { return }
+
+        focusTasks = newSelection
+        for task in newSelection {
+            recentShuffledFocusTaskIDs.append(task.id)
+        }
+        recentShuffledFocusTaskIDs = Array(recentShuffledFocusTaskIDs.suffix(Self.maxShuffleHistorySize))
+        persistRecentShuffleTaskIDs()
+        refreshEvaInsights()
+        trackHomeInteraction(action: "focus_now_shuffle_tap", metadata: [
+            "result_count": newSelection.count
+        ])
+    }
+
+    public func startTriage() {
+        guard V2FeatureFlags.evaTriageEnabled else { return }
+        evaTriageSheetPresented = true
+        useCaseCoordinator.getTasks.getTasksForProject(ProjectConstants.inboxProjectID, includeCompleted: false) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                let openTasks = self.focusOpenTasksForCurrentState()
+                switch result {
+                case .success(let inboxResult):
+                    self.evaTriageQueue = self.getInboxTriageQueueUseCase.execute(
+                        inboxTasks: inboxResult.tasks.filter { !$0.isComplete },
+                        allTasks: openTasks + inboxResult.tasks,
+                        projects: self.projects,
+                        maxItems: 20
+                    )
+                case .failure:
+                    self.evaTriageQueue = self.getInboxTriageQueueUseCase.execute(
+                        inboxTasks: openTasks.filter { $0.projectID == ProjectConstants.inboxProjectID && !$0.isComplete },
+                        allTasks: openTasks,
+                        projects: self.projects,
+                        maxItems: 20
+                    )
+                }
+                self.trackHomeInteraction(action: "triage_start", metadata: [
+                    "queue_count": self.evaTriageQueue.count
+                ])
+            }
+        }
+    }
+
+    public func openRescue() {
+        guard V2FeatureFlags.evaRescueEnabled else { return }
+        evaRescueSheetPresented = true
+        useCaseCoordinator.getTasks.getOverdueTasks { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                let tasks: [TaskDefinition]
+                switch result {
+                case .success(let overdue):
+                    tasks = overdue
+                case .failure:
+                    tasks = self.overdueTasks
+                }
+                self.evaRescuePlan = self.getOverdueRescuePlanUseCase.execute(
+                    overdueTasks: tasks.filter { !$0.isComplete },
+                    now: Date()
+                )
+                self.trackHomeInteraction(action: "rescue_open", metadata: [
+                    "overdue_count": tasks.filter { !$0.isComplete }.count
+                ])
+            }
+        }
+    }
+
+    public func removeTriageQueueItem(taskID: UUID) {
+        evaTriageQueue.removeAll { $0.task.id == taskID }
+    }
+
+    public func applyTriageSuggestion(
+        for item: EvaTriageQueueItem,
+        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+    ) {
+        var request = UpdateTaskDefinitionRequest(id: item.task.id)
+        var mutated = false
+
+        if item.suggestions.projectConfidence >= 0.45,
+           let suggestedProjectID = item.suggestions.projectID,
+           suggestedProjectID != item.task.projectID {
+            request.projectID = suggestedProjectID
+            mutated = true
+        }
+
+        if item.suggestions.dueConfidence >= 0.45 {
+            let dueDate = dueDate(for: item.suggestions.dueBucket)
+            switch item.suggestions.dueBucket {
+            case .someday:
+                if item.task.dueDate != nil {
+                    request.clearDueDate = true
+                    mutated = true
+                }
+            case .none:
+                break
+            default:
+                if item.task.dueDate != dueDate {
+                    request.dueDate = dueDate
+                    mutated = true
+                }
+            }
+        }
+
+        if item.suggestions.durationConfidence >= 0.45,
+           let suggestedDuration = item.suggestions.durationSeconds,
+           item.task.estimatedDuration != suggestedDuration {
+            request.estimatedDuration = suggestedDuration
+            mutated = true
+        }
+
+        guard mutated else {
+            completion(.success(item.task))
+            return
+        }
+
+        updateTask(taskID: item.task.id, request: request) { [weak self] result in
+            if case .success(let updatedTask) = result {
+                self?.removeTriageQueueItem(taskID: updatedTask.id)
+                self?.trackHomeInteraction(action: "triage_accept", metadata: [
+                    "task_id": updatedTask.id.uuidString
+                ])
+            }
+            completion(result)
+        }
+    }
+
+    public func applyEvaBatchPlan(
+        source: EvaBatchSource,
+        mutations: [EvaBatchMutationInstruction],
+        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        guard mutations.isEmpty == false else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "No Eva mutations to apply"]
+            )))
+            return
+        }
+        let openTasks = focusOpenTasksForCurrentState() + completedTasks + doneTimelineTasks + evaTriageQueue.map(\.task)
+        let tasksByID = openTasks.reduce(into: [UUID: TaskDefinition]()) { partialResult, task in
+            partialResult[task.id] = task
+        }
+        let proposal = buildEvaBatchProposalUseCase.execute(
+            source: source,
+            tasksByID: tasksByID,
+            mutations: mutations
+        )
+
+        useCaseCoordinator.assistantActionPipeline.propose(threadID: proposal.threadID, envelope: proposal.envelope) { [weak self] proposeResult in
+            switch proposeResult {
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            case .success(let proposedRun):
+                self?.useCaseCoordinator.assistantActionPipeline.confirm(runID: proposedRun.id) { confirmResult in
+                    switch confirmResult {
+                    case .failure(let error):
+                        DispatchQueue.main.async {
+                            completion(.failure(error))
+                        }
+                    case .success:
+                        self?.useCaseCoordinator.assistantActionPipeline.applyConfirmedRun(id: proposedRun.id) { applyResult in
+                            DispatchQueue.main.async {
+                                switch applyResult {
+                                case .success(let run):
+                                    self?.evaLastBatchRunID = run.id
+                                    self?.reloadCurrentModeTasks()
+                                    self?.trackHomeInteraction(action: source == .triage ? "triage_bulk_apply" : "rescue_apply_confirmed", metadata: [
+                                        "mutation_count": mutations.count
+                                    ])
+                                    completion(.success(run))
+                                case .failure(let error):
+                                    completion(.failure(error))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public func applyAllTriageSuggestions(
+        confidenceThreshold: Double = 0.75,
+        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        let mutations = evaTriageQueue.compactMap { item -> EvaBatchMutationInstruction? in
+            var mutation = EvaBatchMutationInstruction(taskID: item.task.id)
+            var hasChange = false
+
+            if item.suggestions.projectConfidence >= confidenceThreshold,
+               let projectID = item.suggestions.projectID,
+               projectID != item.task.projectID {
+                mutation.projectID = projectID
+                hasChange = true
+            }
+            if item.suggestions.dueConfidence >= confidenceThreshold {
+                switch item.suggestions.dueBucket {
+                case .someday:
+                    if item.task.dueDate != nil {
+                        mutation.clearDueDate = true
+                        hasChange = true
+                    }
+                case .none:
+                    break
+                default:
+                    let suggestedDate = dueDate(for: item.suggestions.dueBucket)
+                    if item.task.dueDate != suggestedDate {
+                        mutation.dueDate = suggestedDate
+                        hasChange = true
+                    }
+                }
+            }
+            if item.suggestions.durationConfidence >= confidenceThreshold,
+               let duration = item.suggestions.durationSeconds,
+               item.task.estimatedDuration != duration {
+                mutation.estimatedDuration = duration
+                hasChange = true
+            }
+            return hasChange ? mutation : nil
+        }
+
+        applyEvaBatchPlan(source: .triage, mutations: mutations) { [weak self] result in
+            DispatchQueue.main.async {
+                if case .success = result {
+                    self?.evaTriageQueue.removeAll()
+                }
+                completion(result)
+            }
+        }
+    }
+
+    public func undoEvaBatchPlan(
+        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        guard let runID = evaLastBatchRunID else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "No Eva batch run available to undo"]
+            )))
+            return
+        }
+        useCaseCoordinator.assistantActionPipeline.undoAppliedRun(id: runID) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let run):
+                    self?.reloadCurrentModeTasks()
+                    self?.trackHomeInteraction(action: "rescue_undo", metadata: [
+                        "run_id": run.id.uuidString
+                    ])
+                    completion(.success(run))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
     // MARK: - Private Methods
 
     /// Executes setupBindings.
@@ -989,7 +1313,7 @@ public final class HomeViewModel: ObservableObject {
         if request.type != nil {
             return .typeChanged
         }
-        if request.dueDate != nil {
+        if request.dueDate != nil || request.clearDueDate {
             return .dueDateChanged
         }
         return .updated
@@ -1002,6 +1326,7 @@ public final class HomeViewModel: ObservableObject {
 
         restoreLastFilterState()
         restorePinnedFocusTaskIDs()
+        restoreRecentShuffleTaskIDs()
         activeScope = .fromQuickView(activeFilterState.quickView)
         if case .today = activeScope {
             selectedDate = Date()
@@ -1188,12 +1513,14 @@ public final class HomeViewModel: ObservableObject {
             prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
         }
         focusTasks = composedFocusTasks(from: openTasks)
+        refreshEvaInsights(openTasks: openTasks)
 
         if activeScope == .done {
             doneTimelineTasks = doneTasks
             dailyCompletedTasks = doneTasks
             completedTasks = doneTasks
             focusTasks = []
+            refreshEvaInsights(openTasks: [])
             upcomingTasks = []
             morningTasks = []
             eveningTasks = []
@@ -1306,6 +1633,29 @@ public final class HomeViewModel: ObservableObject {
         userDefaults.set(normalized.map(\.uuidString), forKey: Self.pinnedFocusTaskIDsKey)
     }
 
+    /// Executes restoreRecentShuffleTaskIDs.
+    private func restoreRecentShuffleTaskIDs() {
+        recentShuffledFocusTaskIDs = userDefaults
+            .stringArray(forKey: Self.recentShuffleTaskIDsKey)?
+            .compactMap(UUID.init(uuidString:))
+            ?? []
+    }
+
+    /// Executes persistRecentShuffleTaskIDs.
+    private func persistRecentShuffleTaskIDs() {
+        userDefaults.set(recentShuffledFocusTaskIDs.map(\.uuidString), forKey: Self.recentShuffleTaskIDsKey)
+    }
+
+    private var shuffleExclusionWindow: Int {
+        #if DEBUG
+        if userDefaults.object(forKey: "debug.eva.focus.shuffleExclusionWindow") != nil {
+            let configured = userDefaults.integer(forKey: "debug.eva.focus.shuffleExclusionWindow")
+            return max(1, min(8, configured))
+        }
+        #endif
+        return Self.defaultShuffleExclusionWindow
+    }
+
     /// Executes seedPinnedProjectsIfNeeded.
     private func seedPinnedProjectsIfNeeded(from projects: [Project]) {
         guard activeFilterState.pinnedProjectIDs.isEmpty else { return }
@@ -1338,6 +1688,38 @@ public final class HomeViewModel: ObservableObject {
         }
 
         activeFilterState.pinnedProjectIDs = pinned
+    }
+
+    /// Executes refreshEvaInsights.
+    private func refreshEvaInsights(openTasks: [TaskDefinition]? = nil) {
+        guard V2FeatureFlags.evaFocusEnabled || V2FeatureFlags.evaTriageEnabled || V2FeatureFlags.evaRescueEnabled else {
+            evaHomeInsights = nil
+            return
+        }
+        let sourceOpenTasks = openTasks ?? focusOpenTasksForCurrentState()
+        evaHomeInsights = computeEvaHomeInsightsUseCase.execute(
+            openTasks: sourceOpenTasks,
+            focusTasks: focusTasks,
+            anchorDate: activeScope.referenceDate
+        )
+    }
+
+    /// Executes dueDate.
+    private func dueDate(for bucket: EvaDueBucket?) -> Date? {
+        guard let bucket else { return nil }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        switch bucket {
+        case .today:
+            return today
+        case .tomorrow:
+            return calendar.date(byAdding: .day, value: 1, to: today)
+        case .thisWeek:
+            let daysUntilEndOfWeek = 7 - calendar.component(.weekday, from: today)
+            return calendar.date(byAdding: .day, value: max(daysUntilEndOfWeek, 2), to: today)
+        case .someday:
+            return nil
+        }
     }
 
     /// Executes sanitizeFilterState.
@@ -1432,6 +1814,32 @@ public final class HomeViewModel: ObservableObject {
             return dueDate >= anchorStart && dueDate < anchorEnd
         }
 
+        if V2FeatureFlags.evaFocusEnabled {
+            let scored = tasks.map { task in
+                let overdueDays = task.dueDate.map { max(0, calendar.dateComponents([.day], from: $0, to: anchorStart).day ?? 0) } ?? 0
+                let urgency = Double(overdueDays) * 1.4 + (isDueToday(task) ? 2.0 : 0)
+                let quickWin = (task.estimatedDuration ?? 0) > 0 && (task.estimatedDuration ?? 0) <= 1_800 ? 1.0 : 0
+                let unblocked = task.dependencies.isEmpty ? 1.0 : -1.2
+                let importance = Double(task.priority.scorePoints) * 0.6
+                let staleDays = max(0, calendar.dateComponents([.day], from: task.updatedAt, to: Date()).day ?? 0)
+                let freshness = staleDays >= 14 ? -0.8 : 0.3
+                let score = urgency + quickWin + unblocked + importance + freshness
+                return (task: task, score: score)
+            }
+            let sortedScored = scored.sorted { lhs, rhs in
+                if lhs.score != rhs.score {
+                    return lhs.score > rhs.score
+                }
+                let lhsDue = lhs.task.dueDate ?? Date.distantFuture
+                let rhsDue = rhs.task.dueDate ?? Date.distantFuture
+                if lhsDue != rhsDue {
+                    return lhsDue < rhsDue
+                }
+                return lhs.task.id.uuidString < rhs.task.id.uuidString
+            }
+            return Array(sortedScored.map(\.task).prefix(Self.maxPinnedFocusTasks))
+        }
+
         let sorted = tasks.sorted { lhs, rhs in
             let lhsOverdue = isOverdue(lhs)
             let rhsOverdue = isOverdue(rhs)
@@ -1493,7 +1901,9 @@ public final class HomeViewModel: ObservableObject {
         guard pinnedFocusTaskIDs.contains(taskID) else { return }
         pinnedFocusTaskIDs.removeAll { $0 == taskID }
         persistPinnedFocusTaskIDs()
-        focusTasks = composedFocusTasks(from: focusOpenTasksForCurrentState())
+        let openTasks = focusOpenTasksForCurrentState()
+        focusTasks = composedFocusTasks(from: openTasks)
+        refreshEvaInsights(openTasks: openTasks)
     }
 
     /// Executes normalizedPinnedFocusTaskIDs.
@@ -1527,6 +1937,7 @@ public final class HomeViewModel: ObservableObject {
     private func refreshFocusTasksFromCurrentState() {
         if activeScope.quickView == .done {
             focusTasks = []
+            refreshEvaInsights(openTasks: [])
             return
         }
 
@@ -1535,6 +1946,7 @@ public final class HomeViewModel: ObservableObject {
             prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
         }
         focusTasks = composedFocusTasks(from: openTasks)
+        refreshEvaInsights(openTasks: openTasks)
     }
 
     /// Executes trackFeatureUsage.
