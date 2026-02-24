@@ -449,39 +449,105 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertEqual(canonical.morning.map(\.isComplete), [false, true])
     }
 
-    func testTaskRowDisplayModelBuildsCompactMetadataAndTrailingDue() {
-        let due = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: Date()) ?? Date()
+    func testTaskRowDisplayModelShowsOverdueAgeRecurrenceAndFirstTagInOverdueSection() {
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
         var task = TaskDefinition(
             projectID: ProjectConstants.inboxProjectID,
-            title: "Metadata task",
-            details: "  Add note  ",
+            title: "Escalation follow-up",
+            details: "Coordinate blockers and owner handoffs",
             priority: .high,
             type: .morning,
-            dueDate: due
+            dueDate: Calendar.current.date(byAdding: .day, value: -10, to: now)
         )
-        task.projectName = ProjectConstants.inboxProjectName
+        let tagID = UUID()
+        task.tagIDs = [tagID]
+        task.repeatPattern = .daily
 
-        let model = TaskRowDisplayModel.from(task: task, showTypeBadge: false, now: Date())
+        let model = TaskRowDisplayModel.from(
+            task: task,
+            showTypeBadge: false,
+            now: now,
+            isInOverdueSection: true,
+            tagNameByID: [tagID: "Client"]
+        )
 
-        XCTAssertTrue(model.rowMetaText.contains("Inbox"))
-        XCTAssertTrue(model.rowMetaText.contains("+\(task.priority.scorePoints) XP"))
-        XCTAssertFalse(model.trailingMetaText.isEmpty)
-        XCTAssertEqual(model.noteText, "Add note")
+        XCTAssertEqual(model.metadataText, "1w late • Daily • Client")
+        XCTAssertEqual(model.statusChip, nil)
     }
 
-    func testTaskRowDisplayModelFallsBackToXPWhenNoDueDate() {
-        let task = TaskDefinition(
-            projectID: ProjectConstants.inboxProjectID,
-            title: "No due date",
-            priority: .low,
-            type: .morning,
-            dueDate: nil
+    func testTaskRowDisplayModelRemovesTodayAndOverdueBadgesFromMainRows() {
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
+        let dueToday = Calendar.current.date(byAdding: .hour, value: 6, to: now)!
+        let overdue = Calendar.current.date(byAdding: .day, value: -2, to: now)!
+
+        let dueTodayTask = TaskDefinition(title: "Due later", priority: .low, dueDate: dueToday)
+        let overdueTask = TaskDefinition(title: "Late task", priority: .low, dueDate: overdue)
+
+        let todayModel = TaskRowDisplayModel.from(task: dueTodayTask, showTypeBadge: false, now: now)
+        let overdueModel = TaskRowDisplayModel.from(task: overdueTask, showTypeBadge: false, now: now)
+
+        XCTAssertNil(todayModel.statusChip)
+        XCTAssertNil(todayModel.metadataText)
+        XCTAssertNil(overdueModel.statusChip)
+        XCTAssertEqual(overdueModel.metadataText, "2d late")
+    }
+
+    func testTaskRowDisplayModelShowsDueSoonChipOnlyInsideWindow() {
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
+        let dueSoonTask = TaskDefinition(
+            title: "Call legal",
+            priority: .high,
+            dueDate: Calendar.current.date(byAdding: .minute, value: 45, to: now)
+        )
+        let laterTask = TaskDefinition(
+            title: "Design review",
+            priority: .high,
+            dueDate: Calendar.current.date(byAdding: .hour, value: 4, to: now)
         )
 
-        let model = TaskRowDisplayModel.from(task: task, showTypeBadge: true, now: Date())
-        XCTAssertEqual(model.trailingMetaText, "+\(task.priority.scorePoints) XP")
-        XCTAssertTrue(model.rowMetaText.contains("Inbox"))
-        XCTAssertTrue(model.rowMetaText.contains("Morning"))
+        let dueSoonModel = TaskRowDisplayModel.from(task: dueSoonTask, showTypeBadge: false, now: now)
+        let laterModel = TaskRowDisplayModel.from(task: laterTask, showTypeBadge: false, now: now)
+
+        XCTAssertEqual(dueSoonModel.statusChip, .dueSoon)
+        XCTAssertNil(laterModel.statusChip)
+    }
+
+    func testTaskRowDisplayModelAppliesSmartDescriptionRules() {
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 2, day: 24, hour: 9, minute: 0))!
+        let duplicateTask = TaskDefinition(
+            title: "Call Manivel",
+            details: "call manivel",
+            priority: .low,
+            dueDate: Calendar.current.date(byAdding: .day, value: 1, to: now)
+        )
+        let highPriorityTask = TaskDefinition(
+            title: "Escalation prep",
+            details: "Send docs",
+            priority: .high,
+            dueDate: Calendar.current.date(byAdding: .day, value: 1, to: now)
+        )
+        let contextRichTask = TaskDefinition(
+            title: "Status update",
+            details: "Summarize blockers, owner updates, and rollout notes",
+            priority: .low,
+            dueDate: Calendar.current.date(byAdding: .day, value: 1, to: now)
+        )
+        let plainTask = TaskDefinition(
+            title: "Follow up",
+            details: "Ping team",
+            priority: .low,
+            dueDate: Calendar.current.date(byAdding: .day, value: 1, to: now)
+        )
+
+        let duplicateModel = TaskRowDisplayModel.from(task: duplicateTask, showTypeBadge: false, now: now)
+        let highPriorityModel = TaskRowDisplayModel.from(task: highPriorityTask, showTypeBadge: false, now: now)
+        let contextRichModel = TaskRowDisplayModel.from(task: contextRichTask, showTypeBadge: false, now: now)
+        let plainModel = TaskRowDisplayModel.from(task: plainTask, showTypeBadge: false, now: now)
+
+        XCTAssertNil(duplicateModel.descriptionText)
+        XCTAssertEqual(highPriorityModel.descriptionText, "Send docs")
+        XCTAssertEqual(contextRichModel.descriptionText, "Summarize blockers, owner updates, and rollout notes")
+        XCTAssertNil(plainModel.descriptionText)
     }
 
     private func makeTask(
