@@ -73,6 +73,9 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var evaFocusWhySheetPresented: Bool = false
     @Published public private(set) var evaTriageSheetPresented: Bool = false
     @Published public private(set) var evaRescueSheetPresented: Bool = false
+    @Published public private(set) var evaTriageScope: EvaTriageScope = .visible
+    @Published public private(set) var evaTriageQueueLoading: Bool = false
+    @Published public private(set) var evaTriageQueueErrorMessage: String?
     @Published public private(set) var evaTriageQueue: [EvaTriageQueueItem] = []
     @Published public private(set) var evaRescuePlan: EvaRescuePlan?
     @Published public private(set) var evaLastBatchRunID: UUID?
@@ -933,31 +936,96 @@ public final class HomeViewModel: ObservableObject {
     }
 
     public func startTriage() {
+        startTriage(scope: .visible)
+    }
+
+    public func startTriage(scope: EvaTriageScope) {
         guard V2FeatureFlags.evaTriageEnabled else { return }
         evaTriageSheetPresented = true
-        useCaseCoordinator.getTasks.getTasksForProject(ProjectConstants.inboxProjectID, includeCompleted: false) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                let openTasks = self.focusOpenTasksForCurrentState()
-                switch result {
-                case .success(let inboxResult):
-                    self.evaTriageQueue = self.getInboxTriageQueueUseCase.execute(
-                        inboxTasks: inboxResult.tasks.filter { !$0.isComplete },
-                        allTasks: openTasks + inboxResult.tasks,
-                        projects: self.projects,
-                        maxItems: 20
-                    )
-                case .failure:
-                    self.evaTriageQueue = self.getInboxTriageQueueUseCase.execute(
-                        inboxTasks: openTasks.filter { $0.projectID == ProjectConstants.inboxProjectID && !$0.isComplete },
-                        allTasks: openTasks,
-                        projects: self.projects,
-                        maxItems: 20
-                    )
+        trackHomeInteraction(action: "triage_open", metadata: [
+            "scope": scope.rawValue
+        ])
+        refreshTriageQueue(scope: scope)
+    }
+
+    public func refreshTriageQueue(scope: EvaTriageScope) {
+        refreshTriageQueue(scope: scope, completion: nil)
+    }
+
+    public func refreshTriageQueue(
+        scope: EvaTriageScope,
+        completion: ((Result<Void, Error>) -> Void)?
+    ) {
+        guard V2FeatureFlags.evaTriageEnabled else {
+            completion?(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "Eva triage disabled"]
+            )))
+            return
+        }
+
+        evaTriageScope = scope
+        evaTriageQueueLoading = true
+        evaTriageQueueErrorMessage = nil
+
+        let visibleOpenTasks = focusOpenTasksForCurrentState()
+        let visibleInbox = visibleOpenTasks.filter {
+            !$0.isComplete && $0.projectID == ProjectConstants.inboxProjectID
+        }
+
+        switch scope {
+        case .visible:
+            evaTriageQueue = getInboxTriageQueueUseCase.execute(
+                inboxTasks: visibleInbox,
+                allTasks: visibleOpenTasks,
+                projects: projects,
+                maxItems: 20
+            )
+            evaTriageQueueLoading = false
+            trackHomeInteraction(action: "triage_scope_changed", metadata: [
+                "scope": scope.rawValue,
+                "queue_count": evaTriageQueue.count
+            ])
+            completion?(.success(()))
+
+        case .allInbox:
+            useCaseCoordinator.getTasks.getTasksForProject(ProjectConstants.inboxProjectID, includeCompleted: false) { [weak self] result in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    switch result {
+                    case .success(let inboxResult):
+                        let inboxOpen = inboxResult.tasks.filter { !$0.isComplete }
+                        let allTasks = self.uniqueTasks(visibleOpenTasks + inboxOpen)
+                        self.evaTriageQueue = self.getInboxTriageQueueUseCase.execute(
+                            inboxTasks: inboxOpen,
+                            allTasks: allTasks,
+                            projects: self.projects,
+                            maxItems: 20
+                        )
+                        self.evaTriageQueueErrorMessage = nil
+                        self.evaTriageQueueLoading = false
+                        self.trackHomeInteraction(action: "triage_scope_changed", metadata: [
+                            "scope": scope.rawValue,
+                            "queue_count": self.evaTriageQueue.count
+                        ])
+                        completion?(.success(()))
+                    case .failure(let error):
+                        self.evaTriageQueue = self.getInboxTriageQueueUseCase.execute(
+                            inboxTasks: visibleInbox,
+                            allTasks: visibleOpenTasks,
+                            projects: self.projects,
+                            maxItems: 20
+                        )
+                        self.evaTriageQueueErrorMessage = "Couldn’t load backlog inbox. Showing visible tasks only."
+                        self.evaTriageQueueLoading = false
+                        self.trackHomeInteraction(action: "triage_error", metadata: [
+                            "scope": scope.rawValue,
+                            "error": error.localizedDescription
+                        ])
+                        completion?(.failure(error))
+                    }
                 }
-                self.trackHomeInteraction(action: "triage_start", metadata: [
-                    "queue_count": self.evaTriageQueue.count
-                ])
             }
         }
     }
@@ -975,12 +1043,14 @@ public final class HomeViewModel: ObservableObject {
                 case .failure:
                     tasks = self.overdueTasks
                 }
+                let openOverdue = tasks.filter { !$0.isComplete }
                 self.evaRescuePlan = self.getOverdueRescuePlanUseCase.execute(
-                    overdueTasks: tasks.filter { !$0.isComplete },
+                    overdueTasks: openOverdue,
                     now: Date()
                 )
                 self.trackHomeInteraction(action: "rescue_open", metadata: [
-                    "overdue_count": tasks.filter { !$0.isComplete }.count
+                    "scope": "all_overdue",
+                    "overdue_count": openOverdue.count
                 ])
             }
         }
@@ -990,21 +1060,37 @@ public final class HomeViewModel: ObservableObject {
         evaTriageQueue.removeAll { $0.task.id == taskID }
     }
 
-    public func applyTriageSuggestion(
+    public func applyTriageDecision(
         for item: EvaTriageQueueItem,
+        decision: EvaTriageDecision,
         completion: @escaping (Result<TaskDefinition, Error>) -> Void
     ) {
+        let suggestionThreshold = 0.45
         var request = UpdateTaskDefinitionRequest(id: item.task.id)
         var mutated = false
 
-        if item.suggestions.projectConfidence >= 0.45,
-           let suggestedProjectID = item.suggestions.projectID,
-           suggestedProjectID != item.task.projectID {
-            request.projectID = suggestedProjectID
+        if decision.useSuggestedProject,
+           item.suggestions.projectConfidence >= suggestionThreshold,
+           let projectID = item.suggestions.projectID,
+           projectID != item.task.projectID {
+            request.projectID = projectID
+            mutated = true
+        } else if !decision.useSuggestedProject,
+                  let selectedProjectID = decision.selectedProjectID,
+                  selectedProjectID != item.task.projectID {
+            request.projectID = selectedProjectID
             mutated = true
         }
 
-        if item.suggestions.dueConfidence >= 0.45 {
+        if let deferPreset = decision.deferPreset {
+            let deferDate = deferPreset.resolveDueDate()
+            if item.task.dueDate != deferDate {
+                request.dueDate = deferDate
+                request.clearDueDate = false
+                mutated = true
+            }
+        } else if decision.useSuggestedDue,
+                  item.suggestions.dueConfidence >= suggestionThreshold {
             let dueDate = dueDate(for: item.suggestions.dueBucket)
             switch item.suggestions.dueBucket {
             case .someday:
@@ -1020,29 +1106,91 @@ public final class HomeViewModel: ObservableObject {
                     mutated = true
                 }
             }
+        } else if !decision.useSuggestedDue {
+            if decision.clearDueDate {
+                if item.task.dueDate != nil {
+                    request.clearDueDate = true
+                    mutated = true
+                }
+            } else if let selectedDueDate = decision.selectedDueDate,
+                      item.task.dueDate != selectedDueDate {
+                request.dueDate = selectedDueDate
+                mutated = true
+            }
         }
 
-        if item.suggestions.durationConfidence >= 0.45,
+        if decision.useSuggestedDuration,
+           item.suggestions.durationConfidence >= suggestionThreshold,
            let suggestedDuration = item.suggestions.durationSeconds,
            item.task.estimatedDuration != suggestedDuration {
             request.estimatedDuration = suggestedDuration
             mutated = true
+        } else if !decision.useSuggestedDuration {
+            if decision.clearDuration {
+                if item.task.estimatedDuration != nil {
+                    request.clearEstimatedDuration = true
+                    mutated = true
+                }
+            } else if let selectedDuration = decision.selectedDurationSeconds,
+                      item.task.estimatedDuration != selectedDuration {
+                request.estimatedDuration = selectedDuration
+                mutated = true
+            }
         }
 
         guard mutated else {
-            completion(.success(item.task))
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "Select at least one change or defer option to continue."]
+            )))
             return
         }
 
         updateTask(taskID: item.task.id, request: request) { [weak self] result in
-            if case .success(let updatedTask) = result {
-                self?.removeTriageQueueItem(taskID: updatedTask.id)
-                self?.trackHomeInteraction(action: "triage_accept", metadata: [
-                    "task_id": updatedTask.id.uuidString
-                ])
+            guard let self else {
+                completion(result)
+                return
             }
-            completion(result)
+            switch result {
+            case .success(let updatedTask):
+                self.removeTriageQueueItem(taskID: updatedTask.id)
+                self.trackHomeInteraction(action: "triage_apply_next", metadata: [
+                    "task_id": updatedTask.id.uuidString,
+                    "defer_preset": decision.deferPreset?.rawValue ?? "none",
+                    "used_suggested_project": decision.useSuggestedProject,
+                    "used_suggested_due": decision.useSuggestedDue,
+                    "used_suggested_duration": decision.useSuggestedDuration
+                ])
+                completion(.success(updatedTask))
+            case .failure(let error):
+                self.trackHomeInteraction(action: "triage_error", metadata: [
+                    "task_id": item.task.id.uuidString,
+                    "error": error.localizedDescription
+                ])
+                completion(.failure(error))
+            }
         }
+    }
+
+    public func applyTriageSuggestion(
+        for item: EvaTriageQueueItem,
+        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+    ) {
+        let decision = EvaTriageDecision(
+            selectedProjectID: nil,
+            useSuggestedProject: item.suggestions.projectID != nil,
+            selectedDueDate: nil,
+            clearDueDate: false,
+            useSuggestedDue: item.suggestions.dueBucket != nil,
+            selectedDurationSeconds: nil,
+            clearDuration: false,
+            useSuggestedDuration: item.suggestions.durationSeconds != nil,
+            stateHint: item.suggestions.stateHint,
+            useSuggestedState: item.suggestions.stateHint != nil,
+            deferPreset: nil
+        )
+        applyTriageDecision(for: item, decision: decision, completion: completion)
     }
 
     public func applyEvaBatchPlan(
@@ -1153,6 +1301,30 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    public func applyRescuePlan(
+        mutations: [EvaBatchMutationInstruction],
+        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        trackHomeInteraction(action: "rescue_apply_tap", metadata: [
+            "mutation_count": mutations.count
+        ])
+        applyEvaBatchPlan(source: .rescue, mutations: mutations) { [weak self] result in
+            switch result {
+            case .success(let run):
+                self?.trackHomeInteraction(action: "rescue_apply_success", metadata: [
+                    "run_id": run.id.uuidString,
+                    "mutation_count": mutations.count
+                ])
+                completion(.success(run))
+            case .failure(let error):
+                self?.trackHomeInteraction(action: "rescue_apply_error", metadata: [
+                    "error": error.localizedDescription
+                ])
+                completion(.failure(error))
+            }
+        }
+    }
+
     public func undoEvaBatchPlan(
         completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
     ) {
@@ -1177,6 +1349,153 @@ public final class HomeViewModel: ObservableObject {
                     completion(.failure(error))
                 }
             }
+        }
+    }
+
+    public func undoRescueRun(
+        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        trackHomeInteraction(action: "rescue_undo_tap", metadata: [:])
+        undoEvaBatchPlan { [weak self] result in
+            switch result {
+            case .success(let run):
+                self?.trackHomeInteraction(action: "rescue_undo_success", metadata: [
+                    "run_id": run.id.uuidString
+                ])
+                completion(.success(run))
+            case .failure(let error):
+                self?.trackHomeInteraction(action: "rescue_undo_error", metadata: [
+                    "error": error.localizedDescription
+                ])
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func createSplitChildren(
+        parentTaskID: UUID,
+        draft: EvaSplitDraft,
+        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+    ) {
+        guard let parent = currentTaskSnapshot(for: parentTaskID) ?? focusOpenTasksForCurrentState().first(where: { $0.id == parentTaskID }) ?? overdueTasks.first(where: { $0.id == parentTaskID }) else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "Parent task no longer exists."]
+            )))
+            return
+        }
+
+        let childTitles = draft.children
+            .map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard childTitles.count >= 2 else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "Add at least two subtasks to split."]
+            )))
+            return
+        }
+
+        let dueDate = draft.childDuePreset?.resolveDueDate()
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var created: [TaskDefinition] = []
+        var firstError: Error?
+
+        trackHomeInteraction(action: "rescue_split_open", metadata: [
+            "parent_task_id": parentTaskID.uuidString
+        ])
+
+        for title in childTitles {
+            group.enter()
+            let request = CreateTaskDefinitionRequest(
+                title: title,
+                details: nil,
+                projectID: parent.projectID,
+                projectName: parent.projectName,
+                dueDate: dueDate,
+                parentTaskID: parent.id,
+                priority: parent.priority,
+                type: parent.type,
+                energy: parent.energy,
+                category: parent.category,
+                context: parent.context,
+                isEveningTask: parent.isEveningTask,
+                estimatedDuration: nil
+            )
+
+            useCaseCoordinator.createTaskDefinition.execute(request: request) { result in
+                lock.lock()
+                defer { lock.unlock() }
+                switch result {
+                case .success(let task):
+                    created.append(task)
+                case .failure(let error):
+                    if firstError == nil {
+                        firstError = error
+                    }
+                }
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) { [weak self] in
+            guard let self else { return }
+            if let firstError {
+                self.trackHomeInteraction(action: "rescue_apply_error", metadata: [
+                    "split_parent_task_id": parentTaskID.uuidString,
+                    "error": firstError.localizedDescription
+                ])
+                completion(.failure(firstError))
+                return
+            }
+            self.reloadCurrentModeTasks()
+            self.trackHomeInteraction(action: "rescue_split_created", metadata: [
+                "parent_task_id": parentTaskID.uuidString,
+                "child_count": created.count
+            ])
+            completion(.success(created))
+        }
+    }
+
+    public func undoCreatedSplitChildren(
+        childTaskIDs: [UUID],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard childTaskIDs.isEmpty == false else {
+            completion(.success(()))
+            return
+        }
+
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var firstError: Error?
+
+        for taskID in childTaskIDs {
+            group.enter()
+            useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID, scope: .single) { result in
+                lock.lock()
+                if case .failure(let error) = result, firstError == nil {
+                    firstError = error
+                }
+                lock.unlock()
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) { [weak self] in
+            guard let self else { return }
+            if let firstError {
+                completion(.failure(firstError))
+                return
+            }
+            self.reloadCurrentModeTasks()
+            self.trackHomeInteraction(action: "rescue_split_undo", metadata: [
+                "child_count": childTaskIDs.count
+            ])
+            completion(.success(()))
         }
     }
 
@@ -1720,6 +2039,17 @@ public final class HomeViewModel: ObservableObject {
         case .someday:
             return nil
         }
+    }
+
+    private func uniqueTasks(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
+        var seen = Set<UUID>()
+        var unique: [TaskDefinition] = []
+        unique.reserveCapacity(tasks.count)
+        for task in tasks where !seen.contains(task.id) {
+            seen.insert(task.id)
+            unique.append(task)
+        }
+        return unique
     }
 
     /// Executes sanitizeFilterState.
