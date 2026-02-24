@@ -133,9 +133,9 @@ struct ModelsSettingsView: View {
         if let current = appManager.currentModelName, removedNames.contains(current) {
             appManager.currentModelName = appManager.installedModels.first
             if let newName = appManager.currentModelName,
-               let newModel = ModelConfiguration.availableModels.first(where: { $0.name == newName }) {
+               ModelConfiguration.availableModels.first(where: { $0.name == newName }) != nil {
                 _Concurrency.Task { @MainActor in
-                    await llm.switchModel(newModel)
+                    _ = await LLMRuntimeCoordinator.shared.switchModelIfNeeded(modelName: newName)
                 }
             }
         }
@@ -146,12 +146,12 @@ struct ModelsSettingsView: View {
 
     /// Executes switchModel.
     private func switchModel(_ modelName: String) async {
-        if let model = ModelConfiguration.availableModels.first(where: {
+        if ModelConfiguration.availableModels.first(where: {
             $0.name == modelName
-        }) {
+        }) != nil {
             appManager.currentModelName = modelName
             appManager.playHaptic()
-            await llm.switchModel(model)
+            _ = await LLMRuntimeCoordinator.shared.switchModelIfNeeded(modelName: modelName)
         }
     }
 }

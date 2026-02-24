@@ -29,6 +29,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     var sections: [SettingsSection] = [] // Data source for the table
     // LLM/AI Manager
     let appManager = AppManager()
+    let llmEvaluator = LLMRuntimeCoordinator.shared.evaluator
     
     // Track the current mode state
     private var isDarkMode: Bool = false
@@ -155,7 +156,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     private func navigateToLLMChatsSettings() {
         let view = ChatsSettingsView(currentThread: .constant(nil))
             .environmentObject(appManager)
-            .environment(LLMEvaluator())
+            .environment(llmEvaluator)
         let vc = UIHostingController(rootView: view)
         vc.title = "Chats"
         self.navigationController?.pushViewController(vc, animated: true)
@@ -165,7 +166,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     private func navigateToLLMModelsSettings() {
         let view = ModelsSettingsView()
             .environmentObject(appManager)
-            .environment(LLMEvaluator())
+            .environment(llmEvaluator)
         let vc = UIHostingController(rootView: view)
         vc.title = "Models"
         self.navigationController?.pushViewController(vc, animated: true)
