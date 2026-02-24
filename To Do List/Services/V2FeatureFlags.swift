@@ -22,4 +22,9 @@ public enum V2FeatureFlags {
         get { defaults.object(forKey: "feature.reminders.background_refresh") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.reminders.background_refresh") }
     }
+
+    public static var llmChatPrewarmEnabled: Bool {
+        get { defaults.object(forKey: "feature.llm.chat_prewarm") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.llm.chat_prewarm") }
+    }
 }
