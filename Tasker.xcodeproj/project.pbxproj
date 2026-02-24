@@ -127,6 +127,7 @@
 		7551BCE42EAB665F003C6916 /* BaseUITest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCAC2EAB665F003C6916 /* BaseUITest.swift */; };
 		7551BCE52EAB665F003C6916 /* TaskEditingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC12EAB665F003C6916 /* TaskEditingTests.swift */; };
 		7551BCE62EAB665F003C6916 /* AnalyticsAndChartsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551BCC52EAB665F003C6916 /* AnalyticsAndChartsTests.swift */; };
+		7B3C9A7D2F2B0F1A00D4C113 /* FocusNowSimplificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B3C9A7D2F2B0F1A00D4C112 /* FocusNowSimplificationTests.swift */; };
 		7551DA0224880DAC005CF826 /* AddTaskForedropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0124880DAC005CF826 /* AddTaskForedropView.swift */; };
 		7551DA0624882E94005CF826 /* ToDoFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA0524882E94005CF826 /* ToDoFont.swift */; };
 		7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */; };
@@ -469,6 +470,7 @@
 		7551BCC82EAB665F003C6916 /* SearchAndFilteringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchAndFilteringTests.swift; sourceTree = "<group>"; };
 		7551BCC92EAB665F003C6916 /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
 		7551BCCA2EAB665F003C6916 /* ThemeAndAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeAndAppearanceTests.swift; sourceTree = "<group>"; };
+		7B3C9A7D2F2B0F1A00D4C112 /* FocusNowSimplificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusNowSimplificationTests.swift; sourceTree = "<group>"; };
 		7551DA0124880DAC005CF826 /* AddTaskForedropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskForedropView.swift; sourceTree = "<group>"; };
 		7551DA0524882E94005CF826 /* ToDoFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoFont.swift; sourceTree = "<group>"; };
 		7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToDoTimeUtils.swift; sourceTree = "<group>"; };
@@ -1119,6 +1121,7 @@
 				7551BCC82EAB665F003C6916 /* SearchAndFilteringTests.swift */,
 				7551BCC92EAB665F003C6916 /* SettingsTests.swift */,
 				7551BCCA2EAB665F003C6916 /* ThemeAndAppearanceTests.swift */,
+				7B3C9A7D2F2B0F1A00D4C112 /* FocusNowSimplificationTests.swift */,
 			);
 			path = Secondary;
 			sourceTree = "<group>";
@@ -2279,6 +2282,7 @@
 				7551BCE42EAB665F003C6916 /* BaseUITest.swift in Sources */,
 				7551BCE52EAB665F003C6916 /* TaskEditingTests.swift in Sources */,
 				7551BCE62EAB665F003C6916 /* AnalyticsAndChartsTests.swift in Sources */,
+				7B3C9A7D2F2B0F1A00D4C113 /* FocusNowSimplificationTests.swift in Sources */,
 				753EFCC02445A24800A739E3 /* To_Do_ListUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
