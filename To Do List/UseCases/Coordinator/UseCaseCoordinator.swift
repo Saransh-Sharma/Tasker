@@ -69,6 +69,10 @@ public final class UseCaseCoordinator {
     // Task Query Use Cases
     public let getTasks: GetTasksUseCase
     public let getHomeFilteredTasks: GetHomeFilteredTasksUseCase
+    public let computeEvaHomeInsights: ComputeEvaHomeInsightsUseCase
+    public let getInboxTriageQueue: GetInboxTriageQueueUseCase
+    public let getOverdueRescuePlan: GetOverdueRescuePlanUseCase
+    public let buildEvaBatchProposal: BuildEvaBatchProposalUseCase
 
     // Project Use Cases
     public let manageProjects: ManageProjectsUseCase
@@ -126,6 +130,10 @@ public final class UseCaseCoordinator {
         self.getHomeFilteredTasks = GetHomeFilteredTasksUseCase(
             readModelRepository: taskReadModelRepository
         )
+        self.computeEvaHomeInsights = ComputeEvaHomeInsightsUseCase()
+        self.getInboxTriageQueue = GetInboxTriageQueueUseCase()
+        self.getOverdueRescuePlan = GetOverdueRescuePlanUseCase()
+        self.buildEvaBatchProposal = BuildEvaBatchProposalUseCase()
 
         // Project use cases
         self.manageProjects = ManageProjectsUseCase(projectRepository: projectRepository)
