@@ -1,6 +1,6 @@
 # LLM and Assistant Stack (V3 Runtime)
 
-**Last validated against code on 2026-02-20**
+**Last validated against code on 2026-02-24**
 
 This document defines boundaries between:
 - local LLM chat UX and context projection, and
@@ -11,6 +11,8 @@ Primary source anchors:
 - `To Do List/LLM/Models/LLMContextProjectionService.swift`
 - `To Do List/LLM/Models/PromptMiddleware.swift`
 - `To Do List/LLM/Models/LLMEvaluator.swift`
+- `To Do List/LLM/Models/LLMRuntimeCoordinator.swift`
+- `To Do List/LLM/Models/LLMProjectionTimeout.swift`
 - `To Do List/LLM/Models/LLMDataController.swift`
 - `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
 - `To Do List/UseCases/LLM/AssistantCommandExecutor.swift`
@@ -23,7 +25,8 @@ Primary source anchors:
 flowchart TD
     UI["LLM UI (ChatHost + SwiftUI chat)"] --> CCTX["LLMContextProjectionService"]
     CCTX --> READ["TaskReadModelRepositoryProtocol + ProjectRepositoryProtocol"]
-    UI --> EVAL["LLMEvaluator (local model inference)"]
+    UI --> RUNTIME["LLMRuntimeCoordinator (single-model lifecycle + prewarm)"]
+    RUNTIME --> EVAL["LLMEvaluator (local model inference)"]
     UI --> STORE["LLMDataController (SwiftData thread/message store)"]
 
     UI --> PIPE["AssistantActionPipelineUseCase"]
@@ -46,6 +49,25 @@ flowchart TD
 | `LLMContextRepositoryProvider` | injected `taskReadModelRepository` + `projectRepository` | configured context service factory |
 | `LLMContextProjectionService` | read-model task slices + project metadata | structured JSON payloads for today/upcoming/project contexts |
 | `PromptMiddleware` | task range + optional project signal | prompt-ready summaries/bullets |
+| `LLMProjectionTimeout` | async projection operation + timeout budget | bounded-latency payload or `{}` fallback |
+
+## Chat Runtime Lifecycle
+
+| Component | Responsibility |
+| --- | --- |
+| `LLMRuntimeCoordinator` | owns single shared `LLMEvaluator`, prewarm orchestration, and unload policy |
+| `SceneDelegate.sceneDidBecomeActive` | debounced trigger (`5s`) for optional prewarm |
+| `V2FeatureFlags.llmChatPrewarmEnabled` | enables/disables chat prewarm flow |
+
+### Prewarm policy
+- At most one model is prewarmed at a time.
+- Prewarm only runs for currently selected model when `modelSize <= 0.5 GB`.
+- Prewarm is skipped when model is already warm or already active in runtime coordinator.
+
+### Unload policy
+- unload immediately on memory warning.
+- unload on thermal state `serious` or `critical`.
+- unload after app has stayed in background for `5m` (cancelled if foregrounded sooner).
 
 ### Context query behavior
 - `buildTodayJSON`: day-bounded read-model query, includes completed tasks.
@@ -71,6 +93,8 @@ flowchart TD
 | per-command timeout | 10 seconds | `AssistantActionPipelineUseCase` |
 | per-run timeout | 90 seconds | `AssistantActionPipelineUseCase` |
 | sync project-name lookup timeout | 3 seconds | `LLMContextProjectionService` |
+| chat today-context projection timeout | 800 ms | `ChatView` + `LLMProjectionTimeout` |
+| chat upcoming-context projection timeout | 800 ms | `ChatView` + `LLMProjectionTimeout` |
 
 ## Concurrency Model
 
@@ -78,7 +102,7 @@ flowchart TD
 | --- | --- |
 | Assistant command execution | serialized through `AssistantCommandExecutor` actor queue |
 | Assistant API surface | callback API wrapping async transaction internals |
-| Context projection | callback-based read-model fetch composition |
+| Context projection | callback + async wrapper composition, bounded by timeout helper |
 | Chat data store | SwiftData-backed local persistence for threads/messages |
 
 ## Failure Modes
@@ -92,6 +116,7 @@ flowchart TD
 | undo window expired | `appliedAt` age check | `410` failure |
 | invalid proposal payload | decode or allowlist validation failure | `422` failure |
 | transaction execution failure | command pipeline catch path | run persisted as failed, rollback status captured |
+| chat context projection timeout | timeout helper in first-turn context assembly | generation continues with `{}` fallback payload |
 
 ## Feature Flag Dependencies
 
@@ -100,6 +125,7 @@ flowchart TD
 | assistant pipeline does not depend on reminders flags directly | n/a |
 | assistant apply | `assistantApplyEnabled` |
 | assistant undo | `assistantUndoEnabled` |
+| chat prewarm | `llmChatPrewarmEnabled` |
 
 ## Integration Contract: Chat Context vs Assistant Actions
 
