@@ -40,6 +40,7 @@ enum AccessibilityIdentifiers {
         static let quickFilterGroupingGroupByProjects = "home.focus.grouping.groupByProjects"
         static let focusStrip = "home.focus.strip"
         static let focusDropZone = "home.focus.dropzone"
+        static let focusTitleTap = "home.focus.titleTap"
         static let listDropZone = "home.list.dropzone"
         static let chartView = "home.chartView"
         static let radarChartView = "home.radarChartView"

@@ -138,6 +138,14 @@ class HomePage {
         return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
+    var focusTitleTap: XCUIElement {
+        let byButton = app.buttons[AccessibilityIdentifiers.Home.focusTitleTap]
+        if byButton.exists {
+            return byButton
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.focusTitleTap]
+    }
+
     var listDropZone: XCUIElement {
         let predicate = NSPredicate(
             format: "identifier == %@ OR identifier == %@",
