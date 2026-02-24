@@ -203,6 +203,61 @@ public struct FocusZone: View {
 
 // MARK: - Focus Zone Row
 
+enum FocusZoneStatusChip: Equatable {
+    case late(String)
+    case dueSoon
+    case quickWin
+    case unblocked
+
+    var text: String {
+        switch self {
+        case .late(let value): return value
+        case .dueSoon: return "Due soon"
+        case .quickWin: return "Quick win"
+        case .unblocked: return "Unblocked"
+        }
+    }
+}
+
+enum FocusZoneStatusChipResolver {
+    /// Executes resolve.
+    static func resolve(task: TaskDefinition, insight: EvaFocusTaskInsight?, now: Date = Date()) -> FocusZoneStatusChip? {
+        guard !task.isComplete else { return nil }
+
+        if let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
+            return .late(lateLabel)
+        }
+
+        if isDueSoon(task: task, now: now) {
+            return .dueSoon
+        }
+
+        if isQuickWin(task: task, insight: insight) {
+            return .quickWin
+        }
+
+        return task.dependencies.isEmpty ? .unblocked : nil
+    }
+
+    /// Executes isDueSoon.
+    private static func isDueSoon(task: TaskDefinition, now: Date) -> Bool {
+        guard let dueDate = task.dueDate, !task.isOverdue else { return false }
+        let remaining = dueDate.timeIntervalSince(now)
+        return remaining > 0 && remaining <= (2 * 60 * 60)
+    }
+
+    /// Executes isQuickWin.
+    private static func isQuickWin(task: TaskDefinition, insight: EvaFocusTaskInsight?) -> Bool {
+        let insightBadge = insight?.badge?.lowercased() ?? ""
+        let insightRationale = insight?.rationale.map { $0.label.lowercased() } ?? []
+        let insightMentionsQuickWin = insightBadge.contains("quick win")
+            || insightRationale.contains(where: { $0.contains("quick win") })
+
+        let taskIsQuickWin = (task.estimatedDuration ?? 0) > 0 && (task.estimatedDuration ?? 0) <= 1_800
+        return insightMentionsQuickWin || taskIsQuickWin
+    }
+}
+
 /// Compact row for focus zone tasks.
 private struct FocusZoneRow: View {
     let task: TaskDefinition
@@ -213,9 +268,8 @@ private struct FocusZoneRow: View {
     let onDragStarted: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var displayModel: TaskRowDisplayModel { TaskRowDisplayModel.from(task: task, showTypeBadge: false) }
-    private var rationaleBadge: String? {
-        insight?.badge ?? insight?.rationale.first?.label
+    private var statusChip: FocusZoneStatusChip? {
+        FocusZoneStatusChipResolver.resolve(task: task, insight: insight)
     }
 
     var body: some View {
@@ -232,28 +286,16 @@ private struct FocusZoneRow: View {
 
             Spacer(minLength: 0)
 
-            if let rationaleBadge, !rationaleBadge.isEmpty {
-                Text(rationaleBadge)
+            if let statusChip {
+                Text(statusChip.text)
                     .font(.tasker(.caption2))
                     .fontWeight(.medium)
-                    .foregroundColor(focusUrgencyColor(for: rationaleBadge))
+                    .foregroundColor(focusStatusColor(for: statusChip))
                     .padding(.horizontal, 5)
                     .padding(.vertical, 3)
                     .background(
                         Capsule()
-                            .fill(focusUrgencyColor(for: rationaleBadge).opacity(0.15))
-                    )
-                    .fixedSize()
-            } else if let urgencyLabel = displayModel.urgencyLabel {
-                Text(urgencyLabel)
-                    .font(.tasker(.caption2))
-                    .fontWeight(.medium)
-                    .foregroundColor(focusUrgencyColor(for: urgencyLabel))
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(focusUrgencyColor(for: urgencyLabel).opacity(0.15))
+                            .fill(focusStatusColor(for: statusChip).opacity(0.15))
                     )
                     .fixedSize()
             }
@@ -283,21 +325,17 @@ private struct FocusZoneRow: View {
         .accessibilityLabel(task.title)
     }
 
-    /// Executes focusUrgencyColor.
-    private func focusUrgencyColor(for label: String) -> Color {
-        switch label {
-        case "Overdue":
+    /// Executes focusStatusColor.
+    private func focusStatusColor(for statusChip: FocusZoneStatusChip) -> Color {
+        switch statusChip {
+        case .late:
             return Color.tasker.statusDanger
-        case "Due soon":
+        case .dueSoon:
             return Color.tasker.statusWarning
-        case "Today":
+        case .quickWin:
             return Color.tasker.statusSuccess
-        case "Quick win":
-            return Color.tasker.statusSuccess
-        case "Unblocked":
+        case .unblocked:
             return Color.tasker.accentPrimary
-        default:
-            return Color.tasker.textSecondary
         }
     }
 }
