@@ -11,15 +11,6 @@ import SwiftUI
 
 // MARK: - Task List View
 
-private struct TaskListScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    /// Executes reduce.
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 struct TaskListView: View {
     private static let defaultBottomContentInset: CGFloat = 80
 
@@ -52,7 +43,6 @@ struct TaskListView: View {
     let bottomContentInset: CGFloat
     @State private var draggingCustomProjectID: UUID?
     @State private var isCompletedCollapsedBySection: [UUID: Bool] = [:]
-    private let scrollCoordinateSpace = "home.taskList.scrollSpace"
 
     /// Initializes a new instance.
     init(
@@ -116,17 +106,6 @@ struct TaskListView: View {
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: TaskerTheme.Spacing.lg) {
-                Color.clear
-                    .frame(height: 0)
-                    .background(
-                        GeometryReader { proxy in
-                            Color.clear.preference(
-                                key: TaskListScrollOffsetPreferenceKey.self,
-                                value: max(0, -proxy.frame(in: .named(scrollCoordinateSpace)).minY)
-                            )
-                        }
-                    )
-
                 if activeQuickView == .done {
                     doneTimelineContent
                 } else {
@@ -145,10 +124,15 @@ struct TaskListView: View {
             }
             .padding(.horizontal, TaskerTheme.Spacing.lg)
         }
-        .coordinateSpace(name: scrollCoordinateSpace)
-        .onPreferenceChange(TaskListScrollOffsetPreferenceKey.self) { offset in
-            onScrollOffsetChange?(offset)
-        }
+        .onScrollGeometryChange(
+            for: CGFloat.self,
+            of: { geometry in
+                max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+            },
+            action: { _, newOffset in
+                onScrollOffsetChange?(newOffset)
+            }
+        )
         .accessibilityIdentifier("home.taskList.scrollView")
     }
 
