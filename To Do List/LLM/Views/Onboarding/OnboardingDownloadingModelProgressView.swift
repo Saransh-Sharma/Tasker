@@ -118,7 +118,7 @@ struct OnboardingDownloadingModelProgressView: View {
 
     /// Executes loadLLM.
     func loadLLM() async {
-        await llm.switchModel(selectedModel)
+        _ = await LLMRuntimeCoordinator.shared.switchModelIfNeeded(modelName: selectedModel.name)
         didSwitchModel = true
     }
 
