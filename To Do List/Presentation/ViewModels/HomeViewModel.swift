@@ -87,6 +87,7 @@ public final class HomeViewModel: ObservableObject {
 
     // Projects
     @Published public private(set) var projects: [Project] = []
+    @Published public private(set) var tags: [TagDefinition] = []
     @Published public private(set) var selectedProjectTasks: [TaskDefinition] = []
 
     // MARK: - Dependencies
@@ -457,8 +458,11 @@ public final class HomeViewModel: ObservableObject {
         name: String,
         completion: @escaping (Result<TagDefinition, Error>) -> Void
     ) {
-        useCaseCoordinator.manageTags.create(name: name, color: nil, icon: nil) { result in
+        useCaseCoordinator.manageTags.create(name: name, color: nil, icon: nil) { [weak self] result in
             DispatchQueue.main.async {
+                if case .success(let createdTag) = result {
+                    self?.upsertTag(createdTag)
+                }
                 completion(result)
             }
         }
@@ -819,6 +823,28 @@ public final class HomeViewModel: ObservableObject {
                     self.seedPinnedProjectsIfNeeded(from: loadedProjects)
                     self.normalizeCustomProjectOrderIfNeeded(from: loadedProjects)
 
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    /// Executes loadTags.
+    private func loadTags(generation: Int) {
+        useCaseCoordinator.manageTags.list { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.isCurrentReloadGeneration(generation) else {
+                    logDebug("HOME_ROW_STATE vm.drop_stale_reload source=tags generation=\(generation)")
+                    return
+                }
+
+                switch result {
+                case .success(let loadedTags):
+                    self.tags = loadedTags.sorted {
+                        $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                    }
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                 }
@@ -1653,6 +1679,7 @@ public final class HomeViewModel: ObservableObject {
         loadSavedViews()
         let generation = nextReloadGeneration()
         loadProjects(generation: generation)
+        loadTags(generation: generation)
         applyFocusFilters(trackAnalytics: false, generation: generation)
         loadDailyAnalytics()
     }
@@ -1761,7 +1788,18 @@ public final class HomeViewModel: ObservableObject {
     private func reloadCurrentModeTasks() {
         let generation = nextReloadGeneration()
         loadProjects(generation: generation)
+        loadTags(generation: generation)
         applyFocusFilters(trackAnalytics: false, generation: generation)
+    }
+
+    /// Executes upsertTag.
+    private func upsertTag(_ tag: TagDefinition) {
+        if let index = tags.firstIndex(where: { $0.id == tag.id }) {
+            tags[index] = tag
+        } else {
+            tags.append(tag)
+        }
+        tags.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     /// Executes applyFocusFilters.
