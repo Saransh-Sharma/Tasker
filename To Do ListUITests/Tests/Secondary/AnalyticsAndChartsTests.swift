@@ -100,6 +100,10 @@ class AnalyticsAndChartsTests: BaseUITest {
         // THEN: Analytics foredrop should expand.
         XCTAssertTrue(homePage.waitForForedropState("fullReveal", timeout: 3), "Ring tap should expand analytics")
         XCTAssertTrue(homePage.foredropCollapseHint.waitForExistence(timeout: 2), "Collapse hint should appear at full reveal")
+        XCTAssertTrue(
+            homePage.verifyWeeklyCalendarStartsAfterTopNav(),
+            "Weekly calendar should render immediately after top nav when revealed"
+        )
 
         // WHEN: User taps ring again
         homePage.tapNavXpPieChart()
