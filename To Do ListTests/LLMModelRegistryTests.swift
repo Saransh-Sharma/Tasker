@@ -40,4 +40,20 @@ final class LLMModelRegistryTests: XCTestCase {
     func testDefaultModelIsQwenPointSixB() {
         XCTAssertEqual(ModelConfiguration.defaultModel.name, qwenModelName)
     }
+
+    func testQwenPointSixBIsPrewarmEligible() {
+        let model = ModelConfiguration.getModelByName(qwenModelName)
+        XCTAssertNotNil(model)
+        XCTAssertEqual(model?.isPrewarmEligible(), true)
+    }
+
+    func testLlamaOneBIsNotPrewarmEligible() {
+        let model = ModelConfiguration.llama_3_2_1b_4bit
+        XCTAssertEqual(model.isPrewarmEligible(), false)
+    }
+
+    func testUnknownModelIsNotPrewarmEligible() {
+        let unknown = ModelConfiguration(id: "mlx-community/Unknown-Model")
+        XCTAssertEqual(unknown.isPrewarmEligible(), false)
+    }
 }
