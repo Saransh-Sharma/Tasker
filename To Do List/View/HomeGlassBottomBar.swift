@@ -158,14 +158,14 @@ private struct LiquidToolCluster: View {
             .fill(Color.tasker.textPrimary.opacity(colorScheme == .dark ? 0.14 : 0.10))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.08), lineWidth: 1)
+                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.40 : 0.55), lineWidth: 1)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(colorScheme == .dark ? 0.14 : 0.10),
+                                Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.42 : 0.68),
                                 .clear
                             ],
                             startPoint: .top,
