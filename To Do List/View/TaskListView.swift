@@ -40,6 +40,10 @@ struct TaskListView: View {
     var onDeleteTask: ((TaskDefinition) -> Void)? = nil
     var onRescheduleTask: ((TaskDefinition) -> Void)? = nil
     var onReorderCustomProjects: (([UUID]) -> Void)? = nil
+    var onInboxHeaderAction: (() -> Void)? = nil
+    var inboxHeaderActionTitle: String? = nil
+    var onOverdueHeaderAction: (() -> Void)? = nil
+    var overdueHeaderActionTitle: String? = nil
     var onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil
     var onEmptyStateAction: (() -> Void)? = nil
     var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
@@ -68,6 +72,10 @@ struct TaskListView: View {
         onDeleteTask: ((TaskDefinition) -> Void)? = nil,
         onRescheduleTask: ((TaskDefinition) -> Void)? = nil,
         onReorderCustomProjects: (([UUID]) -> Void)? = nil,
+        onInboxHeaderAction: (() -> Void)? = nil,
+        inboxHeaderActionTitle: String? = nil,
+        onOverdueHeaderAction: (() -> Void)? = nil,
+        overdueHeaderActionTitle: String? = nil,
         onCompletedSectionToggle: ((UUID, Bool, Int) -> Void)? = nil,
         onEmptyStateAction: (() -> Void)? = nil,
         onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
@@ -91,6 +99,10 @@ struct TaskListView: View {
         self.onDeleteTask = onDeleteTask
         self.onRescheduleTask = onRescheduleTask
         self.onReorderCustomProjects = onReorderCustomProjects
+        self.onInboxHeaderAction = onInboxHeaderAction
+        self.inboxHeaderActionTitle = inboxHeaderActionTitle
+        self.onOverdueHeaderAction = onOverdueHeaderAction
+        self.overdueHeaderActionTitle = overdueHeaderActionTitle
         self.onCompletedSectionToggle = onCompletedSectionToggle
         self.onEmptyStateAction = onEmptyStateAction
         self.onTaskDragStarted = onTaskDragStarted
@@ -187,7 +199,10 @@ struct TaskListView: View {
                     isCompletedCollapsedBySection[inboxSection.project.id] = collapsed
                     onCompletedSectionToggle?(inboxSection.project.id, collapsed, count)
                 },
-                onTaskDragStarted: onTaskDragStarted
+                onTaskDragStarted: onTaskDragStarted,
+                headerActionTitle: inboxHeaderActionTitle,
+                onHeaderAction: onInboxHeaderAction,
+                headerActionAccessibilityID: "home.inbox.headerAction"
             )
             .id(sectionRenderKey(projectID: inboxSection.project.id, tasks: inboxSection.tasks))
             .staggeredAppearance(index: 0)
@@ -197,6 +212,8 @@ struct TaskListView: View {
             OverdueGroupedSectionView(
                 groups: layout.overdueGroups,
                 isTaskDragEnabled: isTaskDragEnabled,
+                headerActionTitle: overdueHeaderActionTitle,
+                onHeaderAction: onOverdueHeaderAction,
                 onTaskTap: onTaskTap,
                 onToggleComplete: onToggleComplete,
                 onDeleteTask: onDeleteTask,
@@ -262,7 +279,10 @@ struct TaskListView: View {
                     isCompletedCollapsedBySection[overdueProject.id] = collapsed
                     onCompletedSectionToggle?(overdueProject.id, collapsed, count)
                 },
-                onTaskDragStarted: onTaskDragStarted
+                onTaskDragStarted: onTaskDragStarted,
+                headerActionTitle: overdueHeaderActionTitle,
+                onHeaderAction: onOverdueHeaderAction,
+                headerActionAccessibilityID: "home.overdue.headerAction"
             )
             .id(sectionRenderKey(projectID: overdueProject.id, tasks: overdueTasks))
             .staggeredAppearance(index: 0)
@@ -495,60 +515,66 @@ private struct ProjectSection: Identifiable {
 private struct OverdueGroupedSectionView: View {
     let groups: [HomeTaskOverdueGroup]
     let isTaskDragEnabled: Bool
+    var headerActionTitle: String?
+    var onHeaderAction: (() -> Void)?
     var onTaskTap: ((TaskDefinition) -> Void)?
     var onToggleComplete: ((TaskDefinition) -> Void)?
     var onDeleteTask: ((TaskDefinition) -> Void)?
     var onRescheduleTask: ((TaskDefinition) -> Void)?
     var onTaskDragStarted: ((TaskDefinition) -> Void)?
+    @State private var isExpanded: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.md) {
-            HStack(spacing: TaskerTheme.Spacing.md) {
-                Circle()
-                    .fill(Color.tasker(.taskOverdue))
-                    .frame(width: 4, height: 4)
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color.tasker(.taskOverdue))
-                    .frame(width: 20, alignment: .center)
-                Text("Overdue")
-                    .font(.tasker(.title3))
-                    .foregroundColor(Color.tasker.textPrimary)
-                Text("\(groups.reduce(0) { $0 + $1.tasks.count })")
-                    .font(.tasker(.caption2))
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.tasker.textTertiary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.tasker.surfaceSecondary)
-                    .clipShape(Capsule())
-            }
-            .padding(.vertical, TaskerTheme.Spacing.md)
+            TaskSectionHeaderRow(
+                accentColor: Color.tasker(.taskOverdue),
+                iconSystemName: "exclamationmark.triangle.fill",
+                title: "Overdue",
+                taskCount: totalTaskCount,
+                isExpanded: isExpanded,
+                onToggle: {
+                    withAnimation(TaskerAnimation.snappy) {
+                        isExpanded.toggle()
+                    }
+                    TaskerFeedback.selection()
+                },
+                headerActionTitle: headerActionTitle,
+                onHeaderAction: onHeaderAction,
+                headerActionAccessibilityID: "home.overdue.grouped.headerAction"
+            )
 
-            ForEach(Array(groups.enumerated()), id: \.element.project.id) { index, group in
-                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-                    Text(group.project.name)
-                        .font(.tasker(.caption1))
-                        .foregroundColor(Color.tasker.textSecondary)
-                        .padding(.top, index == 0 ? 0 : TaskerTheme.Spacing.sm)
+            if isExpanded {
+                ForEach(Array(groups.enumerated()), id: \.element.project.id) { index, group in
+                    VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                        Text(group.project.name)
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .padding(.top, index == 0 ? 0 : TaskerTheme.Spacing.sm)
 
-                    ForEach(Array(group.tasks.enumerated()), id: \.element.id) { taskIndex, task in
-                        TaskRowView(
-                            task: task,
-                            showTypeBadge: false,
-                            isTaskDragEnabled: isTaskDragEnabled,
-                            onTap: { onTaskTap?(task) },
-                            onToggleComplete: { onToggleComplete?(task) },
-                            onDelete: { onDeleteTask?(task) },
-                            onReschedule: { onRescheduleTask?(task) },
-                            onTaskDragStarted: onTaskDragStarted
-                        )
-                        .id(taskRenderKey(for: task))
-                        .staggeredAppearance(index: taskIndex)
+                        ForEach(Array(group.tasks.enumerated()), id: \.element.id) { taskIndex, task in
+                            TaskRowView(
+                                task: task,
+                                showTypeBadge: false,
+                                isTaskDragEnabled: isTaskDragEnabled,
+                                onTap: { onTaskTap?(task) },
+                                onToggleComplete: { onToggleComplete?(task) },
+                                onDelete: { onDeleteTask?(task) },
+                                onReschedule: { onRescheduleTask?(task) },
+                                onTaskDragStarted: onTaskDragStarted
+                            )
+                            .id(taskRenderKey(for: task))
+                            .staggeredAppearance(index: taskIndex)
+                        }
                     }
                 }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .animation(TaskerAnimation.snappy, value: isExpanded)
+    }
+
+    private var totalTaskCount: Int {
+        groups.reduce(0) { $0 + $1.tasks.count }
     }
 
     /// Executes taskRenderKey.

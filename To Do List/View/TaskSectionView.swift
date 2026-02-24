@@ -10,6 +10,74 @@ import SwiftUI
 
 // MARK: - Task Section View
 
+struct TaskSectionHeaderRow: View {
+    let accentColor: Color
+    let iconSystemName: String
+    let title: String
+    let taskCount: Int
+    let isExpanded: Bool
+    let onToggle: () -> Void
+    var headerActionTitle: String? = nil
+    var onHeaderAction: (() -> Void)? = nil
+    var headerActionAccessibilityID: String? = nil
+
+    var body: some View {
+        HStack(spacing: TaskerTheme.Spacing.md) {
+            Button(action: onToggle) {
+                HStack(spacing: TaskerTheme.Spacing.md) {
+                    Circle()
+                        .fill(accentColor)
+                        .frame(width: 4, height: 4)
+
+                    Image(systemName: iconSystemName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(accentColor)
+                        .frame(width: 20, alignment: .center)
+
+                    Text(title)
+                        .font(.tasker(.headline))
+                        .foregroundColor(Color.tasker.textPrimary)
+
+                    Text("\(taskCount)")
+                        .font(.tasker(.caption2))
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.tasker.textTertiary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.tasker.surfaceSecondary)
+                        .clipShape(Capsule())
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color.tasker.textQuaternary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .animation(TaskerAnimation.snappy, value: isExpanded)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let headerActionTitle, let onHeaderAction {
+                Button(action: onHeaderAction) {
+                    Text(headerActionTitle)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.accentPrimary)
+                        .padding(.horizontal, 8)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier(headerActionAccessibilityID ?? "home.section.headerAction")
+            }
+        }
+        .padding(.vertical, TaskerTheme.Spacing.sm)
+        .contentShape(Rectangle())
+    }
+}
+
 struct TaskSectionView: View {
     let project: Project
     let tasks: [TaskDefinition]
@@ -22,6 +90,9 @@ struct TaskSectionView: View {
     var onRescheduleTask: ((TaskDefinition) -> Void)?
     var onCompletedCollapsedChange: ((Bool, Int) -> Void)?
     var onTaskDragStarted: ((TaskDefinition) -> Void)?
+    var headerActionTitle: String?
+    var onHeaderAction: (() -> Void)?
+    var headerActionAccessibilityID: String?
 
     @State private var isExpanded: Bool = true
 
@@ -41,7 +112,10 @@ struct TaskSectionView: View {
         onDeleteTask: ((TaskDefinition) -> Void)? = nil,
         onRescheduleTask: ((TaskDefinition) -> Void)? = nil,
         onCompletedCollapsedChange: ((Bool, Int) -> Void)? = nil,
-        onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
+        onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
+        headerActionTitle: String? = nil,
+        onHeaderAction: (() -> Void)? = nil,
+        headerActionAccessibilityID: String? = nil
     ) {
         self.project = project
         self.tasks = tasks
@@ -54,6 +128,9 @@ struct TaskSectionView: View {
         self.onRescheduleTask = onRescheduleTask
         self.onCompletedCollapsedChange = onCompletedCollapsedChange
         self.onTaskDragStarted = onTaskDragStarted
+        self.headerActionTitle = headerActionTitle
+        self.onHeaderAction = onHeaderAction
+        self.headerActionAccessibilityID = headerActionAccessibilityID
     }
 
     var body: some View {
@@ -72,52 +149,22 @@ struct TaskSectionView: View {
     // MARK: - Section Header
 
     private var sectionHeader: some View {
-        Button {
-            withAnimation(TaskerAnimation.snappy) {
-                isExpanded.toggle()
-            }
-            TaskerFeedback.selection()
-        } label: {
-            HStack(spacing: TaskerTheme.Spacing.md) {
-                // Accent dot — the visual thread
-                Circle()
-                    .fill(accentColor)
-                    .frame(width: 4, height: 4)
-
-                // Project icon
-                Image(systemName: sectionIcon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(accentColor)
-                    .frame(width: 20, alignment: .center)
-
-                // Project name
-                Text(sectionTitle)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
-
-                // Task count
-                Text("\(tasks.count)")
-                    .font(.tasker(.caption2))
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.tasker.textTertiary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.tasker.surfaceSecondary)
-                    .clipShape(Capsule())
-
-                Spacer()
-
-                // Collapse chevron
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color.tasker.textQuaternary)
-                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    .animation(TaskerAnimation.snappy, value: isExpanded)
-            }
-            .padding(.vertical, TaskerTheme.Spacing.sm)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        TaskSectionHeaderRow(
+            accentColor: accentColor,
+            iconSystemName: sectionIcon,
+            title: sectionTitle,
+            taskCount: tasks.count,
+            isExpanded: isExpanded,
+            onToggle: {
+                withAnimation(TaskerAnimation.snappy) {
+                    isExpanded.toggle()
+                }
+                TaskerFeedback.selection()
+            },
+            headerActionTitle: headerActionTitle,
+            onHeaderAction: onHeaderAction,
+            headerActionAccessibilityID: headerActionAccessibilityID ?? "home.section.headerAction.\(project.id.uuidString)"
+        )
     }
 
     // MARK: - Task List
