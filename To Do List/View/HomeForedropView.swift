@@ -2566,6 +2566,7 @@ struct HomeBackdropForedropRootView: View {
                 inlineCompletedTasks: viewModel.activeScope.quickView == .today ? viewModel.completedTasks : [],
                 projects: viewModel.projects,
                 doneTimelineTasks: viewModel.doneTimelineTasks,
+                tagNameByID: Dictionary(uniqueKeysWithValues: viewModel.tags.map { ($0.id, $0.name) }),
                 activeQuickView: viewModel.activeScope.quickView,
                 projectGroupingMode: viewModel.activeFilterState.projectGroupingMode,
                 customProjectOrderIDs: viewModel.activeFilterState.customProjectOrderIDs,
