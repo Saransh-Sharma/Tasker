@@ -6,7 +6,7 @@ final class LLMProjectionTimeoutTests: XCTestCase {
         let startedAt = Date()
         let result = await LLMProjectionTimeout.execute(timeoutMs: 25) {
             do {
-                try await Task.sleep(nanoseconds: 250_000_000)
+                try await _Concurrency.Task.sleep(nanoseconds: 250_000_000)
                 return #"{"late":true}"#
             } catch {
                 return #"{"cancelled":true}"#

@@ -51,9 +51,9 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         )
 
         await coordinator.prewarmIfEligibleCurrentModel()
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
         await coordinator.prewarmIfEligibleCurrentModel()
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
 
         XCTAssertEqual(prepareCallCount, 1)
     }
@@ -71,7 +71,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
             prepareHandler: { modelName in
                 if modelName == "mlx-community/Qwen3-0.6B-4bit" {
                     do {
-                        try await Task.sleep(nanoseconds: 2_000_000_000)
+                        try await _Concurrency.Task.sleep(nanoseconds: 2_000_000_000)
                     } catch is CancellationError {
                         prewarmCancelled = true
                         throw CancellationError()
@@ -89,9 +89,9 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         )
 
         await coordinator.prewarmIfEligibleCurrentModel()
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
         _ = await coordinator.switchModelIfNeeded(modelName: "mlx-community/Llama-3.2-1B-Instruct-4bit")
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
 
         XCTAssertTrue(prewarmCancelled)
         XCTAssertEqual(switchedModelName, "mlx-community/Llama-3.2-1B-Instruct-4bit")
@@ -111,7 +111,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         )
 
         center.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
 
         _ = coordinator
         XCTAssertEqual(unloadCount, 1)
@@ -131,9 +131,9 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         )
 
         center.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
-        try? await Task.sleep(nanoseconds: 20_000_000)
+        try? await _Concurrency.Task.sleep(nanoseconds: 20_000_000)
         center.post(name: UIApplication.willEnterForegroundNotification, object: nil)
-        try? await Task.sleep(nanoseconds: 80_000_000)
+        try? await _Concurrency.Task.sleep(nanoseconds: 80_000_000)
 
         _ = coordinator
         XCTAssertEqual(unloadCount, 0)
@@ -153,7 +153,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
         )
 
         center.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
-        try? await Task.sleep(nanoseconds: 90_000_000)
+        try? await _Concurrency.Task.sleep(nanoseconds: 90_000_000)
 
         _ = coordinator
         XCTAssertEqual(unloadCount, 1)
