@@ -36,6 +36,19 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     
     private var themeCancellable: AnyCancellable?
     var presentationDependencyContainer: PresentationDependencyContainer?
+    private let notificationPreferencesStore = TaskerNotificationPreferencesStore.shared
+    private var notificationPreferences = TaskerNotificationPreferences()
+    private var notificationPermissionStatus: TaskerNotificationAuthorizationStatus = .notDetermined
+
+    private let notificationsSectionTitle = "Notifications"
+    private let notificationsTaskReminderTitle = "Task Reminders"
+    private let notificationsDueSoonTitle = "Due Soon Nudges"
+    private let notificationsOverdueTitle = "Overdue Nudges"
+    private let notificationsMorningEnabledTitle = "Morning Agenda"
+    private let notificationsNightlyEnabledTitle = "Nightly Retrospective"
+    private let notificationsMorningTimeTitle = "Morning Agenda Time"
+    private let notificationsNightlyTimeTitle = "Nightly Retrospective Time"
+    private let notificationsPermissionTitle = "Permission"
     
     // Manager instances - removed, using Clean Architecture now
     
@@ -61,6 +74,8 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         
         // Initialize dark mode state
         isDarkMode = UIScreen.main.traitCollection.userInterfaceStyle == .dark
+        notificationPreferences = notificationPreferencesStore.load()
+        refreshNotificationPermissionStatus()
         
         // Set up table view
         setupTableView()
@@ -80,6 +95,8 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     /// Executes viewWillAppear.
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        notificationPreferences = notificationPreferencesStore.load()
+        refreshNotificationPermissionStatus()
         // Refresh table data when view appears
         setupSettingsSections()
         settingsTableView.reloadData()
@@ -121,6 +138,43 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
             SettingsSection(title: "Appearance", items: [
                 SettingsItem(title: "Dark Mode", iconName: nil, action: nil),  // Handled by DarkModeToggleCell
                 SettingsItem(title: "Theme", iconName: nil, action: nil)       // Handled by UnifiedThemePickerCell
+            ]),
+            SettingsSection(title: notificationsSectionTitle, items: [
+                SettingsItem(title: notificationsTaskReminderTitle, iconName: "bell.badge.fill", action: nil),
+                SettingsItem(title: notificationsDueSoonTitle, iconName: "clock.badge.exclamationmark", action: nil),
+                SettingsItem(title: notificationsOverdueTitle, iconName: "exclamationmark.triangle.fill", action: nil),
+                SettingsItem(title: notificationsMorningEnabledTitle, iconName: "sunrise.fill", action: nil),
+                SettingsItem(title: notificationsNightlyEnabledTitle, iconName: "moon.stars.fill", action: nil),
+                SettingsItem(
+                    title: notificationsMorningTimeTitle,
+                    iconName: "sunrise.fill",
+                    action: { [weak self] in
+                        self?.presentNotificationTimePicker(forMorning: true)
+                    },
+                    detailText: formattedTime(
+                        hour: notificationPreferences.morningHour,
+                        minute: notificationPreferences.morningMinute
+                    )
+                ),
+                SettingsItem(
+                    title: notificationsNightlyTimeTitle,
+                    iconName: "moon.stars.fill",
+                    action: { [weak self] in
+                        self?.presentNotificationTimePicker(forMorning: false)
+                    },
+                    detailText: formattedTime(
+                        hour: notificationPreferences.nightlyHour,
+                        minute: notificationPreferences.nightlyMinute
+                    )
+                ),
+                SettingsItem(
+                    title: notificationsPermissionTitle,
+                    iconName: "checkmark.shield.fill",
+                    action: { [weak self] in
+                        self?.handleNotificationPermissionTapped()
+                    },
+                    detailText: notificationPermissionDetailText()
+                )
             ]),
             SettingsSection(title: "LLM Settings", items: [
                 SettingsItem(title: "Chats", iconName: "message", action: { [weak self] in
@@ -254,6 +308,45 @@ extension SettingsPageViewController: UITableViewDataSource {
             return cell
         }
 
+        // MARK: Notifications
+        if sectionTitle == notificationsSectionTitle {
+            let item = sections[indexPath.section].items[indexPath.row]
+            let disabledByPermission = notificationPermissionStatus == .denied && item.title != notificationsPermissionTitle
+            let disabledByMasterToggle =
+                (item.title == notificationsMorningTimeTitle && !notificationPreferences.morningAgendaEnabled) ||
+                (item.title == notificationsNightlyTimeTitle && !notificationPreferences.nightlyRetrospectiveEnabled)
+            let notificationsDisabled = disabledByPermission || disabledByMasterToggle
+            let cell = UITableViewCell(style: .value1, reuseIdentifier: "settingsCell")
+            cell.textLabel?.text = item.title
+            cell.textLabel?.font = TaskerUIKitTokens.typography.body
+            cell.textLabel?.textColor = colors.textPrimary
+            cell.backgroundColor = colors.surfacePrimary
+
+            if let iconName = item.iconName {
+                let config = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+                cell.imageView?.image = UIImage(systemName: iconName, withConfiguration: config)
+                cell.imageView?.tintColor = colors.accentPrimary
+            }
+
+            if let toggle = notificationToggleIfNeeded(for: item.title, indexPath: indexPath) {
+                toggle.isEnabled = !notificationsDisabled
+                cell.accessoryView = toggle
+                cell.accessoryType = .none
+                cell.selectionStyle = .none
+                cell.detailTextLabel?.text = nil
+            } else {
+                cell.accessoryType = notificationsDisabled ? .none : (item.action != nil ? .disclosureIndicator : .none)
+                cell.selectionStyle = notificationsDisabled ? .none : .default
+                if let detailText = item.detailText {
+                    cell.detailTextLabel?.text = detailText
+                    cell.detailTextLabel?.textColor = colors.textTertiary
+                    cell.detailTextLabel?.font = TaskerUIKitTokens.typography.callout
+                }
+            }
+            cell.contentView.alpha = notificationsDisabled ? 0.5 : 1.0
+            return cell
+        }
+
         // MARK: Default rows – token-based styling
         let cell = UITableViewCell(style: .value1, reuseIdentifier: "settingsCell")
         let item = sections[indexPath.section].items[indexPath.row]
@@ -302,9 +395,206 @@ extension SettingsPageViewController: UITableViewDelegate {
         if sections[indexPath.section].title == "Appearance" {
             return
         }
+        if sections[indexPath.section].title == notificationsSectionTitle &&
+            notificationPermissionStatus == .denied &&
+            item.title != notificationsPermissionTitle {
+            return
+        }
+        if sections[indexPath.section].title == notificationsSectionTitle &&
+            ((item.title == notificationsMorningTimeTitle && !notificationPreferences.morningAgendaEnabled) ||
+             (item.title == notificationsNightlyTimeTitle && !notificationPreferences.nightlyRetrospectiveEnabled)) {
+            return
+        }
         if let action = item.action {
             action()
         }
+    }
+}
+
+extension SettingsPageViewController {
+    private func notificationToggleIfNeeded(for itemTitle: String, indexPath: IndexPath) -> UISwitch? {
+        let isOn: Bool
+        switch itemTitle {
+        case notificationsTaskReminderTitle:
+            isOn = notificationPreferences.taskRemindersEnabled
+        case notificationsDueSoonTitle:
+            isOn = notificationPreferences.dueSoonEnabled
+        case notificationsOverdueTitle:
+            isOn = notificationPreferences.overdueNudgesEnabled
+        case notificationsMorningEnabledTitle:
+            isOn = notificationPreferences.morningAgendaEnabled
+        case notificationsNightlyEnabledTitle:
+            isOn = notificationPreferences.nightlyRetrospectiveEnabled
+        default:
+            return nil
+        }
+
+        let toggle = UISwitch()
+        toggle.isOn = isOn
+        toggle.tag = indexPath.section * 1000 + indexPath.row
+        toggle.addTarget(self, action: #selector(notificationToggleChanged(_:)), for: .valueChanged)
+        return toggle
+    }
+
+    @objc private func notificationToggleChanged(_ sender: UISwitch) {
+        let section = sender.tag / 1000
+        let row = sender.tag % 1000
+        guard sections.indices.contains(section),
+              sections[section].items.indices.contains(row)
+        else {
+            return
+        }
+
+        let itemTitle = sections[section].items[row].title
+        notificationPreferencesStore.update { preferences in
+            switch itemTitle {
+            case notificationsTaskReminderTitle:
+                preferences.taskRemindersEnabled = sender.isOn
+            case notificationsDueSoonTitle:
+                preferences.dueSoonEnabled = sender.isOn
+            case notificationsOverdueTitle:
+                preferences.overdueNudgesEnabled = sender.isOn
+            case notificationsMorningEnabledTitle:
+                preferences.morningAgendaEnabled = sender.isOn
+            case notificationsNightlyEnabledTitle:
+                preferences.nightlyRetrospectiveEnabled = sender.isOn
+            default:
+                break
+            }
+            notificationPreferences = preferences
+        }
+
+        setupSettingsSections()
+        settingsTableView.reloadData()
+        reconcileNotifications(reason: "settings_toggle_changed")
+    }
+
+    private func presentNotificationTimePicker(forMorning: Bool) {
+        let title = forMorning ? notificationsMorningTimeTitle : notificationsNightlyTimeTitle
+        let alert = UIAlertController(title: "\(title)\n\n\n\n\n\n\n", message: nil, preferredStyle: .actionSheet)
+
+        let picker = UIDatePicker(frame: CGRect(x: 16, y: 36, width: view.bounds.width - 64, height: 160))
+        picker.datePickerMode = .time
+        if #available(iOS 14.0, *) {
+            picker.preferredDatePickerStyle = .wheels
+        }
+        let hour = forMorning ? notificationPreferences.morningHour : notificationPreferences.nightlyHour
+        let minute = forMorning ? notificationPreferences.morningMinute : notificationPreferences.nightlyMinute
+        picker.date = dateFrom(hour: hour, minute: minute)
+        alert.view.addSubview(picker)
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save", style: .default, handler: { [weak self] _ in
+            guard let self else { return }
+            let components = Calendar.current.dateComponents([.hour, .minute], from: picker.date)
+            let selectedHour = components.hour ?? hour
+            let selectedMinute = components.minute ?? minute
+
+            self.notificationPreferencesStore.update { preferences in
+                if forMorning {
+                    preferences.morningHour = selectedHour
+                    preferences.morningMinute = selectedMinute
+                } else {
+                    preferences.nightlyHour = selectedHour
+                    preferences.nightlyMinute = selectedMinute
+                }
+                self.notificationPreferences = preferences
+            }
+
+            self.setupSettingsSections()
+            self.settingsTableView.reloadData()
+            self.reconcileNotifications(reason: "settings_time_changed")
+        }))
+
+        if let popover = alert.popoverPresentationController,
+           let indexPath = indexPath(forNotificationItemTitle: title) {
+            popover.sourceView = settingsTableView
+            popover.sourceRect = settingsTableView.rectForRow(at: indexPath)
+        }
+
+        present(alert, animated: true)
+    }
+
+    private func dateFrom(hour: Int, minute: Int) -> Date {
+        let components = DateComponents(hour: hour, minute: minute)
+        return Calendar.current.date(from: components) ?? Date()
+    }
+
+    private func indexPath(forNotificationItemTitle title: String) -> IndexPath? {
+        guard let section = sections.firstIndex(where: { $0.title == notificationsSectionTitle }),
+              let row = sections[section].items.firstIndex(where: { $0.title == title })
+        else {
+            return nil
+        }
+        return IndexPath(row: row, section: section)
+    }
+
+    private func formattedTime(hour: Int, minute: Int) -> String {
+        var components = DateComponents()
+        components.hour = hour
+        components.minute = minute
+        let date = Calendar.current.date(from: components) ?? Date()
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
+    }
+
+    private func notificationPermissionDetailText() -> String {
+        switch notificationPermissionStatus {
+        case .authorized:
+            return "Authorized"
+        case .provisional:
+            return "Provisional"
+        case .ephemeral:
+            return "Ephemeral"
+        case .notDetermined:
+            return "Not Determined"
+        case .denied:
+            return "Denied"
+        }
+    }
+
+    private func refreshNotificationPermissionStatus() {
+        guard let service = EnhancedDependencyContainer.shared.notificationService else {
+            notificationPermissionStatus = .notDetermined
+            return
+        }
+        service.fetchAuthorizationStatus { [weak self] status in
+            DispatchQueue.main.async {
+                self?.notificationPermissionStatus = status
+                self?.setupSettingsSections()
+                self?.settingsTableView?.reloadData()
+            }
+        }
+    }
+
+    private func handleNotificationPermissionTapped() {
+        guard let service = EnhancedDependencyContainer.shared.notificationService else { return }
+        switch notificationPermissionStatus {
+        case .denied:
+            guard let url = URL(string: UIApplication.openSettingsURLString),
+                  UIApplication.shared.canOpenURL(url)
+            else {
+                return
+            }
+            UIApplication.shared.open(url)
+        case .notDetermined:
+            service.requestPermission { [weak self] granted in
+                DispatchQueue.main.async {
+                    self?.refreshNotificationPermissionStatus()
+                    if granted {
+                        self?.reconcileNotifications(reason: "settings_permission_granted")
+                    }
+                }
+            }
+        case .authorized, .provisional, .ephemeral:
+            break
+        }
+    }
+
+    private func reconcileNotifications(reason: String) {
+        (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: reason)
     }
 }
 
