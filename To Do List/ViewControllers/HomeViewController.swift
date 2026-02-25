@@ -28,6 +28,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var cancellables = Set<AnyCancellable>()
     private var pendingChartRefreshWorkItem: DispatchWorkItem?
     private let chartRefreshDebounceSeconds: TimeInterval = 0.12
+    private var pendingNotificationFocusTaskID: UUID?
 
 
     // MARK: - Lifecycle
@@ -41,6 +42,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         bindViewModel()
         mountHomeShell()
         observeMutations()
+        observeNotificationRoutes()
         observeTaskCreatedForSnackbar()
         applyTheme()
     }
@@ -49,6 +51,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
+    }
+
+    /// Executes viewDidAppear.
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if let pendingRoute = TaskerNotificationRouteBus.shared.consumePendingRoute() {
+            handleNotificationRoute(pendingRoute)
+        }
     }
 
     /// Executes viewWillDisappear.
@@ -171,6 +181,19 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             name: .homeTaskMutation,
             object: nil
         )
+    }
+
+    /// Executes observeNotificationRoutes.
+    private func observeNotificationRoutes() {
+        NotificationCenter.default.publisher(for: TaskerNotificationRouteBus.routeDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let payload = notification.userInfo?["payload"] as? String else { return }
+                let route = TaskerNotificationRoute.from(payload: payload, fallbackTaskID: nil)
+                self?.handleNotificationRoute(route)
+                _ = TaskerNotificationRouteBus.shared.consumePendingRoute()
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Navigation Actions
@@ -403,6 +426,34 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
 
         present(hostingController, animated: true)
+    }
+
+    private func handleNotificationRoute(_ route: TaskerNotificationRoute) {
+        guard let viewModel else { return }
+        switch route {
+        case .homeToday(let taskID):
+            viewModel.setQuickView(.today)
+            pendingNotificationFocusTaskID = taskID
+        case .homeDone:
+            viewModel.setQuickView(.done)
+            pendingNotificationFocusTaskID = nil
+        case .taskDetail(let taskID):
+            viewModel.setQuickView(.today)
+            pendingNotificationFocusTaskID = taskID
+            resolveAndPresentTaskDetail(taskID: taskID)
+        }
+    }
+
+    private func resolveAndPresentTaskDetail(taskID: UUID, attemptsRemaining: Int = 2) {
+        if let task = viewModel?.taskSnapshot(for: taskID) {
+            presentTaskDetailView(for: task)
+            return
+        }
+        guard attemptsRemaining > 0 else { return }
+        viewModel?.loadTodayTasks()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.resolveAndPresentTaskDetail(taskID: taskID, attemptsRemaining: attemptsRemaining - 1)
+        }
     }
 
     // MARK: - Chart Refresh Contract
