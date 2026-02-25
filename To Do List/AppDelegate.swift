@@ -11,6 +11,7 @@ import CoreData
 import CloudKit
 import Firebase
 import BackgroundTasks
+import UserNotifications
 
 enum PersistentBootstrapState {
     case ready(NSPersistentCloudKitContainer)
@@ -28,12 +29,14 @@ struct PersistentStoreLoadReport {
 }
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     private let occurrenceRefreshTaskIdentifier = "com.tasker.refresh.occurrences"
     private let remindersRefreshTaskIdentifier = "com.tasker.refresh.reminders"
     private let expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"]
     private let v3StoreEpoch = 4
+    private var notificationOrchestrator: TaskNotificationOrchestrator?
+    private var notificationActionHandler: TaskerNotificationActionHandler?
 
     private(set) static var persistentBootstrapFailureMessage: String?
     static var isPersistentStoreReady: Bool {
@@ -142,6 +145,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             if V2FeatureFlags.remindersBackgroundRefreshEnabled {
                 scheduleRemindersRefresh()
             }
+            configureTaskerNotifications()
 
             // 2) Observe remote-change notifications so your viewContext merges them
             NotificationCenter.default.addObserver(
@@ -200,6 +204,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if V2FeatureFlags.remindersBackgroundRefreshEnabled {
             scheduleRemindersRefresh()
         }
+        notificationOrchestrator?.reconcile(reason: "app_did_enter_background")
+    }
+
+    /// Executes applicationWillEnterForeground.
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        notificationOrchestrator?.reconcile(reason: "app_will_enter_foreground")
+    }
+
+    /// Executes applicationDidBecomeActive.
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        notificationOrchestrator?.reconcile(reason: "app_did_become_active")
     }
 
     /// Executes makeLaunchRootMode.
@@ -351,6 +366,95 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             fields: [
                 "error": error.localizedDescription
             ]
+        )
+    }
+
+    // MARK: - Local Notification Runtime
+
+    private func configureTaskerNotifications() {
+        guard let taskRepository = EnhancedDependencyContainer.shared.taskDefinitionRepository,
+              let notificationService = EnhancedDependencyContainer.shared.notificationService
+        else {
+            return
+        }
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: taskRepository,
+            notificationService: notificationService,
+            preferencesStore: .shared
+        )
+        orchestrator.startObservingMutations()
+        notificationOrchestrator = orchestrator
+        TaskerNotificationRuntime.orchestrator = orchestrator
+
+        let actionHandler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: {
+                let container = PresentationDependencyContainer.shared
+                guard container.isConfiguredForRuntime else { return nil }
+                return container.coordinator
+            }
+        )
+        notificationActionHandler = actionHandler
+        TaskerNotificationRuntime.actionHandler = actionHandler
+
+        notificationService.registerCategories(TaskerNotificationCategories.all())
+        notificationService.setDelegate(self)
+
+        notificationService.fetchAuthorizationStatus { status in
+            switch status {
+            case .notDetermined:
+                notificationService.requestPermission { granted in
+                    if granted {
+                        orchestrator.reconcile(reason: "permission_granted")
+                    }
+                }
+            case .authorized, .provisional, .ephemeral:
+                orchestrator.reconcile(reason: "app_launch_authorized")
+            case .denied:
+                break
+            }
+        }
+    }
+
+    func reconcileNotifications(reason: String = "manual") {
+        notificationOrchestrator?.reconcile(reason: reason)
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        logWarning(
+            event: "notification_delivered",
+            message: "Notification delivered while app is foreground",
+            fields: [
+                "id": notification.request.identifier
+            ]
+        )
+        if #available(iOS 14.0, *) {
+            completionHandler([.banner, .badge, .sound])
+        } else {
+            completionHandler([.alert, .badge, .sound])
+        }
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        guard let notificationActionHandler else {
+            completionHandler()
+            return
+        }
+        notificationActionHandler.handleAction(
+            identifier: response.actionIdentifier,
+            request: response.notification.request,
+            completion: completionHandler
         )
     }
 
