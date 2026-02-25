@@ -580,6 +580,10 @@ public final class HomeViewModel: ObservableObject {
         applyFocusFilters(trackAnalytics: true)
     }
 
+    public func taskSnapshot(for taskID: UUID) -> TaskDefinition? {
+        currentTaskSnapshot(for: taskID)
+    }
+
     /// Focus Engine: set Today grouping mode.
     public func setProjectGroupingMode(_ mode: HomeProjectGroupingMode) {
         focusEngineEnabled = true
