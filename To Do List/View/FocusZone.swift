@@ -71,23 +71,50 @@ public struct FocusZone: View {
         }
         .background(
             RoundedRectangle(cornerRadius: corner.r3)
-                .fill(Color.tasker.accentPrimary.opacity(0.06))
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.tasker.accentPrimary.opacity(0.08),
+                            Color.tasker.accentPrimary.opacity(0.03)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: corner.r3)
                 .stroke(
                     isTargeted
                         ? Color.tasker.accentPrimary.opacity(0.5)
-                        : Color.tasker.accentPrimary.opacity(0.15),
-                    lineWidth: isTargeted ? 2 : 1
+                        : Color.tasker.accentPrimary.opacity(0.20),
+                    lineWidth: 0.5
                 )
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: corner.r3)
+                .stroke(
+                    isTargeted
+                        ? Color.tasker.accentPrimary.opacity(0.5)
+                        : Color.tasker.accentPrimary.opacity(0.08),
+                    lineWidth: 1
+                )
+                .padding(-2)
+        )
         .shadow(
-            color: Color.tasker.accentPrimary.opacity(0.08),
-            radius: 8,
+            color: Color.tasker.accentPrimary.opacity(0.06),
+            radius: 3,
+            x: 0,
+            y: 1
+        )
+        .shadow(
+            color: Color.tasker.accentPrimary.opacity(0.12),
+            radius: isTargeted ? 16 : 12,
             x: 0,
             y: 2
         )
+        .scaleEffect(isTargeted ? 1.01 : 1.0)
+        .brightness(isTargeted ? 0.02 : 0)
         .onDrop(of: ["public.text"], isTargeted: $isTargeted, perform: onDrop)
         .animation(.spring(response: 0.3), value: isTargeted)
         .accessibilityElement(children: .contain)
@@ -105,6 +132,7 @@ public struct FocusZone: View {
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(Color.tasker.accentSecondary)
                         .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !tasks.isEmpty)
+                        .breathingPulse(min: 0.8, max: 1.0, duration: 2.5)
 
                     // Title
                     Text("FOCUS NOW")
@@ -124,6 +152,8 @@ public struct FocusZone: View {
                                 Capsule()
                                     .fill(Color.tasker.accentSecondary)
                             )
+                            .transition(.scale.combined(with: .opacity))
+                            .contentTransition(.numericText())
                     }
                 }
                 .frame(minHeight: 44, alignment: .leading)
@@ -165,6 +195,7 @@ public struct FocusZone: View {
             Image(systemName: "hand.point.up.left")
                 .font(.system(size: 24, weight: .light))
                 .foregroundColor(Color.tasker.accentPrimary.opacity(0.4))
+                .breathingPulse(min: 0.3, max: 0.5, duration: 2.0)
 
             Text("Long-press a task to pin here")
                 .font(.tasker(.caption1))
@@ -182,8 +213,9 @@ public struct FocusZone: View {
             ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
                 if index > 0 {
                     Divider()
-                        .padding(.leading, 32)
+                        .padding(.leading, spacing.s32)
                         .padding(.vertical, 2)
+                        .opacity(Double(tasks.count - index) / Double(tasks.count))
                 }
 
                 FocusZoneRow(
@@ -194,6 +226,7 @@ public struct FocusZone: View {
                     onToggleComplete: { onToggleComplete(task) },
                     onDragStarted: { onTaskDragStarted(task) }
                 )
+                .taskCompletionTransition(isComplete: task.isComplete)
                 .staggeredAppearance(index: index)
             }
         }
@@ -298,6 +331,8 @@ private struct FocusZoneRow: View {
                             .fill(focusStatusColor(for: statusChip).opacity(0.15))
                     )
                     .fixedSize()
+                    .transition(.scale.combined(with: .opacity))
+                    .animation(TaskerAnimation.bouncy, value: statusChip)
             }
 
         }
@@ -305,7 +340,6 @@ private struct FocusZoneRow: View {
         .padding(.horizontal, spacing.s4)
         .frame(height: 36)
         .contentShape(Rectangle())
-        .opacity(task.isComplete ? 0.5 : 1.0)
         .onTapGesture { onTap() }
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
             Button {

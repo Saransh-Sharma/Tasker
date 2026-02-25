@@ -36,9 +36,7 @@ public struct HomeQuickFilterTriggerButton: View {
 
     public var body: some View {
         Button(action: {
-            let generator = UIImpactFeedbackGenerator(style: .light)
-            generator.prepare()
-            generator.impactOccurred()
+            TaskerFeedback.light()
             onTap()
         }) {
             HStack(spacing: spacing.s8) {
@@ -47,6 +45,8 @@ public struct HomeQuickFilterTriggerButton: View {
                     Circle()
                         .fill(Color.tasker.accentPrimary)
                         .frame(width: 8, height: 8)
+                        .transition(.scale.combined(with: .opacity))
+                        .animation(TaskerAnimation.bouncy, value: summary.hasActiveFilters)
                 }
 
                 // Primary text
@@ -64,9 +64,11 @@ public struct HomeQuickFilterTriggerButton: View {
                 }
 
                 // Chevron indicator
-                Image(systemName: isOpen ? "chevron.up" : "chevron.down")
+                Image(systemName: "chevron.down")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Color.tasker.textSecondary)
+                    .rotationEffect(.degrees(isOpen ? 180 : 0))
+                    .animation(TaskerAnimation.quick, value: isOpen)
             }
             .padding(.horizontal, spacing.s12)
             .padding(.vertical, spacing.s8)
@@ -79,8 +81,9 @@ public struct HomeQuickFilterTriggerButton: View {
                 Capsule()
                     .stroke(borderColor, lineWidth: 1)
             )
+            .animation(TaskerAnimation.quick, value: summary.hasActiveFilters)
         }
-        .buttonStyle(.plain)
+        .scaleOnPress()
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(isOpen ? "Double tap to close filters" : "Double tap to open filters")
     }

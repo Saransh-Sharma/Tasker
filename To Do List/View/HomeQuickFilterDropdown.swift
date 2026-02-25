@@ -177,7 +177,7 @@ public struct HomeQuickFilterDropdown: View {
 
     private var quickViewSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Quick View")
+            sectionHeader("Quick View", index: 0)
 
             ForEach(HomeQuickView.allCases, id: \.rawValue) { quickView in
                 FilterRow(
@@ -197,7 +197,7 @@ public struct HomeQuickFilterDropdown: View {
 
     private var dateSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Date")
+            sectionHeader("Date", index: 1)
 
             FilterRow(
                 title: "Select specific date...",
@@ -214,7 +214,7 @@ public struct HomeQuickFilterDropdown: View {
 
     private var projectsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Projects")
+            sectionHeader("Projects", index: 2)
 
             // All Projects option
             FilterRow(
@@ -265,7 +265,7 @@ public struct HomeQuickFilterDropdown: View {
 
     private var groupingSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Grouping")
+            sectionHeader("Grouping", index: 3)
 
             ForEach(HomeProjectGroupingMode.allCases, id: \.rawValue) { mode in
                 FilterRow(
@@ -283,7 +283,7 @@ public struct HomeQuickFilterDropdown: View {
 
     private var savedViewsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader("Saved Views")
+            sectionHeader("Saved Views", index: 4)
 
             if viewModel.savedHomeViews.isEmpty {
                 Text("No saved views")
@@ -376,7 +376,7 @@ public struct HomeQuickFilterDropdown: View {
                         .fill(Color.tasker.surfaceSecondary)
                 )
         }
-        .buttonStyle(.plain)
+        .scaleOnPress()
         .padding(.horizontal, spacing.s20)
         .padding(.vertical, spacing.s12)
     }
@@ -391,20 +391,19 @@ public struct HomeQuickFilterDropdown: View {
     }
 
     /// Executes sectionHeader.
-    private func sectionHeader(_ title: String) -> some View {
+    private func sectionHeader(_ title: String, index: Int = 0) -> some View {
         Text(title)
             .font(.tasker(.caption1))
             .foregroundColor(Color.tasker.textSecondary)
             .padding(.horizontal, spacing.s20)
             .padding(.top, spacing.s12)
             .padding(.bottom, spacing.s8)
+            .enhancedStaggeredAppearance(index: index)
     }
 
     /// Executes provideHapticFeedback.
     private func provideHapticFeedback() {
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.prepare()
-        generator.impactOccurred()
+        TaskerFeedback.light()
     }
 
     /// Executes dismissWithAnimation.
@@ -453,10 +452,12 @@ struct FilterRow: View {
                     Image(systemName: isSelected ? "checkmark.square.fill" : "square")
                         .font(.system(size: 18))
                         .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                        .animation(TaskerAnimation.quick, value: isSelected)
                 } else {
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 18))
                         .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                        .animation(TaskerAnimation.quick, value: isSelected)
                 }
 
                 // Optional system image
@@ -507,7 +508,7 @@ struct FilterRow: View {
             .padding(.vertical, spacing.s12)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .scaleOnPress()
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(isSelected ? "Selected" : "Not selected")
     }

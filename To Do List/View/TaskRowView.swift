@@ -253,7 +253,7 @@ struct TaskRowView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
             .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.md, includesBorder: false)
-            .opacity(task.isComplete ? 0.58 : 1.0)
+            .taskCompletionTransition(isComplete: task.isComplete)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.taskRow.\(task.id.uuidString)")
             .accessibilityLabel(accessibilityLabel)
@@ -324,6 +324,7 @@ struct TaskRowView: View {
             .frame(minHeight: displayModel.hasDescription ? 56 : 50)
         }
         .background(rowBackground)
+        .animation(TaskerAnimation.quick, value: task.isComplete)
     }
 
     private var rowBackground: Color {
@@ -336,8 +337,9 @@ struct TaskRowView: View {
         return Color.tasker.surfacePrimary
     }
 
+    @ViewBuilder
     private var priorityStripe: some View {
-        UnevenRoundedRectangle(
+        let stripe = UnevenRoundedRectangle(
             topLeadingRadius: TaskerTheme.CornerRadius.md,
             bottomLeadingRadius: TaskerTheme.CornerRadius.md,
             bottomTrailingRadius: 0,
@@ -345,6 +347,12 @@ struct TaskRowView: View {
         )
         .fill(stripeFill)
         .frame(width: 4)
+
+        if !task.isComplete && !task.isOverdue && task.priority == .max {
+            stripe.breathingPulse(min: 0.75, max: 1.0)
+        } else {
+            stripe
+        }
     }
 
     private var stripeFill: some ShapeStyle {
@@ -429,6 +437,8 @@ struct TaskRowView: View {
             .padding(.vertical, 3)
             .background(Capsule().fill(Color.tasker.statusWarning.opacity(0.15)))
             .fixedSize()
+            .transition(.scale.combined(with: .opacity))
+            .animation(TaskerAnimation.bouncy, value: displayModel.statusChip)
     }
 
     private var compactXPBadge: some View {
@@ -447,6 +457,8 @@ struct TaskRowView: View {
                     .stroke(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary.opacity(0.3) : .clear, lineWidth: 1)
             )
             .fixedSize()
+            .scaleEffect(task.isComplete ? 1.15 : 1.0)
+            .animation(TaskerAnimation.bouncy, value: task.isComplete)
     }
 }
 

@@ -42,6 +42,7 @@ struct TaskSectionHeaderRow: View {
                         .font(.tasker(.caption2))
                         .fontWeight(.medium)
                         .foregroundColor(Color.tasker.textTertiary)
+                        .contentTransition(.numericText())
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.tasker.surfaceSecondary)
@@ -53,6 +54,7 @@ struct TaskSectionHeaderRow: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(Color.tasker.textQuaternary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .scaleEffect(isExpanded ? 1.0 : 0.9)
                         .animation(TaskerAnimation.snappy, value: isExpanded)
                 }
                 .contentShape(Rectangle())
@@ -143,7 +145,10 @@ struct TaskSectionView: View {
             if isExpanded {
                 taskList
                     .padding(.top, TaskerTheme.Spacing.xs)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98, anchor: .top)),
+                        removal: .opacity
+                    ))
             }
         }
         .animation(TaskerAnimation.snappy, value: isExpanded)
@@ -173,7 +178,7 @@ struct TaskSectionView: View {
     // MARK: - Task List
 
     private var taskList: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: TaskerTheme.Spacing.xs) {
             ForEach(openRenderItems, id: \.renderKey) { item in
                 TaskRowView(
                     task: item.task,
@@ -187,13 +192,13 @@ struct TaskSectionView: View {
                     onReschedule: { onRescheduleTask?(item.task) },
                     onTaskDragStarted: onTaskDragStarted
                 )
-                .staggeredAppearance(index: item.index)
+                .enhancedStaggeredAppearance(index: item.index)
             }
 
             if !completedTasks.isEmpty {
                 completedToggleRow
                     .padding(.top, 2)
-                    .staggeredAppearance(index: openRenderItems.count)
+                    .enhancedStaggeredAppearance(index: openRenderItems.count)
 
                 if !isCompletedCollapsed {
                     ForEach(completedRenderItems, id: \.renderKey) { item in
@@ -208,7 +213,7 @@ struct TaskSectionView: View {
                             onDelete: { onDeleteTask?(item.task) },
                             onReschedule: { onRescheduleTask?(item.task) }
                         )
-                        .staggeredAppearance(index: item.index + openRenderItems.count + 1)
+                        .enhancedStaggeredAppearance(index: item.index + openRenderItems.count + 1)
                     }
                 }
             }

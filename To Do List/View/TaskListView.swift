@@ -115,7 +115,7 @@ struct TaskListView: View {
                 // Empty state
                 if allTasksEmpty {
                     emptyStateView
-                        .staggeredAppearance(index: 0)
+                        .enhancedStaggeredAppearance(index: 0)
                 }
 
                 // Bottom spacer for tab bar
@@ -123,6 +123,7 @@ struct TaskListView: View {
                     .frame(height: bottomContentInset)
             }
             .padding(.horizontal, TaskerTheme.Spacing.lg)
+            .animation(TaskerAnimation.gentle, value: activeQuickView)
         }
         .onScrollGeometryChange(
             for: CGFloat.self,
@@ -193,7 +194,7 @@ struct TaskListView: View {
                 headerActionAccessibilityID: "home.inbox.headerAction"
             )
             .id(sectionRenderKey(projectID: inboxSection.project.id, tasks: inboxSection.tasks))
-            .staggeredAppearance(index: 0)
+            .enhancedStaggeredAppearance(index: 0)
         }
 
         if projectGroupingMode == .prioritizeOverdue, !layout.overdueGroups.isEmpty {
@@ -210,7 +211,7 @@ struct TaskListView: View {
                 onTaskDragStarted: onTaskDragStarted
             )
             .id(overdueGroupsRenderKey(layout.overdueGroups))
-            .staggeredAppearance(index: hasInboxSection ? 1 : 0)
+            .enhancedStaggeredAppearance(index: hasInboxSection ? 1 : 0)
         }
 
         let currentCustomOrder = layout.customSections.map(\.project.id)
@@ -233,7 +234,7 @@ struct TaskListView: View {
                 onTaskDragStarted: onTaskDragStarted
             )
             .id(sectionRenderKey(projectID: section.project.id, tasks: section.tasks))
-            .staggeredAppearance(index: customStartIndex + index)
+            .enhancedStaggeredAppearance(index: customStartIndex + index)
             .onDrag {
                 draggingCustomProjectID = section.project.id
                 return NSItemProvider(object: section.project.id.uuidString as NSString)
@@ -276,7 +277,7 @@ struct TaskListView: View {
                 headerActionAccessibilityID: "home.overdue.headerAction"
             )
             .id(sectionRenderKey(projectID: overdueProject.id, tasks: overdueTasks))
-            .staggeredAppearance(index: 0)
+            .enhancedStaggeredAppearance(index: 0)
         }
 
         ForEach(Array(legacySortedProjectSections.enumerated()), id: \.element.id) { index, section in
@@ -297,7 +298,7 @@ struct TaskListView: View {
                 onTaskDragStarted: onTaskDragStarted
             )
             .id(sectionRenderKey(projectID: section.project.id, tasks: section.tasks))
-            .staggeredAppearance(index: index + (overdueTasks.isEmpty ? 0 : 1))
+            .enhancedStaggeredAppearance(index: index + (overdueTasks.isEmpty ? 0 : 1))
         }
     }
 
@@ -323,7 +324,7 @@ struct TaskListView: View {
                 }
             )
             .id(sectionRenderKey(projectID: group.project.id, tasks: group.tasks))
-            .staggeredAppearance(index: index)
+            .enhancedStaggeredAppearance(index: index)
         }
     }
 
@@ -455,6 +456,7 @@ struct TaskListView: View {
             Image(systemName: "checkmark.circle")
                 .font(.system(size: 40, weight: .light))
                 .foregroundColor(Color.tasker.accentPrimary.opacity(0.5))
+                .breathingPulse(min: 0.4, max: 0.6, duration: 3.0)
 
             Text("All clear")
                 .font(.tasker(.title3))
@@ -559,7 +561,7 @@ private struct OverdueGroupedSectionView: View {
                                 onTaskDragStarted: onTaskDragStarted
                             )
                             .id(taskRenderKey(for: task))
-                            .staggeredAppearance(index: taskIndex)
+                            .enhancedStaggeredAppearance(index: taskIndex)
                         }
                     }
                 }
