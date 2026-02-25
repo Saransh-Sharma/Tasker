@@ -98,6 +98,7 @@ public final class HomeViewModel: ObservableObject {
     private let getInboxTriageQueueUseCase: GetInboxTriageQueueUseCase
     private let getOverdueRescuePlanUseCase: GetOverdueRescuePlanUseCase
     private let buildEvaBatchProposalUseCase: BuildEvaBatchProposalUseCase
+    private let getDailySummaryModalUseCase: GetDailySummaryModalUseCase
     private let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
     private let analyticsService: AnalyticsServiceProtocol?
     private let userDefaults: UserDefaults
@@ -143,6 +144,10 @@ public final class HomeViewModel: ObservableObject {
         self.getInboxTriageQueueUseCase = useCaseCoordinator.getInboxTriageQueue
         self.getOverdueRescuePlanUseCase = useCaseCoordinator.getOverdueRescuePlan
         self.buildEvaBatchProposalUseCase = useCaseCoordinator.buildEvaBatchProposal
+        self.getDailySummaryModalUseCase = GetDailySummaryModalUseCase(
+            getTasksUseCase: useCaseCoordinator.getTasks,
+            analyticsUseCase: useCaseCoordinator.calculateAnalytics
+        )
         self.savedHomeViewRepository = savedHomeViewRepository
         self.analyticsService = analyticsService
         self.userDefaults = userDefaults
@@ -584,6 +589,81 @@ public final class HomeViewModel: ObservableObject {
         currentTaskSnapshot(for: taskID)
     }
 
+    public func loadDailySummaryModal(
+        kind: TaskerDailySummaryKind,
+        dateStamp: String?,
+        completion: @escaping (Result<DailySummaryModalData, Error>) -> Void
+    ) {
+        let date = Self.summaryDate(from: dateStamp) ?? Date()
+        let normalizedDateStamp = Self.summaryDateStamp(from: date)
+
+        getDailySummaryModalUseCase.execute(kind: kind, date: date) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let summary):
+                    self?.trackHomeInteraction(
+                        action: "daily_summary_modal_opened",
+                        metadata: [
+                            "kind": kind.rawValue,
+                            "date_stamp": normalizedDateStamp,
+                            "source": "notification",
+                            "snapshot": summary.analyticsSnapshot
+                        ]
+                    )
+                    completion(.success(summary))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    public func trackDailySummaryCTA(
+        kind: TaskerDailySummaryKind,
+        cta: String,
+        countsSnapshot: [String: Any]
+    ) {
+        trackHomeInteraction(
+            action: "daily_summary_cta_tapped",
+            metadata: [
+                "kind": kind.rawValue,
+                "cta": cta,
+                "counts_snapshot": countsSnapshot
+            ]
+        )
+    }
+
+    public func trackDailySummaryActionResult(cta: String, success: Bool, error: Error?) {
+        var metadata: [String: Any] = [
+            "cta": cta,
+            "success": success
+        ]
+        if let error {
+            metadata["error"] = error.localizedDescription
+        }
+        trackHomeInteraction(
+            action: "daily_summary_action_result",
+            metadata: metadata
+        )
+    }
+
+    public func performEndOfDayCleanup(completion: @escaping (Result<CleanupResult, Error>) -> Void) {
+        useCaseCoordinator.performEndOfDayCleanup { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let cleanup):
+                    self?.invalidateTaskCaches()
+                    self?.reloadCurrentModeTasks()
+                    self?.loadDailyAnalytics()
+                    completion(.success(cleanup))
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
     /// Focus Engine: set Today grouping mode.
     public func setProjectGroupingMode(_ mode: HomeProjectGroupingMode) {
         focusEngineEnabled = true
@@ -880,7 +960,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Complete morning routine.
-    public func completeMorningRoutine() {
+    public func completeMorningRoutine(completion: ((Result<MorningRoutineResult, Error>) -> Void)? = nil) {
         useCaseCoordinator.completeMorningRoutine { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
@@ -888,24 +968,28 @@ public final class HomeViewModel: ObservableObject {
                     self?.dailyScore += routineResult.totalScore
                     self?.refreshProgressState()
                     self?.loadTodayTasks()
+                    completion?(.success(routineResult))
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
+                    completion?(.failure(error))
                 }
             }
         }
     }
 
     /// Reschedule all overdue tasks.
-    public func rescheduleOverdueTasks() {
+    public func rescheduleOverdueTasks(completion: ((Result<RescheduleAllResult, Error>) -> Void)? = nil) {
         useCaseCoordinator.rescheduleAllOverdueTasks { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
-                case .success:
+                case .success(let rescheduleResult):
                     self?.loadTodayTasks()
+                    completion?(.success(rescheduleResult))
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
+                    completion?(.failure(error))
                 }
             }
         }
@@ -2846,6 +2930,25 @@ public final class HomeViewModel: ObservableObject {
         }.joined(separator: "|")
         return "[\(summary)] total=\(tasks.count)"
     }
+
+    private static func summaryDate(from dateStamp: String?) -> Date? {
+        guard let dateStamp, dateStamp.isEmpty == false else { return nil }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateFormat = "yyyyMMdd"
+        return formatter.date(from: dateStamp)
+    }
+
+    private static func summaryDateStamp(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateFormat = "yyyyMMdd"
+        return formatter.string(from: date)
+    }
 }
 
 // MARK: - View State
@@ -2935,5 +3038,360 @@ public struct HomeProgressState: Equatable {
     public var progressFraction: Double {
         guard todayTargetXP > 0 else { return 0 }
         return min(1, Double(earnedXP) / Double(todayTargetXP))
+    }
+}
+
+public struct SummaryTaskRow: Equatable, Identifiable {
+    public let taskID: UUID
+    public let title: String
+    public let priority: TaskPriority
+    public let dueDate: Date?
+    public let isOverdue: Bool
+    public let estimatedDuration: TimeInterval?
+    public let isBlocked: Bool
+    public let projectName: String?
+
+    public var id: UUID { taskID }
+}
+
+public struct MorningPlanSummary: Equatable {
+    public let date: Date
+    public let openTodayCount: Int
+    public let highPriorityCount: Int
+    public let overdueCount: Int
+    public let potentialXP: Int
+    public let focusTasks: [SummaryTaskRow]
+    public let blockedCount: Int
+    public let longTaskCount: Int
+    public let morningPlannedCount: Int
+    public let eveningPlannedCount: Int
+}
+
+public struct NightlyRetrospectiveSummary: Equatable {
+    public let date: Date
+    public let completedCount: Int
+    public let totalCount: Int
+    public let xpEarned: Int
+    public let completionRate: Double
+    public let streakCount: Int
+    public let biggestWins: [SummaryTaskRow]
+    public let carryOverDueTodayCount: Int
+    public let carryOverOverdueCount: Int
+    public let tomorrowPreview: [SummaryTaskRow]
+    public let morningCompletedCount: Int
+    public let eveningCompletedCount: Int
+}
+
+public enum DailySummaryModalData: Equatable {
+    case morning(MorningPlanSummary)
+    case nightly(NightlyRetrospectiveSummary)
+
+    public var analyticsSnapshot: [String: Any] {
+        switch self {
+        case .morning(let summary):
+            return [
+                "open_today_count": summary.openTodayCount,
+                "high_priority_count": summary.highPriorityCount,
+                "overdue_count": summary.overdueCount,
+                "potential_xp": summary.potentialXP,
+                "focus_count": summary.focusTasks.count,
+                "blocked_count": summary.blockedCount,
+                "long_task_count": summary.longTaskCount
+            ]
+        case .nightly(let summary):
+            return [
+                "completed_count": summary.completedCount,
+                "total_count": summary.totalCount,
+                "xp_earned": summary.xpEarned,
+                "carry_over_due_today_count": summary.carryOverDueTodayCount,
+                "carry_over_overdue_count": summary.carryOverOverdueCount,
+                "tomorrow_preview_count": summary.tomorrowPreview.count,
+                "streak_count": summary.streakCount
+            ]
+        }
+    }
+}
+
+enum DailySummaryModalError: LocalizedError {
+    case tasksUnavailable(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .tasksUnavailable(let message):
+            return message
+        }
+    }
+}
+
+final class GetDailySummaryModalUseCase {
+    private let getTasksUseCase: GetTasksUseCase
+    private let analyticsUseCase: CalculateAnalyticsUseCase
+    private let calendar: Calendar
+    private let now: () -> Date
+
+    init(
+        getTasksUseCase: GetTasksUseCase,
+        analyticsUseCase: CalculateAnalyticsUseCase,
+        calendar: Calendar = .current,
+        now: @escaping () -> Date = Date.init
+    ) {
+        self.getTasksUseCase = getTasksUseCase
+        self.analyticsUseCase = analyticsUseCase
+        self.calendar = calendar
+        self.now = now
+    }
+
+    func execute(
+        kind: TaskerDailySummaryKind,
+        date: Date,
+        completion: @escaping (Result<DailySummaryModalData, Error>) -> Void
+    ) {
+        let group = DispatchGroup()
+        let lock = NSLock()
+
+        var allTasksResult: Result<[TaskDefinition], GetTasksError>?
+        var analytics: DailyAnalytics?
+        var streakCount: Int?
+        var dateTasks: DateTasksResult?
+
+        group.enter()
+        getTasksUseCase.searchTasks(query: "", in: .all) { result in
+            lock.lock()
+            allTasksResult = result
+            lock.unlock()
+            group.leave()
+        }
+
+        group.enter()
+        analyticsUseCase.calculateDailyAnalytics(for: date) { result in
+            lock.lock()
+            if case .success(let value) = result {
+                analytics = value
+            }
+            lock.unlock()
+            group.leave()
+        }
+
+        group.enter()
+        analyticsUseCase.calculateStreak { result in
+            lock.lock()
+            if case .success(let value) = result {
+                streakCount = value.currentStreak
+            }
+            lock.unlock()
+            group.leave()
+        }
+
+        group.enter()
+        getTasksUseCase.getTasksForDate(date) { result in
+            lock.lock()
+            if case .success(let value) = result {
+                dateTasks = value
+            }
+            lock.unlock()
+            group.leave()
+        }
+
+        group.notify(queue: .global(qos: .userInitiated)) {
+            lock.lock()
+            let resolvedTasksResult = allTasksResult
+            let resolvedAnalytics = analytics
+            let resolvedStreak = streakCount
+            let resolvedDateTasks = dateTasks
+            lock.unlock()
+
+            guard let resolvedTasksResult else {
+                completion(.failure(DailySummaryModalError.tasksUnavailable("Task data unavailable")))
+                return
+            }
+
+            switch resolvedTasksResult {
+            case .failure(let error):
+                completion(.failure(DailySummaryModalError.tasksUnavailable(error.localizedDescription)))
+            case .success(let allTasks):
+                completion(.success(
+                    self.buildSummary(
+                        kind: kind,
+                        date: date,
+                        allTasks: allTasks,
+                        analytics: resolvedAnalytics,
+                        streakCount: resolvedStreak,
+                        dateTasks: resolvedDateTasks
+                    )
+                ))
+            }
+        }
+    }
+
+    func buildSummary(
+        kind: TaskerDailySummaryKind,
+        date: Date,
+        allTasks: [TaskDefinition],
+        analytics: DailyAnalytics?,
+        streakCount: Int?,
+        dateTasks: DateTasksResult? = nil
+    ) -> DailySummaryModalData {
+        switch kind {
+        case .morning:
+            return .morning(buildMorningSummary(date: date, allTasks: allTasks, dateTasks: dateTasks))
+        case .nightly:
+            return .nightly(
+                buildNightlySummary(
+                    date: date,
+                    allTasks: allTasks,
+                    analytics: analytics,
+                    streakCount: streakCount,
+                    dateTasks: dateTasks
+                )
+            )
+        }
+    }
+
+    private func buildMorningSummary(
+        date: Date,
+        allTasks: [TaskDefinition],
+        dateTasks: DateTasksResult?
+    ) -> MorningPlanSummary {
+        let dayRange = dateRange(for: date)
+        let openTasks = allTasks.filter { !$0.isComplete }
+        let dueTodayOpen = openTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate >= dayRange.start && dueDate < dayRange.end
+        }
+        let overdueOpen = openTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate < dayRange.start
+        }
+        let actionable = sortByUrgency(tasks: dueTodayOpen + overdueOpen)
+        let focusTasks = Array(actionable.prefix(3)).map(makeSummaryRow)
+        let highPriorityCount = actionable.filter { $0.priority.isHighPriority }.count
+        let potentialXP = actionable.reduce(0) { $0 + $1.priority.scorePoints }
+        let blockedCount = actionable.filter { !$0.dependencies.isEmpty }.count
+        let longTaskCount = actionable.filter { ($0.estimatedDuration ?? 0) >= 3600 }.count
+        let morningPlannedCount: Int
+        let eveningPlannedCount: Int
+        if let dateTasks {
+            morningPlannedCount = dateTasks.morningTasks.filter { !$0.isComplete }.count
+            eveningPlannedCount = dateTasks.eveningTasks.filter { !$0.isComplete }.count
+        } else {
+            eveningPlannedCount = dueTodayOpen.filter(isEveningTask).count
+            morningPlannedCount = max(0, dueTodayOpen.count - eveningPlannedCount)
+        }
+
+        return MorningPlanSummary(
+            date: dayRange.start,
+            openTodayCount: actionable.count,
+            highPriorityCount: highPriorityCount,
+            overdueCount: overdueOpen.count,
+            potentialXP: potentialXP,
+            focusTasks: focusTasks,
+            blockedCount: blockedCount,
+            longTaskCount: longTaskCount,
+            morningPlannedCount: morningPlannedCount,
+            eveningPlannedCount: eveningPlannedCount
+        )
+    }
+
+    private func buildNightlySummary(
+        date: Date,
+        allTasks: [TaskDefinition],
+        analytics: DailyAnalytics?,
+        streakCount: Int?,
+        dateTasks: DateTasksResult?
+    ) -> NightlyRetrospectiveSummary {
+        let dayRange = dateRange(for: date)
+        let tomorrowStart = dayRange.end
+        let tomorrowEnd = calendar.date(byAdding: .day, value: 1, to: tomorrowStart) ?? tomorrowStart
+
+        let completedToday = sortByUrgency(tasks: allTasks.filter { task in
+            guard task.isComplete, let dateCompleted = task.dateCompleted else { return false }
+            return dateCompleted >= dayRange.start && dateCompleted < dayRange.end
+        })
+
+        let openTasks = allTasks.filter { !$0.isComplete }
+        let dueTodayOpen = openTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate >= dayRange.start && dueDate < dayRange.end
+        }
+        let overdueOpen = openTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate < dayRange.start
+        }
+        let tomorrowPreview = sortByUrgency(tasks: openTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate >= tomorrowStart && dueDate < tomorrowEnd
+        })
+
+        let dueTodayCount = allTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate >= dayRange.start && dueDate < dayRange.end
+        }.count
+        let calendarTotalCount = dateTasks.map {
+            $0.morningTasks.count + $0.eveningTasks.count + $0.completedTasks.count
+        } ?? 0
+        let analyticsTotalCount = analytics?.totalTasks ?? 0
+        let baselineTotalCount = max(dueTodayCount, max(calendarTotalCount, analyticsTotalCount))
+        let totalCount = max(completedToday.count, baselineTotalCount)
+        let xpEarned = completedToday.reduce(0) { $0 + $1.priority.scorePoints }
+        let fallbackCompletionRate = totalCount > 0 ? Double(completedToday.count) / Double(totalCount) : 0
+        let completionRate = analytics?.completionRate ?? fallbackCompletionRate
+        let morningCompletedCount = analytics?.morningTasksCompleted
+            ?? completedToday.filter { !$0.isEveningTask && $0.type != .evening }.count
+        let eveningCompletedCount = analytics?.eveningTasksCompleted
+            ?? completedToday.filter(isEveningTask).count
+
+        return NightlyRetrospectiveSummary(
+            date: dayRange.start,
+            completedCount: completedToday.count,
+            totalCount: totalCount,
+            xpEarned: xpEarned,
+            completionRate: completionRate,
+            streakCount: max(0, streakCount ?? 0),
+            biggestWins: Array(completedToday.prefix(3)).map(makeSummaryRow),
+            carryOverDueTodayCount: dueTodayOpen.count,
+            carryOverOverdueCount: overdueOpen.count,
+            tomorrowPreview: Array(tomorrowPreview.prefix(3)).map(makeSummaryRow),
+            morningCompletedCount: morningCompletedCount,
+            eveningCompletedCount: eveningCompletedCount
+        )
+    }
+
+    private func makeSummaryRow(_ task: TaskDefinition) -> SummaryTaskRow {
+        let startOfToday = calendar.startOfDay(for: now())
+        let overdue = (task.dueDate.map { $0 < startOfToday } ?? false) && !task.isComplete
+        return SummaryTaskRow(
+            taskID: task.id,
+            title: task.title,
+            priority: task.priority,
+            dueDate: task.dueDate,
+            isOverdue: overdue,
+            estimatedDuration: task.estimatedDuration,
+            isBlocked: !task.dependencies.isEmpty,
+            projectName: task.projectName
+        )
+    }
+
+    private func sortByUrgency(tasks: [TaskDefinition]) -> [TaskDefinition] {
+        tasks.sorted { lhs, rhs in
+            if lhs.priority.scorePoints != rhs.priority.scorePoints {
+                return lhs.priority.scorePoints > rhs.priority.scorePoints
+            }
+            let lhsDue = lhs.dueDate ?? Date.distantFuture
+            let rhsDue = rhs.dueDate ?? Date.distantFuture
+            if lhsDue != rhsDue {
+                return lhsDue < rhsDue
+            }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+    }
+
+    private func dateRange(for date: Date) -> (start: Date, end: Date) {
+        let start = calendar.startOfDay(for: date)
+        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start
+        return (start, end)
+    }
+
+    private func isEveningTask(_ task: TaskDefinition) -> Bool {
+        task.isEveningTask || task.type == .evening
     }
 }
