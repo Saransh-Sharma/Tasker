@@ -27,8 +27,8 @@ Primary source anchors:
 | Task Reminder | Task has future `alertReminderTime` | `Task Reminder` | `"{taskTitle}" is due {relativeDueText}.` fallback `"{taskTitle}" is waiting for you.` | `Open`, `Complete`, `Snooze 15m` | Task detail when task ID exists |
 | Due Soon Nudge | Open task due in next 120m, and no explicit reminder in that window | `Due Soon` | `"{taskTitle}" is due in {minutes}m.` with optional ` + {additionalCount} more due soon` | `Open`, `Complete`, `Snooze 15m` | Home Today |
 | Overdue Nudge | Overdue tasks exist; schedule slots at 10:00 and 16:00 local | `Overdue Task` | `"{taskTitle}" is overdue by {days} day(s).` with optional ` + {additionalCount} more overdue` | `Open`, `Complete`, `Snooze 15m` | Home Today |
-| Morning Plan | Daily local schedule | `Morning Plan` | If tasks: `{openCount} tasks today ({highCount} high priority, {overdueCount} overdue). Start with "{topTaskTitle}".` else fallback copy | `Open Today`, `Snooze 30m` | Home Today |
-| Nightly Retrospective | Daily local schedule | `Day Retrospective` | If completions: `Completed {completedCount}/{totalCount} tasks, earned {xp} XP. Biggest win: "{topCompletedTaskTitle}".` else fallback copy | `Open Done`, `Snooze 60m` | Home Done |
+| Morning Plan | Daily local schedule | `Morning Plan` | If tasks: `{openCount} tasks today ({highCount} high priority, {overdueCount} overdue). Start with "{topTaskTitle}".` else fallback copy | `Open Today`, `Snooze 30m` | Daily Summary Modal (Morning Plan) |
+| Nightly Retrospective | Daily local schedule | `Day Retrospective` | If completions: `Completed {completedCount}/{totalCount} tasks, earned {xp} XP. Biggest win: "{topCompletedTaskTitle}".` else fallback copy | `Open Done`, `Snooze 60m` | Daily Summary Modal (Nightly Retrospective) |
 
 ## Product Defaults and Decisions
 
@@ -38,6 +38,7 @@ Primary source anchors:
 - Quiet hours are intentionally disabled in this release.
 - `Complete` action is limited to task-targeted notifications.
 - `homeToday(taskID:)` route changes quick view only; only `taskDetail(taskID:)` opens detail modal.
+- Daily morning/nightly default tap uses `dailySummary(kind:dateStamp:)` and presents a summary modal with CTA actions.
 
 ## Preferences and Settings Contract
 
@@ -82,6 +83,7 @@ Route payloads:
 - `home_today` / `home_today:{taskID}`
 - `home_done`
 - `task_detail:{taskID}`
+- `daily_summary:{morning|nightly}` / `daily_summary:{morning|nightly}:{yyyyMMdd}`
 
 ## Scheduling and Reconciliation Algorithm
 

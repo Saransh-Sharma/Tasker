@@ -85,8 +85,8 @@ Tasker uses local notifications to support execution and reflection with bounded
 | Task Reminder | Future `alertReminderTime` | `Task Reminder` | `"{taskTitle}" is due {relativeDueText}.` fallback `"{taskTitle}" is waiting for you.` | `Open`, `Complete`, `Snooze 15m` | Task detail |
 | Due Soon Nudge | Open task due in next 120m without explicit reminder in window | `Due Soon` | `"{taskTitle}" is due in {minutes}m.` + optional ` + {additionalCount} more due soon` | `Open`, `Complete`, `Snooze 15m` | Home Today |
 | Overdue Nudge | Overdue tasks exist, slots at 10:00 and 16:00 local | `Overdue Task` | `"{taskTitle}" is overdue by {days} day(s).` + optional ` + {additionalCount} more overdue` | `Open`, `Complete`, `Snooze 15m` | Home Today |
-| Morning Plan | Daily local schedule (default 08:00) | `Morning Plan` | If tasks: `{openCount} tasks today ({highCount} high priority, {overdueCount} overdue). Start with "{topTaskTitle}".` else fallback copy | `Open Today`, `Snooze 30m` | Home Today |
-| Nightly Retrospective | Daily local schedule (default 21:00) | `Day Retrospective` | If completions: `Completed {completedCount}/{totalCount} tasks, earned {xp} XP. Biggest win: "{topCompletedTaskTitle}".` else fallback copy | `Open Done`, `Snooze 60m` | Home Done |
+| Morning Plan | Daily local schedule (default 08:00) | `Morning Plan` | If tasks: `{openCount} tasks today ({highCount} high priority, {overdueCount} overdue). Start with "{topTaskTitle}".` else fallback copy | `Open Today`, `Snooze 30m` | Daily Summary Modal (Morning Plan) |
+| Nightly Retrospective | Daily local schedule (default 21:00) | `Day Retrospective` | If completions: `Completed {completedCount}/{totalCount} tasks, earned {xp} XP. Biggest win: "{topCompletedTaskTitle}".` else fallback copy | `Open Done`, `Snooze 60m` | Daily Summary Modal (Nightly Retrospective) |
 
 ### Technical Decisions
 - Time source: local device timezone.
@@ -94,6 +94,7 @@ Tasker uses local notifications to support execution and reflection with bounded
 - Quiet hours: disabled in current release.
 - Reconciliation: desired-vs-pending diff (`added`, `updated`, `removed`, `unchanged`) using content fingerprinting.
 - Route semantics: `homeToday(taskID:)` changes quick view only; only `taskDetail(taskID:)` opens task detail modal.
+- Daily summary semantics: morning/nightly default tap routes to `dailySummary(kind:dateStamp:)` and presents a dedicated summary modal.
 - Managed IDs include task reminders/due soon/overdue/snooze and daily summary IDs.
 
 Implementation details and contracts:
