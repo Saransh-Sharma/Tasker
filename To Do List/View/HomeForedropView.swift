@@ -503,47 +503,28 @@ private struct EvaTriageSprintSheetV2: View {
         isApplying || isChangingScope || isLoadingScope || isUndoingBulk
     }
 
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
+
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: spacing.s12) {
+                    HStack(spacing: spacing.s8) {
                         Text("Triage Sprint")
-                            .font(.tasker(.headline))
+                            .font(.tasker(.title3))
                             .foregroundColor(Color.tasker.textPrimary)
                         Text("\(queue.count)")
                             .font(.tasker(.caption2))
                             .foregroundColor(Color.tasker.textSecondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, spacing.s8)
+                            .padding(.vertical, spacing.s4)
                             .background(Color.tasker.surfaceSecondary)
                             .clipShape(Capsule())
                         Spacer()
-                        Text(selectedScope == .allInbox ? "Backlog" : "Visible")
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.accentPrimary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.tasker.surfaceSecondary)
-                            .clipShape(Capsule())
                     }
 
-                    Toggle(isOn: Binding(
-                        get: { selectedScope == .allInbox },
-                        set: { isAllInbox in
-                            let nextScope: EvaTriageScope = isAllInbox ? .allInbox : .visible
-                            changeScope(to: nextScope)
-                        }
-                    )) {
-                        Text("Include backlog")
-                            .font(.tasker(.caption1))
-                            .foregroundColor(Color.tasker.textSecondary)
-                    }
-                    .toggleStyle(.switch)
-                    .frame(minHeight: 44)
-                    .disabled(isBusy)
-                    .accessibilityLabel("Include backlog")
-                    .accessibilityHint("Toggle between visible inbox tasks and all inbox tasks")
+                    triageScopeToggle
 
                     if let queueErrorMessage {
                         Text(queueErrorMessage)
@@ -551,100 +532,133 @@ private struct EvaTriageSprintSheetV2: View {
                             .foregroundColor(Color.tasker.statusDanger)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.horizontal, spacing.s16)
+                .padding(.top, spacing.s12)
 
                 Divider()
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: spacing.s16) {
                         if isBusy && queue.isEmpty {
                             ProgressView("Loading triage queue...")
                                 .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.top, 20)
+                                .padding(.top, spacing.s20)
                         } else if let currentItem, let draft = currentDraft {
-                            VStack(alignment: .leading, spacing: 8) {
+                            // 6F: Progress indicator
+                            VStack(alignment: .leading, spacing: spacing.s8) {
                                 Text("Card \(min(currentIndex + 1, queue.count)) of \(queue.count)")
                                     .font(.tasker(.caption1))
                                     .foregroundColor(Color.tasker.textSecondary)
-                                ProgressView(
-                                    value: Double(min(currentIndex + 1, queue.count)),
-                                    total: Double(max(queue.count, 1))
-                                )
-                                .tint(Color.tasker.accentPrimary)
-                            }
+                                    .contentTransition(.numericText())
+                                    .animation(TaskerAnimation.snappy, value: currentIndex)
 
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text(currentItem.task.title)
-                                    .font(.tasker(.headline))
-                                    .foregroundColor(Color.tasker.textPrimary)
-                                    .lineLimit(3)
-                                Text(contextLine(for: currentItem.task))
-                                    .font(.tasker(.caption1))
-                                    .foregroundColor(Color.tasker.textSecondary)
+                                GeometryReader { geo in
+                                    ZStack(alignment: .leading) {
+                                        Capsule()
+                                            .fill(Color.tasker.surfaceSecondary)
+                                            .frame(height: 4)
+                                        Capsule()
+                                            .fill(Color.tasker.accentPrimary)
+                                            .frame(
+                                                width: geo.size.width * CGFloat(min(currentIndex + 1, queue.count)) / CGFloat(max(queue.count, 1)),
+                                                height: 4
+                                            )
+                                            .animation(TaskerAnimation.snappy, value: currentIndex)
+                                    }
+                                }
+                                .frame(height: 4)
                             }
-                            .padding(14)
+                            .enhancedStaggeredAppearance(index: 0)
+
+                            // 6B: Task card with priority stripe
+                            HStack(spacing: 0) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(priorityColor(for: currentItem.task.priority))
+                                    .frame(width: 4)
+                                    .padding(.vertical, spacing.s8)
+
+                                VStack(alignment: .leading, spacing: spacing.s8) {
+                                    Text(currentItem.task.title)
+                                        .font(.tasker(.title3))
+                                        .foregroundColor(Color.tasker.textPrimary)
+                                        .lineLimit(3)
+                                    Text(contextLine(for: currentItem.task))
+                                        .font(.tasker(.caption1))
+                                        .foregroundColor(Color.tasker.textSecondary)
+                                }
+                                .padding(spacing.s16)
+                            }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(Color.tasker.surfaceSecondary)
+                                RoundedRectangle(cornerRadius: corner.r2)
+                                    .fill(Color.tasker.surfacePrimary)
                             )
+                            .taskerElevation(.e2, cornerRadius: corner.r2)
+                            .id(currentItem.task.id)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            ))
+                            .enhancedStaggeredAppearance(index: 0)
 
-                            VStack(alignment: .leading, spacing: 8) {
+                            // 6C: Suggestion rows
+                            VStack(alignment: .leading, spacing: spacing.s8) {
                                 suggestionRow(
                                     title: "Project",
+                                    icon: "folder",
                                     value: projectText(for: currentItem, draft: draft),
-                                    confidence: confidenceLabel(
-                                        currentItem.suggestions.projectID == nil ? nil : currentItem.suggestions.projectConfidence
-                                    )
+                                    confidence: currentItem.suggestions.projectID == nil ? nil : currentItem.suggestions.projectConfidence
                                 )
                                 suggestionRow(
                                     title: "Due",
+                                    icon: "calendar",
                                     value: dueText(for: currentItem, draft: draft),
-                                    confidence: confidenceLabel(
-                                        currentItem.suggestions.dueBucket == nil ? nil : currentItem.suggestions.dueConfidence
-                                    )
+                                    confidence: currentItem.suggestions.dueBucket == nil ? nil : currentItem.suggestions.dueConfidence
                                 )
                                 suggestionRow(
                                     title: "Duration",
+                                    icon: "clock",
                                     value: durationText(for: currentItem, draft: draft),
-                                    confidence: confidenceLabel(
-                                        currentItem.suggestions.durationSeconds == nil ? nil : currentItem.suggestions.durationConfidence
-                                    )
+                                    confidence: currentItem.suggestions.durationSeconds == nil ? nil : currentItem.suggestions.durationConfidence
                                 )
                                 suggestionRow(
                                     title: "State",
+                                    icon: "flag",
                                     value: stateText(for: currentItem, draft: draft),
-                                    confidence: confidenceLabel(
-                                        currentItem.suggestions.stateHint == nil ? nil : 0.65
-                                    )
+                                    confidence: currentItem.suggestions.stateHint == nil ? nil : 0.65
                                 )
                             }
-                            .padding(14)
+                            .padding(spacing.s16)
                             .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(Color.tasker.surfaceSecondary.opacity(0.55))
+                                RoundedRectangle(cornerRadius: corner.r2)
+                                    .fill(Color.tasker.surfaceSecondary)
                             )
+                            .taskerElevation(.e1, cornerRadius: corner.r2)
+                            .enhancedStaggeredAppearance(index: 1)
 
-                            VStack(alignment: .leading, spacing: 8) {
+                            // 6D: Quick defer chips
+                            VStack(alignment: .leading, spacing: spacing.s8) {
                                 Text("Quick defer")
                                     .font(.tasker(.caption1))
                                     .foregroundColor(Color.tasker.textSecondary)
-                                HStack(spacing: 8) {
+                                HStack(spacing: spacing.s8) {
                                     deferChip(title: "Tomorrow", preset: .tomorrow, draft: draft, item: currentItem)
                                     deferChip(title: "72h", preset: .hours72, draft: draft, item: currentItem)
                                     deferChip(title: "Weekend", preset: .weekendSaturday, draft: draft, item: currentItem)
                                 }
                             }
+                            .enhancedStaggeredAppearance(index: 2)
 
                             if showEditFields {
                                 editPanel(item: currentItem, draft: draft)
                             }
 
+                            // 6I: Error text with transition
                             if let errorMessage {
                                 Text(errorMessage)
                                     .font(.tasker(.caption1))
                                     .foregroundColor(Color.tasker.statusDanger)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
                             }
 
                             if highConfidencePreviewCount > 0 {
@@ -657,18 +671,22 @@ private struct EvaTriageSprintSheetV2: View {
                                     Text("Apply all high confidence (\(highConfidencePreviewCount))")
                                         .font(.tasker(.caption1))
                                         .foregroundColor(Color.tasker.accentPrimary)
-                                        .frame(maxWidth: .infinity, minHeight: 44)
+                                        .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.plain)
+                                .background(
+                                    RoundedRectangle(cornerRadius: corner.r2)
+                                        .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                                )
                                 .disabled(isBusy)
                             }
                         } else {
                             completionSummary
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, spacing.s16)
+                    .padding(.top, spacing.s12)
+                    .padding(.bottom, spacing.s24)
                 }
 
                 if currentItem != nil {
@@ -676,6 +694,7 @@ private struct EvaTriageSprintSheetV2: View {
                     triageStickyActionBar
                 }
             }
+            .background(Color.tasker.bgCanvas)
             .navigationTitle("Start triage")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -716,18 +735,32 @@ private struct EvaTriageSprintSheetV2: View {
         .presentationDragIndicator(.visible)
     }
 
+    @State private var completionAppeared = false
+
     private var completionSummary: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: spacing.s24) {
+            // 6G: Celebration header
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 48))
+                .foregroundColor(Color.tasker.statusSuccess)
+                .scaleEffect(completionAppeared ? 1.0 : 0.3)
+                .opacity(completionAppeared ? 1.0 : 0)
+                .animation(TaskerAnimation.expressive, value: completionAppeared)
+
             Text("Triage complete")
-                .font(.tasker(.headline))
+                .font(.tasker(.title3))
                 .foregroundColor(Color.tasker.textPrimary)
 
-            Text("Accepted \(acceptedCount) • Deferred \(deferredCount) • Skipped \(skippedCount) • Deleted \(deletedCount)")
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+            // 6G: Stats pills
+            HStack(spacing: spacing.s8) {
+                triageStatPill(label: "Accepted", count: acceptedCount, color: Color.tasker.statusSuccess, index: 0)
+                triageStatPill(label: "Deferred", count: deferredCount, color: Color.tasker.accentPrimary, index: 1)
+                triageStatPill(label: "Skipped", count: skippedCount, color: Color.tasker.textTertiary, index: 2)
+                triageStatPill(label: "Deleted", count: deletedCount, color: Color.tasker.statusDanger, index: 3)
+            }
 
             if let onUndoBulkApply, lastBatchRunID != nil {
-                Button("Undo last bulk apply") {
+                Button {
                     isUndoingBulk = true
                     onUndoBulkApply { result in
                         DispatchQueue.main.async {
@@ -740,65 +773,169 @@ private struct EvaTriageSprintSheetV2: View {
                             }
                         }
                     }
+                } label: {
+                    Text("Undo last bulk apply")
+                        .font(.tasker(.buttonSmall))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
+                        .background(
+                            RoundedRectangle(cornerRadius: corner.r2)
+                                .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                        )
                 }
-                .buttonStyle(.bordered)
-                .frame(minHeight: 44)
+                .buttonStyle(.plain)
                 .disabled(isUndoingBulk)
             }
 
-            Button("Done") {
+            // 6G: Done button
+            Button {
                 dismiss()
+            } label: {
+                Text("Done")
+                    .font(.tasker(.button))
+                    .foregroundColor(Color.tasker.accentOnPrimary)
+                    .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
+                    .background(Color.tasker.accentPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: corner.r2))
             }
-            .buttonStyle(.borderedProminent)
-            .frame(minHeight: 44)
+            .buttonStyle(.plain)
+            .scaleOnPress()
         }
-        .padding(.top, 28)
+        .padding(.top, spacing.s32)
+        .onAppear {
+            completionAppeared = true
+            TaskerFeedback.success()
+        }
+    }
+
+    private func triageStatPill(label: String, count: Int, color: Color, index: Int) -> some View {
+        VStack(spacing: spacing.s4) {
+            Text("\(count)")
+                .font(.tasker(.callout))
+                .foregroundColor(color)
+            Text(label)
+                .font(.tasker(.caption2))
+                .foregroundColor(Color.tasker.textTertiary)
+        }
+        .padding(.horizontal, spacing.s8)
+        .padding(.vertical, spacing.s8)
+        .background(Color.tasker.surfaceSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: corner.r2))
+        .enhancedStaggeredAppearance(index: index)
     }
 
     private var triageStickyActionBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: spacing.s8) {
             if let currentItem, let draft = currentDraft, !hasActionableChange(for: currentItem, draft: draft) {
                 Text("Pick at least one change or a defer option to continue.")
                     .font(.tasker(.caption2))
                     .foregroundColor(Color.tasker.textSecondary)
             }
 
-            HStack(spacing: 8) {
-                Button("Apply & Next") {
+            HStack(spacing: spacing.s8) {
+                // 6E: Apply & Next - primary filled
+                Button {
                     applyCurrentItem()
+                } label: {
+                    Text("Apply & Next")
+                        .font(.tasker(.button))
+                        .foregroundColor(Color.tasker.accentOnPrimary)
+                        .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
+                        .background(canApplyCurrentItem ? Color.tasker.accentPrimary : Color.tasker.accentMuted)
+                        .clipShape(RoundedRectangle(cornerRadius: corner.r2))
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .buttonStyle(.plain)
+                .scaleOnPress()
                 .disabled(!canApplyCurrentItem)
 
-                Button("Skip") {
+                // 6E: Skip - outline
+                Button {
                     skipCurrentItem()
+                    TaskerFeedback.selection()
+                } label: {
+                    Text("Skip")
+                        .font(.tasker(.buttonSmall))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .frame(minWidth: 56, minHeight: spacing.buttonHeight)
+                        .background(
+                            RoundedRectangle(cornerRadius: corner.r2)
+                                .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                        )
                 }
-                .buttonStyle(.bordered)
-                .frame(minHeight: 44)
+                .buttonStyle(.plain)
+                .scaleOnPress()
                 .disabled(isBusy)
 
-                Button("Delete") {
+                // 6E: Delete - danger outline
+                Button {
+                    TaskerFeedback.warning()
                     showDeleteConfirm = true
+                } label: {
+                    Text("Delete")
+                        .font(.tasker(.buttonSmall))
+                        .foregroundColor(Color.tasker.statusDanger)
+                        .frame(minWidth: 64, minHeight: spacing.buttonHeight)
+                        .background(
+                            RoundedRectangle(cornerRadius: corner.r2)
+                                .stroke(Color.tasker.statusDanger.opacity(0.4), lineWidth: 1)
+                        )
                 }
-                .buttonStyle(.bordered)
-                .tint(Color.tasker.statusDanger)
-                .frame(minHeight: 44)
+                .buttonStyle(.plain)
+                .scaleOnPress()
                 .disabled(isBusy)
             }
 
-            Button(showEditFields ? "Done editing" : "Edit fields") {
+            Button {
                 showEditFields.toggle()
                 TaskerFeedback.selection()
+            } label: {
+                Text(showEditFields ? "Done editing" : "Edit fields")
+                    .font(.tasker(.buttonSmall))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: corner.r2)
+                            .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                    )
             }
-            .buttonStyle(.bordered)
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .buttonStyle(.plain)
             .disabled(isBusy)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 10)
-        .background(.ultraThinMaterial)
+        .padding(.horizontal, spacing.s16)
+        .padding(.top, spacing.s12)
+        .padding(.bottom, spacing.s12)
+        .background(Color.tasker.surfacePrimary)
+    }
+
+    // 6H: Custom segmented scope toggle
+    private var triageScopeToggle: some View {
+        HStack(spacing: 0) {
+            ForEach([EvaTriageScope.visible, .allInbox], id: \.self) { scope in
+                let isSelected = selectedScope == scope
+                Button {
+                    changeScope(to: scope)
+                    TaskerFeedback.selection()
+                } label: {
+                    Text(scope == .allInbox ? "Backlog" : "Visible")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                        .background(
+                            isSelected
+                                ? AnyView(Capsule().fill(Color.tasker.accentPrimary))
+                                : AnyView(Capsule().fill(Color.clear))
+                        )
+                        .animation(TaskerAnimation.snappy, value: selectedScope)
+                }
+                .buttonStyle(.plain)
+                .disabled(isBusy)
+            }
+        }
+        .padding(spacing.s4)
+        .background(Color.tasker.surfaceSecondary)
+        .clipShape(Capsule())
+        .accessibilityLabel("Scope")
+        .accessibilityHint("Toggle between visible inbox tasks and all inbox tasks")
     }
 
     private var canApplyCurrentItem: Bool {
@@ -835,7 +972,7 @@ private struct EvaTriageSprintSheetV2: View {
     }
 
     private func editPanel(item: EvaTriageQueueItem, draft: EvaTriageCardDraftState) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: spacing.s12) {
             Text("Edit fields")
                 .font(.tasker(.caption1))
                 .foregroundColor(Color.tasker.textSecondary)
@@ -865,16 +1002,16 @@ private struct EvaTriageSprintSheetV2: View {
                             .font(.tasker(.caption1))
                             .foregroundColor(Color.tasker.textSecondary)
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, spacing.s12)
                     .frame(minHeight: 44)
                     .background(Color.tasker.surfaceSecondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .clipShape(RoundedRectangle(cornerRadius: corner.r2))
                 }
                 .buttonStyle(.plain)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: spacing.s8) {
                     dueChip("Suggested", isSelected: draft.useSuggestedDue && item.suggestions.dueBucket != nil) {
                         updateDraft(for: item) { draft in
                             draft.useSuggestedDue = true
@@ -945,7 +1082,7 @@ private struct EvaTriageSprintSheetV2: View {
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: spacing.s8) {
                     durationChip("Suggested", isSelected: draft.useSuggestedDuration && item.suggestions.durationSeconds != nil) {
                         updateDraft(for: item) { draft in
                             draft.useSuggestedDuration = true
@@ -1001,19 +1138,20 @@ private struct EvaTriageSprintSheetV2: View {
                             .font(.tasker(.caption1))
                             .foregroundColor(Color.tasker.textSecondary)
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, spacing.s12)
                     .frame(minHeight: 44)
                     .background(Color.tasker.surfaceSecondary)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .clipShape(RoundedRectangle(cornerRadius: corner.r2))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(12)
+        .padding(spacing.s12)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.tasker.surfaceSecondary.opacity(0.5))
+            RoundedRectangle(cornerRadius: corner.r2)
+                .fill(Color.tasker.surfaceSecondary)
         )
+        .taskerElevation(.e1, cornerRadius: corner.r2)
     }
 
     private func changeScope(to nextScope: EvaTriageScope) {
@@ -1207,34 +1345,65 @@ private struct EvaTriageSprintSheetV2: View {
         return false
     }
 
-    private func suggestionRow(title: String, value: String, confidence: String?) -> some View {
-        HStack(spacing: 8) {
+    private func suggestionRow(title: String, icon: String, value: String, confidence: Double?) -> some View {
+        HStack(spacing: spacing.s8) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundColor(Color.tasker.textTertiary)
+                .frame(width: 20)
             Text(title)
                 .font(.tasker(.caption1))
                 .foregroundColor(Color.tasker.textSecondary)
             Spacer()
             if let confidence {
-                Text(confidence)
+                Text(confidenceLabel(confidence) ?? "")
                     .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textSecondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color.tasker.surfacePrimary)
+                    .foregroundColor(confidenceBadgeTextColor(confidence))
+                    .padding(.horizontal, spacing.s8)
+                    .padding(.vertical, spacing.s4)
+                    .background(confidenceBadgeColor(confidence))
                     .clipShape(Capsule())
-                    .accessibilityLabel("\(title) confidence \(confidence)")
+                    .accessibilityLabel("\(title) confidence \(confidenceLabel(confidence) ?? "")")
             }
             Text(value)
                 .font(.tasker(.caption1))
                 .foregroundColor(Color.tasker.textPrimary)
         }
-        .frame(minHeight: 24)
+        .frame(minHeight: 28)
+    }
+
+    private func confidenceBadgeColor(_ value: Double) -> Color {
+        switch value {
+        case 0.75...: return Color.tasker.statusSuccess.opacity(0.15)
+        case 0.45..<0.75: return Color.tasker.statusWarning.opacity(0.15)
+        default: return Color.tasker.textTertiary.opacity(0.12)
+        }
+    }
+
+    private func confidenceBadgeTextColor(_ value: Double) -> Color {
+        switch value {
+        case 0.75...: return Color.tasker.statusSuccess
+        case 0.45..<0.75: return Color.tasker.statusWarning
+        default: return Color.tasker.textTertiary
+        }
+    }
+
+    private func priorityColor(for priority: TaskPriority) -> Color {
+        switch priority {
+        case .max: return Color.tasker.priorityMax
+        case .high: return Color.tasker.priorityHigh
+        case .low: return Color.tasker.priorityLow
+        case .none: return Color.tasker.priorityNone
+        }
     }
 
     private func deferChip(title: String, preset: EvaTriageDeferPreset, draft: EvaTriageCardDraftState, item: EvaTriageQueueItem) -> some View {
         let isSelected = draft.deferPreset == preset
         return Button {
-            updateDraft(for: item) { draft in
-                draft.deferPreset = (draft.deferPreset == preset) ? nil : preset
+            withAnimation(TaskerAnimation.quick) {
+                updateDraft(for: item) { draft in
+                    draft.deferPreset = (draft.deferPreset == preset) ? nil : preset
+                }
             }
             onTrack("triage_defer_selected", [
                 "preset": preset.rawValue,
@@ -1244,41 +1413,50 @@ private struct EvaTriageSprintSheetV2: View {
         } label: {
             Text(title)
                 .font(.tasker(.caption1))
-                .foregroundColor(isSelected ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 44)
+                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                .padding(.horizontal, spacing.s12)
+                .frame(minHeight: spacing.buttonHeight)
                 .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .scaleOnPress()
         .accessibilityLabel(title)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
     }
 
     private func dueChip(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            withAnimation(TaskerAnimation.quick) { action() }
+            TaskerFeedback.selection()
+        } label: {
             Text(title)
                 .font(.tasker(.caption2))
-                .foregroundColor(isSelected ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
-                .padding(.horizontal, 10)
+                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                .padding(.horizontal, spacing.s12)
                 .frame(minHeight: 36)
-                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
+                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .scaleOnPress()
     }
 
     private func durationChip(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            withAnimation(TaskerAnimation.quick) { action() }
+            TaskerFeedback.selection()
+        } label: {
             Text(title)
                 .font(.tasker(.caption2))
-                .foregroundColor(isSelected ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
-                .padding(.horizontal, 10)
+                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                .padding(.horizontal, spacing.s12)
                 .frame(minHeight: 36)
-                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
+                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .scaleOnPress()
     }
 
     private func projectText(for item: EvaTriageQueueItem, draft: EvaTriageCardDraftState) -> String {
@@ -1450,6 +1628,10 @@ private struct EvaOverdueRescueSheetV2: View {
     @State private var isUndoing = false
     @State private var errorMessage: String?
     @State private var snackbar: SnackbarData?
+    @State private var emptyStateAppeared = false
+
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+    private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
 
     private var allRecommendations: [EvaRescueRecommendation] {
         guard let plan else { return [] }
@@ -1460,58 +1642,92 @@ private struct EvaOverdueRescueSheetV2: View {
         NavigationView {
             VStack(spacing: 0) {
                 if let plan {
-                    VStack(alignment: .leading, spacing: 8) {
+                    // 7B: Debt level header
+                    VStack(alignment: .leading, spacing: spacing.s8) {
                         HStack {
                             Text("Debt: \(plan.debtLevel.rawValue.capitalized)")
-                                .font(.tasker(.headline))
-                                .foregroundColor(Color.tasker.textPrimary)
+                                .font(.tasker(.title3))
+                                .foregroundColor(debtLevelColor(plan.debtLevel))
                             Spacer()
-                            Text("\(allRecommendations.count) overdue")
+                            Text("\(allRecommendations.count)")
                                 .font(.tasker(.caption1))
                                 .foregroundColor(Color.tasker.textSecondary)
-                            Text("all overdue")
-                                .font(.tasker(.caption2))
-                                .foregroundColor(Color.tasker.textSecondary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
+                                .contentTransition(.numericText())
+                                .padding(.horizontal, spacing.s8)
+                                .padding(.vertical, spacing.s4)
                                 .background(Color.tasker.surfaceSecondary)
                                 .clipShape(Capsule())
+                            Text("overdue")
+                                .font(.tasker(.caption2))
+                                .foregroundColor(Color.tasker.textTertiary)
                         }
+
+                        // 7B: Debt progress bar
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule()
+                                    .fill(Color.tasker.surfaceSecondary)
+                                    .frame(height: 6)
+                                Capsule()
+                                    .fill(debtLevelColor(plan.debtLevel))
+                                    .frame(width: geo.size.width * min(plan.debtScore / 100.0, 1.0), height: 6)
+                                    .animation(TaskerAnimation.snappy, value: plan.debtScore)
+                            }
+                        }
+                        .frame(height: 6)
+
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.tasker(.caption2))
                                 .foregroundColor(Color.tasker.statusDanger)
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.horizontal, spacing.s16)
+                    .padding(.top, spacing.s12)
+                    .enhancedStaggeredAppearance(index: 0)
 
                     Divider()
 
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 14) {
-                            rescueGroup(title: "Do today", items: plan.doToday)
-                            rescueGroup(title: "Move", items: plan.move)
-                            rescueGroup(title: "Split", items: plan.split)
-                            rescueGroup(title: "Drop?", items: plan.dropCandidate)
+                        VStack(alignment: .leading, spacing: spacing.s16) {
+                            rescueGroup(title: "Do today", icon: "flame.fill", iconColor: Color.tasker.statusWarning, items: plan.doToday, startIndex: 0)
+                            rescueGroup(title: "Move", icon: "calendar.badge.clock", iconColor: Color.tasker.accentPrimary, items: plan.move, startIndex: plan.doToday.count)
+                            rescueGroup(title: "Split", icon: "scissors", iconColor: Color.tasker.priorityHigh, items: plan.split, startIndex: plan.doToday.count + plan.move.count)
+                            rescueGroup(title: "Drop?", icon: "trash", iconColor: Color.tasker.statusDanger, items: plan.dropCandidate, startIndex: plan.doToday.count + plan.move.count + plan.split.count)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        .padding(.bottom, 24)
+                        .padding(.horizontal, spacing.s16)
+                        .padding(.top, spacing.s12)
+                        .padding(.bottom, spacing.s24)
                     }
 
                     Divider()
                     stickyRescueActionBar(plan: plan)
                 } else {
-                    VStack(alignment: .leading, spacing: 10) {
+                    // 7I: Empty state
+                    VStack(spacing: spacing.s16) {
+                        Spacer()
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(Color.tasker.statusSuccess)
+                            .breathingPulse(min: 0.7, max: 1.0, duration: 2.0)
+                            .scaleEffect(emptyStateAppeared ? 1.0 : 0.3)
+                            .animation(TaskerAnimation.expressive, value: emptyStateAppeared)
+                        Text("All caught up!")
+                            .font(.tasker(.title3))
+                            .foregroundColor(Color.tasker.textPrimary)
+                            .opacity(emptyStateAppeared ? 1.0 : 0)
+                            .animation(TaskerAnimation.expressive.delay(0.1), value: emptyStateAppeared)
                         Text("No overdue tasks to rescue.")
                             .font(.tasker(.body))
                             .foregroundColor(Color.tasker.textSecondary)
                         Spacer()
                     }
-                    .padding(16)
+                    .frame(maxWidth: .infinity)
+                    .padding(spacing.s16)
+                    .onAppear { emptyStateAppeared = true }
                 }
             }
+            .background(Color.tasker.bgCanvas)
             .navigationTitle("Rescue")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -1534,16 +1750,26 @@ private struct EvaOverdueRescueSheetV2: View {
         .presentationDragIndicator(.visible)
     }
 
+    private func debtLevelColor(_ level: EvaDebtLevel) -> Color {
+        switch level {
+        case .none: return Color.tasker.statusSuccess
+        case .low: return Color.tasker.accentPrimary
+        case .medium: return Color.tasker.statusWarning
+        case .high: return Color.tasker.statusDanger
+        }
+    }
+
     private func stickyRescueActionBar(plan: EvaRescuePlan) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: spacing.s8) {
             if buildMutations(plan: plan).isEmpty {
                 Text("Select at least one Today, Move, or Drop action to apply.")
                     .font(.tasker(.caption2))
                     .foregroundColor(Color.tasker.textSecondary)
             }
 
-            HStack(spacing: 8) {
-                Button("Apply plan") {
+            HStack(spacing: spacing.s8) {
+                // 7H: Apply plan - primary filled
+                Button {
                     let mutations = buildMutations(plan: plan)
                     if hasDropSelection(plan: plan) {
                         pendingMutations = mutations
@@ -1551,13 +1777,25 @@ private struct EvaOverdueRescueSheetV2: View {
                     } else {
                         runApply(mutations: mutations)
                     }
+                } label: {
+                    Text("Apply plan")
+                        .font(.tasker(.button))
+                        .foregroundColor(Color.tasker.accentOnPrimary)
+                        .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
+                        .background(
+                            (isApplying || buildMutations(plan: plan).isEmpty)
+                                ? Color.tasker.accentMuted
+                                : Color.tasker.accentPrimary
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: corner.r2))
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .buttonStyle(.plain)
+                .scaleOnPress()
                 .disabled(isApplying || buildMutations(plan: plan).isEmpty)
 
+                // 7H: Undo - outline
                 if lastBatchRunID != nil {
-                    Button("Undo apply") {
+                    Button {
                         isUndoing = true
                         onTrack("rescue_undo_tap", [:])
                         onUndo { result in
@@ -1572,91 +1810,187 @@ private struct EvaOverdueRescueSheetV2: View {
                                 }
                             }
                         }
+                    } label: {
+                        Text("Undo")
+                            .font(.tasker(.buttonSmall))
+                            .foregroundColor(Color.tasker.textSecondary)
+                            .frame(minWidth: 64, minHeight: spacing.buttonHeight)
+                            .background(
+                                RoundedRectangle(cornerRadius: corner.r2)
+                                    .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                            )
                     }
-                    .buttonStyle(.bordered)
-                    .frame(minHeight: 44)
+                    .buttonStyle(.plain)
+                    .scaleOnPress()
                     .disabled(isApplying || isUndoing)
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 10)
-        .background(.ultraThinMaterial)
+        .padding(.horizontal, spacing.s16)
+        .padding(.top, spacing.s12)
+        .padding(.bottom, spacing.s12)
+        .background(Color.tasker.surfacePrimary)
     }
 
     @ViewBuilder
-    private func rescueGroup(title: String, items: [EvaRescueRecommendation]) -> some View {
+    private func rescueGroup(title: String, icon: String, iconColor: Color, items: [EvaRescueRecommendation], startIndex: Int) -> some View {
         if items.isEmpty == false {
-            Text(title)
-                .font(.tasker(.caption1))
-                .foregroundColor(Color.tasker.textSecondary)
+            // 7C: Group header with icon and count badge
+            HStack(spacing: spacing.s8) {
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                    .foregroundColor(iconColor)
+                Text(title)
+                    .font(.tasker(.callout))
+                    .foregroundColor(Color.tasker.textPrimary)
+                Text("\(items.count)")
+                    .font(.tasker(.caption2))
+                    .foregroundColor(Color.tasker.textSecondary)
+                    .padding(.horizontal, spacing.s8)
+                    .padding(.vertical, spacing.s2)
+                    .background(Color.tasker.surfaceSecondary)
+                    .clipShape(Capsule())
+                Spacer()
+            }
 
-            ForEach(items, id: \.taskID) { item in
+            ForEach(Array(items.enumerated()), id: \.element.taskID) { index, item in
                 let selectedAction = selectedActionByTaskID[item.taskID] ?? item.action
                 let splitState = splitStateByTaskID[item.taskID] ?? EvaRescueSplitComposerState()
+                let task = tasksByID[item.taskID]
 
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Text(tasksByID[item.taskID]?.title ?? "Task")
-                            .font(.tasker(.body))
-                            .foregroundColor(Color.tasker.textPrimary)
-                            .lineLimit(2)
+                // 7D: Rescue item card
+                HStack(spacing: 0) {
+                    // Priority stripe
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(rescuePriorityColor(for: task?.priority))
+                        .frame(width: 4)
+                        .padding(.vertical, spacing.s8)
 
-                        Spacer()
+                    VStack(alignment: .leading, spacing: spacing.s8) {
+                        HStack(spacing: spacing.s8) {
+                            Text(task?.title ?? "Task")
+                                .font(.tasker(.body))
+                                .foregroundColor(Color.tasker.textPrimary)
+                                .lineLimit(2)
 
-                        Text(confidenceText(for: item.confidence))
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.textSecondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(Color.tasker.surfaceSecondary)
-                            .clipShape(Capsule())
-                    }
+                            Spacer()
 
-                    Text(item.reasons.joined(separator: " • "))
-                        .font(.tasker(.caption2))
-                        .foregroundColor(Color.tasker.textSecondary)
+                            // 7D: Confidence badge
+                            Text(confidenceText(for: item.confidence))
+                                .font(.tasker(.caption2))
+                                .foregroundColor(rescueConfidenceBadgeTextColor(item.confidence))
+                                .padding(.horizontal, spacing.s8)
+                                .padding(.vertical, spacing.s4)
+                                .background(rescueConfidenceBadgeColor(item.confidence))
+                                .clipShape(Capsule())
+                        }
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            rescueActionChip(item: item, action: .doToday, selectedAction: selectedAction)
-                            rescueActionChip(item: item, action: .move, selectedAction: selectedAction)
-                            rescueActionChip(item: item, action: .split, selectedAction: selectedAction)
-                            rescueActionChip(item: item, action: .dropCandidate, selectedAction: selectedAction)
+                        // 7D: Overdue age badge + reason pills
+                        HStack(spacing: spacing.s4) {
+                            if let dueDate = task?.dueDate, dueDate < Date() {
+                                let daysOverdue = max(0, Calendar.current.dateComponents([.day], from: dueDate, to: Date()).day ?? 0)
+                                Text("\(daysOverdue)d overdue")
+                                    .font(.tasker(.caption2))
+                                    .foregroundColor(Color.tasker.statusDanger)
+                                    .padding(.horizontal, spacing.s8)
+                                    .padding(.vertical, spacing.s2)
+                                    .background(Color.tasker.statusDanger.opacity(0.12))
+                                    .clipShape(Capsule())
+                            }
+                        }
+
+                        // 7D: Reason pills
+                        if !item.reasons.isEmpty {
+                            HStack(spacing: spacing.s4) {
+                                ForEach(item.reasons, id: \.self) { reason in
+                                    Text(reason)
+                                        .font(.tasker(.caption2))
+                                        .foregroundColor(Color.tasker.textTertiary)
+                                        .padding(.horizontal, spacing.s8)
+                                        .padding(.vertical, spacing.s2)
+                                        .background(Color.tasker.surfaceSecondary)
+                                        .clipShape(Capsule())
+                                }
+                            }
+                        }
+
+                        // 7E: Action chip row
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: spacing.s8) {
+                                rescueActionChip(item: item, action: .doToday, selectedAction: selectedAction)
+                                rescueActionChip(item: item, action: .move, selectedAction: selectedAction)
+                                rescueActionChip(item: item, action: .split, selectedAction: selectedAction)
+                                rescueActionChip(item: item, action: .dropCandidate, selectedAction: selectedAction)
+                            }
+                        }
+
+                        // 7F: Move choice row
+                        if selectedAction == .move {
+                            moveChoiceRow(for: item)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
+                        if selectedAction == .split {
+                            splitComposer(for: item, state: splitState)
+                        }
+
+                        if splitState.completed {
+                            HStack(spacing: spacing.s4) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(Color.tasker.statusSuccess)
+                                Text("Split done")
+                                    .font(.tasker(.caption2))
+                                    .foregroundColor(Color.tasker.accentPrimary)
+                            }
                         }
                     }
-
-                    if selectedAction == .move {
-                        moveChoiceRow(for: item)
-                    }
-
-                    if selectedAction == .split {
-                        splitComposer(for: item, state: splitState)
-                    }
-
-                    if splitState.completed {
-                        Text("Split done")
-                            .font(.tasker(.caption2))
-                            .foregroundColor(Color.tasker.accentPrimary)
-                    }
+                    .padding(spacing.s12)
                 }
-                .padding(12)
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.tasker.surfaceSecondary.opacity(0.55))
+                    RoundedRectangle(cornerRadius: corner.r2)
+                        .fill(Color.tasker.surfacePrimary)
                 )
+                .taskerElevation(.e1, cornerRadius: corner.r2)
+                .enhancedStaggeredAppearance(index: startIndex + index + 1)
             }
+        }
+    }
+
+    private func rescuePriorityColor(for priority: TaskPriority?) -> Color {
+        guard let priority else { return Color.tasker.priorityNone }
+        switch priority {
+        case .max: return Color.tasker.priorityMax
+        case .high: return Color.tasker.priorityHigh
+        case .low: return Color.tasker.priorityLow
+        case .none: return Color.tasker.priorityNone
+        }
+    }
+
+    private func rescueConfidenceBadgeColor(_ value: Double) -> Color {
+        switch value {
+        case 0.75...: return Color.tasker.statusSuccess.opacity(0.15)
+        case 0.45..<0.75: return Color.tasker.statusWarning.opacity(0.15)
+        default: return Color.tasker.textTertiary.opacity(0.12)
+        }
+    }
+
+    private func rescueConfidenceBadgeTextColor(_ value: Double) -> Color {
+        switch value {
+        case 0.75...: return Color.tasker.statusSuccess
+        case 0.45..<0.75: return Color.tasker.statusWarning
+        default: return Color.tasker.textTertiary
         }
     }
 
     private func moveChoiceRow(for item: EvaRescueRecommendation) -> some View {
         let selectedChoice = moveChoiceByTaskID[item.taskID] ?? .tomorrow
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        return VStack(alignment: .leading, spacing: spacing.s8) {
+            HStack(spacing: spacing.s8) {
                 ForEach(EvaRescueMoveChoice.allCases, id: \.self) { choice in
                     Button {
-                        moveChoiceByTaskID[item.taskID] = choice
+                        withAnimation(TaskerAnimation.quick) {
+                            moveChoiceByTaskID[item.taskID] = choice
+                        }
                         onTrack("rescue_action_changed", [
                             "task_id": item.taskID.uuidString,
                             "action": "move_\(choice.rawValue)"
@@ -1665,13 +1999,14 @@ private struct EvaOverdueRescueSheetV2: View {
                     } label: {
                         Text(choice.title)
                             .font(.tasker(.caption2))
-                            .foregroundColor(selectedChoice == choice ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
-                            .padding(.horizontal, 10)
+                            .foregroundColor(selectedChoice == choice ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                            .padding(.horizontal, spacing.s12)
                             .frame(minHeight: 36)
-                            .background(selectedChoice == choice ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
+                            .background(selectedChoice == choice ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
+                    .scaleOnPress()
                 }
             }
 
@@ -1687,14 +2022,20 @@ private struct EvaOverdueRescueSheetV2: View {
                 )
                 .datePickerStyle(.compact)
                 .frame(minHeight: 44)
+                .padding(spacing.s8)
+                .background(Color.tasker.surfaceSecondary)
+                .clipShape(RoundedRectangle(cornerRadius: corner.r2))
+                .tint(Color.tasker.accentPrimary)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
 
+    // 7G: Split composer
     private func splitComposer(for item: EvaRescueRecommendation, state: EvaRescueSplitComposerState) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: spacing.s8) {
             if !state.isOpen {
-                Button("Open split helper") {
+                Button {
                     var next = state
                     next.isOpen = true
                     splitStateByTaskID[item.taskID] = next
@@ -1702,59 +2043,94 @@ private struct EvaOverdueRescueSheetV2: View {
                         "task_id": item.taskID.uuidString
                     ])
                     TaskerFeedback.selection()
+                } label: {
+                    Text("Open split helper")
+                        .font(.tasker(.buttonSmall))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
+                        .background(
+                            RoundedRectangle(cornerRadius: corner.r2)
+                                .stroke(Color.tasker.strokeHairline, lineWidth: 1)
+                        )
                 }
-                .buttonStyle(.bordered)
-                .frame(minHeight: 44)
+                .buttonStyle(.plain)
+                .scaleOnPress()
             } else {
-                ForEach(Array(state.childTitles.enumerated()), id: \.offset) { index, title in
-                    TextField(
-                        "Subtask \(index + 1)",
-                        text: Binding(
-                            get: { splitStateByTaskID[item.taskID]?.childTitles[safe: index] ?? title },
-                            set: { newValue in
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    ForEach(Array(state.childTitles.enumerated()), id: \.offset) { index, title in
+                        TextField(
+                            "Subtask \(index + 1)",
+                            text: Binding(
+                                get: { splitStateByTaskID[item.taskID]?.childTitles[safe: index] ?? title },
+                                set: { newValue in
+                                    var next = splitStateByTaskID[item.taskID] ?? state
+                                    guard next.childTitles.indices.contains(index) else { return }
+                                    next.childTitles[index] = newValue
+                                    splitStateByTaskID[item.taskID] = next
+                                }
+                            )
+                        )
+                        .textInputAutocapitalization(.sentences)
+                        .font(.tasker(.caption1))
+                        .padding(.horizontal, spacing.s12)
+                        .frame(minHeight: 40)
+                        .background(Color.tasker.surfacePrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: corner.r1))
+                    }
+
+                    if state.childTitles.count < 3 {
+                        Button {
+                            withAnimation(TaskerAnimation.bouncy) {
                                 var next = splitStateByTaskID[item.taskID] ?? state
-                                guard next.childTitles.indices.contains(index) else { return }
-                                next.childTitles[index] = newValue
+                                next.childTitles.append("")
                                 splitStateByTaskID[item.taskID] = next
                             }
-                        )
-                    )
-                    .textInputAutocapitalization(.sentences)
-                    .font(.tasker(.caption1))
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 40)
-                    .background(Color.tasker.surfacePrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                }
-
-                if state.childTitles.count < 3 {
-                    Button("Add child") {
-                        var next = splitStateByTaskID[item.taskID] ?? state
-                        next.childTitles.append("")
-                        splitStateByTaskID[item.taskID] = next
+                        } label: {
+                            HStack(spacing: spacing.s4) {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundColor(Color.tasker.accentPrimary)
+                                Text("Add child")
+                                    .font(.tasker(.caption1))
+                                    .foregroundColor(Color.tasker.accentPrimary)
+                            }
+                            .frame(minHeight: 36)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.bordered)
-                    .frame(minHeight: 36)
-                }
 
-                HStack(spacing: 8) {
-                    splitDueChip(item: item, title: "No due", preset: nil, state: state)
-                    splitDueChip(item: item, title: "Tomorrow", preset: .tomorrow, state: state)
-                    splitDueChip(item: item, title: "Weekend", preset: .weekendSaturday, state: state)
-                }
+                    HStack(spacing: spacing.s8) {
+                        splitDueChip(item: item, title: "No due", preset: nil, state: state)
+                        splitDueChip(item: item, title: "Tomorrow", preset: .tomorrow, state: state)
+                        splitDueChip(item: item, title: "Weekend", preset: .weekendSaturday, state: state)
+                    }
 
-                if let splitError = state.errorMessage {
-                    Text(splitError)
-                        .font(.tasker(.caption2))
-                        .foregroundColor(Color.tasker.statusDanger)
-                }
+                    if let splitError = state.errorMessage {
+                        Text(splitError)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.statusDanger)
+                    }
 
-                Button("Create subtasks") {
-                    runSplitCreation(for: item, state: state)
+                    Button {
+                        runSplitCreation(for: item, state: state)
+                    } label: {
+                        Text("Create subtasks")
+                            .font(.tasker(.button))
+                            .foregroundColor(Color.tasker.accentOnPrimary)
+                            .frame(maxWidth: .infinity, minHeight: spacing.buttonHeight)
+                            .background(
+                                (state.isCreating || validSplitTitles(state).count < 2)
+                                    ? Color.tasker.accentMuted
+                                    : Color.tasker.accentPrimary
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: corner.r2))
+                    }
+                    .buttonStyle(.plain)
+                    .scaleOnPress()
+                    .disabled(state.isCreating || validSplitTitles(state).count < 2)
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(minHeight: 44)
-                .disabled(state.isCreating || validSplitTitles(state).count < 2)
+                .padding(spacing.s12)
+                .background(Color.tasker.surfaceSecondary)
+                .clipShape(RoundedRectangle(cornerRadius: corner.r2))
             }
         }
     }
@@ -1767,22 +2143,26 @@ private struct EvaOverdueRescueSheetV2: View {
     ) -> some View {
         let isSelected = state.duePreset == preset
         return Button {
-            var next = splitStateByTaskID[item.taskID] ?? state
-            next.duePreset = preset
-            splitStateByTaskID[item.taskID] = next
+            withAnimation(TaskerAnimation.quick) {
+                var next = splitStateByTaskID[item.taskID] ?? state
+                next.duePreset = preset
+                splitStateByTaskID[item.taskID] = next
+            }
             TaskerFeedback.selection()
         } label: {
             Text(title)
                 .font(.tasker(.caption2))
-                .foregroundColor(isSelected ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
-                .padding(.horizontal, 10)
+                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+                .padding(.horizontal, spacing.s12)
                 .frame(minHeight: 36)
-                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
+                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .scaleOnPress()
     }
 
+    // 7E: Action chip with icon
     private func rescueActionChip(
         item: EvaRescueRecommendation,
         action: EvaRescueActionType,
@@ -1790,24 +2170,49 @@ private struct EvaOverdueRescueSheetV2: View {
     ) -> some View {
         let isSelected = selectedAction == action
         return Button {
-            selectedActionByTaskID[item.taskID] = action
+            withAnimation(TaskerAnimation.quick) {
+                selectedActionByTaskID[item.taskID] = action
+            }
             onTrack("rescue_action_changed", [
                 "task_id": item.taskID.uuidString,
                 "action": action.rawValue
             ])
             TaskerFeedback.selection()
         } label: {
-            Text(actionTitle(for: action))
-                .font(.tasker(.caption2))
-                .foregroundColor(isSelected ? Color.tasker.bgCanvas : Color.tasker.textSecondary)
-                .padding(.horizontal, 10)
-                .frame(minHeight: 36)
-                .background(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfacePrimary)
-                .clipShape(Capsule())
+            HStack(spacing: spacing.s4) {
+                Image(systemName: rescueActionIcon(for: action))
+                    .font(.system(size: 11))
+                Text(actionTitle(for: action))
+                    .font(.tasker(.caption2))
+            }
+            .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
+            .padding(.horizontal, spacing.s12)
+            .frame(minHeight: 36)
+            .background(
+                isSelected
+                    ? Color.tasker.accentPrimary
+                    : Color.tasker.surfaceSecondary
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? Color.clear : Color.tasker.strokeHairline, lineWidth: 1)
+            )
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+        .scaleOnPress()
+        .activeGlow(isActive: isSelected, color: Color.tasker.accentPrimary)
         .accessibilityLabel(actionTitle(for: action))
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
+    }
+
+    private func rescueActionIcon(for action: EvaRescueActionType) -> String {
+        switch action {
+        case .doToday: return "flame.fill"
+        case .move: return "calendar"
+        case .split: return "scissors"
+        case .dropCandidate: return "trash"
+        }
     }
 
     private func runSplitCreation(for item: EvaRescueRecommendation, state: EvaRescueSplitComposerState) {
