@@ -1,0 +1,4 @@
+appId: com.saransh1337.To-Do-List
+---
+- launchApp:
+    clearState: true
