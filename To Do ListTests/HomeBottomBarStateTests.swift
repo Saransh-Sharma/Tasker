@@ -74,7 +74,7 @@ final class HomeBottomBarStateTests: XCTestCase {
         state.handleScrollOffsetChange(152)
         XCTAssertTrue(state.isMinimized)
 
-        try? await Task.sleep(nanoseconds: 550_000_000)
+        try? await _Concurrency.Task.sleep(nanoseconds: 550_000_000)
 
         XCTAssertFalse(state.isMinimized)
     }
