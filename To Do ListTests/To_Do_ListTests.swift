@@ -8,6 +8,7 @@
 
 import XCTest
 import CoreData
+import UserNotifications
 @testable import To_Do_List
 
 // MARK: - Legacy test compatibility shims
@@ -4761,5 +4762,493 @@ final class TaskDefinitionClearFlagPersistenceTests: XCTestCase {
             throw loadError
         }
         return container
+    }
+}
+
+final class TaskNotificationOrchestratorTests: XCTestCase {
+    func testDailyNotificationsUseDefaultTimesAndFallbackCopy() {
+        let notificationService = CapturingNotificationService()
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [])
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 7, minute: 30)
+        let store = makePreferencesStore()
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        orchestrator.reconcile(reason: "unit_test")
+
+        let morningIDs = Set(
+            notificationService.scheduled
+                .filter { $0.kind == .morningPlan }
+                .map(\.id)
+        )
+        XCTAssertEqual(
+            morningIDs,
+            Set(["daily.morning.20260224", "daily.morning.20260225", "daily.morning.20260226"])
+        )
+
+        let morning = notificationService.scheduled.first(where: { $0.id == "daily.morning.20260224" })
+        XCTAssertEqual(morning?.title, "Morning Plan")
+        XCTAssertEqual(morning?.body, "No tasks queued. Capture one meaningful win.")
+        XCTAssertEqual(morning.map { calendar.component(.hour, from: $0.fireDate) }, 8)
+        XCTAssertEqual(morning.map { calendar.component(.minute, from: $0.fireDate) }, 0)
+
+        let nightlyIDs = Set(
+            notificationService.scheduled
+                .filter { $0.kind == .nightlyRetrospective }
+                .map(\.id)
+        )
+        XCTAssertEqual(
+            nightlyIDs,
+            Set(["daily.nightly.20260224", "daily.nightly.20260225", "daily.nightly.20260226"])
+        )
+
+        let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
+        XCTAssertEqual(nightly?.title, "Day Retrospective")
+        XCTAssertEqual(nightly?.body, "No completions today. Pick one tiny restart for tomorrow.")
+        XCTAssertEqual(nightly.map { calendar.component(.hour, from: $0.fireDate) }, 21)
+        XCTAssertEqual(nightly.map { calendar.component(.minute, from: $0.fireDate) }, 0)
+    }
+
+    func testReconcileSchedulesTaskReminderDueSoonAndOverdueWithExpectedContent() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 8, minute: 30)
+
+        var reminderTask = TaskDefinition(title: "Write report")
+        reminderTask.dueDate = nowDate.addingTimeInterval(3 * 3600)
+        reminderTask.alertReminderTime = nowDate.addingTimeInterval(5 * 60)
+
+        var dueSoonPrimary = TaskDefinition(title: "Send status update", priority: .high)
+        dueSoonPrimary.dueDate = nowDate.addingTimeInterval(45 * 60)
+
+        var dueSoonSecondary = TaskDefinition(title: "Check inbox", priority: .low)
+        dueSoonSecondary.dueDate = nowDate.addingTimeInterval(90 * 60)
+
+        var overdue = TaskDefinition(title: "Submit invoice", priority: .max)
+        overdue.dueDate = nowDate.addingTimeInterval(-26 * 3600)
+
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [reminderTask, dueSoonPrimary, dueSoonSecondary, overdue])
+        let notificationService = CapturingNotificationService()
+        let store = makePreferencesStore()
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        orchestrator.reconcile(reason: "unit_test")
+
+        let reminderID = "task.reminder.\(reminderTask.id.uuidString)"
+        XCTAssertEqual(
+            notificationService.scheduled.first(where: { $0.id == reminderID })?.title,
+            "Task Reminder"
+        )
+
+        let dueSoonID = "task.dueSoon.\(dueSoonPrimary.id.uuidString).20260224"
+        let dueSoonBody = notificationService.scheduled.first(where: { $0.id == dueSoonID })?.body ?? ""
+        XCTAssertTrue(dueSoonBody.contains("\"Send status update\" is due in"))
+        XCTAssertTrue(dueSoonBody.contains("+ 1 more due soon"))
+        XCTAssertEqual(notificationService.scheduled.filter { $0.kind == .dueSoon }.count, 1)
+
+        let overdueAMID = "task.overdue.\(overdue.id.uuidString).20260224.am"
+        let overdueBody = notificationService.scheduled.first(where: { $0.id == overdueAMID })?.body ?? ""
+        XCTAssertEqual(overdueBody, "\"Submit invoice\" is overdue by 1 day(s).")
+
+        let overdueTomorrowAMID = "task.overdue.\(overdue.id.uuidString).20260225.am"
+        let overdueTomorrowPMID = "task.overdue.\(overdue.id.uuidString).20260225.pm"
+        XCTAssertNotNil(notificationService.scheduled.first(where: { $0.id == overdueTomorrowAMID }))
+        XCTAssertNotNil(notificationService.scheduled.first(where: { $0.id == overdueTomorrowPMID }))
+    }
+
+    func testReconcileCancelsStaleManagedIdentifiersAndKeepsUnmanagedOnes() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 12, minute: 0)
+
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [])
+        let notificationService = CapturingNotificationService()
+        notificationService.pending = [
+            TaskerPendingNotificationRequest(id: "task.reminder.\(UUID().uuidString)", fireDate: nil, kind: .taskReminder),
+            TaskerPendingNotificationRequest(id: "task.snooze.task.reminder.\(UUID().uuidString).1772000000", fireDate: nil, kind: .snoozedTask),
+            TaskerPendingNotificationRequest(id: "daily.morning.20260224", fireDate: nil, kind: .morningPlan),
+            TaskerPendingNotificationRequest(id: "external.alert.keep", fireDate: nil, kind: nil)
+        ]
+
+        let store = makePreferencesStore()
+        store.save(
+            TaskerNotificationPreferences(
+                taskRemindersEnabled: false,
+                dueSoonEnabled: false,
+                overdueNudgesEnabled: false,
+                morningAgendaEnabled: false,
+                nightlyRetrospectiveEnabled: false
+            )
+        )
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        orchestrator.reconcile(reason: "unit_test")
+
+        XCTAssertTrue(notificationService.canceledIDs.contains(where: { $0.hasPrefix("task.reminder.") }))
+        XCTAssertTrue(notificationService.canceledIDs.contains(where: { $0.hasPrefix("task.snooze.") }))
+        XCTAssertTrue(notificationService.canceledIDs.contains("daily.morning.20260224"))
+        XCTAssertFalse(notificationService.canceledIDs.contains("external.alert.keep"))
+    }
+
+    func testReconcileDoesNotRescheduleUnchangedPendingRequests() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 8, minute: 30)
+
+        var task = TaskDefinition(title: "Write report")
+        task.dueDate = nowDate.addingTimeInterval(3 * 3600)
+        task.alertReminderTime = nowDate.addingTimeInterval(5 * 60)
+
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [task])
+        let notificationService = CapturingNotificationService()
+        let store = makePreferencesStore()
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        orchestrator.reconcile(reason: "first")
+        let firstScheduleCalls = notificationService.scheduleInvocationIDs.count
+
+        orchestrator.reconcile(reason: "second_same_state")
+
+        XCTAssertEqual(notificationService.scheduleInvocationIDs.count, firstScheduleCalls)
+        XCTAssertTrue(notificationService.canceledIDs.isEmpty)
+    }
+
+    func testReconcileReschedulesWhenPendingRequestFingerprintChanges() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 8, minute: 30)
+
+        var task = TaskDefinition(title: "Write report")
+        task.dueDate = nowDate.addingTimeInterval(3 * 3600)
+        task.alertReminderTime = nowDate.addingTimeInterval(5 * 60)
+
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [task])
+        let notificationService = CapturingNotificationService()
+        let store = makePreferencesStore()
+        let reminderID = "task.reminder.\(task.id.uuidString)"
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        orchestrator.reconcile(reason: "first")
+        let firstScheduleCalls = notificationService.scheduleInvocationIDs.count
+
+        notificationService.pending = notificationService.pending.map { pending in
+            guard pending.id == reminderID else { return pending }
+            return TaskerPendingNotificationRequest(
+                id: pending.id,
+                fireDate: pending.fireDate?.addingTimeInterval(60),
+                kind: pending.kind,
+                title: pending.title,
+                body: "\(pending.body) stale",
+                categoryIdentifier: pending.categoryIdentifier,
+                routePayload: pending.routePayload,
+                taskID: pending.taskID
+            )
+        }
+
+        orchestrator.reconcile(reason: "changed_pending")
+
+        XCTAssertEqual(notificationService.scheduleInvocationIDs.count, firstScheduleCalls + 1)
+        XCTAssertTrue(notificationService.canceledIDs.contains(reminderID))
+    }
+
+    private func makePreferencesStore() -> TaskerNotificationPreferencesStore {
+        let suiteName = "tasker.notification.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return TaskerNotificationPreferencesStore(defaults: defaults)
+    }
+}
+
+final class TaskerNotificationActionHandlerTests: XCTestCase {
+    func testCompleteActionMarksTaskDoneAndCancelsTaskBoundNotifications() throws {
+        let taskID = UUID()
+        let task = TaskDefinition(
+            id: taskID,
+            title: "Complete from notification",
+            isComplete: false,
+            dateAdded: Date(),
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [task])
+        let coordinator = V3TestHarness.makeCoordinator(
+            taskDefinitionRepository: repository,
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+        )
+
+        let notificationService = CapturingNotificationService()
+        notificationService.pending = [
+            TaskerPendingNotificationRequest(id: "task.reminder.\(taskID.uuidString)", fireDate: nil, kind: .taskReminder),
+            TaskerPendingNotificationRequest(id: "task.overdue.\(taskID.uuidString).20260224.am", fireDate: nil, kind: .overdue),
+            TaskerPendingNotificationRequest(id: "task.snooze.task.reminder.\(taskID.uuidString).1772000000", fireDate: nil, kind: .snoozedTask, taskID: taskID)
+        ]
+
+        let handler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: { coordinator },
+            now: { Date(timeIntervalSince1970: 1_772_000_000) }
+        )
+
+        handler.handleAction(
+            identifier: TaskerNotificationActionID.complete.rawValue,
+            request: makeUNNotificationRequest(
+                id: "task.reminder.\(taskID.uuidString)",
+                kind: .taskReminder,
+                route: .taskDetail(taskID: taskID),
+                taskID: taskID
+            )
+        )
+
+        let updated = try awaitResult { completion in
+            repository.fetchTaskDefinition(id: taskID, completion: completion)
+        }
+        XCTAssertEqual(updated?.isComplete, true)
+        XCTAssertTrue(notificationService.canceledIDs.contains("task.reminder.\(taskID.uuidString)"))
+        XCTAssertTrue(notificationService.canceledIDs.contains("task.overdue.\(taskID.uuidString).20260224.am"))
+        XCTAssertTrue(notificationService.canceledIDs.contains("task.snooze.task.reminder.\(taskID.uuidString).1772000000"))
+    }
+
+    func testSnoozeActionsUseCategoryDurations() {
+        let fixedNow = Date(timeIntervalSince1970: 1_772_000_000)
+        let notificationService = CapturingNotificationService()
+        let handler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: { nil },
+            now: { fixedNow }
+        )
+
+        handler.handleAction(
+            identifier: TaskerNotificationActionID.snooze30m.rawValue,
+            request: makeUNNotificationRequest(
+                id: "daily.morning.20260224",
+                kind: .morningPlan,
+                route: .homeToday(taskID: nil),
+                category: TaskerNotificationCategoryID.dailyMorning.rawValue
+            )
+        )
+
+        let snoozed = notificationService.scheduled.first
+        XCTAssertEqual(snoozed?.kind, .snoozedMorning)
+        XCTAssertEqual(snoozed?.fireDate.timeIntervalSince1970, fixedNow.addingTimeInterval(30 * 60).timeIntervalSince1970, accuracy: 1)
+    }
+
+    func testOpenDoneActionRoutesToDoneQuickView() {
+        clearRouteBus()
+        let notificationService = CapturingNotificationService()
+        let handler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: { nil }
+        )
+
+        handler.handleAction(
+            identifier: TaskerNotificationActionID.openDone.rawValue,
+            request: makeUNNotificationRequest(
+                id: "daily.nightly.20260224",
+                kind: .nightlyRetrospective,
+                route: .homeDone,
+                category: TaskerNotificationCategoryID.dailyNightly.rawValue
+            )
+        )
+
+        let routed = TaskerNotificationRouteBus.shared.consumePendingRoute()
+        if case .some(.homeDone) = routed {
+            XCTAssertTrue(true)
+        } else {
+            XCTFail("Expected route to be homeDone")
+        }
+    }
+
+    func testCompleteActionInvokesCompletionExactlyOnce() throws {
+        let taskID = UUID()
+        let task = TaskDefinition(
+            id: taskID,
+            title: "Complete with callback",
+            isComplete: false,
+            dateAdded: Date(),
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [task])
+        let coordinator = V3TestHarness.makeCoordinator(
+            taskDefinitionRepository: repository,
+            projectRepository: MockProjectRepository(projects: [Project.createInbox()])
+        )
+        let notificationService = CapturingNotificationService()
+        let handler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: { coordinator },
+            now: { Date(timeIntervalSince1970: 1_772_000_000) }
+        )
+
+        let completionExpectation = expectation(description: "action completion")
+        var completionCount = 0
+
+        handler.handleAction(
+            identifier: TaskerNotificationActionID.complete.rawValue,
+            request: makeUNNotificationRequest(
+                id: "task.reminder.\(taskID.uuidString)",
+                kind: .taskReminder,
+                route: .taskDetail(taskID: taskID),
+                taskID: taskID
+            ),
+            completion: {
+                completionCount += 1
+                completionExpectation.fulfill()
+            }
+        )
+
+        wait(for: [completionExpectation], timeout: 1.0)
+        XCTAssertEqual(completionCount, 1)
+    }
+
+    func testOpenTodayActionRoutesToHomeTodayNotTaskDetail() {
+        clearRouteBus()
+        let taskID = UUID()
+        let notificationService = CapturingNotificationService()
+        let handler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: { nil }
+        )
+
+        handler.handleAction(
+            identifier: TaskerNotificationActionID.openToday.rawValue,
+            request: makeUNNotificationRequest(
+                id: "task.dueSoon.\(taskID.uuidString).20260224",
+                kind: .dueSoon,
+                route: .taskDetail(taskID: taskID),
+                taskID: taskID
+            )
+        )
+
+        let routed = TaskerNotificationRouteBus.shared.consumePendingRoute()
+        if case .some(.homeToday(let routedTaskID)) = routed {
+            XCTAssertEqual(routedTaskID, taskID)
+        } else {
+            XCTFail("Expected route to be homeToday(taskID:)")
+        }
+    }
+
+    private func clearRouteBus() {
+        while TaskerNotificationRouteBus.shared.consumePendingRoute() != nil {}
+    }
+}
+
+private final class CapturingNotificationService: NotificationServiceProtocol {
+    var scheduled: [TaskerLocalNotificationRequest] = []
+    var canceledIDs: [String] = []
+    var pending: [TaskerPendingNotificationRequest] = []
+    var scheduleInvocationIDs: [String] = []
+    var authorizationStatus: TaskerNotificationAuthorizationStatus = .authorized
+
+    func scheduleTaskReminder(taskId: UUID, taskName: String, at date: Date) {}
+    func cancelTaskReminder(taskId: UUID) {}
+    func cancelAllReminders() {}
+    func send(_ notification: CollaborationNotification) {}
+    func requestPermission(completion: @escaping (Bool) -> Void) { completion(true) }
+    func checkAuthorizationStatus(completion: @escaping (Bool) -> Void) { completion(true) }
+    func fetchAuthorizationStatus(completion: @escaping (TaskerNotificationAuthorizationStatus) -> Void) { completion(authorizationStatus) }
+    func registerCategories(_ categories: Set<UNNotificationCategory>) {}
+    func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {}
+
+    func schedule(request: TaskerLocalNotificationRequest) {
+        scheduleInvocationIDs.append(request.id)
+        scheduled.removeAll(where: { $0.id == request.id })
+        scheduled.append(request)
+        pending.removeAll(where: { $0.id == request.id })
+        pending.append(
+            TaskerPendingNotificationRequest(
+                id: request.id,
+                fireDate: request.fireDate,
+                kind: request.kind,
+                title: request.title,
+                body: request.body,
+                categoryIdentifier: request.categoryIdentifier,
+                routePayload: request.route.payload,
+                taskID: request.taskID
+            )
+        )
+    }
+
+    func cancel(ids: [String]) {
+        canceledIDs.append(contentsOf: ids)
+        pending.removeAll(where: { ids.contains($0.id) })
+        scheduled.removeAll(where: { ids.contains($0.id) })
+    }
+
+    func pendingRequests(completion: @escaping ([TaskerPendingNotificationRequest]) -> Void) {
+        completion(pending)
+    }
+}
+
+private func makeUNNotificationRequest(
+    id: String,
+    kind: TaskerLocalNotificationKind,
+    route: TaskerNotificationRoute,
+    taskID: UUID? = nil,
+    category: String = TaskerNotificationCategoryID.taskActionable.rawValue
+) -> UNNotificationRequest {
+    let content = UNMutableNotificationContent()
+    content.title = "Title"
+    content.body = "Body"
+    content.categoryIdentifier = category
+    var userInfo: [AnyHashable: Any] = [
+        TaskerLocalNotificationRequest.UserInfoKey.kind: kind.rawValue,
+        TaskerLocalNotificationRequest.UserInfoKey.route: route.payload
+    ]
+    if let taskID {
+        userInfo[TaskerLocalNotificationRequest.UserInfoKey.taskID] = taskID.uuidString
+    }
+    content.userInfo = userInfo
+    let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 60, repeats: false)
+    return UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+}
+
+private func makeUTCDate(year: Int, month: Int, day: Int, hour: Int, minute: Int) -> Date {
+    var components = DateComponents()
+    components.calendar = Calendar(identifier: .gregorian)
+    components.timeZone = TimeZone(secondsFromGMT: 0)
+    components.year = year
+    components.month = month
+    components.day = day
+    components.hour = hour
+    components.minute = minute
+    return components.date ?? Date(timeIntervalSince1970: 0)
+}
+
+private extension Calendar {
+    init(identifier: Calendar.Identifier, timeZoneID: String) {
+        self.init(identifier: identifier)
+        self.timeZone = TimeZone(identifier: timeZoneID) ?? TimeZone(secondsFromGMT: 0)!
     }
 }
