@@ -40,7 +40,8 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     private var notificationPreferences = TaskerNotificationPreferences()
     private var notificationPermissionStatus: TaskerNotificationAuthorizationStatus = .notDetermined
 
-    private let notificationsSectionTitle = "Notifications"
+    private let notificationsTypesSectionTitle = "Notification Types"
+    private let notificationsScheduleSectionTitle = "Notification Schedule & Quiet Hours"
     private let notificationsTaskReminderTitle = "Task Reminders"
     private let notificationsDueSoonTitle = "Due Soon Nudges"
     private let notificationsOverdueTitle = "Overdue Nudges"
@@ -48,6 +49,12 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     private let notificationsNightlyEnabledTitle = "Nightly Retrospective"
     private let notificationsMorningTimeTitle = "Morning Agenda Time"
     private let notificationsNightlyTimeTitle = "Nightly Retrospective Time"
+    private let notificationsDueSoonLeadTimeTitle = "Due Soon Lead Time"
+    private let notificationsQuietHoursEnabledTitle = "Quiet Hours"
+    private let notificationsQuietHoursStartTitle = "Quiet Hours Start"
+    private let notificationsQuietHoursEndTitle = "Quiet Hours End"
+    private let notificationsQuietHoursTaskAlertsTitle = "Apply to Task Alerts"
+    private let notificationsQuietHoursDailySummariesTitle = "Apply to Daily Summaries"
     private let notificationsPermissionTitle = "Permission"
     
     // Manager instances - removed, using Clean Architecture now
@@ -139,17 +146,27 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
                 SettingsItem(title: "Dark Mode", iconName: nil, action: nil),  // Handled by DarkModeToggleCell
                 SettingsItem(title: "Theme", iconName: nil, action: nil)       // Handled by UnifiedThemePickerCell
             ]),
-            SettingsSection(title: notificationsSectionTitle, items: [
+            SettingsSection(title: notificationsTypesSectionTitle, items: [
                 SettingsItem(title: notificationsTaskReminderTitle, iconName: "bell.badge.fill", action: nil),
                 SettingsItem(title: notificationsDueSoonTitle, iconName: "clock.badge.exclamationmark", action: nil),
                 SettingsItem(title: notificationsOverdueTitle, iconName: "exclamationmark.triangle.fill", action: nil),
                 SettingsItem(title: notificationsMorningEnabledTitle, iconName: "sunrise.fill", action: nil),
-                SettingsItem(title: notificationsNightlyEnabledTitle, iconName: "moon.stars.fill", action: nil),
+                SettingsItem(title: notificationsNightlyEnabledTitle, iconName: "moon.stars.fill", action: nil)
+            ]),
+            SettingsSection(title: notificationsScheduleSectionTitle, items: [
+                SettingsItem(
+                    title: notificationsPermissionTitle,
+                    iconName: "checkmark.shield.fill",
+                    action: { [weak self] in
+                        self?.handleNotificationPermissionTapped()
+                    },
+                    detailText: notificationPermissionDetailText()
+                ),
                 SettingsItem(
                     title: notificationsMorningTimeTitle,
                     iconName: "sunrise.fill",
                     action: { [weak self] in
-                        self?.presentNotificationTimePicker(forMorning: true)
+                        self?.presentNotificationTimePicker(target: .morningAgenda)
                     },
                     detailText: formattedTime(
                         hour: notificationPreferences.morningHour,
@@ -160,7 +177,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
                     title: notificationsNightlyTimeTitle,
                     iconName: "moon.stars.fill",
                     action: { [weak self] in
-                        self?.presentNotificationTimePicker(forMorning: false)
+                        self?.presentNotificationTimePicker(target: .nightlyRetrospective)
                     },
                     detailText: formattedTime(
                         hour: notificationPreferences.nightlyHour,
@@ -168,12 +185,49 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
                     )
                 ),
                 SettingsItem(
-                    title: notificationsPermissionTitle,
-                    iconName: "checkmark.shield.fill",
+                    title: notificationsDueSoonLeadTimeTitle,
+                    iconName: "timer",
                     action: { [weak self] in
-                        self?.handleNotificationPermissionTapped()
+                        self?.presentDueSoonLeadTimePicker()
                     },
-                    detailText: notificationPermissionDetailText()
+                    detailText: "\(notificationPreferences.dueSoonLeadMinutes) min before due"
+                ),
+                SettingsItem(
+                    title: notificationsQuietHoursEnabledTitle,
+                    iconName: "moon.zzz.fill",
+                    action: nil
+                ),
+                SettingsItem(
+                    title: notificationsQuietHoursStartTitle,
+                    iconName: "moon.zzz.fill",
+                    action: { [weak self] in
+                        self?.presentNotificationTimePicker(target: .quietHoursStart)
+                    },
+                    detailText: formattedTime(
+                        hour: notificationPreferences.quietHoursStartHour,
+                        minute: notificationPreferences.quietHoursStartMinute
+                    )
+                ),
+                SettingsItem(
+                    title: notificationsQuietHoursEndTitle,
+                    iconName: "sun.max.fill",
+                    action: { [weak self] in
+                        self?.presentNotificationTimePicker(target: .quietHoursEnd)
+                    },
+                    detailText: formattedTime(
+                        hour: notificationPreferences.quietHoursEndHour,
+                        minute: notificationPreferences.quietHoursEndMinute
+                    )
+                ),
+                SettingsItem(
+                    title: notificationsQuietHoursTaskAlertsTitle,
+                    iconName: "bell.slash.fill",
+                    action: nil
+                ),
+                SettingsItem(
+                    title: notificationsQuietHoursDailySummariesTitle,
+                    iconName: "calendar.badge.clock",
+                    action: nil
                 )
             ]),
             SettingsSection(title: "LLM Settings", items: [
@@ -309,13 +363,11 @@ extension SettingsPageViewController: UITableViewDataSource {
         }
 
         // MARK: Notifications
-        if sectionTitle == notificationsSectionTitle {
+        if isNotificationSectionTitle(sectionTitle) {
             let item = sections[indexPath.section].items[indexPath.row]
             let disabledByPermission = notificationPermissionStatus == .denied && item.title != notificationsPermissionTitle
-            let disabledByMasterToggle =
-                (item.title == notificationsMorningTimeTitle && !notificationPreferences.morningAgendaEnabled) ||
-                (item.title == notificationsNightlyTimeTitle && !notificationPreferences.nightlyRetrospectiveEnabled)
-            let notificationsDisabled = disabledByPermission || disabledByMasterToggle
+            let disabledByPreferences = isNotificationItemDisabledByPreferences(item.title)
+            let notificationsDisabled = disabledByPermission || disabledByPreferences
             let cell = UITableViewCell(style: .value1, reuseIdentifier: "settingsCell")
             cell.textLabel?.text = item.title
             cell.textLabel?.font = TaskerUIKitTokens.typography.body
@@ -395,14 +447,13 @@ extension SettingsPageViewController: UITableViewDelegate {
         if sections[indexPath.section].title == "Appearance" {
             return
         }
-        if sections[indexPath.section].title == notificationsSectionTitle &&
+        if isNotificationSectionTitle(sections[indexPath.section].title) &&
             notificationPermissionStatus == .denied &&
             item.title != notificationsPermissionTitle {
             return
         }
-        if sections[indexPath.section].title == notificationsSectionTitle &&
-            ((item.title == notificationsMorningTimeTitle && !notificationPreferences.morningAgendaEnabled) ||
-             (item.title == notificationsNightlyTimeTitle && !notificationPreferences.nightlyRetrospectiveEnabled)) {
+        if isNotificationSectionTitle(sections[indexPath.section].title) &&
+            isNotificationItemDisabledByPreferences(item.title) {
             return
         }
         if let action = item.action {
@@ -425,6 +476,12 @@ extension SettingsPageViewController {
             isOn = notificationPreferences.morningAgendaEnabled
         case notificationsNightlyEnabledTitle:
             isOn = notificationPreferences.nightlyRetrospectiveEnabled
+        case notificationsQuietHoursEnabledTitle:
+            isOn = notificationPreferences.quietHoursEnabled
+        case notificationsQuietHoursTaskAlertsTitle:
+            isOn = notificationPreferences.quietHoursAppliesToTaskAlerts
+        case notificationsQuietHoursDailySummariesTitle:
+            isOn = notificationPreferences.quietHoursAppliesToDailySummaries
         default:
             return nil
         }
@@ -458,6 +515,12 @@ extension SettingsPageViewController {
                 preferences.morningAgendaEnabled = sender.isOn
             case notificationsNightlyEnabledTitle:
                 preferences.nightlyRetrospectiveEnabled = sender.isOn
+            case notificationsQuietHoursEnabledTitle:
+                preferences.quietHoursEnabled = sender.isOn
+            case notificationsQuietHoursTaskAlertsTitle:
+                preferences.quietHoursAppliesToTaskAlerts = sender.isOn
+            case notificationsQuietHoursDailySummariesTitle:
+                preferences.quietHoursAppliesToDailySummaries = sender.isOn
             default:
                 break
             }
@@ -469,8 +532,25 @@ extension SettingsPageViewController {
         reconcileNotifications(reason: "settings_toggle_changed")
     }
 
-    private func presentNotificationTimePicker(forMorning: Bool) {
-        let title = forMorning ? notificationsMorningTimeTitle : notificationsNightlyTimeTitle
+    private enum NotificationTimePickerTarget {
+        case morningAgenda
+        case nightlyRetrospective
+        case quietHoursStart
+        case quietHoursEnd
+    }
+
+    private func presentNotificationTimePicker(target: NotificationTimePickerTarget) {
+        let title: String
+        switch target {
+        case .morningAgenda:
+            title = notificationsMorningTimeTitle
+        case .nightlyRetrospective:
+            title = notificationsNightlyTimeTitle
+        case .quietHoursStart:
+            title = notificationsQuietHoursStartTitle
+        case .quietHoursEnd:
+            title = notificationsQuietHoursEndTitle
+        }
         let alert = UIAlertController(title: "\(title)\n\n\n\n\n\n\n", message: nil, preferredStyle: .actionSheet)
 
         let picker = UIDatePicker(frame: CGRect(x: 16, y: 36, width: view.bounds.width - 64, height: 160))
@@ -478,8 +558,22 @@ extension SettingsPageViewController {
         if #available(iOS 14.0, *) {
             picker.preferredDatePickerStyle = .wheels
         }
-        let hour = forMorning ? notificationPreferences.morningHour : notificationPreferences.nightlyHour
-        let minute = forMorning ? notificationPreferences.morningMinute : notificationPreferences.nightlyMinute
+        let hour: Int
+        let minute: Int
+        switch target {
+        case .morningAgenda:
+            hour = notificationPreferences.morningHour
+            minute = notificationPreferences.morningMinute
+        case .nightlyRetrospective:
+            hour = notificationPreferences.nightlyHour
+            minute = notificationPreferences.nightlyMinute
+        case .quietHoursStart:
+            hour = notificationPreferences.quietHoursStartHour
+            minute = notificationPreferences.quietHoursStartMinute
+        case .quietHoursEnd:
+            hour = notificationPreferences.quietHoursEndHour
+            minute = notificationPreferences.quietHoursEndMinute
+        }
         picker.date = dateFrom(hour: hour, minute: minute)
         alert.view.addSubview(picker)
 
@@ -491,12 +585,19 @@ extension SettingsPageViewController {
             let selectedMinute = components.minute ?? minute
 
             self.notificationPreferencesStore.update { preferences in
-                if forMorning {
+                switch target {
+                case .morningAgenda:
                     preferences.morningHour = selectedHour
                     preferences.morningMinute = selectedMinute
-                } else {
+                case .nightlyRetrospective:
                     preferences.nightlyHour = selectedHour
                     preferences.nightlyMinute = selectedMinute
+                case .quietHoursStart:
+                    preferences.quietHoursStartHour = selectedHour
+                    preferences.quietHoursStartMinute = selectedMinute
+                case .quietHoursEnd:
+                    preferences.quietHoursEndHour = selectedHour
+                    preferences.quietHoursEndMinute = selectedMinute
                 }
                 self.notificationPreferences = preferences
             }
@@ -515,18 +616,50 @@ extension SettingsPageViewController {
         present(alert, animated: true)
     }
 
+    private func presentDueSoonLeadTimePicker() {
+        let options = [15, 30, 45, 60, 90, 120]
+        let alert = UIAlertController(
+            title: notificationsDueSoonLeadTimeTitle,
+            message: "Choose how early to nudge before due time.",
+            preferredStyle: .actionSheet
+        )
+
+        options.forEach { minutes in
+            let title = "\(minutes) min before due"
+            alert.addAction(UIAlertAction(title: title, style: .default, handler: { [weak self] _ in
+                guard let self else { return }
+                self.notificationPreferencesStore.update { preferences in
+                    preferences.dueSoonLeadMinutes = minutes
+                    self.notificationPreferences = preferences
+                }
+                self.setupSettingsSections()
+                self.settingsTableView.reloadData()
+                self.reconcileNotifications(reason: "settings_due_soon_lead_changed")
+            }))
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        if let popover = alert.popoverPresentationController,
+           let indexPath = indexPath(forNotificationItemTitle: notificationsDueSoonLeadTimeTitle) {
+            popover.sourceView = settingsTableView
+            popover.sourceRect = settingsTableView.rectForRow(at: indexPath)
+        }
+
+        present(alert, animated: true)
+    }
+
     private func dateFrom(hour: Int, minute: Int) -> Date {
         let components = DateComponents(hour: hour, minute: minute)
         return Calendar.current.date(from: components) ?? Date()
     }
 
     private func indexPath(forNotificationItemTitle title: String) -> IndexPath? {
-        guard let section = sections.firstIndex(where: { $0.title == notificationsSectionTitle }),
-              let row = sections[section].items.firstIndex(where: { $0.title == title })
-        else {
-            return nil
+        for (sectionIndex, section) in sections.enumerated() where isNotificationSectionTitle(section.title) {
+            if let row = section.items.firstIndex(where: { $0.title == title }) {
+                return IndexPath(row: row, section: sectionIndex)
+            }
         }
-        return IndexPath(row: row, section: section)
+        return nil
     }
 
     private func formattedTime(hour: Int, minute: Int) -> String {
@@ -538,6 +671,34 @@ extension SettingsPageViewController {
         formatter.timeStyle = .short
         formatter.dateStyle = .none
         return formatter.string(from: date)
+    }
+
+    private func isNotificationSectionTitle(_ title: String?) -> Bool {
+        title == notificationsTypesSectionTitle || title == notificationsScheduleSectionTitle
+    }
+
+    private func isNotificationItemDisabledByPreferences(_ itemTitle: String) -> Bool {
+        if itemTitle == notificationsMorningTimeTitle {
+            return !notificationPreferences.morningAgendaEnabled
+        }
+        if itemTitle == notificationsNightlyTimeTitle {
+            return !notificationPreferences.nightlyRetrospectiveEnabled
+        }
+        if itemTitle == notificationsDueSoonLeadTimeTitle {
+            return !notificationPreferences.dueSoonEnabled
+        }
+
+        let quietHoursDependentItems: Set<String> = [
+            notificationsQuietHoursStartTitle,
+            notificationsQuietHoursEndTitle,
+            notificationsQuietHoursTaskAlertsTitle,
+            notificationsQuietHoursDailySummariesTitle
+        ]
+        if quietHoursDependentItems.contains(itemTitle) {
+            return !notificationPreferences.quietHoursEnabled
+        }
+
+        return false
     }
 
     private func notificationPermissionDetailText() -> String {
