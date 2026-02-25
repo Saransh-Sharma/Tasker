@@ -47,6 +47,14 @@ enum AccessibilityIdentifiers {
         static let navXpPieChart = "home.navXpPieChart"
         static let weeklyCalendar = "home.weeklyCalendar"
         static let taskListScrollView = "home.taskList.scrollView"
+        static let dailySummaryModal = "home.dailySummaryModal"
+        static let dailySummaryHeroOpenCount = "home.dailySummary.hero.openCount"
+        static let dailySummaryHeroCompleted = "home.dailySummary.hero.completed"
+        static let dailySummaryCTAStartToday = "home.dailySummary.cta.startToday"
+        static let dailySummaryCTACompleteMorning = "home.dailySummary.cta.completeMorning"
+        static let dailySummaryCTAStartTriage = "home.dailySummary.cta.startTriage"
+        static let dailySummaryCTAPlanTomorrow = "home.dailySummary.cta.planTomorrow"
+        static let dailySummaryCTAReviewDone = "home.dailySummary.cta.reviewDone"
 
         // Task Cell
         static func taskCell(index: Int) -> String { "home.taskCell.\(index)" }

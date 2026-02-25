@@ -22,6 +22,7 @@ extension XCUIApplication {
         case enableDebugLogging = "-ENABLE_DEBUG_LOGGING"
         case mockInboxTasks = "-MOCK_INBOX_TASKS"
         case disableLLM = "-DISABLE_LLM"
+        case testRoute = "-TASKER_TEST_ROUTE"
     }
 
     // MARK: - Convenience Launch Methods
@@ -84,6 +85,19 @@ extension XCUIApplication {
             LaunchArgumentKey.uiTesting.rawValue,
             LaunchArgumentKey.disableAnimations.rawValue,
             LaunchArgumentKey.enableDebugLogging.rawValue
+        ]
+        launch()
+    }
+
+    /// Launch with a notification route payload (for route-driven UI tests)
+    func launchWithTestRoute(_ payload: String) {
+        launchArguments = [
+            LaunchArgumentKey.resetAppState.rawValue,
+            LaunchArgumentKey.uiTesting.rawValue,
+            LaunchArgumentKey.disableAnimations.rawValue,
+            LaunchArgumentKey.skipOnboarding.rawValue,
+            LaunchArgumentKey.disableCloudSync.rawValue,
+            "\(LaunchArgumentKey.testRoute.rawValue):\(payload)"
         ]
         launch()
     }
