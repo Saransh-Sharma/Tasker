@@ -340,6 +340,20 @@
 		FAD4981C27F2BBC7898744CD /* Achievement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C900006EE1DF0BACD33342B /* Achievement.swift */; };
 		FD5A8F04A6436C78DBBD43A4 /* TombstoneMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD059BC932A17FD845CAC6CD /* TombstoneMapper.swift */; };
 		FF5BDB5653D5CB66DA106A16 /* XPEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F3DEB89B5BEB05F1972CA7 /* XPEvent.swift */; };
+		0BF080CECE0D47F110E23C11 /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */; };
+		86E61B5C7E8F8DDAD3BAC7C9 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */; };
+		A2538173786D1C9268A5495A /* SettingsProfileHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */; };
+		65EC8640A12B976FD27DE5FD /* AppearanceCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55412F74ED21D0A6BE53A2DA /* AppearanceCardView.swift */; };
+		F1B2F813DE0CCF4518511A98 /* ThemeGemGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C0220D3DB4B4E025037B2E4 /* ThemeGemGalleryView.swift */; };
+		988BCDE3365760394848B424 /* SettingsNavigationRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */; };
+		3464C0D69143BB1C99FBFD7A /* SettingsSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */; };
+		D2E850DDFA592D3CFAA9C922 /* NotificationPermissionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */; };
+		75079DA69ABE1FCA5EE19B2B /* NotificationTypesCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */; };
+		AC7C0E8C304EF31908A6EA90 /* DailyRitualsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47ED06CE7EC4F74A9E373158 /* DailyRitualsCard.swift */; };
+		11B9B8EE3F64B7B3AC3E53AC /* DueSoonLeadTimeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267DB3EE27A6E3C161F380D5 /* DueSoonLeadTimeCard.swift */; };
+		44A001832E330AF45EED98AA /* QuietHoursCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1DA9F6A39882873264672B /* QuietHoursCard.swift */; };
+		4C1BDC9E724542DA36739830 /* QuietHoursTimeBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7273F65E17455922134AB7A9 /* QuietHoursTimeBar.swift */; };
+		FA7A583FEC8560AC162964C2 /* SettingsFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 718216D68E8278668DDB49BC /* SettingsFooterView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -700,6 +714,20 @@
 		FAF2AECE194CB6DF20940C57 /* ScheduleTemplate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/ScheduleTemplate.swift"; sourceTree = SOURCE_ROOT; };
 		FB9BE07CCB7761E186498D8C /* TaskerTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerTheme.swift; sourceTree = "<group>"; };
 		FEC0DEA9E6D02E2F991F11A1 /* HabitRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Interfaces/HabitRepositoryProtocol.swift"; sourceTree = SOURCE_ROOT; };
+		BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
+		BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
+		DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProfileHeaderView.swift; sourceTree = "<group>"; };
+		55412F74ED21D0A6BE53A2DA /* AppearanceCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceCardView.swift; sourceTree = "<group>"; };
+		6C0220D3DB4B4E025037B2E4 /* ThemeGemGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeGemGalleryView.swift; sourceTree = "<group>"; };
+		147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsNavigationRow.swift; sourceTree = "<group>"; };
+		82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSectionHeader.swift; sourceTree = "<group>"; };
+		919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionBanner.swift; sourceTree = "<group>"; };
+		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
+		47ED06CE7EC4F74A9E373158 /* DailyRitualsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRitualsCard.swift; sourceTree = "<group>"; };
+		267DB3EE27A6E3C161F380D5 /* DueSoonLeadTimeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DueSoonLeadTimeCard.swift; sourceTree = "<group>"; };
+		FA1DA9F6A39882873264672B /* QuietHoursCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietHoursCard.swift; sourceTree = "<group>"; };
+		7273F65E17455922134AB7A9 /* QuietHoursTimeBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietHoursTimeBar.swift; sourceTree = "<group>"; };
+		718216D68E8278668DDB49BC /* SettingsFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFooterView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1373,6 +1401,7 @@
 		75E5ACAC2E048D3A00535D0A /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				57A4B96E221FB5BA50F22C97 /* Settings */,
 				75E5ACAB2E048D3A00535D0A /* Cards */,
 				752A97632E93088100CFC576 /* ProjectSelectionSheet.swift */,
 			);
@@ -1725,6 +1754,35 @@
 			name = Repositories;
 			sourceTree = "<group>";
 		};
+		5DAFF791DE50B3141083F4FD /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */,
+				55412F74ED21D0A6BE53A2DA /* AppearanceCardView.swift */,
+				6C0220D3DB4B4E025037B2E4 /* ThemeGemGalleryView.swift */,
+				147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */,
+				82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */,
+				919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */,
+				C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */,
+				47ED06CE7EC4F74A9E373158 /* DailyRitualsCard.swift */,
+				267DB3EE27A6E3C161F380D5 /* DueSoonLeadTimeCard.swift */,
+				FA1DA9F6A39882873264672B /* QuietHoursCard.swift */,
+				7273F65E17455922134AB7A9 /* QuietHoursTimeBar.swift */,
+				718216D68E8278668DDB49BC /* SettingsFooterView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		57A4B96E221FB5BA50F22C97 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				BC92DC6157EF1B9AAB1422D9 /* SettingsRootView.swift */,
+				BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */,
+				5DAFF791DE50B3141083F4FD /* Components */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2002,6 +2060,20 @@
 				7529F6F82DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
 				758D4D7C24A940C300AB57A8 /* ProjectEntity+CoreDataClass.swift in Sources */,
 				75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */,
+				0BF080CECE0D47F110E23C11 /* SettingsRootView.swift in Sources */,
+				86E61B5C7E8F8DDAD3BAC7C9 /* SettingsViewModel.swift in Sources */,
+				A2538173786D1C9268A5495A /* SettingsProfileHeaderView.swift in Sources */,
+				65EC8640A12B976FD27DE5FD /* AppearanceCardView.swift in Sources */,
+				F1B2F813DE0CCF4518511A98 /* ThemeGemGalleryView.swift in Sources */,
+				988BCDE3365760394848B424 /* SettingsNavigationRow.swift in Sources */,
+				3464C0D69143BB1C99FBFD7A /* SettingsSectionHeader.swift in Sources */,
+				D2E850DDFA592D3CFAA9C922 /* NotificationPermissionBanner.swift in Sources */,
+				75079DA69ABE1FCA5EE19B2B /* NotificationTypesCard.swift in Sources */,
+				AC7C0E8C304EF31908A6EA90 /* DailyRitualsCard.swift in Sources */,
+				11B9B8EE3F64B7B3AC3E53AC /* DueSoonLeadTimeCard.swift in Sources */,
+				44A001832E330AF45EED98AA /* QuietHoursCard.swift in Sources */,
+				4C1BDC9E724542DA36739830 /* QuietHoursTimeBar.swift in Sources */,
+				FA7A583FEC8560AC162964C2 /* SettingsFooterView.swift in Sources */,
 				75D827552E8C89BA000F04E1 /* User.swift in Sources */,
 				752A974B2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */,
 				75F0C70C2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */,
