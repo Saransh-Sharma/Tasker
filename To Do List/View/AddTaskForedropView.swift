@@ -21,6 +21,7 @@ struct AddTaskForedropView: View {
 
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var descriptionFieldFocused: Bool
+    @State private var errorShakeTrigger = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
@@ -50,11 +51,11 @@ struct AddTaskForedropView: View {
                         isFocused: $titleFieldFocused,
                         onSubmit: submitTask
                     )
-                    .staggeredAppearance(index: 0)
+                    .enhancedStaggeredAppearance(index: 0)
 
                     // Date preset row
                     AddTaskDatePresetRow(dueDate: $viewModel.dueDate)
-                        .staggeredAppearance(index: 1)
+                        .enhancedStaggeredAppearance(index: 1)
 
                     // Quick attributes row: Task type chips + Reminder
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -66,11 +67,11 @@ struct AddTaskForedropView: View {
                             )
                         }
                     }
-                    .staggeredAppearance(index: 2)
+                    .enhancedStaggeredAppearance(index: 2)
 
                     // Priority pills
                     AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
-                        .staggeredAppearance(index: 3)
+                        .enhancedStaggeredAppearance(index: 3)
 
                     // Project bar
                     AddTaskProjectBar(
@@ -80,7 +81,7 @@ struct AddTaskForedropView: View {
                             viewModel.createProject(name: name)
                         }
                     )
-                    .staggeredAppearance(index: 4)
+                    .enhancedStaggeredAppearance(index: 4)
 
                     // ─── SECONDARY DETAILS (collapsed) ───
 
@@ -89,7 +90,7 @@ struct AddTaskForedropView: View {
                         descriptionFocused: $descriptionFieldFocused,
                         onExpand: onExpandToLarge
                     )
-                    .staggeredAppearance(index: 5)
+                    .enhancedStaggeredAppearance(index: 5)
 
                     // ─── ADVANCED PLANNING (collapsed) ───
 
@@ -97,13 +98,14 @@ struct AddTaskForedropView: View {
                         viewModel: viewModel,
                         onExpand: onExpandToLarge
                     )
-                    .staggeredAppearance(index: 6)
+                    .enhancedStaggeredAppearance(index: 6)
 
                     // ─── FOOTER ───
 
                     // Error message
                     if let error = viewModel.errorMessage {
                         errorMessageView(error)
+                            .bellShake(trigger: $errorShakeTrigger)
                             .transition(.asymmetric(
                                 insertion: .move(edge: .top).combined(with: .opacity),
                                 removal: .opacity
@@ -132,6 +134,17 @@ struct AddTaskForedropView: View {
             .padding(.bottom, spacing.s16)
         }
         .background(Color.tasker.surfacePrimary)
+        .overlay(
+            Color.tasker.statusSuccess
+                .opacity(successFlash ? 0.05 : 0)
+                .animation(TaskerAnimation.gentle, value: successFlash)
+                .allowsHitTesting(false)
+        )
+        .onChange(of: viewModel.errorMessage) { _ in
+            if viewModel.errorMessage != nil {
+                errorShakeTrigger.toggle()
+            }
+        }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 titleFieldFocused = true

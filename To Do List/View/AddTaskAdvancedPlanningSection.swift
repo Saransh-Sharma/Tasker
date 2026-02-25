@@ -38,6 +38,7 @@ struct AddTaskAdvancedPlanningSection: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .medium))
                         .rotationEffect(.degrees(viewModel.showAdvancedPlanning ? 90 : 0))
+                        .scaleEffect(viewModel.showAdvancedPlanning ? 1.0 : 0.9)
                         .animation(TaskerAnimation.snappy, value: viewModel.showAdvancedPlanning)
                 }
                 .foregroundColor(Color.tasker.textSecondary)
@@ -55,7 +56,7 @@ struct AddTaskAdvancedPlanningSection: View {
                             tasks: viewModel.availableParentTasks,
                             selectedTaskID: $viewModel.selectedParentTaskID
                         )
-                        .staggeredAppearance(index: 0)
+                        .enhancedStaggeredAppearance(index: 0)
                     }
 
                     // Dependencies selector
@@ -65,7 +66,7 @@ struct AddTaskAdvancedPlanningSection: View {
                             selectedTaskIDs: $viewModel.selectedDependencyTaskIDs,
                             dependencyKind: $viewModel.selectedDependencyKind
                         )
-                        .staggeredAppearance(index: 1)
+                        .enhancedStaggeredAppearance(index: 1)
                     }
 
                     // Energy selector
@@ -75,7 +76,7 @@ struct AddTaskAdvancedPlanningSection: View {
                         icon: { $0.emoji.isEmpty ? "bolt" : $0.emoji },
                         selected: $viewModel.selectedEnergy
                     )
-                    .staggeredAppearance(index: 2)
+                    .enhancedStaggeredAppearance(index: 2)
 
                     // Category selector
                     AddTaskEnumChipRow(
@@ -84,7 +85,7 @@ struct AddTaskAdvancedPlanningSection: View {
                         icon: { $0.emoji.isEmpty ? "tag" : $0.emoji },
                         selected: $viewModel.selectedCategory
                     )
-                    .staggeredAppearance(index: 3)
+                    .enhancedStaggeredAppearance(index: 3)
 
                     // Context selector
                     AddTaskEnumChipRow(
@@ -93,15 +94,15 @@ struct AddTaskAdvancedPlanningSection: View {
                         icon: { $0.emoji.isEmpty ? "mappin" : $0.emoji },
                         selected: $viewModel.selectedContext
                     )
-                    .staggeredAppearance(index: 4)
+                    .enhancedStaggeredAppearance(index: 4)
 
                     // Estimated duration
                     AddTaskDurationPicker(duration: $viewModel.estimatedDuration)
-                        .staggeredAppearance(index: 5)
+                        .enhancedStaggeredAppearance(index: 5)
 
                     // Repeat schedule
                     AddTaskRepeatEditor(repeatPattern: $viewModel.repeatPattern)
-                        .staggeredAppearance(index: 6)
+                        .enhancedStaggeredAppearance(index: 6)
                 }
                 .padding(.top, spacing.s8)
                 .transition(.asymmetric(
