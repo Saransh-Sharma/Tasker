@@ -68,6 +68,37 @@ Design intent by phase:
 - Privacy disclosures for data handling and assistant mode behavior.
 - Notification strategy optimized for helpfulness over volume.
 
+## Notification Strategy
+
+Tasker uses local notifications to support execution and reflection with bounded, actionable prompts.
+
+### Product Principles
+- Relevance over volume: avoid duplicate reminders and stale prompts.
+- Actionable by default: notifications provide direct next actions where possible.
+- Day framing: reinforce start-of-day planning and end-of-day reflection.
+- Explicit controls: user-managed toggles/times in Settings, with clear permission state.
+
+### Catalog
+
+| Type | Trigger | Title | Body template | Actions | Destination |
+| --- | --- | --- | --- | --- | --- |
+| Task Reminder | Future `alertReminderTime` | `Task Reminder` | `"{taskTitle}" is due {relativeDueText}.` fallback `"{taskTitle}" is waiting for you.` | `Open`, `Complete`, `Snooze 15m` | Task detail |
+| Due Soon Nudge | Open task due in next 120m without explicit reminder in window | `Due Soon` | `"{taskTitle}" is due in {minutes}m.` + optional ` + {additionalCount} more due soon` | `Open`, `Complete`, `Snooze 15m` | Home Today |
+| Overdue Nudge | Overdue tasks exist, slots at 10:00 and 16:00 local | `Overdue Task` | `"{taskTitle}" is overdue by {days} day(s).` + optional ` + {additionalCount} more overdue` | `Open`, `Complete`, `Snooze 15m` | Home Today |
+| Morning Plan | Daily local schedule (default 08:00) | `Morning Plan` | If tasks: `{openCount} tasks today ({highCount} high priority, {overdueCount} overdue). Start with "{topTaskTitle}".` else fallback copy | `Open Today`, `Snooze 30m` | Home Today |
+| Nightly Retrospective | Daily local schedule (default 21:00) | `Day Retrospective` | If completions: `Completed {completedCount}/{totalCount} tasks, earned {xp} XP. Biggest win: "{topCompletedTaskTitle}".` else fallback copy | `Open Done`, `Snooze 60m` | Home Done |
+
+### Technical Decisions
+- Time source: local device timezone.
+- Defaults: morning `08:00`, nightly `21:00`.
+- Quiet hours: disabled in current release.
+- Reconciliation: desired-vs-pending diff (`added`, `updated`, `removed`, `unchanged`) using content fingerprinting.
+- Route semantics: `homeToday(taskID:)` changes quick view only; only `taskDetail(taskID:)` opens task detail modal.
+- Managed IDs include task reminders/due soon/overdue/snooze and daily summary IDs.
+
+Implementation details and contracts:
+- `docs/architecture/notifications-local-strategy-v3.md`
+
 ## Product Metrics Snapshot
 
 Primary product metrics include:
@@ -165,6 +196,7 @@ xcodebuild test -workspace Tasker.xcworkspace -scheme "To Do List" -destination 
 | `docs/architecture/risk-register-v2.md` | migration risks and guardrails | Canonical | new risks, mitigations, release policy changes | tech leads, reviewers |
 | `docs/architecture/state-repositories-and-services-v2.md` | repository/service internals | Canonical | State repository/service changes | state/data engineers |
 | `docs/architecture/domain-events-and-observability-v2.md` | domain event system and handler behavior | Canonical | event schema/handler/notification changes | app + analytics engineers |
+| `docs/architecture/notifications-local-strategy-v3.md` | local notification product + technical strategy | Canonical | notification catalog, routing, scheduling/reconcile, permission flow changes | app engineers, product, QA |
 | `docs/architecture/llm-assistant-stack-v2.md` | LLM context + assistant transaction boundaries | Canonical | `/LLM` or `/UseCases/LLM` changes | AI feature engineers |
 | `docs/operations/ci-release-and-guardrails.md` | CI workflows, script guardrails, release evidence flow | Canonical | workflow/script/release gate changes | release owners, maintainers |
 | `docs/operations/developer-tooling-and-flowctl.md` | `taskerctl` + flowctl policy and troubleshooting | Canonical | tooling scripts or CI tooling rules change | contributors, CI maintainers |

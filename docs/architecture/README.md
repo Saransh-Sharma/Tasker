@@ -1,6 +1,6 @@
 # Tasker Architecture Docs Index (V3 Runtime)
 
-**Last validated against code on 2026-02-20**
+**Last validated against code on 2026-02-24**
 
 This folder is the implementation-facing source of truth for Tasker's shipped V3 runtime.
 The runtime is V3-only (`TaskModelV3`, V3 bootstrap cutover, `TaskDefinition`-centric contracts).
@@ -34,6 +34,7 @@ Treat these docs as the current V3 architecture references unless explicitly mar
 | `docs/architecture/usecases-v2.md` | Usecase inventory, contracts, side effects, orchestration flows | Usecase APIs/dependencies/flow semantics change |
 | `docs/architecture/state-repositories-and-services-v2.md` | State layer repository/service internals and data ownership | repository/service implementations change |
 | `docs/architecture/domain-events-and-observability-v2.md` | Domain event bus, handler rules, observability expectations | event schemas/handlers/logging behavior change |
+| `docs/architecture/notifications-local-strategy-v3.md` | Local notification catalog, defaults, routing, action handling, schedule reconciliation | notification behavior, UX copy, action categories, or reconciliation logic changes |
 | `docs/architecture/llm-assistant-stack-v2.md` | LLM context pipeline and assistant transaction boundaries | `/LLM` or `/UseCases/LLM` changes |
 | `docs/architecture/risk-register-v2.md` | Active technical risk register and mitigations | risk posture/guardrails/release criteria change |
 | `docs/architecture/v3-runtime-cutover-todo.md` | Active migration and release gate tracker | gate status or verification evidence changes |

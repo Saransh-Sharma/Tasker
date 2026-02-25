@@ -1,6 +1,6 @@
 # Tasker Documentation Hub
 
-Last updated: 2026-02-18
+Last updated: 2026-02-24
 
 This directory is the canonical home for technical architecture, operations, release runbooks, and archived legacy docs.
 
@@ -35,6 +35,7 @@ flowchart TD
 | `docs/architecture/risk-register-v2.md` | Migration risk register, guardrails, review checklist |
 | `docs/architecture/state-repositories-and-services-v2.md` | State layer repository/service internals and ownership |
 | `docs/architecture/domain-events-and-observability-v2.md` | Domain events, handlers, notification bridge, observability |
+| `docs/architecture/notifications-local-strategy-v3.md` | Local notification catalog, product decisions, scheduling/reconcile and action handling contracts |
 | `docs/architecture/llm-assistant-stack-v2.md` | LLM context pipeline and assistant transaction stack |
 
 ## Operations Docs
