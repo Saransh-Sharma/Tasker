@@ -316,6 +316,8 @@ public final class TaskerNotificationActionHandler {
     private let notificationService: NotificationServiceProtocol
     private let coordinatorProvider: () -> UseCaseCoordinator?
     private let routeBus: TaskerNotificationRouteBus
+    private let preferencesStore: TaskerNotificationPreferencesStore
+    private let calendar: Calendar
     private let now: () -> Date
     private let actionCompletionTimeoutSeconds: TimeInterval = 4
 
@@ -324,11 +326,15 @@ public final class TaskerNotificationActionHandler {
         notificationService: NotificationServiceProtocol,
         coordinatorProvider: @escaping () -> UseCaseCoordinator?,
         routeBus: TaskerNotificationRouteBus = .shared,
+        preferencesStore: TaskerNotificationPreferencesStore = .shared,
+        calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init
     ) {
         self.notificationService = notificationService
         self.coordinatorProvider = coordinatorProvider
         self.routeBus = routeBus
+        self.preferencesStore = preferencesStore
+        self.calendar = calendar
         self.now = now
     }
 
@@ -431,7 +437,8 @@ public final class TaskerNotificationActionHandler {
         }
 
         let route = routeFrom(request: request)
-        let fireDate = now().addingTimeInterval(TimeInterval(minutes * 60))
+        let provisionalFireDate = now().addingTimeInterval(TimeInterval(minutes * 60))
+        let fireDate = adjustedSnoozeFireDate(provisionalFireDate, for: kind)
         let taskID = taskID(from: request)
         let requestID = "task.snooze.\(request.identifier).\(Int(fireDate.timeIntervalSince1970))"
 
@@ -486,6 +493,74 @@ public final class TaskerNotificationActionHandler {
             completed = true
             completion()
         }
+    }
+
+    private func adjustedSnoozeFireDate(_ fireDate: Date, for kind: TaskerLocalNotificationKind) -> Date {
+        let preferences = preferencesStore.load()
+        guard preferences.quietHoursEnabled else { return fireDate }
+        guard shouldApplyQuietHoursToSnooze(kind: kind, preferences: preferences) else { return fireDate }
+        guard isDateInQuietHours(fireDate, preferences: preferences) else { return fireDate }
+        return nextAllowedDate(after: fireDate, preferences: preferences)
+    }
+
+    private func shouldApplyQuietHoursToSnooze(
+        kind: TaskerLocalNotificationKind,
+        preferences: TaskerNotificationPreferences
+    ) -> Bool {
+        switch kind {
+        case .snoozedTask:
+            return preferences.quietHoursAppliesToTaskAlerts
+        case .snoozedMorning, .snoozedNightly:
+            return preferences.quietHoursAppliesToDailySummaries
+        default:
+            return false
+        }
+    }
+
+    private func isDateInQuietHours(_ date: Date, preferences: TaskerNotificationPreferences) -> Bool {
+        let startMinutes = preferences.quietHoursStartHour * 60 + preferences.quietHoursStartMinute
+        let endMinutes = preferences.quietHoursEndHour * 60 + preferences.quietHoursEndMinute
+        guard startMinutes != endMinutes else { return false }
+
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        let currentMinutes = hour * 60 + minute
+
+        if startMinutes < endMinutes {
+            return currentMinutes >= startMinutes && currentMinutes < endMinutes
+        }
+        return currentMinutes >= startMinutes || currentMinutes < endMinutes
+    }
+
+    private func nextAllowedDate(after date: Date, preferences: TaskerNotificationPreferences) -> Date {
+        let startMinutes = preferences.quietHoursStartHour * 60 + preferences.quietHoursStartMinute
+        let endMinutes = preferences.quietHoursEndHour * 60 + preferences.quietHoursEndMinute
+        guard startMinutes != endMinutes else { return date }
+
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        let currentMinutes = hour * 60 + minute
+        let dayStart = calendar.startOfDay(for: date)
+        let endTimeForDay = calendar.date(
+            bySettingHour: preferences.quietHoursEndHour,
+            minute: preferences.quietHoursEndMinute,
+            second: 0,
+            of: dayStart
+        ) ?? date
+
+        if startMinutes < endMinutes {
+            return endTimeForDay > date ? endTimeForDay : date
+        }
+        if currentMinutes >= startMinutes {
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+            return calendar.date(
+                bySettingHour: preferences.quietHoursEndHour,
+                minute: preferences.quietHoursEndMinute,
+                second: 0,
+                of: nextDay
+            ) ?? date
+        }
+        return endTimeForDay > date ? endTimeForDay : date
     }
 }
 
@@ -635,7 +710,7 @@ public final class TaskNotificationOrchestrator {
             requests.append(contentsOf: makeTaskReminders(tasks: openTasks, nowDate: nowDate))
         }
         if preferences.dueSoonEnabled {
-            requests.append(contentsOf: makeDueSoonNotifications(tasks: openTasks, nowDate: nowDate))
+            requests.append(contentsOf: makeDueSoonNotifications(tasks: openTasks, nowDate: nowDate, preferences: preferences))
         }
         if preferences.overdueNudgesEnabled {
             requests.append(contentsOf: makeOverdueNotifications(tasks: openTasks, nowDate: nowDate))
@@ -647,7 +722,8 @@ public final class TaskNotificationOrchestrator {
             requests.append(contentsOf: makeNightlyRetrospectiveNotifications(tasks: tasks, nowDate: nowDate, preferences: preferences))
         }
 
-        return requests.filter { $0.fireDate > nowDate }
+        let quietHoursAdjusted = applyQuietHours(to: requests, nowDate: nowDate, preferences: preferences)
+        return quietHoursAdjusted.filter { $0.fireDate > nowDate }
     }
 
     private func makeTaskReminders(tasks: [TaskDefinition], nowDate: Date) -> [TaskerLocalNotificationRequest] {
@@ -676,7 +752,11 @@ public final class TaskNotificationOrchestrator {
         }
     }
 
-    private func makeDueSoonNotifications(tasks: [TaskDefinition], nowDate: Date) -> [TaskerLocalNotificationRequest] {
+    private func makeDueSoonNotifications(
+        tasks: [TaskDefinition],
+        nowDate: Date,
+        preferences: TaskerNotificationPreferences
+    ) -> [TaskerLocalNotificationRequest] {
         let horizon = nowDate.addingTimeInterval(120 * 60)
         let candidates = tasks.filter { task in
             guard let dueDate = task.dueDate else { return false }
@@ -696,7 +776,8 @@ public final class TaskNotificationOrchestrator {
         let additionalCount = max(0, candidates.count - 1)
         let stamp = dateStamp(for: nowDate)
 
-        let fireDate = maxDate(nowDate.addingTimeInterval(10), dueDate.addingTimeInterval(-30 * 60))
+        let leadMinutes = preferences.dueSoonLeadMinutes
+        let fireDate = maxDate(nowDate.addingTimeInterval(10), dueDate.addingTimeInterval(TimeInterval(-leadMinutes * 60)))
         let minutesUntilDue = max(1, Int(ceil(dueDate.timeIntervalSince(fireDate) / 60)))
 
         var body = "\"\(primaryTask.title)\" is due in \(minutesUntilDue)m."
@@ -815,10 +896,12 @@ public final class TaskNotificationOrchestrator {
                 return nil
             }
 
-            let route: TaskerNotificationRoute = (kind == .nightlyRetrospective) ? .homeDone : .homeToday(taskID: nil)
+            let dateStamp = dateStamp(for: day)
+            let summaryKind: TaskerDailySummaryKind = (kind == .nightlyRetrospective) ? .nightly : .morning
+            let route: TaskerNotificationRoute = .dailySummary(kind: summaryKind, dateStamp: dateStamp)
 
             return TaskerLocalNotificationRequest(
-                id: "\(prefix).\(dateStamp(for: day))",
+                id: "\(prefix).\(dateStamp)",
                 kind: kind,
                 title: title,
                 body: bodyBuilder(day),
@@ -941,6 +1024,114 @@ public final class TaskNotificationOrchestrator {
 
     private func maxDate(_ lhs: Date, _ rhs: Date) -> Date {
         lhs > rhs ? lhs : rhs
+    }
+
+    private func applyQuietHours(
+        to requests: [TaskerLocalNotificationRequest],
+        nowDate: Date,
+        preferences: TaskerNotificationPreferences
+    ) -> [TaskerLocalNotificationRequest] {
+        guard preferences.quietHoursEnabled else { return requests }
+
+        return requests.map { request in
+            guard shouldApplyQuietHours(for: request.kind, preferences: preferences),
+                  isDateInQuietHours(request.fireDate, preferences: preferences)
+            else {
+                return request
+            }
+
+            let adjustedDate = nextAllowedDate(after: request.fireDate, nowDate: nowDate, preferences: preferences)
+            guard adjustedDate != request.fireDate else { return request }
+
+            return TaskerLocalNotificationRequest(
+                id: request.id,
+                kind: request.kind,
+                title: request.title,
+                body: request.body,
+                fireDate: adjustedDate,
+                repeats: request.repeats,
+                route: request.route,
+                taskID: request.taskID,
+                categoryIdentifier: request.categoryIdentifier,
+                userInfo: request.userInfo
+            )
+        }
+    }
+
+    private func shouldApplyQuietHours(
+        for kind: TaskerLocalNotificationKind,
+        preferences: TaskerNotificationPreferences
+    ) -> Bool {
+        switch kind {
+        case .taskReminder, .dueSoon, .overdue, .snoozedTask:
+            return preferences.quietHoursAppliesToTaskAlerts
+        case .morningPlan, .nightlyRetrospective, .snoozedMorning, .snoozedNightly:
+            return preferences.quietHoursAppliesToDailySummaries
+        }
+    }
+
+    private func isDateInQuietHours(_ date: Date, preferences: TaskerNotificationPreferences) -> Bool {
+        let startMinutes = preferences.quietHoursStartHour * 60 + preferences.quietHoursStartMinute
+        let endMinutes = preferences.quietHoursEndHour * 60 + preferences.quietHoursEndMinute
+        guard startMinutes != endMinutes else { return false }
+
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        let currentMinutes = hour * 60 + minute
+
+        if startMinutes < endMinutes {
+            return currentMinutes >= startMinutes && currentMinutes < endMinutes
+        }
+        return currentMinutes >= startMinutes || currentMinutes < endMinutes
+    }
+
+    private func nextAllowedDate(
+        after date: Date,
+        nowDate: Date,
+        preferences: TaskerNotificationPreferences
+    ) -> Date {
+        let startMinutes = preferences.quietHoursStartHour * 60 + preferences.quietHoursStartMinute
+        let endMinutes = preferences.quietHoursEndHour * 60 + preferences.quietHoursEndMinute
+        guard startMinutes != endMinutes else { return date }
+
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        let currentMinutes = hour * 60 + minute
+
+        let dayStart = calendar.startOfDay(for: date)
+        let endTimeForDay = calendar.date(
+            bySettingHour: preferences.quietHoursEndHour,
+            minute: preferences.quietHoursEndMinute,
+            second: 0,
+            of: dayStart
+        ) ?? date
+
+        let candidate: Date
+        if startMinutes < endMinutes {
+            candidate = endTimeForDay
+        } else if currentMinutes >= startMinutes {
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+            candidate = calendar.date(
+                bySettingHour: preferences.quietHoursEndHour,
+                minute: preferences.quietHoursEndMinute,
+                second: 0,
+                of: nextDay
+            ) ?? date
+        } else {
+            candidate = endTimeForDay
+        }
+
+        // Ensure deferred date never drifts behind the current reconcile instant.
+        if candidate <= nowDate {
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: candidate)) ?? candidate
+            return calendar.date(
+                bySettingHour: preferences.quietHoursEndHour,
+                minute: preferences.quietHoursEndMinute,
+                second: 0,
+                of: nextDay
+            ) ?? nowDate.addingTimeInterval(60)
+        }
+        return candidate
     }
 }
 
