@@ -4516,10 +4516,10 @@ final class RecurringTaskSeriesMaterializationTests: XCTestCase {
 final class DeleteTaskDefinitionUseCaseSeriesScopeTests: XCTestCase {
     func testDeleteSingleScopeDeletesOnlyTargetTask() throws {
         let seriesID = UUID()
-        let first = TaskDefinition(title: "Daily 1", recurrenceSeriesID: seriesID)
-        let second = TaskDefinition(title: "Daily 2", recurrenceSeriesID: seriesID)
-        let third = TaskDefinition(title: "Daily 3", recurrenceSeriesID: seriesID)
-        let unrelated = TaskDefinition(title: "Unrelated", recurrenceSeriesID: UUID())
+        let first = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 1")
+        let second = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 2")
+        let third = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 3")
+        let unrelated = TaskDefinition(recurrenceSeriesID: UUID(), title: "Unrelated")
         let repository = InMemoryTaskDefinitionRepositoryStub(seed: [first, second, third, unrelated])
         let useCase = DeleteTaskDefinitionUseCase(repository: repository, tombstoneRepository: nil)
 
@@ -4536,10 +4536,10 @@ final class DeleteTaskDefinitionUseCaseSeriesScopeTests: XCTestCase {
 
     func testDeleteSeriesScopeDeletesAllTasksInSeriesOnly() throws {
         let seriesID = UUID()
-        let first = TaskDefinition(title: "Daily 1", recurrenceSeriesID: seriesID)
-        let second = TaskDefinition(title: "Daily 2", recurrenceSeriesID: seriesID)
-        let third = TaskDefinition(title: "Daily 3", recurrenceSeriesID: seriesID)
-        let unrelated = TaskDefinition(title: "Unrelated", recurrenceSeriesID: UUID())
+        let first = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 1")
+        let second = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 2")
+        let third = TaskDefinition(recurrenceSeriesID: seriesID, title: "Daily 3")
+        let unrelated = TaskDefinition(recurrenceSeriesID: UUID(), title: "Unrelated")
         let repository = InMemoryTaskDefinitionRepositoryStub(seed: [first, second, third, unrelated])
         let useCase = DeleteTaskDefinitionUseCase(repository: repository, tombstoneRepository: nil)
 
@@ -4798,6 +4798,10 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(morning?.body, "No tasks queued. Capture one meaningful win.")
         XCTAssertEqual(morning.map { calendar.component(.hour, from: $0.fireDate) }, 8)
         XCTAssertEqual(morning.map { calendar.component(.minute, from: $0.fireDate) }, 0)
+        XCTAssertEqual(
+            morning?.route,
+            .dailySummary(kind: .morning, dateStamp: "20260224")
+        )
 
         let nightlyIDs = Set(
             notificationService.scheduled
@@ -4814,6 +4818,10 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(nightly?.body, "No completions today. Pick one tiny restart for tomorrow.")
         XCTAssertEqual(nightly.map { calendar.component(.hour, from: $0.fireDate) }, 21)
         XCTAssertEqual(nightly.map { calendar.component(.minute, from: $0.fireDate) }, 0)
+        XCTAssertEqual(
+            nightly?.route,
+            .dailySummary(kind: .nightly, dateStamp: "20260224")
+        )
     }
 
     func testReconcileSchedulesTaskReminderDueSoonAndOverdueWithExpectedContent() {
@@ -4982,11 +4990,376 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertTrue(notificationService.canceledIDs.contains(reminderID))
     }
 
+    func testDueSoonUsesConfiguredLeadMinutes() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 8, minute: 30)
+
+        var dueSoonTask = TaskDefinition(title: "Prepare status deck", priority: .high)
+        dueSoonTask.dueDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 10, minute: 0)
+
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [dueSoonTask])
+        let notificationService = CapturingNotificationService()
+        let store = makePreferencesStore()
+        store.save(
+            TaskerNotificationPreferences(
+                taskRemindersEnabled: false,
+                dueSoonEnabled: true,
+                overdueNudgesEnabled: false,
+                morningAgendaEnabled: false,
+                nightlyRetrospectiveEnabled: false,
+                dueSoonLeadMinutes: 60
+            )
+        )
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        orchestrator.reconcile(reason: "unit_test_due_soon_lead")
+
+        guard let dueSoon = notificationService.scheduled.first(where: { $0.kind == .dueSoon }) else {
+            return XCTFail("Expected due soon notification")
+        }
+        XCTAssertEqual(calendar.component(.hour, from: dueSoon.fireDate), 9)
+        XCTAssertEqual(calendar.component(.minute, from: dueSoon.fireDate), 0)
+        XCTAssertTrue(dueSoon.body.contains("due in 60m"))
+    }
+
+    func testQuietHoursDefersTaskReminderToQuietWindowEnd() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 21, minute: 50)
+
+        var reminderTask = TaskDefinition(title: "Late reminder")
+        reminderTask.alertReminderTime = makeUTCDate(year: 2026, month: 2, day: 24, hour: 22, minute: 30)
+
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [reminderTask])
+        let notificationService = CapturingNotificationService()
+        let store = makePreferencesStore()
+        store.save(
+            TaskerNotificationPreferences(
+                taskRemindersEnabled: true,
+                dueSoonEnabled: false,
+                overdueNudgesEnabled: false,
+                morningAgendaEnabled: false,
+                nightlyRetrospectiveEnabled: false,
+                quietHoursEnabled: true,
+                quietHoursStartHour: 22,
+                quietHoursStartMinute: 0,
+                quietHoursEndHour: 7,
+                quietHoursEndMinute: 0,
+                quietHoursAppliesToTaskAlerts: true
+            )
+        )
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        orchestrator.reconcile(reason: "unit_test_quiet_hours_task")
+
+        let reminderID = "task.reminder.\(reminderTask.id.uuidString)"
+        guard let reminder = notificationService.scheduled.first(where: { $0.id == reminderID }) else {
+            return XCTFail("Expected reminder notification")
+        }
+        XCTAssertEqual(calendar.component(.day, from: reminder.fireDate), 25)
+        XCTAssertEqual(calendar.component(.hour, from: reminder.fireDate), 7)
+        XCTAssertEqual(calendar.component(.minute, from: reminder.fireDate), 0)
+    }
+
+    func testQuietHoursCanDeferDailySummaryWhenEnabledForDailyNotifications() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 7, minute: 30)
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [])
+        let notificationService = CapturingNotificationService()
+        let store = makePreferencesStore()
+        store.save(
+            TaskerNotificationPreferences(
+                taskRemindersEnabled: false,
+                dueSoonEnabled: false,
+                overdueNudgesEnabled: false,
+                morningAgendaEnabled: true,
+                nightlyRetrospectiveEnabled: false,
+                morningHour: 8,
+                morningMinute: 0,
+                quietHoursEnabled: true,
+                quietHoursStartHour: 7,
+                quietHoursStartMinute: 0,
+                quietHoursEndHour: 9,
+                quietHoursEndMinute: 0,
+                quietHoursAppliesToTaskAlerts: false,
+                quietHoursAppliesToDailySummaries: true
+            )
+        )
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        orchestrator.reconcile(reason: "unit_test_quiet_hours_daily")
+
+        guard let morning = notificationService.scheduled.first(where: { $0.kind == .morningPlan && $0.id == "daily.morning.20260224" }) else {
+            return XCTFail("Expected morning plan notification")
+        }
+        XCTAssertEqual(calendar.component(.hour, from: morning.fireDate), 9)
+        XCTAssertEqual(calendar.component(.minute, from: morning.fireDate), 0)
+    }
+
     private func makePreferencesStore() -> TaskerNotificationPreferencesStore {
         let suiteName = "tasker.notification.tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         return TaskerNotificationPreferencesStore(defaults: defaults)
+    }
+}
+
+final class TaskerNotificationRouteTests: XCTestCase {
+    func testDailySummaryRoutePayloadRoundTrip() {
+        let morning: TaskerNotificationRoute = .dailySummary(kind: .morning, dateStamp: "20260225")
+        XCTAssertEqual(
+            TaskerNotificationRoute.from(payload: morning.payload, fallbackTaskID: nil),
+            morning
+        )
+
+        let nightlyNoDate: TaskerNotificationRoute = .dailySummary(kind: .nightly, dateStamp: nil)
+        XCTAssertEqual(
+            TaskerNotificationRoute.from(payload: nightlyNoDate.payload, fallbackTaskID: nil),
+            nightlyNoDate
+        )
+    }
+}
+
+final class DailySummaryModalUseCaseTests: XCTestCase {
+    func testBuildSummaryMorningIncludesFocusRiskAndAgenda() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 8, minute: 0)
+        let dayStart = calendar.startOfDay(for: nowDate)
+
+        var overdueBlocked = TaskDefinition(title: "Resolve production incident", priority: .high)
+        overdueBlocked.dueDate = dayStart.addingTimeInterval(-3600)
+        overdueBlocked.estimatedDuration = 90 * 60
+        overdueBlocked.dependencies = [
+            TaskDependencyLinkDefinition(
+                taskID: overdueBlocked.id,
+                dependsOnTaskID: UUID(),
+                kind: .blocks
+            )
+        ]
+
+        var dueMorning = TaskDefinition(title: "Draft proposal", priority: .max, type: .morning)
+        dueMorning.dueDate = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: nowDate)
+
+        var dueEvening = TaskDefinition(title: "Send recap", priority: .low, type: .evening, isEveningTask: true)
+        dueEvening.dueDate = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: nowDate)
+
+        var tomorrow = TaskDefinition(title: "Plan next sprint", priority: .high)
+        tomorrow.dueDate = calendar.date(byAdding: .day, value: 1, to: nowDate)
+
+        var completed = TaskDefinition(title: "Closed meeting notes", priority: .low, isComplete: true)
+        completed.dateCompleted = calendar.date(bySettingHour: 11, minute: 0, second: 0, of: nowDate)
+        completed.dueDate = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: nowDate)
+
+        let allTasks = [overdueBlocked, dueMorning, dueEvening, tomorrow, completed]
+        let readModel = InMemoryTaskReadModelRepositoryStub(tasks: allTasks)
+        let useCase = GetDailySummaryModalUseCase(
+            getTasksUseCase: GetTasksUseCase(readModelRepository: readModel),
+            analyticsUseCase: CalculateAnalyticsUseCase(taskReadModelRepository: readModel),
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        let summary = useCase.buildSummary(
+            kind: .morning,
+            date: nowDate,
+            allTasks: allTasks,
+            analytics: nil,
+            streakCount: nil
+        )
+
+        guard case .morning(let morning) = summary else {
+            return XCTFail("Expected morning summary")
+        }
+
+        XCTAssertEqual(morning.openTodayCount, 3)
+        XCTAssertEqual(morning.highPriorityCount, 2)
+        XCTAssertEqual(morning.overdueCount, 1)
+        XCTAssertEqual(morning.blockedCount, 1)
+        XCTAssertEqual(morning.longTaskCount, 1)
+        XCTAssertEqual(morning.morningPlannedCount, 1)
+        XCTAssertEqual(morning.eveningPlannedCount, 1)
+        XCTAssertEqual(morning.focusTasks.first?.taskID, dueMorning.id)
+    }
+
+    func testBuildSummaryNightlyIncludesWinsCarryOverAndTomorrowPreview() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 21, minute: 0)
+        let dayStart = calendar.startOfDay(for: nowDate)
+
+        var openDueMorning = TaskDefinition(title: "Open today A", priority: .high, type: .morning)
+        openDueMorning.dueDate = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: nowDate)
+
+        var openDueEvening = TaskDefinition(title: "Open today B", priority: .low, type: .evening, isEveningTask: true)
+        openDueEvening.dueDate = calendar.date(bySettingHour: 19, minute: 0, second: 0, of: nowDate)
+
+        var overdue = TaskDefinition(title: "Overdue cleanup", priority: .high)
+        overdue.dueDate = dayStart.addingTimeInterval(-7200)
+
+        var completedHigh = TaskDefinition(title: "Ship release", priority: .max, type: .morning, isComplete: true)
+        completedHigh.dateCompleted = calendar.date(bySettingHour: 9, minute: 30, second: 0, of: nowDate)
+        completedHigh.dueDate = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: nowDate)
+
+        var completedLow = TaskDefinition(title: "Tidy inbox", priority: .low, type: .evening, isComplete: true, isEveningTask: true)
+        completedLow.dateCompleted = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: nowDate)
+        completedLow.dueDate = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: nowDate)
+
+        var tomorrow = TaskDefinition(title: "Tomorrow task", priority: .high)
+        tomorrow.dueDate = calendar.date(byAdding: .day, value: 1, to: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: nowDate) ?? nowDate)
+
+        let allTasks = [openDueMorning, openDueEvening, overdue, completedHigh, completedLow, tomorrow]
+        let readModel = InMemoryTaskReadModelRepositoryStub(tasks: allTasks)
+        let useCase = GetDailySummaryModalUseCase(
+            getTasksUseCase: GetTasksUseCase(readModelRepository: readModel),
+            analyticsUseCase: CalculateAnalyticsUseCase(taskReadModelRepository: readModel),
+            calendar: calendar,
+            now: { nowDate }
+        )
+        let analytics = DailyAnalytics(
+            date: nowDate,
+            totalTasks: 4,
+            completedTasks: 2,
+            completionRate: 0.5,
+            totalScore: completedHigh.priority.scorePoints + completedLow.priority.scorePoints,
+            morningTasksCompleted: 1,
+            eveningTasksCompleted: 1,
+            priorityBreakdown: [:]
+        )
+
+        let summary = useCase.buildSummary(
+            kind: .nightly,
+            date: nowDate,
+            allTasks: allTasks,
+            analytics: analytics,
+            streakCount: 6
+        )
+
+        guard case .nightly(let nightly) = summary else {
+            return XCTFail("Expected nightly summary")
+        }
+
+        XCTAssertEqual(nightly.completedCount, 2)
+        XCTAssertEqual(nightly.totalCount, 4)
+        XCTAssertEqual(
+            nightly.xpEarned,
+            completedHigh.priority.scorePoints + completedLow.priority.scorePoints
+        )
+        XCTAssertEqual(nightly.completionRate, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(nightly.streakCount, 6)
+        XCTAssertEqual(nightly.biggestWins.first?.taskID, completedHigh.id)
+        XCTAssertEqual(nightly.carryOverDueTodayCount, 2)
+        XCTAssertEqual(nightly.carryOverOverdueCount, 1)
+        XCTAssertEqual(nightly.tomorrowPreview.map(\.taskID), [tomorrow.id])
+        XCTAssertEqual(nightly.morningCompletedCount, 1)
+        XCTAssertEqual(nightly.eveningCompletedCount, 1)
+    }
+
+    func testBuildSummaryMorningUsesDateTasksSplitWhenProvided() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 8, minute: 0)
+
+        var morningTaskA = TaskDefinition(title: "Morning A", priority: .high, type: .morning)
+        morningTaskA.dueDate = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: nowDate)
+        var morningTaskB = TaskDefinition(title: "Morning B", priority: .low, type: .morning)
+        morningTaskB.dueDate = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: nowDate)
+        var eveningTask = TaskDefinition(title: "Evening A", priority: .low, type: .evening, isEveningTask: true)
+        eveningTask.dueDate = calendar.date(bySettingHour: 19, minute: 0, second: 0, of: nowDate)
+
+        let allTasks = [morningTaskA, morningTaskB, eveningTask]
+        let readModel = InMemoryTaskReadModelRepositoryStub(tasks: allTasks)
+        let useCase = GetDailySummaryModalUseCase(
+            getTasksUseCase: GetTasksUseCase(readModelRepository: readModel),
+            analyticsUseCase: CalculateAnalyticsUseCase(taskReadModelRepository: readModel),
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        let dateTasks = DateTasksResult(
+            date: nowDate,
+            morningTasks: [morningTaskA, morningTaskB],
+            eveningTasks: [eveningTask],
+            overdueTasks: [],
+            completedTasks: [],
+            totalCount: 3
+        )
+
+        let summary = useCase.buildSummary(
+            kind: .morning,
+            date: nowDate,
+            allTasks: allTasks,
+            analytics: nil,
+            streakCount: nil,
+            dateTasks: dateTasks
+        )
+
+        guard case .morning(let morning) = summary else {
+            return XCTFail("Expected morning summary")
+        }
+
+        XCTAssertEqual(morning.morningPlannedCount, 2)
+        XCTAssertEqual(morning.eveningPlannedCount, 1)
+    }
+
+    func testBuildSummaryNightlyPrefersAnalyticsTotalCountForHeroDenominator() {
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 21, minute: 0)
+
+        var completed = TaskDefinition(title: "Completed", priority: .high, type: .morning, isComplete: true)
+        completed.dateCompleted = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: nowDate)
+        completed.dueDate = calendar.date(bySettingHour: 8, minute: 0, second: 0, of: nowDate)
+
+        let allTasks = [completed]
+        let readModel = InMemoryTaskReadModelRepositoryStub(tasks: allTasks)
+        let useCase = GetDailySummaryModalUseCase(
+            getTasksUseCase: GetTasksUseCase(readModelRepository: readModel),
+            analyticsUseCase: CalculateAnalyticsUseCase(taskReadModelRepository: readModel),
+            calendar: calendar,
+            now: { nowDate }
+        )
+        let analytics = DailyAnalytics(
+            date: nowDate,
+            totalTasks: 5,
+            completedTasks: 1,
+            completionRate: 0.2,
+            totalScore: completed.priority.scorePoints,
+            morningTasksCompleted: 1,
+            eveningTasksCompleted: 0,
+            priorityBreakdown: [:]
+        )
+
+        let summary = useCase.buildSummary(
+            kind: .nightly,
+            date: nowDate,
+            allTasks: allTasks,
+            analytics: analytics,
+            streakCount: 2
+        )
+
+        guard case .nightly(let nightly) = summary else {
+            return XCTFail("Expected nightly summary")
+        }
+
+        XCTAssertEqual(nightly.completedCount, 1)
+        XCTAssertEqual(nightly.totalCount, 5)
     }
 }
 
@@ -5060,7 +5433,56 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
 
         let snoozed = notificationService.scheduled.first
         XCTAssertEqual(snoozed?.kind, .snoozedMorning)
-        XCTAssertEqual(snoozed?.fireDate.timeIntervalSince1970, fixedNow.addingTimeInterval(30 * 60).timeIntervalSince1970, accuracy: 1)
+        guard let fireDate = snoozed?.fireDate else {
+            XCTFail("Expected snoozed fire date")
+            return
+        }
+        XCTAssertEqual(fireDate.timeIntervalSince1970, fixedNow.addingTimeInterval(30 * 60).timeIntervalSince1970, accuracy: 1)
+    }
+
+    func testSnoozeRespectsQuietHoursWhenEnabledForTaskAlerts() {
+        let fixedNow = makeUTCDate(year: 2026, month: 2, day: 24, hour: 23, minute: 0)
+        let notificationService = CapturingNotificationService()
+        let suiteName = "tasker.notification.action.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let preferencesStore = TaskerNotificationPreferencesStore(defaults: defaults)
+        preferencesStore.save(
+            TaskerNotificationPreferences(
+                quietHoursEnabled: true,
+                quietHoursStartHour: 22,
+                quietHoursStartMinute: 0,
+                quietHoursEndHour: 7,
+                quietHoursEndMinute: 0,
+                quietHoursAppliesToTaskAlerts: true,
+                quietHoursAppliesToDailySummaries: false
+            )
+        )
+
+        let handler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: { nil },
+            preferencesStore: preferencesStore,
+            calendar: Calendar(identifier: .gregorian, timeZoneID: "UTC"),
+            now: { fixedNow }
+        )
+
+        handler.handleAction(
+            identifier: TaskerNotificationActionID.snooze15m.rawValue,
+            request: makeUNNotificationRequest(
+                id: "task.reminder.\(UUID().uuidString)",
+                kind: .taskReminder,
+                route: .homeToday(taskID: nil),
+                category: TaskerNotificationCategoryID.taskActionable.rawValue
+            )
+        )
+
+        guard let snoozed = notificationService.scheduled.first else {
+            return XCTFail("Expected snoozed request")
+        }
+        XCTAssertEqual(Calendar(identifier: .gregorian, timeZoneID: "UTC").component(.day, from: snoozed.fireDate), 25)
+        XCTAssertEqual(Calendar(identifier: .gregorian, timeZoneID: "UTC").component(.hour, from: snoozed.fireDate), 7)
+        XCTAssertEqual(Calendar(identifier: .gregorian, timeZoneID: "UTC").component(.minute, from: snoozed.fireDate), 0)
     }
 
     func testOpenDoneActionRoutesToDoneQuickView() {
@@ -5087,6 +5509,29 @@ final class TaskerNotificationActionHandlerTests: XCTestCase {
         } else {
             XCTFail("Expected route to be homeDone")
         }
+    }
+
+    func testDefaultTapRoutesToDailySummaryWhenPayloadContainsDailySummaryRoute() {
+        clearRouteBus()
+        let notificationService = CapturingNotificationService()
+        let handler = TaskerNotificationActionHandler(
+            notificationService: notificationService,
+            coordinatorProvider: { nil }
+        )
+
+        let expectedRoute: TaskerNotificationRoute = .dailySummary(kind: .morning, dateStamp: "20260225")
+        handler.handleAction(
+            identifier: UNNotificationDefaultActionIdentifier,
+            request: makeUNNotificationRequest(
+                id: "daily.morning.20260225",
+                kind: .morningPlan,
+                route: expectedRoute,
+                category: TaskerNotificationCategoryID.dailyMorning.rawValue
+            )
+        )
+
+        let routed = TaskerNotificationRouteBus.shared.consumePendingRoute()
+        XCTAssertEqual(routed, expectedRoute)
     }
 
     func testCompleteActionInvokesCompletionExactlyOnce() throws {
