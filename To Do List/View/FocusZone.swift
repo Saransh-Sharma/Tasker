@@ -87,19 +87,9 @@ public struct FocusZone: View {
                 .stroke(
                     isTargeted
                         ? Color.tasker.accentPrimary.opacity(0.5)
-                        : Color.tasker.accentPrimary.opacity(0.20),
-                    lineWidth: 0.5
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: corner.r3)
-                .stroke(
-                    isTargeted
-                        ? Color.tasker.accentPrimary.opacity(0.5)
-                        : Color.tasker.accentPrimary.opacity(0.08),
+                        : Color.tasker.accentPrimary.opacity(0.15),
                     lineWidth: 1
                 )
-                .padding(-2)
         )
         .shadow(
             color: Color.tasker.accentPrimary.opacity(0.06),
@@ -130,27 +120,28 @@ public struct FocusZone: View {
                     // Flame icon with animation
                     Image(systemName: "flame.fill")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(Color.tasker.accentSecondary)
+                        .foregroundColor(Color.tasker.accentPrimary)
                         .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !tasks.isEmpty)
                         .breathingPulse(min: 0.8, max: 1.0, duration: 2.5)
 
                     // Title
                     Text("FOCUS NOW")
-                        .font(.tasker(.caption1))
+                        .font(.tasker(.buttonSmall))
                         .fontWeight(.semibold)
-                        .foregroundColor(Color.tasker.accentSecondary)
+                        .tracking(0.8)
+                        .foregroundColor(Color.tasker.accentPrimary)
 
                     // Count badge
                     if !tasks.isEmpty {
                         Text("\(tasks.count)")
                             .font(.tasker(.caption2))
                             .fontWeight(.medium)
-                            .foregroundColor(Color.tasker.accentOnPrimary)
+                            .foregroundColor(Color.tasker.accentPrimary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(
                                 Capsule()
-                                    .fill(Color.tasker.accentSecondary)
+                                    .fill(Color.tasker.accentMuted)
                             )
                             .transition(.scale.combined(with: .opacity))
                             .contentTransition(.numericText())
@@ -170,7 +161,7 @@ public struct FocusZone: View {
             } else if canDrag {
                 Text("Drag tasks here")
                     .font(.tasker(.caption2))
-                    .foregroundColor(Color.tasker.textQuaternary)
+                    .foregroundColor(Color.tasker.textTertiary)
             }
         }
     }
@@ -178,8 +169,8 @@ public struct FocusZone: View {
     private func actionButton(title: String, action: @escaping () -> Void, accessibilityID: String) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.tasker(.caption2))
-                .foregroundColor(Color.tasker.accentSecondary)
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.accentPrimary)
                 .padding(.horizontal, 8)
                 .frame(minHeight: 44)
         }
@@ -313,7 +304,7 @@ private struct FocusZoneRow: View {
             .frame(width: 24, height: 24)
 
             Text(task.title)
-                .font(.tasker(.body))
+                .font(.tasker(.bodyEmphasis))
                 .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
                 .lineLimit(1)
 
@@ -369,7 +360,7 @@ private struct FocusZoneRow: View {
         case .quickWin:
             return Color.tasker.statusSuccess
         case .unblocked:
-            return Color.tasker.accentPrimary
+            return Color.tasker.statusSuccess
         }
     }
 }
