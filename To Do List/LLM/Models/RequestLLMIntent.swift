@@ -47,6 +47,61 @@ struct RequestLLMIntent: AppIntent {
             throw $prompt.needsValueError(IntentDialog(stringLiteral: "chat"))
         }
 
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        var immediateResponse: String?
+        switch SlashCommandCatalog.parse(trimmedPrompt) {
+        case .invocation(var invocation):
+            switch invocation.id {
+            case .clear:
+                immediateResponse = "The /clear command is only available in the in-app chat."
+            case .project:
+                let query = invocation.projectQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard query.isEmpty == false else {
+                    immediateResponse = "/project needs a project name."
+                    break
+                }
+                invocation.projectName = query
+                if let service = SlashCommandExecutionService.makeDefault() {
+                    do {
+                        let result = try await service.execute(invocation: invocation)
+                        immediateResponse = formatShortcutCommandResult(result)
+                    } catch {
+                        immediateResponse = (error as? LocalizedError)?.errorDescription ?? "Unable to run command right now."
+                    }
+                } else {
+                    immediateResponse = "Task context is unavailable right now."
+                }
+            default:
+                if let service = SlashCommandExecutionService.makeDefault() {
+                    do {
+                        let result = try await service.execute(invocation: invocation)
+                        immediateResponse = formatShortcutCommandResult(result)
+                    } catch {
+                        immediateResponse = (error as? LocalizedError)?.errorDescription ?? "Unable to run command right now."
+                    }
+                } else {
+                    immediateResponse = "Task context is unavailable right now."
+                }
+            }
+        case .missingRequiredArgument(let commandID, _):
+            immediateResponse = "\(commandID.canonicalCommand) needs a project name."
+        case .unknown(let command):
+            immediateResponse = "Unknown command \(command). Try /today, /tomorrow, /week, /month, /project, or /clear."
+        case .notCommand:
+            break
+        }
+
+        if var immediateResponse {
+            let maxCharacters = maxCharacters ?? .max
+            if immediateResponse.count > maxCharacters {
+                immediateResponse = String(immediateResponse.prefix(maxCharacters)).trimmingCharacters(in: .whitespaces) + "..."
+            }
+            if continuous {
+                throw $prompt.needsValueError(IntentDialog(stringLiteral: immediateResponse))
+            }
+            return .result(value: immediateResponse, dialog: "\(immediateResponse)")
+        }
+
         if let modelName = appManager.currentModelName {
             _ = try? await llm.load(modelName: modelName)
 
@@ -91,6 +146,25 @@ struct RequestLLMIntent: AppIntent {
             let error = "no model is currently selected. open the app and select a model first."
             return .result(value: error, dialog: "\(error)")
         }
+    }
+
+    private func formatShortcutCommandResult(_ result: SlashCommandExecutionResult) -> String {
+        var lines: [String] = [result.commandLabel, result.summary]
+        for section in result.sections {
+            lines.append("\(section.title) (\(section.totalCount))")
+            for task in section.tasks {
+                var line = "• \(task.title)"
+                if let dueLabel = task.dueLabel, dueLabel.isEmpty == false {
+                    line += " • \(dueLabel)"
+                }
+                line += " • \(task.projectName)"
+                lines.append(line)
+            }
+            if section.totalCount > section.tasks.count {
+                lines.append("• +\(section.totalCount - section.tasks.count) more")
+            }
+        }
+        return lines.joined(separator: "\n")
     }
 
     static var openAppWhenRun: Bool = false
