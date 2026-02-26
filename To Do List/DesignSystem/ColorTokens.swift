@@ -137,7 +137,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
             if traits.userInterfaceStyle == .dark {
                 return UIColor(taskerHex: "#171513").withAlphaComponent(0.72)
             }
-            return UIColor(taskerHex: "#FAF8F5").withAlphaComponent(0.74)
+            return UIColor(taskerHex: "#FAF8F5").withAlphaComponent(0.82)
         }
 
         return TaskerColorTokens(
@@ -169,7 +169,7 @@ public struct TaskerColorTokens: TaskerTokenGroup {
             statusDanger: statusDanger,
             overlayScrim: overlayScrim,
             overlayGlassTint: overlayGlassTint,
-            taskCheckboxBorder: strokeStrong,
+            taskCheckboxBorder: textTertiary,
             taskCheckboxFill: accentRamp.accent500,
             taskOverdue: UIColor(taskerHex: "#D43860"),  // Blood Rose — distinct from danger
             chartPrimary: accentRamp.accent500,
