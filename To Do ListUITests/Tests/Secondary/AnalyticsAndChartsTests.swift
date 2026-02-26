@@ -12,7 +12,7 @@ class AnalyticsAndChartsTests: BaseUITest {
 
     var homePage: HomePage!
     override var additionalLaunchArguments: [String] {
-        [XCUIApplication.LaunchArgumentKey.disableAIForUITests.rawValue]
+        [XCUIApplication.LaunchArgumentKey.disableLLM.rawValue]
     }
 
     override func setUpWithError() throws {
