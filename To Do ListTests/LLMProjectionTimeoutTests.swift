@@ -268,6 +268,145 @@ final class PromptMiddlewareTests: XCTestCase {
     }
 }
 
+final class SlashCommandCatalogTests: XCTestCase {
+    func testParseTodoAliasResolvesToTodayInvocation() {
+        let result = SlashCommandCatalog.parse("/todo")
+        switch result {
+        case .invocation(let invocation):
+            XCTAssertEqual(invocation.id, .today)
+        default:
+            XCTFail("Expected /todo to parse as a today invocation")
+        }
+    }
+
+    func testParseUnknownSlashCommandReturnsUnknownResult() {
+        let result = SlashCommandCatalog.parse("/notreal")
+        switch result {
+        case .unknown(let command):
+            XCTAssertEqual(command, "/notreal")
+        default:
+            XCTFail("Expected unknown command parse result")
+        }
+    }
+
+    func testParseProjectWithoutNameReturnsMissingArgument() {
+        let result = SlashCommandCatalog.parse("/project")
+        switch result {
+        case .missingRequiredArgument(let commandID, let partial):
+            XCTAssertEqual(commandID, .project)
+            XCTAssertNil(partial)
+        default:
+            XCTFail("Expected missing argument parse result for /project")
+        }
+    }
+
+    func testFilteredDescriptorsPrioritizesRecentsBeforePopularity() {
+        let filtered = SlashCommandCatalog.filteredDescriptors(
+            query: "",
+            recents: [.month, .project],
+            limit: 3
+        )
+
+        XCTAssertEqual(filtered.map(\.id), [.month, .project, .today])
+    }
+}
+
+final class SlashCommandExecutionServiceTests: XCTestCase {
+    func testTodayExecutionIncludesOverdueAndDueTodayOnly() async throws {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        let overdueTask = TaskDefinition(
+            title: "Overdue task",
+            dueDate: calendar.date(byAdding: .hour, value: -2, to: startOfToday),
+            isComplete: false
+        )
+        let dueTodayTask = TaskDefinition(
+            title: "Due today task",
+            dueDate: calendar.date(byAdding: .hour, value: 2, to: startOfToday),
+            isComplete: false
+        )
+        let completedOverdueTask = TaskDefinition(
+            title: "Completed overdue",
+            dueDate: calendar.date(byAdding: .hour, value: -4, to: startOfToday),
+            isComplete: true
+        )
+
+        let service = SlashCommandExecutionService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: [overdueTask, dueTodayTask, completedOverdueTask]),
+            projectRepository: MockProjectRepository()
+        )
+        let result = try await service.execute(
+            invocation: SlashCommandInvocation(id: .today, projectQuery: nil, projectName: nil)
+        )
+
+        XCTAssertEqual(result.commandID, .today)
+        XCTAssertEqual(result.totalTaskCount, 2)
+        XCTAssertEqual(Set(result.sections.map(\.id)), Set(["overdue", "today"]))
+        let titles = Set(result.sections.flatMap { $0.tasks.map(\.title) })
+        XCTAssertEqual(titles, Set(["Overdue task", "Due today task"]))
+        XCTAssertFalse(titles.contains("Completed overdue"))
+    }
+
+    func testProjectExecutionDoesNotFallbackToAllTasksWhenProjectMissing() async throws {
+        var inboxTask = TaskDefinition(title: "Inbox task", dueDate: Date(), isComplete: false)
+        inboxTask.projectName = "Inbox"
+        var workTask = TaskDefinition(title: "Work task", dueDate: Date(), isComplete: false)
+        workTask.projectName = "Work"
+
+        let service = SlashCommandExecutionService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: [inboxTask, workTask]),
+            projectRepository: MockProjectRepository(projects: [
+                Project.createInbox(),
+                Project(name: "Work")
+            ])
+        )
+
+        do {
+            _ = try await service.execute(
+                invocation: SlashCommandInvocation(id: .project, projectQuery: "Unknown Project", projectName: nil)
+            )
+            XCTFail("Expected missing project query to fail")
+        } catch let error as SlashCommandExecutionError {
+            switch error {
+            case .projectNotFound(let query):
+                XCTAssertEqual(query, "Unknown Project")
+            default:
+                XCTFail("Expected projectNotFound error")
+            }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testProjectExecutionReturnsAmbiguousErrorForNonUniqueMatch() async throws {
+        let service = SlashCommandExecutionService(
+            taskReadModelRepository: MockTaskReadModelRepository(tasks: []),
+            projectRepository: MockProjectRepository(projects: [
+                Project.createInbox(),
+                Project(name: "Work Alpha"),
+                Project(name: "Work Beta")
+            ])
+        )
+
+        do {
+            _ = try await service.execute(
+                invocation: SlashCommandInvocation(id: .project, projectQuery: "Work", projectName: nil)
+            )
+            XCTFail("Expected ambiguous project match to fail")
+        } catch let error as SlashCommandExecutionError {
+            switch error {
+            case .ambiguousProjectName(let query, let matches):
+                XCTAssertEqual(query, "Work")
+                XCTAssertEqual(Set(matches), Set(["Work Alpha", "Work Beta"]))
+            default:
+                XCTFail("Expected ambiguousProjectName error")
+            }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+}
+
 private final class MockTaskReadModelRepository: TaskReadModelRepositoryProtocol {
     private let tasks: [TaskDefinition]
     private let fetchDelayMs: Int
