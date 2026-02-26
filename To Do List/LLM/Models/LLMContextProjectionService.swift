@@ -45,8 +45,7 @@ enum LLMContextRepositoryProvider {
                 continuation.resume(returning: resolved)
             }
         }
-        let normalized = trimmed.lowercased()
-        return projects.first(where: { $0.name.lowercased().contains(normalized) })?.name
+        return resolveProjectName(in: projects, query: trimmed)
     }
 
     /// Executes findProjectNameSync.
@@ -56,15 +55,13 @@ enum LLMContextRepositoryProvider {
         guard trimmed.isEmpty == false else { return nil }
 
         let semaphore = DispatchSemaphore(value: 0)
-        var matchedName: String?
+        var projects: [Project] = []
         projectRepository.fetchAllProjects { result in
-            let projects = (try? result.get()) ?? []
-            let normalized = trimmed.lowercased()
-            matchedName = projects.first(where: { $0.name.lowercased().contains(normalized) })?.name
+            projects = (try? result.get()) ?? []
             semaphore.signal()
         }
         _ = semaphore.wait(timeout: .now() + .milliseconds(Int(timeoutSeconds * 1_000)))
-        return matchedName
+        return resolveProjectName(in: projects, query: trimmed)
     }
 
     /// Executes projectNameLookup.
@@ -77,6 +74,27 @@ enum LLMContextRepositoryProvider {
             }
         }
         return Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0.name) })
+    }
+
+    private static func resolveProjectName(in projects: [Project], query: String) -> String? {
+        let normalized = query.lowercased()
+
+        let exactMatches = projects.filter { $0.name.lowercased() == normalized }
+        if exactMatches.count == 1 {
+            return exactMatches[0].name
+        }
+
+        let prefixMatches = projects.filter { $0.name.lowercased().hasPrefix(normalized) }
+        if prefixMatches.count == 1 {
+            return prefixMatches[0].name
+        }
+
+        let containsMatches = projects.filter { $0.name.lowercased().contains(normalized) }
+        if containsMatches.count == 1 {
+            return containsMatches[0].name
+        }
+
+        return nil
     }
 }
 
