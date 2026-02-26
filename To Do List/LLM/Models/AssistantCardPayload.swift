@@ -5,6 +5,7 @@ enum AssistantCardType: String, Codable {
     case undo
     case status
     case error
+    case commandResult
 }
 
 enum AssistantCardStatus: String, Codable {
@@ -31,6 +32,7 @@ struct AssistantCardPayload: Codable, Equatable {
     var affectedTaskCount: Int
     var expiresAt: Date?
     var message: String?
+    var commandResult: SlashCommandExecutionResult?
 
     enum CodingKeys: String, CodingKey {
         case cardType = "card_type"
@@ -43,6 +45,7 @@ struct AssistantCardPayload: Codable, Equatable {
         case affectedTaskCount = "affected_task_count"
         case expiresAt = "expires_at"
         case message
+        case commandResult = "command_result"
     }
 
     /// Initializes a new instance.
@@ -56,7 +59,8 @@ struct AssistantCardPayload: Codable, Equatable {
         destructiveCount: Int = 0,
         affectedTaskCount: Int = 0,
         expiresAt: Date? = nil,
-        message: String? = nil
+        message: String? = nil,
+        commandResult: SlashCommandExecutionResult? = nil
     ) {
         self.cardType = cardType
         self.runID = runID
@@ -68,6 +72,7 @@ struct AssistantCardPayload: Codable, Equatable {
         self.affectedTaskCount = affectedTaskCount
         self.expiresAt = expiresAt
         self.message = message
+        self.commandResult = commandResult
     }
 }
 
