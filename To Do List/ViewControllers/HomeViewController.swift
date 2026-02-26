@@ -268,6 +268,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     /// Executes chatButtonTapped.
     @objc func chatButtonTapped() {
         let chatHostVC = ChatHostViewController()
+        if let presentationDependencyContainer {
+            _ = presentationDependencyContainer.tryInject(into: chatHostVC)
+        }
         let navController = UINavigationController(rootViewController: chatHostVC)
         navController.modalPresentationStyle = .fullScreen
         navController.navigationBar.prefersLargeTitles = false
