@@ -49,6 +49,24 @@ enum LLMContextRepositoryProvider {
         return projects.first(where: { $0.name.lowercased().contains(normalized) })?.name
     }
 
+    /// Executes findProjectNameSync.
+    static func findProjectNameSync(matching query: String, timeoutSeconds: TimeInterval = 3) -> String? {
+        guard let projectRepository = projectRepositoryStorage else { return nil }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return nil }
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var matchedName: String?
+        projectRepository.fetchAllProjects { result in
+            let projects = (try? result.get()) ?? []
+            let normalized = trimmed.lowercased()
+            matchedName = projects.first(where: { $0.name.lowercased().contains(normalized) })?.name
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + .milliseconds(Int(timeoutSeconds * 1_000)))
+        return matchedName
+    }
+
     /// Executes projectNameLookup.
     static func projectNameLookup() async -> [UUID: String] {
         guard let projectRepository = projectRepositoryStorage else { return [:] }
@@ -67,22 +85,6 @@ struct LLMContextProjectionService {
     let projectRepository: ProjectRepositoryProtocol
     let tagRepository: TagRepositoryProtocol?
 
-    func buildTodayJSON() async -> String {
-        await withCheckedContinuation { continuation in
-            buildTodayJSON { json in
-                continuation.resume(returning: json)
-            }
-        }
-    }
-
-    func buildUpcomingJSON() async -> String {
-        await withCheckedContinuation { continuation in
-            buildUpcomingJSON { json in
-                continuation.resume(returning: json)
-            }
-        }
-    }
-
     /// Executes buildTodayJSON.
     func buildTodayJSON() async -> String {
         let calendar = Calendar.current
@@ -100,10 +102,42 @@ struct LLMContextProjectionService {
                 offset: 0
             )
         )
+        let scopedTasks = tasks.filter { task in
+            guard task.isComplete else { return true }
+            guard let completedAt = task.dateCompleted else { return false }
+            return calendar.isDateInToday(completedAt)
+        }
         let tagNameLookup = await buildTagNameLookup()
         return Self.encode(
-            tasks: tasks,
+            tasks: scopedTasks,
             contextType: "today",
+            metadata: defaultMetadata(),
+            tagNameLookup: tagNameLookup
+        )
+    }
+
+    /// Executes buildOverdueJSON.
+    func buildOverdueJSON() async -> String {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+
+        let tasks = await fetchTasks(
+            query: TaskReadQuery(
+                includeCompleted: false,
+                dueDateEnd: startOfToday,
+                sortBy: .dueDateAscending,
+                limit: 1_000,
+                offset: 0
+            )
+        )
+        let overdueTasks = tasks.filter { task in
+            guard task.isComplete == false, let dueDate = task.dueDate else { return false }
+            return dueDate < startOfToday
+        }
+        let tagNameLookup = await buildTagNameLookup()
+        return Self.encode(
+            tasks: overdueTasks,
+            contextType: "overdue",
             metadata: defaultMetadata(),
             tagNameLookup: tagNameLookup
         )
@@ -166,6 +200,13 @@ struct LLMContextProjectionService {
     func buildUpcomingJSON(completion: @escaping (String) -> Void) {
         Task {
             completion(await buildUpcomingJSON())
+        }
+    }
+
+    /// Executes buildOverdueJSON.
+    func buildOverdueJSON(completion: @escaping (String) -> Void) {
+        Task {
+            completion(await buildOverdueJSON())
         }
     }
 
@@ -269,5 +310,182 @@ struct LLMContextProjectionService {
             return "{}"
         }
         return String(decoding: data, as: UTF8.self)
+    }
+}
+
+struct LLMChatContextPartialFlags {
+    let missingService: Bool
+    let todayTimedOut: Bool
+    let overdueTimedOut: Bool
+    let upcomingTimedOut: Bool
+
+    var contextPartial: Bool {
+        missingService || todayTimedOut || overdueTimedOut || upcomingTimedOut
+    }
+
+    var partialReasons: [String] {
+        var reasons: [String] = []
+        if missingService { reasons.append("missing_service") }
+        if todayTimedOut { reasons.append("today_timeout") }
+        if overdueTimedOut { reasons.append("overdue_timeout") }
+        if upcomingTimedOut { reasons.append("upcoming_timeout") }
+        return reasons
+    }
+
+    func asDictionary() -> [String: Any] {
+        [
+            "missing_service": missingService,
+            "today_timed_out": todayTimedOut,
+            "overdue_timed_out": overdueTimedOut,
+            "upcoming_timed_out": upcomingTimedOut,
+            "context_partial": contextPartial
+        ]
+    }
+}
+
+struct LLMChatContextMetadata {
+    let timezone: String
+    let generatedAtISO: String
+    let contextVersion: Int
+    let contextPartial: Bool
+    let partialReasons: [String]
+    let injectionPolicy: String
+
+    func asDictionary() -> [String: Any] {
+        [
+            "timezone": timezone,
+            "generated_at_iso": generatedAtISO,
+            "context_version": contextVersion,
+            "context_partial": contextPartial,
+            "partial_reasons": partialReasons,
+            "injection_policy": injectionPolicy
+        ]
+    }
+}
+
+struct LLMChatContextEnvelope {
+    let todayJSON: String
+    let overdueJSON: String
+    let upcomingJSON: String
+    let metadata: LLMChatContextMetadata
+    let partialFlags: LLMChatContextPartialFlags
+
+    func toJSONString() -> String {
+        let payload: [String: Any] = [
+            "today": Self.decodeJSONObject(from: todayJSON),
+            "overdue": Self.decodeJSONObject(from: overdueJSON),
+            "upcoming": Self.decodeJSONObject(from: upcomingJSON),
+            "metadata": metadata.asDictionary(),
+            "partial_flags": partialFlags.asDictionary()
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: []) else {
+            return "{}"
+        }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    var promptBlock: String {
+        """
+        Context JSON:
+        \(toJSONString())
+        """
+    }
+
+    /// Executes decodeJSONObject.
+    private static func decodeJSONObject(from raw: String) -> Any {
+        guard let data = raw.data(using: .utf8) else { return [:] }
+        guard let object = try? JSONSerialization.jsonObject(with: data, options: []) else { return [:] }
+        if let dictionary = object as? [String: Any] {
+            return dictionary
+        }
+        if let array = object as? [Any] {
+            return array
+        }
+        return [:]
+    }
+}
+
+struct LLMChatContextBuildResult {
+    let payload: String
+    let usedTimeoutFallback: Bool
+    let envelope: LLMChatContextEnvelope
+}
+
+enum LLMChatContextEnvelopeBuilder {
+    /// Executes build.
+    static func build(
+        timeoutMs: UInt64,
+        service: LLMContextProjectionService?,
+        injectionPolicy: String = "per_turn"
+    ) async -> LLMChatContextBuildResult {
+        guard let service else {
+            let partialFlags = LLMChatContextPartialFlags(
+                missingService: true,
+                todayTimedOut: false,
+                overdueTimedOut: false,
+                upcomingTimedOut: false
+            )
+            let metadata = LLMChatContextMetadata(
+                timezone: TimeZone.current.identifier,
+                generatedAtISO: Date().ISO8601Format(),
+                contextVersion: 3,
+                contextPartial: partialFlags.contextPartial,
+                partialReasons: partialFlags.partialReasons,
+                injectionPolicy: injectionPolicy
+            )
+            let envelope = LLMChatContextEnvelope(
+                todayJSON: "{}",
+                overdueJSON: "{}",
+                upcomingJSON: "{}",
+                metadata: metadata,
+                partialFlags: partialFlags
+            )
+            return LLMChatContextBuildResult(
+                payload: envelope.promptBlock,
+                usedTimeoutFallback: true,
+                envelope: envelope
+            )
+        }
+
+        async let todayResult = LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+            await service.buildTodayJSON()
+        }
+        async let overdueResult = LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+            await service.buildOverdueJSON()
+        }
+        async let upcomingResult = LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
+            await service.buildUpcomingJSON()
+        }
+
+        let todayValue = await todayResult
+        let overdueValue = await overdueResult
+        let upcomingValue = await upcomingResult
+
+        let partialFlags = LLMChatContextPartialFlags(
+            missingService: false,
+            todayTimedOut: todayValue.timedOut,
+            overdueTimedOut: overdueValue.timedOut,
+            upcomingTimedOut: upcomingValue.timedOut
+        )
+        let metadata = LLMChatContextMetadata(
+            timezone: TimeZone.current.identifier,
+            generatedAtISO: Date().ISO8601Format(),
+            contextVersion: 3,
+            contextPartial: partialFlags.contextPartial,
+            partialReasons: partialFlags.partialReasons,
+            injectionPolicy: injectionPolicy
+        )
+        let envelope = LLMChatContextEnvelope(
+            todayJSON: todayValue.payload,
+            overdueJSON: overdueValue.payload,
+            upcomingJSON: upcomingValue.payload,
+            metadata: metadata,
+            partialFlags: partialFlags
+        )
+        return LLMChatContextBuildResult(
+            payload: envelope.promptBlock,
+            usedTimeoutFallback: partialFlags.contextPartial,
+            envelope: envelope
+        )
     }
 }
