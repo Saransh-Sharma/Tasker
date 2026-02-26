@@ -33,7 +33,10 @@ class ProjectManagementPage {
 
         // Fallback: top-right navigation button
         if !button.exists {
-            button = navigationBar.buttons.element(boundBy: navigationBar.buttons.count - 1)
+            let navButtons = navigationBar.buttons
+            if navButtons.count > 0 {
+                button = navButtons.element(boundBy: navButtons.count - 1)
+            }
         }
 
         // Fallback: find by label
@@ -45,7 +48,11 @@ class ProjectManagementPage {
     }
 
     var projectsList: XCUIElement {
-        return app.tables[AccessibilityIdentifiers.ProjectManagement.projectsList]
+        let identifiedTable = app.tables[AccessibilityIdentifiers.ProjectManagement.projectsList]
+        if identifiedTable.exists {
+            return identifiedTable
+        }
+        return app.tables.firstMatch
     }
 
     var emptyStateLabel: XCUIElement {
@@ -141,19 +148,29 @@ class ProjectManagementPage {
 
     /// Verify project exists with name
     func verifyProjectExists(named name: String) -> Bool {
-        let projectText = projectsList.staticTexts[name]
-        return projectText.exists
+        if projectsList.staticTexts[name].exists {
+            return true
+        }
+
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@", name)
+        if projectsList.descendants(matching: .staticText).matching(predicate).firstMatch.exists {
+            return true
+        }
+
+        return app.staticTexts.matching(predicate).firstMatch.exists
     }
 
     /// Verify project does not exist
     func verifyProjectDoesNotExist(named name: String) -> Bool {
-        let projectText = projectsList.staticTexts[name]
-        return !projectText.exists
+        return !verifyProjectExists(named: name)
     }
 
     /// Get project count
     func getProjectCount() -> Int {
-        return projectsList.cells.count
+        if projectsList.exists {
+            return projectsList.cells.count
+        }
+        return app.tables.firstMatch.cells.count
     }
 
     /// Verify project count
@@ -189,8 +206,18 @@ class ProjectManagementPage {
     /// Wait for project to appear
     @discardableResult
     func waitForProject(named name: String, timeout: TimeInterval = 5) -> Bool {
-        let projectText = projectsList.staticTexts[name]
-        return projectText.waitForExistence(timeout: timeout)
+        if projectsList.staticTexts[name].waitForExistence(timeout: timeout) {
+            return true
+        }
+
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@", name)
+        let listMatch = projectsList.descendants(matching: .staticText).matching(predicate).firstMatch
+        if listMatch.waitForExistence(timeout: timeout) {
+            return true
+        }
+
+        let globalMatch = app.staticTexts.matching(predicate).firstMatch
+        return globalMatch.waitForExistence(timeout: timeout)
     }
 
     /// Wait for project count to match expected

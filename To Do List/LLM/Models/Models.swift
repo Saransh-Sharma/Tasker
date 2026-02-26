@@ -88,6 +88,15 @@ public extension ModelConfiguration {
         // messages
         for message in thread.sortedMessages {
             let role = message.role.rawValue
+            if AssistantCardCodec.isCard(message.content) {
+                if let payload = AssistantCardCodec.decode(from: message.content) {
+                    history.append([
+                        "role": role,
+                        "content": "[assistant_card \(payload.cardType.rawValue) \(payload.status.rawValue)]",
+                    ])
+                }
+                continue
+            }
             history.append([
                 "role": role,
                 "content": formatForTokenizer(message.content), // remove reasoning part

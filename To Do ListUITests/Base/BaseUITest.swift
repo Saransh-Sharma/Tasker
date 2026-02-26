@@ -12,6 +12,7 @@ class BaseUITest: XCTestCase {
     // MARK: - Properties
 
     var app: XCUIApplication!
+    var additionalLaunchArguments: [String] { [] }
 
     // MARK: - Test Lifecycle
 
@@ -28,6 +29,7 @@ class BaseUITest: XCTestCase {
             "-UI_TESTING",       // Flag for UI testing mode
             "-DISABLE_ANIMATIONS" // Speed up tests
         ]
+        app.launchArguments.append(contentsOf: additionalLaunchArguments)
 
         // Launch the app
         app.launch()

@@ -316,16 +316,9 @@ class HomePage {
                 }
             }
 
-            let bottomBarContainer = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.bottomBar]
-            if bottomBarContainer.waitForExistence(timeout: 1) {
-                // Add action is rendered on the trailing edge of the custom bottom bar.
-                bottomBarContainer
-                    .coordinate(withNormalizedOffset: CGVector(dx: 0.90, dy: 0.50))
-                    .tap()
-                if addTaskPage.verifyIsDisplayed(timeout: 2) {
-                    return addTaskPage
-                }
-            }
+            // Avoid tapping an ambiguous "home.bottomBar" query because multiple
+            // bottom-bar buttons can share that identifier in UI test snapshots.
+            // The explicit Add Task button paths above are the only safe fallbacks.
         }
 
         XCTFail("Add Task button should exist before tapping")

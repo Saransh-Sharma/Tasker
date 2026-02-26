@@ -1,6 +1,6 @@
 # Tasker V3 Risk Register and Guardrails
 
-**Last validated against code on 2026-02-20**
+**Last validated against code on 2026-02-21**
 
 This register tracks technical risks that can regress V3 runtime correctness, data integrity, and release safety.
 
@@ -13,6 +13,9 @@ Primary source anchors:
 - `To Do List/UseCases/Sync/ReconcileExternalRemindersUseCase.swift`
 - `To Do List/UseCases/Sync/ReminderMergeEngine.swift`
 - `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
+- `To Do List/LLM/Views/Chat/ChatView.swift`
+- `To Do List/LLM/Models/AssistantCardPayload.swift`
+- `To Do List/LLM/Models/TaskSemanticRetrievalService.swift`
 - `To Do List/Services/V2FeatureFlags.swift`
 
 ## Active Risk Register
@@ -26,8 +29,15 @@ Primary source anchors:
 | `R-005` | Tombstone/merge-clock regressions | High | deleted entities resurrect or conflict resolution becomes unstable | merge envelope encoding/clock logic changes | keep merge-engine envelope compatibility + purge lifecycle checks |
 | `R-006` | Assistant apply/undo contract drift | High | irreversible or partially rolled-back assistant actions | schema/allowlist/undo-plan regressions | enforce schema bounds, allowlist checks, deterministic undo validation |
 | `R-007` | Feature-flag guard omission in side-effect flows | Medium | disabled features still mutate state/provider | new flow added without explicit gate | require explicit `V2FeatureFlags` checks for reminders and assistant paths |
-| `R-008` | Background refresh reliability degradation | Medium | stale occurrence/reminder state | repeated BG task timeout/failure signals | preserve scheduling retries, timeout logging, and dependency checks |
+| `R-008` | Background refresh reliability degradation | Medium | stale occurrence/reminder/brief state | repeated BG task timeout/failure signals | preserve scheduling retries, timeout logging, and dependency checks |
 | `R-009` | Documentation/runtime drift | Medium | incorrect engineering decisions and release mistakes | docs not updated with code changes | enforce same-PR doc updates and release-gate evidence in tracker doc |
+| `R-010` | LLM context staleness or under-specified context payload | High | poor/incorrect assistant proposals | one-time injection, dropped task metadata, missing timezone/tag context | rebuild context per request, include enriched metadata, log `assistant_context_built` |
+| `R-011` | Semantic retrieval quality or availability regression | Medium | irrelevant search/chat context ranking | embedding runtime unavailable or stale index | lexical fallback + explicit `assistant_semantic_fallback_lexical` event + index rebuild hooks |
+| `R-012` | Chat plan/apply repeated failures within a session | Medium | user distrust and repeated mutation failures | consecutive apply failures from stale/invalid proposals | session circuit breaker after 3 apply failures and explicit user message |
+| `R-013` | Card transport payload corruption or incompatible decoding | Medium | proposal/undo cards fail to render or actions target wrong run | malformed sentinel payload or status mismatch | enforce sentinel prefix contract, decode guards, and run/thread ownership checks |
+| `R-014` | Notification deep-link seeding drift (brief/triage) | Medium | wrong chat mode/prompt seeded or no chat open on tap | pending keys diverge between producers/consumer | centralize key names and verify open-chat signal path |
+| `R-015` | Semantic index performance drift under mutation volume | Medium | UI lag or stale semantic ranking | rebuild-heavy path used too often instead of incremental updates | prefer incremental upsert/remove and bounded rebuild fallback |
+| `R-016` | AI cold-start and surface latency regression | Medium | users perceive assistant as stalled on first interaction | model not warmed, heavy route chosen, or long generation budgets | staged status UX + current-model prewarm + fast-first fallback + latency telemetry |
 
 ## Detection Signals and Containment
 
@@ -42,6 +52,30 @@ Primary source anchors:
 | `R-007` | feature-disabled scenarios still execute side effects | add/restore explicit guard checks and disabled-path tests |
 | `R-008` | repeated BG timeout/failure events | tune timeout strategy and dependency readiness, then re-run BG smoke |
 | `R-009` | stale architecture statements detected in review | update docs before merge; refresh `v3-runtime-cutover-todo.md` |
+| `R-010` | proposal quality drops after mid-thread task mutations | inspect context logs and ensure per-request context rebuild remains enabled |
+| `R-011` | semantic hits absent for ambiguous queries | verify embedding availability, index freshness, and lexical fallback path |
+| `R-012` | 3+ assistant apply failures in one session | stop plan/apply for session, triage root cause before re-enable |
+| `R-013` | card decode failures, missing `run_id` warnings, card action mismatch | validate sentinel payload generation and decode guards; block action on invalid payload |
+| `R-014` | daily brief open path does not seed chat thread/prompt | verify pending key writes and `.assistantOpenChatRequested` notification path |
+| `R-015` | frequent full index rebuild logs, degraded search latency | tune mutation observer handling and keep incremental upsert/remove active |
+| `R-016` | first-token and surface latency drift beyond SLO | inspect warmup events, routing mode, and generation profile budgets; tune fast-first paths |
+
+## AI Telemetry Signals to Watch
+
+| Event | Why it matters |
+| --- | --- |
+| `assistant_context_built` | verifies enriched context generation and payload metadata |
+| `assistant_plan_mode_activated` | confirms discoverability/usage of plan mode |
+| `assistant_proposal_generated` | baseline proposal generation health |
+| `assistant_apply_failed` | key mutation safety/error signal |
+| `assistant_undo_invoked` / `assistant_undo_expired` | validates bounded reversibility UX |
+| `assistant_overdue_triage_shown` / `assistant_overdue_triage_applied` | monitors proactive triage path health |
+| `assistant_daily_brief_generated` / `assistant_daily_brief_opened` | validates brief generation + deep-link behavior |
+| `assistant_semantic_fallback_lexical` | confirms graceful behavior when embeddings unavailable |
+| `assistant_model_warmup_started` / `assistant_model_warmup_completed` / `assistant_model_warmup_failed` | verifies prewarm lifecycle and startup readiness |
+| `assistant_first_token_latency` | tracks cold vs warm chat responsiveness |
+| `assistant_surface_latency` / `assistant_surface_timeout` | tracks non-chat AI surface latency and timeout rates |
+| `assistant_fast_fallback_used` | confirms fast-first heuristic rendering occurred before refine |
 
 ## Guardrails (Do Not Bypass)
 
@@ -52,6 +86,7 @@ Primary source anchors:
 5. Do not remove canonical ID validation/canonicalization helpers.
 6. Do not change compatibility columns without documenting migration rationale.
 7. Do not weaken guardrail scripts without replacing equivalent coverage.
+8. Do not add chat-layer task mutation paths outside `AssistantActionPipelineUseCase`.
 
 ## High-Risk Invariants to Preserve
 
@@ -62,6 +97,7 @@ Primary source anchors:
 | External mapping uniqueness and merge clocks are preserved | stable two-way sync conflict resolution | `CoreDataExternalSyncRepository.swift`, `ReminderMergeEngine.swift` |
 | Assistant apply requires confirmed runs and valid undo payloads | transactional safety and user trust | `AssistantActionPipelineUseCase.swift` |
 | Tombstone lifecycle (write -> expire -> purge) is intact | prevents deletion regressions and sync churn | `DeleteTaskDefinitionUseCase.swift`, `MaintainOccurrencesUseCase.swift` |
+| Card actions require run/thread ownership checks | prevents cross-thread accidental mutation operations | `ChatView.swift`, `ConversationView.swift` |
 
 ## Review Checklist (Required in PRs Touching Architecture)
 
@@ -70,6 +106,7 @@ Primary source anchors:
 - [ ] Runtime/DI/bootstrapping changes reflected in `docs/architecture/clean-architecture-v2.md`.
 - [ ] State repository/service changes reflected in `docs/architecture/state-repositories-and-services-v2.md`.
 - [ ] LLM/assistant changes reflected in `docs/architecture/llm-assistant-stack-v2.md`.
+- [ ] Mixed audience AI behavior docs updated in `docs/architecture/llm-feature-integration-handbook.md`.
 - [ ] `docs/architecture/v3-runtime-cutover-todo.md` gate evidence updated when release-gating behavior changed.
 
 ## Escalation Guidance
@@ -78,7 +115,9 @@ Escalate for architecture review before merge when a change:
 - touches identity columns or canonicalization paths,
 - changes reconcile merge semantics or tombstone handling,
 - changes assistant command schema/allowlist/undo contracts,
-- modifies runtime bootstrap readiness or fail-closed behavior.
+- modifies runtime bootstrap readiness or fail-closed behavior,
+- changes AI telemetry names/required fields,
+- changes semantic index lifecycle (incremental vs rebuild behavior).
 
 ## Cross-Links
 
@@ -86,4 +125,6 @@ Escalate for architecture review before merge when a change:
 - `docs/architecture/data-model-v2.md`
 - `docs/architecture/state-repositories-and-services-v2.md`
 - `docs/architecture/usecases-v2.md`
+- `docs/architecture/llm-assistant-stack-v2.md`
+- `docs/architecture/llm-feature-integration-handbook.md`
 - `docs/architecture/v3-runtime-cutover-todo.md`

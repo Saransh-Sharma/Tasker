@@ -787,7 +787,7 @@ final class ArchitectureBoundaryTests: XCTestCase {
             "To Do List/Views/Cards/ChartCard.swift",
             "To Do List/Views/Cards/RadarChartCard.swift",
             "To Do List/Views/ProjectSelectionSheet.swift",
-            "To Do List/ViewControllers/Delegates/AddTaskCalendarExtention.swift"
+            "To Do List/View/AddTaskForedropView.swift"
         ]
 
         for relativePath in files {
@@ -4524,7 +4524,7 @@ final class DeleteTaskDefinitionUseCaseSeriesScopeTests: XCTestCase {
         let useCase = DeleteTaskDefinitionUseCase(repository: repository, tombstoneRepository: nil)
 
         let _: Void = try awaitResult { completion in
-            useCase.execute(taskID: second.id, scope: .single, completion: completion)
+            useCase.execute(taskID: second.id, scope: TaskDeleteScope.single, completion: completion)
         }
 
         let remaining = Set(repository.byID.keys)
@@ -4544,7 +4544,7 @@ final class DeleteTaskDefinitionUseCaseSeriesScopeTests: XCTestCase {
         let useCase = DeleteTaskDefinitionUseCase(repository: repository, tombstoneRepository: nil)
 
         let _: Void = try awaitResult { completion in
-            useCase.execute(taskID: second.id, scope: .series, completion: completion)
+            useCase.execute(taskID: second.id, scope: TaskDeleteScope.series, completion: completion)
         }
 
         let remaining = Set(repository.byID.keys)

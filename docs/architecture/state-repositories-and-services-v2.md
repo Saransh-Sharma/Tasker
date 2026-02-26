@@ -1,6 +1,6 @@
 # State Repositories and Services (V3 Runtime)
 
-**Last validated against code on 2026-02-20**
+**Last validated against code on 2026-02-21**
 
 This document maps State-layer ownership for persistence repositories, supporting services, and runtime wiring.
 
@@ -11,6 +11,9 @@ Primary source anchors:
 - `To Do List/Domain/Interfaces/V2RepositoryProtocols.swift`
 - `To Do List/Domain/Interfaces/TaskReadModelRepositoryProtocol.swift`
 - `To Do List/TaskModelV3.xcdatamodeld/TaskModelV3.xcdatamodel/contents`
+- `To Do List/LLM/Models/TaskSemanticIndexStore.swift`
+- `To Do List/LLM/Models/TaskSemanticRetrievalService.swift`
+- `To Do List/LLM/Models/LLMDataController.swift`
 
 ## State Topology
 
@@ -25,6 +28,9 @@ flowchart TD
     SRV --> EXT["EventKit / Notification stack"]
 
     REPO --> SUP["V2CoreDataRepositorySupport"]
+
+    APP["AppDelegate"] --> SEM["TaskSemanticRetrievalService"]
+    SEM --> IDX["TaskSemanticIndexStore"]
 ```
 
 ## Repository Inventory
@@ -55,6 +61,8 @@ flowchart TD
 | `State/Services/CoreSchedulingEngine.swift` | `CoreSchedulingEngine` | `SchedulingEngineProtocol` | schedule generation, occurrence maintenance/resolution orchestration |
 | `State/Services/EventKitAppleRemindersProvider.swift` | `EventKitAppleRemindersProvider` | `AppleRemindersProviderProtocol` | Apple Reminders provider I/O |
 | `State/Services/LocalNotificationService.swift` | `LocalNotificationService` | `NotificationServiceProtocol` | in-app reminder notifications |
+| `LLM/Models/TaskSemanticRetrievalService.swift` | `TaskSemanticRetrievalService` | retrieval and rerank surface | local semantic indexing and ranking for AI/search |
+| `LLM/Models/TaskSemanticIndexStore.swift` | `TaskSemanticIndexStore` | upsert/remove/persist/load operations | local vector/text index persistence |
 
 ## Data Ownership Matrix
 
@@ -69,6 +77,18 @@ flowchart TD
 | Gamification ledger | `CoreDataGamificationRepository` | completion and analytics flows |
 | Assistant action runs | `CoreDataAssistantActionRepository` | assistant propose/confirm/apply/undo |
 | Tombstones | `CoreDataTombstoneRepository` | maintenance and sync merge flows |
+| Semantic embeddings index | `TaskSemanticIndexStore` (local file in Application Support) | chat semantic context and search rerank |
+| LLM chat history | SwiftData `LLMDataController` local store | Chat UI thread/message rendering |
+
+## Semantic Index Ownership and Persistence
+
+1. The semantic index is local-only and intentionally excluded from CloudKit sync.
+2. Index file path contract: `Application Support/tasker-semantic-index-v1.bin`.
+3. Lifecycle ownership:
+- load at startup,
+- incremental mutation updates from `.homeTaskMutation`,
+- full rebuild for recovery or cold initialization,
+- persist on app backgrounding.
 
 ## Identity and Dedupe Rules (State Layer)
 
@@ -80,6 +100,17 @@ flowchart TD
 | Tag links replaced as set for a task | `CoreDataTaskTagLinkRepository.replaceTagLinks` | avoids stale links after edits |
 | Occurrence identity uses immutable `occurrenceKey` | `CoreDataOccurrenceRepository` | deterministic recurrence lifecycle |
 | External item mappings upsert by local/external key | `CoreDataExternalSyncRepository` | stable merge-state evolution |
+| Semantic vectors keyed by `taskID` and replaced on upsert | `TaskSemanticIndexStore` | deterministic semantic refresh behavior |
+
+## LLM SwiftData Reliability Note
+
+`LLMDataController` prioritizes app availability over chat-history durability:
+1. normal persistent container create,
+2. store recreation retry,
+3. in-memory fallback,
+4. final hard failure only if all strategies fail.
+
+This keeps the core runtime available even when local chat storage is incompatible.
 
 ## Error Surface Summary
 
@@ -89,15 +120,24 @@ flowchart TD
 | Identity mismatches | malformed IDs, duplicate candidates | canonicalization helpers + explicit failures |
 | Provider I/O | reminders permission denied, lookup/write failures | propagated through provider and sync usecases |
 | Batch reconciliation | partial per-item failures/timeouts | aggregate summary and per-item failure accounting |
+| Semantic indexing | embedding unavailable, file persist/load failures | lexical fallback + warning logs + rebuild path |
+| LLM chat store bootstrap | model schema incompatibility or store corruption | recreate persistent store, then in-memory fallback |
 
 ## Runtime Wiring
 
 `EnhancedDependencyContainer.configure(with:)` is the only runtime entrypoint for State-layer wiring.
 It builds repositories/services, constructs `UseCaseCoordinator`, and evaluates readiness through `assertV3RuntimeReady()`.
 
+AI-specific runtime wiring outside the container remains in `AppDelegate` and includes:
+- `LLMContextRepositoryProvider` setup,
+- `LLMAssistantPipelineProvider` setup,
+- semantic retrieval lifecycle orchestration.
+
 ## Cross-Links
 
 - `docs/architecture/clean-architecture-v2.md`
 - `docs/architecture/data-model-v2.md`
 - `docs/architecture/usecases-v2.md`
+- `docs/architecture/llm-assistant-stack-v2.md`
+- `docs/architecture/llm-feature-integration-handbook.md`
 - `docs/architecture/risk-register-v2.md`

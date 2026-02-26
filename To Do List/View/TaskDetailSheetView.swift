@@ -35,6 +35,8 @@ struct TaskDetailSheetView: View {
     @State private var showDeleteScopeDialog = false
     @State private var showDescriptionEditor = false
     @State private var newStepTitle = ""
+    @State private var showBreakdownSheet = false
+    @State private var selectedBreakdownSteps: Set<String> = []
 
     @FocusState private var titleFocused: Bool
     @FocusState private var stepFocused: Bool
@@ -159,6 +161,10 @@ struct TaskDetailSheetView: View {
         .onChange(of: viewModel.repeatPattern) { _ in
             viewModel.scheduleAutosave(debounced: false)
         }
+        .onChange(of: viewModel.aiBreakdownSteps) { _, updated in
+            guard showBreakdownSheet else { return }
+            reconcileBreakdownSelection(with: updated)
+        }
         .confirmationDialog(
             "Delete recurring task?",
             isPresented: $showDeleteScopeDialog,
@@ -173,6 +179,76 @@ struct TaskDetailSheetView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Choose whether to remove only this task or every task in the series.")
+        }
+        .sheet(isPresented: $showBreakdownSheet) {
+            NavigationStack {
+                VStack(spacing: 0) {
+                    if let routeBanner = viewModel.aiBreakdownRouteBanner, routeBanner.isEmpty == false {
+                        HStack(alignment: .top, spacing: TaskerTheme.Spacing.xs) {
+                            Image(systemName: "cpu")
+                                .foregroundColor(Color.tasker.accentPrimary)
+                            Text(routeBanner)
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker.textSecondary)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, TaskerTheme.Spacing.md)
+                        .padding(.vertical, TaskerTheme.Spacing.sm)
+                        .background(Color.tasker.surfaceSecondary)
+                    }
+
+                    if viewModel.isGeneratingAIBreakdown {
+                        HStack(spacing: TaskerTheme.Spacing.xs) {
+                            ProgressView()
+                            Text("Refining step suggestions...")
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker.textSecondary)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, TaskerTheme.Spacing.md)
+                        .padding(.vertical, TaskerTheme.Spacing.xs)
+                    }
+
+                    List {
+                        if viewModel.aiBreakdownSteps.isEmpty {
+                            Text("No step suggestions available.")
+                                .foregroundColor(Color.tasker.textTertiary)
+                        } else {
+                            ForEach(viewModel.aiBreakdownSteps, id: \.self) { step in
+                                Button {
+                                    if selectedBreakdownSteps.contains(step) {
+                                        selectedBreakdownSteps.remove(step)
+                                    } else {
+                                        selectedBreakdownSteps.insert(step)
+                                    }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: selectedBreakdownSteps.contains(step) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundColor(selectedBreakdownSteps.contains(step) ? Color.tasker.accentPrimary : Color.tasker.textTertiary)
+                                        Text(step)
+                                            .foregroundColor(Color.tasker.textPrimary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Breakdown")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { showBreakdownSheet = false }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Add to task") {
+                            viewModel.addBreakdownSteps(Array(selectedBreakdownSteps)) {
+                                showBreakdownSheet = false
+                            }
+                        }
+                        .disabled(selectedBreakdownSteps.isEmpty)
+                    }
+                }
+            }
         }
     }
 
@@ -285,6 +361,21 @@ struct TaskDetailSheetView: View {
             }
             .accessibilityHint("Focus add step input")
 
+            if V2FeatureFlags.assistantBreakdownEnabled && viewModel.childSteps.isEmpty {
+                actionChip(
+                    icon: viewModel.isGeneratingAIBreakdown ? "hourglass" : "sparkles",
+                    title: viewModel.isGeneratingAIBreakdown ? "Thinking..." : "Break down",
+                    tint: Color.tasker.accentPrimary
+                ) {
+                    viewModel.generateAIBreakdown {
+                        selectedBreakdownSteps = Set(viewModel.aiBreakdownSteps)
+                        showBreakdownSheet = true
+                    }
+                }
+                .disabled(viewModel.isGeneratingAIBreakdown)
+                .accessibilityHint("Generate AI subtask suggestions")
+            }
+
             actionChip(
                 icon: viewModel.isComplete ? "arrow.uturn.backward.circle.fill" : "checkmark.circle.fill",
                 title: viewModel.isComplete ? "Reopen" : "Complete",
@@ -296,6 +387,23 @@ struct TaskDetailSheetView: View {
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
         .accessibilityIdentifier("taskDetail.actionRow")
+    }
+
+    /// Executes reconcileBreakdownSelection.
+    private func reconcileBreakdownSelection(with updatedSteps: [String]) {
+        let updatedSet = Set(updatedSteps)
+        let intersection = selectedBreakdownSteps.intersection(updatedSet)
+        if intersection.isEmpty == false {
+            selectedBreakdownSteps = intersection
+            return
+        }
+
+        if selectedBreakdownSteps.isEmpty {
+            selectedBreakdownSteps = Set(updatedSteps.prefix(3))
+            return
+        }
+
+        selectedBreakdownSteps = Set(updatedSteps.prefix(min(selectedBreakdownSteps.count, updatedSteps.count)))
     }
 
     /// Executes actionChip.

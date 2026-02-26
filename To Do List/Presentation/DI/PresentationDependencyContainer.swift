@@ -139,7 +139,10 @@ public final class PresentationDependencyContainer {
             return existing
         }
 
-        let viewModel = HomeViewModel(useCaseCoordinator: useCaseCoordinator)
+        let viewModel = HomeViewModel(
+            useCaseCoordinator: useCaseCoordinator,
+            aiSuggestionService: MainActor.assumeIsolated { AISuggestionService.shared }
+        )
         _homeViewModel = viewModel
         return viewModel
     }
@@ -158,7 +161,8 @@ public final class PresentationDependencyContainer {
             rescheduleTaskDefinitionUseCase: useCaseCoordinator.rescheduleTaskDefinition,
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
             manageSectionsUseCase: useCaseCoordinator.manageSections,
-            manageTagsUseCase: useCaseCoordinator.manageTags
+            manageTagsUseCase: useCaseCoordinator.manageTags,
+            aiSuggestionService: MainActor.assumeIsolated { AISuggestionService.shared }
         )
         _addTaskViewModel = viewModel
         return viewModel
@@ -233,7 +237,8 @@ public final class PresentationDependencyContainer {
             rescheduleTaskDefinitionUseCase: useCaseCoordinator.rescheduleTaskDefinition,
             manageLifeAreasUseCase: useCaseCoordinator.manageLifeAreas,
             manageSectionsUseCase: useCaseCoordinator.manageSections,
-            manageTagsUseCase: useCaseCoordinator.manageTags
+            manageTagsUseCase: useCaseCoordinator.manageTags,
+            aiSuggestionService: MainActor.assumeIsolated { AISuggestionService.shared }
         )
     }
 

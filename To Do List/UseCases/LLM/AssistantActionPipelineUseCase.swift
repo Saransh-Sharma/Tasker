@@ -99,6 +99,11 @@ public final class AssistantActionPipelineUseCase {
         }
     }
 
+    /// Executes fetchRun.
+    func fetchRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition?, Error>) -> Void) {
+        repository.fetchRun(id: id, completion: completion)
+    }
+
     /// Executes applyConfirmedRun.
     public func applyConfirmedRun(id: UUID, completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void) {
         guard V2FeatureFlags.assistantApplyEnabled else {
