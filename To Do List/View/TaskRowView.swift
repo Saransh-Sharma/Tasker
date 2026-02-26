@@ -303,7 +303,7 @@ struct TaskRowView: View {
                     if let metadataText = displayModel.metadataText {
                         Text(metadataText)
                             .font(.tasker(.caption2))
-                            .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textQuaternary.opacity(0.9))
+                            .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textTertiary)
                             .lineLimit(1)
                     }
                 }
