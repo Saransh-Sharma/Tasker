@@ -124,7 +124,7 @@ struct WeeklyCalendarStripView: View {
         return VStack(spacing: 4) {
             Text(dayAbbreviation(date))
                 .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
-                .foregroundColor(isSelected ? Color.tasker.accentPrimary : Color.tasker.textSecondary)
+                .foregroundColor(isSelected ? Color.tasker.accentOnPrimary : Color.tasker.textPrimary.opacity(0.7))
                 .textCase(.uppercase)
 
             ZStack {
@@ -134,17 +134,17 @@ struct WeeklyCalendarStripView: View {
                         .frame(width: 34, height: 34)
                 } else if isToday {
                     Circle()
-                        .stroke(Color.tasker.accentPrimary, lineWidth: 1.5)
+                        .stroke(Color.tasker.accentOnPrimary.opacity(0.6), lineWidth: 1.5)
                         .frame(width: 34, height: 34)
                 }
 
                 Text("\(dayNumber)")
-                    .font(.system(size: 15, weight: isSelected ? .bold : .regular, design: .rounded))
+                    .font(.system(size: 15, weight: isSelected ? .bold : .medium, design: .rounded))
                     .foregroundColor(
                         isSelected
                             ? Color.tasker.accentOnPrimary
                             : isToday
-                                ? Color.tasker.accentPrimary
+                                ? Color.tasker.accentOnPrimary
                                 : Color.tasker.textPrimary
                     )
             }
