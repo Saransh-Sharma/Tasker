@@ -1,12 +1,10 @@
 //
 //  ChatView.swift
 //
-//
 
 import MarkdownUI
-import SwiftUI
-import Combine
 import SwiftData
+import SwiftUI
 import os
 
 private actor ChatContextInjectionTracker {
@@ -59,9 +57,20 @@ struct ChatView: View {
     @Binding var showSettings: Bool
     @Environment(\.dismiss) var dismissView
 
+    var onOpenTaskDetail: ((TaskDefinition) -> Void)? = nil
+
     @State var thinkingTime: TimeInterval?
 
     @State private var generatingThreadID: UUID?
+    @State private var showSlashPicker = false
+    @State private var slashPickerQuery = ""
+    @State private var slashDraft: SlashCommandInvocation?
+    @State private var recentSlashCommands: [SlashCommandID] = []
+    @State private var commandFeedback: String?
+    @State private var showClearConfirmation = false
+    @State private var projectLookupTask: _Concurrency.Task<Void, Never>?
+    @FocusState private var isProjectFieldFocused: Bool
+
     static private let contextInjectionTracker = ChatContextInjectionTracker()
     private let contextFetchTimeoutMs: UInt64 = 800
     private let contextInjectionPolicy: ContextInjectionPolicy = .perTurn(throttleMs: 0)
@@ -88,44 +97,171 @@ struct ChatView: View {
         prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    var canSubmit: Bool {
+        if let slashDraft {
+            return slashDraft.isReady
+        }
+        return !isPromptEmpty
+    }
+
+    private var projectQueryBinding: Binding<String> {
+        Binding(
+            get: { slashDraft?.projectQuery ?? "" },
+            set: { updateProjectDraftQuery($0) }
+        )
+    }
+
+    private var commandSuggestions: [SlashCommandDescriptor] {
+        var suggestions: [SlashCommandDescriptor] = []
+        var seen = Set<SlashCommandID>()
+
+        for commandID in contextualCommandIDs {
+            guard seen.insert(commandID).inserted else { continue }
+            suggestions.append(SlashCommandCatalog.descriptor(for: commandID))
+            if suggestions.count >= 3 {
+                return suggestions
+            }
+        }
+
+        for commandID in recentSlashCommands {
+            guard seen.insert(commandID).inserted else { continue }
+            suggestions.append(SlashCommandCatalog.descriptor(for: commandID))
+            if suggestions.count >= 3 {
+                return suggestions
+            }
+        }
+
+        for descriptor in SlashCommandCatalog.descriptors.sorted(by: { $0.id.popularityRank < $1.id.popularityRank }) {
+            guard seen.insert(descriptor.id).inserted else { continue }
+            suggestions.append(descriptor)
+            if suggestions.count >= 3 {
+                break
+            }
+        }
+
+        return suggestions
+    }
+
+    private var contextualCommandIDs: [SlashCommandID] {
+        let hintText = contextualHintText
+        guard hintText.isEmpty == false else { return [] }
+
+        var ordered: [SlashCommandID] = []
+        func append(_ commandID: SlashCommandID, when condition: Bool) {
+            guard condition else { return }
+            guard ordered.contains(commandID) == false else { return }
+            ordered.append(commandID)
+        }
+
+        append(.today, when: hintText.contains("overdue") || hintText.contains("late") || hintText.contains("today"))
+        append(.tomorrow, when: hintText.contains("tomorrow"))
+        append(.week, when: hintText.contains("week"))
+        append(.month, when: hintText.contains("month"))
+        append(.project, when: hintText.contains("project") || hintText.contains("inbox"))
+        append(.clear, when: hintText.contains("clear chat") || hintText.contains("reset chat"))
+
+        return ordered
+    }
+
+    private var contextualHintText: String {
+        var fragments: [String] = []
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedPrompt.isEmpty == false {
+            fragments.append(trimmedPrompt.lowercased())
+        }
+        if let currentThread {
+            let recentUserMessages = currentThread.sortedMessages
+                .filter { $0.role == .user }
+                .suffix(2)
+                .map { $0.content.lowercased() }
+            fragments.append(contentsOf: recentUserMessages)
+        }
+        return fragments.joined(separator: " ")
+    }
+
+    private var recentPickerCommands: [SlashCommandDescriptor] {
+        var unique = Set<SlashCommandID>()
+        return recentSlashCommands.prefix(3).compactMap { commandID in
+            guard unique.insert(commandID).inserted else { return nil }
+            return SlashCommandCatalog.descriptor(for: commandID)
+        }
+    }
+
+    private var popularPickerCommands: [SlashCommandDescriptor] {
+        let recentSet = Set(recentSlashCommands)
+        return SlashCommandCatalog.descriptors
+            .filter { recentSet.contains($0.id) == false }
+            .sorted { $0.id.popularityRank < $1.id.popularityRank }
+            .prefix(5)
+            .map { $0 }
+    }
+
+    private var allPickerCommands: [SlashCommandDescriptor] {
+        SlashCommandCatalog.filteredDescriptors(query: slashPickerQuery, recents: recentSlashCommands, limit: 8)
+    }
+
     // MARK: - Chat Input Bar
 
     var chatInput: some View {
-        HStack(alignment: .bottom, spacing: 0) {
-            TextField("ask Eva anything...", text: $prompt, axis: .vertical)
-                .focused($isPromptFocused)
-                .textFieldStyle(.plain)
-                .font(.tasker(.body))
-                .foregroundColor(Color.tasker(.textPrimary))
-            #if os(iOS) || os(visionOS)
-                .padding(.horizontal, TaskerTheme.Spacing.lg)
-            #elseif os(macOS)
-                .padding(.horizontal, TaskerTheme.Spacing.md)
-                .onSubmit {
-                    handleShiftReturn()
-                }
-                .submitLabel(.send)
-            #endif
-                .padding(.vertical, TaskerTheme.Spacing.sm)
-            #if os(iOS) || os(visionOS)
-                .frame(minHeight: 48)
-            #elseif os(macOS)
-                .frame(minHeight: 32)
-            #endif
-            #if os(iOS)
-            .onSubmit {
-                isPromptFocused = true
-                generate()
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            if let slashDraft {
+                commandDraftRow(slashDraft)
             }
-            #endif
 
-            if llm.running {
-                stopButton
-            } else {
-                generateButton
+            if let commandFeedback, commandFeedback.isEmpty == false {
+                Text(commandFeedback)
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker(.statusDanger))
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .accessibilityIdentifier("chat.command_feedback")
+                    .transition(.opacity)
+            }
+
+            if slashDraft == nil,
+               currentThread != nil,
+               prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                composerSuggestionStrip
+            }
+
+            HStack(alignment: .bottom, spacing: 0) {
+                slashButton
+
+                TextField("ask Eva anything...", text: $prompt, axis: .vertical)
+                    .focused($isPromptFocused)
+                    .textFieldStyle(.plain)
+                    .font(.tasker(.body))
+                    .foregroundColor(Color.tasker(.textPrimary))
+                #if os(iOS) || os(visionOS)
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                #elseif os(macOS)
+                    .padding(.horizontal, TaskerTheme.Spacing.md)
+                    .onSubmit {
+                        handleShiftReturn()
+                    }
+                    .submitLabel(.send)
+                #endif
+                    .padding(.vertical, TaskerTheme.Spacing.sm)
+                #if os(iOS) || os(visionOS)
+                    .frame(minHeight: 48)
+                #elseif os(macOS)
+                    .frame(minHeight: 32)
+                #endif
+                #if os(iOS)
+                .onSubmit {
+                    isPromptFocused = true
+                    generate()
+                }
+                #endif
+
+                if llm.running {
+                    stopButton
+                } else {
+                    generateButton
+                }
             }
         }
         #if os(iOS) || os(visionOS)
+        .padding(.vertical, TaskerTheme.Spacing.xs)
         .background(
             RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.xl, style: .continuous)
                 .fill(Color.tasker(.surfaceSecondary))
@@ -141,6 +277,128 @@ struct ChatView: View {
                 .fill(Color.tasker(.surfaceSecondary))
         )
         #endif
+    }
+
+    private var composerSuggestionStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: TaskerTheme.Spacing.xs) {
+                ForEach(commandSuggestions, id: \.id) { descriptor in
+                    Button {
+                        selectSlashCommand(descriptor)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: descriptor.id.icon)
+                                .font(.tasker(.caption2))
+                            Text(descriptor.command)
+                                .font(.tasker(.caption1))
+                        }
+                        .foregroundColor(Color.tasker(.accentPrimary))
+                        .padding(.horizontal, TaskerTheme.Spacing.sm)
+                        .padding(.vertical, TaskerTheme.Spacing.xs)
+                        .background(Color.tasker(.accentWash))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Insert \(descriptor.command)")
+                    .accessibilityIdentifier("chat.command_composer_suggestion.\(descriptor.id.rawValue)")
+                }
+            }
+            .padding(.horizontal, TaskerTheme.Spacing.sm)
+        }
+        .transition(.opacity)
+    }
+
+    private var slashButton: some View {
+        Button {
+            appManager.playHaptic()
+            openSlashPicker(trigger: "button")
+        } label: {
+            Text("/")
+                .font(.tasker(.callout))
+                .fontWeight(.semibold)
+                .foregroundColor(Color.tasker(.accentPrimary))
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(Color.tasker(.accentWash))
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.tasker(.accentMuted), lineWidth: 1)
+                )
+        }
+        .padding(.leading, TaskerTheme.Spacing.sm)
+        .padding(.bottom, TaskerTheme.Spacing.xs)
+        .accessibilityLabel("Commands")
+        .accessibilityHint("Open slash commands")
+        .accessibilityIdentifier("chat.slash_button")
+        .scaleOnPress()
+    }
+
+    @ViewBuilder
+    private func commandDraftRow(_ invocation: SlashCommandInvocation) -> some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+            HStack(spacing: TaskerTheme.Spacing.xs) {
+                Label(invocation.id.canonicalCommand, systemImage: invocation.id.icon)
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker(.accentPrimary))
+                    .padding(.horizontal, TaskerTheme.Spacing.sm)
+                    .padding(.vertical, TaskerTheme.Spacing.xs)
+                    .background(Color.tasker(.accentWash))
+                    .clipShape(Capsule())
+                    .accessibilityIdentifier("chat.command_chip.\(invocation.id.rawValue)")
+
+                Button {
+                    projectLookupTask?.cancel()
+                    slashDraft = nil
+                    commandFeedback = nil
+                    isProjectFieldFocused = false
+                    appManager.playHaptic()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker(.textTertiary))
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+            }
+
+            if invocation.id == .project {
+                HStack(spacing: TaskerTheme.Spacing.xs) {
+                    Image(systemName: "folder")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker(.textTertiary))
+
+                    TextField("Pick project", text: projectQueryBinding)
+                        .font(.tasker(.caption1))
+                        .textFieldStyle(.plain)
+                        .autocorrectionDisabled()
+                        .focused($isProjectFieldFocused)
+                        .accessibilityIdentifier("chat.command_project_field")
+
+                    if let projectName = invocation.projectName, projectName.isEmpty == false {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(Color.tasker(.statusSuccess))
+                            Text(projectName)
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker(.statusSuccess))
+                        }
+                    }
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.sm)
+                .padding(.vertical, TaskerTheme.Spacing.sm)
+                .background(Color.tasker(.surfaceTertiary))
+                .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous)
+                        .stroke(Color.tasker(.strokeHairline), lineWidth: 1)
+                )
+                .padding(.horizontal, TaskerTheme.Spacing.sm)
+            }
+        }
+        .transition(.opacity)
     }
 
     // MARK: - Model Picker Button
@@ -191,7 +449,7 @@ struct ChatView: View {
             Image(systemName: "arrow.up")
                 .font(.tasker(.buttonSmall))
                 .fontWeight(.semibold)
-                .foregroundColor(isPromptEmpty ? Color.tasker(.textQuaternary) : Color.tasker(.accentOnPrimary))
+                .foregroundColor(canSubmit ? Color.tasker(.accentOnPrimary) : Color.tasker(.textQuaternary))
             #if os(iOS) || os(visionOS)
                 .frame(width: 32, height: 32)
             #else
@@ -199,18 +457,19 @@ struct ChatView: View {
             #endif
                 .background(
                     Circle()
-                        .fill(isPromptEmpty ? Color.tasker(.surfaceTertiary) : Color.tasker(.accentPrimary))
+                        .fill(canSubmit ? Color.tasker(.accentPrimary) : Color.tasker(.surfaceTertiary))
                 )
         }
-        .disabled(isPromptEmpty)
+        .disabled(!canSubmit)
+        .accessibilityIdentifier("chat.send_button")
         #if os(iOS) || os(visionOS)
             .padding(.trailing, TaskerTheme.Spacing.md)
-            .padding(.bottom, TaskerTheme.Spacing.md)
+            .padding(.bottom, TaskerTheme.Spacing.xs)
         #else
             .padding(.trailing, TaskerTheme.Spacing.sm)
             .padding(.bottom, TaskerTheme.Spacing.sm)
         #endif
-        .animation(TaskerAnimation.quick, value: isPromptEmpty)
+        .animation(TaskerAnimation.quick, value: canSubmit)
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
@@ -236,9 +495,10 @@ struct ChatView: View {
                 )
         }
         .disabled(llm.cancelled)
+        .accessibilityIdentifier("chat.stop_button")
         #if os(iOS) || os(visionOS)
             .padding(.trailing, TaskerTheme.Spacing.md)
-            .padding(.bottom, TaskerTheme.Spacing.md)
+            .padding(.bottom, TaskerTheme.Spacing.xs)
         #else
             .padding(.trailing, TaskerTheme.Spacing.sm)
             .padding(.bottom, TaskerTheme.Spacing.sm)
@@ -250,10 +510,9 @@ struct ChatView: View {
     }
 
     var chatTitle: String {
-        if let currentThread = currentThread {
-            if let firstMessage = currentThread.sortedMessages.first {
-                return firstMessage.content
-            }
+        if let currentThread = currentThread,
+           let firstMessage = currentThread.sortedMessages.first {
+            return firstMessage.content
         }
 
         return "chat"
@@ -265,7 +524,6 @@ struct ChatView: View {
         VStack(spacing: TaskerTheme.Spacing.lg) {
             Spacer()
 
-            // Eva avatar circle
             ZStack {
                 Circle()
                     .fill(Color.tasker(.accentWash))
@@ -280,30 +538,34 @@ struct ChatView: View {
                 Text("ask Eva anything")
                     .font(.tasker(.title2))
                     .foregroundColor(Color.tasker(.textPrimary))
-                Text("your AI assistant knows your tasks and projects")
+                Text("Type / for commands")
                     .font(.tasker(.callout))
                     .foregroundColor(Color.tasker(.textTertiary))
                     .multilineTextAlignment(.center)
             }
 
-            // Suggestion chips
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: TaskerTheme.Spacing.sm) {
-                    ForEach(["what's due today?", "summarize my week", "plan tomorrow"], id: \.self) { suggestion in
+                    ForEach(commandSuggestions, id: \.id) { descriptor in
                         Button {
-                            prompt = suggestion
-                            generate()
+                            selectSlashCommand(descriptor)
                         } label: {
-                            Text(suggestion)
-                                .font(.tasker(.callout))
-                                .foregroundColor(Color.tasker(.accentPrimary))
-                                .padding(.horizontal, TaskerTheme.Spacing.md)
-                                .padding(.vertical, TaskerTheme.Spacing.sm)
-                                .background(Color.tasker(.accentWash))
-                                .clipShape(Capsule())
-                                .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
+                            HStack(spacing: TaskerTheme.Spacing.xs) {
+                                Image(systemName: descriptor.id.icon)
+                                    .font(.tasker(.caption1))
+                                Text(descriptor.command)
+                                    .font(.tasker(.callout))
+                            }
+                            .foregroundColor(Color.tasker(.accentPrimary))
+                            .padding(.horizontal, TaskerTheme.Spacing.md)
+                            .padding(.vertical, TaskerTheme.Spacing.sm)
+                            .background(Color.tasker(.accentWash))
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(Color.tasker(.accentMuted), lineWidth: 1))
                         }
                         .scaleOnPress()
+                        .accessibilityLabel("Run command \(descriptor.command)")
+                        .accessibilityIdentifier("chat.command_suggestion.\(descriptor.id.rawValue)")
                     }
                 }
                 .padding(.horizontal, TaskerTheme.Spacing.xl)
@@ -322,13 +584,15 @@ struct ChatView: View {
                     ConversationView(
                         thread: currentThread,
                         generatingThreadID: generatingThreadID,
-                        isPreparingResponse: llm.isThinking
+                        isPreparingResponse: llm.isThinking,
+                        onOpenTaskFromCard: { task in
+                            onOpenTaskDetail?(task)
+                        }
                     )
                 } else {
                     emptyState
                 }
 
-                // Bottom input area
                 HStack(alignment: .bottom, spacing: TaskerTheme.Spacing.md) {
                     modelPickerButton
                     chatInput
@@ -405,10 +669,40 @@ struct ChatView: View {
                     }
                     #endif
                 }
-                // MARK: - Main Toolbar
+                .sheet(isPresented: $showSlashPicker) {
+                    SlashCommandPickerView(
+                        query: $slashPickerQuery,
+                        recentCommands: recentPickerCommands,
+                        popularCommands: popularPickerCommands,
+                        allCommands: allPickerCommands,
+                        onSelect: { descriptor in
+                            selectSlashCommand(descriptor)
+                        }
+                    )
+                    .presentationBackground(Color.tasker(.bgElevated))
+                    .presentationDragIndicator(.visible)
+                    .presentationDetents(appManager.userInterfaceIdiom == .phone ? [.medium, .large] : [.large])
+                }
+                .alert("Clear this chat?", isPresented: $showClearConfirmation) {
+                    Button("Cancel", role: .cancel) {}
+                    Button("Clear", role: .destructive) {
+                        clearCurrentThread()
+                    }
+                } message: {
+                    Text("This deletes all messages in the current thread.")
+                }
+                .onChange(of: prompt) { _, newValue in
+                    handlePromptChanged(newValue)
+                }
+                .onChange(of: slashDraft?.id) { _, newValue in
+                    guard newValue == .project else {
+                        isProjectFieldFocused = false
+                        return
+                    }
+                    isProjectFieldFocused = true
+                }
                 .toolbar {
                     #if os(macOS)
-
                     ToolbarItem(placement: .primaryAction) {
                         Button(action: {
                             appManager.playHaptic()
@@ -422,152 +716,432 @@ struct ChatView: View {
         }
     }
 
-    private enum SlashAction {
-        case summary(TaskRange, String?)
-        case clear
-        case none
+    private func handlePromptChanged(_ newValue: String) {
+        guard slashDraft == nil else { return }
+        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("/") else { return }
+
+        slashPickerQuery = pickerQuery(fromPrompt: trimmed)
+        if showSlashPicker == false {
+            openSlashPicker(trigger: "typed")
+        }
     }
 
-    /// Executes generate.
-    private func generate() {
-        if !isPromptEmpty {
+    private func openSlashPicker(trigger: String) {
+        if prompt.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("/") {
             let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-            let action = parseSlashCommand(trimmed)
+            slashPickerQuery = pickerQuery(fromPrompt: trimmed)
+        } else {
+            slashPickerQuery = ""
+        }
+        showSlashPicker = true
+        logWarning(
+            event: "chat_slash_picker_opened",
+            message: "Opened slash command picker",
+            fields: ["trigger": trigger]
+        )
+    }
 
-            if case .clear = action {
-                if let thread = currentThread {
-                    modelContext.delete(thread)
-                    try? modelContext.save()
-                    _Concurrency.Task {
-                        await ChatView.contextInjectionTracker.clear(threadID: thread.id)
-                    }
-                }
-                currentThread = nil
-                prompt = ""
+    private func selectSlashCommand(_ descriptor: SlashCommandDescriptor) {
+        appManager.playHaptic()
+        projectLookupTask?.cancel()
+        var invocation = SlashCommandInvocation(id: descriptor.id, projectQuery: nil, projectName: nil)
+        if descriptor.id == .project {
+            invocation.projectQuery = ""
+            invocation.projectName = nil
+        }
+        slashDraft = invocation
+        showSlashPicker = false
+        prompt = ""
+        commandFeedback = nil
+        isProjectFieldFocused = descriptor.id == .project
+
+        logWarning(
+            event: "chat_slash_command_selected",
+            message: "Selected slash command from picker",
+            fields: ["command_id": descriptor.id.rawValue]
+        )
+    }
+
+    private func updateProjectDraftQuery(_ rawQuery: String) {
+        guard var invocation = slashDraft, invocation.id == .project else { return }
+
+        projectLookupTask?.cancel()
+        invocation.projectQuery = rawQuery
+        invocation.projectName = nil
+        slashDraft = invocation
+        commandFeedback = nil
+
+        let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.isEmpty == false else { return }
+
+        projectLookupTask = _Concurrency.Task {
+            do {
+                try await _Concurrency.Task.sleep(nanoseconds: 180_000_000)
+            } catch {
                 return
             }
 
-            if currentThread == nil {
-                let newThread = Thread()
-                currentThread = newThread
-                modelContext.insert(newThread)
-                do {
-                    try modelContext.save()
-                } catch {
-                    logError(
-                        event: "chat_thread_save_failed",
-                        message: "Failed to save chat thread",
-                        fields: ["error": error.localizedDescription]
-                    )
-                }
-            }
-
-            if let currentThread = currentThread {
-                generatingThreadID = currentThread.id
-                _Concurrency.Task {
-                    let message = prompt
-                    prompt = ""
-                    appManager.playHaptic()
-
-                    var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
-                    dynamicSystemPrompt += "\n\n" + contextPromptContract()
-
-                    switch action {
-                    case let .summary(range, projectName):
-                        let summary = PromptMiddleware.buildTasksSummary(range: range, projectName: projectName)
-                        dynamicSystemPrompt += "\n\nTasks (\(range.description)):\n" + summary
-                    default:
-                        break
-                    }
-                    let tID = currentThread.id
-                    let contextStartedAt = Date()
-                    let contextPayload = await buildContextPayloadForCurrentTurn(
-                        threadID: tID,
-                        timeoutMs: contextFetchTimeoutMs
-                    )
-                    let contextBuildMs = Int(Date().timeIntervalSince(contextStartedAt) * 1_000)
-                    if contextPayload.fromCache {
-                        logWarning(
-                            event: "chat_context_cache_hit",
-                            message: "Reused cached chat context payload for current turn",
-                            fields: [
-                                "thread_id": tID.uuidString,
-                                "duration_ms": String(contextBuildMs),
-                                "timeout_fallback_used": contextPayload.usedTimeoutFallback ? "true" : "false"
-                            ]
-                        )
-                    } else {
-                        logWarning(
-                            event: "chat_context_build_ms",
-                            message: "Built chat context payload for current turn",
-                            fields: [
-                                "thread_id": tID.uuidString,
-                                "duration_ms": String(contextBuildMs),
-                                "timeout_fallback_used": contextPayload.usedTimeoutFallback ? "true" : "false"
-                            ]
-                        )
-                    }
-                    let injectedContext = contextPayload.payload
-                    dynamicSystemPrompt += "\n\n" + injectedContext
-
-                    await MainActor.run {
-                        sendMessage(Message(role: .user, content: message, thread: currentThread))
-                    }
-                    await MainActor.run {
-                        llm.isThinking = true
-                    }
-                    guard let modelName = appManager.currentModelName else {
-                        await MainActor.run {
-                            sendMessage(Message(role: .assistant, content: "No model selected", thread: currentThread))
-                            generatingThreadID = nil
-                        }
-                        return
-                    }
-
-                    let prepareStartedAt = Date()
-                    let prepareResult = await LLMRuntimeCoordinator.shared.ensureReady(modelName: modelName)
-                    let prepareMs = Int(Date().timeIntervalSince(prepareStartedAt) * 1_000)
-                    logWarning(
-                        event: "chat_model_prepare_ms",
-                        message: "Prepared selected model prior to chat generation",
-                        fields: [
-                            "model_name": modelName,
-                            "duration_ms": String(prepareMs),
-                            "prewarm_eligible": prepareResult.prewarmEligible ? "true" : "false",
-                            "prewarm_hit": prepareResult.prewarmHit ? "true" : "false",
-                            "ready": prepareResult.ready ? "true" : "false"
-                        ]
-                    )
-
-                    guard prepareResult.ready else {
-                        await MainActor.run {
-                            sendMessage(
-                                Message(
-                                    role: .assistant,
-                                    content: "Model failed to prepare. Please switch models or retry.",
-                                    thread: currentThread
-                                )
-                            )
-                            generatingThreadID = nil
-                        }
-                        return
-                    }
-
-                    os_log("SystemPrompt length %d", dynamicSystemPrompt.count)
-                    logDebug("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
-                    logDebug("USER MESSAGE ->\n\(message)")
-                    let output = await llm.generate(modelName: modelName, thread: currentThread, systemPrompt: dynamicSystemPrompt)
-                    logDebug("LLM RESPONSE ->\n\(output)")
-                    await MainActor.run {
-                        sendMessage(Message(role: .assistant, content: output, thread: currentThread, generatingTime: llm.thinkingTime))
-                        generatingThreadID = nil
-                    }
-                }
+            let resolvedName = await LLMContextRepositoryProvider.findProjectName(matching: query)
+            await MainActor.run {
+                guard var current = slashDraft, current.id == .project else { return }
+                let currentQuery = current.projectQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard currentQuery.caseInsensitiveCompare(query) == .orderedSame else { return }
+                current.projectName = resolvedName
+                slashDraft = current
             }
         }
     }
 
+    private func recordRecentCommand(_ commandID: SlashCommandID) {
+        recentSlashCommands.removeAll { $0 == commandID }
+        recentSlashCommands.insert(commandID, at: 0)
+        if recentSlashCommands.count > 6 {
+            recentSlashCommands = Array(recentSlashCommands.prefix(6))
+        }
+    }
+
+    @MainActor
+    private func clearCurrentThread() {
+        projectLookupTask?.cancel()
+        if let thread = currentThread {
+            modelContext.delete(thread)
+            try? modelContext.save()
+            _Concurrency.Task {
+                await ChatView.contextInjectionTracker.clear(threadID: thread.id)
+            }
+        }
+        currentThread = nil
+        prompt = ""
+        slashDraft = nil
+        commandFeedback = nil
+        showSlashPicker = false
+        generatingThreadID = nil
+        llm.isThinking = false
+        isProjectFieldFocused = false
+
+        recordRecentCommand(.clear)
+        logWarning(
+            event: "chat_slash_command_sent",
+            message: "Executed slash command",
+            fields: ["command_id": SlashCommandID.clear.rawValue]
+        )
+    }
+
+    @MainActor
+    private func ensureCurrentThread() -> Thread? {
+        if currentThread == nil {
+            let newThread = Thread()
+            currentThread = newThread
+            modelContext.insert(newThread)
+            do {
+                try modelContext.save()
+            } catch {
+                logError(
+                    event: "chat_thread_save_failed",
+                    message: "Failed to save chat thread",
+                    fields: ["error": error.localizedDescription]
+                )
+                return nil
+            }
+        }
+        return currentThread
+    }
+
+    private func pickerQuery(fromPrompt promptText: String) -> String {
+        let trimmed = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("/") else { return "" }
+        let raw = String(trimmed.dropFirst())
+        return raw.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+            .first
+            .map(String.init) ?? ""
+    }
+
+    /// Executes generate.
+    @MainActor
+    private func generate() {
+        guard canSubmit else { return }
+
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        commandFeedback = nil
+
+        if var invocation = slashDraft {
+            projectLookupTask?.cancel()
+            if invocation.id == .project {
+                guard invocation.isReady else {
+                    commandFeedback = "Pick a valid project before sending /project."
+                    logWarning(
+                        event: "chat_slash_command_validation_error",
+                        message: "Project slash command missing valid project",
+                        fields: ["command_id": invocation.id.rawValue]
+                    )
+                    return
+                }
+                slashDraft = invocation
+            }
+
+            if invocation.id == .clear {
+                showClearConfirmation = true
+                return
+            }
+
+            _Concurrency.Task {
+                await executeSlashCommand(invocation)
+            }
+            return
+        }
+
+        switch SlashCommandCatalog.parse(trimmed) {
+        case .invocation(var invocation):
+            if invocation.id == .project {
+                let query = invocation.projectQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard query.isEmpty == false else {
+                    commandFeedback = "Could not resolve that project. Use /project and pick one from commands."
+                    slashDraft = SlashCommandInvocation(id: .project, projectQuery: query, projectName: nil)
+                    prompt = ""
+                    openSlashPicker(trigger: "validation")
+                    return
+                }
+                // Use query as an execution hint; deterministic resolver handles ambiguity/not-found.
+                invocation.projectName = query
+            }
+
+            if invocation.id == .clear {
+                prompt = ""
+                showClearConfirmation = true
+                return
+            }
+
+            _Concurrency.Task {
+                await executeSlashCommand(invocation)
+            }
+            return
+
+        case .missingRequiredArgument(let commandID, _):
+            commandFeedback = "\(commandID.canonicalCommand) needs a project name."
+            slashDraft = SlashCommandInvocation(id: commandID, projectQuery: nil, projectName: nil)
+            prompt = ""
+            openSlashPicker(trigger: "validation")
+            logWarning(
+                event: "chat_slash_command_validation_error",
+                message: "Slash command missing required argument",
+                fields: ["command_id": commandID.rawValue]
+            )
+            return
+
+        case .unknown(let command):
+            commandFeedback = "Unknown command \(command). Type / to browse commands."
+            openSlashPicker(trigger: "unknown")
+            logWarning(
+                event: "chat_slash_command_validation_error",
+                message: "Unknown slash command",
+                fields: ["command": command]
+            )
+            return
+
+        case .notCommand:
+            break
+        }
+
+        guard let thread = ensureCurrentThread() else { return }
+        generatingThreadID = thread.id
+
+        let message = prompt
+        _Concurrency.Task {
+            await runStandardGeneration(message: message, thread: thread)
+        }
+    }
+
+    private func executeSlashCommand(_ invocation: SlashCommandInvocation) async {
+        guard let thread = await MainActor.run(body: { ensureCurrentThread() }) else { return }
+
+        let commandLabel = invocation.commandLabel
+        await MainActor.run {
+            projectLookupTask?.cancel()
+            prompt = ""
+            slashDraft = nil
+            isProjectFieldFocused = false
+            appManager.playHaptic()
+            sendMessage(Message(role: .user, content: commandLabel, thread: thread))
+        }
+
+        guard let service = SlashCommandExecutionService.makeDefault() else {
+            await MainActor.run {
+                sendMessage(Message(role: .assistant, content: "Task context is unavailable. Please try again.", thread: thread))
+            }
+            return
+        }
+
+        var resolvedInvocation = invocation
+        if invocation.id == .project {
+            let query = invocation.projectName
+                ?? invocation.projectQuery?.trimmingCharacters(in: .whitespacesAndNewlines)
+                ?? ""
+            if let resolvedName = await service.resolveProjectName(matching: query) {
+                resolvedInvocation.projectName = resolvedName
+            }
+        }
+
+        do {
+            let result = try await service.execute(invocation: resolvedInvocation)
+            let cardPayload = AssistantCardPayload(
+                cardType: .commandResult,
+                threadID: thread.id.uuidString,
+                status: .applied,
+                message: result.summary,
+                commandResult: result
+            )
+            let cardMessage = AssistantCardCodec.encode(cardPayload)
+
+            await MainActor.run {
+                sendMessage(Message(role: .assistant, content: cardMessage, thread: thread))
+                recordRecentCommand(resolvedInvocation.id)
+            }
+
+            logWarning(
+                event: "chat_slash_command_sent",
+                message: "Executed slash command",
+                fields: [
+                    "command_id": resolvedInvocation.id.rawValue,
+                    "result_count": String(result.totalTaskCount)
+                ]
+            )
+        } catch {
+            let failureMessage = (error as? LocalizedError)?.errorDescription ?? "Unable to run command right now."
+            let recoveryQuery: String?
+            if let slashError = error as? SlashCommandExecutionError {
+                switch slashError {
+                case .projectNotFound(let query), .ambiguousProjectName(let query, _):
+                    recoveryQuery = query
+                case .missingProjectName:
+                    recoveryQuery = resolvedInvocation.projectQuery
+                case .repositoriesUnavailable:
+                    recoveryQuery = nil
+                }
+            } else {
+                recoveryQuery = nil
+            }
+
+            await MainActor.run {
+                sendMessage(Message(role: .assistant, content: failureMessage, thread: thread))
+                if resolvedInvocation.id == .project, let recoveryQuery {
+                    slashDraft = SlashCommandInvocation(
+                        id: .project,
+                        projectQuery: recoveryQuery,
+                        projectName: nil
+                    )
+                    commandFeedback = failureMessage
+                    slashPickerQuery = "project"
+                    showSlashPicker = true
+                    isProjectFieldFocused = true
+                }
+            }
+            logWarning(
+                event: "chat_slash_command_validation_error",
+                message: "Slash command execution failed",
+                fields: [
+                    "command_id": resolvedInvocation.id.rawValue,
+                    "error": failureMessage
+                ]
+            )
+        }
+    }
+
+    private func runStandardGeneration(message: String, thread: Thread) async {
+        await MainActor.run {
+            prompt = ""
+            appManager.playHaptic()
+        }
+
+        var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
+        dynamicSystemPrompt += "\n\n" + contextPromptContract()
+
+        let tID = thread.id
+        let contextStartedAt = Date()
+        let contextPayload = await buildContextPayloadForCurrentTurn(
+            threadID: tID,
+            timeoutMs: contextFetchTimeoutMs
+        )
+        let contextBuildMs = Int(Date().timeIntervalSince(contextStartedAt) * 1_000)
+        if contextPayload.fromCache {
+            logWarning(
+                event: "chat_context_cache_hit",
+                message: "Reused cached chat context payload for current turn",
+                fields: [
+                    "thread_id": tID.uuidString,
+                    "duration_ms": String(contextBuildMs),
+                    "timeout_fallback_used": contextPayload.usedTimeoutFallback ? "true" : "false"
+                ]
+            )
+        } else {
+            logWarning(
+                event: "chat_context_build_ms",
+                message: "Built chat context payload for current turn",
+                fields: [
+                    "thread_id": tID.uuidString,
+                    "duration_ms": String(contextBuildMs),
+                    "timeout_fallback_used": contextPayload.usedTimeoutFallback ? "true" : "false"
+                ]
+            )
+        }
+        dynamicSystemPrompt += "\n\n" + contextPayload.payload
+
+        await MainActor.run {
+            sendMessage(Message(role: .user, content: message, thread: thread))
+            llm.isThinking = true
+        }
+
+        guard let modelName = appManager.currentModelName else {
+            await MainActor.run {
+                sendMessage(Message(role: .assistant, content: "No model selected", thread: thread))
+                generatingThreadID = nil
+            }
+            return
+        }
+
+        let prepareStartedAt = Date()
+        let prepareResult = await LLMRuntimeCoordinator.shared.ensureReady(modelName: modelName)
+        let prepareMs = Int(Date().timeIntervalSince(prepareStartedAt) * 1_000)
+        logWarning(
+            event: "chat_model_prepare_ms",
+            message: "Prepared selected model prior to chat generation",
+            fields: [
+                "model_name": modelName,
+                "duration_ms": String(prepareMs),
+                "prewarm_eligible": prepareResult.prewarmEligible ? "true" : "false",
+                "prewarm_hit": prepareResult.prewarmHit ? "true" : "false",
+                "ready": prepareResult.ready ? "true" : "false"
+            ]
+        )
+
+        guard prepareResult.ready else {
+            await MainActor.run {
+                sendMessage(
+                    Message(
+                        role: .assistant,
+                        content: "Model failed to prepare. Please switch models or retry.",
+                        thread: thread
+                    )
+                )
+                generatingThreadID = nil
+            }
+            return
+        }
+
+        os_log("SystemPrompt length %d", dynamicSystemPrompt.count)
+        logDebug("SYSTEM PROMPT ->\n\(dynamicSystemPrompt)")
+        logDebug("USER MESSAGE ->\n\(message)")
+        let output = await llm.generate(modelName: modelName, thread: thread, systemPrompt: dynamicSystemPrompt)
+        logDebug("LLM RESPONSE ->\n\(output)")
+
+        await MainActor.run {
+            sendMessage(Message(role: .assistant, content: output, thread: thread, generatingTime: llm.thinkingTime))
+            generatingThreadID = nil
+        }
+    }
+
     /// Executes sendMessage.
+    @MainActor
     private func sendMessage(_ message: Message) {
         appManager.playHaptic()
         modelContext.insert(message)
@@ -580,41 +1154,6 @@ struct ChatView: View {
                 fields: ["error": error.localizedDescription]
             )
         }
-    }
-
-    // MARK: - Slash command parsing
-    /// Executes parseSlashCommand.
-    private func parseSlashCommand(_ text: String) -> SlashAction {
-        guard text.hasPrefix("/") else { return .none }
-        let components = text.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
-        guard let command = components.first?.lowercased() else { return .none }
-
-        switch command {
-        case "/todo", "/today":
-            return .summary(.today, nil)
-        case "/tomorrow":
-            return .summary(.tomorrow, nil)
-        case "/week":
-            return .summary(.week, nil)
-        case "/month":
-            return .summary(.month, nil)
-        case "/project":
-            if components.count == 2 {
-                let query = components[1].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                let match = LLMContextRepositoryProvider.findProjectNameSync(matching: query)
-                return .summary(.all, match)
-            }
-            return .summary(.all, nil)
-        case "/clear":
-            return .clear
-        default:
-            return .none
-        }
-    }
-
-    /// Executes buildTasksSummary.
-    private func buildTasksSummary() -> String {
-        PromptMiddleware.buildTasksSummary(range: .today)
     }
 
     /// Executes buildLLMContextPayloadAsync.
@@ -676,5 +1215,10 @@ struct ChatView: View {
 
 #Preview {
     @FocusState var isPromptFocused: Bool
-    ChatView(currentThread: .constant(nil), isPromptFocused: $isPromptFocused, showChats: .constant(false), showSettings: .constant(false))
+    ChatView(
+        currentThread: .constant(nil),
+        isPromptFocused: $isPromptFocused,
+        showChats: .constant(false),
+        showSettings: .constant(false)
+    )
 }

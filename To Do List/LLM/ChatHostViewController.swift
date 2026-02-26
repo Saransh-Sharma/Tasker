@@ -6,33 +6,51 @@
 //  If no model is installed, shows onboarding to guide download. Otherwise presents Chat UI.
 //
 
-import UIKit
-import SwiftUI
-import SwiftData
 import Combine
-
-
-
-
-
+import SwiftData
+import SwiftUI
+import UIKit
 
 /// UIKit wrapper that embeds the SwiftUI LLM module.
 extension Notification.Name {
     static let toggleChatHistory = Notification.Name("toggleChatHistory")
 }
 
-class ChatHostViewController: UIViewController {
+class ChatHostViewController: UIViewController, PresentationDependencyContainerAware, UseCaseCoordinatorInjectable {
+    var presentationDependencyContainer: PresentationDependencyContainer?
+    var useCaseCoordinator: UseCaseCoordinator!
+
     private let appManager = AppManager()
     private let llmEvaluator = LLMRuntimeCoordinator.shared.evaluator
-    // Shared SwiftData container for the LLM module (persistent on-disk, CloudKit disabled)
     private let container: ModelContainer? = LLMDataController.shared
 
     private var hostingController: UIHostingController<AnyView>!
     private var themeCancellable: AnyCancellable?
+    private var cachedProjects: [Project] = [Project.createInbox()]
+
+    private var resolvedUseCaseCoordinator: UseCaseCoordinator? {
+        if let useCaseCoordinator {
+            return useCaseCoordinator
+        }
+
+        if presentationDependencyContainer == nil,
+           PresentationDependencyContainer.shared.isConfiguredForRuntime {
+            presentationDependencyContainer = PresentationDependencyContainer.shared
+        }
+
+        guard let presentationDependencyContainer,
+              presentationDependencyContainer.isConfiguredForRuntime else {
+            return nil
+        }
+
+        return presentationDependencyContainer.coordinator
+    }
 
     /// Executes viewDidLoad.
     override func viewDidLoad() {
         super.viewDidLoad()
+        resolveDependenciesIfNeeded()
+
         if LLMDataController.isDegradedModeActive {
             logWarning(
                 event: "llm_data_controller_degraded_mode_active",
@@ -40,14 +58,16 @@ class ChatHostViewController: UIViewController {
                 fields: ["reason": LLMDataController.degradedModeReason ?? "unknown"]
             )
         }
+
         let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
         view.backgroundColor = themeColors.bgCanvas
 
-        // Root SwiftUI view that decides what to present.
         let rootView: AnyView
         if let container {
             rootView = AnyView(
-                ChatContainerView()
+                ChatContainerView(onOpenTaskDetail: { [weak self] task in
+                    self?.presentTaskDetailSheet(for: task)
+                })
                     .environmentObject(appManager)
                     .environment(llmEvaluator)
                     .modelContainer(container)
@@ -68,7 +88,9 @@ class ChatHostViewController: UIViewController {
             hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         hostingController.didMove(toParent: self)
+
         setupNavigationBar()
+
         Task { @MainActor in
             await LLMRuntimeCoordinator.shared.prewarmIfEligibleCurrentModel()
         }
@@ -79,16 +101,29 @@ class ChatHostViewController: UIViewController {
                 self?.applyTheme()
             }
     }
+
+    private func resolveDependenciesIfNeeded() {
+        if presentationDependencyContainer == nil,
+           PresentationDependencyContainer.shared.isConfiguredForRuntime {
+            presentationDependencyContainer = PresentationDependencyContainer.shared
+        }
+
+        if useCaseCoordinator == nil,
+           let presentationDependencyContainer,
+           presentationDependencyContainer.isConfiguredForRuntime {
+            useCaseCoordinator = presentationDependencyContainer.coordinator
+        }
+    }
+
     // MARK: - Navigation Bar Setup
+
     /// Executes setupNavigationBar.
     private func setupNavigationBar() {
-        // Configure navigation bar appearance using standard iOS APIs
         title = "Eva"
 
         let themeColors = TaskerThemeManager.shared.currentTheme.tokens.color
         let onAccent = themeColors.accentOnPrimary
 
-        // Configure navigation bar appearance
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = themeColors.accentPrimary
@@ -100,7 +135,6 @@ class ChatHostViewController: UIViewController {
         navigationController?.navigationBar.compactAppearance = appearance
         navigationController?.navigationBar.prefersLargeTitles = false
 
-        // Left: Back button
         let backButton = UIBarButtonItem(
             image: UIImage(systemName: "chevron.backward"),
             style: .plain,
@@ -111,7 +145,6 @@ class ChatHostViewController: UIViewController {
         backButton.accessibilityLabel = "Back"
         navigationItem.leftBarButtonItem = backButton
 
-        // Right: History button
         let historyButton = UIBarButtonItem(
             image: UIImage(systemName: "text.below.folder"),
             style: .plain,
@@ -129,6 +162,299 @@ class ChatHostViewController: UIViewController {
 
     @objc private func onHistoryTapped() {
         NotificationCenter.default.post(name: .toggleChatHistory, object: nil)
+    }
+
+    // MARK: - Task Detail Presentation
+
+    private func presentTaskDetailSheet(for task: TaskDefinition) {
+        guard let coordinator = resolvedUseCaseCoordinator else {
+            logWarning(
+                event: "chat_task_detail_unavailable",
+                message: "Skipped task detail from chat because dependencies were unavailable",
+                fields: ["task_id": task.id.uuidString]
+            )
+            showTaskDetailUnavailableAlert()
+            return
+        }
+
+        loadProjectsIfNeeded(coordinator: coordinator) { [weak self] projects in
+            guard let self else { return }
+
+            let detailView = TaskDetailSheetView(
+                task: task,
+                projects: projects,
+                onUpdate: { [weak self] _, request, completion in
+                    guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
+                        completion(.failure(NSError(
+                            domain: "ChatHostViewController",
+                            code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+                        )))
+                        return
+                    }
+                    coordinator.updateTaskDefinition.execute(request: request) { result in
+                        DispatchQueue.main.async {
+                            completion(result)
+                        }
+                    }
+                },
+                onSetCompletion: { [weak self] taskID, isComplete, completion in
+                    guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
+                        completion(.failure(NSError(
+                            domain: "ChatHostViewController",
+                            code: 2,
+                            userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+                        )))
+                        return
+                    }
+                    coordinator.completeTaskDefinition.setCompletion(taskID: taskID, to: isComplete) { result in
+                        DispatchQueue.main.async {
+                            completion(result)
+                        }
+                    }
+                },
+                onDelete: { [weak self] taskID, scope, completion in
+                    guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
+                        completion(.failure(NSError(
+                            domain: "ChatHostViewController",
+                            code: 3,
+                            userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+                        )))
+                        return
+                    }
+                    coordinator.deleteTaskDefinition.execute(taskID: taskID, scope: scope) { result in
+                        DispatchQueue.main.async {
+                            completion(result)
+                        }
+                    }
+                },
+                onReschedule: { [weak self] taskID, date, completion in
+                    guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
+                        completion(.failure(NSError(
+                            domain: "ChatHostViewController",
+                            code: 4,
+                            userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+                        )))
+                        return
+                    }
+                    coordinator.rescheduleTaskDefinition.execute(taskID: taskID, newDate: date) { result in
+                        DispatchQueue.main.async {
+                            completion(result)
+                        }
+                    }
+                },
+                onLoadMetadata: { [weak self] projectID, completion in
+                    self?.loadTaskDetailMetadata(projectID: projectID, completion: completion)
+                },
+                onLoadChildren: { [weak self] parentTaskID, completion in
+                    guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
+                        completion(.failure(NSError(
+                            domain: "ChatHostViewController",
+                            code: 6,
+                            userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+                        )))
+                        return
+                    }
+                    coordinator.getTaskChildren.execute(parentTaskID: parentTaskID) { result in
+                        DispatchQueue.main.async {
+                            completion(result)
+                        }
+                    }
+                },
+                onCreateTask: { [weak self] request, completion in
+                    guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
+                        completion(.failure(NSError(
+                            domain: "ChatHostViewController",
+                            code: 7,
+                            userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+                        )))
+                        return
+                    }
+                    coordinator.createTaskDefinition.execute(request: request) { result in
+                        DispatchQueue.main.async {
+                            completion(result)
+                        }
+                    }
+                },
+                onCreateTag: { [weak self] name, completion in
+                    guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
+                        completion(.failure(NSError(
+                            domain: "ChatHostViewController",
+                            code: 8,
+                            userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+                        )))
+                        return
+                    }
+                    coordinator.manageTags.create(name: name, color: nil, icon: nil) { result in
+                        DispatchQueue.main.async {
+                            completion(result)
+                        }
+                    }
+                },
+                onCreateProject: { [weak self] name, completion in
+                    guard let self, let coordinator = self.resolvedUseCaseCoordinator else {
+                        completion(.failure(NSError(
+                            domain: "ChatHostViewController",
+                            code: 9,
+                            userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+                        )))
+                        return
+                    }
+                    coordinator.manageProjects.createProject(request: CreateProjectRequest(name: name)) { result in
+                        DispatchQueue.main.async {
+                            completion(result.mapError { $0 as Error })
+                        }
+                    }
+                }
+            )
+
+            let hostingController = UIHostingController(rootView: detailView)
+            hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+            hostingController.modalPresentationStyle = .pageSheet
+
+            if let sheet = hostingController.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            }
+
+            self.present(hostingController, animated: true)
+        }
+    }
+
+    private func showTaskDetailUnavailableAlert() {
+        let alert = UIAlertController(
+            title: "Task details unavailable",
+            message: "Could not open task details from chat right now. Please try again from Home.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
+    private func loadProjectsIfNeeded(
+        coordinator: UseCaseCoordinator,
+        completion: @escaping ([Project]) -> Void
+    ) {
+        coordinator.manageProjects.getAllProjects { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let projectsWithStats):
+                    let projects = projectsWithStats.map(\.project)
+                    if projects.isEmpty {
+                        let fallback = [Project.createInbox()]
+                        self?.cachedProjects = fallback
+                        completion(fallback)
+                    } else {
+                        self?.cachedProjects = projects
+                        completion(projects)
+                    }
+                case .failure:
+                    completion(self?.cachedProjects ?? [Project.createInbox()])
+                }
+            }
+        }
+    }
+
+    private func loadTaskDetailMetadata(
+        projectID: UUID,
+        completion: @escaping (Result<TaskDetailMetadataPayload, Error>) -> Void
+    ) {
+        guard let coordinator = resolvedUseCaseCoordinator else {
+            completion(.failure(NSError(
+                domain: "ChatHostViewController",
+                code: 10,
+                userInfo: [NSLocalizedDescriptionKey: "Coordinator unavailable"]
+            )))
+            return
+        }
+
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var firstError: Error?
+
+        var loadedProjects: [Project] = cachedProjects
+        var loadedLifeAreas: [LifeArea] = []
+        var loadedSections: [TaskerProjectSection] = []
+        var loadedTags: [TagDefinition] = []
+        var availableTasks: [TaskDefinition] = []
+
+        func record(_ error: Error) {
+            lock.lock()
+            if firstError == nil {
+                firstError = error
+            }
+            lock.unlock()
+        }
+
+        group.enter()
+        coordinator.manageProjects.getAllProjects { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let projectsWithStats):
+                loadedProjects = projectsWithStats.map(\.project)
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.enter()
+        coordinator.manageLifeAreas.list { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let lifeAreas):
+                loadedLifeAreas = lifeAreas
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.enter()
+        coordinator.manageSections.list(projectID: projectID) { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let sections):
+                loadedSections = sections
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.enter()
+        coordinator.manageTags.list { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let tags):
+                loadedTags = tags
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.enter()
+        coordinator.getTasks.getTasksForProject(projectID, includeCompleted: false) { result in
+            defer { group.leave() }
+            switch result {
+            case .success(let projectTasks):
+                availableTasks = projectTasks.tasks
+            case .failure(let error):
+                record(error)
+            }
+        }
+
+        group.notify(queue: .main) {
+            if let firstError {
+                completion(.failure(firstError))
+                return
+            }
+            completion(.success(TaskDetailMetadataPayload(
+                projects: loadedProjects,
+                lifeAreas: loadedLifeAreas,
+                sections: loadedSections,
+                tags: loadedTags,
+                availableTasks: availableTasks
+            )))
+        }
     }
 
     // MARK: - Theme Handling
@@ -183,6 +509,8 @@ private struct ChatContainerView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(LLMEvaluator.self) var llm
 
+    var onOpenTaskDetail: (TaskDefinition) -> Void
+
     @State private var currentThread: Thread? = nil
     @FocusState private var isPromptFocused: Bool
     @State private var showChats = false
@@ -192,26 +520,23 @@ private struct ChatContainerView: View {
     var body: some View {
         Group {
             if appManager.installedModels.isEmpty {
-                // Show onboarding until at least one model is installed
                 OnboardingView(showOnboarding: $showOnboarding)
                     .onChange(of: appManager.installedModels) { _, _ in
-                        // Refresh UI when a model gets installed
                         showOnboarding = false
                     }
             } else {
-                // Present main chat UI
                 ChatView(
                     currentThread: $currentThread,
                     isPromptFocused: $isPromptFocused,
                     showChats: $showChats,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    onOpenTaskDetail: onOpenTaskDetail
                 )
             }
         }
         .environmentObject(appManager)
         .environment(llm)
         .background(Color.tasker(.bgCanvas))
-        // Present chat history list when showChats toggled (iPhone)
         .sheet(isPresented: $showChats) {
             ChatsListView(currentThread: $currentThread, isPromptFocused: $isPromptFocused)
                 .environmentObject(appManager)

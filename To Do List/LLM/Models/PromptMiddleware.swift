@@ -2,7 +2,6 @@
 //  PromptMiddleware.swift
 //  Tasker LLM
 //
-//
 
 import Foundation
 
@@ -33,8 +32,8 @@ struct PromptMiddleware {
         let openTasks = allTasks.filter { task in
             guard !task.isComplete else { return false }
             if let targetProject {
-                let projName = task.projectName?.lowercased() ?? ""
-                if projName != targetProject { return false }
+                let projectName = task.projectName?.lowercased() ?? ""
+                if projectName != targetProject { return false }
             }
             return task.dueDate != nil
         }
