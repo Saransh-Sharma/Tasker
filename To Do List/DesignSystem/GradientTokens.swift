@@ -118,9 +118,10 @@ public struct TaskerHeaderGradient {
                 shade(secondary, by: 0.20).cgColor
             ]
         } else {
-            // Light mode: primary at top → blending through to secondary
+            // Light mode: soften first stop to reduce saturation wash, preserving gem character
+            let canvas = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas.resolvedColor(with: traits)
             return [
-                primary.cgColor,
+                blendColors(primary, canvas, ratio: 0.15).cgColor,
                 shade(primary, by: 0.06).cgColor,
                 blendColors(primary, secondary, ratio: 0.5).cgColor,
                 shade(secondary, by: 0.10).cgColor
@@ -145,14 +146,18 @@ public struct TaskerHeaderGradient {
 
     /// Premium shade function:
     /// - lowers brightness
-    /// - lowers saturation while shading to avoid muddy/brown tones
+    /// - lowers saturation while shading, with reduced desaturation for warm hues
+    ///   to preserve chromatic richness (prevents pinks/golds from going muddy)
     private static func shade(_ color: UIColor, by amount: CGFloat) -> UIColor {
         var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         guard color.getHue(&h, saturation: &s, brightness: &b, alpha: &a) else {
             return color
         }
         let shadedBrightness = max(b - amount, 0)
-        let shadedSaturation = max(s - (amount * 0.28), 0.02)
+        // Warm hues (reds, pinks, oranges, golds: ~320-60 degrees) desaturate less
+        let isWarmHue = h > 0.89 || h < 0.17 // ~320° to ~60° on the color wheel
+        let satReduction = isWarmHue ? amount * 0.15 : amount * 0.28
+        let shadedSaturation = max(s - satReduction, 0.02)
         return UIColor(hue: h, saturation: shadedSaturation, brightness: shadedBrightness, alpha: a)
     }
 
