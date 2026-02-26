@@ -70,7 +70,7 @@ class ChatHostViewController: UIViewController {
         hostingController.didMove(toParent: self)
         setupNavigationBar()
         Task { @MainActor in
-            LLMPrewarmCoordinator.shared.prewarmCurrentModelIfNeeded(reason: "chat_open")
+            await LLMRuntimeCoordinator.shared.prewarmIfEligibleCurrentModel()
         }
 
         themeCancellable = TaskerThemeManager.shared.publisher

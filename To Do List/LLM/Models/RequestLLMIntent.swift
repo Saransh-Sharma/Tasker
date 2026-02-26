@@ -49,10 +49,28 @@ struct RequestLLMIntent: AppIntent {
 
         if let modelName = appManager.currentModelName {
             _ = try? await llm.load(modelName: modelName)
+
+            let contextResult = await LLMChatContextEnvelopeBuilder.build(
+                timeoutMs: 800,
+                service: LLMContextRepositoryProvider.makeService(),
+                injectionPolicy: "per_turn"
+            )
+            let contextContract = """
+            Context contract:
+            - Use the Context JSON envelope injected for this turn as the source of truth.
+            - Check `metadata.context_partial` and `partial_flags`.
+            - If context is partial, say data may be incomplete and avoid definitive zero/none claims for overdue or due counts.
+            """
+            let composedSystemPrompt = appManager.systemPrompt
+                + "\n\n"
+                + contextContract
+                + "\n\n"
+                + contextResult.payload
+                + systemPrompt
             
             let message = Message(role: .user, content: prompt, thread: thread)
             thread.messages.append(message)
-            var output = await llm.generate(modelName: modelName, thread: thread, systemPrompt: appManager.systemPrompt + systemPrompt)
+            var output = await llm.generate(modelName: modelName, thread: thread, systemPrompt: composedSystemPrompt)
             
             let maxCharacters = maxCharacters ?? .max
             

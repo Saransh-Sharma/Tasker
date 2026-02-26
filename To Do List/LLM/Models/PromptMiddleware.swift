@@ -30,31 +30,66 @@ struct PromptMiddleware {
     static func buildTasksSummary(range: TaskRange, projectName: String? = nil) -> String {
         let allTasks = fetchAllTasksSync()
         let targetProject = projectName?.lowercased()
-        let tasks = allTasks.filter { task in
+        let openTasks = allTasks.filter { task in
             guard !task.isComplete else { return false }
-            // project filter
             if let targetProject {
                 let projName = task.projectName?.lowercased() ?? ""
                 if projName != targetProject { return false }
             }
-            // date range filter
-            guard let due = task.dueDate else { return false }
-            let cal = Calendar.current
-            switch range {
-            case .all:
-                return true
-            case .today:
-                return cal.isDateInToday(due)
-            case .tomorrow:
-                return cal.isDateInTomorrow(due)
-            case .week:
-                return cal.isDate(due, equalTo: Date(), toGranularity: .weekOfYear)
-            case .month:
-                return cal.isDate(due, equalTo: Date(), toGranularity: .month)
-            }
+            return task.dueDate != nil
         }
-        if tasks.isEmpty { return "(no tasks)" }
-        return tasks.map { "• \($0.title)" }.joined(separator: "\n")
+
+        let calendar = Calendar.current
+        let now = Date()
+
+        switch range {
+        case .all:
+            if openTasks.isEmpty { return "(no tasks)" }
+            return openTasks.map { "• \($0.title)" }.joined(separator: "\n")
+        case .today:
+            let startOfToday = calendar.startOfDay(for: now)
+            let overdue = openTasks.filter {
+                guard let due = $0.dueDate else { return false }
+                return due < startOfToday
+            }
+            let dueToday = openTasks.filter {
+                guard let due = $0.dueDate else { return false }
+                return calendar.isDateInToday(due)
+            }
+
+            var lines: [String] = []
+            if overdue.isEmpty == false {
+                lines.append("Overdue:")
+                lines.append(contentsOf: overdue.map { "• [overdue] \($0.title)" })
+            }
+            if dueToday.isEmpty == false {
+                lines.append("Due today:")
+                lines.append(contentsOf: dueToday.map { "• [today] \($0.title)" })
+            }
+            if lines.isEmpty { return "(no tasks)" }
+            return lines.joined(separator: "\n")
+        case .tomorrow:
+            let tomorrow = openTasks.filter {
+                guard let due = $0.dueDate else { return false }
+                return calendar.isDateInTomorrow(due)
+            }
+            if tomorrow.isEmpty { return "(no tasks)" }
+            return tomorrow.map { "• \($0.title)" }.joined(separator: "\n")
+        case .week:
+            let week = openTasks.filter {
+                guard let due = $0.dueDate else { return false }
+                return calendar.isDate(due, equalTo: now, toGranularity: .weekOfYear)
+            }
+            if week.isEmpty { return "(no tasks)" }
+            return week.map { "• \($0.title)" }.joined(separator: "\n")
+        case .month:
+            let month = openTasks.filter {
+                guard let due = $0.dueDate else { return false }
+                return calendar.isDate(due, equalTo: now, toGranularity: .month)
+            }
+            if month.isEmpty { return "(no tasks)" }
+            return month.map { "• \($0.title)" }.joined(separator: "\n")
+        }
     }
 
     /// Executes fetchAllTasksSync.

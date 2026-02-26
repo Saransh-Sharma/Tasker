@@ -9,6 +9,43 @@ import Combine
 import SwiftData
 import os
 
+private actor ChatContextInjectionTracker {
+    struct CachedContext {
+        let payload: String
+        let generatedAt: Date
+        let usedTimeoutFallback: Bool
+    }
+
+    private var cacheByThreadID: [UUID: CachedContext] = [:]
+
+    /// Executes cachedContext.
+    func cachedContext(
+        for threadID: UUID,
+        now: Date,
+        throttleMs: UInt64
+    ) -> CachedContext? {
+        guard throttleMs > 0, let cached = cacheByThreadID[threadID] else {
+            return nil
+        }
+        let ageMs = now.timeIntervalSince(cached.generatedAt) * 1_000
+        return ageMs < Double(throttleMs) ? cached : nil
+    }
+
+    /// Executes store.
+    func store(threadID: UUID, payload: String, usedTimeoutFallback: Bool, generatedAt: Date) {
+        cacheByThreadID[threadID] = CachedContext(
+            payload: payload,
+            generatedAt: generatedAt,
+            usedTimeoutFallback: usedTimeoutFallback
+        )
+    }
+
+    /// Executes clear.
+    func clear(threadID: UUID) {
+        cacheByThreadID.removeValue(forKey: threadID)
+    }
+}
+
 struct ChatView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(\.modelContext) var modelContext
@@ -25,8 +62,27 @@ struct ChatView: View {
     @State var thinkingTime: TimeInterval?
 
     @State private var generatingThreadID: UUID?
-    static private var contextInjectedThreads = Set<UUID>()
+    static private let contextInjectionTracker = ChatContextInjectionTracker()
     private let contextFetchTimeoutMs: UInt64 = 800
+    private let contextInjectionPolicy: ContextInjectionPolicy = .perTurn(throttleMs: 0)
+
+    private enum ContextInjectionPolicy {
+        case perTurn(throttleMs: UInt64)
+
+        var throttleMs: UInt64 {
+            switch self {
+            case .perTurn(let throttleMs):
+                return throttleMs
+            }
+        }
+
+        var rawValue: String {
+            switch self {
+            case .perTurn:
+                return "per_turn"
+            }
+        }
+    }
 
     var isPromptEmpty: Bool {
         prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -263,7 +319,11 @@ struct ChatView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 if let currentThread = currentThread {
-                    ConversationView(thread: currentThread, generatingThreadID: generatingThreadID)
+                    ConversationView(
+                        thread: currentThread,
+                        generatingThreadID: generatingThreadID,
+                        isPreparingResponse: llm.isThinking
+                    )
                 } else {
                     emptyState
                 }
@@ -378,6 +438,9 @@ struct ChatView: View {
                 if let thread = currentThread {
                     modelContext.delete(thread)
                     try? modelContext.save()
+                    _Concurrency.Task {
+                        await ChatView.contextInjectionTracker.clear(threadID: thread.id)
+                    }
                 }
                 currentThread = nil
                 prompt = ""
@@ -407,6 +470,7 @@ struct ChatView: View {
                     appManager.playHaptic()
 
                     var dynamicSystemPrompt = "You are Eva, the user's personal task assistant. Use the provided tasks and project details to answer questions and help manage their work." + "\n\n" + appManager.systemPrompt
+                    dynamicSystemPrompt += "\n\n" + contextPromptContract()
 
                     switch action {
                     case let .summary(range, projectName):
@@ -416,23 +480,35 @@ struct ChatView: View {
                         break
                     }
                     let tID = currentThread.id
-                    if !ChatView.contextInjectedThreads.contains(tID) {
-                        let contextStartedAt = Date()
-                        let contextPayload = await buildLLMContextPayloadAsync(timeoutMs: contextFetchTimeoutMs)
-                        let contextBuildMs = Int(Date().timeIntervalSince(contextStartedAt) * 1_000)
+                    let contextStartedAt = Date()
+                    let contextPayload = await buildContextPayloadForCurrentTurn(
+                        threadID: tID,
+                        timeoutMs: contextFetchTimeoutMs
+                    )
+                    let contextBuildMs = Int(Date().timeIntervalSince(contextStartedAt) * 1_000)
+                    if contextPayload.fromCache {
                         logWarning(
-                            event: "chat_context_build_ms",
-                            message: "Built chat context payload for first message in thread",
+                            event: "chat_context_cache_hit",
+                            message: "Reused cached chat context payload for current turn",
                             fields: [
                                 "thread_id": tID.uuidString,
                                 "duration_ms": String(contextBuildMs),
                                 "timeout_fallback_used": contextPayload.usedTimeoutFallback ? "true" : "false"
                             ]
                         )
-                        let injectedContext = contextPayload.payload
-                        dynamicSystemPrompt += "\n\n" + injectedContext
-                        ChatView.contextInjectedThreads.insert(tID)
+                    } else {
+                        logWarning(
+                            event: "chat_context_build_ms",
+                            message: "Built chat context payload for current turn",
+                            fields: [
+                                "thread_id": tID.uuidString,
+                                "duration_ms": String(contextBuildMs),
+                                "timeout_fallback_used": contextPayload.usedTimeoutFallback ? "true" : "false"
+                            ]
+                        )
                     }
+                    let injectedContext = contextPayload.payload
+                    dynamicSystemPrompt += "\n\n" + injectedContext
 
                     await MainActor.run {
                         sendMessage(Message(role: .user, content: message, thread: currentThread))
@@ -543,30 +619,46 @@ struct ChatView: View {
 
     /// Executes buildLLMContextPayloadAsync.
     private func buildLLMContextPayloadAsync(timeoutMs: UInt64) async -> (payload: String, usedTimeoutFallback: Bool) {
-        guard let service = LLMContextRepositoryProvider.makeService() else {
-            return ("""
-            Context JSON:
-            today={}
-            upcoming={}
-            """, true)
+        let result = await LLMChatContextEnvelopeBuilder.build(
+            timeoutMs: timeoutMs,
+            service: LLMContextRepositoryProvider.makeService(),
+            injectionPolicy: contextInjectionPolicy.rawValue
+        )
+        return (result.payload, result.usedTimeoutFallback)
+    }
+
+    /// Executes buildContextPayloadForCurrentTurn.
+    private func buildContextPayloadForCurrentTurn(
+        threadID: UUID,
+        timeoutMs: UInt64
+    ) async -> (payload: String, usedTimeoutFallback: Bool, fromCache: Bool) {
+        let now = Date()
+        if let cached = await ChatView.contextInjectionTracker.cachedContext(
+            for: threadID,
+            now: now,
+            throttleMs: contextInjectionPolicy.throttleMs
+        ) {
+            return (cached.payload, cached.usedTimeoutFallback, true)
         }
 
-        async let todayResult = LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
-            await service.buildTodayJSON()
-        }
-        async let upcomingResult = LLMProjectionTimeout.execute(timeoutMs: timeoutMs) {
-            await service.buildUpcomingJSON()
-        }
+        let built = await buildLLMContextPayloadAsync(timeoutMs: timeoutMs)
+        await ChatView.contextInjectionTracker.store(
+            threadID: threadID,
+            payload: built.payload,
+            usedTimeoutFallback: built.usedTimeoutFallback,
+            generatedAt: now
+        )
+        return (built.payload, built.usedTimeoutFallback, false)
+    }
 
-        let todayResultValue = await todayResult
-        let upcomingResultValue = await upcomingResult
-
-        let payload = """
-        Context JSON:
-        today=\(todayResultValue.payload)
-        upcoming=\(upcomingResultValue.payload)
+    /// Executes contextPromptContract.
+    private func contextPromptContract() -> String {
         """
-        return (payload, todayResultValue.timedOut || upcomingResultValue.timedOut)
+        Context contract:
+        - Use the Context JSON envelope injected for this turn as the source of truth.
+        - Check `metadata.context_partial` and `partial_flags`.
+        - If context is partial, say data may be incomplete and avoid definitive zero/none claims for overdue or due counts.
+        """
     }
 
     #if os(macOS)

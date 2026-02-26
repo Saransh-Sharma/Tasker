@@ -31,6 +31,7 @@ class LLMEvaluator {
     var thinkingTime: TimeInterval?
     var collapsed: Bool = false
     var isThinking: Bool = false
+    var lastGenerationTimedOut: Bool = false
 
     var elapsedTime: TimeInterval? {
         if let startTime {
@@ -158,7 +159,45 @@ class LLMEvaluator {
     }
 
     /// Executes generate.
-    func generate(modelName: String, thread: Thread, systemPrompt: String) async -> String {
+    func generate(
+        modelName: String,
+        thread: Thread,
+        systemPrompt: String,
+        profile: LLMGenerationProfile = .chat,
+        onFirstToken: (@MainActor () -> Void)? = nil
+    ) async -> String {
+        lastGenerationTimedOut = false
+        let timeoutMs = UInt64(max(profile.timeoutSeconds, 0) * 1_000)
+        guard timeoutMs > 0 else {
+            return await runGeneration(
+                modelName: modelName,
+                thread: thread,
+                systemPrompt: systemPrompt,
+                onFirstToken: onFirstToken
+            )
+        }
+
+        let (result, timedOut) = await LLMProjectionTimeout.execute(timeoutMs: timeoutMs) { [weak self] in
+            guard let self else { return "{}" }
+            return await self.runGeneration(
+                modelName: modelName,
+                thread: thread,
+                systemPrompt: systemPrompt,
+                onFirstToken: onFirstToken
+            )
+        }
+
+        lastGenerationTimedOut = timedOut
+        return result
+    }
+
+    /// Executes runGeneration.
+    private func runGeneration(
+        modelName: String,
+        thread: Thread,
+        systemPrompt: String,
+        onFirstToken: (@MainActor () -> Void)?
+    ) async -> String {
         guard !running else { return "" }
 
         running = true
@@ -193,6 +232,9 @@ class LLMEvaluator {
                 ) { tokens in
                     if !firstTokenLogged, !tokens.isEmpty {
                         firstTokenLogged = true
+                        _Concurrency.Task { @MainActor in
+                            onFirstToken?()
+                        }
                         let firstTokenLatencyMs = Int(Date().timeIntervalSince(generationStartedAt) * 1_000)
                         _Concurrency.Task { @MainActor in
                             logWarning(
