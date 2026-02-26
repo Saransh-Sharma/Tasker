@@ -55,6 +55,7 @@ struct MessageView: View {
     var onRejectProposal: ((Message, AssistantCardPayload) -> Void)?
     var onUndoRun: ((Message, AssistantCardPayload) -> Void)?
     var onRefreshContext: ((Message, AssistantCardPayload) -> Void)?
+    var onOpenTaskFromCard: ((TaskDefinition) -> Void)?
 
     private let countdownTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
@@ -230,6 +231,9 @@ struct MessageView: View {
 
     @ViewBuilder
     private func assistantCardView(payload: AssistantCardPayload) -> some View {
+        if payload.cardType == .commandResult, let commandResult = payload.commandResult {
+            commandResultCardView(commandResult)
+        } else {
         VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
             HStack {
                 Text(payload.cardType == .undo ? "Changes applied" : "Eva's Plan")
@@ -305,6 +309,88 @@ struct MessageView: View {
                     .foregroundColor(Color.tasker(.textTertiary))
             }
         }
+        }
+    }
+
+    @ViewBuilder
+    private func commandResultCardView(_ result: SlashCommandExecutionResult) -> some View {
+        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+            HStack {
+                Label(result.commandLabel, systemImage: result.commandID.icon)
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker(.textPrimary))
+                Spacer()
+                Text("\(result.totalTaskCount)")
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker(.textTertiary))
+            }
+
+            Text(result.summary)
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker(.textSecondary))
+
+            if result.sections.isEmpty {
+                Text("No tasks to show.")
+                    .font(.tasker(.caption1))
+                    .foregroundColor(Color.tasker(.textTertiary))
+            } else {
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                    ForEach(Array(result.sections.enumerated()), id: \.offset) { _, section in
+                        VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                            Text("\(section.title) (\(section.totalCount))")
+                                .font(.tasker(.caption1))
+                                .foregroundColor(Color.tasker(.textTertiary))
+
+                            ForEach(Array(section.tasks.enumerated()), id: \.element.taskID) { _, item in
+                                Button {
+                                    logWarning(
+                                        event: "chat_slash_card_task_opened",
+                                        message: "Opened task detail from slash command card",
+                                        fields: [
+                                            "command_id": result.commandID.rawValue,
+                                            "task_id": item.taskID.uuidString
+                                        ]
+                                    )
+                                    onOpenTaskFromCard?(item.taskSnapshot)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: TaskerTheme.Spacing.xs) {
+                                        Text(item.title)
+                                            .font(.tasker(.callout))
+                                            .foregroundColor(Color.tasker(.textPrimary))
+                                            .multilineTextAlignment(.leading)
+                                        HStack(spacing: TaskerTheme.Spacing.xs) {
+                                            if let dueLabel = item.dueLabel, dueLabel.isEmpty == false {
+                                                Text(dueLabel)
+                                                    .font(.tasker(.caption1))
+                                                    .foregroundColor(dueLabelColor(dueLabel))
+                                            }
+                                            Text(item.projectName)
+                                                .font(.tasker(.caption1))
+                                                .foregroundColor(Color.tasker(.textTertiary))
+                                        }
+                                    }
+                                    .padding(.horizontal, TaskerTheme.Spacing.sm)
+                                    .padding(.vertical, TaskerTheme.Spacing.sm)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.tasker(.surfaceSecondary))
+                                    .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Open task \(item.title)")
+                                .accessibilityHint("Opens task details")
+                                .accessibilityIdentifier("chat.command_card.task_row.\(item.taskID.uuidString)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func dueLabelColor(_ dueLabel: String) -> Color {
+        dueLabel.localizedCaseInsensitiveContains("late")
+            ? Color.tasker(.statusDanger)
+            : Color.tasker(.textTertiary)
     }
 
     /// Executes proposalStatusText.
@@ -355,6 +441,7 @@ struct ConversationView: View {
     var onRejectProposal: ((Message, AssistantCardPayload) -> Void)?
     var onUndoRun: ((Message, AssistantCardPayload) -> Void)?
     var onRefreshContext: ((Message, AssistantCardPayload) -> Void)?
+    var onOpenTaskFromCard: ((TaskDefinition) -> Void)?
 
     @State private var scrollID: String?
     @State private var scrollInterrupted = false
@@ -369,7 +456,8 @@ struct ConversationView: View {
                             onApplyProposal: onApplyProposal,
                             onRejectProposal: onRejectProposal,
                             onUndoRun: onUndoRun,
-                            onRefreshContext: onRefreshContext
+                            onRefreshContext: onRefreshContext,
+                            onOpenTaskFromCard: onOpenTaskFromCard
                         )
                             .padding(.horizontal, TaskerTheme.Spacing.lg)
                             .padding(.vertical, TaskerTheme.Spacing.sm)
