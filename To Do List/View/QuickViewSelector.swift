@@ -18,6 +18,7 @@ public struct QuickViewSelector: View {
     var onShowDatePicker: (() -> Void)? = nil
     var onShowAdvancedFilters: (() -> Void)? = nil
     var onResetFilters: (() -> Void)? = nil
+    @Environment(\.colorScheme) private var colorScheme
 
     /// Initializes a new instance.
     public init(
@@ -102,7 +103,7 @@ public struct QuickViewSelector: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(Color.tasker.surfaceSecondary.opacity(0.5))
+                    .fill(Color.tasker.accentSecondaryMuted.opacity(colorScheme == .dark ? 0.44 : 0.68))
             )
         }
         .menuStyle(.borderlessButton)

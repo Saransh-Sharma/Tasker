@@ -17,22 +17,26 @@ struct HomeGlassBottomBar: View {
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
     var body: some View {
-        HStack(spacing: state.isMinimized ? spacing.s8 : spacing.s12) {
+        HStack(spacing: spacing.s12) {
             LiquidToolCluster(
                 selectedItem: state.selectedItem,
-                isMinimized: state.isMinimized,
                 onTap: handleToolTap
             )
+            .opacity(state.isMinimized ? 0 : 1)
+            .scaleEffect(state.isMinimized ? 0.96 : 1.0, anchor: .bottomLeading)
+            .offset(y: state.isMinimized ? spacing.s20 : 0)
+            .allowsHitTesting(!state.isMinimized)
+            .accessibilityHidden(state.isMinimized)
+            .animation(TaskerAnimation.snappy, value: state.isMinimized)
 
             Spacer(minLength: spacing.s2)
 
             LiquidAddTaskCTA(
-                isMinimized: state.isMinimized,
                 onTap: handleCreateTap
             )
         }
-        .padding(.horizontal, state.isMinimized ? spacing.s12 : spacing.s16)
-        .padding(.vertical, state.isMinimized ? spacing.s8 : spacing.s12)
+        .padding(.horizontal, spacing.s16)
+        .padding(.vertical, spacing.s12)
         .accessibilityIdentifier("home.bottomBar")
         .accessibilityValue(state.isMinimized ? "minimized" : "expanded")
     }
@@ -97,20 +101,19 @@ private struct LiquidToolCluster: View {
     ]
 
     let selectedItem: HomeBottomBarItem?
-    let isMinimized: Bool
     let onTap: (HomeBottomBarItem) -> Void
 
     @Namespace private var selectionNamespace
     @State private var pressedItem: HomeBottomBarItem?
     @Environment(\.colorScheme) private var colorScheme
 
-    private var buttonWidth: CGFloat { isMinimized ? 46 : 54 }
-    private var buttonHeight: CGFloat { isMinimized ? 42 : 44 }
-    private var clusterHeight: CGFloat { isMinimized ? 52 : 56 }
+    private let buttonWidth: CGFloat = 54
+    private let buttonHeight: CGFloat = 44
+    private let clusterHeight: CGFloat = 56
 
     var body: some View {
         LiquidGlassSurface(shape: Capsule(style: .continuous), emphasis: .normal) {
-            HStack(spacing: isMinimized ? 2 : 4) {
+            HStack(spacing: 4) {
                 ForEach(Self.tools) { tool in
                     ZStack {
                         if selectedItem == tool.item {
@@ -122,7 +125,7 @@ private struct LiquidToolCluster: View {
                             onTap(tool.item)
                         } label: {
                             Image(systemName: tool.symbolName)
-                                .font(.system(size: isMinimized ? 16 : 18, weight: selectedItem == tool.item ? .bold : .semibold))
+                                .font(.system(size: 18, weight: selectedItem == tool.item ? .bold : .semibold))
                                 .frame(width: 44, height: 44)
                                 .foregroundStyle(selectedItem == tool.item ? Color.tasker.textPrimary : Color.tasker.textSecondary)
                                 .contentShape(Rectangle())
@@ -147,8 +150,8 @@ private struct LiquidToolCluster: View {
                     .animation(.spring(response: 0.22, dampingFraction: 0.85), value: pressedItem == tool.item)
                 }
             }
-            .padding(.horizontal, isMinimized ? 6 : 8)
-            .padding(.vertical, isMinimized ? 5 : 6)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
         }
         .frame(height: clusterHeight)
     }
@@ -158,14 +161,14 @@ private struct LiquidToolCluster: View {
             .fill(Color.tasker.textPrimary.opacity(colorScheme == .dark ? 0.14 : 0.10))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.08), lineWidth: 1)
+                    .stroke(Color.tasker.strokeHairline.opacity(colorScheme == .dark ? 0.40 : 0.55), lineWidth: 1)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(colorScheme == .dark ? 0.14 : 0.10),
+                                Color.tasker.accentWash.opacity(colorScheme == .dark ? 0.42 : 0.68),
                                 .clear
                             ],
                             startPoint: .top,
@@ -179,7 +182,6 @@ private struct LiquidToolCluster: View {
 }
 
 private struct LiquidAddTaskCTA: View {
-    let isMinimized: Bool
     let onTap: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -197,10 +199,10 @@ private struct LiquidAddTaskCTA: View {
         } label: {
             LiquidGlassSurface(shape: Capsule(style: .continuous), emphasis: .strong) {
                 Image(systemName: "plus")
-                    .font(.system(size: isMinimized ? 17 : 18, weight: .bold))
+                    .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(Color.tasker.textPrimary)
-                .frame(width: isMinimized ? 48 : 56)
-                .frame(height: isMinimized ? 48 : 56)
+                .frame(width: 56)
+                .frame(height: 56)
                 .overlay(
                     sheenOverlay
                 )

@@ -29,9 +29,14 @@ public struct FilterPill: View {
         self.onRemove = onRemove
     }
 
+    private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
+
     public var body: some View {
-        Button(action: onRemove) {
-            HStack(spacing: 4) {
+        Button(action: {
+            TaskerFeedback.light()
+            onRemove()
+        }) {
+            HStack(spacing: spacing.s4) {
                 if let systemImage {
                     Image(systemName: systemImage)
                         .font(.system(size: 10, weight: .medium))
@@ -49,8 +54,10 @@ public struct FilterPill: View {
                 Capsule()
                     .fill(backgroundColor)
             )
+            .activeGlow(isActive: !isDestructive, color: Color.tasker.accentPrimary)
         }
-        .buttonStyle(.plain)
+        .scaleOnPress()
+        .transition(.scale(scale: 0.8).combined(with: .opacity))
     }
 
     private var foregroundColor: Color {

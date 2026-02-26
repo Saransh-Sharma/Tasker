@@ -8,108 +8,169 @@
 import SwiftUI
 
 struct TaskRowDisplayModel: Equatable {
-    let rowMetaText: String
-    let trailingMetaText: String
     let xpValue: Int
-    let urgencyLabel: String?
-    let noteText: String?
+    let descriptionText: String?
+    let metadataText: String?
+    let statusChip: TaskRowStatusChip?
 
-    /// Compact trailing text for focus rows: just urgency/time, no XP.
-    var focusTrailingText: String {
-        if let urgency = urgencyLabel {
-            return urgency
-        }
-        return trailingMetaText
+    var hasDescription: Bool {
+        descriptionText != nil
     }
 
-    var focusTrailingIsUrgent: Bool {
-        urgencyLabel == "Overdue"
+    var hasSecondaryContent: Bool {
+        descriptionText != nil || metadataText != nil
     }
 
     /// Executes from.
-    static func from(task: TaskDefinition, showTypeBadge: Bool, now: Date = Date()) -> TaskRowDisplayModel {
-        let xpValue = task.priority.scorePoints
-        let projectName = resolvedProjectName(for: task)
-
-        var metaParts = [projectName, "+\(xpValue) XP"]
-        if showTypeBadge {
-            if task.type == .morning {
-                metaParts.append("Morning")
-            } else if task.type == .evening {
-                metaParts.append("Evening")
-            }
-        }
-
-        let trailingMetaText = trailingMetaText(for: task, xpValue: xpValue)
-        let urgencyLabel = urgencyLabel(for: task, now: now)
-        let noteText = task.details?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nilIfEmpty
+    static func from(
+        task: TaskDefinition,
+        showTypeBadge: Bool,
+        now: Date = Date(),
+        isInOverdueSection: Bool = false,
+        tagNameByID: [UUID: String] = [:]
+    ) -> TaskRowDisplayModel {
+        let _ = showTypeBadge
+        let descriptionText = smartDescription(for: task)
+        let metadataText = metadataText(
+            for: task,
+            now: now,
+            isInOverdueSection: isInOverdueSection,
+            tagNameByID: tagNameByID
+        )
+        let statusChip: TaskRowStatusChip? = dueSoonStatus(for: task, now: now)
 
         return TaskRowDisplayModel(
-            rowMetaText: metaParts.joined(separator: " • "),
-            trailingMetaText: trailingMetaText,
-            xpValue: xpValue,
-            urgencyLabel: urgencyLabel,
-            noteText: noteText
+            xpValue: task.priority.scorePoints,
+            descriptionText: descriptionText,
+            metadataText: metadataText,
+            statusChip: statusChip
         )
     }
 
-    /// Executes resolvedProjectName.
-    private static func resolvedProjectName(for task: TaskDefinition) -> String {
-        if let project = task.projectName?.trimmingCharacters(in: .whitespacesAndNewlines), !project.isEmpty {
-            return project
-        }
-        if task.projectID == ProjectConstants.inboxProjectID {
-            return ProjectConstants.inboxProjectName
-        }
-        return "Project"
+    /// Executes dueSoonStatus.
+    private static func dueSoonStatus(for task: TaskDefinition, now: Date) -> TaskRowStatusChip? {
+        guard !task.isComplete, !task.isOverdue, let dueDate = task.dueDate else { return nil }
+        let remaining = dueDate.timeIntervalSince(now)
+        guard remaining > 0, remaining <= (2 * 60 * 60) else { return nil }
+        return .dueSoon
     }
 
-    /// Executes trailingMetaText.
-    private static func trailingMetaText(for task: TaskDefinition, xpValue: Int) -> String {
-        guard let dueDate = task.dueDate else {
-            return "+\(xpValue) XP"
+    /// Executes metadataText.
+    private static func metadataText(
+        for task: TaskDefinition,
+        now: Date,
+        isInOverdueSection: Bool,
+        tagNameByID: [UUID: String]
+    ) -> String? {
+        var tokens: [String] = []
+
+        if !task.isComplete, let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
+            tokens.append(lateLabel)
+            if isInOverdueSection {
+                if let recurrence = compactRecurrenceToken(for: task.repeatPattern) {
+                    tokens.append(recurrence)
+                }
+                if let tagName = firstTagName(for: task, tagNameByID: tagNameByID) {
+                    tokens.append(tagName)
+                }
+            }
+            return tokens.joined(separator: " • ").nilIfEmpty
         }
 
-        let calendar = Calendar.current
-        if dueDate < Date(), !task.isComplete {
-            return "Overdue"
+        if let recurrence = compactRecurrenceToken(for: task.repeatPattern) {
+            tokens.append(recurrence)
         }
-        if calendar.isDateInToday(dueDate) {
-            return timeFormatter.string(from: dueDate)
-        }
-        if calendar.isDateInTomorrow(dueDate) {
-            return "Tomorrow"
-        }
-        return DateUtils.formatDate(dueDate)
+
+        return tokens.joined(separator: " • ").nilIfEmpty
     }
 
-    /// Executes urgencyLabel.
-    private static func urgencyLabel(for task: TaskDefinition, now: Date) -> String? {
+    /// Executes firstTagName.
+    private static func firstTagName(for task: TaskDefinition, tagNameByID: [UUID: String]) -> String? {
+        guard let firstTagID = task.tagIDs.first else { return nil }
+        let tagName = tagNameByID[firstTagID]?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return tagName?.nilIfEmpty
+    }
+
+    /// Executes compactRecurrenceToken.
+    private static func compactRecurrenceToken(for pattern: TaskRepeatPattern?) -> String? {
+        guard let pattern else { return nil }
+        switch pattern {
+        case .daily:
+            return "Daily"
+        case .weekdays:
+            return "Weekdays"
+        case .weekly:
+            return "Weekly"
+        case .biweekly:
+            return "Biweekly"
+        case .monthly:
+            return "Monthly"
+        case .yearly:
+            return "Yearly"
+        case .custom(let custom):
+            return "Every \(custom.intervalDays)d"
+        }
+    }
+
+    /// Executes smartDescription.
+    private static func smartDescription(for task: TaskDefinition) -> String? {
         guard !task.isComplete else { return nil }
-        if task.isOverdue {
-            return "Overdue"
+        guard let description = task.details?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty else {
+            return nil
         }
-        guard let dueDate = task.dueDate else { return nil }
-        let timeRemaining = dueDate.timeIntervalSince(now)
-        if timeRemaining > 0, timeRemaining <= (2 * 60 * 60) {
-            return "Due soon"
+        if normalizedForDedup(description) == normalizedForDedup(task.title) {
+            return nil
         }
-        return nil
+
+        let hasStrongSignal = task.isOverdue
+            || task.priority.isHighPriority
+            || !task.dependencies.isEmpty
+            || !task.subtasks.isEmpty
+        if hasStrongSignal {
+            return description
+        }
+
+        return isContextRich(description) ? description : nil
     }
 
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        return formatter
-    }()
+    /// Executes isContextRich.
+    private static func isContextRich(_ text: String) -> Bool {
+        let wordCount = text.split(whereSeparator: \.isWhitespace).count
+        let hasLongStructuredText = wordCount >= 6 && text.count >= 24
+        let hasStructure = text.rangeOfCharacter(from: CharacterSet(charactersIn: ":;,-/()")) != nil
+        return hasLongStructuredText || hasStructure
+    }
+
+    /// Executes normalizedForDedup.
+    private static func normalizedForDedup(_ text: String) -> String {
+        let lowered = text.lowercased()
+        let stripped = lowered.map { character -> Character in
+            if character.isLetter || character.isNumber {
+                return character
+            }
+            return " "
+        }
+        return String(stripped)
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+    }
+}
+
+enum TaskRowStatusChip: Equatable {
+    case dueSoon
+
+    var text: String {
+        switch self {
+        case .dueSoon: return "Due soon"
+        }
+    }
 }
 
 struct TaskRowView: View {
     let task: TaskDefinition
     let showTypeBadge: Bool
+    let isInOverdueSection: Bool
+    let tagNameByID: [UUID: String]
     let isTaskDragEnabled: Bool
     var onTap: (() -> Void)? = nil
     var onToggleComplete: (() -> Void)? = nil
@@ -117,8 +178,38 @@ struct TaskRowView: View {
     var onReschedule: (() -> Void)? = nil
     var onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
 
+    /// Initializes a new instance.
+    init(
+        task: TaskDefinition,
+        showTypeBadge: Bool,
+        isInOverdueSection: Bool = false,
+        tagNameByID: [UUID: String] = [:],
+        isTaskDragEnabled: Bool,
+        onTap: (() -> Void)? = nil,
+        onToggleComplete: (() -> Void)? = nil,
+        onDelete: (() -> Void)? = nil,
+        onReschedule: (() -> Void)? = nil,
+        onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
+    ) {
+        self.task = task
+        self.showTypeBadge = showTypeBadge
+        self.isInOverdueSection = isInOverdueSection
+        self.tagNameByID = tagNameByID
+        self.isTaskDragEnabled = isTaskDragEnabled
+        self.onTap = onTap
+        self.onToggleComplete = onToggleComplete
+        self.onDelete = onDelete
+        self.onReschedule = onReschedule
+        self.onTaskDragStarted = onTaskDragStarted
+    }
+
     private var displayModel: TaskRowDisplayModel {
-        TaskRowDisplayModel.from(task: task, showTypeBadge: showTypeBadge)
+        TaskRowDisplayModel.from(
+            task: task,
+            showTypeBadge: showTypeBadge,
+            isInOverdueSection: isInOverdueSection,
+            tagNameByID: tagNameByID
+        )
     }
 
     private var themeColors: TaskerColorTokens {
@@ -162,7 +253,7 @@ struct TaskRowView: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
             .taskerElevation(.e1, cornerRadius: TaskerTheme.CornerRadius.md, includesBorder: false)
-            .opacity(task.isComplete ? 0.58 : 1.0)
+            .taskCompletionTransition(isComplete: task.isComplete)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.taskRow.\(task.id.uuidString)")
             .accessibilityLabel(accessibilityLabel)
@@ -186,7 +277,7 @@ struct TaskRowView: View {
         HStack(spacing: 0) {
             priorityStripe
 
-            HStack(alignment: .center, spacing: TaskerTheme.Spacing.sm) {
+            HStack(alignment: .center, spacing: TaskerTheme.Spacing.xs) {
                 CompletionCheckbox(isComplete: task.isComplete, compact: true) {
                     onToggleComplete?()
                 }
@@ -195,51 +286,45 @@ struct TaskRowView: View {
                 .accessibilityHint(task.isComplete ? "Double tap to mark as open" : "Double tap to mark as completed")
                 .accessibilityValue(accessibilityStateValue)
 
-                // Left column: name + note
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(task.title)
-                        .font(.tasker(.bodyEmphasis))
-                        .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textPrimary)
-                        .lineLimit(1)
+                        .font(.tasker(.body))
+                        .foregroundColor(task.isComplete ? Color.tasker.textTertiary : Color.tasker.textPrimary)
+                        .lineLimit(displayModel.hasDescription ? 1 : 2)
                         .multilineTextAlignment(.leading)
 
-                    if let note = displayModel.noteText {
-                        Text(note)
+                    if let descriptionText = displayModel.descriptionText {
+                        Text(descriptionText)
                             .font(.tasker(.caption2))
-                            .foregroundColor(task.isComplete ? Color.tasker.textQuaternary.opacity(0.7) : Color.tasker.textTertiary)
+                            .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textTertiary)
+                            .lineLimit(1)
+                    }
+
+                    if let metadataText = displayModel.metadataText {
+                        Text(metadataText)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textQuaternary.opacity(0.9))
                             .lineLimit(1)
                     }
                 }
 
                 Spacer(minLength: 0)
 
-                // Right column: urgency badge + XP badge
                 HStack(spacing: 6) {
-                    let urgencyLevel = TaskRowUrgencyLevel.from(task: task)
-
-                    // Urgency badge (only for incomplete tasks with urgency)
-                    if !task.isComplete, urgencyLevel != .none {
-                        compactUrgencyBadge(for: urgencyLevel)
+                    if let statusChip = displayModel.statusChip {
+                        statusChipView(statusChip)
                     }
 
-                    // Time display (when no urgency)
-                    if task.isComplete || urgencyLevel == .none {
-                        Text(displayModel.trailingMetaText)
-                            .font(.tasker(.caption2))
-                            .foregroundColor(trailingMetaColor)
-                            .lineLimit(1)
-                    }
-
-                    // XP badge
                     compactXPBadge
                 }
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, displayModel.hasSecondaryContent ? 6 : 4)
             .padding(.trailing, TaskerTheme.Spacing.md)
-            .padding(.leading, TaskerTheme.Spacing.sm)
-            .frame(minHeight: 60)
+            .padding(.leading, TaskerTheme.Spacing.xs)
+            .frame(minHeight: displayModel.hasDescription ? 56 : 50)
         }
         .background(rowBackground)
+        .animation(TaskerAnimation.quick, value: task.isComplete)
     }
 
     private var rowBackground: Color {
@@ -252,8 +337,9 @@ struct TaskRowView: View {
         return Color.tasker.surfacePrimary
     }
 
+    @ViewBuilder
     private var priorityStripe: some View {
-        UnevenRoundedRectangle(
+        let stripe = UnevenRoundedRectangle(
             topLeadingRadius: TaskerTheme.CornerRadius.md,
             bottomLeadingRadius: TaskerTheme.CornerRadius.md,
             bottomTrailingRadius: 0,
@@ -261,6 +347,12 @@ struct TaskRowView: View {
         )
         .fill(stripeFill)
         .frame(width: 4)
+
+        if !task.isComplete && !task.isOverdue && task.priority == .max {
+            stripe.breathingPulse(min: 0.75, max: 1.0)
+        } else {
+            stripe
+        }
     }
 
     private var stripeFill: some ShapeStyle {
@@ -306,42 +398,17 @@ struct TaskRowView: View {
         }
     }
 
-    private var stripeColor: Color {
-        if task.isComplete {
-            return Color.tasker.textQuaternary.opacity(0.3)
-        }
-        if task.isOverdue {
-            return Color(uiColor: themeColors.taskOverdue)
-        }
-        switch task.priority {
-        case .max:  return Color.tasker.priorityMax
-        case .high: return Color.tasker.priorityHigh
-        case .low:  return Color.tasker.priorityLow
-        case .none: return Color.tasker.priorityNone.opacity(0.5)
-        }
-    }
-
-    private var trailingMetaColor: Color {
-        guard let dueDate = task.dueDate else {
-            return task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textSecondary
-        }
-        if dueDate < Date(), !task.isComplete {
-            return Color(uiColor: themeColors.taskOverdue)
-        }
-        if Calendar.current.isDateInToday(dueDate) {
-            return Color.tasker.statusWarning
-        }
-        return task.isComplete ? Color.tasker.textQuaternary : Color.tasker.textSecondary
-    }
-
-    // contentStack replaced by inline two-column layout in rowContent
-
     private var accessibilityLabel: String {
         var parts: [String] = ["Task: \(task.title)"]
         if task.isComplete { parts.append("completed") }
-        parts.append(displayModel.rowMetaText)
-        if let urgencyLabel = displayModel.urgencyLabel {
-            parts.append(urgencyLabel.lowercased())
+        if let descriptionText = displayModel.descriptionText {
+            parts.append(descriptionText)
+        }
+        if let metadataText = displayModel.metadataText {
+            parts.append(metadataText)
+        }
+        if let statusChip = displayModel.statusChip {
+            parts.append(statusChip.text.lowercased())
         }
         return parts.joined(separator: ", ")
     }
@@ -359,32 +426,19 @@ struct TaskRowView: View {
         task.isComplete ? "done" : "open"
     }
 
-    /// Executes compactUrgencyBadge.
+    /// Executes statusChipView.
     @ViewBuilder
-    private func compactUrgencyBadge(for level: TaskRowUrgencyLevel) -> some View {
-        let badge: (text: String, background: Color, foreground: Color)? = {
-            switch level {
-            case .overdue:
-                return ("Overdue", Color.tasker.statusDanger.opacity(0.15), Color.tasker.statusDanger)
-            case .dueSoon:
-                return ("Due soon", Color.tasker.statusWarning.opacity(0.15), Color.tasker.statusWarning)
-            case .today:
-                return ("Today", Color.tasker.statusSuccess.opacity(0.12), Color.tasker.statusSuccess)
-            case .none:
-                return nil
-            }
-        }()
-
-        if let badge {
-            Text(badge.text)
-                .font(.tasker(.caption2))
-                .fontWeight(.medium)
-                .foregroundColor(badge.foreground)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 3)
-                .background(Capsule().fill(badge.background))
-                .fixedSize()
-        }
+    private func statusChipView(_ statusChip: TaskRowStatusChip) -> some View {
+        Text(statusChip.text)
+            .font(.tasker(.caption2))
+            .fontWeight(.medium)
+            .foregroundColor(Color.tasker.statusWarning)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(Color.tasker.statusWarning.opacity(0.15)))
+            .fixedSize()
+            .transition(.scale.combined(with: .opacity))
+            .animation(TaskerAnimation.bouncy, value: displayModel.statusChip)
     }
 
     private var compactXPBadge: some View {
@@ -403,6 +457,8 @@ struct TaskRowView: View {
                     .stroke(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary.opacity(0.3) : .clear, lineWidth: 1)
             )
             .fixedSize()
+            .scaleEffect(task.isComplete ? 1.15 : 1.0)
+            .animation(TaskerAnimation.bouncy, value: task.isComplete)
     }
 }
 
@@ -444,23 +500,5 @@ struct TaskRowView_Previews: PreviewProvider {
 private extension String {
     var nilIfEmpty: String? {
         isEmpty ? nil : self
-    }
-}
-
-private enum TaskRowUrgencyLevel: Equatable {
-    case overdue
-    case dueSoon
-    case today
-    case none
-
-    /// Executes from.
-    static func from(task: TaskDefinition, now: Date = Date()) -> TaskRowUrgencyLevel {
-        guard !task.isComplete else { return .none }
-        if task.isOverdue { return .overdue }
-        guard let dueDate = task.dueDate else { return .none }
-        let timeRemaining = dueDate.timeIntervalSince(now)
-        if timeRemaining > 0, timeRemaining <= (2 * 60 * 60) { return .dueSoon }
-        if Calendar.current.isDateInToday(dueDate) { return .today }
-        return .none
     }
 }

@@ -136,4 +136,9 @@ public extension ModelConfiguration {
         default: return nil
         }
     }
+
+    func isPrewarmEligible(maxSizeGB: Decimal = 0.5) -> Bool {
+        guard let modelSize else { return false }
+        return modelSize <= maxSizeGB
+    }
 }

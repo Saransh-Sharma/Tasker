@@ -67,6 +67,22 @@ struct LLMContextProjectionService {
     let projectRepository: ProjectRepositoryProtocol
     let tagRepository: TagRepositoryProtocol?
 
+    func buildTodayJSON() async -> String {
+        await withCheckedContinuation { continuation in
+            buildTodayJSON { json in
+                continuation.resume(returning: json)
+            }
+        }
+    }
+
+    func buildUpcomingJSON() async -> String {
+        await withCheckedContinuation { continuation in
+            buildUpcomingJSON { json in
+                continuation.resume(returning: json)
+            }
+        }
+    }
+
     /// Executes buildTodayJSON.
     func buildTodayJSON() async -> String {
         let calendar = Calendar.current

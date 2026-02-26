@@ -105,6 +105,7 @@ public struct AddTaskSheetView: View {
 
     /// Executes expandToLarge.
     private func expandToLarge() {
+        TaskerFeedback.light()
         withAnimation(TaskerAnimation.gentle) {
             selectedDetent = .large
         }

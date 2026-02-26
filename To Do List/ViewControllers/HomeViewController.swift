@@ -8,9 +8,9 @@
 import UIKit
 import SwiftUI
 import Combine
-import DGCharts
 
 final class HomeViewController: UIViewController, HomeViewControllerProtocol, HomeAnalyticsViewModelsInjectable, PresentationDependencyContainerAware {
+    private static var hasConsumedUITestRoute = false
 
     // MARK: - Dependencies
 
@@ -23,28 +23,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     private var homeHostingController: UIHostingController<HomeBackdropForedropRootView>?
 
-    // Tiny pie chart / nav XP state
-    lazy var tinyPieChartView: PieChartView = { PieChartView() }()
-    private var navigationPieChartView: PieChartView?
-    private weak var navigationPieChartAnchorView: UIView?
-    private let navigationPieChartSize: CGFloat = 136
-    private let navigationPieChartTrailingInset: CGFloat = 10
-    private let navigationPieChartZPosition: CGFloat = 999
-    private let isNavigationPieChartEnabled = false
-    private var shouldShowNavigationPieChart = false
-    private var foredropSettingsButtonGlobalFrame: CGRect = .null
-    private var navigationPieChartCenterXConstraint: NSLayoutConstraint?
-
     // MARK: - State
 
     private let notificationCenter = NotificationCenter.default
     private var cancellables = Set<AnyCancellable>()
     private var pendingChartRefreshWorkItem: DispatchWorkItem?
     private let chartRefreshDebounceSeconds: TimeInterval = 0.12
+    private var pendingNotificationFocusTaskID: UUID?
 
-    var shouldHideData = false
-    var dateForTheView = Date.today()
-    var todoColors: TaskerColorTokens = TaskerThemeManager.shared.currentTheme.tokens.color
 
     // MARK: - Lifecycle
 
@@ -53,38 +39,34 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         super.viewDidLoad()
 
         injectDependenciesIfNeeded()
-        configureNavigationBar()
         bindTheme()
         bindViewModel()
         mountHomeShell()
         observeMutations()
-        observeAssistantChatRequests()
+        observeNotificationRoutes()
         observeTaskCreatedForSnackbar()
-
-        updateDailyScore(for: dateForTheView)
+        applyTheme()
     }
 
-    /// Executes viewDidLayoutSubviews.
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        if navigationPieChartView != nil {
-            layoutNavigationPieChart()
-        }
+    /// Executes viewWillAppear.
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: false)
     }
 
     /// Executes viewDidAppear.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        ensureNavigationPieChartAsRightItem()
-        layoutNavigationPieChart()
+        if let pendingRoute = TaskerNotificationRouteBus.shared.consumePendingRoute() {
+            handleNotificationRoute(pendingRoute)
+        }
+        consumeUITestInjectedRouteIfNeeded()
     }
 
-    /// Executes viewDidDisappear.
-    override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-        if navigationController?.topViewController !== self {
-            removeNavigationPieChartOverlay(resetChartState: true)
-        }
+    /// Executes viewWillDisappear.
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: false)
     }
 
     deinit {
@@ -109,25 +91,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
     }
 
-    /// Executes configureNavigationBar.
-    private func configureNavigationBar() {
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = todoColors.accentPrimary
-        appearance.titleTextAttributes = [.foregroundColor: todoColors.accentOnPrimary]
-
-        navigationController?.navigationBar.standardAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
-        navigationController?.navigationBar.compactAppearance = appearance
-        navigationController?.navigationBar.prefersLargeTitles = false
-
-        // Pie chart on the right
-        ensureNavigationPieChartAsRightItem()
-
-        // Date header with XP as title view
-        updateNavigationDateHeader()
-    }
-
     /// Executes bindTheme.
     private func bindTheme() {
         TaskerThemeManager.shared.publisher
@@ -141,31 +104,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     /// Executes bindViewModel.
     private func bindViewModel() {
         guard let viewModel else { return }
-
-        viewModel.$selectedDate
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] selectedDate in
-                self?.dateForTheView = selectedDate
-                self?.updateDailyScore(for: selectedDate)
-            }
-            .store(in: &cancellables)
-
-        viewModel.$dailyScore
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] score in
-                guard let self else { return }
-                if Calendar.current.isDateInToday(self.dateForTheView) {
-                    self.applyScoreDisplay(score, for: self.dateForTheView)
-                }
-            }
-            .store(in: &cancellables)
-
-        viewModel.$progressState
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.updateNavigationDateHeader()
-            }
-            .store(in: &cancellables)
 
         if !viewModel.focusEngineEnabled {
             viewModel.loadTodayTasks()
@@ -212,21 +150,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             },
             onOpenSettings: { [weak self] in
                 self?.onMenuButtonTapped()
-            },
-            onSettingsButtonFrameChange: { [weak self] frame in
-                guard let self else { return }
-                if self.foredropSettingsButtonGlobalFrame.integral == frame.integral {
-                    return
-                }
-                DispatchQueue.main.async { [weak self] in
-                    guard let self else { return }
-                    self.foredropSettingsButtonGlobalFrame = frame
-                    self.layoutNavigationPieChart()
-                }
             }
         )
 
         let hostingController = UIHostingController(rootView: root)
+        hostingController.view.backgroundColor = .clear
+        hostingController.view.isOpaque = false
         homeHostingController?.willMove(toParent: nil)
         homeHostingController?.view.removeFromSuperview()
         homeHostingController?.removeFromParent()
@@ -256,14 +185,28 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         )
     }
 
-    /// Executes observeAssistantChatRequests.
-    private func observeAssistantChatRequests() {
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(assistantOpenChatRequested(_:)),
-            name: .assistantOpenChatRequested,
-            object: nil
-        )
+    /// Executes observeNotificationRoutes.
+    private func observeNotificationRoutes() {
+        NotificationCenter.default.publisher(for: TaskerNotificationRouteBus.routeDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let payload = notification.userInfo?["payload"] as? String else { return }
+                let route = TaskerNotificationRoute.from(payload: payload, fallbackTaskID: nil)
+                self?.handleNotificationRoute(route)
+                _ = TaskerNotificationRouteBus.shared.consumePendingRoute()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func consumeUITestInjectedRouteIfNeeded() {
+        guard Self.hasConsumedUITestRoute == false else { return }
+        let prefix = "-TASKER_TEST_ROUTE:"
+        guard let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(prefix) }) else { return }
+        let payload = String(argument.dropFirst(prefix.count))
+        guard payload.isEmpty == false else { return }
+        Self.hasConsumedUITestRoute = true
+        let route = TaskerNotificationRoute.from(payload: payload, fallbackTaskID: nil)
+        handleNotificationRoute(route)
     }
 
     // MARK: - Navigation Actions
@@ -329,12 +272,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         navController.modalPresentationStyle = .fullScreen
         navController.navigationBar.prefersLargeTitles = false
         present(navController, animated: true)
-    }
-
-    /// Executes assistantOpenChatRequested.
-    @objc private func assistantOpenChatRequested(_ notification: Notification) {
-        guard presentedViewController == nil else { return }
-        chatButtonTapped()
     }
 
     // MARK: - Task Routing
@@ -504,6 +441,223 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         present(hostingController, animated: true)
     }
 
+    private func handleNotificationRoute(_ route: TaskerNotificationRoute) {
+        guard let viewModel else { return }
+        switch route {
+        case .homeToday(let taskID):
+            viewModel.setQuickView(.today)
+            pendingNotificationFocusTaskID = taskID
+        case .homeDone:
+            viewModel.setQuickView(.done)
+            pendingNotificationFocusTaskID = nil
+        case .taskDetail(let taskID):
+            viewModel.setQuickView(.today)
+            pendingNotificationFocusTaskID = taskID
+            resolveAndPresentTaskDetail(taskID: taskID)
+        case .dailySummary(let kind, let dateStamp):
+            presentDailySummaryModal(kind: kind, dateStamp: dateStamp)
+        }
+    }
+
+    private func resolveAndPresentTaskDetail(taskID: UUID, attemptsRemaining: Int = 2) {
+        if let task = viewModel?.taskSnapshot(for: taskID) {
+            presentTaskDetailView(for: task)
+            return
+        }
+        guard attemptsRemaining > 0 else { return }
+        viewModel?.loadTodayTasks()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.resolveAndPresentTaskDetail(taskID: taskID, attemptsRemaining: attemptsRemaining - 1)
+        }
+    }
+
+    private func presentDailySummaryModal(kind: TaskerDailySummaryKind, dateStamp: String?) {
+        guard let viewModel else { return }
+
+        let presentSummary: (DailySummaryModalData) -> Void = { [weak self] summary in
+            guard let self else { return }
+            let summaryView = DailySummaryModalView(
+                summary: summary,
+                onDismiss: { [weak self] in
+                    self?.dismiss(animated: true)
+                },
+                onStartToday: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "start_today", countsSnapshot: summary.analyticsSnapshot)
+                    self.viewModel.setQuickView(.today)
+                    self.viewModel.trackDailySummaryActionResult(cta: "start_today", success: true, error: nil)
+                    self.dismiss(animated: true)
+                },
+                onCompleteMorningRoutine: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "complete_morning_routine", countsSnapshot: summary.analyticsSnapshot)
+                    self.viewModel.completeMorningRoutine { result in
+                        switch result {
+                        case .success:
+                            self.viewModel.trackDailySummaryActionResult(
+                                cta: "complete_morning_routine",
+                                success: true,
+                                error: nil
+                            )
+                        case .failure(let error):
+                            self.viewModel.trackDailySummaryActionResult(
+                                cta: "complete_morning_routine",
+                                success: false,
+                                error: error
+                            )
+                        }
+                    }
+                    self.dismiss(animated: true)
+                },
+                onStartTriage: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "start_triage", countsSnapshot: summary.analyticsSnapshot)
+                    self.viewModel.setQuickView(.today)
+                    self.viewModel.startTriage(scope: .visible)
+                    self.viewModel.trackDailySummaryActionResult(cta: "start_triage", success: true, error: nil)
+                    self.dismiss(animated: true)
+                },
+                onRescueOverdue: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "rescue_overdue", countsSnapshot: summary.analyticsSnapshot)
+                    self.viewModel.setQuickView(.today)
+                    self.viewModel.openRescue()
+                    self.viewModel.trackDailySummaryActionResult(cta: "rescue_overdue", success: true, error: nil)
+                    self.dismiss(animated: true)
+                },
+                onAddTask: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "add_task", countsSnapshot: summary.analyticsSnapshot)
+                    self.viewModel.trackDailySummaryActionResult(cta: "add_task", success: true, error: nil)
+                    self.dismiss(animated: true) {
+                        self.AddTaskAction()
+                    }
+                },
+                onPlanTomorrow: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "plan_tomorrow", countsSnapshot: summary.analyticsSnapshot)
+                    self.viewModel.performEndOfDayCleanup { result in
+                        switch result {
+                        case .success:
+                            self.viewModel.trackDailySummaryActionResult(cta: "plan_tomorrow", success: true, error: nil)
+                        case .failure(let error):
+                            self.viewModel.trackDailySummaryActionResult(cta: "plan_tomorrow", success: false, error: error)
+                        }
+                    }
+                    self.dismiss(animated: true)
+                },
+                onReviewDone: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "review_done", countsSnapshot: summary.analyticsSnapshot)
+                    self.viewModel.setQuickView(.done)
+                    self.viewModel.trackDailySummaryActionResult(cta: "review_done", success: true, error: nil)
+                    self.dismiss(animated: true)
+                },
+                onRescheduleOverdue: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "reschedule_overdue", countsSnapshot: summary.analyticsSnapshot)
+                    self.viewModel.setQuickView(.today)
+                    self.viewModel.rescheduleOverdueTasks { result in
+                        switch result {
+                        case .success:
+                            self.viewModel.trackDailySummaryActionResult(
+                                cta: "reschedule_overdue",
+                                success: true,
+                                error: nil
+                            )
+                        case .failure(let error):
+                            self.viewModel.trackDailySummaryActionResult(
+                                cta: "reschedule_overdue",
+                                success: false,
+                                error: error
+                            )
+                        }
+                    }
+                    self.dismiss(animated: true)
+                },
+                onOpenRescue: { [weak self] in
+                    guard let self else { return }
+                    self.viewModel.trackDailySummaryCTA(kind: kind, cta: "open_rescue", countsSnapshot: summary.analyticsSnapshot)
+                    self.viewModel.setQuickView(.today)
+                    self.viewModel.openRescue()
+                    self.viewModel.trackDailySummaryActionResult(cta: "open_rescue", success: true, error: nil)
+                    self.dismiss(animated: true)
+                }
+            )
+
+            let hostingController = UIHostingController(rootView: summaryView)
+            hostingController.view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
+            hostingController.view.accessibilityIdentifier = "home.dailySummaryModal"
+            hostingController.modalPresentationStyle = .pageSheet
+
+            if let sheet = hostingController.sheetPresentationController {
+                sheet.detents = [.large()]
+                sheet.prefersGrabberVisible = true
+                sheet.preferredCornerRadius = TaskerThemeManager.shared.currentTheme.tokens.corner.modal
+                sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            }
+
+            self.present(hostingController, animated: true)
+        }
+
+        viewModel.loadDailySummaryModal(kind: kind, dateStamp: dateStamp) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .failure:
+                presentSummary(self.fallbackDailySummary(kind: kind, dateStamp: dateStamp))
+            case .success(let summary):
+                presentSummary(summary)
+            }
+        }
+    }
+
+    private func fallbackDailySummary(kind: TaskerDailySummaryKind, dateStamp: String?) -> DailySummaryModalData {
+        let date = fallbackSummaryDate(from: dateStamp)
+        switch kind {
+        case .morning:
+            return .morning(
+                MorningPlanSummary(
+                    date: date,
+                    openTodayCount: 0,
+                    highPriorityCount: 0,
+                    overdueCount: 0,
+                    potentialXP: 0,
+                    focusTasks: [],
+                    blockedCount: 0,
+                    longTaskCount: 0,
+                    morningPlannedCount: 0,
+                    eveningPlannedCount: 0
+                )
+            )
+        case .nightly:
+            return .nightly(
+                NightlyRetrospectiveSummary(
+                    date: date,
+                    completedCount: 0,
+                    totalCount: 0,
+                    xpEarned: 0,
+                    completionRate: 0,
+                    streakCount: 0,
+                    biggestWins: [],
+                    carryOverDueTodayCount: 0,
+                    carryOverOverdueCount: 0,
+                    tomorrowPreview: [],
+                    morningCompletedCount: 0,
+                    eveningCompletedCount: 0
+                )
+            )
+        }
+    }
+
+    private func fallbackSummaryDate(from dateStamp: String?) -> Date {
+        guard let dateStamp, dateStamp.count == 8 else { return Date() }
+        var components = DateComponents()
+        components.year = Int(dateStamp.prefix(4))
+        components.month = Int(dateStamp.dropFirst(4).prefix(2))
+        components.day = Int(dateStamp.suffix(2))
+        return Calendar.current.date(from: components) ?? Date()
+    }
+
     // MARK: - Chart Refresh Contract
 
     /// Executes refreshChartsAfterTaskCompletion.
@@ -516,10 +670,6 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         if let reason {
             logDebug("🎯 HomeViewController chart refresh reason=\(reason.rawValue)")
         }
-
-        updateTinyPieChartData()
-        refreshNavigationPieChart()
-        updateDailyScore(for: dateForTheView)
     }
 
     @objc private func homeTaskMutationReceived(_ notification: Notification) {
@@ -534,333 +684,11 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         DispatchQueue.main.asyncAfter(deadline: .now() + chartRefreshDebounceSeconds, execute: refreshWorkItem)
     }
 
-    // MARK: - Score / Tiny Pie
-
-    /// Executes calculateTodaysScore.
-    func calculateTodaysScore() -> Int {
-        let targetDate = dateForTheView
-        let doneTasks = viewModel?.completedTasks ?? []
-        let calendar = Calendar.current
-        return doneTasks.reduce(0) { partial, task in
-            let referenceDate = task.dateCompleted ?? task.dueDate
-            guard let referenceDate, calendar.isDate(referenceDate, inSameDayAs: targetDate) else {
-                return partial
-            }
-            return partial + task.priority.scorePoints
-        }
-    }
-
-    /// Executes priorityBreakdown.
-    func priorityBreakdown(for date: Date) -> [Int32: Int] {
-        var counts: [Int32: Int] = [1: 0, 2: 0, 3: 0, 4: 0]
-
-        let completedTasks = viewModel?.completedTasks ?? []
-        let currentCalendar = Calendar.current
-        for task in completedTasks {
-            let referenceDate = task.dateCompleted ?? task.dueDate
-            guard let referenceDate, currentCalendar.isDate(referenceDate, inSameDayAs: date) else { continue }
-            let normalizedPriority = TaskPriorityConfig.normalizePriority(Int32(task.priority.rawValue))
-            counts[normalizedPriority, default: 0] += 1
-        }
-
-        return counts
-    }
-
-    /// Executes updateDailyScore.
-    func updateDailyScore(for date: Date? = nil) {
-        let targetDate = date ?? dateForTheView
-
-        if let viewModel, Calendar.current.isDateInToday(targetDate) {
-            applyScoreDisplay(viewModel.dailyScore, for: targetDate)
-            return
-        }
-
-        applyScoreDisplay(calculateTodaysScore(), for: targetDate)
-    }
-
-    /// Executes applyScoreDisplay.
-    private func applyScoreDisplay(_ score: Int, for date: Date) {
-        // Always show the nav pie chart (even at score 0 with empty ring)
-        ensureNavigationPieChartAsRightItem()
-
-        tinyPieChartView.centerAttributedText = setTinyPieChartScoreText(
-            pieChartView: tinyPieChartView,
-            scoreOverride: score
-        )
-
-        if let navChart = navigationPieChartView {
-            navChart.centerAttributedText = setTinyPieChartScoreText(
-                pieChartView: navChart,
-                scoreOverride: score
-            )
-            buildNavigationPieChartData(for: date)
-        }
-
-        // Update date header when date changes
-        updateNavigationDateHeader()
-    }
-
-    // MARK: - Nav Pie UI
-
-    /// Executes setNavigationPieChartVisible.
-    private func setNavigationPieChartVisible(_ isVisible: Bool) {
-        shouldShowNavigationPieChart = isVisible
-
-        if isVisible {
-            ensureNavigationPieChartAsRightItem()
-            navigationPieChartAnchorView?.isHidden = false
-            navigationPieChartView?.isHidden = false
-            navigationPieChartView?.alpha = 1
-            return
-        }
-
-        navigationItem.rightBarButtonItem = nil
-        removeNavigationPieChartOverlay(resetChartState: true)
-    }
-
-    /// Executes ensureNavigationPieChartAsRightItem.
-    private func ensureNavigationPieChartAsRightItem() {
-        guard isNavigationPieChartEnabled else {
-            navigationItem.rightBarButtonItem = nil
-            removeNavigationPieChartOverlay(resetChartState: true)
-            return
-        }
-
-        guard let navigationController else { return }
-        navigationItem.rightBarButtonItem = nil
-
-        if let container = navigationPieChartAnchorView,
-           navigationPieChartView != nil,
-           container.superview === navigationController.view {
-            layoutNavigationPieChart()
-            return
-        }
-
-        removeNavigationPieChartOverlay(resetChartState: true)
-
-        let container = UIView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.backgroundColor = .clear
-        container.clipsToBounds = false
-        container.accessibilityIdentifier = "home.navXpPieChart.container"
-        container.layer.zPosition = navigationPieChartZPosition
-        navigationController.view.addSubview(container)
-
-        NSLayoutConstraint.activate([
-            container.widthAnchor.constraint(equalToConstant: navigationPieChartSize),
-            container.heightAnchor.constraint(equalToConstant: navigationPieChartSize),
-            container.centerYAnchor.constraint(equalTo: navigationController.navigationBar.centerYAnchor)
-        ])
-        let centerXConstraint = container.centerXAnchor.constraint(
-            equalTo: navigationController.view.leadingAnchor,
-            constant: defaultNavigationPieChartCenterX(in: navigationController)
-        )
-        navigationPieChartCenterXConstraint = centerXConstraint
-        centerXConstraint.isActive = true
-
-        let buttonProxy = UIView()
-        buttonProxy.translatesAutoresizingMaskIntoConstraints = false
-        buttonProxy.backgroundColor = .clear
-        buttonProxy.isUserInteractionEnabled = false
-        buttonProxy.accessibilityIdentifier = "home.navXpPieChart.button"
-        container.addSubview(buttonProxy)
-
-        let pieChart = PieChartView()
-        pieChart.translatesAutoresizingMaskIntoConstraints = false
-        pieChart.backgroundColor = .clear
-        pieChart.accessibilityIdentifier = "home.navXpPieChart"
-        pieChart.accessibilityLabel = "XP chart"
-        setupPieChartView(pieChartView: pieChart)
-
-        container.addSubview(pieChart)
-
-        NSLayoutConstraint.activate([
-            buttonProxy.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            buttonProxy.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            buttonProxy.topAnchor.constraint(equalTo: container.topAnchor),
-            buttonProxy.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            pieChart.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            pieChart.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            pieChart.topAnchor.constraint(equalTo: container.topAnchor),
-            pieChart.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        ])
-
-        navigationPieChartView = pieChart
-        navigationPieChartAnchorView = container
-
-        buildNavigationPieChartData(for: dateForTheView)
-        layoutNavigationPieChart()
-    }
-
-    /// Executes updateNavigationDateHeader.
-    private func updateNavigationDateHeader() {
-        let dateView = HomeDateHeaderView(
-            date: dateForTheView,
-            progressState: viewModel?.progressState ?? .empty,
-            accentOnPrimaryColor: todoColors.accentOnPrimary
-        )
-        let hostingController = UIHostingController(rootView: dateView)
-        hostingController.view.backgroundColor = UIColor.clear
-        hostingController.sizingOptions = UIHostingControllerSizingOptions.intrinsicContentSize
-        hostingController.view.sizeToFit()
-        navigationItem.titleView = hostingController.view
-    }
-
-    /// Executes layoutNavigationPieChart.
-    private func layoutNavigationPieChart() {
-        guard let pieChart = navigationPieChartView, let container = navigationPieChartAnchorView else { return }
-        let didUpdateAlignment = updateNavigationPieChartHorizontalAlignment()
-        if didUpdateAlignment {
-            navigationController?.view.layoutIfNeeded()
-        }
-        container.layer.zPosition = navigationPieChartZPosition
-        navigationController?.view.bringSubviewToFront(container)
-        container.layoutIfNeeded()
-        pieChart.layoutIfNeeded()
-        setTinyChartShadow(chartView: pieChart)
-    }
-
-    /// Executes removeNavigationPieChartOverlay.
-    private func removeNavigationPieChartOverlay(resetChartState: Bool) {
-        navigationPieChartAnchorView?.removeFromSuperview()
-        if resetChartState {
-            navigationPieChartView = nil
-            navigationPieChartAnchorView = nil
-            navigationPieChartCenterXConstraint = nil
-        }
-    }
-
-    /// Executes defaultNavigationPieChartCenterX.
-    private func defaultNavigationPieChartCenterX(in navigationController: UINavigationController) -> CGFloat {
-        let fallbackByNavBar = navigationController.navigationBar.frame.maxX - navigationPieChartTrailingInset - (navigationPieChartSize / 2)
-        guard let navigationView = navigationController.view else {
-            return max(fallbackByNavBar, navigationPieChartSize / 2)
-        }
-        if fallbackByNavBar > 0 {
-            return fallbackByNavBar
-        }
-        return navigationView.bounds.width - navigationView.safeAreaInsets.right - navigationPieChartTrailingInset - (navigationPieChartSize / 2)
-    }
-
-    /// Executes updateNavigationPieChartHorizontalAlignment.
-    @discardableResult
-    private func updateNavigationPieChartHorizontalAlignment() -> Bool {
-        guard let navigationController,
-              let centerXConstraint = navigationPieChartCenterXConstraint,
-              let navigationView = navigationController.view,
-              navigationView.bounds.width > 0 else { return false }
-
-        let targetCenterX: CGFloat
-        if !foredropSettingsButtonGlobalFrame.isNull, !foredropSettingsButtonGlobalFrame.isEmpty {
-            let settingsFrameInNavigationView = navigationView.convert(foredropSettingsButtonGlobalFrame, from: nil)
-            targetCenterX = settingsFrameInNavigationView.midX
-        } else {
-            targetCenterX = defaultNavigationPieChartCenterX(in: navigationController)
-        }
-
-        let minCenterX = navigationView.safeAreaInsets.left + (navigationPieChartSize / 2)
-        let maxCenterX = max(minCenterX, navigationView.bounds.width - navigationView.safeAreaInsets.right - (navigationPieChartSize / 2))
-        let clampedCenterX = min(max(targetCenterX, minCenterX), maxCenterX)
-        guard abs(centerXConstraint.constant - clampedCenterX) > 0.5 else { return false }
-        centerXConstraint.constant = clampedCenterX
-        return true
-    }
-
-    /// Executes buildNavigationPieChartData.
-    private func buildNavigationPieChartData(for date: Date) {
-        guard let navPieChart = navigationPieChartView else { return }
-
-        let breakdown = priorityBreakdown(for: date)
-
-        // Build entries with priority info for color mapping (no labels to prevent rendering)
-        typealias PriorityEntry = (entry: PieChartDataEntry, priority: Int32)
-        let priorityEntries: [PriorityEntry] = [Int32(1), Int32(2), Int32(3), Int32(4)].compactMap { priorityRaw in
-            let rawCount = Double(breakdown[priorityRaw] ?? 0)
-            let weight = TaskPriorityConfig.chartWeightForPriority(priorityRaw)
-            let weightedValue = rawCount * weight
-            // Note: No label to prevent any text from rendering
-            guard weightedValue > 0 else { return nil }
-            return PriorityEntry(entry: PieChartDataEntry(value: weightedValue), priority: priorityRaw)
-        }
-
-        guard !priorityEntries.isEmpty else {
-            // Show empty ring at score 0
-            let emptyEntry = PieChartDataEntry(value: 1)
-            let emptySet = PieChartDataSet(entries: [emptyEntry], label: "")
-            emptySet.drawIconsEnabled = false
-            emptySet.drawValuesEnabled = false
-            emptySet.sliceSpace = 0
-            emptySet.colors = [todoColors.accentMuted.withAlphaComponent(0.3)]
-            navPieChart.drawEntryLabelsEnabled = false
-            navPieChart.data = PieChartData(dataSet: emptySet)
-            return
-        }
-
-        // Map colors using priority values directly
-        var sliceColors: [UIColor] = []
-        for priorityEntry in priorityEntries {
-            switch priorityEntry.priority {
-            case 1:
-                sliceColors.append(TaskPriorityConfig.Priority.none.color)
-            case 2:
-                sliceColors.append(TaskPriorityConfig.Priority.low.color)
-            case 3:
-                sliceColors.append(TaskPriorityConfig.Priority.high.color)
-            case 4:
-                sliceColors.append(TaskPriorityConfig.Priority.max.color)
-            default:
-                sliceColors.append(todoColors.accentMuted)
-            }
-        }
-
-        let entries = priorityEntries.map { $0.entry }
-        let set = PieChartDataSet(entries: entries, label: "")
-        set.drawIconsEnabled = false
-        set.drawValuesEnabled = false
-        set.sliceSpace = 2
-        set.colors = sliceColors
-
-        navPieChart.drawEntryLabelsEnabled = false
-        navPieChart.data = PieChartData(dataSet: set)
-    }
-
-    /// Executes refreshNavigationPieChart.
-    func refreshNavigationPieChart() {
-        buildNavigationPieChartData(for: dateForTheView)
-        navigationPieChartView?.animate(xAxisDuration: 0.3, easingOption: .easeOutBack)
-    }
-
-    /// Executes reloadTinyPicChartWithAnimation.
-    @objc func reloadTinyPicChartWithAnimation() {
-        refreshNavigationPieChart()
-    }
-
     // MARK: - Theme
 
     /// Executes applyTheme.
     private func applyTheme() {
-        todoColors = TaskerThemeManager.shared.currentTheme.tokens.color
-
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = todoColors.accentPrimary
-        appearance.titleTextAttributes = [.foregroundColor: todoColors.accentOnPrimary]
-        navigationController?.navigationBar.standardAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
-        navigationController?.navigationBar.compactAppearance = appearance
-
-        ensureNavigationPieChartAsRightItem()
-        layoutNavigationPieChart()
-        updateNavigationDateHeader()
-    }
-
-    /// Executes setFont.
-    func setFont(fontSize: CGFloat, fontweight: UIFont.Weight = .regular, fontDesign: UIFontDescriptor.SystemDesign = .default) -> UIFont {
-        let descriptor = UIFont.systemFont(ofSize: fontSize, weight: fontweight).fontDescriptor
-        if let designed = descriptor.withDesign(fontDesign) {
-            return UIFont(descriptor: designed, size: fontSize)
-        }
-        return UIFont.systemFont(ofSize: fontSize, weight: fontweight)
+        view.backgroundColor = TaskerThemeManager.shared.currentTheme.tokens.color.bgCanvas
     }
 }
 
@@ -973,5 +801,483 @@ extension HomeViewController {
             snackbarVC.view.removeFromSuperview()
             snackbarVC.removeFromParent()
         }
+    }
+}
+
+private struct DailySummaryModalView: View {
+    let summary: DailySummaryModalData
+    let onDismiss: () -> Void
+    let onStartToday: () -> Void
+    let onCompleteMorningRoutine: () -> Void
+    let onStartTriage: () -> Void
+    let onRescueOverdue: () -> Void
+    let onAddTask: () -> Void
+    let onPlanTomorrow: () -> Void
+    let onReviewDone: () -> Void
+    let onRescheduleOverdue: () -> Void
+    let onOpenRescue: () -> Void
+
+    private let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter
+    }()
+    @State private var heroMetricsAnimated = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            headerCard
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+
+            Divider()
+                .background(Color.tasker.strokeHairline)
+
+            ScrollView {
+                scrollableContent
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 20)
+            }
+
+            Divider()
+                .background(Color.tasker.strokeHairline)
+
+            ctaBar
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 16)
+                .background(Color.tasker.surfacePrimary)
+        }
+        .background(Color.tasker.bgCanvas)
+        .accessibilityIdentifier("home.dailySummaryModal")
+        .onAppear {
+            guard heroMetricsAnimated == false else { return }
+            withAnimation(.easeOut(duration: 0.5)) {
+                heroMetricsAnimated = true
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var scrollableContent: some View {
+        switch summary {
+        case .morning(let value):
+            morningContent(value)
+        case .nightly(let value):
+            nightlyContent(value)
+        }
+    }
+
+    private var headerCard: some View {
+        let title: String
+        let subtitle: String
+        switch summary {
+        case .morning(let value):
+            title = "Morning Plan"
+            subtitle = headerDateText(value.date)
+        case .nightly(let value):
+            title = "Day Retrospective"
+            subtitle = headerDateText(value.date)
+        }
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.tasker(.title3))
+                        .foregroundColor(Color.tasker.textPrimary)
+                    Text(subtitle)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+                }
+                Spacer(minLength: 8)
+                Button("Close") {
+                    onDismiss()
+                }
+                .buttonStyle(.bordered)
+            }
+            summaryHeroMetrics
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.tasker.surfaceSecondary)
+        )
+    }
+
+    private var summaryHeroMetrics: some View {
+        switch summary {
+        case .morning(let value):
+            return AnyView(
+                HStack(spacing: 10) {
+                    metricChip(
+                        title: "Open",
+                        value: "\(value.openTodayCount)",
+                        id: "home.dailySummary.hero.openCount",
+                        numericValue: value.openTodayCount
+                    )
+                    metricChip(
+                        title: "High",
+                        value: "\(value.highPriorityCount)",
+                        id: "home.dailySummary.hero.highCount",
+                        numericValue: value.highPriorityCount
+                    )
+                    metricChip(
+                        title: "Overdue",
+                        value: "\(value.overdueCount)",
+                        id: "home.dailySummary.hero.overdueCount",
+                        numericValue: value.overdueCount
+                    )
+                    metricChip(
+                        title: "XP",
+                        value: "\(value.potentialXP)",
+                        id: "home.dailySummary.hero.potentialXP",
+                        numericValue: value.potentialXP
+                    )
+                }
+            )
+        case .nightly(let value):
+            return AnyView(
+                HStack(spacing: 10) {
+                    metricChip(title: "Done", value: "\(value.completedCount)/\(value.totalCount)", id: "home.dailySummary.hero.completed")
+                    metricChip(
+                        title: "XP",
+                        value: "\(value.xpEarned)",
+                        id: "home.dailySummary.hero.xp",
+                        numericValue: value.xpEarned
+                    )
+                    metricChip(
+                        title: "Rate",
+                        value: "\(Int((value.completionRate * 100).rounded()))%",
+                        id: "home.dailySummary.hero.rate",
+                        numericValue: Int((value.completionRate * 100).rounded()),
+                        numericSuffix: "%"
+                    )
+                    metricChip(
+                        title: "Streak",
+                        value: "\(value.streakCount)d",
+                        id: "home.dailySummary.hero.streak",
+                        numericValue: value.streakCount,
+                        numericSuffix: "d"
+                    )
+                }
+            )
+        }
+    }
+
+    private func morningContent(_ summary: MorningPlanSummary) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionCard(title: "Focus Now") {
+                if summary.focusTasks.isEmpty {
+                    Text("No tasks queued. Capture one meaningful win.")
+                        .font(.tasker(.body))
+                        .foregroundColor(Color.tasker.textSecondary)
+                } else {
+                    ForEach(summary.focusTasks) { row in
+                        taskRow(row)
+                    }
+                }
+            }
+
+            sectionCard(title: "Risk & Friction") {
+                VStack(alignment: .leading, spacing: 8) {
+                    riskLine(title: "Overdue tasks", value: summary.overdueCount)
+                    riskLine(title: "Blocked tasks", value: summary.blockedCount)
+                    riskLine(title: "Long tasks (60m+)", value: summary.longTaskCount)
+                }
+            }
+
+            sectionCard(title: "Agenda Split") {
+                HStack(spacing: 12) {
+                    agendaPill(title: "Morning", value: summary.morningPlannedCount)
+                    agendaPill(title: "Evening", value: summary.eveningPlannedCount)
+                }
+            }
+        }
+    }
+
+    private func nightlyContent(_ summary: NightlyRetrospectiveSummary) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionCard(title: "Biggest Wins") {
+                if summary.biggestWins.isEmpty {
+                    Text("No completions today. Pick one tiny restart for tomorrow.")
+                        .font(.tasker(.body))
+                        .foregroundColor(Color.tasker.textSecondary)
+                } else {
+                    ForEach(summary.biggestWins) { row in
+                        taskRow(row)
+                    }
+                }
+            }
+
+            sectionCard(title: "Carry-over") {
+                VStack(alignment: .leading, spacing: 8) {
+                    riskLine(title: "Open due today", value: summary.carryOverDueTodayCount)
+                    riskLine(title: "Still overdue", value: summary.carryOverOverdueCount)
+                }
+            }
+
+            sectionCard(title: "Tomorrow Preview") {
+                if summary.tomorrowPreview.isEmpty {
+                    Text("No tasks due tomorrow yet.")
+                        .font(.tasker(.body))
+                        .foregroundColor(Color.tasker.textSecondary)
+                } else {
+                    ForEach(summary.tomorrowPreview) { row in
+                        taskRow(row)
+                    }
+                }
+            }
+
+            sectionCard(title: "Reflection Insight") {
+                HStack(spacing: 12) {
+                    agendaPill(title: "Morning Done", value: summary.morningCompletedCount)
+                    agendaPill(title: "Evening Done", value: summary.eveningCompletedCount)
+                }
+            }
+        }
+    }
+
+    private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.tasker(.headline))
+                .foregroundColor(Color.tasker.textPrimary)
+            content()
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.tasker.surfaceSecondary)
+        )
+    }
+
+    private func taskRow(_ row: SummaryTaskRow) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(priorityColor(row.priority))
+                .frame(width: 8, height: 8)
+                .padding(.top, 7)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(row.title)
+                    .font(.tasker(.bodyEmphasis))
+                    .foregroundColor(Color.tasker.textPrimary)
+                    .lineLimit(2)
+                HStack(spacing: 6) {
+                    priorityBadge(row.priority)
+                    if row.isOverdue {
+                        statusBadge(
+                            text: "Overdue",
+                            foreground: Color.tasker.statusDanger,
+                            background: Color.tasker.statusDanger.opacity(0.14)
+                        )
+                    }
+                    if row.isBlocked {
+                        statusBadge(
+                            text: "Blocked",
+                            foreground: Color.tasker.statusWarning,
+                            background: Color.tasker.statusWarning.opacity(0.16)
+                        )
+                    }
+                }
+                HStack(spacing: 8) {
+                    if let dueLabel = dueLabel(for: row) {
+                        Text(dueLabel)
+                            .font(.tasker(.caption2))
+                            .foregroundColor(row.isOverdue ? Color.tasker.statusDanger : Color.tasker.textSecondary)
+                    }
+                    if let estimatedDuration = row.estimatedDuration {
+                        Text(durationLabel(seconds: estimatedDuration))
+                            .font(.tasker(.caption2))
+                            .foregroundColor(Color.tasker.textTertiary)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityIdentifier("home.dailySummary.taskRow.\(row.taskID.uuidString)")
+    }
+
+    private func riskLine(title: String, value: Int) -> some View {
+        HStack {
+            Text(title)
+                .font(.tasker(.body))
+                .foregroundColor(Color.tasker.textSecondary)
+            Spacer()
+            Text("\(value)")
+                .font(.tasker(.bodyEmphasis))
+                .foregroundColor(Color.tasker.textPrimary)
+        }
+    }
+
+    private func agendaPill(title: String, value: Int) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.tasker(.caption2))
+                .foregroundColor(Color.tasker.textTertiary)
+            Text("\(value)")
+                .font(.tasker(.headline))
+                .foregroundColor(Color.tasker.textPrimary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.tasker.surfacePrimary)
+        )
+    }
+
+    private func metricChip(
+        title: String,
+        value: String,
+        id: String,
+        numericValue: Int? = nil,
+        numericSuffix: String = ""
+    ) -> some View {
+        let displayedNumericValue = heroMetricsAnimated ? (numericValue ?? 0) : 0
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.tasker(.caption2))
+                .foregroundColor(Color.tasker.textTertiary)
+            if numericValue != nil {
+                Text("\(displayedNumericValue)\(numericSuffix)")
+                    .font(.tasker(.bodyEmphasis))
+                    .foregroundColor(Color.tasker.textPrimary)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.easeOut(duration: 0.5), value: displayedNumericValue)
+            } else {
+                Text(value)
+                    .font(.tasker(.bodyEmphasis))
+                    .foregroundColor(Color.tasker.textPrimary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.tasker.surfacePrimary)
+        )
+        .accessibilityIdentifier(id)
+    }
+
+    private var ctaBar: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            switch summary {
+            case .morning(let value):
+                Button("Start Today") { onStartToday() }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("home.dailySummary.cta.startToday")
+
+                HStack(spacing: 10) {
+                    Button("Complete Morning Routine") { onCompleteMorningRoutine() }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("home.dailySummary.cta.completeMorning")
+                    Button("Start Triage") { onStartTriage() }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("home.dailySummary.cta.startTriage")
+                }
+
+                if value.overdueCount > 0 {
+                    Button("Rescue Overdue") { onRescueOverdue() }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("home.dailySummary.cta.rescueOverdue")
+                }
+
+                Button("Add Task") { onAddTask() }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("home.dailySummary.cta.addTask")
+
+            case .nightly(let value):
+                Button("Plan Tomorrow") { onPlanTomorrow() }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("home.dailySummary.cta.planTomorrow")
+
+                Button("Review Done") { onReviewDone() }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("home.dailySummary.cta.reviewDone")
+
+                if value.carryOverOverdueCount > 0 {
+                    Button("Reschedule Overdue") { onRescheduleOverdue() }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("home.dailySummary.cta.rescheduleOverdue")
+                }
+
+                if value.carryOverOverdueCount > 0 {
+                    Button("Open Rescue") { onOpenRescue() }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("home.dailySummary.cta.openRescue")
+                }
+            }
+        }
+    }
+
+    private func dueLabel(for row: SummaryTaskRow) -> String? {
+        guard let dueDate = row.dueDate else { return nil }
+        return relativeFormatter.localizedString(for: dueDate, relativeTo: Date())
+    }
+
+    private func durationLabel(seconds: TimeInterval) -> String {
+        let minutes = Int(round(seconds / 60))
+        if minutes >= 60 {
+            if minutes % 60 == 0 {
+                return "\(minutes / 60)h"
+            }
+            return String(format: "%.1fh", Double(minutes) / 60.0)
+        }
+        return "\(minutes)m"
+    }
+
+    private func priorityColor(_ priority: TaskPriority) -> Color {
+        if priority == .max {
+            return Color.tasker.statusDanger
+        }
+        if priority == .high {
+            return Color.tasker.statusWarning
+        }
+        if priority == .low {
+            return Color.tasker.accentPrimary
+        }
+        return Color.tasker.textTertiary
+    }
+
+    private func priorityBadge(_ priority: TaskPriority) -> some View {
+        statusBadge(
+            text: priority.displayName,
+            foreground: priorityColor(priority),
+            background: priorityColor(priority).opacity(0.14)
+        )
+    }
+
+    private func statusBadge(text: String, foreground: Color, background: Color) -> some View {
+        Text(text)
+            .font(.tasker(.caption2))
+            .foregroundColor(foreground)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(background)
+            )
+    }
+
+    private func headerDateText(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateStyle = .full
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
 }

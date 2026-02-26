@@ -14,6 +14,9 @@ import SwiftUI
 public struct FocusZone: View {
     let tasks: [TaskDefinition]
     let canDrag: Bool
+    let insightForTaskID: (UUID) -> EvaFocusTaskInsight?
+    let onShuffle: () -> Void
+    let onWhy: () -> Void
     let onTaskTap: (TaskDefinition) -> Void
     let onToggleComplete: (TaskDefinition) -> Void
     let onTaskDragStarted: (TaskDefinition) -> Void
@@ -23,12 +26,14 @@ public struct FocusZone: View {
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: TaskerCornerTokens { TaskerThemeManager.shared.currentTheme.tokens.corner }
-    private var themeColors: TaskerColorTokens { TaskerThemeManager.shared.currentTheme.tokens.color }
 
     /// Initializes a new instance.
     public init(
         tasks: [TaskDefinition],
         canDrag: Bool,
+        insightForTaskID: @escaping (UUID) -> EvaFocusTaskInsight? = { _ in nil },
+        onShuffle: @escaping () -> Void = {},
+        onWhy: @escaping () -> Void = {},
         onTaskTap: @escaping (TaskDefinition) -> Void,
         onToggleComplete: @escaping (TaskDefinition) -> Void,
         onTaskDragStarted: @escaping (TaskDefinition) -> Void,
@@ -36,6 +41,9 @@ public struct FocusZone: View {
     ) {
         self.tasks = tasks
         self.canDrag = canDrag
+        self.insightForTaskID = insightForTaskID
+        self.onShuffle = onShuffle
+        self.onWhy = onWhy
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
         self.onTaskDragStarted = onTaskDragStarted
@@ -63,23 +71,50 @@ public struct FocusZone: View {
         }
         .background(
             RoundedRectangle(cornerRadius: corner.r3)
-                .fill(Color.tasker.accentPrimary.opacity(0.06))
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.tasker.accentPrimary.opacity(0.08),
+                            Color.tasker.accentPrimary.opacity(0.03)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: corner.r3)
                 .stroke(
                     isTargeted
                         ? Color.tasker.accentPrimary.opacity(0.5)
-                        : Color.tasker.accentPrimary.opacity(0.15),
-                    lineWidth: isTargeted ? 2 : 1
+                        : Color.tasker.accentPrimary.opacity(0.20),
+                    lineWidth: 0.5
                 )
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: corner.r3)
+                .stroke(
+                    isTargeted
+                        ? Color.tasker.accentPrimary.opacity(0.5)
+                        : Color.tasker.accentPrimary.opacity(0.08),
+                    lineWidth: 1
+                )
+                .padding(-2)
+        )
         .shadow(
-            color: Color.tasker.accentPrimary.opacity(0.08),
-            radius: 8,
+            color: Color.tasker.accentPrimary.opacity(0.06),
+            radius: 3,
+            x: 0,
+            y: 1
+        )
+        .shadow(
+            color: Color.tasker.accentPrimary.opacity(0.12),
+            radius: isTargeted ? 16 : 12,
             x: 0,
             y: 2
         )
+        .scaleEffect(isTargeted ? 1.01 : 1.0)
+        .brightness(isTargeted ? 0.02 : 0)
         .onDrop(of: ["public.text"], isTargeted: $isTargeted, perform: onDrop)
         .animation(.spring(response: 0.3), value: isTargeted)
         .accessibilityElement(children: .contain)
@@ -90,41 +125,67 @@ public struct FocusZone: View {
 
     private var focusHeader: some View {
         HStack(spacing: spacing.s8) {
-            // Flame icon with animation
-            Image(systemName: "flame.fill")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color.tasker.accentSecondary)
-                .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !tasks.isEmpty)
+            Button(action: onWhy) {
+                HStack(spacing: spacing.s8) {
+                    // Flame icon with animation
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color.tasker.accentSecondary)
+                        .symbolEffect(.pulse, options: .repeating.speed(0.5), isActive: !tasks.isEmpty)
+                        .breathingPulse(min: 0.8, max: 1.0, duration: 2.5)
 
-            // Title
-            Text("FOCUS NOW")
-                .font(.tasker(.caption1))
-                .fontWeight(.semibold)
-                .foregroundColor(Color.tasker.accentSecondary)
+                    // Title
+                    Text("FOCUS NOW")
+                        .font(.tasker(.caption1))
+                        .fontWeight(.semibold)
+                        .foregroundColor(Color.tasker.accentSecondary)
 
-            // Count badge
-            if !tasks.isEmpty {
-                Text("\(tasks.count)")
-                    .font(.tasker(.caption2))
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.tasker.accentOnPrimary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(Color.tasker.accentSecondary)
-                    )
+                    // Count badge
+                    if !tasks.isEmpty {
+                        Text("\(tasks.count)")
+                            .font(.tasker(.caption2))
+                            .fontWeight(.medium)
+                            .foregroundColor(Color.tasker.accentOnPrimary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule()
+                                    .fill(Color.tasker.accentSecondary)
+                            )
+                            .transition(.scale.combined(with: .opacity))
+                            .contentTransition(.numericText())
+                    }
+                }
+                .frame(minHeight: 44, alignment: .leading)
             }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("home.focus.titleTap")
+            .accessibilityHint("Opens why Eva picked these tasks")
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Empty state hint
-            if tasks.isEmpty && canDrag {
+            if !tasks.isEmpty {
+                actionButton(title: "Shuffle", action: onShuffle, accessibilityID: "home.focus.shuffle")
+            } else if canDrag {
                 Text("Drag tasks here")
                     .font(.tasker(.caption2))
                     .foregroundColor(Color.tasker.textQuaternary)
             }
         }
+    }
+
+    private func actionButton(title: String, action: @escaping () -> Void, accessibilityID: String) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.tasker(.caption2))
+                .foregroundColor(Color.tasker.accentSecondary)
+                .padding(.horizontal, 8)
+                .frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .accessibilityIdentifier(accessibilityID)
     }
 
     // MARK: - Empty State
@@ -134,6 +195,7 @@ public struct FocusZone: View {
             Image(systemName: "hand.point.up.left")
                 .font(.system(size: 24, weight: .light))
                 .foregroundColor(Color.tasker.accentPrimary.opacity(0.4))
+                .breathingPulse(min: 0.3, max: 0.5, duration: 2.0)
 
             Text("Long-press a task to pin here")
                 .font(.tasker(.caption1))
@@ -151,17 +213,20 @@ public struct FocusZone: View {
             ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
                 if index > 0 {
                     Divider()
-                        .padding(.leading, 32)
+                        .padding(.leading, spacing.s32)
                         .padding(.vertical, 2)
+                        .opacity(Double(tasks.count - index) / Double(tasks.count))
                 }
 
                 FocusZoneRow(
                     task: task,
+                    insight: insightForTaskID(task.id),
                     canDrag: canDrag,
                     onTap: { onTaskTap(task) },
                     onToggleComplete: { onToggleComplete(task) },
                     onDragStarted: { onTaskDragStarted(task) }
                 )
+                .taskCompletionTransition(isComplete: task.isComplete)
                 .staggeredAppearance(index: index)
             }
         }
@@ -171,16 +236,74 @@ public struct FocusZone: View {
 
 // MARK: - Focus Zone Row
 
+enum FocusZoneStatusChip: Equatable {
+    case late(String)
+    case dueSoon
+    case quickWin
+    case unblocked
+
+    var text: String {
+        switch self {
+        case .late(let value): return value
+        case .dueSoon: return "Due soon"
+        case .quickWin: return "Quick win"
+        case .unblocked: return "Unblocked"
+        }
+    }
+}
+
+enum FocusZoneStatusChipResolver {
+    /// Executes resolve.
+    static func resolve(task: TaskDefinition, insight: EvaFocusTaskInsight?, now: Date = Date()) -> FocusZoneStatusChip? {
+        guard !task.isComplete else { return nil }
+
+        if let dueDate = task.dueDate, let lateLabel = OverdueAgeFormatter.lateLabel(dueDate: dueDate, now: now) {
+            return .late(lateLabel)
+        }
+
+        if isDueSoon(task: task, now: now) {
+            return .dueSoon
+        }
+
+        if isQuickWin(task: task, insight: insight) {
+            return .quickWin
+        }
+
+        return task.dependencies.isEmpty ? .unblocked : nil
+    }
+
+    /// Executes isDueSoon.
+    private static func isDueSoon(task: TaskDefinition, now: Date) -> Bool {
+        guard let dueDate = task.dueDate, !task.isOverdue else { return false }
+        let remaining = dueDate.timeIntervalSince(now)
+        return remaining > 0 && remaining <= (2 * 60 * 60)
+    }
+
+    /// Executes isQuickWin.
+    private static func isQuickWin(task: TaskDefinition, insight: EvaFocusTaskInsight?) -> Bool {
+        let insightBadge = insight?.badge?.lowercased() ?? ""
+        let insightRationale = insight?.rationale.map { $0.label.lowercased() } ?? []
+        let insightMentionsQuickWin = insightBadge.contains("quick win")
+            || insightRationale.contains(where: { $0.contains("quick win") })
+
+        let taskIsQuickWin = (task.estimatedDuration ?? 0) > 0 && (task.estimatedDuration ?? 0) <= 1_800
+        return insightMentionsQuickWin || taskIsQuickWin
+    }
+}
+
 /// Compact row for focus zone tasks.
 private struct FocusZoneRow: View {
     let task: TaskDefinition
+    let insight: EvaFocusTaskInsight?
     let canDrag: Bool
     let onTap: () -> Void
     let onToggleComplete: () -> Void
     let onDragStarted: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
-    private var displayModel: TaskRowDisplayModel { TaskRowDisplayModel.from(task: task, showTypeBadge: false) }
+    private var statusChip: FocusZoneStatusChip? {
+        FocusZoneStatusChipResolver.resolve(task: task, insight: insight)
+    }
 
     var body: some View {
         HStack(spacing: spacing.s8) {
@@ -196,45 +319,29 @@ private struct FocusZoneRow: View {
 
             Spacer(minLength: 0)
 
-            // Urgency indicator
-            if let urgencyLabel = displayModel.urgencyLabel {
-                Text(urgencyLabel)
+            if let statusChip {
+                Text(statusChip.text)
                     .font(.tasker(.caption2))
                     .fontWeight(.medium)
-                    .foregroundColor(focusUrgencyColor(for: urgencyLabel))
+                    .foregroundColor(focusStatusColor(for: statusChip))
                     .padding(.horizontal, 5)
                     .padding(.vertical, 3)
                     .background(
                         Capsule()
-                            .fill(focusUrgencyColor(for: urgencyLabel).opacity(0.15))
+                            .fill(focusStatusColor(for: statusChip).opacity(0.15))
                     )
                     .fixedSize()
+                    .transition(.scale.combined(with: .opacity))
+                    .animation(TaskerAnimation.bouncy, value: statusChip)
             }
 
-            // XP badge
-            Text("+\(displayModel.xpValue)")
-                .font(.tasker(.caption2))
-                .fontWeight(task.priority == .max || task.priority == .high ? .bold : .medium)
-                .foregroundColor(task.priority == .max || task.priority == .high ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary : Color.tasker.surfaceSecondary)
-                )
-                .overlay(
-                    Capsule()
-                        .stroke(task.priority == .max || task.priority == .high ? Color.tasker.accentPrimary.opacity(0.3) : .clear, lineWidth: 1)
-                )
-                .fixedSize()
         }
         .padding(.vertical, 6)
         .padding(.horizontal, spacing.s4)
         .frame(height: 36)
         .contentShape(Rectangle())
-        .opacity(task.isComplete ? 0.5 : 1.0)
         .onTapGesture { onTap() }
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
             Button {
                 onToggleComplete()
             } label: {
@@ -252,17 +359,17 @@ private struct FocusZoneRow: View {
         .accessibilityLabel(task.title)
     }
 
-    /// Executes focusUrgencyColor.
-    private func focusUrgencyColor(for label: String) -> Color {
-        switch label {
-        case "Overdue":
+    /// Executes focusStatusColor.
+    private func focusStatusColor(for statusChip: FocusZoneStatusChip) -> Color {
+        switch statusChip {
+        case .late:
             return Color.tasker.statusDanger
-        case "Due soon":
+        case .dueSoon:
             return Color.tasker.statusWarning
-        case "Today":
+        case .quickWin:
             return Color.tasker.statusSuccess
-        default:
-            return Color.tasker.textSecondary
+        case .unblocked:
+            return Color.tasker.accentPrimary
         }
     }
 }

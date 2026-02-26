@@ -69,14 +69,16 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var emptyStateActionTitle: String?
     @Published public private(set) var focusEngineEnabled: Bool = true
     @Published public private(set) var activeScope: HomeListScope = .today
-    @Published private(set) var aiTopSuggestions: [AITopTaskSuggestion] = []
-    @Published public private(set) var aiTopSuggestionsRouteBanner: String?
-    @Published public private(set) var isGeneratingAITopSuggestions: Bool = false
-    @Published public private(set) var aiTopSuggestionsIsRefined: Bool = false
-    @Published public private(set) var energyAwareSuggestedTasks: [TaskDefinition] = []
-    @Published private(set) var overdueTriageSuggestion: OverdueTriageSuggestion?
-    @Published public private(set) var shouldShowOverdueTriage: Bool = false
-    @Published public private(set) var isApplyingOverdueTriage: Bool = false
+    @Published public private(set) var evaHomeInsights: EvaHomeInsights?
+    @Published public private(set) var evaFocusWhySheetPresented: Bool = false
+    @Published public private(set) var evaTriageSheetPresented: Bool = false
+    @Published public private(set) var evaRescueSheetPresented: Bool = false
+    @Published public private(set) var evaTriageScope: EvaTriageScope = .visible
+    @Published public private(set) var evaTriageQueueLoading: Bool = false
+    @Published public private(set) var evaTriageQueueErrorMessage: String?
+    @Published public private(set) var evaTriageQueue: [EvaTriageQueueItem] = []
+    @Published public private(set) var evaRescuePlan: EvaRescuePlan?
+    @Published public private(set) var evaLastBatchRunID: UUID?
 
     // Next Action Module: total open tasks for today
     public var todayOpenTaskCount: Int {
@@ -85,15 +87,20 @@ public final class HomeViewModel: ObservableObject {
 
     // Projects
     @Published public private(set) var projects: [Project] = []
+    @Published public private(set) var tags: [TagDefinition] = []
     @Published public private(set) var selectedProjectTasks: [TaskDefinition] = []
 
     // MARK: - Dependencies
 
     private let useCaseCoordinator: UseCaseCoordinator
     private let homeFilteredTasksUseCase: GetHomeFilteredTasksUseCase
+    private let computeEvaHomeInsightsUseCase: ComputeEvaHomeInsightsUseCase
+    private let getInboxTriageQueueUseCase: GetInboxTriageQueueUseCase
+    private let getOverdueRescuePlanUseCase: GetOverdueRescuePlanUseCase
+    private let buildEvaBatchProposalUseCase: BuildEvaBatchProposalUseCase
+    private let getDailySummaryModalUseCase: GetDailySummaryModalUseCase
     private let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
     private let analyticsService: AnalyticsServiceProtocol?
-    private let aiSuggestionService: AISuggestionService?
     private let userDefaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
 
@@ -101,7 +108,10 @@ public final class HomeViewModel: ObservableObject {
 
     private static let lastFilterStateKey = "home.focus.lastFilterState.v2"
     private static let pinnedFocusTaskIDsKey = "home.focus.pinnedTaskIDs.v2"
+    private static let recentShuffleTaskIDsKey = "home.eva.recentShuffleTaskIDs.v1"
     private static let maxPinnedFocusTasks = 3
+    private static let maxShuffleHistorySize = 10
+    private static let defaultShuffleExclusionWindow = 3
 
     // MARK: - Session State
 
@@ -111,35 +121,35 @@ public final class HomeViewModel: ObservableObject {
     private var reloadGeneration: Int = 0
     private var suppressCompletionReloadUntil: Date?
     private var lastRecurringTopUpAt: Date?
-    private let overdueTriageService = OverdueTriageService()
+    private var recentShuffledFocusTaskIDs: [UUID] = []
 
     private let completionNotificationDebounceMS = 120
     private let completionReloadSuppressionSeconds: TimeInterval = 0.35
     private let mutationNotificationDebounceMS = 90
     private let recurringTopUpThrottleSeconds: TimeInterval = 90
     private static let mutationNotificationSource = "homeViewModel"
-    private static let triageDismissedKey = "assistant.triage.lastDismissed"
-    private static let pendingChatPromptKey = "assistant.pending_prompt"
-    private static let pendingChatAssistantMessageKey = "assistant.pending_assistant_message"
-    private static let pendingChatModeKey = "assistant.pending_chat_mode"
-    private var topSuggestionsTask: Task<Void, Never>?
-    private var topSuggestionsRequestToken = UUID()
 
     // MARK: - Initialization
 
     /// Initializes a new instance.
-    init(
+    public init(
         useCaseCoordinator: UseCaseCoordinator,
         savedHomeViewRepository: SavedHomeViewRepositoryProtocol = UserDefaultsSavedHomeViewRepository(),
         analyticsService: AnalyticsServiceProtocol? = nil,
-        aiSuggestionService: AISuggestionService? = nil,
         userDefaults: UserDefaults = .standard
     ) {
         self.useCaseCoordinator = useCaseCoordinator
         self.homeFilteredTasksUseCase = useCaseCoordinator.getHomeFilteredTasks
+        self.computeEvaHomeInsightsUseCase = useCaseCoordinator.computeEvaHomeInsights
+        self.getInboxTriageQueueUseCase = useCaseCoordinator.getInboxTriageQueue
+        self.getOverdueRescuePlanUseCase = useCaseCoordinator.getOverdueRescuePlan
+        self.buildEvaBatchProposalUseCase = useCaseCoordinator.buildEvaBatchProposal
+        self.getDailySummaryModalUseCase = GetDailySummaryModalUseCase(
+            getTasksUseCase: useCaseCoordinator.getTasks,
+            analyticsUseCase: useCaseCoordinator.calculateAnalytics
+        )
         self.savedHomeViewRepository = savedHomeViewRepository
         self.analyticsService = analyticsService
-        self.aiSuggestionService = aiSuggestionService
         self.userDefaults = userDefaults
 
         setupBindings()
@@ -171,211 +181,6 @@ public final class HomeViewModel: ObservableObject {
     /// Load tasks for today.
     public func loadTodayTasks() {
         loadTodayTasks(generation: nextReloadGeneration())
-    }
-
-    /// Executes helpMeChooseTop3.
-    @MainActor
-    public func helpMeChooseTop3() {
-        topSuggestionsTask?.cancel()
-        let requestToken = UUID()
-        topSuggestionsRequestToken = requestToken
-
-        guard V2FeatureFlags.assistantCopilotEnabled else {
-            aiTopSuggestions = []
-            aiTopSuggestionsRouteBanner = nil
-            isGeneratingAITopSuggestions = false
-            aiTopSuggestionsIsRefined = false
-            return
-        }
-        let candidates = focusTasks.isEmpty ? (morningTasks + eveningTasks + overdueTasks) : focusTasks
-        guard candidates.isEmpty == false else {
-            aiTopSuggestions = []
-            aiTopSuggestionsRouteBanner = nil
-            isGeneratingAITopSuggestions = false
-            aiTopSuggestionsIsRefined = false
-            return
-        }
-
-        guard let aiSuggestionService else {
-            aiTopSuggestions = []
-            aiTopSuggestionsRouteBanner = nil
-            isGeneratingAITopSuggestions = false
-            aiTopSuggestionsIsRefined = false
-            return
-        }
-
-        let instantSuggestions = aiSuggestionService.immediateTopThree(from: candidates)
-        aiTopSuggestions = instantSuggestions
-        aiTopSuggestionsRouteBanner = instantSuggestions.first?.routeBanner
-        aiTopSuggestionsIsRefined = false
-        isGeneratingAITopSuggestions = true
-        logWarning(
-            event: "assistant_fast_fallback_used",
-            message: "Home top-3 instant heuristic suggestions shown",
-            fields: [
-                "surface": "home_top3",
-                "used_fallback": "true"
-            ]
-        )
-
-        let surfaceStartedAt = Date()
-        topSuggestionsTask = Task { [weak self] in
-            guard let self else { return }
-            let suggestions = await aiSuggestionService.refineTopThree(from: candidates)
-            guard Task.isCancelled == false else { return }
-            await MainActor.run {
-                guard self.topSuggestionsRequestToken == requestToken else {
-                    self.isGeneratingAITopSuggestions = false
-                    return
-                }
-                self.aiTopSuggestions = suggestions
-                self.aiTopSuggestionsRouteBanner = suggestions.first?.routeBanner
-                self.aiTopSuggestionsIsRefined = suggestions.first?.modelName != nil
-                self.isGeneratingAITopSuggestions = false
-                let durationMS = Int(Date().timeIntervalSince(surfaceStartedAt) * 1_000)
-                logWarning(
-                    event: "assistant_surface_latency",
-                    message: "Home top-3 suggestions updated",
-                    fields: [
-                        "surface": "home_top3",
-                        "model": suggestions.first?.modelName ?? "none",
-                        "is_cold_start": "unknown",
-                        "duration_ms": String(durationMS),
-                        "used_fallback": self.aiTopSuggestionsIsRefined ? "false" : "true",
-                        "timeout_ms": String(Int(LLMGenerationProfile.topThree.timeoutSeconds * 1_000))
-                    ]
-                )
-                if suggestions.first?.modelName != nil && aiSuggestionService.lastGenerationTimedOut {
-                    logWarning(
-                        event: "assistant_surface_timeout",
-                        message: "Home top-3 refinement timed out",
-                        fields: [
-                            "surface": "home_top3",
-                            "model": suggestions.first?.modelName ?? "none",
-                            "is_cold_start": "unknown",
-                            "duration_ms": String(durationMS),
-                            "used_fallback": self.aiTopSuggestionsIsRefined ? "false" : "true",
-                            "timeout_ms": String(Int(LLMGenerationProfile.topThree.timeoutSeconds * 1_000))
-                        ]
-                    )
-                }
-                logWarning(
-                    event: "assistant_top3_generated",
-                    message: "Generated home top-3 suggestions",
-                    fields: [
-                        "count": String(suggestions.count),
-                        "model": suggestions.first?.modelName ?? "none",
-                        "has_route_banner": suggestions.first?.routeBanner == nil ? "false" : "true"
-                    ]
-                )
-            }
-        }
-    }
-
-    /// Executes dismissOverdueTriage.
-    public func dismissOverdueTriage() {
-        shouldShowOverdueTriage = false
-        userDefaults.set(Date(), forKey: Self.triageDismissedKey)
-        logWarning(
-            event: "assistant_overdue_triage_dismissed",
-            message: "User dismissed overdue triage sheet",
-            fields: [:]
-        )
-    }
-
-    /// Executes customizeOverdueTriageInChat.
-    public func customizeOverdueTriageInChat() {
-        shouldShowOverdueTriage = false
-        userDefaults.set(Date(), forKey: Self.triageDismissedKey)
-        let summaryLines = overdueTriageSuggestion?.summaryLines ?? []
-        let summary = summaryLines.isEmpty
-            ? "No prebuilt summary available."
-            : summaryLines.map { "• \($0)" }.joined(separator: "\n")
-        let prompt = """
-        Customize this overdue triage plan:
-        \(summary)
-        Keep critical tasks visible today and rebalance the rest.
-        """
-        userDefaults.set(prompt, forKey: Self.pendingChatPromptKey)
-        userDefaults.set(summary, forKey: Self.pendingChatAssistantMessageKey)
-        userDefaults.set(AssistantChatMode.plan.rawValue, forKey: Self.pendingChatModeKey)
-        logWarning(
-            event: "assistant_overdue_triage_customized",
-            message: "User chose to customize overdue triage in chat",
-            fields: [:]
-        )
-    }
-
-    /// Executes applyOverdueTriage.
-    public func applyOverdueTriage(completion: @escaping (Result<Void, Error>) -> Void) {
-        guard V2FeatureFlags.assistantCopilotEnabled else {
-            completion(.failure(NSError(
-                domain: "HomeViewModel",
-                code: 403,
-                userInfo: [NSLocalizedDescriptionKey: "Assistant copilot is disabled"]
-            )))
-            return
-        }
-        guard let suggestion = overdueTriageSuggestion else {
-            completion(.failure(NSError(
-                domain: "HomeViewModel",
-                code: 404,
-                userInfo: [NSLocalizedDescriptionKey: "No overdue triage suggestion is available"]
-            )))
-            return
-        }
-        guard let pipeline = LLMAssistantPipelineProvider.pipeline else {
-            completion(.failure(NSError(
-                domain: "HomeViewModel",
-                code: 503,
-                userInfo: [NSLocalizedDescriptionKey: "Assistant pipeline unavailable"]
-            )))
-            return
-        }
-
-        isApplyingOverdueTriage = true
-        let triageThreadID = "home-triage-\(UUID().uuidString)"
-        pipeline.propose(threadID: triageThreadID, envelope: suggestion.envelope) { [weak self] proposeResult in
-            guard let self else { return }
-            switch proposeResult {
-            case .failure(let error):
-                DispatchQueue.main.async {
-                    self.isApplyingOverdueTriage = false
-                    completion(.failure(error))
-                }
-            case .success(let run):
-                pipeline.confirm(runID: run.id) { confirmResult in
-                    switch confirmResult {
-                    case .failure(let error):
-                        DispatchQueue.main.async {
-                            self.isApplyingOverdueTriage = false
-                            completion(.failure(error))
-                        }
-                    case .success:
-                        pipeline.applyConfirmedRun(id: run.id) { applyResult in
-                            DispatchQueue.main.async {
-                                self.isApplyingOverdueTriage = false
-                                switch applyResult {
-                                case .failure(let error):
-                                    completion(.failure(error))
-                                case .success:
-                                    self.shouldShowOverdueTriage = false
-                                    self.userDefaults.set(Date(), forKey: Self.triageDismissedKey)
-                                    self.invalidateTaskCaches()
-                                    self.reloadCurrentModeTasks()
-                                    logWarning(
-                                        event: "assistant_overdue_triage_applied",
-                                        message: "Applied overdue triage through assistant pipeline",
-                                        fields: ["run_id": run.id.uuidString]
-                                    )
-                                    completion(.success(()))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     /// Executes loadTodayTasks.
@@ -658,8 +463,11 @@ public final class HomeViewModel: ObservableObject {
         name: String,
         completion: @escaping (Result<TagDefinition, Error>) -> Void
     ) {
-        useCaseCoordinator.manageTags.create(name: name, color: nil, icon: nil) { result in
+        useCaseCoordinator.manageTags.create(name: name, color: nil, icon: nil) { [weak self] result in
             DispatchQueue.main.async {
+                if case .success(let createdTag) = result {
+                    self?.upsertTag(createdTag)
+                }
                 completion(result)
             }
         }
@@ -715,6 +523,7 @@ public final class HomeViewModel: ObservableObject {
         pinnedFocusTaskIDs.append(taskID)
         persistPinnedFocusTaskIDs()
         focusTasks = composedFocusTasks(from: openTasks)
+        refreshEvaInsights(openTasks: openTasks)
         return .pinned
     }
 
@@ -723,7 +532,9 @@ public final class HomeViewModel: ObservableObject {
         guard pinnedFocusTaskIDs.contains(taskID) else { return }
         pinnedFocusTaskIDs.removeAll { $0 == taskID }
         persistPinnedFocusTaskIDs()
-        focusTasks = composedFocusTasks(from: focusOpenTasksForCurrentState())
+        let openTasks = focusOpenTasksForCurrentState()
+        focusTasks = composedFocusTasks(from: openTasks)
+        refreshEvaInsights(openTasks: openTasks)
     }
 
     /// Change selected date.
@@ -772,6 +583,85 @@ public final class HomeViewModel: ObservableObject {
         activeFilterState = state
         persistLastFilterState()
         applyFocusFilters(trackAnalytics: true)
+    }
+
+    public func taskSnapshot(for taskID: UUID) -> TaskDefinition? {
+        currentTaskSnapshot(for: taskID)
+    }
+
+    public func loadDailySummaryModal(
+        kind: TaskerDailySummaryKind,
+        dateStamp: String?,
+        completion: @escaping (Result<DailySummaryModalData, Error>) -> Void
+    ) {
+        let date = Self.summaryDate(from: dateStamp) ?? Date()
+        let normalizedDateStamp = Self.summaryDateStamp(from: date)
+
+        getDailySummaryModalUseCase.execute(kind: kind, date: date) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let summary):
+                    self?.trackHomeInteraction(
+                        action: "daily_summary_modal_opened",
+                        metadata: [
+                            "kind": kind.rawValue,
+                            "date_stamp": normalizedDateStamp,
+                            "source": "notification",
+                            "snapshot": summary.analyticsSnapshot
+                        ]
+                    )
+                    completion(.success(summary))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    public func trackDailySummaryCTA(
+        kind: TaskerDailySummaryKind,
+        cta: String,
+        countsSnapshot: [String: Any]
+    ) {
+        trackHomeInteraction(
+            action: "daily_summary_cta_tapped",
+            metadata: [
+                "kind": kind.rawValue,
+                "cta": cta,
+                "counts_snapshot": countsSnapshot
+            ]
+        )
+    }
+
+    public func trackDailySummaryActionResult(cta: String, success: Bool, error: Error?) {
+        var metadata: [String: Any] = [
+            "cta": cta,
+            "success": success
+        ]
+        if let error {
+            metadata["error"] = error.localizedDescription
+        }
+        trackHomeInteraction(
+            action: "daily_summary_action_result",
+            metadata: metadata
+        )
+    }
+
+    public func performEndOfDayCleanup(completion: @escaping (Result<CleanupResult, Error>) -> Void) {
+        useCaseCoordinator.performEndOfDayCleanup { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let cleanup):
+                    self?.invalidateTaskCaches()
+                    self?.reloadCurrentModeTasks()
+                    self?.loadDailyAnalytics()
+                    completion(.success(cleanup))
+                case .failure(let error):
+                    self?.errorMessage = error.localizedDescription
+                    completion(.failure(error))
+                }
+            }
+        }
     }
 
     /// Focus Engine: set Today grouping mode.
@@ -1024,6 +914,28 @@ public final class HomeViewModel: ObservableObject {
         }
     }
 
+    /// Executes loadTags.
+    private func loadTags(generation: Int) {
+        useCaseCoordinator.manageTags.list { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.isCurrentReloadGeneration(generation) else {
+                    logDebug("HOME_ROW_STATE vm.drop_stale_reload source=tags generation=\(generation)")
+                    return
+                }
+
+                switch result {
+                case .success(let loadedTags):
+                    self.tags = loadedTags.sorted {
+                        $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                    }
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
     /// Clears task-related cache entries to force fresh reads.
     public func invalidateTaskCaches() {
         useCaseCoordinator.cacheService?.clearAll()
@@ -1048,7 +960,7 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Complete morning routine.
-    public func completeMorningRoutine() {
+    public func completeMorningRoutine(completion: ((Result<MorningRoutineResult, Error>) -> Void)? = nil) {
         useCaseCoordinator.completeMorningRoutine { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
@@ -1056,26 +968,648 @@ public final class HomeViewModel: ObservableObject {
                     self?.dailyScore += routineResult.totalScore
                     self?.refreshProgressState()
                     self?.loadTodayTasks()
+                    completion?(.success(routineResult))
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
+                    completion?(.failure(error))
                 }
             }
         }
     }
 
     /// Reschedule all overdue tasks.
-    public func rescheduleOverdueTasks() {
+    public func rescheduleOverdueTasks(completion: ((Result<RescheduleAllResult, Error>) -> Void)? = nil) {
         useCaseCoordinator.rescheduleAllOverdueTasks { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
-                case .success:
+                case .success(let rescheduleResult):
                     self?.loadTodayTasks()
+                    completion?(.success(rescheduleResult))
 
                 case .failure(let error):
                     self?.errorMessage = error.localizedDescription
+                    completion?(.failure(error))
                 }
             }
+        }
+    }
+
+    public func evaFocusInsight(for taskID: UUID) -> EvaFocusTaskInsight? {
+        evaHomeInsights?.focus.taskInsights.first(where: { $0.taskID == taskID })
+    }
+
+    public func setEvaFocusWhyPresented(_ value: Bool) {
+        evaFocusWhySheetPresented = value
+    }
+
+    public func setEvaTriagePresented(_ value: Bool) {
+        evaTriageSheetPresented = value
+    }
+
+    public func setEvaRescuePresented(_ value: Bool) {
+        evaRescueSheetPresented = value
+    }
+
+    public func openFocusWhy() {
+        guard V2FeatureFlags.evaFocusEnabled else { return }
+        evaFocusWhySheetPresented = true
+        trackHomeInteraction(action: "focus_now_why_open", metadata: [:])
+    }
+
+    public func shuffleFocusNow() {
+        guard V2FeatureFlags.evaFocusEnabled else { return }
+        guard canUseManualFocusDrag else { return }
+        guard activeScope.quickView != .done else { return }
+
+        let openTasks = focusOpenTasksForCurrentState()
+        guard openTasks.count > 1 else { return }
+        let pinnedSet = Set(pinnedFocusTaskIDs)
+        let candidates = openTasks.filter { !pinnedSet.contains($0.id) }
+        guard candidates.isEmpty == false else { return }
+
+        let excluded = Set(recentShuffledFocusTaskIDs.suffix(shuffleExclusionWindow))
+        let preferred = candidates.filter { !excluded.contains($0.id) }
+        let effective = preferred.isEmpty ? candidates : preferred
+        let ranked = rankedFocusTasks(from: effective, relativeTo: activeScope)
+        let autoFill = Array(ranked.prefix(max(0, Self.maxPinnedFocusTasks - pinnedFocusTaskIDs.count)))
+        let pinned = pinnedFocusTaskIDs.compactMap { id in openTasks.first(where: { $0.id == id }) }
+        let newSelection = Array((pinned + autoFill).prefix(Self.maxPinnedFocusTasks))
+        guard newSelection.isEmpty == false else { return }
+
+        focusTasks = newSelection
+        for task in newSelection {
+            recentShuffledFocusTaskIDs.append(task.id)
+        }
+        recentShuffledFocusTaskIDs = Array(recentShuffledFocusTaskIDs.suffix(Self.maxShuffleHistorySize))
+        persistRecentShuffleTaskIDs()
+        refreshEvaInsights()
+        trackHomeInteraction(action: "focus_now_shuffle_tap", metadata: [
+            "result_count": newSelection.count
+        ])
+    }
+
+    public func startTriage() {
+        startTriage(scope: .visible)
+    }
+
+    public func startTriage(scope: EvaTriageScope) {
+        guard V2FeatureFlags.evaTriageEnabled else { return }
+        evaTriageSheetPresented = true
+        trackHomeInteraction(action: "triage_open", metadata: [
+            "scope": scope.rawValue
+        ])
+        refreshTriageQueue(scope: scope)
+    }
+
+    public func refreshTriageQueue(scope: EvaTriageScope) {
+        refreshTriageQueue(scope: scope, completion: nil)
+    }
+
+    public func refreshTriageQueue(
+        scope: EvaTriageScope,
+        completion: ((Result<Void, Error>) -> Void)?
+    ) {
+        guard V2FeatureFlags.evaTriageEnabled else {
+            completion?(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "Eva triage disabled"]
+            )))
+            return
+        }
+
+        evaTriageScope = scope
+        evaTriageQueueLoading = true
+        evaTriageQueueErrorMessage = nil
+
+        let visibleOpenTasks = focusOpenTasksForCurrentState()
+        let visibleInbox = visibleOpenTasks.filter {
+            !$0.isComplete && $0.projectID == ProjectConstants.inboxProjectID
+        }
+
+        switch scope {
+        case .visible:
+            evaTriageQueue = getInboxTriageQueueUseCase.execute(
+                inboxTasks: visibleInbox,
+                allTasks: visibleOpenTasks,
+                projects: projects,
+                maxItems: 20
+            )
+            evaTriageQueueLoading = false
+            trackHomeInteraction(action: "triage_scope_changed", metadata: [
+                "scope": scope.rawValue,
+                "queue_count": evaTriageQueue.count
+            ])
+            completion?(.success(()))
+
+        case .allInbox:
+            useCaseCoordinator.getTasks.getTasksForProject(ProjectConstants.inboxProjectID, includeCompleted: false) { [weak self] result in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    switch result {
+                    case .success(let inboxResult):
+                        let inboxOpen = inboxResult.tasks.filter { !$0.isComplete }
+                        let allTasks = self.uniqueTasks(visibleOpenTasks + inboxOpen)
+                        self.evaTriageQueue = self.getInboxTriageQueueUseCase.execute(
+                            inboxTasks: inboxOpen,
+                            allTasks: allTasks,
+                            projects: self.projects,
+                            maxItems: 20
+                        )
+                        self.evaTriageQueueErrorMessage = nil
+                        self.evaTriageQueueLoading = false
+                        self.trackHomeInteraction(action: "triage_scope_changed", metadata: [
+                            "scope": scope.rawValue,
+                            "queue_count": self.evaTriageQueue.count
+                        ])
+                        completion?(.success(()))
+                    case .failure(let error):
+                        self.evaTriageQueue = self.getInboxTriageQueueUseCase.execute(
+                            inboxTasks: visibleInbox,
+                            allTasks: visibleOpenTasks,
+                            projects: self.projects,
+                            maxItems: 20
+                        )
+                        self.evaTriageQueueErrorMessage = "Couldn’t load backlog inbox. Showing visible tasks only."
+                        self.evaTriageQueueLoading = false
+                        self.trackHomeInteraction(action: "triage_error", metadata: [
+                            "scope": scope.rawValue,
+                            "error": error.localizedDescription
+                        ])
+                        completion?(.failure(error))
+                    }
+                }
+            }
+        }
+    }
+
+    public func openRescue() {
+        guard V2FeatureFlags.evaRescueEnabled else { return }
+        evaRescueSheetPresented = true
+        useCaseCoordinator.getTasks.getOverdueTasks { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                let tasks: [TaskDefinition]
+                switch result {
+                case .success(let overdue):
+                    tasks = overdue
+                case .failure:
+                    tasks = self.overdueTasks
+                }
+                let openOverdue = tasks.filter { !$0.isComplete }
+                self.evaRescuePlan = self.getOverdueRescuePlanUseCase.execute(
+                    overdueTasks: openOverdue,
+                    now: Date()
+                )
+                self.trackHomeInteraction(action: "rescue_open", metadata: [
+                    "scope": "all_overdue",
+                    "overdue_count": openOverdue.count
+                ])
+            }
+        }
+    }
+
+    public func removeTriageQueueItem(taskID: UUID) {
+        evaTriageQueue.removeAll { $0.task.id == taskID }
+    }
+
+    public func applyTriageDecision(
+        for item: EvaTriageQueueItem,
+        decision: EvaTriageDecision,
+        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+    ) {
+        let suggestionThreshold = 0.45
+        var request = UpdateTaskDefinitionRequest(id: item.task.id)
+        var mutated = false
+
+        if decision.useSuggestedProject,
+           item.suggestions.projectConfidence >= suggestionThreshold,
+           let projectID = item.suggestions.projectID,
+           projectID != item.task.projectID {
+            request.projectID = projectID
+            mutated = true
+        } else if !decision.useSuggestedProject,
+                  let selectedProjectID = decision.selectedProjectID,
+                  selectedProjectID != item.task.projectID {
+            request.projectID = selectedProjectID
+            mutated = true
+        }
+
+        if let deferPreset = decision.deferPreset {
+            let deferDate = deferPreset.resolveDueDate()
+            if item.task.dueDate != deferDate {
+                request.dueDate = deferDate
+                request.clearDueDate = false
+                mutated = true
+            }
+        } else if decision.useSuggestedDue,
+                  item.suggestions.dueConfidence >= suggestionThreshold {
+            let dueDate = dueDate(for: item.suggestions.dueBucket)
+            switch item.suggestions.dueBucket {
+            case .someday:
+                if item.task.dueDate != nil {
+                    request.clearDueDate = true
+                    mutated = true
+                }
+            case .none:
+                break
+            default:
+                if item.task.dueDate != dueDate {
+                    request.dueDate = dueDate
+                    mutated = true
+                }
+            }
+        } else if !decision.useSuggestedDue {
+            if decision.clearDueDate {
+                if item.task.dueDate != nil {
+                    request.clearDueDate = true
+                    mutated = true
+                }
+            } else if let selectedDueDate = decision.selectedDueDate,
+                      item.task.dueDate != selectedDueDate {
+                request.dueDate = selectedDueDate
+                mutated = true
+            }
+        }
+
+        if decision.useSuggestedDuration,
+           item.suggestions.durationConfidence >= suggestionThreshold,
+           let suggestedDuration = item.suggestions.durationSeconds,
+           item.task.estimatedDuration != suggestedDuration {
+            request.estimatedDuration = suggestedDuration
+            mutated = true
+        } else if !decision.useSuggestedDuration {
+            if decision.clearDuration {
+                if item.task.estimatedDuration != nil {
+                    request.clearEstimatedDuration = true
+                    mutated = true
+                }
+            } else if let selectedDuration = decision.selectedDurationSeconds,
+                      item.task.estimatedDuration != selectedDuration {
+                request.estimatedDuration = selectedDuration
+                mutated = true
+            }
+        }
+
+        guard mutated else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "Select at least one change or defer option to continue."]
+            )))
+            return
+        }
+
+        updateTask(taskID: item.task.id, request: request) { [weak self] result in
+            guard let self else {
+                completion(result)
+                return
+            }
+            switch result {
+            case .success(let updatedTask):
+                self.removeTriageQueueItem(taskID: updatedTask.id)
+                self.trackHomeInteraction(action: "triage_apply_next", metadata: [
+                    "task_id": updatedTask.id.uuidString,
+                    "defer_preset": decision.deferPreset?.rawValue ?? "none",
+                    "used_suggested_project": decision.useSuggestedProject,
+                    "used_suggested_due": decision.useSuggestedDue,
+                    "used_suggested_duration": decision.useSuggestedDuration
+                ])
+                completion(.success(updatedTask))
+            case .failure(let error):
+                self.trackHomeInteraction(action: "triage_error", metadata: [
+                    "task_id": item.task.id.uuidString,
+                    "error": error.localizedDescription
+                ])
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func applyTriageSuggestion(
+        for item: EvaTriageQueueItem,
+        completion: @escaping (Result<TaskDefinition, Error>) -> Void
+    ) {
+        let decision = EvaTriageDecision(
+            selectedProjectID: nil,
+            useSuggestedProject: item.suggestions.projectID != nil,
+            selectedDueDate: nil,
+            clearDueDate: false,
+            useSuggestedDue: item.suggestions.dueBucket != nil,
+            selectedDurationSeconds: nil,
+            clearDuration: false,
+            useSuggestedDuration: item.suggestions.durationSeconds != nil,
+            stateHint: item.suggestions.stateHint,
+            useSuggestedState: item.suggestions.stateHint != nil,
+            deferPreset: nil
+        )
+        applyTriageDecision(for: item, decision: decision, completion: completion)
+    }
+
+    public func applyEvaBatchPlan(
+        source: EvaBatchSource,
+        mutations: [EvaBatchMutationInstruction],
+        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        guard mutations.isEmpty == false else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "No Eva mutations to apply"]
+            )))
+            return
+        }
+        let openTasks = focusOpenTasksForCurrentState() + completedTasks + doneTimelineTasks + evaTriageQueue.map(\.task)
+        let tasksByID = openTasks.reduce(into: [UUID: TaskDefinition]()) { partialResult, task in
+            partialResult[task.id] = task
+        }
+        let proposal = buildEvaBatchProposalUseCase.execute(
+            source: source,
+            tasksByID: tasksByID,
+            mutations: mutations
+        )
+
+        useCaseCoordinator.assistantActionPipeline.propose(threadID: proposal.threadID, envelope: proposal.envelope) { [weak self] proposeResult in
+            switch proposeResult {
+            case .failure(let error):
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            case .success(let proposedRun):
+                self?.useCaseCoordinator.assistantActionPipeline.confirm(runID: proposedRun.id) { confirmResult in
+                    switch confirmResult {
+                    case .failure(let error):
+                        DispatchQueue.main.async {
+                            completion(.failure(error))
+                        }
+                    case .success:
+                        self?.useCaseCoordinator.assistantActionPipeline.applyConfirmedRun(id: proposedRun.id) { applyResult in
+                            DispatchQueue.main.async {
+                                switch applyResult {
+                                case .success(let run):
+                                    self?.evaLastBatchRunID = run.id
+                                    self?.reloadCurrentModeTasks()
+                                    self?.trackHomeInteraction(action: source == .triage ? "triage_bulk_apply" : "rescue_apply_confirmed", metadata: [
+                                        "mutation_count": mutations.count
+                                    ])
+                                    completion(.success(run))
+                                case .failure(let error):
+                                    completion(.failure(error))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public func applyAllTriageSuggestions(
+        confidenceThreshold: Double = 0.75,
+        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        let mutations = evaTriageQueue.compactMap { item -> EvaBatchMutationInstruction? in
+            var mutation = EvaBatchMutationInstruction(taskID: item.task.id)
+            var hasChange = false
+
+            if item.suggestions.projectConfidence >= confidenceThreshold,
+               let projectID = item.suggestions.projectID,
+               projectID != item.task.projectID {
+                mutation.projectID = projectID
+                hasChange = true
+            }
+            if item.suggestions.dueConfidence >= confidenceThreshold {
+                switch item.suggestions.dueBucket {
+                case .someday:
+                    if item.task.dueDate != nil {
+                        mutation.clearDueDate = true
+                        hasChange = true
+                    }
+                case .none:
+                    break
+                default:
+                    let suggestedDate = dueDate(for: item.suggestions.dueBucket)
+                    if item.task.dueDate != suggestedDate {
+                        mutation.dueDate = suggestedDate
+                        hasChange = true
+                    }
+                }
+            }
+            if item.suggestions.durationConfidence >= confidenceThreshold,
+               let duration = item.suggestions.durationSeconds,
+               item.task.estimatedDuration != duration {
+                mutation.estimatedDuration = duration
+                hasChange = true
+            }
+            return hasChange ? mutation : nil
+        }
+
+        applyEvaBatchPlan(source: .triage, mutations: mutations) { [weak self] result in
+            DispatchQueue.main.async {
+                if case .success = result {
+                    self?.evaTriageQueue.removeAll()
+                }
+                completion(result)
+            }
+        }
+    }
+
+    public func applyRescuePlan(
+        mutations: [EvaBatchMutationInstruction],
+        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        trackHomeInteraction(action: "rescue_apply_tap", metadata: [
+            "mutation_count": mutations.count
+        ])
+        applyEvaBatchPlan(source: .rescue, mutations: mutations) { [weak self] result in
+            switch result {
+            case .success(let run):
+                self?.trackHomeInteraction(action: "rescue_apply_success", metadata: [
+                    "run_id": run.id.uuidString,
+                    "mutation_count": mutations.count
+                ])
+                completion(.success(run))
+            case .failure(let error):
+                self?.trackHomeInteraction(action: "rescue_apply_error", metadata: [
+                    "error": error.localizedDescription
+                ])
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func undoEvaBatchPlan(
+        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        guard let runID = evaLastBatchRunID else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "No Eva batch run available to undo"]
+            )))
+            return
+        }
+        useCaseCoordinator.assistantActionPipeline.undoAppliedRun(id: runID) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let run):
+                    self?.reloadCurrentModeTasks()
+                    self?.trackHomeInteraction(action: "rescue_undo", metadata: [
+                        "run_id": run.id.uuidString
+                    ])
+                    completion(.success(run))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    public func undoRescueRun(
+        completion: @escaping (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        trackHomeInteraction(action: "rescue_undo_tap", metadata: [:])
+        undoEvaBatchPlan { [weak self] result in
+            switch result {
+            case .success(let run):
+                self?.trackHomeInteraction(action: "rescue_undo_success", metadata: [
+                    "run_id": run.id.uuidString
+                ])
+                completion(.success(run))
+            case .failure(let error):
+                self?.trackHomeInteraction(action: "rescue_undo_error", metadata: [
+                    "error": error.localizedDescription
+                ])
+                completion(.failure(error))
+            }
+        }
+    }
+
+    public func createSplitChildren(
+        parentTaskID: UUID,
+        draft: EvaSplitDraft,
+        completion: @escaping (Result<[TaskDefinition], Error>) -> Void
+    ) {
+        guard let parent = currentTaskSnapshot(for: parentTaskID) ?? focusOpenTasksForCurrentState().first(where: { $0.id == parentTaskID }) ?? overdueTasks.first(where: { $0.id == parentTaskID }) else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 404,
+                userInfo: [NSLocalizedDescriptionKey: "Parent task no longer exists."]
+            )))
+            return
+        }
+
+        let childTitles = draft.children
+            .map { $0.title.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard childTitles.count >= 2 else {
+            completion(.failure(NSError(
+                domain: "HomeViewModel",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "Add at least two subtasks to split."]
+            )))
+            return
+        }
+
+        let dueDate = draft.childDuePreset?.resolveDueDate()
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var created: [TaskDefinition] = []
+        var firstError: Error?
+
+        trackHomeInteraction(action: "rescue_split_open", metadata: [
+            "parent_task_id": parentTaskID.uuidString
+        ])
+
+        for title in childTitles {
+            group.enter()
+            let request = CreateTaskDefinitionRequest(
+                title: title,
+                details: nil,
+                projectID: parent.projectID,
+                projectName: parent.projectName,
+                dueDate: dueDate,
+                parentTaskID: parent.id,
+                priority: parent.priority,
+                type: parent.type,
+                energy: parent.energy,
+                category: parent.category,
+                context: parent.context,
+                isEveningTask: parent.isEveningTask,
+                estimatedDuration: nil
+            )
+
+            useCaseCoordinator.createTaskDefinition.execute(request: request) { result in
+                lock.lock()
+                defer { lock.unlock() }
+                switch result {
+                case .success(let task):
+                    created.append(task)
+                case .failure(let error):
+                    if firstError == nil {
+                        firstError = error
+                    }
+                }
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) { [weak self] in
+            guard let self else { return }
+            if let firstError {
+                self.trackHomeInteraction(action: "rescue_apply_error", metadata: [
+                    "split_parent_task_id": parentTaskID.uuidString,
+                    "error": firstError.localizedDescription
+                ])
+                completion(.failure(firstError))
+                return
+            }
+            self.reloadCurrentModeTasks()
+            self.trackHomeInteraction(action: "rescue_split_created", metadata: [
+                "parent_task_id": parentTaskID.uuidString,
+                "child_count": created.count
+            ])
+            completion(.success(created))
+        }
+    }
+
+    public func undoCreatedSplitChildren(
+        childTaskIDs: [UUID],
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        guard childTaskIDs.isEmpty == false else {
+            completion(.success(()))
+            return
+        }
+
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var firstError: Error?
+
+        for taskID in childTaskIDs {
+            group.enter()
+            useCaseCoordinator.deleteTaskDefinition.execute(taskID: taskID, scope: .single) { result in
+                lock.lock()
+                if case .failure(let error) = result, firstError == nil {
+                    firstError = error
+                }
+                lock.unlock()
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) { [weak self] in
+            guard let self else { return }
+            if let firstError {
+                completion(.failure(firstError))
+                return
+            }
+            self.reloadCurrentModeTasks()
+            self.trackHomeInteraction(action: "rescue_split_undo", metadata: [
+                "child_count": childTaskIDs.count
+            ])
+            completion(.success(()))
         }
     }
 
@@ -1212,7 +1746,7 @@ public final class HomeViewModel: ObservableObject {
         if request.type != nil {
             return .typeChanged
         }
-        if request.dueDate != nil {
+        if request.dueDate != nil || request.clearDueDate {
             return .dueDateChanged
         }
         return .updated
@@ -1225,6 +1759,7 @@ public final class HomeViewModel: ObservableObject {
 
         restoreLastFilterState()
         restorePinnedFocusTaskIDs()
+        restoreRecentShuffleTaskIDs()
         activeScope = .fromQuickView(activeFilterState.quickView)
         if case .today = activeScope {
             selectedDate = Date()
@@ -1232,6 +1767,7 @@ public final class HomeViewModel: ObservableObject {
         loadSavedViews()
         let generation = nextReloadGeneration()
         loadProjects(generation: generation)
+        loadTags(generation: generation)
         applyFocusFilters(trackAnalytics: false, generation: generation)
         loadDailyAnalytics()
     }
@@ -1340,7 +1876,18 @@ public final class HomeViewModel: ObservableObject {
     private func reloadCurrentModeTasks() {
         let generation = nextReloadGeneration()
         loadProjects(generation: generation)
+        loadTags(generation: generation)
         applyFocusFilters(trackAnalytics: false, generation: generation)
+    }
+
+    /// Executes upsertTag.
+    private func upsertTag(_ tag: TagDefinition) {
+        if let index = tags.firstIndex(where: { $0.id == tag.id }) {
+            tags[index] = tag
+        } else {
+            tags.append(tag)
+        }
+        tags.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     /// Executes applyFocusFilters.
@@ -1411,12 +1958,14 @@ public final class HomeViewModel: ObservableObject {
             prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
         }
         focusTasks = composedFocusTasks(from: openTasks)
+        refreshEvaInsights(openTasks: openTasks)
 
         if activeScope == .done {
             doneTimelineTasks = doneTasks
             dailyCompletedTasks = doneTasks
             completedTasks = doneTasks
             focusTasks = []
+            refreshEvaInsights(openTasks: [])
             upcomingTasks = []
             morningTasks = []
             eveningTasks = []
@@ -1477,8 +2026,6 @@ public final class HomeViewModel: ObservableObject {
         }
 
         updateCompletionRateFromFocusResult(openTasks: openTasks, doneTasks: doneTasks)
-        refreshEnergyAwareSuggestions()
-        evaluateOverdueTriageIfNeeded()
     }
 
     /// Executes updateCompletionRateFromFocusResult.
@@ -1501,67 +2048,6 @@ public final class HomeViewModel: ObservableObject {
             streakDays: streakDays,
             isStreakSafeToday: earnedXP > 0
         )
-    }
-
-    /// Executes refreshEnergyAwareSuggestions.
-    private func refreshEnergyAwareSuggestions() {
-        guard V2FeatureFlags.assistantCopilotEnabled else {
-            energyAwareSuggestedTasks = []
-            return
-        }
-        let hour = Calendar.current.component(.hour, from: Date())
-        let candidates = (morningTasks + eveningTasks + overdueTasks).filter { !$0.isComplete }
-        guard candidates.isEmpty == false else {
-            energyAwareSuggestedTasks = []
-            return
-        }
-
-        let filtered: [TaskDefinition]
-        switch hour {
-        case 6...9:
-            filtered = candidates.filter { $0.energy == .high }
-        case 13...15:
-            filtered = candidates.filter { $0.energy == .low }
-        case 19...21:
-            filtered = candidates.filter { $0.type == .evening || $0.energy == .low }
-        default:
-            filtered = candidates
-        }
-
-        energyAwareSuggestedTasks = Array(filtered.sorted(by: sortByPriorityThenDue).prefix(3))
-    }
-
-    /// Executes evaluateOverdueTriageIfNeeded.
-    private func evaluateOverdueTriageIfNeeded() {
-        guard V2FeatureFlags.assistantCopilotEnabled else {
-            overdueTriageSuggestion = nil
-            shouldShowOverdueTriage = false
-            return
-        }
-        guard overdueTasks.count >= 3 else {
-            overdueTriageSuggestion = nil
-            shouldShowOverdueTriage = false
-            return
-        }
-        if let dismissedAt = userDefaults.object(forKey: Self.triageDismissedKey) as? Date,
-           Date().timeIntervalSince(dismissedAt) < 24 * 60 * 60 {
-            return
-        }
-        guard let suggestion = overdueTriageService.buildSuggestion(from: overdueTasks) else {
-            overdueTriageSuggestion = nil
-            shouldShowOverdueTriage = false
-            return
-        }
-        let firstDisplay = shouldShowOverdueTriage == false
-        overdueTriageSuggestion = suggestion
-        shouldShowOverdueTriage = true
-        if firstDisplay {
-            logWarning(
-                event: "assistant_overdue_triage_shown",
-                message: "Showing overdue triage suggestion sheet",
-                fields: ["overdue_count": String(overdueTasks.count)]
-            )
-        }
     }
 
     /// Executes persistLastFilterState.
@@ -1590,6 +2076,29 @@ public final class HomeViewModel: ObservableObject {
             pinnedFocusTaskIDs = normalized
         }
         userDefaults.set(normalized.map(\.uuidString), forKey: Self.pinnedFocusTaskIDsKey)
+    }
+
+    /// Executes restoreRecentShuffleTaskIDs.
+    private func restoreRecentShuffleTaskIDs() {
+        recentShuffledFocusTaskIDs = userDefaults
+            .stringArray(forKey: Self.recentShuffleTaskIDsKey)?
+            .compactMap(UUID.init(uuidString:))
+            ?? []
+    }
+
+    /// Executes persistRecentShuffleTaskIDs.
+    private func persistRecentShuffleTaskIDs() {
+        userDefaults.set(recentShuffledFocusTaskIDs.map(\.uuidString), forKey: Self.recentShuffleTaskIDsKey)
+    }
+
+    private var shuffleExclusionWindow: Int {
+        #if DEBUG
+        if userDefaults.object(forKey: "debug.eva.focus.shuffleExclusionWindow") != nil {
+            let configured = userDefaults.integer(forKey: "debug.eva.focus.shuffleExclusionWindow")
+            return max(1, min(8, configured))
+        }
+        #endif
+        return Self.defaultShuffleExclusionWindow
     }
 
     /// Executes seedPinnedProjectsIfNeeded.
@@ -1624,6 +2133,49 @@ public final class HomeViewModel: ObservableObject {
         }
 
         activeFilterState.pinnedProjectIDs = pinned
+    }
+
+    /// Executes refreshEvaInsights.
+    private func refreshEvaInsights(openTasks: [TaskDefinition]? = nil) {
+        guard V2FeatureFlags.evaFocusEnabled || V2FeatureFlags.evaTriageEnabled || V2FeatureFlags.evaRescueEnabled else {
+            evaHomeInsights = nil
+            return
+        }
+        let sourceOpenTasks = openTasks ?? focusOpenTasksForCurrentState()
+        evaHomeInsights = computeEvaHomeInsightsUseCase.execute(
+            openTasks: sourceOpenTasks,
+            focusTasks: focusTasks,
+            anchorDate: activeScope.referenceDate
+        )
+    }
+
+    /// Executes dueDate.
+    private func dueDate(for bucket: EvaDueBucket?) -> Date? {
+        guard let bucket else { return nil }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        switch bucket {
+        case .today:
+            return today
+        case .tomorrow:
+            return calendar.date(byAdding: .day, value: 1, to: today)
+        case .thisWeek:
+            let daysUntilEndOfWeek = 7 - calendar.component(.weekday, from: today)
+            return calendar.date(byAdding: .day, value: max(daysUntilEndOfWeek, 2), to: today)
+        case .someday:
+            return nil
+        }
+    }
+
+    private func uniqueTasks(_ tasks: [TaskDefinition]) -> [TaskDefinition] {
+        var seen = Set<UUID>()
+        var unique: [TaskDefinition] = []
+        unique.reserveCapacity(tasks.count)
+        for task in tasks where !seen.contains(task.id) {
+            seen.insert(task.id)
+            unique.append(task)
+        }
+        return unique
     }
 
     /// Executes sanitizeFilterState.
@@ -1718,6 +2270,32 @@ public final class HomeViewModel: ObservableObject {
             return dueDate >= anchorStart && dueDate < anchorEnd
         }
 
+        if V2FeatureFlags.evaFocusEnabled {
+            let scored = tasks.map { task in
+                let overdueDays = task.dueDate.map { max(0, calendar.dateComponents([.day], from: $0, to: anchorStart).day ?? 0) } ?? 0
+                let urgency = Double(overdueDays) * 1.4 + (isDueToday(task) ? 2.0 : 0)
+                let quickWin = (task.estimatedDuration ?? 0) > 0 && (task.estimatedDuration ?? 0) <= 1_800 ? 1.0 : 0
+                let unblocked = task.dependencies.isEmpty ? 1.0 : -1.2
+                let importance = Double(task.priority.scorePoints) * 0.6
+                let staleDays = max(0, calendar.dateComponents([.day], from: task.updatedAt, to: Date()).day ?? 0)
+                let freshness = staleDays >= 14 ? -0.8 : 0.3
+                let score = urgency + quickWin + unblocked + importance + freshness
+                return (task: task, score: score)
+            }
+            let sortedScored = scored.sorted { lhs, rhs in
+                if lhs.score != rhs.score {
+                    return lhs.score > rhs.score
+                }
+                let lhsDue = lhs.task.dueDate ?? Date.distantFuture
+                let rhsDue = rhs.task.dueDate ?? Date.distantFuture
+                if lhsDue != rhsDue {
+                    return lhsDue < rhsDue
+                }
+                return lhs.task.id.uuidString < rhs.task.id.uuidString
+            }
+            return Array(sortedScored.map(\.task).prefix(Self.maxPinnedFocusTasks))
+        }
+
         let sorted = tasks.sorted { lhs, rhs in
             let lhsOverdue = isOverdue(lhs)
             let rhsOverdue = isOverdue(rhs)
@@ -1779,7 +2357,9 @@ public final class HomeViewModel: ObservableObject {
         guard pinnedFocusTaskIDs.contains(taskID) else { return }
         pinnedFocusTaskIDs.removeAll { $0 == taskID }
         persistPinnedFocusTaskIDs()
-        focusTasks = composedFocusTasks(from: focusOpenTasksForCurrentState())
+        let openTasks = focusOpenTasksForCurrentState()
+        focusTasks = composedFocusTasks(from: openTasks)
+        refreshEvaInsights(openTasks: openTasks)
     }
 
     /// Executes normalizedPinnedFocusTaskIDs.
@@ -1813,6 +2393,7 @@ public final class HomeViewModel: ObservableObject {
     private func refreshFocusTasksFromCurrentState() {
         if activeScope.quickView == .done {
             focusTasks = []
+            refreshEvaInsights(openTasks: [])
             return
         }
 
@@ -1821,6 +2402,7 @@ public final class HomeViewModel: ObservableObject {
             prunePinnedFocusTaskIDs(keepingOpenTaskIDs: Set(openTasks.map(\.id)))
         }
         focusTasks = composedFocusTasks(from: openTasks)
+        refreshEvaInsights(openTasks: openTasks)
     }
 
     /// Executes trackFeatureUsage.
@@ -2348,6 +2930,25 @@ public final class HomeViewModel: ObservableObject {
         }.joined(separator: "|")
         return "[\(summary)] total=\(tasks.count)"
     }
+
+    private static func summaryDate(from dateStamp: String?) -> Date? {
+        guard let dateStamp, dateStamp.isEmpty == false else { return nil }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateFormat = "yyyyMMdd"
+        return formatter.date(from: dateStamp)
+    }
+
+    private static func summaryDateStamp(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateFormat = "yyyyMMdd"
+        return formatter.string(from: date)
+    }
 }
 
 // MARK: - View State
@@ -2437,5 +3038,360 @@ public struct HomeProgressState: Equatable {
     public var progressFraction: Double {
         guard todayTargetXP > 0 else { return 0 }
         return min(1, Double(earnedXP) / Double(todayTargetXP))
+    }
+}
+
+public struct SummaryTaskRow: Equatable, Identifiable {
+    public let taskID: UUID
+    public let title: String
+    public let priority: TaskPriority
+    public let dueDate: Date?
+    public let isOverdue: Bool
+    public let estimatedDuration: TimeInterval?
+    public let isBlocked: Bool
+    public let projectName: String?
+
+    public var id: UUID { taskID }
+}
+
+public struct MorningPlanSummary: Equatable {
+    public let date: Date
+    public let openTodayCount: Int
+    public let highPriorityCount: Int
+    public let overdueCount: Int
+    public let potentialXP: Int
+    public let focusTasks: [SummaryTaskRow]
+    public let blockedCount: Int
+    public let longTaskCount: Int
+    public let morningPlannedCount: Int
+    public let eveningPlannedCount: Int
+}
+
+public struct NightlyRetrospectiveSummary: Equatable {
+    public let date: Date
+    public let completedCount: Int
+    public let totalCount: Int
+    public let xpEarned: Int
+    public let completionRate: Double
+    public let streakCount: Int
+    public let biggestWins: [SummaryTaskRow]
+    public let carryOverDueTodayCount: Int
+    public let carryOverOverdueCount: Int
+    public let tomorrowPreview: [SummaryTaskRow]
+    public let morningCompletedCount: Int
+    public let eveningCompletedCount: Int
+}
+
+public enum DailySummaryModalData: Equatable {
+    case morning(MorningPlanSummary)
+    case nightly(NightlyRetrospectiveSummary)
+
+    public var analyticsSnapshot: [String: Any] {
+        switch self {
+        case .morning(let summary):
+            return [
+                "open_today_count": summary.openTodayCount,
+                "high_priority_count": summary.highPriorityCount,
+                "overdue_count": summary.overdueCount,
+                "potential_xp": summary.potentialXP,
+                "focus_count": summary.focusTasks.count,
+                "blocked_count": summary.blockedCount,
+                "long_task_count": summary.longTaskCount
+            ]
+        case .nightly(let summary):
+            return [
+                "completed_count": summary.completedCount,
+                "total_count": summary.totalCount,
+                "xp_earned": summary.xpEarned,
+                "carry_over_due_today_count": summary.carryOverDueTodayCount,
+                "carry_over_overdue_count": summary.carryOverOverdueCount,
+                "tomorrow_preview_count": summary.tomorrowPreview.count,
+                "streak_count": summary.streakCount
+            ]
+        }
+    }
+}
+
+enum DailySummaryModalError: LocalizedError {
+    case tasksUnavailable(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .tasksUnavailable(let message):
+            return message
+        }
+    }
+}
+
+final class GetDailySummaryModalUseCase {
+    private let getTasksUseCase: GetTasksUseCase
+    private let analyticsUseCase: CalculateAnalyticsUseCase
+    private let calendar: Calendar
+    private let now: () -> Date
+
+    init(
+        getTasksUseCase: GetTasksUseCase,
+        analyticsUseCase: CalculateAnalyticsUseCase,
+        calendar: Calendar = .current,
+        now: @escaping () -> Date = Date.init
+    ) {
+        self.getTasksUseCase = getTasksUseCase
+        self.analyticsUseCase = analyticsUseCase
+        self.calendar = calendar
+        self.now = now
+    }
+
+    func execute(
+        kind: TaskerDailySummaryKind,
+        date: Date,
+        completion: @escaping (Result<DailySummaryModalData, Error>) -> Void
+    ) {
+        let group = DispatchGroup()
+        let lock = NSLock()
+
+        var allTasksResult: Result<[TaskDefinition], GetTasksError>?
+        var analytics: DailyAnalytics?
+        var streakCount: Int?
+        var dateTasks: DateTasksResult?
+
+        group.enter()
+        getTasksUseCase.searchTasks(query: "", in: .all) { result in
+            lock.lock()
+            allTasksResult = result
+            lock.unlock()
+            group.leave()
+        }
+
+        group.enter()
+        analyticsUseCase.calculateDailyAnalytics(for: date) { result in
+            lock.lock()
+            if case .success(let value) = result {
+                analytics = value
+            }
+            lock.unlock()
+            group.leave()
+        }
+
+        group.enter()
+        analyticsUseCase.calculateStreak { result in
+            lock.lock()
+            if case .success(let value) = result {
+                streakCount = value.currentStreak
+            }
+            lock.unlock()
+            group.leave()
+        }
+
+        group.enter()
+        getTasksUseCase.getTasksForDate(date) { result in
+            lock.lock()
+            if case .success(let value) = result {
+                dateTasks = value
+            }
+            lock.unlock()
+            group.leave()
+        }
+
+        group.notify(queue: .global(qos: .userInitiated)) {
+            lock.lock()
+            let resolvedTasksResult = allTasksResult
+            let resolvedAnalytics = analytics
+            let resolvedStreak = streakCount
+            let resolvedDateTasks = dateTasks
+            lock.unlock()
+
+            guard let resolvedTasksResult else {
+                completion(.failure(DailySummaryModalError.tasksUnavailable("Task data unavailable")))
+                return
+            }
+
+            switch resolvedTasksResult {
+            case .failure(let error):
+                completion(.failure(DailySummaryModalError.tasksUnavailable(error.localizedDescription)))
+            case .success(let allTasks):
+                completion(.success(
+                    self.buildSummary(
+                        kind: kind,
+                        date: date,
+                        allTasks: allTasks,
+                        analytics: resolvedAnalytics,
+                        streakCount: resolvedStreak,
+                        dateTasks: resolvedDateTasks
+                    )
+                ))
+            }
+        }
+    }
+
+    func buildSummary(
+        kind: TaskerDailySummaryKind,
+        date: Date,
+        allTasks: [TaskDefinition],
+        analytics: DailyAnalytics?,
+        streakCount: Int?,
+        dateTasks: DateTasksResult? = nil
+    ) -> DailySummaryModalData {
+        switch kind {
+        case .morning:
+            return .morning(buildMorningSummary(date: date, allTasks: allTasks, dateTasks: dateTasks))
+        case .nightly:
+            return .nightly(
+                buildNightlySummary(
+                    date: date,
+                    allTasks: allTasks,
+                    analytics: analytics,
+                    streakCount: streakCount,
+                    dateTasks: dateTasks
+                )
+            )
+        }
+    }
+
+    private func buildMorningSummary(
+        date: Date,
+        allTasks: [TaskDefinition],
+        dateTasks: DateTasksResult?
+    ) -> MorningPlanSummary {
+        let dayRange = dateRange(for: date)
+        let openTasks = allTasks.filter { !$0.isComplete }
+        let dueTodayOpen = openTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate >= dayRange.start && dueDate < dayRange.end
+        }
+        let overdueOpen = openTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate < dayRange.start
+        }
+        let actionable = sortByUrgency(tasks: dueTodayOpen + overdueOpen)
+        let focusTasks = Array(actionable.prefix(3)).map(makeSummaryRow)
+        let highPriorityCount = actionable.filter { $0.priority.isHighPriority }.count
+        let potentialXP = actionable.reduce(0) { $0 + $1.priority.scorePoints }
+        let blockedCount = actionable.filter { !$0.dependencies.isEmpty }.count
+        let longTaskCount = actionable.filter { ($0.estimatedDuration ?? 0) >= 3600 }.count
+        let morningPlannedCount: Int
+        let eveningPlannedCount: Int
+        if let dateTasks {
+            morningPlannedCount = dateTasks.morningTasks.filter { !$0.isComplete }.count
+            eveningPlannedCount = dateTasks.eveningTasks.filter { !$0.isComplete }.count
+        } else {
+            eveningPlannedCount = dueTodayOpen.filter(isEveningTask).count
+            morningPlannedCount = max(0, dueTodayOpen.count - eveningPlannedCount)
+        }
+
+        return MorningPlanSummary(
+            date: dayRange.start,
+            openTodayCount: actionable.count,
+            highPriorityCount: highPriorityCount,
+            overdueCount: overdueOpen.count,
+            potentialXP: potentialXP,
+            focusTasks: focusTasks,
+            blockedCount: blockedCount,
+            longTaskCount: longTaskCount,
+            morningPlannedCount: morningPlannedCount,
+            eveningPlannedCount: eveningPlannedCount
+        )
+    }
+
+    private func buildNightlySummary(
+        date: Date,
+        allTasks: [TaskDefinition],
+        analytics: DailyAnalytics?,
+        streakCount: Int?,
+        dateTasks: DateTasksResult?
+    ) -> NightlyRetrospectiveSummary {
+        let dayRange = dateRange(for: date)
+        let tomorrowStart = dayRange.end
+        let tomorrowEnd = calendar.date(byAdding: .day, value: 1, to: tomorrowStart) ?? tomorrowStart
+
+        let completedToday = sortByUrgency(tasks: allTasks.filter { task in
+            guard task.isComplete, let dateCompleted = task.dateCompleted else { return false }
+            return dateCompleted >= dayRange.start && dateCompleted < dayRange.end
+        })
+
+        let openTasks = allTasks.filter { !$0.isComplete }
+        let dueTodayOpen = openTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate >= dayRange.start && dueDate < dayRange.end
+        }
+        let overdueOpen = openTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate < dayRange.start
+        }
+        let tomorrowPreview = sortByUrgency(tasks: openTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate >= tomorrowStart && dueDate < tomorrowEnd
+        })
+
+        let dueTodayCount = allTasks.filter { task in
+            guard let dueDate = task.dueDate else { return false }
+            return dueDate >= dayRange.start && dueDate < dayRange.end
+        }.count
+        let calendarTotalCount = dateTasks.map {
+            $0.morningTasks.count + $0.eveningTasks.count + $0.completedTasks.count
+        } ?? 0
+        let analyticsTotalCount = analytics?.totalTasks ?? 0
+        let baselineTotalCount = max(dueTodayCount, max(calendarTotalCount, analyticsTotalCount))
+        let totalCount = max(completedToday.count, baselineTotalCount)
+        let xpEarned = completedToday.reduce(0) { $0 + $1.priority.scorePoints }
+        let fallbackCompletionRate = totalCount > 0 ? Double(completedToday.count) / Double(totalCount) : 0
+        let completionRate = analytics?.completionRate ?? fallbackCompletionRate
+        let morningCompletedCount = analytics?.morningTasksCompleted
+            ?? completedToday.filter { !$0.isEveningTask && $0.type != .evening }.count
+        let eveningCompletedCount = analytics?.eveningTasksCompleted
+            ?? completedToday.filter(isEveningTask).count
+
+        return NightlyRetrospectiveSummary(
+            date: dayRange.start,
+            completedCount: completedToday.count,
+            totalCount: totalCount,
+            xpEarned: xpEarned,
+            completionRate: completionRate,
+            streakCount: max(0, streakCount ?? 0),
+            biggestWins: Array(completedToday.prefix(3)).map(makeSummaryRow),
+            carryOverDueTodayCount: dueTodayOpen.count,
+            carryOverOverdueCount: overdueOpen.count,
+            tomorrowPreview: Array(tomorrowPreview.prefix(3)).map(makeSummaryRow),
+            morningCompletedCount: morningCompletedCount,
+            eveningCompletedCount: eveningCompletedCount
+        )
+    }
+
+    private func makeSummaryRow(_ task: TaskDefinition) -> SummaryTaskRow {
+        let startOfToday = calendar.startOfDay(for: now())
+        let overdue = (task.dueDate.map { $0 < startOfToday } ?? false) && !task.isComplete
+        return SummaryTaskRow(
+            taskID: task.id,
+            title: task.title,
+            priority: task.priority,
+            dueDate: task.dueDate,
+            isOverdue: overdue,
+            estimatedDuration: task.estimatedDuration,
+            isBlocked: !task.dependencies.isEmpty,
+            projectName: task.projectName
+        )
+    }
+
+    private func sortByUrgency(tasks: [TaskDefinition]) -> [TaskDefinition] {
+        tasks.sorted { lhs, rhs in
+            if lhs.priority.scorePoints != rhs.priority.scorePoints {
+                return lhs.priority.scorePoints > rhs.priority.scorePoints
+            }
+            let lhsDue = lhs.dueDate ?? Date.distantFuture
+            let rhsDue = rhs.dueDate ?? Date.distantFuture
+            if lhsDue != rhsDue {
+                return lhsDue < rhsDue
+            }
+            return lhs.id.uuidString < rhs.id.uuidString
+        }
+    }
+
+    private func dateRange(for date: Date) -> (start: Date, end: Date) {
+        let start = calendar.startOfDay(for: date)
+        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start
+        return (start, end)
+    }
+
+    private func isEveningTask(_ task: TaskDefinition) -> Bool {
+        task.isEveningTask || task.type == .evening
     }
 }

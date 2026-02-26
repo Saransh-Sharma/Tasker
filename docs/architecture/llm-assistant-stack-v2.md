@@ -1,40 +1,22 @@
 # LLM and Assistant Stack (V3 Runtime)
 
-**Last validated against code on 2026-02-21**
+**Last validated against code on 2026-02-24**
 
-This document defines the runtime boundaries and integration contracts for Tasker's on-device AI features.
-It covers:
-- local LLM chat and context projection,
-- AI-assisted UX surfaces,
-- fast-first UX contracts (instant heuristic fallback + async model refinement),
-- transactional assistant mutation flow (`propose -> confirm -> apply -> undo`), and
-- semantic retrieval and reranking.
+This document defines boundaries between:
+- local LLM chat UX and context projection, and
+- transactional assistant command execution over core task data.
 
 Primary source anchors:
 - `To Do List/LLM/ChatHostViewController.swift`
-- `To Do List/LLM/Views/Chat/ChatView.swift`
-- `To Do List/LLM/Views/Chat/ConversationView.swift`
-- `To Do List/LLM/Models/Data.swift`
 - `To Do List/LLM/Models/LLMContextProjectionService.swift`
-- `To Do List/LLM/Models/LLMAssistantPipelineProvider.swift`
-- `To Do List/LLM/Models/AssistantPlannerService.swift`
-- `To Do List/LLM/Models/AssistantEnvelopeValidator.swift`
-- `To Do List/LLM/Models/AssistantDiffPreviewBuilder.swift`
-- `To Do List/LLM/Models/AssistantCardPayload.swift`
-- `To Do List/LLM/Models/AISuggestionService.swift`
-- `To Do List/LLM/Models/TaskBreakdownService.swift`
-- `To Do List/LLM/Models/OverdueTriageService.swift`
-- `To Do List/LLM/Models/DailyBriefService.swift`
-- `To Do List/LLM/Models/AIChatModeRouter.swift`
-- `To Do List/LLM/Models/TaskEmbeddingEngine.swift`
-- `To Do List/LLM/Models/TaskSemanticIndexStore.swift`
-- `To Do List/LLM/Models/TaskSemanticRetrievalService.swift`
+- `To Do List/LLM/Models/PromptMiddleware.swift`
 - `To Do List/LLM/Models/LLMEvaluator.swift`
+- `To Do List/LLM/Models/LLMRuntimeCoordinator.swift`
+- `To Do List/LLM/Models/LLMProjectionTimeout.swift`
 - `To Do List/LLM/Models/LLMDataController.swift`
 - `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
 - `To Do List/UseCases/LLM/AssistantCommandExecutor.swift`
-- `To Do List/UseCases/Task/GetTasksUseCase.swift`
-- `To Do List/AppDelegate.swift`
+- `To Do List/Domain/Models/AssistantAction.swift`
 - `To Do List/Services/V2FeatureFlags.swift`
 
 ## Boundary Model
@@ -42,178 +24,66 @@ Primary source anchors:
 ```mermaid
 flowchart TD
     UI["LLM UI (ChatHost + SwiftUI chat)"] --> CCTX["LLMContextProjectionService"]
-    CCTX --> READ["TaskReadModelRepositoryProtocol + ProjectRepositoryProtocol + TagRepositoryProtocol"]
-    UI --> EVAL["LLMEvaluator (local model inference)"]
+    CCTX --> READ["TaskReadModelRepositoryProtocol + ProjectRepositoryProtocol"]
+    UI --> RUNTIME["LLMRuntimeCoordinator (single-model lifecycle + prewarm)"]
+    RUNTIME --> EVAL["LLMEvaluator (local model inference)"]
     UI --> STORE["LLMDataController (SwiftData thread/message store)"]
 
     UI --> PIPE["AssistantActionPipelineUseCase"]
     PIPE --> EXEC["AssistantCommandExecutor actor"]
     PIPE --> AR["AssistantActionRepositoryProtocol"]
     PIPE --> TR["TaskDefinitionRepositoryProtocol"]
-
-    APP["AppDelegate"] --> SEM["TaskSemanticRetrievalService"]
-    SEM --> IDX["TaskSemanticIndexStore"]
-    SEM --> EMB["TaskEmbeddingEngine (NLEmbedding)"]
 ```
 
 ## Responsibilities
 
 | Surface | Owns | Must not own |
 | --- | --- | --- |
-| `/To Do List/LLM/*` | UI behavior, prompt/context assembly, local inference, local chat persistence, card rendering, model routing | direct task mutation bypassing assistant pipeline |
-| `/To Do List/UseCases/LLM/*` | run lifecycle and transactional command execution | UI state management and display logic |
-| `/To Do List/AppDelegate.swift` | DI wiring, semantic indexing lifecycle wiring, daily brief scheduling and deep-link seeding | chat rendering or proposal diff generation |
+| `/To Do List/LLM/*` | chat UX, prompt assembly, local inference, chat persistence | direct transactional mutation of core task graph |
+| `/To Do List/UseCases/LLM/*` | propose/confirm/apply/reject/undo state machine and transactional command execution | UI rendering and local chat presentation state |
 
-## Feature Surface Inventory
+## Context Projection Pipeline
 
-| Surface | Entry point | Mutating | Model route | Core contracts |
-| --- | --- | --- | --- | --- |
-| Chat Ask mode | `ChatView` | No | route via installed/current model (`AIChatModeRouter` where applicable) | read-only, no pipeline calls |
-| Chat Plan mode | `ChatView` Ask/Plan toggle | Yes (user-confirmed only) | `AIChatModeRouter.route(.planMode, ...)` | strict envelope parse/validate; proposal card before apply |
-| Add Task suggestion | `AddTaskViewModel` + `AddTaskForedropView` | No | `AIChatModeRouter.route(.addTaskSuggestion, ...)` | heuristic suggestion first, then async `TaskFieldSuggestion` refine |
-| Home top-3 | `HomeViewModel.helpMeChooseTop3()` | No | `AIChatModeRouter.route(.topThree, ...)` | heuristic top-3 first, then async ranked refine |
-| Overdue triage | `HomeViewModel` + sheet actions | Yes (Apply All only) | rule-based plan + pipeline apply | `propose -> confirm -> apply` enforced |
-| Task breakdown | `TaskDetailViewModel.generateAIBreakdown` | Yes (user-selected step creation) | `AIChatModeRouter.route(.breakdown, ...)` | sheet opens immediately with heuristic steps, then async 3-6 refine |
-| Daily brief | background + notification open | No | `AIChatModeRouter.route(.dailyBrief, ...)` | cached daily brief + chat deep-link seed |
-| Semantic retrieval | chat context + search rerank | No direct mutations | `TaskEmbeddingEngine` local embeddings | local-only top-K + lexical fallback logging |
+| Component | Input | Output |
+| --- | --- | --- |
+| `LLMContextRepositoryProvider` | injected `taskReadModelRepository` + `projectRepository` | configured context service factory |
+| `LLMContextProjectionService` | read-model task slices + project metadata | structured JSON payloads for today/upcoming/project contexts |
+| `PromptMiddleware` | task range + optional project signal | prompt-ready summaries/bullets |
+| `LLMProjectionTimeout` | async projection operation + timeout budget | bounded-latency payload or `{}` fallback |
 
-## Fast-First UX Contract
+## Chat Runtime Lifecycle
 
-1. Chat must always insert a status bubble immediately on cold/first request (`Building context`, `Preparing local model`, `Generating response`).
-2. Add-task suggestions, home top-3, and task breakdown all render deterministic heuristic results first and refine asynchronously.
-3. Surface refinement calls are timeout-bounded by `LLMGenerationProfile` and must not block sheet/panel presentation.
-4. Route fallbacks are explicit (banner/message), never silent.
-5. Model prewarm scope is current selected model only.
-
-## Traceability Matrix (Code -> Docs)
-
-| Implementation anchor | Documented in section |
+| Component | Responsibility |
 | --- | --- |
-| `ChatView` ask/plan/apply/undo and card actions | Chat Plan/Apply Bridge, Safety Contracts |
-| `ConversationView` proposal/undo card statuses | Card Transport Contract |
-| `LLMContextProjectionService` enriched schema + tags | Context Projection Schema |
-| `LLMAssistantPipelineProvider` DI setup in `AppDelegate` | DI and Wiring |
-| `AISuggestionService`, `TaskBreakdownService`, `OverdueTriageService`, `DailyBriefService` | Feature Surface Inventory |
-| `AIChatModeRouter` fallback/banner behavior | Model Routing Contract |
-| `TaskEmbeddingEngine`, `TaskSemanticIndexStore`, `TaskSemanticRetrievalService` | Semantic Retrieval Layer |
-| `V2FeatureFlags` AI controls | Feature Flag Dependencies |
+| `LLMRuntimeCoordinator` | owns single shared `LLMEvaluator`, prewarm orchestration, and unload policy |
+| `SceneDelegate.sceneDidBecomeActive` | debounced trigger (`5s`) for optional prewarm |
+| `V2FeatureFlags.llmChatPrewarmEnabled` | enables/disables chat prewarm flow |
 
-## DI and Wiring
+### Prewarm policy
+- At most one model is prewarmed at a time.
+- Prewarm only runs for currently selected model when `modelSize <= 0.5 GB`.
+- Prewarm is skipped when model is already warm or already active in runtime coordinator.
 
-1. `AppDelegate.setupCleanArchitecture()` configures:
-- `LLMContextRepositoryProvider.configure(taskReadModelRepository:projectRepository:tagRepository:)`
-- `LLMAssistantPipelineProvider.configure(pipeline:)`
-2. `AppDelegate.configureSemanticRetrievalIndexingIfNeeded()` loads persisted index, rebuilds snapshot, and subscribes to `.homeTaskMutation`.
-3. `AppDelegate.applicationDidEnterBackground` persists semantic index when enabled.
-4. `LLMPrewarmCoordinator.prewarmCurrentModelIfNeeded(...)` is triggered from app launch and chat-open paths (throttled).
+### Unload policy
+- unload immediately on memory warning.
+- unload on thermal state `serious` or `critical`.
+- unload after app has stayed in background for `5m` (cancelled if foregrounded sooner).
 
-## Context Projection Schema
-
-### Query behavior
-- `buildTodayJSON`: day-scoped query with completed tasks included.
-- `buildUpcomingJSON`: upcoming open tasks query.
-- `buildProjectJSON`: project-scoped query with project metadata.
-- Context is rebuilt per generation request (no one-time thread cache).
-
-### Payload-level fields
-- `timezone`
-- `generated_at_iso`
-- `context_version`
-
-### Task-level fields
-- `id`
-- `title`
-- `is_completed`
-- `project`
-- `project_id`
-- `priority`
-- `energy`
-- `context`
-- `type`
-- `estimated_duration_minutes`
-- `has_dependencies`
-- `dependency_count`
-- `tag_ids`
-- `tag_names`
-- `due_date`
-
-### Observability
-- `assistant_context_built` emitted with `task_count`, `has_tags`, `build_ms`, `timezone`.
-
-## Chat Plan/Apply Bridge
-
-### Envelope generation and validation
-1. Plan mode uses `AssistantPlannerService` and local model output.
-2. `AssistantEnvelopeValidator` executes parse + one repair pass + schema/task-reference validation.
-3. Validated envelope is sent to pipeline `propose`.
-
-### Card Transport Contract
-
-`AssistantCardPayload` is serialized into `Message.content` with sentinel prefix:
-- Prefix: `__TASKER_CARD_V1__\n`
-- `card_type`: `proposal | undo | status | error`
-- `status`: `pending | confirmed | applied | rejected | failed | rollbackComplete | rollbackFailed | undoAvailable | undoExpired | undone`
-
-Required proposal fields:
-- `run_id`
-- `thread_id`
-- `affected_task_count`
-- `destructive_count`
-- `diff_lines`
-
-### Safety contracts
-1. Ask mode is read-only and default mode.
-2. Proposal must render before any apply.
-3. `deleteTask` and `moveTask` require destructive confirmation before apply.
-4. Card actions validate run/thread ownership before reject/apply/undo.
-5. Apply uses iOS background task guard with guaranteed `endBackgroundTask` via `defer`.
-6. Session circuit breaker disables plan/apply after 3 consecutive apply failures.
-
-### Transaction invariant
-`propose -> confirm -> applyConfirmedRun -> undoAppliedRun` is the only mutation contract for assistant-driven task changes.
-
-## Model Routing Contract
-
-`AIChatModeRouter` defines ideal models, fallback candidates, device-budget constraints, and user-visible fallback banner behavior.
-
-Route expectations:
-- `.addTaskSuggestion`, `.dynamicChips`, `.dailyBrief`: lightweight model preference.
-- `.planMode`: quality-first higher-capacity preference.
-- `.topThree`, `.breakdown`: low-latency preference when `assistantFastModeEnabled` is on.
-- Fallback is explicit (never silent) and may prompt model download when ideal is absent and device budget allows.
-
-## Semantic Retrieval Layer (Local Only)
-
-### Components
-- `TaskEmbeddingEngine`: local embedding vectors (`NLEmbedding`).
-- `TaskSemanticIndexStore`: local vector/text store persisted as `Application Support/tasker-semantic-index-v1.bin`.
-- `TaskSemanticRetrievalService`: search and rerank APIs.
-
-### Lifecycle
-1. App startup: load persisted index, then rebuild snapshot.
-2. Mutation updates: `.homeTaskMutation` drives incremental `index` or `remove` updates.
-3. Background: persist index on app backgrounding.
-4. Recovery: full rebuild path remains available when context is missing or observer payload is incomplete.
-
-### Consumption points
-- Chat context appends semantic top-K snippets.
-- `GetTasksUseCase` reranks lexical results when semantic feature flag is enabled.
-
-### Fallback
-If embeddings unavailable:
-- semantic returns empty hits with structured `fallbackReason`,
-- lexical path remains canonical fallback,
-- log event: `assistant_semantic_fallback_lexical`.
+### Context query behavior
+- `buildTodayJSON`: day-bounded read-model query, includes completed tasks.
+- `buildUpcomingJSON`: future open tasks query.
+- `buildProjectJSON`: project-scoped query + project-name metadata.
+- `findProjectNameSync`: short semaphore-bounded lookup (`3s` timeout).
 
 ## Assistant Transaction Pipeline
 
 | Stage | Behavior | Key guards |
 | --- | --- | --- |
-| `propose` | validates envelope shape/range and persists pending run | schema range checks |
-| `confirm` | transitions run to confirmed | run existence and status checks |
-| `applyConfirmedRun` | allowlist validation, serialized execution, undo plan generation, persistence | `assistantApplyEnabled`, status/allowlist/schema checks |
-| `reject` | marks run rejected | run existence and status checks |
-| `undoAppliedRun` | executes compensating commands inside undo window | `assistantUndoEnabled`, applied state, undo payload, window bound |
+| `propose` | validates schema bounds and persists pending run | schema range checks |
+| `confirm` | transitions run to confirmed | valid run existence |
+| `applyConfirmedRun` | allowlist validation, serialized execution, undo-plan generation, persistence of trace/status | `assistantApplyEnabled`, status/allowlist/schema checks |
+| `reject` | marks run rejected | valid run existence |
+| `undoAppliedRun` | executes stored compensating commands within undo window | `assistantUndoEnabled`, applied status, undo payload, window bound |
 
 ## Timeouts and Budgets
 
@@ -222,62 +92,50 @@ If embeddings unavailable:
 | undo window | 30 minutes | `AssistantActionPipelineUseCase` |
 | per-command timeout | 10 seconds | `AssistantActionPipelineUseCase` |
 | per-run timeout | 90 seconds | `AssistantActionPipelineUseCase` |
-| chat ask timeout | 12 seconds | `LLMGenerationProfile.chatAsk` |
-| chat plan JSON timeout | 10 seconds | `LLMGenerationProfile.chatPlanJSON` |
-| add-task suggestion timeout | 4 seconds | `LLMGenerationProfile.addTaskSuggestion` |
-| home top-3 timeout | 5 seconds | `LLMGenerationProfile.topThree` |
-| task breakdown timeout | 6 seconds | `LLMGenerationProfile.breakdown` |
-| daily brief timeout | 4 seconds | `LLMGenerationProfile.dailyBrief` |
-| dynamic chips timeout | 2.5 seconds | `LLMGenerationProfile.dynamicChips` |
+| sync project-name lookup timeout | 3 seconds | `LLMContextProjectionService` |
+| chat today-context projection timeout | 800 ms | `ChatView` + `LLMProjectionTimeout` |
+| chat upcoming-context projection timeout | 800 ms | `ChatView` + `LLMProjectionTimeout` |
 
-## Latency Telemetry
+## Concurrency Model
 
-- `assistant_model_warmup_started`
-- `assistant_model_warmup_completed`
-- `assistant_model_warmup_failed`
-- `assistant_first_token_latency`
-- `assistant_surface_latency`
-- `assistant_surface_timeout`
-- `assistant_fast_fallback_used`
+| Area | Model |
+| --- | --- |
+| Assistant command execution | serialized through `AssistantCommandExecutor` actor queue |
+| Assistant API surface | callback API wrapping async transaction internals |
+| Context projection | callback + async wrapper composition, bounded by timeout helper |
+| Chat data store | SwiftData-backed local persistence for threads/messages |
 
-## Failure Modes and Operator Actions
+## Failure Modes
 
-| Failure mode | Detection | User-facing result | Operator action |
-| --- | --- | --- | --- |
-| invalid envelope parse/schema | validator failure | proposal generation error message | inspect model output and schema bounds |
-| run/thread ownership mismatch | pre-action run fetch mismatch | card action blocked | verify thread/run IDs in payload |
-| stale context apply failure | apply error contains stale/not-found signals | card shows refresh-context guidance | refresh context and re-plan |
-| rollback verified after apply failure | pipeline rollback status `verified` | rollback-complete card status | inspect failing command in run trace |
-| rollback failed | rollback status `failed` | rollback-failed warning status | disable plan/apply temporarily, investigate repository invariants |
-| session circuit breaker triggered | 3 consecutive apply failures | plan/apply disabled for session | root-cause failing envelopes before re-enable |
-| embeddings unavailable | semantic fallback event | lexical-only relevance | verify `NaturalLanguage` runtime availability |
+| Failure mode | Detection | Result |
+| --- | --- | --- |
+| unsupported schema version | envelope bounds validation | `422` failure |
+| apply disabled | feature-flag check | `403` failure |
+| undo disabled | feature-flag check | `403` failure |
+| invalid run status transition | status checks (`confirmed`/`applied`) | `409` conflict-style failure |
+| undo window expired | `appliedAt` age check | `410` failure |
+| invalid proposal payload | decode or allowlist validation failure | `422` failure |
+| transaction execution failure | command pipeline catch path | run persisted as failed, rollback status captured |
+| chat context projection timeout | timeout helper in first-turn context assembly | generation continues with `{}` fallback payload |
 
 ## Feature Flag Dependencies
 
 | Flow | Flags |
 | --- | --- |
+| assistant pipeline does not depend on reminders flags directly | n/a |
 | assistant apply | `assistantApplyEnabled` |
 | assistant undo | `assistantUndoEnabled` |
-| assistant chat plan mode | `assistantPlanModeEnabled` |
-| assistant copilot surfaces | `assistantCopilotEnabled` |
-| assistant semantic retrieval | `assistantSemanticRetrievalEnabled` |
-| assistant daily brief | `assistantBriefEnabled` |
-| assistant breakdown surface | `assistantBreakdownEnabled` |
-| assistant fast-first routing mode | `assistantFastModeEnabled` |
+| chat prewarm | `llmChatPrewarmEnabled` |
 
 ## Integration Contract: Chat Context vs Assistant Actions
 
-1. Context projection remains read-only and repository-backed.
-2. Assistant apply/undo remains transactional and repository-mediated.
-3. Chat history persistence (SwiftData) and assistant run persistence (core store) remain separate systems.
-4. No chat-layer direct task mutation bypass path is allowed.
+1. Context projection is read-only and uses read-model/project repositories.
+2. Assistant apply/undo is transactional and mutates `TaskDefinition` entities.
+3. Chat history (SwiftData) and assistant action runs (core persistence) are separate state systems and must remain decoupled.
 
 ## Cross-Links
 
-- `docs/architecture/llm-feature-integration-handbook.md`
 - `docs/architecture/usecases-v2.md`
 - `docs/architecture/clean-architecture-v2.md`
 - `docs/architecture/state-repositories-and-services-v2.md`
 - `docs/architecture/risk-register-v2.md`
-- `docs/architecture/domain-events-and-observability-v2.md`
-- `docs/release-gate-v2-efgh.md`

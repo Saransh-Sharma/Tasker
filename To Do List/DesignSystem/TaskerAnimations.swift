@@ -18,11 +18,16 @@ public enum TaskerAnimation {
     public static let gentle: Animation = .spring(response: 0.5, dampingFraction: 0.8)
     public static let bouncy: Animation = .spring(response: 0.4, dampingFraction: 0.6)
     public static let quick: Animation = .spring(response: 0.25, dampingFraction: 0.85)
+    public static let micro: Animation = .spring(response: 0.20, dampingFraction: 0.90)
+    public static let expressive: Animation = .spring(response: 0.55, dampingFraction: 0.65)
+    public static let ambient: Animation = .easeInOut(duration: 2.0)
 
     // UIKit spring parameters
     public static let uiSnappy = (duration: 0.4, damping: CGFloat(0.75), velocity: CGFloat(0.5))
     public static let uiGentle = (duration: 0.6, damping: CGFloat(0.8), velocity: CGFloat(0.3))
     public static let uiBouncy = (duration: 0.5, damping: CGFloat(0.6), velocity: CGFloat(0.6))
+    public static let uiMicro = (duration: 0.25, damping: CGFloat(0.90), velocity: CGFloat(0.4))
+    public static let uiExpressive = (duration: 0.65, damping: CGFloat(0.65), velocity: CGFloat(0.5))
 
     // Stagger delay per item (seconds)
     public static let staggerInterval: Double = 0.04
@@ -51,6 +56,115 @@ public struct StaggeredAppearance: ViewModifier {
                 value: appeared
             )
             .onAppear { appeared = true }
+    }
+}
+
+// MARK: - Enhanced Staggered Appearance Modifier
+
+public struct EnhancedStaggeredAppearance: ViewModifier {
+    let index: Int
+    @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(index: Int) {
+        self.index = index
+    }
+
+    public func body(content: Content) -> some View {
+        content
+            .opacity(reduceMotion ? 1 : (appeared ? 1 : 0))
+            .scaleEffect(reduceMotion ? 1 : (appeared ? 1 : 0.97))
+            .offset(y: reduceMotion ? 0 : (appeared ? 0 : 16))
+            .animation(
+                reduceMotion ? nil : TaskerAnimation.gentle.delay(Double(index) * TaskerAnimation.staggerInterval),
+                value: appeared
+            )
+            .onAppear { appeared = true }
+    }
+}
+
+// MARK: - Breathing Pulse Modifier
+
+public struct BreathingPulse: ViewModifier {
+    let minOpacity: Double
+    let maxOpacity: Double
+    let duration: Double
+    @State private var isPulsing = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(min: Double = 0.7, max: Double = 1.0, duration: Double = 2.0) {
+        self.minOpacity = min
+        self.maxOpacity = max
+        self.duration = duration
+    }
+
+    public func body(content: Content) -> some View {
+        content
+            .opacity(reduceMotion ? maxOpacity : (isPulsing ? maxOpacity : minOpacity))
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: duration).repeatForever(autoreverses: true)) {
+                    isPulsing = true
+                }
+            }
+    }
+}
+
+// MARK: - Task Completion Transition Modifier
+
+public struct TaskCompletionTransition: ViewModifier {
+    let isComplete: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public func body(content: Content) -> some View {
+        content
+            .opacity(isComplete ? 0.55 : 1.0)
+            .scaleEffect(isComplete ? 0.98 : 1.0)
+            .animation(reduceMotion ? nil : TaskerAnimation.gentle, value: isComplete)
+    }
+}
+
+// MARK: - Active Glow Modifier
+
+public struct ActiveGlow: ViewModifier {
+    let isActive: Bool
+    let color: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(isActive: Bool, color: Color) {
+        self.isActive = isActive
+        self.color = color
+    }
+
+    public func body(content: Content) -> some View {
+        content
+            .shadow(
+                color: isActive ? color.opacity(0.25) : .clear,
+                radius: isActive ? 8 : 0
+            )
+            .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isActive)
+    }
+}
+
+// MARK: - Card Press Effect Modifier
+
+public struct CardPressEffect: ViewModifier {
+    @State private var isPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPressed ? 0.98 : 1.0)
+            .shadow(
+                color: .black.opacity(isPressed ? 0.04 : 0.08),
+                radius: isPressed ? 4 : 8
+            )
+            .animation(reduceMotion ? nil : TaskerAnimation.quick, value: isPressed)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in isPressed = true }
+                    .onEnded { _ in isPressed = false }
+            )
     }
 }
 
@@ -108,22 +222,38 @@ public struct ShimmerEffect: ViewModifier {
 // MARK: - View Extensions
 
 public extension View {
-    /// Executes staggeredAppearance.
     func staggeredAppearance(index: Int, totalItems: Int = 20) -> some View {
         modifier(StaggeredAppearance(index: index, totalItems: totalItems))
     }
 
-    /// Executes scaleOnPress.
+    func enhancedStaggeredAppearance(index: Int) -> some View {
+        modifier(EnhancedStaggeredAppearance(index: index))
+    }
+
+    func breathingPulse(min: Double = 0.7, max: Double = 1.0, duration: Double = 2.0) -> some View {
+        modifier(BreathingPulse(min: min, max: max, duration: duration))
+    }
+
+    func taskCompletionTransition(isComplete: Bool) -> some View {
+        modifier(TaskCompletionTransition(isComplete: isComplete))
+    }
+
+    func activeGlow(isActive: Bool, color: Color) -> some View {
+        modifier(ActiveGlow(isActive: isActive, color: color))
+    }
+
+    func cardPressEffect() -> some View {
+        modifier(CardPressEffect())
+    }
+
     func scaleOnPress() -> some View {
         modifier(ScaleOnPress())
     }
 
-    /// Executes shimmer.
     func shimmer() -> some View {
         modifier(ShimmerEffect())
     }
 
-    /// Executes bellShake.
     func bellShake(trigger: Binding<Bool>) -> some View {
         modifier(BellShake(trigger: trigger))
     }
@@ -184,22 +314,30 @@ public extension UIView {
 
 @MainActor
 public enum TaskerFeedback {
-    /// Executes light.
     public static func light() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    /// Executes medium.
     public static func medium() {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
-    /// Executes success.
+    public static func heavy() {
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+    }
+
     public static func success() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
-    /// Executes selection.
+    public static func warning() {
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
+
+    public static func error() {
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+    }
+
     public static func selection() {
         UISelectionFeedbackGenerator().selectionChanged()
     }

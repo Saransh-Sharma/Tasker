@@ -23,7 +23,7 @@ extension Notification.Name {
 
 class ChatHostViewController: UIViewController {
     private let appManager = AppManager()
-    private let llmEvaluator = LLMEvaluator()
+    private let llmEvaluator = LLMRuntimeCoordinator.shared.evaluator
     // Shared SwiftData container for the LLM module (persistent on-disk, CloudKit disabled)
     private let container: ModelContainer? = LLMDataController.shared
 

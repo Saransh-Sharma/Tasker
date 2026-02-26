@@ -76,17 +76,25 @@ struct TaskDetailSheetView: View {
                 Rectangle()
                     .fill(priorityColor)
                     .frame(height: 4)
+                    .animation(TaskerAnimation.gentle, value: viewModel.selectedPriority)
 
                 topBar
                 headerSection
+                    .enhancedStaggeredAppearance(index: 0)
                 autosaveBanner
                 primaryActionsRow
+                    .enhancedStaggeredAppearance(index: 1)
                 metadataChipRow
+                    .enhancedStaggeredAppearance(index: 2)
                 activeEditorPanel
                 notesSection
+                    .enhancedStaggeredAppearance(index: 3)
                 stepsSection
+                    .enhancedStaggeredAppearance(index: 4)
                 moreDetailsSection
+                    .enhancedStaggeredAppearance(index: 5)
                 advancedSection
+                    .enhancedStaggeredAppearance(index: 6)
                 destructiveSection
                 metadataFooter
             }
@@ -334,6 +342,10 @@ struct TaskDetailSheetView: View {
                 .foregroundColor(autosaveColor)
                 .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
                 .accessibilityLabel(viewModel.autosaveState.label)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .top).combined(with: .opacity),
+                    removal: .opacity
+                ))
         }
     }
 
@@ -396,7 +408,10 @@ struct TaskDetailSheetView: View {
 
     /// Executes actionChip.
     private func actionChip(icon: String, title: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            TaskerFeedback.selection()
+            action()
+        } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                 Text(title)
@@ -413,6 +428,7 @@ struct TaskDetailSheetView: View {
             .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
         }
         .buttonStyle(.plain)
+        .scaleOnPress()
     }
 
     private var metadataChipRow: some View {
@@ -478,69 +494,73 @@ struct TaskDetailSheetView: View {
 
     @ViewBuilder
     private var activeEditorPanel: some View {
-        switch activeEditor {
-        case .due:
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-                AddTaskDatePresetRow(dueDate: $viewModel.dueDate)
-                if viewModel.dueDate != nil {
-                    Button("Clear due date") {
-                        viewModel.dueDate = nil
+        Group {
+            switch activeEditor {
+            case .due:
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                    AddTaskDatePresetRow(dueDate: $viewModel.dueDate)
+                    if viewModel.dueDate != nil {
+                        Button("Clear due date") {
+                            viewModel.dueDate = nil
+                        }
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.statusWarning)
+                        .buttonStyle(.plain)
                     }
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.statusWarning)
-                    .buttonStyle(.plain)
                 }
-            }
-            .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+                .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
 
-        case .reminder:
-            VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
-                AddTaskReminderChip(
-                    hasReminder: hasReminderBinding,
-                    reminderTime: reminderTimeBinding
+            case .reminder:
+                VStack(alignment: .leading, spacing: TaskerTheme.Spacing.sm) {
+                    AddTaskReminderChip(
+                        hasReminder: hasReminderBinding,
+                        reminderTime: reminderTimeBinding
+                    )
+                    if viewModel.reminderTime != nil {
+                        Button("Clear reminder") {
+                            viewModel.reminderTime = nil
+                        }
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.statusWarning)
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+            case .priority:
+                AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
+                    .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+            case .project:
+                AddTaskProjectBar(
+                    selectedProject: selectedProjectNameBinding,
+                    projects: viewModel.projects,
+                    onCreateProject: { name in
+                        viewModel.createProject(name: name) { _ in }
+                    }
                 )
-                if viewModel.reminderTime != nil {
-                    Button("Clear reminder") {
-                        viewModel.reminderTime = nil
+                .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+            case .type:
+                AddTaskTypeChips(selectedType: $viewModel.selectedType)
+                    .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+            case .tags:
+                AddTaskTagMultiSelect(
+                    tags: viewModel.tags,
+                    selectedTagIDs: $viewModel.selectedTagIDs,
+                    onCreateTag: { name, completion in
+                        viewModel.createTag(name: name, completion: completion)
                     }
-                    .font(.tasker(.caption1))
-                    .foregroundColor(Color.tasker.statusWarning)
-                    .buttonStyle(.plain)
-                }
+                )
+                .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+
+            case .none:
+                EmptyView()
             }
-            .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-
-        case .priority:
-            AddTaskPriorityPicker(selectedPriority: $viewModel.selectedPriority)
-                .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-
-        case .project:
-            AddTaskProjectBar(
-                selectedProject: selectedProjectNameBinding,
-                projects: viewModel.projects,
-                onCreateProject: { name in
-                    viewModel.createProject(name: name) { _ in }
-                }
-            )
-            .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-
-        case .type:
-            AddTaskTypeChips(selectedType: $viewModel.selectedType)
-                .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-
-        case .tags:
-            AddTaskTagMultiSelect(
-                tags: viewModel.tags,
-                selectedTagIDs: $viewModel.selectedTagIDs,
-                onCreateTag: { name, completion in
-                    viewModel.createTag(name: name, completion: completion)
-                }
-            )
-            .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
-
-        case .none:
-            EmptyView()
         }
+        .transition(.opacity.combined(with: .move(edge: .top)))
+        .animation(TaskerAnimation.snappy, value: activeEditor)
     }
 
     private var notesSection: some View {
@@ -602,7 +622,7 @@ struct TaskDetailSheetView: View {
                     .padding(.vertical, TaskerTheme.Spacing.xs)
             }
 
-            ForEach(viewModel.childSteps, id: \.id) { step in
+            ForEach(Array(viewModel.childSteps.enumerated()), id: \.element.id) { stepIndex, step in
                 HStack(spacing: TaskerTheme.Spacing.sm) {
                     CompletionCheckbox(isComplete: step.isComplete, compact: true) {
                         viewModel.toggleStepCompletion(step)
@@ -637,6 +657,8 @@ struct TaskDetailSheetView: View {
                 .padding(.vertical, TaskerTheme.Spacing.sm)
                 .background(Color.tasker.surfaceSecondary)
                 .clipShape(RoundedRectangle(cornerRadius: TaskerTheme.CornerRadius.md))
+                .taskCompletionTransition(isComplete: step.isComplete)
+                .enhancedStaggeredAppearance(index: stepIndex)
                 .accessibilityIdentifier("taskDetail.step.\(step.id.uuidString)")
             }
 
@@ -951,6 +973,7 @@ struct TaskDetailSheetView: View {
 
     /// Executes promptDeleteTask.
     private func promptDeleteTask() {
+        TaskerFeedback.warning()
         if viewModel.persistedTask.recurrenceSeriesID != nil {
             showDeleteScopeDialog = true
             return

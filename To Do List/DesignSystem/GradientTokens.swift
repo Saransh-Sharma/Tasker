@@ -174,10 +174,13 @@ public struct TaskerHeaderGradient {
     private static func bottomFadeColors(traits: UITraitCollection) -> [CGColor] {
         let colors = TaskerThemeManager.shared.currentTheme.tokens.color
         let target = colors.bgCanvas.resolvedColor(with: traits)
+        let isDark = traits.userInterfaceStyle == .dark
+        let midAlpha: CGFloat = isDark ? 0.68 : 0.55
+        let endAlpha: CGFloat = isDark ? 0.90 : 0.78
         return [
             target.withAlphaComponent(0.0).cgColor,
-            target.withAlphaComponent(0.82).cgColor,
-            target.withAlphaComponent(1.0).cgColor
+            target.withAlphaComponent(midAlpha).cgColor,
+            target.withAlphaComponent(endAlpha).cgColor
         ]
     }
 
@@ -215,6 +218,44 @@ public struct TaskerHeaderGradient {
 // MARK: - SwiftUI Wrapper
 
 /// A SwiftUI view that renders the header gradient via UIKit layers.
+private final class HeaderGradientHostingView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        commonInit()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func commonInit() {
+        backgroundColor = .clear
+        isOpaque = false
+        isUserInteractionEnabled = false
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        applyGradientIfNeeded()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        applyGradientIfNeeded()
+    }
+
+    func refreshGradient() {
+        applyGradientIfNeeded()
+    }
+
+    private func applyGradientIfNeeded() {
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        TaskerHeaderGradient.apply(to: layer, bounds: bounds, traits: traitCollection)
+    }
+}
+
+/// A SwiftUI view that renders the header gradient via UIKit layers.
 @MainActor
 public struct HeaderGradientView: UIViewRepresentable {
     /// Initializes a new instance.
@@ -224,14 +265,17 @@ public struct HeaderGradientView: UIViewRepresentable {
 
     /// Executes makeUIView.
     public func makeUIView(context: Context) -> UIView {
-        let view = UIView()
-        view.backgroundColor = .clear
+        let view = HeaderGradientHostingView()
         return view
     }
 
     /// Executes updateUIView.
     public func updateUIView(_ uiView: UIView, context: Context) {
         _ = themeManager.currentTheme.index
-        TaskerHeaderGradient.apply(to: uiView.layer, bounds: uiView.bounds, traits: uiView.traitCollection)
+        if let hostingView = uiView as? HeaderGradientHostingView {
+            hostingView.refreshGradient()
+        } else {
+            TaskerHeaderGradient.apply(to: uiView.layer, bounds: uiView.bounds, traits: uiView.traitCollection)
+        }
     }
 }

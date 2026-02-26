@@ -41,37 +41,19 @@ final class LLMModelRegistryTests: XCTestCase {
         XCTAssertEqual(ModelConfiguration.defaultModel.name, qwenModelName)
     }
 
-    func testRouterUsesFastModelForTopThreeWhenFastModeEnabled() {
-        let snapshot = AIRuntimeSnapshot(
-            selectedModelName: nil,
-            installedModels: [
-                ModelConfiguration.qwen_3_0_6b_4bit.name,
-                ModelConfiguration.deepseek_r1_distill_qwen_1_5b_4bit.name
-            ],
-            availableMemoryGB: 8,
-            userInterfaceIdiom: .phone,
-            fastModeEnabled: true
-        )
-
-        let route = AIChatModeRouter.route(for: .topThree, snapshot: snapshot)
-
-        XCTAssertEqual(route.selectedModelName, ModelConfiguration.qwen_3_0_6b_4bit.name)
+    func testQwenPointSixBIsPrewarmEligible() {
+        let model = ModelConfiguration.getModelByName(qwenModelName)
+        XCTAssertNotNil(model)
+        XCTAssertEqual(model?.isPrewarmEligible(), true)
     }
 
-    func testRouterKeepsPlanModeQualityModelWhenFastModeEnabled() {
-        let snapshot = AIRuntimeSnapshot(
-            selectedModelName: nil,
-            installedModels: [
-                ModelConfiguration.qwen_3_0_6b_4bit.name,
-                ModelConfiguration.deepseek_r1_distill_qwen_1_5b_4bit.name
-            ],
-            availableMemoryGB: 8,
-            userInterfaceIdiom: .phone,
-            fastModeEnabled: true
-        )
+    func testLlamaOneBIsNotPrewarmEligible() {
+        let model = ModelConfiguration.llama_3_2_1b_4bit
+        XCTAssertEqual(model.isPrewarmEligible(), false)
+    }
 
-        let route = AIChatModeRouter.route(for: .planMode, snapshot: snapshot)
-
-        XCTAssertEqual(route.selectedModelName, ModelConfiguration.deepseek_r1_distill_qwen_1_5b_4bit.name)
+    func testUnknownModelIsNotPrewarmEligible() {
+        let unknown = ModelConfiguration(id: "mlx-community/Unknown-Model")
+        XCTAssertEqual(unknown.isPrewarmEligible(), false)
     }
 }

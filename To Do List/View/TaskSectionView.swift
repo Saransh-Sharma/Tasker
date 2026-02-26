@@ -10,10 +10,81 @@ import SwiftUI
 
 // MARK: - Task Section View
 
+struct TaskSectionHeaderRow: View {
+    let accentColor: Color
+    let iconSystemName: String
+    let title: String
+    let taskCount: Int
+    let isExpanded: Bool
+    let onToggle: () -> Void
+    var headerActionTitle: String? = nil
+    var onHeaderAction: (() -> Void)? = nil
+    var headerActionAccessibilityID: String? = nil
+
+    var body: some View {
+        HStack(spacing: TaskerTheme.Spacing.md) {
+            Button(action: onToggle) {
+                HStack(spacing: TaskerTheme.Spacing.md) {
+                    Circle()
+                        .fill(accentColor)
+                        .frame(width: 4, height: 4)
+
+                    Image(systemName: iconSystemName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(accentColor)
+                        .frame(width: 20, alignment: .center)
+
+                    Text(title)
+                        .font(.tasker(.headline))
+                        .foregroundColor(Color.tasker.textPrimary)
+
+                    Text("\(taskCount)")
+                        .font(.tasker(.caption2))
+                        .fontWeight(.medium)
+                        .foregroundColor(Color.tasker.textTertiary)
+                        .contentTransition(.numericText())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.tasker.surfaceSecondary)
+                        .clipShape(Capsule())
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color.tasker.textQuaternary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .scaleEffect(isExpanded ? 1.0 : 0.9)
+                        .animation(TaskerAnimation.snappy, value: isExpanded)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let headerActionTitle, let onHeaderAction {
+                Button(action: onHeaderAction) {
+                    Text(headerActionTitle)
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.accentPrimary)
+                        .padding(.horizontal, 8)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .accessibilityIdentifier(headerActionAccessibilityID ?? "home.section.headerAction")
+            }
+        }
+        .padding(.vertical, TaskerTheme.Spacing.sm)
+        .contentShape(Rectangle())
+    }
+}
+
 struct TaskSectionView: View {
     let project: Project
     let tasks: [TaskDefinition]
     let isOverdueSection: Bool
+    let tagNameByID: [UUID: String]
     let completedCollapsed: Bool?
     let isTaskDragEnabled: Bool
     var onTaskTap: ((TaskDefinition) -> Void)?
@@ -22,6 +93,9 @@ struct TaskSectionView: View {
     var onRescheduleTask: ((TaskDefinition) -> Void)?
     var onCompletedCollapsedChange: ((Bool, Int) -> Void)?
     var onTaskDragStarted: ((TaskDefinition) -> Void)?
+    var headerActionTitle: String?
+    var onHeaderAction: (() -> Void)?
+    var headerActionAccessibilityID: String?
 
     @State private var isExpanded: Bool = true
 
@@ -34,6 +108,7 @@ struct TaskSectionView: View {
         project: Project,
         tasks: [TaskDefinition],
         isOverdueSection: Bool = false,
+        tagNameByID: [UUID: String] = [:],
         completedCollapsed: Bool? = nil,
         isTaskDragEnabled: Bool = false,
         onTaskTap: ((TaskDefinition) -> Void)? = nil,
@@ -41,11 +116,15 @@ struct TaskSectionView: View {
         onDeleteTask: ((TaskDefinition) -> Void)? = nil,
         onRescheduleTask: ((TaskDefinition) -> Void)? = nil,
         onCompletedCollapsedChange: ((Bool, Int) -> Void)? = nil,
-        onTaskDragStarted: ((TaskDefinition) -> Void)? = nil
+        onTaskDragStarted: ((TaskDefinition) -> Void)? = nil,
+        headerActionTitle: String? = nil,
+        onHeaderAction: (() -> Void)? = nil,
+        headerActionAccessibilityID: String? = nil
     ) {
         self.project = project
         self.tasks = tasks
         self.isOverdueSection = isOverdueSection
+        self.tagNameByID = tagNameByID
         self.completedCollapsed = completedCollapsed
         self.isTaskDragEnabled = isTaskDragEnabled
         self.onTaskTap = onTaskTap
@@ -54,6 +133,9 @@ struct TaskSectionView: View {
         self.onRescheduleTask = onRescheduleTask
         self.onCompletedCollapsedChange = onCompletedCollapsedChange
         self.onTaskDragStarted = onTaskDragStarted
+        self.headerActionTitle = headerActionTitle
+        self.onHeaderAction = onHeaderAction
+        self.headerActionAccessibilityID = headerActionAccessibilityID
     }
 
     var body: some View {
@@ -63,7 +145,10 @@ struct TaskSectionView: View {
             if isExpanded {
                 taskList
                     .padding(.top, TaskerTheme.Spacing.xs)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .top)).combined(with: .scale(scale: 0.98, anchor: .top)),
+                        removal: .opacity
+                    ))
             }
         }
         .animation(TaskerAnimation.snappy, value: isExpanded)
@@ -72,62 +157,34 @@ struct TaskSectionView: View {
     // MARK: - Section Header
 
     private var sectionHeader: some View {
-        Button {
-            withAnimation(TaskerAnimation.snappy) {
-                isExpanded.toggle()
-            }
-            TaskerFeedback.selection()
-        } label: {
-            HStack(spacing: TaskerTheme.Spacing.md) {
-                // Accent dot — the visual thread
-                Circle()
-                    .fill(accentColor)
-                    .frame(width: 4, height: 4)
-
-                // Project icon
-                Image(systemName: sectionIcon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(accentColor)
-                    .frame(width: 20, alignment: .center)
-
-                // Project name
-                Text(sectionTitle)
-                    .font(.tasker(.headline))
-                    .foregroundColor(Color.tasker.textPrimary)
-
-                // Task count
-                Text("\(tasks.count)")
-                    .font(.tasker(.caption2))
-                    .fontWeight(.medium)
-                    .foregroundColor(Color.tasker.textTertiary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.tasker.surfaceSecondary)
-                    .clipShape(Capsule())
-
-                Spacer()
-
-                // Collapse chevron
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Color.tasker.textQuaternary)
-                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    .animation(TaskerAnimation.snappy, value: isExpanded)
-            }
-            .padding(.vertical, TaskerTheme.Spacing.sm)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        TaskSectionHeaderRow(
+            accentColor: accentColor,
+            iconSystemName: sectionIcon,
+            title: sectionTitle,
+            taskCount: tasks.count,
+            isExpanded: isExpanded,
+            onToggle: {
+                withAnimation(TaskerAnimation.snappy) {
+                    isExpanded.toggle()
+                }
+                TaskerFeedback.selection()
+            },
+            headerActionTitle: headerActionTitle,
+            onHeaderAction: onHeaderAction,
+            headerActionAccessibilityID: headerActionAccessibilityID ?? "home.section.headerAction.\(project.id.uuidString)"
+        )
     }
 
     // MARK: - Task List
 
     private var taskList: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: TaskerTheme.Spacing.xs) {
             ForEach(openRenderItems, id: \.renderKey) { item in
                 TaskRowView(
                     task: item.task,
                     showTypeBadge: hasMixedTypes,
+                    isInOverdueSection: isOverdueSection,
+                    tagNameByID: tagNameByID,
                     isTaskDragEnabled: isTaskDragEnabled,
                     onTap: { onTaskTap?(item.task) },
                     onToggleComplete: { onToggleComplete?(item.task) },
@@ -135,26 +192,28 @@ struct TaskSectionView: View {
                     onReschedule: { onRescheduleTask?(item.task) },
                     onTaskDragStarted: onTaskDragStarted
                 )
-                .staggeredAppearance(index: item.index)
+                .enhancedStaggeredAppearance(index: item.index)
             }
 
             if !completedTasks.isEmpty {
                 completedToggleRow
                     .padding(.top, 2)
-                    .staggeredAppearance(index: openRenderItems.count)
+                    .enhancedStaggeredAppearance(index: openRenderItems.count)
 
                 if !isCompletedCollapsed {
                     ForEach(completedRenderItems, id: \.renderKey) { item in
                         TaskRowView(
                             task: item.task,
                             showTypeBadge: hasMixedTypes,
+                            isInOverdueSection: isOverdueSection,
+                            tagNameByID: tagNameByID,
                             isTaskDragEnabled: false,
                             onTap: { onTaskTap?(item.task) },
                             onToggleComplete: { onToggleComplete?(item.task) },
                             onDelete: { onDeleteTask?(item.task) },
                             onReschedule: { onRescheduleTask?(item.task) }
                         )
-                        .staggeredAppearance(index: item.index + openRenderItems.count + 1)
+                        .enhancedStaggeredAppearance(index: item.index + openRenderItems.count + 1)
                     }
                 }
             }

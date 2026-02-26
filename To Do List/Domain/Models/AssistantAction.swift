@@ -37,6 +37,7 @@ public struct AssistantCommandEnvelope: Codable, Equatable, Hashable {
 
 public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public var id: UUID
+    public var recurrenceSeriesID: UUID?
     public var projectID: UUID
     public var projectName: String?
     public var lifeAreaID: UUID?
@@ -57,12 +58,17 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public var alertReminderTime: Date?
     public var tagIDs: [UUID]
     public var dependencies: [TaskDependencyLinkDefinition]
+    public var estimatedDuration: TimeInterval?
+    public var actualDuration: TimeInterval?
+    public var subtasks: [UUID]?
+    public var repeatPattern: TaskRepeatPattern?
     public var createdAt: Date
     public var updatedAt: Date
 
     /// Initializes a new instance.
     public init(task: TaskDefinition) {
         self.id = task.id
+        self.recurrenceSeriesID = task.recurrenceSeriesID
         self.projectID = task.projectID
         self.projectName = task.projectName
         self.lifeAreaID = task.lifeAreaID
@@ -86,6 +92,10 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
             ($0.id.uuidString, $0.dependsOnTaskID.uuidString, $0.kind.rawValue)
             < ($1.id.uuidString, $1.dependsOnTaskID.uuidString, $1.kind.rawValue)
         }
+        self.estimatedDuration = task.estimatedDuration
+        self.actualDuration = task.actualDuration
+        self.subtasks = task.subtasks.sorted { $0.uuidString < $1.uuidString }
+        self.repeatPattern = task.repeatPattern
         self.createdAt = task.createdAt
         self.updatedAt = task.updatedAt
     }
@@ -94,6 +104,7 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
     public func toTaskDefinition() -> TaskDefinition {
         TaskDefinition(
             id: id,
+            recurrenceSeriesID: recurrenceSeriesID,
             projectID: projectID,
             projectName: projectName,
             lifeAreaID: lifeAreaID,
@@ -114,6 +125,10 @@ public struct AssistantTaskSnapshot: Codable, Equatable, Hashable {
             alertReminderTime: alertReminderTime,
             tagIDs: tagIDs,
             dependencies: dependencies,
+            estimatedDuration: estimatedDuration,
+            actualDuration: actualDuration,
+            subtasks: subtasks ?? [],
+            repeatPattern: repeatPattern,
             createdAt: createdAt,
             updatedAt: updatedAt
         )

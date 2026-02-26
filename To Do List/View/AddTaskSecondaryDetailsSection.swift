@@ -38,6 +38,7 @@ struct AddTaskSecondaryDetailsSection: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .medium))
                         .rotationEffect(.degrees(viewModel.showMoreDetails ? 90 : 0))
+                        .scaleEffect(viewModel.showMoreDetails ? 1.0 : 0.9)
                         .animation(TaskerAnimation.snappy, value: viewModel.showMoreDetails)
                 }
                 .foregroundColor(Color.tasker.textSecondary)
@@ -53,7 +54,7 @@ struct AddTaskSecondaryDetailsSection: View {
                         text: $viewModel.taskDetails,
                         isFocused: $descriptionFocused
                     )
-                    .staggeredAppearance(index: 0)
+                    .enhancedStaggeredAppearance(index: 0)
 
                     // Life Area selector
                     if !viewModel.lifeAreas.isEmpty {
@@ -62,7 +63,7 @@ struct AddTaskSecondaryDetailsSection: View {
                             items: viewModel.lifeAreas.map { (id: $0.id, name: $0.name, icon: $0.icon) },
                             selectedID: $viewModel.selectedLifeAreaID
                         )
-                        .staggeredAppearance(index: 1)
+                        .enhancedStaggeredAppearance(index: 1)
                     }
 
                     // Section selector (scoped by project)
@@ -72,7 +73,7 @@ struct AddTaskSecondaryDetailsSection: View {
                             items: viewModel.sections.map { (id: $0.id, name: $0.name, icon: nil as String?) },
                             selectedID: $viewModel.selectedSectionID
                         )
-                        .staggeredAppearance(index: 2)
+                        .enhancedStaggeredAppearance(index: 2)
                     }
 
                     // Tags multi-select
@@ -83,7 +84,7 @@ struct AddTaskSecondaryDetailsSection: View {
                             viewModel.createTag(name: name, completion: completion)
                         }
                     )
-                    .staggeredAppearance(index: 3)
+                    .enhancedStaggeredAppearance(index: 3)
                 }
                 .padding(.top, spacing.s8)
                 .transition(.asymmetric(

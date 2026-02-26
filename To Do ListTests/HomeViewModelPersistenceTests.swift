@@ -399,13 +399,128 @@ final class HomeViewModelPersistenceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    private func waitForMainQueueFlush(seconds: TimeInterval = 0.15) {
+    func testEvaShuffleExcludesRecentSelectionsWhenPoolIsLargeEnough() {
+        let suiteName = "HomeViewModelPersistenceTests.EvaShuffle.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let calendar = Calendar.current
+        let now = Date()
+        let startOfToday = calendar.startOfDay(for: now)
+        let baseDue = calendar.date(byAdding: .hour, value: 9, to: startOfToday) ?? now
+
+        let tasks: [Task] = (0..<6).map { index in
+            makeTask(
+                name: "Shuffle \(index)",
+                project: inbox,
+                dueDate: calendar.date(byAdding: .minute, value: index, to: baseDue),
+                priority: .high,
+                isComplete: false
+            )
+        }
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: tasks)
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        viewModel.shuffleFocusNow()
+        waitForMainQueueFlush()
+        let firstShuffle = Set(viewModel.focusTasks.map(\.id))
+
+        viewModel.shuffleFocusNow()
+        waitForMainQueueFlush()
+        let secondShuffle = Set(viewModel.focusTasks.map(\.id))
+
+        XCTAssertEqual(firstShuffle.count, 3)
+        XCTAssertEqual(secondShuffle.count, 3)
+        XCTAssertTrue(firstShuffle.isDisjoint(with: secondShuffle))
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testEvaFocusRationaleRemainsStableAcrossReload() {
+        let suiteName = "HomeViewModelPersistenceTests.EvaRationale.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let now = Date()
+        let overdue = Calendar.current.date(byAdding: .day, value: -2, to: now) ?? now
+
+        let target = makeTask(
+            name: "Rationale target",
+            project: inbox,
+            dueDate: overdue,
+            priority: .high,
+            isComplete: false
+        )
+        let supportA = makeTask(name: "Support A", project: inbox, dueDate: now, priority: .low, isComplete: false)
+        let supportB = makeTask(name: "Support B", project: inbox, dueDate: now, priority: .low, isComplete: false)
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [target, supportA, supportB])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        guard let firstRationale = viewModel.evaFocusInsight(for: target.id)?.rationale.map(\.factor),
+              !firstRationale.isEmpty else {
+            return XCTFail("Expected initial Eva rationale for target task")
+        }
+
+        viewModel.loadTodayTasks()
+        waitForMainQueueFlush()
+
+        let secondRationale = viewModel.evaFocusInsight(for: target.id)?.rationale.map(\.factor)
+        XCTAssertEqual(secondRationale, firstRationale)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testOpenFocusWhyPresentsWhySheet() {
+        let suiteName = "HomeViewModelPersistenceTests.EvaWhySheet.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create test UserDefaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let task = makeTask(
+            name: "Focus candidate",
+            project: inbox,
+            dueDate: Date(),
+            priority: .high,
+            isComplete: false
+        )
+
+        let taskRepository = HomeViewModelMockTaskRepository(tasks: [task])
+        let projectRepository = HomeViewModelMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(taskRepository: taskRepository, projectRepository: projectRepository)
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+        waitForMainQueueFlush()
+
+        XCTAssertFalse(viewModel.evaFocusWhySheetPresented)
+
+        viewModel.openFocusWhy()
+
+        XCTAssertTrue(viewModel.evaFocusWhySheetPresented)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    private func waitForMainQueueFlush() {
         let expectation = expectation(description: "MainQueueFlush")
-        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             expectation.fulfill()
         }
-        // CI/full-suite runs can temporarily starve the main queue; keep a wider bound to avoid flaky false negatives.
-        wait(for: [expectation], timeout: max(3.0, seconds + 2.5))
+        wait(for: [expectation], timeout: 1.0)
     }
 
     private func makeTask(

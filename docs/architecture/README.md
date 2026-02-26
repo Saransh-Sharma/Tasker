@@ -1,6 +1,6 @@
 # Tasker Architecture Docs Index (V3 Runtime)
 
-**Last validated against code on 2026-02-21**
+**Last validated against code on 2026-02-24**
 
 This folder is the implementation-facing source of truth for Tasker's shipped V3 runtime.
 The runtime is V3-only (`TaskModelV3`, V3 bootstrap cutover, `TaskDefinition`-centric contracts).
@@ -34,8 +34,8 @@ Treat these docs as the current V3 architecture references unless explicitly mar
 | `docs/architecture/usecases-v2.md` | Usecase inventory, contracts, side effects, orchestration flows | Usecase APIs/dependencies/flow semantics change |
 | `docs/architecture/state-repositories-and-services-v2.md` | State layer repository/service internals and data ownership | repository/service implementations change |
 | `docs/architecture/domain-events-and-observability-v2.md` | Domain event bus, handler rules, observability expectations | event schemas/handlers/logging behavior change |
+| `docs/architecture/notifications-local-strategy-v3.md` | Local notification catalog, defaults, routing, action handling, schedule reconciliation | notification behavior, UX copy, action categories, or reconciliation logic changes |
 | `docs/architecture/llm-assistant-stack-v2.md` | LLM context pipeline and assistant transaction boundaries | `/LLM` or `/UseCases/LLM` changes |
-| `docs/architecture/llm-feature-integration-handbook.md` | Mixed engineering/PM guide for AI surfaces, safety model, rollout, and incident triage | AI behavior, UX surfaces, kill-switch strategy, or release evidence model changes |
 | `docs/architecture/risk-register-v2.md` | Active technical risk register and mitigations | risk posture/guardrails/release criteria change |
 | `docs/architecture/v3-runtime-cutover-todo.md` | Active migration and release gate tracker | gate status or verification evidence changes |
 | `docs/architecture/v2-hardcut-execution-todo.md` | Archived historical tracker | almost never (historical context only) |
@@ -63,9 +63,8 @@ Treat these docs as the current V3 architecture references unless explicitly mar
 | `To Do List/UseCases/*` | `usecases-v2.md`, `risk-register-v2.md` |
 | `To Do List/State/Repositories/*`, `To Do List/State/Services/*` | `state-repositories-and-services-v2.md`, `clean-architecture-v2.md` |
 | `To Do List/Domain/Events/*` | `domain-events-and-observability-v2.md`, `usecases-v2.md` |
-| `To Do List/LLM/*`, `To Do List/UseCases/LLM/*` | `llm-assistant-stack-v2.md`, `llm-feature-integration-handbook.md`, `usecases-v2.md`, `risk-register-v2.md` |
+| `To Do List/LLM/*`, `To Do List/UseCases/LLM/*` | `llm-assistant-stack-v2.md`, `usecases-v2.md`, `risk-register-v2.md` |
 | `AppDelegate` + DI containers + runtime guardrails | `clean-architecture-v2.md`, `risk-register-v2.md`, `v3-runtime-cutover-todo.md` |
-| release evidence, guardrails, and AI validation workflows | `docs/operations/ci-release-and-guardrails.md`, `docs/release-gate-v2-efgh.md`, `docs/architecture/v3-runtime-cutover-todo.md` |
 
 ## Quick Read Order
 
@@ -74,5 +73,4 @@ Treat these docs as the current V3 architecture references unless explicitly mar
 3. `docs/architecture/usecases-v2.md`
 4. `docs/architecture/state-repositories-and-services-v2.md`
 5. `docs/architecture/risk-register-v2.md`
-6. `docs/architecture/llm-assistant-stack-v2.md`
-7. `docs/architecture/llm-feature-integration-handbook.md`
+6. `docs/architecture/llm-assistant-stack-v2.md` (for AI/assistant changes)

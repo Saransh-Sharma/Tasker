@@ -45,7 +45,7 @@ public final class CompleteTaskDefinitionUseCase {
                         TaskNotificationDispatcher.postOnMain(
                             name: .homeTaskMutation,
                             userInfo: [
-                                "reason": "completionChanged",
+                                "reason": updatedTask.isComplete ? "completed" : "reopened",
                                 "source": "completeTaskDefinitionUseCase",
                                 "taskID": updatedTask.id.uuidString,
                                 "isComplete": updatedTask.isComplete

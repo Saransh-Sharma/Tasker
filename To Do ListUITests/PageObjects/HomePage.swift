@@ -75,6 +75,14 @@ class HomePage {
         return app.buttons[AccessibilityIdentifiers.Home.searchButton]
     }
 
+    var topNavSearchButton: XCUIElement {
+        return app.buttons[AccessibilityIdentifiers.Home.topNavSearchButton]
+    }
+
+    var topNavContainer: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.topNavContainer]
+    }
+
     var chatButton: XCUIElement {
         return app.buttons[AccessibilityIdentifiers.Home.chatButton]
     }
@@ -130,6 +138,14 @@ class HomePage {
         return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
+    var focusTitleTap: XCUIElement {
+        let byButton = app.buttons[AccessibilityIdentifiers.Home.focusTitleTap]
+        if byButton.exists {
+            return byButton
+        }
+        return app.descendants(matching: .any)[AccessibilityIdentifiers.Home.focusTitleTap]
+    }
+
     var listDropZone: XCUIElement {
         let predicate = NSPredicate(
             format: "identifier == %@ OR identifier == %@",
@@ -167,8 +183,22 @@ class HomePage {
         return app.otherElements[AccessibilityIdentifiers.Home.radarChartView]
     }
 
+    var weeklyCalendar: XCUIElement {
+        return app.otherElements[AccessibilityIdentifiers.Home.weeklyCalendar]
+    }
+
     var navXpPieChart: XCUIElement {
-        return app.otherElements[AccessibilityIdentifiers.Home.navXpPieChart]
+        let byIdentifier = app.otherElements[AccessibilityIdentifiers.Home.navXpPieChart]
+        if byIdentifier.exists {
+            return byIdentifier
+        }
+
+        let predicate = NSPredicate(
+            format: "identifier == %@ OR identifier == %@",
+            AccessibilityIdentifiers.Home.navXpPieChart,
+            "home.navXpPieChart.button"
+        )
+        return app.descendants(matching: .any).matching(predicate).firstMatch
     }
 
     var navXpPieChartButton: XCUIElement {
@@ -180,7 +210,9 @@ class HomePage {
         if byOtherElementsQuery.exists {
             return byOtherElementsQuery
         }
-        return app.otherElements["home.navXpPieChart.container"]
+        return app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier == %@", "home.navXpPieChart.button")
+        ).firstMatch
     }
 
     var taskListScrollView: XCUIElement {
@@ -346,6 +378,12 @@ class HomePage {
 
     /// Tap floating nav XP pie chart.
     func tapNavXpPieChart() {
+        let chartButton = navXpPieChartButton
+        if chartButton.waitForExistence(timeout: 3) {
+            chartButton.tap()
+            return
+        }
+
         let chart = navXpPieChart
         XCTAssertTrue(chart.waitForExistence(timeout: 5), "Navigation XP pie chart should exist before tapping")
         chart.tap()
@@ -813,7 +851,8 @@ class HomePage {
     /// Verify floating nav XP pie chart can be interacted with.
     @discardableResult
     func verifyNavXpPieChartIsHittable(file: StaticString = #file, line: UInt = #line) -> Bool {
-        let isHittable = navXpPieChart.isHittable
+        let chartButton = navXpPieChartButton
+        let isHittable = chartButton.exists ? chartButton.isHittable : navXpPieChart.isHittable
         if !isHittable {
             XCTFail("Navigation XP pie chart should be hittable", file: file, line: line)
         }
@@ -823,8 +862,8 @@ class HomePage {
     /// Verify floating nav XP pie chart size is approximately expected.
     @discardableResult
     func verifyNavXpPieChartSize(
-        expected: CGFloat = 136,
-        tolerance: CGFloat = 10,
+        expected: CGFloat = 44,
+        tolerance: CGFloat = 8,
         file: StaticString = #file,
         line: UInt = #line
     ) -> Bool {
@@ -890,6 +929,45 @@ class HomePage {
             )
         }
         return isAligned
+    }
+
+    /// Verify weekly calendar starts below (or at) the end of the top nav container.
+    @discardableResult
+    func verifyWeeklyCalendarStartsAfterTopNav(
+        tolerance: CGFloat = 4,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        let calendarExists = weeklyCalendar.waitForExistence(timeout: 5)
+        let topNavExists = topNavContainer.waitForExistence(timeout: 5)
+        guard calendarExists, topNavExists else {
+            XCTFail(
+                "Expected weekly calendar and top nav container to exist for position check",
+                file: file,
+                line: line
+            )
+            return false
+        }
+
+        let isBelow = weeklyCalendar.frame.minY >= topNavContainer.frame.maxY - tolerance
+        if !isBelow {
+            XCTFail(
+                "Expected weekly calendar to start below top nav. calendar=\(weeklyCalendar.frame), topNav=\(topNavContainer.frame)",
+                file: file,
+                line: line
+            )
+        }
+        return isBelow
+    }
+
+    /// Verify weekly calendar appears below the top nav controls.
+    @discardableResult
+    func verifyWeeklyCalendarBelowTopNav(
+        tolerance: CGFloat = 4,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        verifyWeeklyCalendarStartsAfterTopNav(tolerance: tolerance, file: file, line: line)
     }
 
     /// Verify nav XP pie chart button/container is absent.

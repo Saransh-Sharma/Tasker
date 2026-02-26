@@ -20,19 +20,27 @@ final class HomeBottomBarStateTests: XCTestCase {
         XCTAssertEqual(state.selectedItem, .create)
     }
 
-    func testLargePositiveDeltaMinimizesBottomBar() {
+    func testCumulativeDownwardScrollMinimizesBottomBar() {
         let state = HomeBottomBarState()
         XCTAssertFalse(state.isMinimized)
 
-        state.updateMinimizeState(fromScrollDelta: 24)
+        state.handleScrollOffsetChange(120)
+        state.handleScrollOffsetChange(132)
+        XCTAssertFalse(state.isMinimized)
+
+        state.handleScrollOffsetChange(145)
         XCTAssertTrue(state.isMinimized)
     }
 
-    func testLargeNegativeDeltaRestoresBottomBar() {
+    func testCumulativeUpwardScrollRestoresBottomBar() {
         let state = HomeBottomBarState()
         state.isMinimized = true
 
-        state.updateMinimizeState(fromScrollDelta: -20)
+        state.handleScrollOffsetChange(200)
+        state.handleScrollOffsetChange(194)
+        XCTAssertTrue(state.isMinimized)
+
+        state.handleScrollOffsetChange(188)
         XCTAssertFalse(state.isMinimized)
     }
 
@@ -40,11 +48,34 @@ final class HomeBottomBarStateTests: XCTestCase {
         let state = HomeBottomBarState()
         XCTAssertFalse(state.isMinimized)
 
-        state.updateMinimizeState(fromScrollDelta: 3)
+        state.handleScrollOffsetChange(120)
+        state.handleScrollOffsetChange(123)
         XCTAssertFalse(state.isMinimized)
 
         state.isMinimized = true
-        state.updateMinimizeState(fromScrollDelta: -3)
+        state.handleScrollOffsetChange(200)
+        state.handleScrollOffsetChange(196)
         XCTAssertTrue(state.isMinimized)
+    }
+
+    func testNearTopAlwaysShowsCluster() {
+        let state = HomeBottomBarState()
+        state.isMinimized = true
+
+        state.handleScrollOffsetChange(120)
+        state.handleScrollOffsetChange(30)
+
+        XCTAssertFalse(state.isMinimized)
+    }
+
+    func testIdleRevealRestoresBottomBarAfterDelay() async {
+        let state = HomeBottomBarState()
+        state.handleScrollOffsetChange(120)
+        state.handleScrollOffsetChange(152)
+        XCTAssertTrue(state.isMinimized)
+
+        try? await _Concurrency.Task.sleep(nanoseconds: 550_000_000)
+
+        XCTAssertFalse(state.isMinimized)
     }
 }
