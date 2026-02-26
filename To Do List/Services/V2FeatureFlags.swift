@@ -18,6 +18,26 @@ public enum V2FeatureFlags {
         set { defaults.set(newValue, forKey: "feature.assistant.undo") }
     }
 
+    public static var assistantCopilotEnabled: Bool {
+        get { defaults.object(forKey: "feature.assistant.copilot") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.assistant.copilot") }
+    }
+
+    public static var assistantSemanticRetrievalEnabled: Bool {
+        get { defaults.object(forKey: "feature.assistant.semantic_retrieval") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.assistant.semantic_retrieval") }
+    }
+
+    public static var assistantFastModeEnabled: Bool {
+        get { defaults.object(forKey: "feature.assistant.fast_mode") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.assistant.fast_mode") }
+    }
+
+    public static var assistantBreakdownEnabled: Bool {
+        get { defaults.object(forKey: "feature.assistant.breakdown") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.assistant.breakdown") }
+    }
+
     public static var remindersBackgroundRefreshEnabled: Bool {
         get { defaults.object(forKey: "feature.reminders.background_refresh") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.reminders.background_refresh") }

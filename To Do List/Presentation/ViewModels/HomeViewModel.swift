@@ -101,6 +101,7 @@ public final class HomeViewModel: ObservableObject {
     private let getDailySummaryModalUseCase: GetDailySummaryModalUseCase
     private let savedHomeViewRepository: SavedHomeViewRepositoryProtocol
     private let analyticsService: AnalyticsServiceProtocol?
+    private let aiSuggestionService: AISuggestionService?
     private let userDefaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
 
@@ -132,10 +133,11 @@ public final class HomeViewModel: ObservableObject {
     // MARK: - Initialization
 
     /// Initializes a new instance.
-    public init(
+    init(
         useCaseCoordinator: UseCaseCoordinator,
         savedHomeViewRepository: SavedHomeViewRepositoryProtocol = UserDefaultsSavedHomeViewRepository(),
         analyticsService: AnalyticsServiceProtocol? = nil,
+        aiSuggestionService: AISuggestionService? = nil,
         userDefaults: UserDefaults = .standard
     ) {
         self.useCaseCoordinator = useCaseCoordinator
@@ -150,6 +152,7 @@ public final class HomeViewModel: ObservableObject {
         )
         self.savedHomeViewRepository = savedHomeViewRepository
         self.analyticsService = analyticsService
+        self.aiSuggestionService = aiSuggestionService
         self.userDefaults = userDefaults
 
         setupBindings()

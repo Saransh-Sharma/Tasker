@@ -1187,7 +1187,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Configure LLM access through repositories (no direct Core Data context pulls).
         LLMContextRepositoryProvider.configure(
             taskReadModelRepository: stateContainer.taskReadModelRepository,
-            projectRepository: stateContainer.projectRepository
+            projectRepository: stateContainer.projectRepository,
+            tagRepository: stateContainer.tagRepository
         )
         return true
     }

@@ -203,6 +203,20 @@
 		75F89F4A2DFC44E6009EDD8F /* Data.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2C2DFC44E6009EDD8F /* Data.swift */; };
 		75F89F4B2DFC44E6009EDD8F /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3A2DFC44E6009EDD8F /* OnboardingView.swift */; };
 		75F89F4C2DFC44E6009EDD8F /* LLMEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F2E2DFC44E6009EDD8F /* LLMEvaluator.swift */; };
+		A6E1D3F42F3C100100B1C2D3 /* AISuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D3F52F3C100100B1C2D3 /* AISuggestionService.swift */; };
+		A6E1D3F62F3C100100B1C2D3 /* AssistantCardPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D3F72F3C100100B1C2D3 /* AssistantCardPayload.swift */; };
+		A6E1D4012F3C120100B1C2D3 /* AIChatModeRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4022F3C120100B1C2D3 /* AIChatModeRouter.swift */; };
+		A6E1D4032F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */; };
+		A6E1D4052F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */; };
+		A6E1D4072F3C120100B1C2D3 /* AssistantPlannerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */; };
+		A6E1D4092F3C120100B1C2D3 /* DailyBriefService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */; };
+		A6E1D40B2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */; };
+		A6E1D40D2F3C120100B1C2D3 /* OverdueTriageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */; };
+		A6E1D40F2F3C120100B1C2D3 /* TaskBreakdownService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4102F3C120100B1C2D3 /* TaskBreakdownService.swift */; };
+		A6E1D4112F3C120100B1C2D3 /* TaskEmbeddingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4122F3C120100B1C2D3 /* TaskEmbeddingEngine.swift */; };
+		A6E1D4132F3C120100B1C2D3 /* TaskSemanticIndexStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4142F3C120100B1C2D3 /* TaskSemanticIndexStore.swift */; };
+		A6E1D4152F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4162F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift */; };
+		A6E1D4172F3C120100B1C2D3 /* LLMGenerationProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4182F3C120100B1C2D3 /* LLMGenerationProfile.swift */; };
 		75F89F4D2DFC44E6009EDD8F /* ChatsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F322DFC44E6009EDD8F /* ChatsListView.swift */; };
 		75F89F4E2DFC44E6009EDD8F /* DeviceNotSupportedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F362DFC44E6009EDD8F /* DeviceNotSupportedView.swift */; };
 		75F89F4F2DFC44E6009EDD8F /* CreditsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F3E2DFC44E6009EDD8F /* CreditsView.swift */; };
@@ -560,6 +574,20 @@
 		75F89F2C2DFC44E6009EDD8F /* Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Data.swift; sourceTree = "<group>"; };
 		75F89F2D2DFC44E6009EDD8F /* DeviceStat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceStat.swift; sourceTree = "<group>"; };
 		75F89F2E2DFC44E6009EDD8F /* LLMEvaluator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMEvaluator.swift; sourceTree = "<group>"; };
+		A6E1D3F52F3C100100B1C2D3 /* AISuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISuggestionService.swift; sourceTree = "<group>"; };
+		A6E1D3F72F3C100100B1C2D3 /* AssistantCardPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantCardPayload.swift; sourceTree = "<group>"; };
+		A6E1D4022F3C120100B1C2D3 /* AIChatModeRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIChatModeRouter.swift; sourceTree = "<group>"; };
+		A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantDiffPreviewBuilder.swift; sourceTree = "<group>"; };
+		A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidator.swift; sourceTree = "<group>"; };
+		A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPlannerService.swift; sourceTree = "<group>"; };
+		A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyBriefService.swift; sourceTree = "<group>"; };
+		A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMAssistantPipelineProvider.swift; sourceTree = "<group>"; };
+		A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueTriageService.swift; sourceTree = "<group>"; };
+		A6E1D4102F3C120100B1C2D3 /* TaskBreakdownService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskBreakdownService.swift; sourceTree = "<group>"; };
+		A6E1D4122F3C120100B1C2D3 /* TaskEmbeddingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEmbeddingEngine.swift; sourceTree = "<group>"; };
+		A6E1D4142F3C120100B1C2D3 /* TaskSemanticIndexStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticIndexStore.swift; sourceTree = "<group>"; };
+		A6E1D4162F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticRetrievalService.swift; sourceTree = "<group>"; };
+		A6E1D4182F3C120100B1C2D3 /* LLMGenerationProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMGenerationProfile.swift; sourceTree = "<group>"; };
 		75F89F2F2DFC44E6009EDD8F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		75F89F302DFC44E6009EDD8F /* RequestLLMIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestLLMIntent.swift; sourceTree = "<group>"; };
 		75F89F322DFC44E6009EDD8F /* ChatsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsListView.swift; sourceTree = "<group>"; };
@@ -1601,6 +1629,20 @@
 				75F89F2C2DFC44E6009EDD8F /* Data.swift */,
 				75F89F2D2DFC44E6009EDD8F /* DeviceStat.swift */,
 				75F89F2E2DFC44E6009EDD8F /* LLMEvaluator.swift */,
+				A6E1D3F52F3C100100B1C2D3 /* AISuggestionService.swift */,
+				A6E1D3F72F3C100100B1C2D3 /* AssistantCardPayload.swift */,
+				A6E1D4022F3C120100B1C2D3 /* AIChatModeRouter.swift */,
+				A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */,
+				A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */,
+				A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */,
+				A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */,
+				A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */,
+				A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */,
+				A6E1D4102F3C120100B1C2D3 /* TaskBreakdownService.swift */,
+				A6E1D4122F3C120100B1C2D3 /* TaskEmbeddingEngine.swift */,
+				A6E1D4142F3C120100B1C2D3 /* TaskSemanticIndexStore.swift */,
+				A6E1D4162F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift */,
+				A6E1D4182F3C120100B1C2D3 /* LLMGenerationProfile.swift */,
 				C1A2B3C4D5E6F70011223345 /* LLMRuntimeCoordinator.swift */,
 				C1A2B3C4D5E6F70011223347 /* LLMProjectionTimeout.swift */,
 				75F89F2F2DFC44E6009EDD8F /* Models.swift */,
@@ -2141,6 +2183,20 @@
 				75F89F4A2DFC44E6009EDD8F /* Data.swift in Sources */,
 				75F89F4B2DFC44E6009EDD8F /* OnboardingView.swift in Sources */,
 				75F89F4C2DFC44E6009EDD8F /* LLMEvaluator.swift in Sources */,
+				A6E1D3F42F3C100100B1C2D3 /* AISuggestionService.swift in Sources */,
+				A6E1D3F62F3C100100B1C2D3 /* AssistantCardPayload.swift in Sources */,
+				A6E1D4012F3C120100B1C2D3 /* AIChatModeRouter.swift in Sources */,
+				A6E1D4032F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift in Sources */,
+				A6E1D4052F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift in Sources */,
+				A6E1D4072F3C120100B1C2D3 /* AssistantPlannerService.swift in Sources */,
+				A6E1D4092F3C120100B1C2D3 /* DailyBriefService.swift in Sources */,
+				A6E1D40B2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift in Sources */,
+				A6E1D40D2F3C120100B1C2D3 /* OverdueTriageService.swift in Sources */,
+				A6E1D40F2F3C120100B1C2D3 /* TaskBreakdownService.swift in Sources */,
+				A6E1D4112F3C120100B1C2D3 /* TaskEmbeddingEngine.swift in Sources */,
+				A6E1D4132F3C120100B1C2D3 /* TaskSemanticIndexStore.swift in Sources */,
+				A6E1D4152F3C120100B1C2D3 /* TaskSemanticRetrievalService.swift in Sources */,
+				A6E1D4172F3C120100B1C2D3 /* LLMGenerationProfile.swift in Sources */,
 				C1A2B3C4D5E6F70011223344 /* LLMRuntimeCoordinator.swift in Sources */,
 				C1A2B3C4D5E6F70011223346 /* LLMProjectionTimeout.swift in Sources */,
 				75F89F4D2DFC44E6009EDD8F /* ChatsListView.swift in Sources */,
