@@ -5544,14 +5544,31 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             .dailySummary(kind: .morning, dateStamp: "20260224")
         )
 
-        let nightlyIDs = Set(
+        let nightlySummaryIDs = Set(
             notificationService.scheduled
-                .filter { $0.kind == .nightlyRetrospective }
                 .map(\.id)
+                .filter { $0.hasPrefix("daily.nightly.") }
         )
         XCTAssertEqual(
-            nightlyIDs,
+            nightlySummaryIDs,
             Set(["daily.nightly.20260224", "daily.nightly.20260225", "daily.nightly.20260226"])
+        )
+
+        let reflectionIDs = Set(
+            notificationService.scheduled
+                .map(\.id)
+                .filter { $0.hasPrefix("daily.reflection.") }
+        )
+        XCTAssertEqual(
+            reflectionIDs,
+            Set([
+                "daily.reflection.20260224.evening",
+                "daily.reflection.20260224.followup",
+                "daily.reflection.20260225.evening",
+                "daily.reflection.20260225.followup",
+                "daily.reflection.20260226.evening",
+                "daily.reflection.20260226.followup"
+            ])
         )
 
         let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
@@ -5562,6 +5579,71 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         XCTAssertEqual(
             nightly?.route,
             .dailySummary(kind: .nightly, dateStamp: "20260224")
+        )
+    }
+
+    func testNightlyRetrospectiveUsesExactLedgerXPWhenAvailable() {
+        let notificationService = CapturingNotificationService()
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 7, minute: 30)
+        let completionDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 18, minute: 45)
+
+        var completedTask = TaskDefinition(title: "Ship release notes", priority: .high, isComplete: true)
+        completedTask.dueDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 17, minute: 0)
+        completedTask.dateCompleted = completionDate
+
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [completedTask])
+        let store = makePreferencesStore()
+        let gamificationRepository = InsightsRepositorySpy()
+        gamificationRepository.weekAggregates = [
+            DailyXPAggregateDefinition(dateKey: "2026-02-24", totalXP: 44, eventCount: 2)
+        ]
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            gamificationRepository: gamificationRepository,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        orchestrator.reconcile(reason: "unit_test_exact_xp")
+
+        let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
+        XCTAssertEqual(
+            nightly?.body,
+            "Completed 1/1 tasks, earned 44 XP. Biggest win: \"Ship release notes\"."
+        )
+    }
+
+    func testNightlyRetrospectiveOmitsNumericXPWhenExactAggregateUnavailable() {
+        let notificationService = CapturingNotificationService()
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 7, minute: 30)
+        let completionDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 19, minute: 10)
+
+        var completedTask = TaskDefinition(title: "Close loops", priority: .low, isComplete: true)
+        completedTask.dueDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 18, minute: 0)
+        completedTask.dateCompleted = completionDate
+
+        let repository = InMemoryTaskDefinitionRepositoryStub(seed: [completedTask])
+        let store = makePreferencesStore()
+
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: repository,
+            notificationService: notificationService,
+            preferencesStore: store,
+            calendar: calendar,
+            now: { nowDate }
+        )
+
+        orchestrator.reconcile(reason: "unit_test_no_exact_xp")
+
+        let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
+        XCTAssertEqual(
+            nightly?.body,
+            "Completed 1/1 tasks. Biggest win: \"Close loops\". Open Tasker for exact XP."
         )
     }
 
@@ -6693,6 +6775,86 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
         XCTAssertEqual(repository.fetchDailyAggregatesCount, weeklyAggregateFetches)
     }
 
+    func testWeekScaleModePersistsAcrossViewModelInstances() {
+        let suiteName = "insights.week.scale.mode.tests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create isolated defaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let repository = InsightsRepositorySpy()
+        let engine = GamificationEngine(repository: repository)
+        let first = InsightsViewModel(
+            engine: engine,
+            repository: repository,
+            notificationCenter: NotificationCenter(),
+            userDefaults: defaults
+        )
+        XCTAssertEqual(first.weekScaleMode, .personalMax)
+
+        first.setWeekScaleMode(.goal)
+
+        let second = InsightsViewModel(
+            engine: engine,
+            repository: repository,
+            notificationCenter: NotificationCenter(),
+            userDefaults: defaults
+        )
+        XCTAssertEqual(second.weekScaleMode, .goal)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testLedgerMutationRefreshesSystemsAndLoadsUnlockedAchievements() {
+        let repository = InsightsRepositorySpy()
+        let center = NotificationCenter()
+        let viewModel = makeInsightsViewModel(repository: repository, notificationCenter: center)
+
+        viewModel.selectTab(.systems)
+        viewModel.onAppear()
+        waitUntil(timeout: 1.5) {
+            viewModel.refreshState(for: .systems).isLoaded
+        }
+
+        let unlockedKey = "streak_7"
+        let baselineUnlockFetches = repository.fetchAchievementUnlocksCount
+        repository.achievements = [
+            AchievementUnlockDefinition(
+                id: UUID(),
+                achievementKey: unlockedKey,
+                unlockedAt: Date(),
+                sourceEventID: nil
+            )
+        ]
+        let mutation = GamificationLedgerMutation(
+            source: XPSource.manual.rawValue,
+            category: .complete,
+            awardedXP: 12,
+            dailyXPSoFar: 12,
+            totalXP: 150,
+            level: 2,
+            previousLevel: 1,
+            streakDays: 7,
+            didChange: true,
+            dateKey: XPCalculationEngine.periodKey(),
+            occurredAt: Date(),
+            unlockedAchievementKeys: [unlockedKey],
+            originatingEventID: UUID()
+        )
+        center.post(
+            name: .gamificationLedgerDidMutate,
+            object: nil,
+            userInfo: mutation.userInfo
+        )
+
+        waitUntil(timeout: 1.5) {
+            repository.fetchAchievementUnlocksCount > baselineUnlockFetches
+                && viewModel.systemsState.unlockedAchievements.contains(unlockedKey)
+        }
+
+        XCTAssertTrue(viewModel.systemsState.unlockedAchievements.contains(unlockedKey))
+    }
+
     private func makeInsightsViewModel(
         repository: InsightsRepositorySpy,
         notificationCenter: NotificationCenter = NotificationCenter()
@@ -6724,9 +6886,71 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
             if condition() {
                 return
             }
-            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
+            let nextTick = Date().addingTimeInterval(0.01)
+            if Thread.isMainThread {
+                RunLoop.main.run(mode: .default, before: nextTick)
+            } else {
+                DispatchQueue.main.sync {}
+                RunLoop.current.run(mode: .default, before: nextTick)
+            }
         }
         XCTFail("Condition not met before timeout", file: file, line: line)
+    }
+}
+
+final class CelebrationRouterBehaviorTests: XCTestCase {
+    func testXPBurstCooldownSuppressesRapidRepeatBursts() {
+        let router = DefaultCelebrationRouter()
+        let first = router.route(event: makeEvent(kind: .xpBurst, signature: "xp-1", secondsFromBase: 0))
+        let second = router.route(event: makeEvent(kind: .xpBurst, signature: "xp-2", secondsFromBase: 1))
+
+        XCTAssertNotNil(first)
+        XCTAssertNil(second)
+    }
+
+    func testLevelUpIsNotBlockedByXPBurstCooldown() {
+        let router = DefaultCelebrationRouter()
+        _ = router.route(event: makeEvent(kind: .xpBurst, signature: "xp-1", secondsFromBase: 0))
+
+        let levelUp = router.route(event: makeEvent(kind: .levelUp, signature: "level-2", secondsFromBase: 0.1))
+        XCTAssertNotNil(levelUp)
+    }
+
+    func testDuplicateSignatureIsDedupedAcrossKinds() {
+        let router = DefaultCelebrationRouter()
+        let first = router.route(event: makeEvent(kind: .milestone, signature: "same-signature", secondsFromBase: 0))
+        let duplicate = router.route(event: makeEvent(kind: .milestone, signature: "same-signature", secondsFromBase: 12))
+
+        XCTAssertNotNil(first)
+        XCTAssertNil(duplicate)
+    }
+
+    func testAchievementUnlockUsesOwnCooldownWindow() {
+        let router = DefaultCelebrationRouter()
+        let first = router.route(event: makeEvent(kind: .achievementUnlock, signature: "achievement-1", secondsFromBase: 0))
+        let suppressed = router.route(event: makeEvent(kind: .achievementUnlock, signature: "achievement-2", secondsFromBase: 0.4))
+        let allowed = router.route(event: makeEvent(kind: .achievementUnlock, signature: "achievement-3", secondsFromBase: 1.2))
+
+        XCTAssertNotNil(first)
+        XCTAssertNil(suppressed)
+        XCTAssertNotNil(allowed)
+    }
+
+    private func makeEvent(
+        kind: CelebrationKind,
+        signature: String,
+        secondsFromBase: TimeInterval
+    ) -> CelebrationEvent {
+        let milestone = kind == .milestone ? XPCalculationEngine.milestones.first : nil
+        return CelebrationEvent(
+            kind: kind,
+            awardedXP: 8,
+            level: 3,
+            milestone: milestone,
+            achievementKey: kind == .achievementUnlock ? "streak_7" : nil,
+            occurredAt: Date(timeIntervalSince1970: 1_700_000_000 + secondsFromBase),
+            signature: signature
+        )
     }
 }
 
