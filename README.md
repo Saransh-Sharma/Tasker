@@ -116,7 +116,7 @@ Full metric definitions, acceptance criteria, and requirement detail live in:
 ## Runtime Snapshot
 
 Current V3 runtime composition:
-1. `AppDelegate` bootstraps `TaskModelV3` stores with hard-cut epoch key `tasker.v3.store.epoch`, CloudKit container `iCloud.TaskerCloudKitV3`, and fail-closed readiness checks.
+1. `AppDelegate` bootstraps split `TaskModelV3` stores with hard-cut epoch key `tasker.v3.store.epoch`, CloudKit container `iCloud.TaskerCloudKitV3`, explicit sync runtime mode (`fullSync` vs `writeClosed`), and cloud-authoritative manual recovery actions.
 2. `EnhancedDependencyContainer` wires repositories/services and builds `UseCaseCoordinator`.
 3. `PresentationDependencyContainer` exposes ViewModels and validates presentation-side runtime readiness.
 
@@ -151,6 +151,7 @@ Deep technical reference:
 - V3-only runtime: legacy task contracts (`TaskRepositoryProtocol`, compatibility task aliases, legacy bridge adapters) are removed.
 - Upgrade data policy is destructive reset by design for this hard cut.
 - Cloud sync cutover uses a new container: `iCloud.TaskerCloudKitV3`.
+- Runtime bootstrap does not auto-wipe stores on compatibility failures; cloud bootstrap failures enter write-closed mode (reads allowed, writes blocked) until user-initiated iCloud recovery.
 
 ## Repository Map
 

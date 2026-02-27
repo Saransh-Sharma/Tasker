@@ -118,7 +118,8 @@ sequenceDiagram
 | Epoch-based cutover | if stored epoch != `v3StoreEpoch`, wipe store files and clear legacy preference keys | `To Do List/AppDelegate.swift` |
 | Store wipe set | removes both legacy `TaskModelV2-*` and current `TaskModelV3-*` sqlite/wal/shm files during cutover | `To Do List/AppDelegate.swift` |
 | Two-config load | loads `CloudSync` and `LocalOnly` store descriptions | `To Do List/AppDelegate.swift` |
-| Retry strategy | incompatible/missing-config load failures trigger wipe + recovery bootstrap pass | `To Do List/AppDelegate.swift` |
+| Recovery strategy | split-store bootstrap failures do not auto-wipe; app attempts LocalOnly write-closed fallback and exposes manual recover/retry actions | `To Do List/AppDelegate.swift`, `To Do List/ViewControllers/BootstrapFailureViewController.swift`, `To Do List/SceneDelegate.swift` |
+| Write-closed policy | mutating repositories are centrally blocked while reads continue, returning explicit `SyncWriteClosedError` | `To Do List/State/Sync/WriteClosedRepositoryAdapters.swift`, `To Do List/State/DI/EnhancedDependencyContainer.swift` |
 | Fail-closed mode | unresolved bootstrap/dependency errors produce bootstrap failure state and skip runtime wiring | `To Do List/AppDelegate.swift` |
 
 ## LLM Chat Store Safety
@@ -161,8 +162,9 @@ This prevents app-wide startup crash on local chat-store incompatibility.
 
 | Failure point | Detection | Runtime behavior | Signal |
 | --- | --- | --- | --- |
-| persistent store load incompatibility | load report has compatibility errors or missing configs | wipe + retry bootstrap path | `persistent_store_bootstrap_retry` |
-| persistent store unrecoverable | recovery load still unhealthy | app enters bootstrap failure mode | `persistent_store_bootstrap_failed_after_retry` |
+| split persistent store load incompatibility | load report has compatibility errors or missing configs in split topology | app switches to write-closed LocalOnly runtime | `persistent_sync_write_closed_enabled` |
+| persistent store unrecoverable | split and write-closed fallback loads are both unhealthy | app enters bootstrap failure mode | `persistent_store_bootstrap_failed_unreadable` |
+| cloud-authoritative recovery failed | quarantine/reset action cannot rebootstrap | app remains bootstrap-failed and surfaces recovery error | `persistent_store_recovery_failed` |
 | state DI missing required dependencies | `assertV3RuntimeReady()` throws | setup fails closed | `v3_runtime_not_ready` |
 | presentation DI missing required dependencies | `assertV3RuntimeReady()` throws | setup fails closed | `v3_runtime_not_ready` |
 | reminders BG dependencies missing | guard checks in background handler | skip reconcile and mark task failed | `bg_reminders_missing_dependencies` |
