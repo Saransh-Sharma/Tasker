@@ -47,6 +47,26 @@ public struct TaskerMeshSpec {
         blendMode: BlendMode,
         reduceTransparencyOpacity: Double
     ) {
+        precondition(width > 0, "TaskerMeshSpec width must be > 0")
+        precondition(height > 0, "TaskerMeshSpec height must be > 0")
+        let expectedPointCount = width * height
+        precondition(
+            idlePoints.count == expectedPointCount,
+            "TaskerMeshSpec idlePoints count (\(idlePoints.count)) must equal width * height (\(expectedPointCount))"
+        )
+        precondition(
+            activePoints.count == expectedPointCount,
+            "TaskerMeshSpec activePoints count (\(activePoints.count)) must equal width * height (\(expectedPointCount))"
+        )
+        precondition(
+            idleColors.count == expectedPointCount,
+            "TaskerMeshSpec idleColors count (\(idleColors.count)) must equal width * height (\(expectedPointCount))"
+        )
+        precondition(
+            activeColors.count == expectedPointCount,
+            "TaskerMeshSpec activeColors count (\(activeColors.count)) must equal width * height (\(expectedPointCount))"
+        )
+
         self.width = width
         self.height = height
         self.idlePoints = idlePoints

@@ -69,7 +69,7 @@
 /* Primary Button */
 .btn-primary {
   background: #F97316;
-  color: white;
+  color: #1A1714; /* contrast ratio: 6.37:1 */
   padding: 12px 24px;
   border-radius: 8px;
   font-weight: 600;
