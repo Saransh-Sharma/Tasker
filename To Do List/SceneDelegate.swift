@@ -129,6 +129,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_become_active")
         chatPrewarmTask?.cancel()
+        guard V2FeatureFlags.llmChatPrewarmMode == .eager else { return }
+
         chatPrewarmTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: 5_000_000_000)
@@ -136,7 +138,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 return
             }
             guard !Task.isCancelled else { return }
-            await LLMRuntimeCoordinator.shared.prewarmIfEligibleCurrentModel()
+            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "scene_did_become_active")
         }
     }
 

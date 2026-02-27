@@ -1,5 +1,16 @@
 import Foundation
 
+public enum LLMChatPrewarmMode: String, CaseIterable {
+    case disabled
+    case adaptiveOnDemand
+    case eager
+}
+
+public enum LLMChatContextStrategy: String, CaseIterable {
+    case bounded
+    case full
+}
+
 public enum V2FeatureFlags {
     private static let defaults = UserDefaults.standard
 
@@ -43,9 +54,47 @@ public enum V2FeatureFlags {
         set { defaults.set(newValue, forKey: "feature.reminders.background_refresh") }
     }
 
+    public static var llmChatPrewarmMode: LLMChatPrewarmMode {
+        get {
+            let modeKey = "feature.llm.chat_prewarm_mode"
+            if let raw = defaults.string(forKey: modeKey),
+               let parsed = LLMChatPrewarmMode(rawValue: raw) {
+                return parsed
+            }
+
+            // Backward-compatibility: map legacy boolean to nearest mode.
+            if let legacy = defaults.object(forKey: "feature.llm.chat_prewarm") as? Bool {
+                return legacy ? .adaptiveOnDemand : .disabled
+            }
+            return .adaptiveOnDemand
+        }
+        set { defaults.set(newValue.rawValue, forKey: "feature.llm.chat_prewarm_mode") }
+    }
+
     public static var llmChatPrewarmEnabled: Bool {
-        get { defaults.object(forKey: "feature.llm.chat_prewarm") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.llm.chat_prewarm") }
+        get { llmChatPrewarmMode != .disabled }
+        set { llmChatPrewarmMode = newValue ? .adaptiveOnDemand : .disabled }
+    }
+
+    public static var llmChatContextStrategy: LLMChatContextStrategy {
+        get {
+            guard let raw = defaults.string(forKey: "feature.llm.chat_context_strategy"),
+                  let parsed = LLMChatContextStrategy(rawValue: raw) else {
+                return .bounded
+            }
+            return parsed
+        }
+        set { defaults.set(newValue.rawValue, forKey: "feature.llm.chat_context_strategy") }
+    }
+
+    public static var llmChatThinkingPhaseHapticsEnabled: Bool {
+        get { defaults.object(forKey: "feature.llm.chat_thinking_phase_haptics") as? Bool ?? false }
+        set { defaults.set(newValue, forKey: "feature.llm.chat_thinking_phase_haptics") }
+    }
+
+    public static var llmChatAnswerPhaseHapticsEnabled: Bool {
+        get { defaults.object(forKey: "feature.llm.chat_answer_phase_haptics") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.llm.chat_answer_phase_haptics") }
     }
 
     public static var evaFocusEnabled: Bool {

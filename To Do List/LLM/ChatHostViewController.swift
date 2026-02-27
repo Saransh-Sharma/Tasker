@@ -91,15 +91,27 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
         setupNavigationBar()
 
-        Task { @MainActor in
-            await LLMRuntimeCoordinator.shared.prewarmIfEligibleCurrentModel()
-        }
-
         themeCancellable = TaskerThemeManager.shared.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.applyTheme()
             }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        Task { @MainActor in
+            LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_host_visible")
+            await LLMRuntimeCoordinator.shared.prepareCurrentModelIfConfigured(trigger: "chat_host_visible")
+        }
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        Task { @MainActor in
+            LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: "chat_host_will_disappear")
+            LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_host_visible")
+        }
     }
 
     private func resolveDependenciesIfNeeded() {
@@ -157,6 +169,10 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     @objc private func onBackTapped() {
+        Task { @MainActor in
+            LLMRuntimeCoordinator.shared.cancelGenerationIfActive(reason: "chat_host_back")
+            LLMRuntimeCoordinator.shared.releaseSession(reason: "chat_host_visible")
+        }
         dismiss(animated: true)
     }
 

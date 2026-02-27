@@ -24,11 +24,14 @@ final class LLMRuntimeCoordinator {
     private let switchHandler: SwitchHandler
     private let unloadHandler: UnloadHandler
     private let backgroundUnloadDelayNanoseconds: UInt64
+    private let idleUnloadDelayNanoseconds: UInt64
     private let currentModelKey = "currentModelName"
     private var observers: [NSObjectProtocol] = []
     private var inFlightPrewarmTask: Task<Void, Never>?
     private var inFlightPrewarmModelName: String?
     private var backgroundUnloadTask: Task<Void, Never>?
+    private var idleUnloadTask: Task<Void, Never>?
+    private var activeSessionReasons: Set<String> = []
     private(set) var activeModelName: String?
 
     init(
@@ -39,6 +42,7 @@ final class LLMRuntimeCoordinator {
         switchHandler: SwitchHandler? = nil,
         unloadHandler: UnloadHandler? = nil,
         backgroundUnloadDelayNanoseconds: UInt64 = 5 * 60 * 1_000_000_000,
+        idleUnloadDelayNanoseconds: UInt64 = 20 * 1_000_000_000,
         registerLifecycleObservers: Bool = true
     ) {
         let runtimeEvaluator = evaluator ?? LLMEvaluator()
@@ -59,6 +63,7 @@ final class LLMRuntimeCoordinator {
             runtimeEvaluator.unload()
         }
         self.backgroundUnloadDelayNanoseconds = backgroundUnloadDelayNanoseconds
+        self.idleUnloadDelayNanoseconds = idleUnloadDelayNanoseconds
 
         if registerLifecycleObservers {
             self.registerLifecycleObservers()
@@ -71,16 +76,18 @@ final class LLMRuntimeCoordinator {
         }
         inFlightPrewarmTask?.cancel()
         backgroundUnloadTask?.cancel()
+        idleUnloadTask?.cancel()
     }
 
-    func prewarmIfEligibleCurrentModel() async {
-        guard V2FeatureFlags.llmChatPrewarmEnabled else { return }
+    func prewarmIfEligibleCurrentModel(trigger: String = "unknown") async {
+        guard V2FeatureFlags.llmChatPrewarmMode != .disabled else { return }
         guard let currentModelName = defaults.string(forKey: currentModelKey), !currentModelName.isEmpty else { return }
         guard let model = ModelConfiguration.getModelByName(currentModelName), model.isPrewarmEligible() else { return }
         guard evaluator.loadedModelName != currentModelName else { return }
         guard activeModelName != currentModelName else { return }
         guard inFlightPrewarmModelName != currentModelName else { return }
 
+        cancelIdleUnload()
         inFlightPrewarmTask?.cancel()
         inFlightPrewarmModelName = currentModelName
 
@@ -94,14 +101,18 @@ final class LLMRuntimeCoordinator {
                     message: "Completed model prewarm for chat",
                     fields: [
                         "model_name": currentModelName,
-                        "duration_ms": String(Int(Date().timeIntervalSince(startedAt) * 1_000))
+                        "duration_ms": String(Int(Date().timeIntervalSince(startedAt) * 1_000)),
+                        "trigger": trigger
                     ]
                 )
             } catch is CancellationError {
                 logWarning(
                     event: "chat_prewarm_cancelled",
                     message: "Cancelled in-flight prewarm due to newer model request",
-                    fields: ["model_name": currentModelName]
+                    fields: [
+                        "model_name": currentModelName,
+                        "trigger": trigger
+                    ]
                 )
             } catch {
                 logError(
@@ -109,7 +120,8 @@ final class LLMRuntimeCoordinator {
                     message: "Model prewarm failed",
                     fields: [
                         "model_name": currentModelName,
-                        "error": error.localizedDescription
+                        "error": error.localizedDescription,
+                        "trigger": trigger
                     ]
                 )
             }
@@ -120,7 +132,123 @@ final class LLMRuntimeCoordinator {
         }
     }
 
+    func prepareCurrentModelIfConfigured(trigger: String) async {
+        guard let currentModelName = defaults.string(forKey: currentModelKey),
+              currentModelName.isEmpty == false else {
+            return
+        }
+        guard let model = ModelConfiguration.getModelByName(currentModelName) else { return }
+
+        switch V2FeatureFlags.llmChatPrewarmMode {
+        case .disabled:
+            return
+        case .adaptiveOnDemand:
+            guard model.isPrewarmEligible() else { return }
+            await prewarmIfEligibleCurrentModel(trigger: trigger)
+        case .eager:
+            let startedAt = Date()
+            let result = await ensureReady(modelName: currentModelName)
+            logWarning(
+                event: "chat_eager_prepare_completed",
+                message: "Completed eager model prepare for chat",
+                fields: [
+                    "model_name": currentModelName,
+                    "ready": result.ready ? "true" : "false",
+                    "duration_ms": String(Int(Date().timeIntervalSince(startedAt) * 1_000)),
+                    "trigger": trigger
+                ]
+            )
+        }
+    }
+
+    func acquireSession(reason: String) {
+        let inserted = activeSessionReasons.insert(reason).inserted
+        cancelBackgroundUnload()
+        cancelIdleUnload()
+        if inserted {
+            logWarning(
+                event: "chat_session_acquired",
+                message: "Acquired active chat runtime session",
+                fields: [
+                    "reason": reason,
+                    "session_count": String(activeSessionReasons.count)
+                ]
+            )
+        }
+    }
+
+    func releaseSession(reason: String) {
+        let removed = activeSessionReasons.remove(reason) != nil
+        guard removed else { return }
+        logWarning(
+            event: "chat_session_released",
+            message: "Released active chat runtime session",
+            fields: [
+                "reason": reason,
+                "session_count": String(activeSessionReasons.count)
+            ]
+        )
+        guard activeSessionReasons.isEmpty else { return }
+        scheduleIdleUnload(after: TimeInterval(idleUnloadDelayNanoseconds) / 1_000_000_000)
+    }
+
+    func cancelGenerationIfActive(reason: String) {
+        let shouldCancelEvaluator = evaluator.running ||
+            evaluator.runtimePhase == .preparing ||
+            evaluator.runtimePhase == .thinking ||
+            evaluator.runtimePhase == .answering ||
+            evaluator.runtimePhase == .stopping
+        if shouldCancelEvaluator {
+            evaluator.cancelGeneration(reason: reason)
+        }
+
+        if activeSessionReasons.remove("chat_generation") != nil {
+            logWarning(
+                event: "chat_generation_session_forced_release",
+                message: "Force-released chat generation session during runtime cancellation",
+                fields: [
+                    "reason": reason,
+                    "session_count": String(activeSessionReasons.count)
+                ]
+            )
+            if activeSessionReasons.isEmpty {
+                scheduleIdleUnload(after: TimeInterval(idleUnloadDelayNanoseconds) / 1_000_000_000)
+            }
+        }
+    }
+
+    func scheduleIdleUnload(after seconds: TimeInterval) {
+        guard activeSessionReasons.isEmpty else { return }
+        guard evaluator.loadedModelName != nil || activeModelName != nil else { return }
+        cancelIdleUnload()
+
+        let clampedDelay = max(0, seconds)
+        let delayNanoseconds = UInt64(clampedDelay * 1_000_000_000)
+        if delayNanoseconds == 0 {
+            unload(reason: "idle_timeout")
+            return
+        }
+
+        idleUnloadTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: delayNanoseconds)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            guard self.activeSessionReasons.isEmpty else { return }
+            self.cancelGenerationIfActive(reason: "idle_timeout")
+            self.unload(reason: "idle_timeout")
+        }
+        logWarning(
+            event: "chat_idle_unload_scheduled",
+            message: "Scheduled idle unload for chat runtime",
+            fields: ["delay_seconds": String(format: "%.1f", clampedDelay)]
+        )
+    }
+
     func ensureReady(modelName: String) async -> EnsureReadyResult {
+        cancelIdleUnload()
         let prewarmEligible = ModelConfiguration.getModelByName(modelName)?.isPrewarmEligible() ?? false
         let prewarmHit = evaluator.loadedModelName == modelName
 
@@ -157,6 +285,7 @@ final class LLMRuntimeCoordinator {
     }
 
     func switchModelIfNeeded(modelName: String) async -> Bool {
+        cancelIdleUnload()
         if evaluator.loadedModelName == modelName {
             activeModelName = modelName
             return true
@@ -188,11 +317,13 @@ final class LLMRuntimeCoordinator {
     }
 
     func unload(reason: String) {
+        cancelGenerationIfActive(reason: "unload_\(reason)")
         inFlightPrewarmTask?.cancel()
         inFlightPrewarmTask = nil
         inFlightPrewarmModelName = nil
         backgroundUnloadTask?.cancel()
         backgroundUnloadTask = nil
+        cancelIdleUnload()
         unloadHandler()
         activeModelName = nil
         logWarning(
@@ -261,6 +392,7 @@ final class LLMRuntimeCoordinator {
 
     private func scheduleBackgroundUnload() {
         backgroundUnloadTask?.cancel()
+        cancelIdleUnload()
         backgroundUnloadTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: backgroundUnloadDelayNanoseconds)
@@ -275,5 +407,10 @@ final class LLMRuntimeCoordinator {
     private func cancelBackgroundUnload() {
         backgroundUnloadTask?.cancel()
         backgroundUnloadTask = nil
+    }
+
+    private func cancelIdleUnload() {
+        idleUnloadTask?.cancel()
+        idleUnloadTask = nil
     }
 }
