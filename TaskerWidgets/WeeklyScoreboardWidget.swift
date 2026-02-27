@@ -9,7 +9,7 @@ struct WeeklyScoreboardWidget: Widget {
             WeeklyScoreboardWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("Weekly Scoreboard")
+        .configurationDisplayName("Weekly XP")
         .description("View your XP for the week.")
         .supportedFamilies([.systemMedium])
     }
@@ -37,17 +37,47 @@ struct WeeklyScoreboardEntry: TimelineEntry {
 }
 
 struct WeeklyScoreboardWidgetView: View {
+    private enum WeekScaleMode {
+        case goal
+        case personalMax
+    }
+
     let entry: WeeklyScoreboardEntry
-    private let dayLabels = ["M", "T", "W", "T", "F", "S", "S"]
+    private let dayLabels = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+
+    private var personalMaxXP: Int {
+        max(entry.snapshot.weeklyXP.max() ?? 1, 1)
+    }
+
+    private var scaleMode: WeekScaleMode {
+        personalMaxXP >= entry.snapshot.dailyCap ? .goal : .personalMax
+    }
 
     private var maxXP: Int {
-        max(entry.snapshot.weeklyXP.max() ?? 1, entry.snapshot.dailyCap)
+        switch scaleMode {
+        case .goal:
+            return max(personalMaxXP, entry.snapshot.dailyCap)
+        case .personalMax:
+            return personalMaxXP
+        }
     }
 
     private var todayIndex: Int {
         let weekday = Calendar.current.component(.weekday, from: Date())
         // Convert Sun=1 to Mon-based index 0-6
         return weekday == 1 ? 6 : weekday - 2
+    }
+
+    private var freshnessText: String {
+        let minutes = max(0, Int(Date().timeIntervalSince(entry.snapshot.updatedAt) / 60))
+        if minutes < 1 {
+            return "Updated now"
+        }
+        if minutes < 60 {
+            return "Updated \(minutes)m ago"
+        }
+        let hours = minutes / 60
+        return "Updated \(hours)h ago"
     }
 
     var body: some View {
@@ -78,10 +108,27 @@ struct WeeklyScoreboardWidgetView: View {
                             .font(.system(size: 9, weight: index == todayIndex ? .bold : .regular))
                             .foregroundStyle(index == todayIndex ? .primary : .secondary)
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(dayLabels[index]) \(xp) XP")
+                    .accessibilityValue(xp > 0 ? "\(xp) XP" : "No XP")
+                    .accessibilityHint(index == todayIndex ? "Today" : (index > todayIndex ? "Future day" : "Past day"))
                 }
             }
             .frame(height: 80)
+
+            HStack {
+                Text(scaleMode == .goal ? "Goal scale" : "Personal max")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(freshnessText)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Weekly XP total \(entry.snapshot.weeklyTotalXP). Scale \(scaleMode == .goal ? "goal" : "personal max"). \(freshnessText).")
+        .widgetURL(URL(string: "tasker://insights"))
     }
 
     private func barColor(index: Int) -> Color {

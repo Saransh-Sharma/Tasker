@@ -60,5 +60,9 @@ struct FocusSeedWidgetView: View {
                     .background(.tint, in: Capsule())
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Focus today \(entry.snapshot.focusMinutesToday) minutes. Double tap to start focus.")
+        .accessibilityHint("Opens focus session")
+        .widgetURL(URL(string: "tasker://focus"))
     }
 }

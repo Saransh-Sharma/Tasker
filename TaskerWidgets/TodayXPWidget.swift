@@ -47,6 +47,17 @@ struct TodayXPWidgetView: View {
         return min(1.0, CGFloat(entry.snapshot.dailyXP) / CGFloat(entry.snapshot.dailyCap))
     }
 
+    private var freshnessText: String {
+        let minutes = max(0, Int(Date().timeIntervalSince(entry.snapshot.updatedAt) / 60))
+        if minutes < 1 {
+            return "Updated now"
+        }
+        if minutes < 60 {
+            return "Updated \(minutes)m ago"
+        }
+        return "Updated \(minutes / 60)h ago"
+    }
+
     var body: some View {
         switch family {
         case .systemSmall:
@@ -54,6 +65,7 @@ struct TodayXPWidgetView: View {
         default:
             mediumView
         }
+        .widgetURL(URL(string: "tasker://home"))
     }
 
     private var smallView: some View {
@@ -69,46 +81,63 @@ struct TodayXPWidgetView: View {
                 Text("\(entry.snapshot.streakDays) days")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundStyle(.secondary)
-            }
+                }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "Today's XP \(entry.snapshot.dailyXP) of \(entry.snapshot.dailyCap). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText)."
+        )
     }
 
     private var mediumView: some View {
-        HStack(spacing: 12) {
-            xpRing(size: 56, lineWidth: 5)
+        VStack(spacing: 6) {
+            HStack(spacing: 12) {
+                xpRing(size: 56, lineWidth: 5)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Today")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                HStack(spacing: 4) {
-                    Text("\(entry.snapshot.dailyXP)")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                    Text("/ \(entry.snapshot.dailyCap) XP")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Today")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text("\(entry.snapshot.dailyXP)")
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                        Text("/ \(entry.snapshot.dailyCap) XP")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    ProgressView(value: progress)
+                        .tint(entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? .green : .accentColor)
                 }
-                ProgressView(value: progress)
-                    .tint(entry.snapshot.dailyXP >= entry.snapshot.dailyCap ? .green : .accentColor)
+
+                Spacer()
+
+                VStack(spacing: 4) {
+                    Text("L\(entry.snapshot.level)")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(.tint, in: Capsule())
+                    HStack(spacing: 2) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.orange)
+                        Text("\(entry.snapshot.streakDays)")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    }
+                }
             }
 
-            Spacer()
-
-            VStack(spacing: 4) {
-                Text("L\(entry.snapshot.level)")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .frame(width: 28, height: 28)
-                    .background(.tint, in: Capsule())
-                HStack(spacing: 2) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.orange)
-                    Text("\(entry.snapshot.streakDays)")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                }
+            HStack {
+                Spacer()
+                Text(freshnessText)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.secondary)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "Today's XP \(entry.snapshot.dailyXP) of \(entry.snapshot.dailyCap). Level \(entry.snapshot.level). \(entry.snapshot.streakDays) day streak. \(freshnessText)."
+        )
     }
 
     private func xpRing(size: CGFloat, lineWidth: CGFloat) -> some View {

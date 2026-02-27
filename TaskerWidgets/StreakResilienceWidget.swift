@@ -64,5 +64,10 @@ struct StreakResilienceWidgetView: View {
                     .tint(.orange)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "Current streak \(entry.snapshot.streakDays) days. Best streak \(entry.snapshot.bestStreak) days."
+        )
+        .widgetURL(URL(string: "tasker://insights"))
     }
 }
