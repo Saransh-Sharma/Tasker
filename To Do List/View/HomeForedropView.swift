@@ -2399,37 +2399,13 @@ private extension Array {
 }
 
 struct HomeForedropLayoutMetrics {
-    static let midRevealBaseOffset: CGFloat = 94
-    static let extraFullRevealPadding: CGFloat = 72
-    static let minimumVisibleForedropHeight: CGFloat = 120
-    static let minimumAnalyticsPeekAtFullReveal: CGFloat = 620
-
-    var calendarExpandedHeight: CGFloat
-    var analyticsSectionHeight: CGFloat
-    var geometryHeight: CGFloat
-
-    var midOffset: CGFloat {
-        Self.midRevealBaseOffset + calendarExpandedHeight
-    }
-
-    var fullOffset: CGFloat {
-        let analyticsDrivenPeek = analyticsSectionHeight + Self.extraFullRevealPadding
-        let targetPeek = max(analyticsDrivenPeek, Self.minimumAnalyticsPeekAtFullReveal)
-        let fullRaw = midOffset + targetPeek
-        let cappedOffset = min(fullRaw, geometryHeight - Self.minimumVisibleForedropHeight)
-        return max(midOffset, cappedOffset)
-    }
+    var calendarExpandedHeight: CGFloat = 0
+    var analyticsSectionHeight: CGFloat = 0
+    var geometryHeight: CGFloat = 0
 
     /// Executes offset.
     func offset(for anchor: ForedropAnchor) -> CGFloat {
-        switch anchor {
-        case .collapsed:
-            return 0
-        case .midReveal:
-            return midOffset
-        case .fullReveal:
-            return fullOffset
-        }
+        0
     }
 }
 
@@ -2458,29 +2434,13 @@ struct HomeForedropHintEligibility {
     }
 }
 
-private struct CalendarHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 80
-    /// Executes reduce.
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-private struct AnalyticsSectionHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    /// Executes reduce.
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 private extension TimeInterval {
     var nanoseconds: UInt64 {
         UInt64((self * 1_000_000_000).rounded())
     }
 }
 
-private extension ForedropAnchor {
+extension ForedropAnchor {
     var accessibilityValue: String {
         switch self {
         case .collapsed:
@@ -2489,6 +2449,15 @@ private extension ForedropAnchor {
             return "midReveal"
         case .fullReveal:
             return "fullReveal"
+        }
+    }
+
+    var selectedBottomBarItem: HomeBottomBarItem {
+        switch self {
+        case .fullReveal:
+            return .charts
+        case .collapsed, .midReveal:
+            return .home
         }
     }
 }
@@ -2515,8 +2484,6 @@ struct HomeBackdropForedropRootView: View {
     let onStartFocus: (TaskDefinition) -> Void
 
     @State private var foredropAnchor: ForedropAnchor = .collapsed
-    @State private var calendarExpandedHeight: CGFloat = 0
-    @State private var analyticsSectionHeight: CGFloat = 0
     @State private var showAdvancedFilters = false
     @State private var showDatePicker = false
     @State private var draftDate = Date()
@@ -2554,15 +2521,15 @@ struct HomeBackdropForedropRootView: View {
     private var isUITesting: Bool {
         Self.launchArguments.contains("-UI_TESTING") || Self.launchArguments.contains("-DISABLE_ANIMATIONS")
     }
-
-    /// Executes foredropOffset.
-    private func foredropOffset(for geometryHeight: CGFloat) -> CGFloat {
-        let metrics = HomeForedropLayoutMetrics(
-            calendarExpandedHeight: calendarExpandedHeight,
-            analyticsSectionHeight: analyticsSectionHeight,
-            geometryHeight: geometryHeight
-        )
-        return metrics.offset(for: foredropAnchor)
+    private var isAnalyticsOpen: Bool { foredropAnchor == .fullReveal }
+    private var foredropFlipTransition: AnyTransition {
+        if reduceMotion || isUITesting {
+            return .opacity
+        }
+        return .coverFlip(blurStrength: 3.5)
+    }
+    private var foredropFlipAnimation: Animation {
+        .easeInOut(duration: reduceMotion || isUITesting ? 0.2 : 0.42)
     }
 
     /// Executes chartCardsViewportHeight.
@@ -2615,31 +2582,8 @@ struct HomeBackdropForedropRootView: View {
                                     geometry: contentGeometry,
                                     taskListBottomInset: taskListBottomInset
                                 )
-                                    .offset(y: foredropOffset(for: contentGeometry.size.height) + foredropHintOffset)
-                                    .animation(TaskerAnimation.snappy, value: foredropAnchor)
-                                    .gesture(
-                                        DragGesture(minimumDistance: 8)
-                                            .onEnded { value in
-                                                let threshold: CGFloat = 50
-                                                withAnimation(TaskerAnimation.snappy) {
-                                                    if value.translation.height > threshold {
-                                                        // Pull down: advance to next stop
-                                                        switch foredropAnchor {
-                                                        case .collapsed:  foredropAnchor = .midReveal
-                                                        case .midReveal:  foredropAnchor = .fullReveal
-                                                        case .fullReveal: break
-                                                        }
-                                                    } else if value.translation.height < -threshold {
-                                                        // Pull up: retreat to previous stop
-                                                        switch foredropAnchor {
-                                                        case .collapsed:  break
-                                                        case .midReveal:  foredropAnchor = .collapsed
-                                                        case .fullReveal: foredropAnchor = .midReveal
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                    )
+                                    .offset(y: foredropHintOffset)
+                                    .animation(foredropFlipAnimation, value: foredropAnchor)
                             }
                         }
                     }
@@ -2734,6 +2678,7 @@ struct HomeBackdropForedropRootView: View {
         .taskerSnackbar($snackbar)
         .onAppear {
             isHomeVisible = true
+            bottomBarState.select(foredropAnchor.selectedBottomBarItem)
             refreshReflectionClaimState()
             triggerForedropHintIfEligible()
         }
@@ -2933,7 +2878,6 @@ struct HomeBackdropForedropRootView: View {
                 .frame(height: max(480, geometry.size.height * 0.65))
                 .overlay(alignment: .topLeading) {
                     VStack(alignment: .leading, spacing: spacing.s8) {
-                        // 1. Weekly Calendar Strip
                         WeeklyCalendarStripView(
                             selectedDate: Binding(
                                 get: { viewModel.selectedDate },
@@ -2943,49 +2887,7 @@ struct HomeBackdropForedropRootView: View {
                         )
                         .padding(.horizontal, spacing.s16)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            GeometryReader { calGeo in
-                                Color.clear.preference(
-                                    key: CalendarHeightPreferenceKey.self,
-                                    value: calGeo.size.height
-                                )
-                            }
-                        )
-                        .onPreferenceChange(CalendarHeightPreferenceKey.self) { height in
-                            let baseWeekHeight: CGFloat = 80
-                            let nextHeight = max(0, height - baseWeekHeight)
-                            guard abs(calendarExpandedHeight - nextHeight) > 0.5 else { return }
-                            calendarExpandedHeight = nextHeight
-                        }
-                        .opacity(foredropAnchor != .collapsed ? 1 : 0.001)
-
-                        // 2. Chart Cards (visible when fully revealed)
-                        VStack(alignment: .leading, spacing: spacing.s12) {
-                            HStack(spacing: spacing.s8) {
-                                Text("Analytics")
-                                    .font(.tasker(.headline))
-                                    .foregroundColor(Color.tasker.textPrimary)
-                                Spacer()
-                            }
-
-                            InsightsTabView(viewModel: insightsViewModel)
-                                .frame(height: chartCardsViewportHeight(for: geometry))
-                        }
-                        .padding(.horizontal, spacing.s16)
-                        .background(
-                            GeometryReader { analyticsGeo in
-                                Color.clear.preference(
-                                    key: AnalyticsSectionHeightPreferenceKey.self,
-                                    value: analyticsGeo.size.height
-                                )
-                            }
-                        )
-                        .onPreferenceChange(AnalyticsSectionHeightPreferenceKey.self) { height in
-                            let nextHeight = max(0, height)
-                            guard abs(analyticsSectionHeight - nextHeight) > 0.5 else { return }
-                            analyticsSectionHeight = nextHeight
-                        }
-                        .opacity(foredropAnchor == .fullReveal ? 1 : 0.001)
+                        .opacity(isAnalyticsOpen ? 0.001 : 1)
                     }
                 }
             Spacer(minLength: 0)
@@ -2994,6 +2896,65 @@ struct HomeBackdropForedropRootView: View {
 
     /// Executes foredropLayer.
     private func foredropLayer(geometry: GeometryProxy, taskListBottomInset: CGFloat) -> some View {
+        ZStack {
+            if isAnalyticsOpen {
+                foredropBackFace(geometry: geometry)
+                    .transition(foredropFlipTransition)
+                    .zIndex(1)
+            } else {
+                foredropFrontFace(taskListBottomInset: taskListBottomInset)
+                    .transition(foredropFlipTransition)
+                    .zIndex(1)
+            }
+        }
+        .frame(
+            width: geometry.size.width,
+            height: geometry.size.height,
+            alignment: .top
+        )
+        .background(
+            UnevenRoundedRectangle(
+                topLeadingRadius: corner.modal,
+                bottomLeadingRadius: 0,
+                bottomTrailingRadius: 0,
+                topTrailingRadius: corner.modal
+            )
+                .fill(Color.tasker.surfaceTertiary)
+                .overlay(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: corner.modal,
+                        bottomLeadingRadius: 0,
+                        bottomTrailingRadius: 0,
+                        topTrailingRadius: corner.modal
+                    )
+                        .stroke(Color.tasker.strokeHairline.opacity(0.35), lineWidth: 1)
+                )
+                .taskerElevation(.e2, cornerRadius: corner.modal, includesBorder: false)
+        )
+        .clipShape(
+            UnevenRoundedRectangle(
+                topLeadingRadius: corner.modal,
+                bottomLeadingRadius: 0,
+                bottomTrailingRadius: 0,
+                topTrailingRadius: corner.modal
+            )
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.foredrop.surface")
+        .accessibilityValue(foredropAnchor.accessibilityValue)
+        .animation(foredropFlipAnimation, value: isAnalyticsOpen)
+    }
+
+    private var handleBar: some View {
+        VStack(spacing: spacing.s4) {
+            Capsule()
+                .fill(Color.tasker.textQuaternary.opacity(0.4))
+                .frame(width: 44, height: 5)
+                .accessibilityIdentifier("home.foredrop.handle")
+        }
+    }
+
+    private func foredropFrontFace(taskListBottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
             handleBar
                 .padding(.top, spacing.s8)
@@ -3013,7 +2974,6 @@ struct HomeBackdropForedropRootView: View {
                     .accessibilityIdentifier("home.focus.strip")
             }
 
-            // Next action module: contextual guidance for empty/low-content states
             if viewModel.activeScope.quickView == .today && viewModel.pinnedFocusTaskIDs.count < 3 {
                 NextActionModule(
                     openTaskCount: viewModel.todayOpenTaskCount,
@@ -3078,69 +3038,38 @@ struct HomeBackdropForedropRootView: View {
             .onDrop(of: ["public.text"], isTargeted: nil, perform: handleListDrop)
             .accessibilityIdentifier("home.list.dropzone")
         }
-        .frame(
-            width: geometry.size.width,
-            height: geometry.size.height,
-            alignment: .top
-        )
-        .background(
-            UnevenRoundedRectangle(
-                topLeadingRadius: corner.modal,
-                bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0,
-                topTrailingRadius: corner.modal
-            )
-                .fill(Color.tasker.surfaceTertiary)
-                .overlay(
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: corner.modal,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: 0,
-                        topTrailingRadius: corner.modal
-                    )
-                        .stroke(Color.tasker.strokeHairline.opacity(0.35), lineWidth: 1)
-                )
-                .taskerElevation(.e2, cornerRadius: corner.modal, includesBorder: false)
-        )
-        .clipShape(
-            UnevenRoundedRectangle(
-                topLeadingRadius: corner.modal,
-                bottomLeadingRadius: 0,
-                bottomTrailingRadius: 0,
-                topTrailingRadius: corner.modal
-            )
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.foredrop.surface")
-        .accessibilityValue(foredropAnchor.accessibilityValue)
     }
 
-    private var handleBar: some View {
-        VStack(spacing: spacing.s4) {
-            Capsule()
-                .fill(Color.tasker.textQuaternary.opacity(0.4))
-                .frame(width: 44, height: 5)
-                .accessibilityIdentifier("home.foredrop.handle")
-
-            if foredropAnchor == .fullReveal {
+    private func foredropBackFace(geometry: GeometryProxy) -> some View {
+        VStack(spacing: spacing.s8) {
+            HStack(spacing: spacing.s8) {
+                Text("Analytics")
+                    .font(.tasker(.headline))
+                    .foregroundColor(Color.tasker.textPrimary)
+                Spacer()
                 Button {
-                    withAnimation(TaskerAnimation.snappy) {
-                        foredropAnchor = .collapsed
-                    }
+                    closeAnalytics(source: "back_chip")
                 } label: {
                     HStack(spacing: spacing.s4) {
-                        Image(systemName: "chevron.up")
+                        Image(systemName: "arrow.left")
                             .font(.system(size: 10, weight: .semibold))
-                        Text("collapse")
+                        Text("Back to tasks")
                             .font(.tasker(.caption2))
                     }
-                    .foregroundColor(Color.tasker.textQuaternary.opacity(0.85))
+                    .foregroundColor(Color.tasker.textQuaternary.opacity(0.92))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("home.foredrop.collapseHint")
-                .accessibilityLabel("Collapse analytics")
+                .accessibilityLabel("Back to tasks")
             }
+            .padding(.horizontal, spacing.s16)
+            .padding(.top, spacing.s12)
+
+            InsightsTabView(viewModel: insightsViewModel)
+                .frame(maxWidth: .infinity)
+                .frame(height: chartCardsViewportHeight(for: geometry))
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private func topNavigationBar() -> some View {
@@ -3272,7 +3201,7 @@ struct HomeBackdropForedropRootView: View {
                     accessibilityContainerID: "home.navXpPieChart",
                     accessibilityButtonID: "home.navXpPieChart.button"
                 ) {
-                    toggleInsights()
+                    toggleInsights(source: "nav_xp_chart")
                 }
                 .background(
                     Circle()
@@ -3412,8 +3341,11 @@ struct HomeBackdropForedropRootView: View {
     private var homeBottomBar: some View {
         HomeGlassBottomBar(
             state: bottomBarState,
+            onHome: {
+                closeAnalytics(source: "bottom_bar_home")
+            },
             onChartsToggle: {
-                toggleInsights()
+                toggleInsights(source: "bottom_bar_analytics")
             },
             onSearch: {
                 onOpenSearch()
@@ -3616,23 +3548,45 @@ struct HomeBackdropForedropRootView: View {
         )
     }
 
-    private func toggleInsights() {
-        let shouldOpenInsights = foredropAnchor != .fullReveal
-        withAnimation(TaskerAnimation.snappy) {
-            foredropAnchor = foredropAnchor == .fullReveal ? .collapsed : .fullReveal
-        }
+    private func toggleInsights(source: String) {
+        let shouldOpenInsights = !isAnalyticsOpen
         if shouldOpenInsights {
-            viewModel.launchInsights(.default)
+            openAnalytics(source: source, launchDefaultInsights: true)
+        } else {
+            closeAnalytics(source: source)
         }
     }
 
     private func handleInsightsLaunchRequest(_ request: InsightsLaunchRequest?) {
         guard let request else { return }
-        withAnimation(TaskerAnimation.snappy) {
-            foredropAnchor = .fullReveal
-        }
+        openAnalytics(source: "launch_request", launchDefaultInsights: false)
         insightsViewModel.selectTab(request.targetTab)
         insightsViewModel.highlightAchievement(request.highlightedAchievementKey)
+    }
+
+    private func openAnalytics(source: String, launchDefaultInsights: Bool) {
+        withAnimation(foredropFlipAnimation) {
+            foredropAnchor = .fullReveal
+        }
+        bottomBarState.select(.charts)
+        viewModel.trackHomeInteraction(
+            action: "home_insights_flip_open",
+            metadata: ["source": source]
+        )
+        if launchDefaultInsights {
+            viewModel.launchInsights(.default)
+        }
+    }
+
+    private func closeAnalytics(source: String) {
+        withAnimation(foredropFlipAnimation) {
+            foredropAnchor = .collapsed
+        }
+        bottomBarState.select(.home)
+        viewModel.trackHomeInteraction(
+            action: "home_insights_flip_close",
+            metadata: ["source": source]
+        )
     }
 
     private func showAchievementUnlockToast(for event: CelebrationEvent) {
