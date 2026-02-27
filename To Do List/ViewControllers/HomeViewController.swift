@@ -31,6 +31,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     private var pendingChartRefreshWorkItem: DispatchWorkItem?
     private let chartRefreshDebounceSeconds: TimeInterval = 0.12
     private var pendingNotificationFocusTaskID: UUID?
+    private var syncOutageBanner: UIView?
+    private var syncOutageLabel: UILabel?
 
 
     // MARK: - Lifecycle
@@ -46,8 +48,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         observeMutations()
         observeNotificationRoutes()
         observeFocusDeepLinks()
+        observeHomeDeepLinks()
+        observeInsightsDeepLinks()
         observeTaskCreatedForSnackbar()
+        observePersistentSyncMode()
         applyTheme()
+        refreshPersistentSyncOutageBanner()
     }
 
     /// Executes viewWillAppear.
@@ -215,6 +221,91 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 self?.handleFocusDeepLink()
             }
             .store(in: &cancellables)
+    }
+
+    private func observeHomeDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenHomeDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleHomeDeepLink()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeInsightsDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenInsightsDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleInsightsDeepLink()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observePersistentSyncMode() {
+        NotificationCenter.default.publisher(for: .taskerPersistentSyncModeDidChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.refreshPersistentSyncOutageBanner()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func refreshPersistentSyncOutageBanner() {
+        if AppDelegate.isWriteClosed {
+            showPersistentSyncOutageBanner(
+                message: "Sync unavailable, read-only mode. Recover from iCloud to resume edits."
+            )
+        } else {
+            hidePersistentSyncOutageBanner()
+        }
+    }
+
+    private func showPersistentSyncOutageBanner(message: String) {
+        if syncOutageBanner == nil {
+            let banner = UIView()
+            banner.translatesAutoresizingMaskIntoConstraints = false
+            banner.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.18)
+            banner.layer.cornerRadius = 10
+            banner.layer.masksToBounds = true
+
+            let label = UILabel()
+            label.translatesAutoresizingMaskIntoConstraints = false
+            label.font = .systemFont(ofSize: 13, weight: .semibold)
+            label.textColor = .label
+            label.numberOfLines = 2
+            label.textAlignment = .center
+
+            banner.addSubview(label)
+            view.addSubview(banner)
+
+            let topConstraint = banner.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8)
+            let leadingConstraint = banner.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12)
+            let trailingConstraint = banner.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12)
+            let heightConstraint = banner.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
+
+            NSLayoutConstraint.activate([
+                topConstraint,
+                leadingConstraint,
+                trailingConstraint,
+                heightConstraint,
+                label.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 12),
+                label.trailingAnchor.constraint(equalTo: banner.trailingAnchor, constant: -12),
+                label.topAnchor.constraint(equalTo: banner.topAnchor, constant: 8),
+                label.bottomAnchor.constraint(equalTo: banner.bottomAnchor, constant: -8)
+            ])
+
+            syncOutageBanner = banner
+            syncOutageLabel = label
+        }
+
+        syncOutageLabel?.text = message
+        syncOutageBanner?.isHidden = false
+        syncOutageBanner?.alpha = 1
+    }
+
+    private func hidePersistentSyncOutageBanner() {
+        syncOutageBanner?.isHidden = true
+        syncOutageBanner?.alpha = 0
     }
 
     private func consumeUITestInjectedRouteIfNeeded() {
@@ -470,6 +561,14 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         startFocusFlow(task: preferredTask, source: "deeplink")
     }
 
+    private func handleHomeDeepLink() {
+        viewModel?.setQuickView(.today)
+    }
+
+    private func handleInsightsDeepLink() {
+        viewModel?.launchInsights(.default)
+    }
+
     private func startFocusFlow(task: TaskDefinition?, source: String) {
         guard let viewModel else { return }
         if presentedViewController != nil {
@@ -557,6 +656,10 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             dailyXPSoFar: result.xpResult?.dailyXPSoFar ?? viewModel.dailyScore,
             dailyXPCap: GamificationTokens.dailyXPCap,
             onDismiss: { [weak self] in
+                self?.dismiss(animated: true)
+            },
+            onContinueMomentum: { [weak self] in
+                self?.viewModel?.setQuickView(.today)
                 self?.dismiss(animated: true)
             }
         )
@@ -895,7 +998,7 @@ extension HomeViewController {
 
     /// Executes showTaskCreatedSnackbar.
     private func showTaskCreatedSnackbar(for task: TaskDefinition) {
-        guard let hostingController = homeHostingController else { return }
+        guard homeHostingController != nil else { return }
 
         let taskID = task.id
         let snackbar = TaskerSnackbar(

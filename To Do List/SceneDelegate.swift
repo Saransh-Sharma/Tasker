@@ -13,9 +13,16 @@ import UIKit
 
 extension Notification.Name {
     static let taskerOpenFocusDeepLink = Notification.Name("TaskerOpenFocusDeepLink")
+    static let taskerOpenHomeDeepLink = Notification.Name("TaskerOpenHomeDeepLink")
+    static let taskerOpenInsightsDeepLink = Notification.Name("TaskerOpenInsightsDeepLink")
 }
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+
+    private enum BootstrapFailureAction {
+        case retrySync
+        case recoverFromICloud
+    }
 
     var window: UIWindow?
     private var chatPrewarmTask: Task<Void, Never>?
@@ -35,34 +42,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let rootMode = appDelegate?.makeLaunchRootMode() ?? .bootstrapFailure(
             message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker storage is unavailable. Please relaunch the app."
         )
-
-        switch rootMode {
-        case .home:
-            _ = LLMRuntimeCoordinator.shared
-            // Load HomeViewController from storyboard
-            let storyboard = UIStoryboard(name: "Main", bundle: nil)
-            guard let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController else {
-                showBootstrapFailureRoot(message: "Tasker could not load the home screen.")
-                return
-            }
-
-            // Inject dependencies safely. If setup failed, fall back to a non-crashing bootstrap failure root.
-            guard PresentationDependencyContainer.shared.tryInject(into: homeViewController) else {
-                showBootstrapFailureRoot(
-                    message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker could not initialize dependencies."
-                )
-                return
-            }
-
-            let navigationController = UINavigationController(rootViewController: homeViewController)
-
-            // Set as root view controller
-            window?.rootViewController = navigationController
-            window?.makeKeyAndVisible()
-
-        case .bootstrapFailure(let message):
-            showBootstrapFailureRoot(message: message)
-        }
+        renderRoot(for: rootMode)
 
         if let deepLinkURL = connectionOptions.urlContexts.first?.url {
             DispatchQueue.main.async { [weak self] in
@@ -71,11 +51,68 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
+    /// Executes renderRoot.
+    private func renderRoot(for rootMode: LaunchRootMode) {
+        switch rootMode {
+        case .home:
+            _ = LLMRuntimeCoordinator.shared
+            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+            guard let homeViewController = storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController else {
+                showBootstrapFailureRoot(message: "Tasker could not load the home screen.")
+                return
+            }
+
+            guard PresentationDependencyContainer.shared.tryInject(into: homeViewController) else {
+                showBootstrapFailureRoot(
+                    message: AppDelegate.persistentBootstrapFailureMessage ?? "Tasker could not initialize dependencies."
+                )
+                return
+            }
+
+            let navigationController = UINavigationController(rootViewController: homeViewController)
+            window?.rootViewController = navigationController
+            window?.makeKeyAndVisible()
+
+        case .bootstrapFailure(let message):
+            showBootstrapFailureRoot(message: message)
+        }
+    }
+
     /// Executes showBootstrapFailureRoot.
     private func showBootstrapFailureRoot(message: String) {
-        let failureViewController = BootstrapFailureViewController(message: message)
+        let failureViewController = BootstrapFailureViewController(
+            message: message,
+            onRetrySync: { [weak self] in
+                self?.performBootstrapFailureAction(.retrySync)
+            },
+            onRecoverFromICloud: { [weak self] in
+                self?.performBootstrapFailureAction(.recoverFromICloud)
+            }
+        )
         window?.rootViewController = failureViewController
         window?.makeKeyAndVisible()
+    }
+
+    private func performBootstrapFailureAction(_ action: BootstrapFailureAction) {
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let mode: LaunchRootMode
+            switch action {
+            case .retrySync:
+                mode = appDelegate.retryPersistentStoreBootstrap()
+            case .recoverFromICloud:
+                mode = appDelegate.recoverFromCloudAuthoritativeReset()
+            }
+
+            DispatchQueue.main.async {
+                self?.renderRoot(for: mode)
+                if case .bootstrapFailure(let message) = mode,
+                   let failureVC = self?.window?.rootViewController as? BootstrapFailureViewController {
+                    failureVC.setWorking(false, hint: message)
+                }
+            }
+        }
     }
 
     /// Executes sceneDidDisconnect.
@@ -139,6 +176,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         if host == "focus" {
             NotificationCenter.default.post(name: .taskerOpenFocusDeepLink, object: nil)
+            return
+        }
+        if host == "home" {
+            NotificationCenter.default.post(name: .taskerOpenHomeDeepLink, object: nil)
+            return
+        }
+        if host == "insights" {
+            NotificationCenter.default.post(name: .taskerOpenInsightsDeepLink, object: nil)
         }
     }
 
