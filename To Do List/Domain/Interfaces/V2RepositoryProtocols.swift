@@ -123,18 +123,29 @@ public protocol ReminderRepositoryProtocol {
 }
 
 public protocol GamificationRepositoryProtocol {
-    /// Executes fetchProfile.
+    // MARK: - Profile
     func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void)
-    /// Executes saveProfile.
     func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void)
-    /// Executes fetchXPEvents.
+
+    // MARK: - XP Events
     func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void)
-    /// Executes saveXPEvent.
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void)
     func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void)
-    /// Executes fetchAchievementUnlocks.
+    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void)
+
+    // MARK: - Achievement Unlocks
     func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void)
-    /// Executes saveAchievementUnlock.
     func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void)
+
+    // MARK: - Daily XP Aggregates
+    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void)
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void)
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void)
+
+    // MARK: - Focus Sessions
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void)
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void)
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void)
 }
 
 public protocol AssistantActionRepositoryProtocol {
