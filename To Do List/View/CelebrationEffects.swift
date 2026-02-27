@@ -14,6 +14,7 @@ public struct XPCelebrationView: View {
     let xpValue: Int
     /// Initializes a new instance.
     @Binding var isPresented: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var scale: CGFloat = 0.5
     @State private var opacity: Double = 0
@@ -29,12 +30,14 @@ public struct XPCelebrationView: View {
         if isPresented {
             ZStack {
                 // Particles
-                ForEach(particles) { particle in
-                    Circle()
-                        .fill(particle.color)
-                        .frame(width: particle.size, height: particle.size)
-                        .offset(x: particle.x, y: particle.y)
-                        .opacity(particle.opacity)
+                if !reduceMotion {
+                    ForEach(particles) { particle in
+                        Circle()
+                            .fill(particle.color)
+                            .frame(width: particle.size, height: particle.size)
+                            .offset(x: particle.x, y: particle.y)
+                            .opacity(particle.opacity)
+                    }
                 }
 
                 // Main XP badge
@@ -76,6 +79,27 @@ public struct XPCelebrationView: View {
 
     /// Executes performAnimation.
     private func performAnimation() {
+        if reduceMotion {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                scale = 1
+                opacity = 1
+                yOffset = -8
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    opacity = 0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                    isPresented = false
+                    scale = 0.5
+                    opacity = 0
+                    yOffset = 0
+                    particles = []
+                }
+            }
+            return
+        }
+
         // Generate particles
         particles = (0..<12).map { _ in
             Particle(
@@ -138,6 +162,7 @@ public struct StreakCelebrationView: View {
     let streakDays: Int
     /// Initializes a new instance.
     @Binding var isPresented: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var flameScale: CGFloat = 0.3
     @State private var flameOpacity: Double = 0
@@ -164,7 +189,7 @@ public struct StreakCelebrationView: View {
                         .foregroundColor(.orange)
                         .scaleEffect(flameScale)
                         .opacity(flameOpacity)
-                        .symbolEffect(.bounce, options: .repeating.speed(0.5), isActive: true)
+                        .symbolEffect(.bounce, options: .repeating.speed(0.5), isActive: !reduceMotion)
 
                     Text("\(streakDays) day streak!")
                         .font(.tasker(.caption1))
@@ -181,6 +206,26 @@ public struct StreakCelebrationView: View {
 
     /// Executes performAnimation.
     private func performAnimation() {
+        if reduceMotion {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                flameScale = 1
+                flameOpacity = 1
+                ringScale = 1.1
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    flameOpacity = 0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    isPresented = false
+                    flameScale = 0.3
+                    flameOpacity = 0
+                    ringScale = 0.5
+                }
+            }
+            return
+        }
+
         withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
             flameScale = 1
             flameOpacity = 1
@@ -211,6 +256,7 @@ public struct StreakCelebrationView: View {
 public struct TaskCompleteAnimationModifier: ViewModifier {
     let isComplete: Bool
     /// Executes body.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bounceAmount: CGFloat = 0
 
     public func body(content: Content) -> some View {
@@ -218,6 +264,17 @@ public struct TaskCompleteAnimationModifier: ViewModifier {
             .scaleEffect(1 + bounceAmount)
             .onChange(of: isComplete) { _, newValue in
                 if newValue {
+                    if reduceMotion {
+                        withAnimation(.easeInOut(duration: 0.12)) {
+                            bounceAmount = 0.03
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                            withAnimation(.easeOut(duration: 0.12)) {
+                                bounceAmount = 0
+                            }
+                        }
+                        return
+                    }
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) {
                         bounceAmount = 0.1
                     }

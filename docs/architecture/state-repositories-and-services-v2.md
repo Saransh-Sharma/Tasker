@@ -1,6 +1,6 @@
 # State Repositories and Services (V3 Runtime)
 
-**Last validated against code on 2026-02-21**
+**Last validated against code on 2026-02-27**
 
 This document maps State-layer ownership for persistence repositories, supporting services, and runtime wiring.
 
@@ -10,7 +10,8 @@ Primary source anchors:
 - `To Do List/State/DI/EnhancedDependencyContainer.swift`
 - `To Do List/Domain/Interfaces/V2RepositoryProtocols.swift`
 - `To Do List/Domain/Interfaces/TaskReadModelRepositoryProtocol.swift`
-- `To Do List/TaskModelV3.xcdatamodeld/TaskModelV3.xcdatamodel/contents`
+- `To Do List/TaskModelV3.xcdatamodeld/.xccurrentversion`
+- `To Do List/TaskModelV3.xcdatamodeld/TaskModelV3_Gamification.xcdatamodel/contents`
 - `To Do List/LLM/Models/TaskSemanticIndexStore.swift`
 - `To Do List/LLM/Models/TaskSemanticRetrievalService.swift`
 - `To Do List/LLM/Models/LLMDataController.swift`
@@ -47,7 +48,7 @@ flowchart TD
 | `State/Repositories/CoreDataScheduleRepository.swift` | `CoreDataScheduleRepository` | `ScheduleRepositoryProtocol` | `ScheduleTemplate`, `ScheduleRule`, `ScheduleException` |
 | `State/Repositories/CoreDataOccurrenceRepository.swift` | `CoreDataOccurrenceRepository` | `OccurrenceRepositoryProtocol` | `Occurrence`, `OccurrenceResolution` |
 | `State/Repositories/CoreDataReminderRepository.swift` | `CoreDataReminderRepository` | `ReminderRepositoryProtocol` | `Reminder`, `ReminderTrigger`, `ReminderDelivery` |
-| `State/Repositories/CoreDataGamificationRepository.swift` | `CoreDataGamificationRepository` | `GamificationRepositoryProtocol` | `GamificationProfile`, `XPEvent`, `AchievementUnlock` |
+| `State/Repositories/CoreDataGamificationRepository.swift` | `CoreDataGamificationRepository` | `GamificationRepositoryProtocol` | `GamificationProfile`, `XPEvent`, `AchievementUnlock`, `DailyXPAggregate`, `FocusSession` |
 | `State/Repositories/CoreDataAssistantActionRepository.swift` | `CoreDataAssistantActionRepository` | `AssistantActionRepositoryProtocol` | `AssistantActionRun` |
 | `State/Repositories/CoreDataExternalSyncRepository.swift` | `CoreDataExternalSyncRepository` | `ExternalSyncRepositoryProtocol` | `ExternalContainerMap`, `ExternalItemMap` |
 | `State/Repositories/CoreDataTombstoneRepository.swift` | `CoreDataTombstoneRepository` | `TombstoneRepositoryProtocol` | `Tombstone` |
@@ -74,11 +75,26 @@ flowchart TD
 | Scheduling timeline | schedule + occurrence repositories and scheduling engine | schedule maintenance and reminder orchestration |
 | Reminders domain | `CoreDataReminderRepository` + provider service | reminder scheduling and external reconcile |
 | External mapping state | `CoreDataExternalSyncRepository` | link/reconcile flows |
-| Gamification ledger | `CoreDataGamificationRepository` | completion and analytics flows |
+| Gamification ledger + daily projections | `CoreDataGamificationRepository` | task completion, focus/reflection, Home XP, Insights, widgets |
 | Assistant action runs | `CoreDataAssistantActionRepository` | assistant propose/confirm/apply/undo |
 | Tombstones | `CoreDataTombstoneRepository` | maintenance and sync merge flows |
 | Semantic embeddings index | `TaskSemanticIndexStore` (local file in Application Support) | chat semantic context and search rerank |
 | LLM chat history | SwiftData `LLMDataController` local store | Chat UI thread/message rendering |
+
+## Gamification Repository Threading and Canonicalization
+
+`CoreDataGamificationRepository` uses a split-context model:
+- `backgroundContext`: write context with local transaction author (`tasker.gamification.local`).
+- `readContext`: dedicated background read context for fetch APIs.
+
+Freshness and safety expectations:
+1. Read paths are non-destructive fetches.
+2. Write paths apply canonicalization where required:
+- profile: singleton canonical row.
+- daily aggregate: canonical row per `dateKey`.
+- idempotency checks via `XPEvent.idempotencyKey`.
+3. After successful writes, repository resets `readContext` to avoid stale registered-object snapshots in-session.
+4. Schema guard validates required entities/attributes and fails safely with diagnostics if missing.
 
 ## Semantic Index Ownership and Persistence
 
@@ -100,6 +116,9 @@ flowchart TD
 | Tag links replaced as set for a task | `CoreDataTaskTagLinkRepository.replaceTagLinks` | avoids stale links after edits |
 | Occurrence identity uses immutable `occurrenceKey` | `CoreDataOccurrenceRepository` | deterministic recurrence lifecycle |
 | External item mappings upsert by local/external key | `CoreDataExternalSyncRepository` | stable merge-state evolution |
+| Gamification profile canonical singleton | `CoreDataGamificationRepository.saveProfile` | prevents duplicate profile rows and stale level totals |
+| Daily aggregate canonical by `dateKey` | `CoreDataGamificationRepository.saveDailyAggregate` | keeps one authoritative row per day for week rendering |
+| Read-context reset after gamification writes | `CoreDataGamificationRepository.finalizeWrite` | prevents stale read-after-write snapshots |
 | Semantic vectors keyed by `taskID` and replaced on upsert | `TaskSemanticIndexStore` | deterministic semantic refresh behavior |
 
 ## LLM SwiftData Reliability Note

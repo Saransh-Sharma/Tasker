@@ -3,11 +3,17 @@ import Foundation
 public final class CompleteTaskDefinitionUseCase {
     private let repository: TaskDefinitionRepositoryProtocol
     private let gamification: RecordXPUseCase?
+    private let gamificationEngine: GamificationEngine?
 
     /// Initializes a new instance.
-    public init(repository: TaskDefinitionRepositoryProtocol, gamification: RecordXPUseCase? = nil) {
+    public init(
+        repository: TaskDefinitionRepositoryProtocol,
+        gamification: RecordXPUseCase? = nil,
+        gamificationEngine: GamificationEngine? = nil
+    ) {
         self.repository = repository
         self.gamification = gamification
+        self.gamificationEngine = gamificationEngine
     }
 
     /// Executes execute.
@@ -36,7 +42,31 @@ public final class CompleteTaskDefinitionUseCase {
                 self.repository.update(task) { updateResult in
                     if case .success(let updatedTask) = updateResult {
                         if isComplete {
-                            self.gamification?.recordTaskCompletion(taskID: taskID) { _ in }
+                            if V2FeatureFlags.gamificationV2Enabled, let engine = self.gamificationEngine {
+                                let context = XPEventContext(
+                                    category: .complete,
+                                    source: .manual,
+                                    taskID: taskID,
+                                    dueDate: task.dueDate,
+                                    completedAt: Date(),
+                                    priority: max(0, Int(task.priority.rawValue) - 1),
+                                    estimatedDuration: task.estimatedDuration
+                                )
+                                engine.recordEvent(context: context) { result in
+                                    if case .failure(let error) = result {
+                                        logError(
+                                            event: "gamification_task_completion_record_failed",
+                                            message: "Failed to record gamification XP event for task completion",
+                                            fields: [
+                                                "task_id": taskID.uuidString,
+                                                "error": error.localizedDescription
+                                            ]
+                                        )
+                                    }
+                                }
+                            } else {
+                                self.gamification?.recordTaskCompletion(taskID: taskID) { _ in }
+                            }
                         }
                         TaskNotificationDispatcher.postOnMain(
                             name: NSNotification.Name("TaskCompletionChanged"),

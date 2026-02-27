@@ -312,7 +312,14 @@ struct TaskDetailSheetView: View {
 
             HStack(spacing: TaskerTheme.Spacing.sm) {
                 PriorityBadge(priority: viewModel.selectedPriority.rawValue)
-                ScoreBadge(points: viewModel.selectedPriority.scorePoints)
+                ScoreBadge(
+                    estimate: detailXPEstimate,
+                    reasonHint: XPCalculationEngine.estimateReasonHints(
+                        estimatedDuration: viewModel.estimatedDuration,
+                        isFocusSessionActive: false,
+                        isPinnedInFocusStrip: false
+                    )
+                )
 
                 Spacer()
 
@@ -332,6 +339,13 @@ struct TaskDetailSheetView: View {
                 .accessibilityLabel("Task status \(statusText)")
         }
         .padding(.horizontal, TaskerTheme.Spacing.screenHorizontal)
+    }
+
+    private var detailXPEstimate: XPDisplayEstimate {
+        XPCalculationEngine.completionEstimate(
+            priorityRaw: viewModel.selectedPriority.rawValue,
+            estimatedDuration: viewModel.estimatedDuration
+        )
     }
 
     @ViewBuilder

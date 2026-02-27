@@ -373,6 +373,46 @@ class PerformanceTests: BaseUITest {
         takeScreenshot(named: "performance_stress_test")
     }
 
+    // MARK: - Insights Performance
+
+    func testInsightsTabSwitchingPerformance() throws {
+        homePage.tapCharts()
+        XCTAssertTrue(
+            homePage.insightsContainer.waitForExistence(timeout: 3),
+            "Insights container should be visible after opening charts"
+        )
+
+        PerformanceMetrics.measureAndAssert(
+            named: "Insights Tab Switching",
+            threshold: 3.0,
+            testCase: self
+        ) {
+            for _ in 0..<8 {
+                _ = homePage.switchInsightsTab(.today)
+                _ = homePage.switchInsightsTab(.week)
+                _ = homePage.switchInsightsTab(.systems)
+            }
+        }
+    }
+
+    func testInsightsTabScrollPerformance() throws {
+        homePage.tapCharts()
+        XCTAssertTrue(
+            homePage.insightsContainer.waitForExistence(timeout: 3),
+            "Insights container should be visible after opening charts"
+        )
+
+        PerformanceMetrics.measureAndAssert(
+            named: "Insights Tab Scroll",
+            threshold: 6.0,
+            testCase: self
+        ) {
+            _ = homePage.scrollInsightsTab(.today, swipeCount: 4)
+            _ = homePage.scrollInsightsTab(.week, swipeCount: 4)
+            _ = homePage.scrollInsightsTab(.systems, swipeCount: 4)
+        }
+    }
+
     // MARK: - Helper
 
     private func findTaskIndex(withTitle title: String) -> Int {

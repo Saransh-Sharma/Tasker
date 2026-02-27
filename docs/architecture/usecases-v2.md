@@ -1,6 +1,6 @@
 # Tasker Usecases and Contracts (V3 Runtime)
 
-**Last validated against code on 2026-02-21**
+**Last validated against code on 2026-02-27**
 
 This document is the contract map for the current usecase layer.
 It includes active usecase inventory, dependency surfaces, side effects, and orchestration flows.
@@ -21,7 +21,7 @@ Primary source anchors:
 | --- | --- |
 | Analytics | `CalculateAnalyticsUseCase.swift`, `GenerateProductivityReportUseCase.swift` |
 | Coordinator | `UseCaseCoordinator.swift` |
-| Gamification | `RecordXPUseCase.swift` |
+| Gamification | `GamificationEngine.swift`, `FocusSessionUseCase.swift`, `MarkDailyReflectionCompleteUseCase.swift`, `RecordXPUseCase.swift` (legacy compatibility) |
 | Habit | `ManageHabitsUseCase.swift` |
 | LLM | `AssistantActionPipelineUseCase.swift`, `AssistantCommandExecutor.swift` |
 | LifeArea | `ManageLifeAreasUseCase.swift` |
@@ -92,7 +92,7 @@ It exposes:
 | `CreateTaskDefinitionUseCase` | `CreateTaskDefinitionRequest` (or scalar convenience args) | `TaskDefinition` | `TaskDefinitionRepositoryProtocol`, optional tag/dependency link repositories | creates task + persists links + posts task mutation notifications |
 | `UpdateTaskDefinitionUseCase` | `UpdateTaskDefinitionRequest` | `TaskDefinition` | same as create | updates task + replaces links + posts task mutation notifications |
 | `DeleteTaskDefinitionUseCase` | task ID | `Void` | `TaskDefinitionRepositoryProtocol`, optional `TombstoneRepositoryProtocol` | deletes task, optionally writes tombstone, posts task deletion notifications |
-| `CompleteTaskDefinitionUseCase` | task ID + completion toggle | `TaskDefinition` | `TaskDefinitionRepositoryProtocol`, optional `RecordXPUseCase` | completion writes, optional XP write, completion notifications |
+| `CompleteTaskDefinitionUseCase` | task ID + completion toggle | `TaskDefinition` | `TaskDefinitionRepositoryProtocol`, optional `GamificationEngine`, optional `RecordXPUseCase` | completion writes, v2 XP event via engine under flag, completion notifications |
 | `RescheduleTaskDefinitionUseCase` | task ID + new date | `TaskDefinition` | `UpdateTaskDefinitionUseCase` | due-date mutation via update path |
 | `GetTaskChildrenUseCase` | parent task ID | `[TaskDefinition]` | `TaskDefinitionRepositoryProtocol` | read-only child fetch |
 
@@ -107,9 +107,17 @@ It exposes:
 | `ScheduleReminderUseCase` | reminder/trigger/delivery requests | reminder domain values | `ReminderRepositoryProtocol`, optional `NotificationServiceProtocol` | reminder graph writes + optional local notifications |
 | `LinkExternalRemindersUseCase` | project/list mapping and optional bootstrap import args | mapping/import results | `ExternalSyncRepositoryProtocol`, optional provider and task repository | provider reads + mapping writes + optional local task imports |
 | `ReconcileExternalRemindersUseCase` | mapping snapshots or project reconcile | counts / `ReconcileSummary` | external repository, optional provider/task repository, `ReminderMergeEngine` | two-way provider/local sync writes |
-| `RecordXPUseCase` | task completion IDs | `Void` / reconciled profile | `GamificationRepositoryProtocol` | XP and achievement writes |
+| `GamificationEngine` | `XPEventContext` | `XPEventResult` | `GamificationRepositoryProtocol` | idempotent XP ledger writes, daily aggregate upsert, profile updates, post-commit `gamificationLedgerDidMutate`, optional reconciliation recovery |
+| `FocusSessionUseCase` | focus session lifecycle requests | `FocusSessionDefinition` / `FocusSessionResult` | `GamificationRepositoryProtocol`, `GamificationEngine` | focus session persistence + XP record on session end |
+| `MarkDailyReflectionCompleteUseCase` | execute / `isCompletedToday()` | `XPEventResult` / `Bool` | `GamificationEngine` | daily reflection XP event, idempotent completion UX signal, notification reconcile trigger |
+| `RecordXPUseCase` | task completion IDs | `Void` / reconciled profile | `GamificationRepositoryProtocol` | legacy compatibility path for pre-engine call sites |
 | `AssistantActionPipelineUseCase` | propose/confirm/apply/reject/undo calls | `AssistantActionRunDefinition` | assistant action repo, task definition repo, command executor | transactional task mutations + run lifecycle persistence |
 | `ReminderMergeEngine` | merge envelopes/clocks/state | merge decisions + encoded envelope | pure component | deterministic in-memory merge logic |
+
+Gamification runtime model:
+1. `CompleteTaskDefinitionUseCase` mutates task completion state.
+2. Under `V2FeatureFlags.gamificationV2Enabled`, XP mutation path is `GamificationEngine.recordEvent`.
+3. UI freshness is driven by post-commit `Notification.Name.gamificationLedgerDidMutate`, not periodic TTL refresh.
 
 ## LLM Surface Services (Non-UseCase, Runtime-Owned)
 

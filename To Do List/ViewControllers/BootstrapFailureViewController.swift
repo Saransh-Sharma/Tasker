@@ -2,6 +2,9 @@ import UIKit
 
 final class BootstrapFailureViewController: UIViewController {
     private let message: String
+    private let onRetrySync: (() -> Void)?
+    private let onRecoverFromICloud: (() -> Void)?
+    private var isWorking = false
 
     private lazy var titleLabel: UILabel = {
         let label = UILabel()
@@ -28,7 +31,7 @@ final class BootstrapFailureViewController: UIViewController {
     private lazy var hintLabel: UILabel = {
         let label = UILabel()
         label.translatesAutoresizingMaskIntoConstraints = false
-        label.text = "Please close and relaunch the app."
+        label.text = "Retry sync or recover this device from iCloud."
         label.font = .systemFont(ofSize: 15, weight: .medium)
         label.textColor = .secondaryLabel
         label.numberOfLines = 0
@@ -36,9 +39,42 @@ final class BootstrapFailureViewController: UIViewController {
         return label
     }()
 
+    private lazy var retryButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("Retry Sync", for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        button.addTarget(self, action: #selector(retryTapped), for: .touchUpInside)
+        button.configuration = .filled()
+        return button
+    }()
+
+    private lazy var recoverButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("Recover from iCloud", for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        button.addTarget(self, action: #selector(recoverTapped), for: .touchUpInside)
+        button.configuration = .borderedProminent()
+        return button
+    }()
+
+    private lazy var activityIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .medium)
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.hidesWhenStopped = true
+        return indicator
+    }()
+
     /// Initializes a new instance.
-    init(message: String) {
+    init(
+        message: String,
+        onRetrySync: (() -> Void)? = nil,
+        onRecoverFromICloud: (() -> Void)? = nil
+    ) {
         self.message = message
+        self.onRetrySync = onRetrySync
+        self.onRecoverFromICloud = onRecoverFromICloud
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -58,7 +94,21 @@ final class BootstrapFailureViewController: UIViewController {
         icon.tintColor = .systemOrange
         icon.contentMode = .scaleAspectFit
 
-        let stack = UIStackView(arrangedSubviews: [icon, titleLabel, messageLabel, hintLabel])
+        let actionStack = UIStackView(arrangedSubviews: [retryButton, recoverButton])
+        actionStack.translatesAutoresizingMaskIntoConstraints = false
+        actionStack.axis = .vertical
+        actionStack.spacing = 10
+        actionStack.alignment = .fill
+        actionStack.distribution = .fillEqually
+
+        let stack = UIStackView(arrangedSubviews: [
+            icon,
+            titleLabel,
+            messageLabel,
+            hintLabel,
+            actionStack,
+            activityIndicator
+        ])
         stack.translatesAutoresizingMaskIntoConstraints = false
         stack.axis = .vertical
         stack.alignment = .center
@@ -74,7 +124,36 @@ final class BootstrapFailureViewController: UIViewController {
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
             stack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             messageLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            hintLabel.widthAnchor.constraint(equalTo: stack.widthAnchor)
+            hintLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            actionStack.widthAnchor.constraint(equalTo: stack.widthAnchor, multiplier: 0.9),
+            retryButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            recoverButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
         ])
+    }
+
+    func setWorking(_ isWorking: Bool, hint: String? = nil) {
+        self.isWorking = isWorking
+        retryButton.isEnabled = !isWorking
+        recoverButton.isEnabled = !isWorking
+        if let hint {
+            hintLabel.text = hint
+        }
+        if isWorking {
+            activityIndicator.startAnimating()
+        } else {
+            activityIndicator.stopAnimating()
+        }
+    }
+
+    @objc private func retryTapped() {
+        guard isWorking == false else { return }
+        setWorking(true, hint: "Retrying sync bootstrap...")
+        onRetrySync?()
+    }
+
+    @objc private func recoverTapped() {
+        guard isWorking == false else { return }
+        setWorking(true, hint: "Recovering local cache from iCloud...")
+        onRecoverFromICloud?()
     }
 }

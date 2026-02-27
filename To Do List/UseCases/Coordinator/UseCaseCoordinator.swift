@@ -100,6 +100,9 @@ public final class UseCaseCoordinator {
     public let purgeExpiredTombstones: PurgeExpiredTombstonesUseCase
     public let scheduleReminder: ScheduleReminderUseCase
     public let recordXP: RecordXPUseCase
+    public let gamificationEngine: GamificationEngine
+    public let focusSession: FocusSessionUseCase
+    public let markDailyReflection: MarkDailyReflectionCompleteUseCase
     public let assistantActionPipeline: AssistantActionPipelineUseCase
     public let linkExternalReminders: LinkExternalRemindersUseCase
     public let reconcileExternalReminders: ReconcileExternalRemindersUseCase
@@ -107,6 +110,7 @@ public final class UseCaseCoordinator {
     // MARK: - Dependencies
 
     public let projectRepository: ProjectRepositoryProtocol
+    public let gamificationRepository: GamificationRepositoryProtocol
     public let cacheService: CacheServiceProtocol?
 
     // MARK: - Initialization
@@ -120,6 +124,7 @@ public final class UseCaseCoordinator {
         v2Dependencies: V2Dependencies
     ) {
         self.projectRepository = projectRepository
+        self.gamificationRepository = v2Dependencies.gamificationRepository
         self.cacheService = cacheService
 
         // Query-centric use cases
@@ -153,6 +158,10 @@ public final class UseCaseCoordinator {
 
         // V2 use cases
         let xp = RecordXPUseCase(repository: v2Dependencies.gamificationRepository)
+        let engine = GamificationEngine(repository: v2Dependencies.gamificationRepository)
+        self.gamificationEngine = engine
+        self.focusSession = FocusSessionUseCase(repository: v2Dependencies.gamificationRepository, engine: engine)
+        self.markDailyReflection = MarkDailyReflectionCompleteUseCase(engine: engine)
         self.manageLifeAreas = ManageLifeAreasUseCase(repository: v2Dependencies.lifeAreaRepository)
         self.manageSections = ManageSectionsUseCase(repository: v2Dependencies.sectionRepository)
         self.manageTags = ManageTagsUseCase(repository: v2Dependencies.tagRepository)
@@ -177,7 +186,8 @@ public final class UseCaseCoordinator {
         self.getTaskChildren = GetTaskChildrenUseCase(repository: v2Dependencies.taskDefinitionRepository)
         self.completeTaskDefinition = CompleteTaskDefinitionUseCase(
             repository: v2Dependencies.taskDefinitionRepository,
-            gamification: xp
+            gamification: xp,
+            gamificationEngine: engine
         )
         self.manageHabits = ManageHabitsUseCase(repository: v2Dependencies.habitRepository)
         self.generateOccurrences = GenerateOccurrencesUseCase(engine: v2Dependencies.scheduleEngine)

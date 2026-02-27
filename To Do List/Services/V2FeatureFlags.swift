@@ -62,4 +62,26 @@ public enum V2FeatureFlags {
         get { defaults.object(forKey: "feature.eva.rescue") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.eva.rescue") }
     }
+
+    // MARK: - Gamification v2
+
+    public static var gamificationV2Enabled: Bool {
+        get { defaults.object(forKey: "feature.gamification.v2") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.gamification.v2") }
+    }
+
+    public static var gamificationWidgetsEnabled: Bool {
+        get { defaults.object(forKey: "feature.gamification.widgets") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.gamification.widgets") }
+    }
+
+    public static var gamificationFocusSessionsEnabled: Bool {
+        get { defaults.object(forKey: "feature.gamification.focus_sessions") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.gamification.focus_sessions") }
+    }
+
+    public static var gamificationOverhaulV1Enabled: Bool {
+        get { defaults.object(forKey: "feature.gamification.overhaul.v1") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.gamification.overhaul.v1") }
+    }
 }

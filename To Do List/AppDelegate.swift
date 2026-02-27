@@ -23,9 +23,50 @@ enum LaunchRootMode: Equatable {
     case bootstrapFailure(message: String)
 }
 
+enum PersistentSyncMode: Equatable {
+    case fullSync
+    case writeClosed(reason: String)
+
+    var modeName: String {
+        switch self {
+        case .fullSync:
+            return "full_sync"
+        case .writeClosed:
+            return "write_closed"
+        }
+    }
+
+    var reason: String {
+        switch self {
+        case .fullSync:
+            return "healthy_split_store"
+        case .writeClosed(let reason):
+            return reason
+        }
+    }
+}
+
 struct PersistentStoreLoadReport {
     let loadedConfigurations: Set<String>
     let errors: [NSError]
+}
+
+enum CloudKitMirroringMode {
+    case enabled
+    case disabled(reason: String)
+
+    var reason: String {
+        switch self {
+        case .enabled:
+            return "enabled"
+        case .disabled(let reason):
+            return reason
+        }
+    }
+}
+
+extension Notification.Name {
+    static let taskerPersistentSyncModeDidChange = Notification.Name("TaskerPersistentSyncModeDidChange")
 }
 
 @UIApplicationMain
@@ -34,13 +75,24 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private let occurrenceRefreshTaskIdentifier = "com.tasker.refresh.occurrences"
     private let remindersRefreshTaskIdentifier = "com.tasker.refresh.reminders"
     private let expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"]
+    private let localOnlyConfiguration: Set<String> = ["LocalOnly"]
+    private let cloudKitContainerIdentifier = "iCloud.TaskerCloudKitV3"
     private let v3StoreEpoch = 4
     private var notificationOrchestrator: TaskNotificationOrchestrator?
     private var notificationActionHandler: TaskerNotificationActionHandler?
+    private var gamificationRemoteChangeCoordinator: GamificationRemoteChangeCoordinator?
+    private var cloudKitEventObserver: NSObjectProtocol?
 
     private(set) static var persistentBootstrapFailureMessage: String?
+    private(set) static var persistentSyncMode: PersistentSyncMode = .fullSync
     static var isPersistentStoreReady: Bool {
         persistentBootstrapFailureMessage == nil
+    }
+    static var isWriteClosed: Bool {
+        if case .writeClosed = persistentSyncMode {
+            return true
+        }
+        return false
     }
 
     private(set) var persistentBootstrapState: PersistentBootstrapState = .failed("Persistent store bootstrap has not run")
@@ -100,6 +152,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     "source": firebaseStartupSource
                 ]
             )
+            GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_launch")
         } else {
             logWarning(
                 event: "firebase_startup_mode",
@@ -128,69 +181,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         // Hard-reset cutover to V3 model/container.
         performV3BootstrapCutoverIfNeeded()
-
-        persistentBootstrapState = bootstrapV3PersistentContainer()
-        switch persistentBootstrapState {
-        case .ready(let container):
-            persistentContainer = container
-            AppDelegate.persistentBootstrapFailureMessage = nil
-
-            let didConfigureRuntime = setupCleanArchitecture()
-            guard didConfigureRuntime else {
-                break
-            }
-
-            registerBackgroundTasks()
-            scheduleOccurrenceRefresh()
-            if V2FeatureFlags.remindersBackgroundRefreshEnabled {
-                scheduleRemindersRefresh()
-            }
-            configureTaskerNotifications()
-
-            // 2) Observe remote-change notifications so your viewContext merges them
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(handlePersistentStoreRemoteChange),
-                name: .NSPersistentStoreRemoteChange,
-                object: container.persistentStoreCoordinator
-            )
-
-            // 3) Monitor CloudKit container events for debugging
-            NotificationCenter.default.addObserver(
-                forName: NSPersistentCloudKitContainer.eventChangedNotification,
-                object: container,
-                queue: .main
-            ) { note in
-                guard
-                  let userInfo = note.userInfo,
-                  let events = userInfo[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
-                                as? [NSPersistentCloudKitContainer.Event]
-                else { return }
-
-                for event in events where event.error != nil {
-                    let errorDescription = event.error?.localizedDescription ?? "unknown"
-                    logError(
-                        event: "cloudkit_event_error",
-                        message: "CloudKit container event reported error",
-                        fields: [
-                            "event_type": "\(event.type)",
-                            "error": errorDescription
-                        ]
-                    )
-                }
-            }
-        case .failed(let message):
-            AppDelegate.persistentBootstrapFailureMessage = message
-            logError(
-                event: "persistent_store_bootstrap_failed",
-                message: "Persistent store bootstrap failed; running without initialized persistence",
-                fields: [
-                    "reason": message,
-                    "retry_attempted": "true"
-                ]
-            )
-            persistentContainer = nil
-        }
+        logCloudKitPreflightTelemetry()
+        _ = applyBootstrapState(bootstrapV3PersistentContainer(), trigger: "launch")
         
         return true
     }
@@ -200,9 +192,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard case .ready = persistentBootstrapState else {
             return
         }
-        scheduleOccurrenceRefresh()
-        if V2FeatureFlags.remindersBackgroundRefreshEnabled {
-            scheduleRemindersRefresh()
+        if AppDelegate.isWriteClosed == false {
+            scheduleOccurrenceRefresh()
+            if V2FeatureFlags.remindersBackgroundRefreshEnabled {
+                scheduleRemindersRefresh()
+            }
         }
         notificationOrchestrator?.reconcile(reason: "app_did_enter_background")
     }
@@ -215,6 +209,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// Executes applicationDidBecomeActive.
     func applicationDidBecomeActive(_ application: UIApplication) {
         notificationOrchestrator?.reconcile(reason: "app_did_become_active")
+        if FirebaseApp.app() != nil {
+            GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_did_become_active")
+        }
     }
 
     /// Executes makeLaunchRootMode.
@@ -226,6 +223,224 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         case .failed(let message):
             return .bootstrapFailure(message: message)
         }
+    }
+
+    private func updatePersistentSyncMode(_ mode: PersistentSyncMode, source: String) {
+        let previous = AppDelegate.persistentSyncMode
+        AppDelegate.persistentSyncMode = mode
+
+        guard previous != mode else { return }
+        NotificationCenter.default.post(
+            name: .taskerPersistentSyncModeDidChange,
+            object: nil,
+            userInfo: [
+                "mode": mode.modeName,
+                "reason": mode.reason,
+                "source": source
+            ]
+        )
+    }
+
+    @discardableResult
+    private func applyBootstrapState(_ state: PersistentBootstrapState, trigger: String) -> LaunchRootMode {
+        persistentBootstrapState = state
+
+        switch state {
+        case .ready(let container):
+            persistentContainer = container
+            AppDelegate.persistentBootstrapFailureMessage = nil
+
+            let didConfigureRuntime = setupCleanArchitecture()
+            guard didConfigureRuntime else {
+                return makeLaunchRootMode()
+            }
+
+            gamificationRemoteChangeCoordinator = GamificationRemoteChangeCoordinator(
+                container: container,
+                notificationCenter: .default,
+                onQualifiedCloudImport: { reason in
+                    guard V2FeatureFlags.gamificationV2Enabled else { return }
+                    let engine = PresentationDependencyContainer.shared.coordinator.gamificationEngine
+                    engine.fullReconciliation { result in
+                        switch result {
+                        case .success:
+                            engine.writeWidgetSnapshot()
+                        case .failure(let error):
+                            logError(
+                                event: "gamification_remote_reconciliation_failed",
+                                message: "Gamification reconciliation failed after qualified CloudKit import transaction",
+                                fields: [
+                                    "reason": reason,
+                                    "error": error.localizedDescription
+                                ]
+                            )
+                        }
+                    }
+                }
+            )
+
+            registerBackgroundTasks()
+            if AppDelegate.isWriteClosed {
+                logWarning(
+                    event: "write_closed_background_mutations_skipped",
+                    message: "Skipping background write workflows while app is in write-closed sync mode",
+                    fields: [
+                        "trigger": trigger,
+                        "reason": AppDelegate.persistentSyncMode.reason
+                    ]
+                )
+            } else {
+                scheduleOccurrenceRefresh()
+                if V2FeatureFlags.remindersBackgroundRefreshEnabled {
+                    scheduleRemindersRefresh()
+                }
+            }
+            configureTaskerNotifications()
+            installPersistentStoreObservers(container: container)
+
+            logWarning(
+                event: "persistent_sync_mode_activated",
+                message: "Persistent sync mode activated",
+                fields: [
+                    "mode": AppDelegate.persistentSyncMode.modeName,
+                    "reason": AppDelegate.persistentSyncMode.reason,
+                    "trigger": trigger
+                ]
+            )
+            return .home
+
+        case .failed(let message):
+            AppDelegate.persistentBootstrapFailureMessage = message
+            persistentContainer = nil
+            gamificationRemoteChangeCoordinator = nil
+            NotificationCenter.default.removeObserver(
+                self,
+                name: .NSPersistentStoreRemoteChange,
+                object: nil
+            )
+            if let cloudKitEventObserver {
+                NotificationCenter.default.removeObserver(cloudKitEventObserver)
+                self.cloudKitEventObserver = nil
+            }
+            logError(
+                event: "persistent_store_bootstrap_failed",
+                message: "Persistent store bootstrap failed; running without initialized persistence",
+                fields: [
+                    "reason": message,
+                    "trigger": trigger,
+                    "sync_mode": AppDelegate.persistentSyncMode.modeName,
+                    "sync_reason": AppDelegate.persistentSyncMode.reason
+                ]
+            )
+            return .bootstrapFailure(message: message)
+        }
+    }
+
+    private func installPersistentStoreObservers(container: NSPersistentCloudKitContainer) {
+        NotificationCenter.default.removeObserver(
+            self,
+            name: .NSPersistentStoreRemoteChange,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handlePersistentStoreRemoteChange),
+            name: .NSPersistentStoreRemoteChange,
+            object: container.persistentStoreCoordinator
+        )
+
+        if let cloudKitEventObserver {
+            NotificationCenter.default.removeObserver(cloudKitEventObserver)
+            self.cloudKitEventObserver = nil
+        }
+
+        cloudKitEventObserver = NotificationCenter.default.addObserver(
+            forName: NSPersistentCloudKitContainer.eventChangedNotification,
+            object: container,
+            queue: .main
+        ) { note in
+            guard
+              let userInfo = note.userInfo,
+              let events = userInfo[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+                            as? [NSPersistentCloudKitContainer.Event]
+            else { return }
+
+            for event in events where event.error != nil {
+                let errorDescription = event.error?.localizedDescription ?? "unknown"
+                logError(
+                    event: "cloudkit_event_error",
+                    message: "CloudKit container event reported error",
+                    fields: [
+                        "event_type": "\(event.type)",
+                        "error": errorDescription
+                    ]
+                )
+            }
+        }
+    }
+
+    func retryPersistentStoreBootstrap() -> LaunchRootMode {
+        logWarning(
+            event: "persistent_store_manual_retry_started",
+            message: "User requested persistent store retry"
+        )
+        return rebootstrapPersistentStore(trigger: "manual_retry")
+    }
+
+    func recoverFromCloudAuthoritativeReset() -> LaunchRootMode {
+        logWarning(
+            event: "persistent_store_recovery_started",
+            message: "Starting cloud-authoritative persistent store recovery"
+        )
+
+        do {
+            let quarantineURL = try quarantineV3StoreFiles(reason: "cloud_authoritative_reset")
+            clearActiveV3SplitStoreFiles()
+            let launchMode = rebootstrapPersistentStore(trigger: "cloud_authoritative_reset")
+            switch launchMode {
+            case .home:
+                logWarning(
+                    event: "persistent_store_recovery_completed",
+                    message: "Cloud-authoritative recovery completed",
+                    fields: [
+                        "quarantine_dir": quarantineURL?.path ?? "none"
+                    ]
+                )
+            case .bootstrapFailure(let message):
+                logError(
+                    event: "persistent_store_recovery_failed",
+                    message: "Cloud-authoritative recovery completed quarantine but bootstrap still failed",
+                    fields: [
+                        "quarantine_dir": quarantineURL?.path ?? "none",
+                        "reason": message
+                    ]
+                )
+            }
+            return launchMode
+        } catch {
+            let message = "Tasker could not prepare local stores for iCloud recovery."
+            logError(
+                event: "persistent_store_recovery_quarantine_failed",
+                message: "Cloud-authoritative recovery could not quarantine local stores",
+                fields: [
+                    "error": error.localizedDescription
+                ]
+            )
+            updatePersistentSyncMode(
+                .writeClosed(reason: "recovery_preparation_failed"),
+                source: "cloud_authoritative_reset"
+            )
+            return applyBootstrapState(.failed(message), trigger: "cloud_authoritative_reset")
+        }
+    }
+
+    private func rebootstrapPersistentStore(trigger: String) -> LaunchRootMode {
+        if let currentContainer = persistentContainer {
+            unloadPersistentStores(currentContainer)
+        }
+        persistentContainer = nil
+        gamificationRemoteChangeCoordinator = nil
+        return applyBootstrapState(bootstrapV3PersistentContainer(), trigger: trigger)
     }
 
     // MARK: - UI Testing Helpers
@@ -334,23 +549,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// Executes handlePersistentStoreRemoteChange.
     @objc
     func handlePersistentStoreRemoteChange(_ notification: Notification) {
-        guard let context = persistentContainer?.viewContext else {
-            return
-        }
-        // Perform merging on the context's queue to avoid threading issues
-        context.perform { // Changed from performAndWait to perform for potentially better responsiveness
-            context.mergeChanges(fromContextDidSave: notification) // Correct method signature
-
-            // **CRITICAL: Call consolidation logic after merging CloudKit changes**
-            // Note: consolidateDataWithCleanArchitecture is private, call setupCleanArchitecture instead
-            // or make the method internal in AppDelegate+Migration.swift
-            
-            // Notify repository system about potential data changes
-            NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
-
-            // Consider posting a custom notification if UI needs to react strongly to these background changes
-            // NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
-        }
+        gamificationRemoteChangeCoordinator?.handleRemoteChange(notification)
     }
     
     // Remote notification registration success/failure callbacks
@@ -381,6 +580,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let orchestrator = TaskNotificationOrchestrator(
             taskRepository: taskRepository,
             notificationService: notificationService,
+            gamificationRepository: EnhancedDependencyContainer.shared.gamificationRepository,
             preferencesStore: .shared
         )
         orchestrator.startObservingMutations()
@@ -481,6 +681,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// Executes makeV3PersistentContainer.
     private func makeV3PersistentContainer() -> NSPersistentCloudKitContainer {
         let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
+        let cloudKitMode = cloudKitMirroringMode()
 
         let baseURL = NSPersistentContainer.defaultDirectoryURL()
         let cloudURL = baseURL.appendingPathComponent("TaskModelV3-cloud.sqlite")
@@ -488,21 +689,133 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         let cloudDescription = NSPersistentStoreDescription(url: cloudURL)
         cloudDescription.configuration = "CloudSync"
-        cloudDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-            containerIdentifier: "iCloud.TaskerCloudKitV3"
-        )
+        if case .enabled = cloudKitMode {
+            cloudDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
+                containerIdentifier: cloudKitContainerIdentifier
+            )
+        } else {
+            logWarning(
+                event: "cloudkit_mirroring_disabled",
+                message: "CloudKit entitlement unavailable at runtime; using local Core Data store for CloudSync configuration",
+                fields: [
+                    "reason": cloudKitMode.reason,
+                    "configuration": "CloudSync"
+                ]
+            )
+        }
         cloudDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         cloudDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        cloudDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
+        cloudDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
 
         let localDescription = NSPersistentStoreDescription(url: localURL)
         localDescription.configuration = "LocalOnly"
         localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
+        localDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
 
         container.persistentStoreDescriptions = [cloudDescription, localDescription]
         container.viewContext.automaticallyMergesChangesFromParent = true
         container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         return container
+    }
+
+    /// Executes makeV3LocalOnlyWriteClosedContainer.
+    /// Creates a local-only runtime topology used for write-closed operation.
+    private func makeV3LocalOnlyWriteClosedContainer() -> NSPersistentCloudKitContainer {
+        let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
+
+        let baseURL = NSPersistentContainer.defaultDirectoryURL()
+        let localURL = baseURL.appendingPathComponent("TaskModelV3-local.sqlite")
+        let localDescription = NSPersistentStoreDescription(url: localURL)
+        localDescription.configuration = "LocalOnly"
+        localDescription.cloudKitContainerOptions = nil
+        localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
+        localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
+        localDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
+
+        container.persistentStoreDescriptions = [localDescription]
+        container.viewContext.automaticallyMergesChangesFromParent = true
+        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        return container
+    }
+
+    /// Executes cloudKitMirroringMode.
+    ///
+    /// Keep CloudKit mirroring off in simulator/XCTest runs to avoid startup crashes in
+    /// unsigned test hosts where runtime entitlements are unavailable.
+    private func cloudKitMirroringMode() -> CloudKitMirroringMode {
+        let processInfo = ProcessInfo.processInfo
+        let environment = processInfo.environment
+
+        if environment["XCTestConfigurationFilePath"] != nil || environment["XCInjectBundleInto"] != nil {
+            return .disabled(reason: "xctest_runtime")
+        }
+
+        #if targetEnvironment(simulator)
+        return .disabled(reason: "simulator_runtime")
+        #else
+            #if DEBUG
+            if processInfo.arguments.contains("-TASKER_DISABLE_CLOUDKIT") {
+                return .disabled(reason: "launch_arg_disable_cloudkit")
+            }
+            #endif
+            return .enabled
+        #endif
+    }
+
+    private func logCloudKitPreflightTelemetry() {
+        let entitlementPresent = runtimeHasCloudKitEntitlement(containerIdentifier: cloudKitContainerIdentifier)
+        let mirroringMode = cloudKitMirroringMode()
+        logWarning(
+            event: "cloudkit_preflight",
+            message: "CloudKit runtime preflight diagnostics",
+            fields: [
+                "container_id": cloudKitContainerIdentifier,
+                "entitlement_present": String(entitlementPresent),
+                "mirroring_mode": mirroringMode.reason
+            ]
+        )
+
+        CKContainer(identifier: cloudKitContainerIdentifier).accountStatus { status, error in
+            var fields: [String: String] = [
+                "container_id": self.cloudKitContainerIdentifier,
+                "account_status": self.cloudAccountStatusDescription(status)
+            ]
+            if let error {
+                fields["error"] = error.localizedDescription
+            }
+            logWarning(
+                event: "cloudkit_account_status",
+                message: "CloudKit account status preflight completed",
+                fields: fields
+            )
+        }
+    }
+
+    private func runtimeHasCloudKitEntitlement(containerIdentifier: String) -> Bool {
+        // Diagnostic inference only: if the app cannot resolve the ubiquity container URL,
+        // iCloud container entitlement/runtime availability is likely not valid for this process.
+        return FileManager.default.url(forUbiquityContainerIdentifier: containerIdentifier) != nil
+    }
+
+    private func cloudAccountStatusDescription(_ status: CKAccountStatus) -> String {
+        switch status {
+        case .available:
+            return "available"
+        case .noAccount:
+            return "no_account"
+        case .restricted:
+            return "restricted"
+        case .couldNotDetermine:
+            return "unknown"
+        case .temporarilyUnavailable:
+            return "temporarily_unavailable"
+        @unknown default:
+            return "unknown_future_case"
+        }
     }
 
     /// Executes bootstrapV3PersistentContainer.
@@ -512,66 +825,85 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         let initialHealthy = initialReport.errors.isEmpty && hasExpectedConfigurations(initialReport)
 
         if initialHealthy {
+            updatePersistentSyncMode(.fullSync, source: "bootstrap_initial")
             markV3BootstrapEpochApplied()
             return .ready(initialContainer)
         }
 
         let missingConfigurations = expectedStoreConfigurations.subtracting(initialReport.loadedConfigurations)
-        let hasMissingConfigurations = missingConfigurations.isEmpty == false
-        let hasCompatibilityError = initialReport.errors.contains(where: isIncompatibleStoreError)
-        let shouldRetryWithWipe = hasCompatibilityError || hasMissingConfigurations
-
-        if shouldRetryWithWipe {
-            logWarning(
-                event: "persistent_store_bootstrap_retry",
-                message: "Retrying persistent store bootstrap after V3 store wipe",
-                fields: [
-                    "retry_attempted": "true",
-                    "retry_reason": hasCompatibilityError ? "compatibility_error" : "missing_configuration",
-                    "loaded_configurations": initialReport.loadedConfigurations.sorted().joined(separator: ","),
-                    "missing_configurations": missingConfigurations.sorted().joined(separator: ","),
-                    "error_count": String(initialReport.errors.count)
-                ]
-            )
-
-            unloadPersistentStores(initialContainer)
-            wipeV3StoreFiles()
-            let recoveryContainer = makeV3PersistentContainer()
-            let recoveryReport = loadPersistentStoresAndReport(container: recoveryContainer, phase: "recovery")
-            let recoveryHealthy = recoveryReport.errors.isEmpty && hasExpectedConfigurations(recoveryReport)
-            if recoveryHealthy {
-                markV3BootstrapEpochApplied()
-                return .ready(recoveryContainer)
-            }
-
-            let failureMessage = "Tasker could not initialize local storage after retry. Please relaunch or reinstall the app."
-            logError(
-                event: "persistent_store_bootstrap_failed_after_retry",
-                message: "Persistent store bootstrap failed after wipe and retry",
-                fields: [
-                    "retry_attempted": "true",
-                    "loaded_configurations": recoveryReport.loadedConfigurations.sorted().joined(separator: ","),
-                    "expected_configurations": expectedStoreConfigurations.sorted().joined(separator: ","),
-                    "error_count": String(recoveryReport.errors.count),
-                    "errors": recoveryReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
-                ]
-            )
-            return .failed(failureMessage)
-        }
-
-        let failureMessage = "Tasker storage is unavailable. Please relaunch the app."
         logError(
-            event: "persistent_store_bootstrap_failed_without_retry",
-            message: "Persistent store bootstrap failed and was not eligible for wipe/retry",
+            event: "persistent_store_bootstrap_split_failed",
+            message: "Split CloudSync/LocalOnly bootstrap failed; entering write-closed fallback attempt",
             fields: [
-                "retry_attempted": "false",
                 "loaded_configurations": initialReport.loadedConfigurations.sorted().joined(separator: ","),
-                "expected_configurations": expectedStoreConfigurations.sorted().joined(separator: ","),
+                "missing_configurations": missingConfigurations.sorted().joined(separator: ","),
                 "error_count": String(initialReport.errors.count),
                 "errors": initialReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
             ]
         )
+
+        unloadPersistentStores(initialContainer)
+        let writeClosedContainer = makeV3LocalOnlyWriteClosedContainer()
+        let writeClosedReport = loadPersistentStoresAndReport(
+            container: writeClosedContainer,
+            phase: "write_closed_fallback"
+        )
+        let writeClosedHealthy = writeClosedReport.errors.isEmpty && hasLocalOnlyConfiguration(writeClosedReport)
+        if writeClosedHealthy {
+            let fallbackReason = makeWriteClosedReason(
+                initialReport: initialReport,
+                missingConfigurations: missingConfigurations
+            )
+            updatePersistentSyncMode(
+                .writeClosed(reason: fallbackReason),
+                source: "bootstrap_write_closed"
+            )
+            markV3BootstrapEpochApplied()
+            logWarning(
+                event: "persistent_sync_write_closed_enabled",
+                message: "CloudSync store unavailable; app launched in write-closed local-read mode",
+                fields: [
+                    "reason": fallbackReason,
+                    "loaded_configurations": writeClosedReport.loadedConfigurations.sorted().joined(separator: ",")
+                ]
+            )
+            return .ready(writeClosedContainer)
+        }
+
+        let failureMessage = "Tasker could not initialize local storage. Please relaunch the app or recover from iCloud."
+        updatePersistentSyncMode(
+            .writeClosed(reason: "persistent_store_unreadable"),
+            source: "bootstrap_failed"
+        )
+        logError(
+            event: "persistent_store_bootstrap_failed_unreadable",
+            message: "Persistent store bootstrap failed for split and write-closed fallback topologies",
+            fields: [
+                "initial_loaded_configurations": initialReport.loadedConfigurations.sorted().joined(separator: ","),
+                "initial_error_count": String(initialReport.errors.count),
+                "initial_errors": initialReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", "),
+                "fallback_loaded_configurations": writeClosedReport.loadedConfigurations.sorted().joined(separator: ","),
+                "fallback_error_count": String(writeClosedReport.errors.count),
+                "fallback_errors": writeClosedReport.errors.map { "\($0.domain):\($0.code)" }.joined(separator: ", ")
+            ]
+        )
         return .failed(failureMessage)
+    }
+
+    private func makeWriteClosedReason(
+        initialReport: PersistentStoreLoadReport,
+        missingConfigurations: Set<String>
+    ) -> String {
+        if let compatibilityError = initialReport.errors.first(where: isIncompatibleStoreError) {
+            return "cloudsync_model_compatibility_\(compatibilityError.code)"
+        }
+        if let firstError = initialReport.errors.first {
+            return "cloudsync_store_load_error_\(firstError.code)"
+        }
+        if missingConfigurations.isEmpty == false {
+            return "missing_configurations_\(missingConfigurations.sorted().joined(separator: "_"))"
+        }
+        return "unknown_cloudsync_bootstrap_failure"
     }
 
     /// Executes loadPersistentStoresAndReport.
@@ -583,6 +915,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         guard descriptions.isEmpty == false else {
             return PersistentStoreLoadReport(loadedConfigurations: [], errors: [])
         }
+        let expectedConfigurations = Set(descriptions.compactMap(\.configuration))
 
         let group = DispatchGroup()
         let lock = NSLock()
@@ -600,7 +933,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 loadErrors.append(error)
 
                 let configuration = storeDescription.configuration ?? "unknown"
-                let missingConfigurations = self.expectedStoreConfigurations.subtracting(loadedConfigurations)
+                let missingConfigurations = expectedConfigurations.subtracting(loadedConfigurations)
+                let underlyingSummary = self.underlyingCoreDataErrorSummary(error)
+                let detailedSummary = self.detailedCoreDataErrorsSummary(error)
+                let metadataSummary = self.persistentStoreMetadataSnippet(at: storeDescription.url)
                 logError(
                     event: "persistent_store_load_failed",
                     message: "V3 persistent store failed to load",
@@ -611,6 +947,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         "domain": error.domain,
                         "code": String(error.code),
                         "error": error.localizedDescription,
+                        "underlying_error": underlyingSummary,
+                        "detailed_errors": detailedSummary,
+                        "metadata": metadataSummary,
                         "loaded_configurations": loadedConfigurations.sorted().joined(separator: ","),
                         "missing_configurations": missingConfigurations.sorted().joined(separator: ",")
                     ]
@@ -630,9 +969,51 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         )
     }
 
+    private func persistentStoreMetadataSnippet(at url: URL?) -> String {
+        guard let url else { return "metadata_unavailable_no_url" }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return "metadata_unavailable_missing_file"
+        }
+
+        do {
+            let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
+                ofType: NSSQLiteStoreType,
+                at: url,
+                options: nil
+            )
+            let storeUUID = metadata[NSStoreUUIDKey] as? String ?? "unknown"
+            let modelVersionIdentifiers = (metadata[NSStoreModelVersionIdentifiersKey] as? [String]) ?? []
+            let hashCount = (metadata[NSStoreModelVersionHashesKey] as? [String: Data])?.count ?? 0
+            return "uuid=\(storeUUID);model_versions=\(modelVersionIdentifiers.joined(separator: "|"));hash_count=\(hashCount)"
+        } catch {
+            return "metadata_unavailable_\(error.localizedDescription)"
+        }
+    }
+
+    private func underlyingCoreDataErrorSummary(_ error: NSError) -> String {
+        guard let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError else {
+            return "none"
+        }
+        return "\(underlying.domain):\(underlying.code):\(underlying.localizedDescription)"
+    }
+
+    private func detailedCoreDataErrorsSummary(_ error: NSError) -> String {
+        guard let detailedErrors = error.userInfo[NSDetailedErrorsKey] as? [NSError],
+              detailedErrors.isEmpty == false else {
+            return "none"
+        }
+        return detailedErrors
+            .map { "\($0.domain):\($0.code):\($0.localizedDescription)" }
+            .joined(separator: " | ")
+    }
+
     /// Executes hasExpectedConfigurations.
     private func hasExpectedConfigurations(_ report: PersistentStoreLoadReport) -> Bool {
         expectedStoreConfigurations.isSubset(of: report.loadedConfigurations)
+    }
+
+    private func hasLocalOnlyConfiguration(_ report: PersistentStoreLoadReport) -> Bool {
+        localOnlyConfiguration.isSubset(of: report.loadedConfigurations)
     }
 
     /// Executes unloadPersistentStores.
@@ -645,13 +1026,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 let nsError = error as NSError
                 logWarning(
                     event: "persistent_store_unload_failed",
-                    message: "Failed to unload persistent store before wipe",
+                    message: "Failed to unload persistent store before rebootstrap/recovery",
                     fields: [
                         "domain": nsError.domain,
                         "code": String(nsError.code),
                         "error": nsError.localizedDescription,
                         "url": store.url?.absoluteString ?? "unknown",
-                        "configuration": store.configurationName ?? "unknown"
+                        "configuration": store.configurationName
                     ]
                 )
             }
@@ -699,22 +1080,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func wipeV3StoreFiles() {
         let storeDir = NSPersistentContainer.defaultDirectoryURL()
         let fileManager = FileManager.default
-        let storeFileNames = [
-            "TaskModelV2-cloud.sqlite",
-            "TaskModelV2-cloud.sqlite-wal",
-            "TaskModelV2-cloud.sqlite-shm",
-            "TaskModelV2-local.sqlite",
-            "TaskModelV2-local.sqlite-wal",
-            "TaskModelV2-local.sqlite-shm",
-            "TaskModelV3-cloud.sqlite",
-            "TaskModelV3-cloud.sqlite-wal",
-            "TaskModelV3-cloud.sqlite-shm",
-            "TaskModelV3-local.sqlite",
-            "TaskModelV3-local.sqlite-wal",
-            "TaskModelV3-local.sqlite-shm"
-        ]
-
-        for fileName in storeFileNames {
+        for fileName in allKnownCutoverStoreFileNames() {
             let fileURL = storeDir.appendingPathComponent(fileName)
             guard fileManager.fileExists(atPath: fileURL.path) else {
                 continue
@@ -733,6 +1099,89 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                 )
             }
         }
+    }
+
+    private func allKnownCutoverStoreFileNames() -> [String] {
+        return [
+            "TaskModelV2-cloud.sqlite",
+            "TaskModelV2-cloud.sqlite-wal",
+            "TaskModelV2-cloud.sqlite-shm",
+            "TaskModelV2-local.sqlite",
+            "TaskModelV2-local.sqlite-wal",
+            "TaskModelV2-local.sqlite-shm"
+        ] + v3SplitStoreFileNames() + [
+            // Cleanup of a previously introduced fallback topology.
+            "TaskModelV3-unified.sqlite",
+            "TaskModelV3-unified.sqlite-wal",
+            "TaskModelV3-unified.sqlite-shm"
+        ]
+    }
+
+    private func v3SplitStoreFileNames() -> [String] {
+        [
+            "TaskModelV3-cloud.sqlite",
+            "TaskModelV3-cloud.sqlite-wal",
+            "TaskModelV3-cloud.sqlite-shm",
+            "TaskModelV3-local.sqlite",
+            "TaskModelV3-local.sqlite-wal",
+            "TaskModelV3-local.sqlite-shm"
+        ]
+    }
+
+    private func quarantineV3StoreFiles(reason: String) throws -> URL? {
+        let fileManager = FileManager.default
+        let storeDir = NSPersistentContainer.defaultDirectoryURL()
+        let storeURLs = v3SplitStoreFileNames().map { storeDir.appendingPathComponent($0) }
+        let existingURLs = storeURLs.filter { fileManager.fileExists(atPath: $0.path) }
+        guard existingURLs.isEmpty == false else {
+            return nil
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        let timestamp = formatter.string(from: Date())
+        let backupRoot = storeDir.appendingPathComponent("TaskerStoreQuarantine", isDirectory: true)
+        let reasonComponent = sanitizePathComponent(reason)
+        let backupDirectory = backupRoot.appendingPathComponent("\(timestamp)-\(reasonComponent)", isDirectory: true)
+
+        try fileManager.createDirectory(at: backupDirectory, withIntermediateDirectories: true)
+        for sourceURL in existingURLs {
+            let destinationURL = backupDirectory.appendingPathComponent(sourceURL.lastPathComponent)
+            try fileManager.moveItem(at: sourceURL, to: destinationURL)
+        }
+
+        return backupDirectory
+    }
+
+    private func clearActiveV3SplitStoreFiles() {
+        let fileManager = FileManager.default
+        let storeDir = NSPersistentContainer.defaultDirectoryURL()
+        for fileName in v3SplitStoreFileNames() {
+            let fileURL = storeDir.appendingPathComponent(fileName)
+            guard fileManager.fileExists(atPath: fileURL.path) else { continue }
+            do {
+                try fileManager.removeItem(at: fileURL)
+            } catch {
+                logWarning(
+                    event: "v3_store_clear_after_quarantine_failed",
+                    message: "Failed to clear active V3 split store file after quarantine",
+                    fields: [
+                        "file": fileName,
+                        "error": error.localizedDescription
+                    ]
+                )
+            }
+        }
+    }
+
+    private func sanitizePathComponent(_ rawValue: String) -> String {
+        let result = rawValue.replacingOccurrences(
+            of: "[^A-Za-z0-9_-]",
+            with: "_",
+            options: .regularExpression
+        )
+        return result.isEmpty ? "reason" : result
     }
 
     /// Executes clearLegacyV1PreferenceKeys.
@@ -1184,6 +1633,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         ensureV3Defaults()
         repairProjectIdentityIfNeeded()
 
+        // Reconcile gamification data on launch
+        if V2FeatureFlags.gamificationV2Enabled {
+            let engine = stateContainer.useCaseCoordinator.gamificationEngine
+            engine.fullReconciliation { result in
+                switch result {
+                case .success:
+                    engine.writeWidgetSnapshot()
+                    engine.updateStreak { streakResult in
+                        if case .failure(let error) = streakResult {
+                            logError(
+                                event: "gamification_startup_streak_update_failed",
+                                message: "Gamification startup streak update failed after successful reconciliation",
+                                fields: [
+                                    "error": error.localizedDescription
+                                ]
+                            )
+                        }
+                    }
+                case .failure(let error):
+                    logError(
+                        event: "gamification_startup_reconciliation_failed",
+                        message: "Gamification startup reconciliation failed; skipping startup follow-up updates",
+                        fields: [
+                            "error": error.localizedDescription
+                        ]
+                    )
+                }
+            }
+        }
+
         // Configure LLM access through repositories (no direct Core Data context pulls).
         LLMContextRepositoryProvider.configure(
             taskReadModelRepository: stateContainer.taskReadModelRepository,
@@ -1197,7 +1676,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func failClosedV3Runtime(reason: String) -> Bool {
         let failureMessage = "Tasker failed to initialize required V3 runtime dependencies."
         persistentBootstrapState = .failed(failureMessage)
+        persistentContainer = nil
         AppDelegate.persistentBootstrapFailureMessage = failureMessage
+        updatePersistentSyncMode(
+            .writeClosed(reason: "runtime_dependency_initialization_failed"),
+            source: "setup_clean_architecture"
+        )
         logError(
             event: "v3_runtime_not_ready",
             message: "Failing closed because required V3 runtime dependencies are missing",
@@ -1230,6 +1714,188 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     fields: ["error": error.localizedDescription]
                 )
             }
+        }
+    }
+}
+
+enum GamificationRemoteChangeClassifier {
+    static func isQualifiedCloudImport(author: String?, contextName: String?) -> Bool {
+        let normalizedAuthor = (author ?? "").lowercased()
+        let normalizedContext = (contextName ?? "").lowercased()
+
+        // Prefer author-based classification to avoid false-positive loops from local writes.
+        if normalizedAuthor.isEmpty == false {
+            let hasCloudKitSignal = normalizedAuthor.contains("cloudkit") || normalizedAuthor.contains("mirroringdelegate")
+            let hasImportSignal = normalizedAuthor.contains("import")
+            return hasCloudKitSignal && hasImportSignal
+        }
+
+        // Fallback only for environments where author may be nil but context keeps CloudKit import naming.
+        return normalizedContext.contains("nscloudkitmirroringdelegate.import")
+            || normalizedContext.contains("cloudkit.import")
+    }
+}
+
+final class GamificationRemoteChangeCoordinator {
+    private enum Constants {
+        static let historyTokenDefaultsKey = "gamification.remote_change.history_token"
+        static let cloudSyncNotification = Notification.Name("DataDidChangeFromCloudSync")
+    }
+
+    private struct HistoryScanOutcome {
+        let scannedTransactions: Int
+        let qualifiedTransactions: Int
+        let shouldReconcile: Bool
+    }
+
+    private let container: NSPersistentCloudKitContainer
+    private let notificationCenter: NotificationCenter
+    private let onQualifiedCloudImport: (_ reason: String) -> Void
+    private let defaults: UserDefaults
+    private let workQueue = DispatchQueue(label: "com.tasker.gamification.remote_change", qos: .utility)
+
+    private var isProcessing = false
+    private var pendingReplay = false
+    private var historyToken: NSPersistentHistoryToken?
+
+    init(
+        container: NSPersistentCloudKitContainer,
+        notificationCenter: NotificationCenter,
+        defaults: UserDefaults = .standard,
+        onQualifiedCloudImport: @escaping (_ reason: String) -> Void
+    ) {
+        self.container = container
+        self.notificationCenter = notificationCenter
+        self.defaults = defaults
+        self.onQualifiedCloudImport = onQualifiedCloudImport
+        self.historyToken = Self.loadPersistedToken(defaults: defaults)
+    }
+
+    func handleRemoteChange(_ notification: Notification) {
+        _ = notification
+        workQueue.async { [weak self] in
+            guard let self else { return }
+            self.pendingReplay = true
+            self.processIfNeeded()
+        }
+    }
+
+    private func processIfNeeded() {
+        guard pendingReplay, isProcessing == false else { return }
+        pendingReplay = false
+        isProcessing = true
+
+        let outcome = scanPersistentHistory()
+        isProcessing = false
+
+        if outcome.shouldReconcile {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.notificationCenter.post(name: Constants.cloudSyncNotification, object: nil)
+                self.onQualifiedCloudImport("persistent_history_cloud_import")
+            }
+        }
+
+        if pendingReplay {
+            processIfNeeded()
+        }
+    }
+
+    private func scanPersistentHistory() -> HistoryScanOutcome {
+        let context = container.newBackgroundContext()
+        context.mergePolicy = NSMergeByPropertyStoreTrumpMergePolicy
+
+        var transactions: [NSPersistentHistoryTransaction] = []
+        var fetchError: Error?
+
+        context.performAndWait {
+            do {
+                let historyRequest = NSPersistentHistoryChangeRequest.fetchHistory(after: historyToken)
+                historyRequest.resultType = .transactionsOnly
+                let historyResult = try context.execute(historyRequest) as? NSPersistentHistoryResult
+                transactions = historyResult?.result as? [NSPersistentHistoryTransaction] ?? []
+            } catch {
+                fetchError = error
+            }
+        }
+
+        if let fetchError {
+            logError(
+                event: "gamification_remote_history_fetch_failed",
+                message: "Failed to fetch persistent history transactions for remote-change processing",
+                fields: ["error": fetchError.localizedDescription]
+            )
+            return HistoryScanOutcome(
+                scannedTransactions: 0,
+                qualifiedTransactions: 0,
+                shouldReconcile: false
+            )
+        }
+
+        guard transactions.isEmpty == false else {
+            return HistoryScanOutcome(
+                scannedTransactions: 0,
+                qualifiedTransactions: 0,
+                shouldReconcile: false
+            )
+        }
+
+        if let latestToken = transactions.last?.token {
+            historyToken = latestToken
+            Self.persist(token: latestToken, defaults: defaults)
+        }
+
+        let qualifiedCount = transactions.reduce(into: 0) { partialResult, transaction in
+            if GamificationRemoteChangeClassifier.isQualifiedCloudImport(
+                author: transaction.author,
+                contextName: transaction.contextName
+            ) {
+                partialResult += 1
+            }
+        }
+
+        logDebug(
+            "gamification_remote_history_scan " +
+                "scanned=\(transactions.count) qualified=\(qualifiedCount)"
+        )
+
+        return HistoryScanOutcome(
+            scannedTransactions: transactions.count,
+            qualifiedTransactions: qualifiedCount,
+            shouldReconcile: qualifiedCount > 0
+        )
+    }
+
+    private static func loadPersistedToken(defaults: UserDefaults) -> NSPersistentHistoryToken? {
+        guard let tokenData = defaults.data(forKey: Constants.historyTokenDefaultsKey) else {
+            return nil
+        }
+        do {
+            return try NSKeyedUnarchiver.unarchivedObject(
+                ofClass: NSPersistentHistoryToken.self,
+                from: tokenData
+            )
+        } catch {
+            logWarning(
+                event: "gamification_remote_history_token_decode_failed",
+                message: "Failed to decode persistent history token; starting scan from nil token",
+                fields: ["error": error.localizedDescription]
+            )
+            defaults.removeObject(forKey: Constants.historyTokenDefaultsKey)
+            return nil
+        }
+    }
+
+    private static func persist(token: NSPersistentHistoryToken, defaults: UserDefaults) {
+        do {
+            let tokenData = try NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true)
+            defaults.set(tokenData, forKey: Constants.historyTokenDefaultsKey)
+        } catch {
+            logWarning(
+                event: "gamification_remote_history_token_encode_failed",
+                message: "Failed to encode persistent history token; coordinator will keep in-memory token only",
+                fields: ["error": error.localizedDescription]
+            )
         }
     }
 }

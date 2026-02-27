@@ -55,6 +55,14 @@ enum AccessibilityIdentifiers {
         static let dailySummaryCTAStartTriage = "home.dailySummary.cta.startTriage"
         static let dailySummaryCTAPlanTomorrow = "home.dailySummary.cta.planTomorrow"
         static let dailySummaryCTAReviewDone = "home.dailySummary.cta.reviewDone"
+        static let insightsContainer = "home.insights.container"
+        static let insightsTabToday = "home.insights.tab.today"
+        static let insightsTabWeek = "home.insights.tab.week"
+        static let insightsTabSystems = "home.insights.tab.systems"
+        static let insightsScroll = "home.insights.scroll"
+        static let insightsContentToday = "home.insights.content.today"
+        static let insightsContentWeek = "home.insights.content.week"
+        static let insightsContentSystems = "home.insights.content.systems"
 
         // Task Cell
         static func taskCell(index: Int) -> String { "home.taskCell.\(index)" }

@@ -1,6 +1,6 @@
 # Tasker V3 Clean Architecture Runtime
 
-**Last validated against code on 2026-02-21**
+**Last validated against code on 2026-02-27**
 
 ## Scope
 
@@ -19,6 +19,8 @@ Primary source anchors:
 - `To Do List/Presentation/DI/PresentationDependencyContainer.swift`
 - `To Do List/UseCases/Coordinator/UseCaseCoordinator.swift`
 - `To Do List/Services/V2FeatureFlags.swift`
+- `To Do List/Services/GamificationRemoteKillSwitchService.swift`
+- `To Do List/UseCases/Gamification/GamificationEngine.swift`
 - `To Do List/LLM/Models/LLMContextProjectionService.swift`
 - `To Do List/LLM/Models/LLMAssistantPipelineProvider.swift`
 - `To Do List/LLM/Models/LLMDataController.swift`
@@ -63,6 +65,8 @@ sequenceDiagram
     AD->>PDC: configure(taskReadModelRepository, projectRepository, useCaseCoordinator)
     AD->>PDC: assertV3RuntimeReady()
     AD->>AD: ensureV3Defaults() + repairProjectIdentityIfNeeded()
+    AD->>AD: gamification launch fullReconciliation() + updateStreak()
+    AD->>AD: configure GamificationRemoteChangeCoordinator
     AD->>AD: configure LLMContextRepositoryProvider + LLMAssistantPipelineProvider
     AD->>AD: configure semantic retrieval lifecycle hooks
 ```
@@ -93,6 +97,13 @@ sequenceDiagram
 - mutation observer: `.homeTaskMutation` routes to incremental semantic index update/remove.
 - background: `TaskSemanticRetrievalService.shared.persistIndex()`.
 
+### Gamification runtime wiring (`AppDelegate`)
+- Launch path: when gamification v2 is enabled, `setupCleanArchitecture()` runs `GamificationEngine.fullReconciliation()` and `updateStreak()`.
+- Remote-change path: `.NSPersistentStoreRemoteChange` is delegated to `GamificationRemoteChangeCoordinator`.
+- Coordinator scans persistent history and classifies transaction author/context to trigger reconcile only for qualified CloudKit imports.
+- A cloud-sync UI invalidation notification (`DataDidChangeFromCloudSync`) is posted only on qualified external changes.
+- CloudKit mirroring is intentionally disabled in simulator/XCTest runtime modes to avoid entitlement-related startup crashes.
+
 ## Command Side vs Read Model Side
 
 | Side | Primary contracts | Purpose |
@@ -107,7 +118,8 @@ sequenceDiagram
 | Epoch-based cutover | if stored epoch != `v3StoreEpoch`, wipe store files and clear legacy preference keys | `To Do List/AppDelegate.swift` |
 | Store wipe set | removes both legacy `TaskModelV2-*` and current `TaskModelV3-*` sqlite/wal/shm files during cutover | `To Do List/AppDelegate.swift` |
 | Two-config load | loads `CloudSync` and `LocalOnly` store descriptions | `To Do List/AppDelegate.swift` |
-| Retry strategy | incompatible/missing-config load failures trigger wipe + recovery bootstrap pass | `To Do List/AppDelegate.swift` |
+| Recovery strategy | split-store bootstrap failures do not auto-wipe; app attempts LocalOnly write-closed fallback and exposes manual recover/retry actions | `To Do List/AppDelegate.swift`, `To Do List/ViewControllers/BootstrapFailureViewController.swift`, `To Do List/SceneDelegate.swift` |
+| Write-closed policy | mutating repositories are centrally blocked while reads continue, returning explicit `SyncWriteClosedError` | `To Do List/State/Sync/WriteClosedRepositoryAdapters.swift`, `To Do List/State/DI/EnhancedDependencyContainer.swift` |
 | Fail-closed mode | unresolved bootstrap/dependency errors produce bootstrap failure state and skip runtime wiring | `To Do List/AppDelegate.swift` |
 
 ## LLM Chat Store Safety
@@ -142,17 +154,22 @@ This prevents app-wide startup crash on local chat-store incompatibility.
 | `assistantBriefEnabled` | daily brief generation + scheduling | no brief generation/notification |
 | `assistantBreakdownEnabled` | task detail AI breakdown action | breakdown action hidden |
 | `remindersBackgroundRefreshEnabled` | background reminders scheduling/execution | no reminders BG refresh scheduling |
+| `gamificationV2Enabled` | gamification engine/runtime path | engine path disabled; legacy XP call sites may remain for compatibility |
+| `gamificationWidgetsEnabled` | widget snapshot writes + timeline reload | widget updates skipped |
+| `gamificationFocusSessionsEnabled` | focus-gamification surfaces | focus session gamification path can be disabled |
 
 ## Failure Surface Matrix
 
 | Failure point | Detection | Runtime behavior | Signal |
 | --- | --- | --- | --- |
-| persistent store load incompatibility | load report has compatibility errors or missing configs | wipe + retry bootstrap path | `persistent_store_bootstrap_retry` |
-| persistent store unrecoverable | recovery load still unhealthy | app enters bootstrap failure mode | `persistent_store_bootstrap_failed_after_retry` |
+| split persistent store load incompatibility | load report has compatibility errors or missing configs in split topology | app switches to write-closed LocalOnly runtime | `persistent_sync_write_closed_enabled` |
+| persistent store unrecoverable | split and write-closed fallback loads are both unhealthy | app enters bootstrap failure mode | `persistent_store_bootstrap_failed_unreadable` |
+| cloud-authoritative recovery failed | quarantine/reset action cannot rebootstrap | app remains bootstrap-failed and surfaces recovery error | `persistent_store_recovery_failed` |
 | state DI missing required dependencies | `assertV3RuntimeReady()` throws | setup fails closed | `v3_runtime_not_ready` |
 | presentation DI missing required dependencies | `assertV3RuntimeReady()` throws | setup fails closed | `v3_runtime_not_ready` |
 | reminders BG dependencies missing | guard checks in background handler | skip reconcile and mark task failed | `bg_reminders_missing_dependencies` |
 | reconcile timeout/partial failure | per-project timeout/failure handling | continues with partial accounting | `bg_reminders_project_timeout` |
+| gamification remote-change churn | repeated unqualified remote-change callbacks | qualify with persistent-history classifier + coalesced processing | `gamification_remote_history_scan` |
 | semantic embeddings unavailable | semantic engine returns no vector | lexical-only retrieval | `assistant_semantic_fallback_lexical` |
 
 ## Forbidden Dependency Patterns
@@ -163,6 +180,7 @@ This prevents app-wide startup crash on local chat-store incompatibility.
 4. Side-effectful reminders/assistant flows without explicit feature-flag checks.
 5. Reintroduction of legacy singleton runtime paths (`DependencyContainer.shared`).
 6. Chat-layer task mutation paths that bypass `AssistantActionPipelineUseCase`.
+7. Gamification reconciliation paths that bypass qualified persistent-history transaction classification.
 
 ## Integration Rules For UI
 

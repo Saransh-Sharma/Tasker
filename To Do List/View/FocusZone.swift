@@ -19,6 +19,7 @@ public struct FocusZone: View {
     let onWhy: () -> Void
     let onTaskTap: (TaskDefinition) -> Void
     let onToggleComplete: (TaskDefinition) -> Void
+    let onStartFocus: ((TaskDefinition) -> Void)?
     let onTaskDragStarted: (TaskDefinition) -> Void
     let onDrop: ([NSItemProvider]) -> Bool
 
@@ -36,6 +37,7 @@ public struct FocusZone: View {
         onWhy: @escaping () -> Void = {},
         onTaskTap: @escaping (TaskDefinition) -> Void,
         onToggleComplete: @escaping (TaskDefinition) -> Void,
+        onStartFocus: ((TaskDefinition) -> Void)? = nil,
         onTaskDragStarted: @escaping (TaskDefinition) -> Void,
         onDrop: @escaping ([NSItemProvider]) -> Bool
     ) {
@@ -46,6 +48,7 @@ public struct FocusZone: View {
         self.onWhy = onWhy
         self.onTaskTap = onTaskTap
         self.onToggleComplete = onToggleComplete
+        self.onStartFocus = onStartFocus
         self.onTaskDragStarted = onTaskDragStarted
         self.onDrop = onDrop
     }
@@ -213,8 +216,10 @@ public struct FocusZone: View {
                     task: task,
                     insight: insightForTaskID(task.id),
                     canDrag: canDrag,
+                    showFocusButton: onStartFocus != nil && V2FeatureFlags.gamificationFocusSessionsEnabled,
                     onTap: { onTaskTap(task) },
                     onToggleComplete: { onToggleComplete(task) },
+                    onStartFocus: { onStartFocus?(task) },
                     onDragStarted: { onTaskDragStarted(task) }
                 )
                 .taskCompletionTransition(isComplete: task.isComplete)
@@ -287,8 +292,10 @@ private struct FocusZoneRow: View {
     let task: TaskDefinition
     let insight: EvaFocusTaskInsight?
     let canDrag: Bool
+    let showFocusButton: Bool
     let onTap: () -> Void
     let onToggleComplete: () -> Void
+    let onStartFocus: () -> Void
     let onDragStarted: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -309,6 +316,19 @@ private struct FocusZoneRow: View {
                 .lineLimit(1)
 
             Spacer(minLength: 0)
+
+            if showFocusButton && !task.isComplete {
+                Button(action: onStartFocus) {
+                    Image(systemName: "timer")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color.tasker.accentPrimary)
+                        .frame(width: 28, height: 28)
+                        .background(Color.tasker.accentPrimary.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Start focus session")
+            }
 
             if let statusChip {
                 Text(statusChip.text)

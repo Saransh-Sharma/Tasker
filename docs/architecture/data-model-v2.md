@@ -1,6 +1,6 @@
 # Tasker Data Model Reference (V3 Runtime)
 
-**Last validated against code on 2026-02-20**
+**Last validated against code on 2026-02-27**
 
 This document is the canonical data-model map for the shipped runtime.
 It covers:
@@ -10,7 +10,8 @@ It covers:
 - Ownership of writes and high-risk invariants
 
 Primary source anchors:
-- `To Do List/TaskModelV3.xcdatamodeld/TaskModelV3.xcdatamodel/contents`
+- `To Do List/TaskModelV3.xcdatamodeld/.xccurrentversion`
+- `To Do List/TaskModelV3.xcdatamodeld/TaskModelV3_Gamification.xcdatamodel/contents`
 - `To Do List/Domain/Models/Task.swift`
 - `To Do List/Domain/Models/ScheduleTemplate.swift`
 - `To Do List/Domain/Models/Occurrence.swift`
@@ -52,7 +53,7 @@ Primary source anchors:
 | Scheduling | `ScheduleTemplate`, `ScheduleRule`, `ScheduleException`, `Occurrence`, `OccurrenceResolution` | scheduling usecases + `CoreSchedulingEngine` |
 | Reminder | `Reminder`, `ReminderTrigger`, `ReminderDelivery` | `ScheduleReminderUseCase`, sync reconcile flows |
 | Sync mapping | `ExternalContainerMap`, `ExternalItemMap` | link/reconcile external reminders usecases |
-| Gamification | `GamificationProfile`, `XPEvent`, `AchievementUnlock` | `RecordXPUseCase` |
+| Gamification | `GamificationProfile`, `XPEvent`, `AchievementUnlock`, `DailyXPAggregate`, `FocusSession` | `GamificationEngine`, `FocusSessionUseCase`, `MarkDailyReflectionCompleteUseCase` (`RecordXPUseCase` legacy path retained) |
 | Assistant runs | `AssistantActionRun` | `AssistantActionPipelineUseCase` |
 | Deletion lifecycle | `Tombstone` | delete + maintenance/purge usecases |
 
@@ -76,9 +77,11 @@ Primary source anchors:
 | `Reminder` | source refs/policy/channel/enabled/timestamps | to-one occurrence; to-many triggers | channel/policy constraints preserved | schedule reminder + sync reconcile |
 | `ReminderTrigger` | type/fireAt/offset/location payload | to-one reminder | trigger belongs to one reminder | schedule reminder usecase |
 | `ReminderDelivery` | trigger/reminder refs + delivery status timestamps/errors | operational edge state | monotonic delivery status transitions | schedule reminder usecase |
-| `GamificationProfile` | XP total, level, streak fields | none | reconcile with XP ledger | `RecordXPUseCase` |
-| `XPEvent` | task/occurrence refs, delta, reason, idempotency key, timestamp | to-many unlocks | idempotency key prevents duplicate award writes | `RecordXPUseCase` |
-| `AchievementUnlock` | achievement key, unlock timestamp, source event ID | to-one source XP event | unlock traceability to XP event | `RecordXPUseCase` |
+| `GamificationProfile` | XP total, level, streak fields | none | reconcile with XP ledger | `GamificationEngine` (`RecordXPUseCase` legacy path retained) |
+| `XPEvent` | task/occurrence refs, delta, reason, idempotency key, timestamp | to-many unlocks | idempotency key prevents duplicate award writes | `GamificationEngine` |
+| `AchievementUnlock` | achievement key, unlock timestamp, source event ID | to-one source XP event | unlock traceability to XP event | `GamificationEngine` |
+| `DailyXPAggregate` | `dateKey`, total XP, event count, updated timestamp | none | canonical one-row-per-day semantics by `dateKey` | `GamificationEngine` reconciliation and record path |
+| `FocusSession` | task ref, start/end, duration, completion flag, XP awarded | none | session ID uniqueness and duration integrity | `FocusSessionUseCase` |
 | `ExternalContainerMap` | provider/project/container IDs, sync flags/metadata | to-one project | one active map per provider+project expectation | `LinkExternalRemindersUseCase` |
 | `ExternalItemMap` | provider + local/external keys + merge payload/state | none | uniqueness by local and external key; sync-state preservation | link/reconcile usecases |
 | `Tombstone` | entity type/id, deleted metadata, `expiresAt` | none | purge lifecycle respected | delete/purge/maintenance flows |
@@ -135,13 +138,14 @@ sequenceDiagram
     participant UI as UI
     participant COMP as CompleteTaskDefinitionUseCase
     participant TR as TaskDefinitionRepository
-    participant XP as RecordXPUseCase
+    participant XP as GamificationEngine
     participant GR as GamificationRepository
 
     UI->>COMP: setCompletion(taskID, true)
     COMP->>TR: fetch + update task
-    COMP->>XP: recordTaskCompletion(taskID)
-    XP->>GR: save XP event/profile/unlocks
+    COMP->>XP: recordEvent(context: .complete)
+    XP->>GR: save XP event/daily aggregate/profile/unlocks
+    XP-->>UI: post-commit ledger mutation signal
 ```
 
 ## Write Ownership Matrix
@@ -154,7 +158,7 @@ sequenceDiagram
 | Schedule/occurrence | generate/resolve/maintain occurrence usecases | schedule/occurrence repositories + scheduling engine |
 | Reminder | `ScheduleReminderUseCase`, reconcile flows | reminder repository |
 | External sync | link/reconcile reminders usecases | external sync repository |
-| Gamification | `RecordXPUseCase` | gamification repository |
+| Gamification | `GamificationEngine`, `FocusSessionUseCase`, `MarkDailyReflectionCompleteUseCase` (`RecordXPUseCase` compatibility) | gamification repository |
 | Assistant actions | `AssistantActionPipelineUseCase` | assistant action repository |
 | Tombstones | delete + purge/maintenance usecases | tombstone repository |
 

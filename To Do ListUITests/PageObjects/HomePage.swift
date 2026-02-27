@@ -234,6 +234,30 @@ class HomePage {
         return app.tables.firstMatch
     }
 
+    var insightsContainer: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.Home.insightsContainer]
+    }
+
+    var insightsTodayTab: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.insightsTabToday]
+    }
+
+    var insightsWeekTab: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.insightsTabWeek]
+    }
+
+    var insightsSystemsTab: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Home.insightsTabSystems]
+    }
+
+    var insightsScrollView: XCUIElement {
+        let identified = app.scrollViews[AccessibilityIdentifiers.Home.insightsScroll]
+        if identified.exists {
+            return identified
+        }
+        return app.scrollViews.firstMatch
+    }
+
     // MARK: - Initialization
 
     init(app: XCUIApplication) {
@@ -1032,5 +1056,46 @@ class HomePage {
         let result = XCTWaiter.wait(for: [expectation], timeout: timeout)
 
         return result == .completed
+    }
+
+    enum InsightsTab {
+        case today
+        case week
+        case systems
+    }
+
+    @discardableResult
+    func switchInsightsTab(_ tab: InsightsTab, timeout: TimeInterval = 2.0) -> Bool {
+        let tabElement: XCUIElement
+        switch tab {
+        case .today:
+            tabElement = insightsTodayTab
+        case .week:
+            tabElement = insightsWeekTab
+        case .systems:
+            tabElement = insightsSystemsTab
+        }
+
+        guard tabElement.waitForExistence(timeout: timeout) else {
+            return false
+        }
+
+        tapElement(tabElement)
+        return true
+    }
+
+    @discardableResult
+    func scrollInsightsTab(_ tab: InsightsTab, swipeCount: Int = 5) -> Bool {
+        guard switchInsightsTab(tab) else { return false }
+        let scrollView = insightsScrollView
+        guard scrollView.waitForExistence(timeout: 2.0) else { return false }
+
+        for _ in 0..<swipeCount {
+            scrollView.swipeUp()
+        }
+        for _ in 0..<swipeCount {
+            scrollView.swipeDown()
+        }
+        return true
     }
 }

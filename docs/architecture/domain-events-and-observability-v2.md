@@ -1,6 +1,6 @@
 # Domain Events and Observability (V3 Runtime)
 
-**Last validated against code on 2026-02-21**
+**Last validated against code on 2026-02-27**
 
 This document describes Tasker's in-process domain event system and observability expectations.
 
@@ -10,6 +10,8 @@ Primary source anchors:
 - `To Do List/Domain/Events/TaskEvents.swift`
 - `To Do List/Domain/Events/ProjectEvents.swift`
 - `To Do List/Domain/Events/TaskNotificationDispatcher.swift`
+- `To Do List/UseCases/Gamification/GamificationEngine.swift`
+- `To Do List/Presentation/ViewModels/InsightsViewModel.swift`
 - `To Do List/LLM/Views/Chat/ChatView.swift`
 - `To Do List/Presentation/ViewModels/AddTaskViewModel.swift`
 - `To Do List/Presentation/ViewModels/HomeViewModel.swift`
@@ -42,6 +44,7 @@ flowchart LR
 | --- | --- | --- |
 | Task events | `TaskCreatedEvent`, `TaskCompletedEvent`, `TaskUpdatedEvent` | `TaskEvents.swift` |
 | Project events | `ProjectCreatedEvent`, `ProjectUpdatedEvent`, `ProjectArchivedEvent` | `ProjectEvents.swift` |
+| Gamification mutation notification path | `Notification.Name.gamificationLedgerDidMutate` + `GamificationLedgerMutation` payload | `GamificationEngine.swift`, `HomeViewModel.swift`, `InsightsViewModel.swift` |
 | Publisher typed streams | task/project/gamification/occurrence filtered streams | `DomainEventPublisher.swift` |
 
 ## Publisher Behavior
@@ -70,6 +73,29 @@ flowchart LR
 4. Use stable `eventType` values and additive metadata evolution.
 5. When payload shape changes, bump `eventVersion` and preserve decode compatibility when practical.
 
+## Canonical Gamification Signal Path
+
+Current canonical freshness signal for XP-facing UI is NotificationCenter-based:
+- Name: `Notification.Name.gamificationLedgerDidMutate`
+- Emission point: `GamificationEngine` after successful commit chain.
+- Primary consumers: `HomeViewModel` and `InsightsViewModel`.
+
+Payload (`GamificationLedgerMutation`) fields:
+- `source`, `category`
+- `awardedXP`, `dailyXPSoFar`
+- `totalXP`, `level`, `previousLevel`, `streakDays`
+- `didChange`, `dateKey`, `occurredAt`
+
+Operational contract:
+1. Mutation emitted post-commit to avoid pre-write stale reads.
+2. Consumers apply immediate UI deltas; targeted recompute only when needed.
+3. No TTL-based gamification refresh path is required for normal operation.
+
+Relation to legacy `DomainEventPublisher.gamificationEvents`:
+- The typed publisher remains available for process-local event streams.
+- Live Home/Insights XP correctness is now notification-driven through `gamificationLedgerDidMutate`.
+- Treat `DomainEventPublisher` gamification stream as auxiliary observability, not the primary UI freshness contract.
+
 ## Replay and Caveats
 
 | Caveat | Impact | Mitigation |
@@ -85,6 +111,7 @@ flowchart LR
 | Signal type | Mechanism | Purpose | Durability |
 | --- | --- | --- | --- |
 | Domain events | `DomainEventPublisher` + handlers | business state transition signaling | process-local |
+| Gamification UI freshness | `gamificationLedgerDidMutate` notification + payload projection | deterministic live XP updates across Home/Insights/widgets | process-local signal backed by persistent Core Data truth |
 | Assistant telemetry | `logWarning/logError` event fields | AI runtime health, UX quality, rollback and fallback behavior | log-stream/monitoring dependent |
 
 ### Required assistant telemetry event catalog

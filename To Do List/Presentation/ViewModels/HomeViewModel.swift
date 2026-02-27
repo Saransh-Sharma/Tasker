@@ -33,6 +33,132 @@ public extension Notification.Name {
     static let homeTaskMutation = Notification.Name("HomeTaskMutationEvent")
 }
 
+public enum CelebrationKind: String {
+    case milestone
+    case levelUp
+    case achievementUnlock
+    case xpBurst
+}
+
+public struct CelebrationEvent: Equatable {
+    public let kind: CelebrationKind
+    public let awardedXP: Int
+    public let level: Int
+    public let milestone: XPCalculationEngine.Milestone?
+    public let achievementKey: String?
+    public let occurredAt: Date
+    public let signature: String
+
+    public static func from(_ result: XPEventResult) -> CelebrationEvent? {
+        guard result.awardedXP > 0 else { return nil }
+        let unlockedKey = result.unlockedAchievements
+            .map(\.achievementKey)
+            .sorted()
+            .first
+
+        if let milestone = result.crossedMilestone {
+            return CelebrationEvent(
+                kind: .milestone,
+                awardedXP: result.awardedXP,
+                level: result.level,
+                milestone: milestone,
+                achievementKey: unlockedKey,
+                occurredAt: result.celebration?.occurredAt ?? Date(),
+                signature: "milestone:\(result.totalXP):\(milestone.xpThreshold)"
+            )
+        }
+        if result.didLevelUp {
+            return CelebrationEvent(
+                kind: .levelUp,
+                awardedXP: result.awardedXP,
+                level: result.level,
+                milestone: nil,
+                achievementKey: unlockedKey,
+                occurredAt: result.celebration?.occurredAt ?? Date(),
+                signature: "levelup:\(result.totalXP):\(result.level)"
+            )
+        }
+        if let unlockedKey {
+            return CelebrationEvent(
+                kind: .achievementUnlock,
+                awardedXP: result.awardedXP,
+                level: result.level,
+                milestone: nil,
+                achievementKey: unlockedKey,
+                occurredAt: result.celebration?.occurredAt ?? Date(),
+                signature: "achievement:\(result.totalXP):\(unlockedKey)"
+            )
+        }
+        return CelebrationEvent(
+            kind: .xpBurst,
+            awardedXP: result.awardedXP,
+            level: result.level,
+            milestone: nil,
+            achievementKey: nil,
+            occurredAt: result.celebration?.occurredAt ?? Date(),
+            signature: "xpburst:\(result.totalXP):\(result.awardedXP):\(result.level)"
+        )
+    }
+}
+
+public struct CelebrationPresentation: Equatable {
+    public let event: CelebrationEvent
+}
+
+public protocol CelebrationRouter: AnyObject {
+    func route(event: CelebrationEvent) -> CelebrationPresentation?
+}
+
+public final class DefaultCelebrationRouter: CelebrationRouter {
+    private var lastShownAtByKind: [CelebrationKind: Date] = [:]
+    private var lastSignature: String?
+
+    private let cooldownByKind: [CelebrationKind: TimeInterval] = [
+        .milestone: 0,
+        .levelUp: 0.4,
+        .achievementUnlock: 1.0,
+        .xpBurst: 4.0
+    ]
+
+    public init() {}
+
+    public func route(event: CelebrationEvent) -> CelebrationPresentation? {
+        if lastSignature == event.signature {
+            return nil
+        }
+        let cooldown = cooldownByKind[event.kind] ?? 0
+        if let last = lastShownAtByKind[event.kind],
+           cooldown > 0,
+           event.occurredAt.timeIntervalSince(last) < cooldown {
+            return nil
+        }
+
+        lastShownAtByKind[event.kind] = event.occurredAt
+        lastSignature = event.signature
+        return CelebrationPresentation(event: event)
+    }
+}
+
+public struct InsightsLaunchRequest: Equatable {
+    public let token: UUID
+    public let targetTab: InsightsViewModel.InsightsTab
+    public let highlightedAchievementKey: String?
+
+    public init(
+        token: UUID = UUID(),
+        targetTab: InsightsViewModel.InsightsTab = .today,
+        highlightedAchievementKey: String? = nil
+    ) {
+        self.token = token
+        self.targetTab = targetTab
+        self.highlightedAchievementKey = highlightedAchievementKey
+    }
+
+    public static var `default`: InsightsLaunchRequest {
+        InsightsLaunchRequest(targetTab: .today)
+    }
+}
+
 /// ViewModel for the Home screen
 /// Manages all business logic and state for the home view
 public final class HomeViewModel: ObservableObject {
@@ -47,6 +173,15 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var dailyScore: Int = 0
     @Published public private(set) var streak: Int = 0
     @Published public private(set) var completionRate: Double = 0.0
+
+    // Gamification v2
+    @Published public private(set) var currentLevel: Int = 1
+    @Published public private(set) var dailyXPCap: Int = GamificationTokens.dailyXPCap
+    @Published public private(set) var totalXP: Int64 = 0
+    @Published public private(set) var nextLevelXP: Int64 = 0
+    @Published public private(set) var lastXPResult: XPEventResult?
+    @Published public private(set) var insightsLaunchRequest: InsightsLaunchRequest?
+    @Published public private(set) var insightsLaunchToken: UUID?
 
     // TaskDefinition lists by category
     @Published public private(set) var morningTasks: [TaskDefinition] = []
@@ -128,7 +263,10 @@ public final class HomeViewModel: ObservableObject {
     private let completionReloadSuppressionSeconds: TimeInterval = 0.35
     private let mutationNotificationDebounceMS = 90
     private let recurringTopUpThrottleSeconds: TimeInterval = 90
+    private let ledgerMutationWatchdogDelaySeconds: TimeInterval = 1.0
     private static let mutationNotificationSource = "homeViewModel"
+    private var pendingLedgerMutationWatchdog: DispatchWorkItem?
+    private var lastLedgerMutationObservedAt: Date = .distantPast
 
     // MARK: - Initialization
 
@@ -1056,6 +1194,95 @@ public final class HomeViewModel: ObservableObject {
         startTriage(scope: .visible)
     }
 
+    public func startFocusSession(
+        taskID: UUID?,
+        targetDurationSeconds: Int = 25 * 60,
+        completion: @escaping (Result<FocusSessionDefinition, Error>) -> Void
+    ) {
+        useCaseCoordinator.focusSession.startSession(
+            taskID: taskID,
+            targetDurationSeconds: targetDurationSeconds,
+            completion: { result in
+                DispatchQueue.main.async {
+                    completion(result)
+                }
+            }
+        )
+    }
+
+    public func endFocusSession(
+        sessionID: UUID,
+        completion: @escaping (Result<FocusSessionResult, Error>) -> Void
+    ) {
+        useCaseCoordinator.focusSession.endSession(sessionID: sessionID) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let focusResult):
+                    if focusResult.xpResult?.awardedXP ?? 0 > 0 {
+                        self?.scheduleLedgerMutationWatchdog(trigger: "focus_session_end")
+                    }
+                    self?.loadDailyAnalytics(includeGamificationRefresh: false)
+                    self?.requestChartRefresh(reason: .completed)
+                    completion(.success(focusResult))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    public func completeDailyReflection(
+        completion: @escaping (Result<XPEventResult, Error>) -> Void
+    ) {
+        useCaseCoordinator.markDailyReflection.execute { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let xpResult):
+                    if xpResult.awardedXP > 0 {
+                        self?.scheduleLedgerMutationWatchdog(trigger: "daily_reflection_complete")
+                    }
+                    self?.loadDailyAnalytics(includeGamificationRefresh: false)
+                    self?.requestChartRefresh(reason: .updated)
+                    completion(.success(xpResult))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    public func isDailyReflectionCompletedToday() -> Bool {
+        useCaseCoordinator.markDailyReflection.isCompletedToday()
+    }
+
+    public func launchInsights(_ request: InsightsLaunchRequest = .default) {
+        let resolved = InsightsLaunchRequest(
+            targetTab: request.targetTab,
+            highlightedAchievementKey: request.highlightedAchievementKey
+        )
+        insightsLaunchRequest = resolved
+        insightsLaunchToken = resolved.token
+        trackHomeInteraction(
+            action: "insights_launch_requested",
+            metadata: [
+                "target_tab": resolved.targetTab.rawValue.lowercased(),
+                "has_highlighted_achievement": resolved.highlightedAchievementKey == nil ? "false" : "true"
+            ]
+        )
+    }
+
+    public func dispatchCelebration(_ result: XPEventResult?) {
+        guard let result else { return }
+        lastXPResult = result
+    }
+
+    public func makeInsightsViewModel() -> InsightsViewModel {
+        InsightsViewModel(
+            engine: useCaseCoordinator.gamificationEngine,
+            repository: useCaseCoordinator.gamificationRepository
+        )
+    }
+
     public func startTriage(scope: EvaTriageScope) {
         guard V2FeatureFlags.evaTriageEnabled else { return }
         evaTriageSheetPresented = true
@@ -1658,7 +1885,7 @@ public final class HomeViewModel: ObservableObject {
                 }
                 self.invalidateTaskCaches()
                 self.reloadCurrentModeTasks()
-                self.loadDailyAnalytics()
+                self.loadDailyAnalytics(includeGamificationRefresh: false)
                 self.requestChartRefresh(reason: .bulkChanged)
             }
             .store(in: &cancellables)
@@ -1675,6 +1902,14 @@ public final class HomeViewModel: ObservableObject {
                 let reasonRaw = notification.userInfo?["reason"] as? String
                 let reason = reasonRaw.flatMap(HomeTaskMutationEvent.init(rawValue:)) ?? .updated
                 self.handleExternalMutation(reason: reason, repostEvent: false)
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .gamificationLedgerDidMutate)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let mutation = notification.gamificationLedgerMutation else { return }
+                self?.handleGamificationLedgerMutation(mutation)
             }
             .store(in: &cancellables)
     }
@@ -1702,10 +1937,14 @@ public final class HomeViewModel: ObservableObject {
                     self?.applyCompletionResultLocally(updatedTask)
                     let stateMatchesRequest = updatedTask.isComplete == requestedCompletion
                     if stateMatchesRequest {
-                        if updatedTask.isComplete {
-                            self?.dailyScore += updatedTask.priority.scorePoints
+                        if V2FeatureFlags.gamificationV2Enabled {
+                            // v2: XP state is driven by post-commit ledger mutation notifications.
                         } else {
-                            self?.dailyScore = max(0, (self?.dailyScore ?? 0) - updatedTask.priority.scorePoints)
+                            if updatedTask.isComplete {
+                                self?.dailyScore += updatedTask.priority.scorePoints
+                            } else {
+                                self?.dailyScore = max(0, (self?.dailyScore ?? 0) - updatedTask.priority.scorePoints)
+                            }
                         }
                         self?.refreshProgressState()
                     } else {
@@ -1715,9 +1954,12 @@ public final class HomeViewModel: ObservableObject {
                             "forcing_analytics_reload=true"
                         )
                     }
-                    self?.loadDailyAnalytics()
+                    self?.loadDailyAnalytics(includeGamificationRefresh: false)
                     self?.invalidateTaskCaches()
                     self?.reloadCurrentModeTasks()
+                    if updatedTask.isComplete {
+                        self?.scheduleLedgerMutationWatchdog(trigger: "task_completion")
+                    }
                     self?.requestChartRefresh(
                         reason: updatedTask.isComplete ? .completed : .reopened
                     )
@@ -1776,8 +2018,22 @@ public final class HomeViewModel: ObservableObject {
     }
 
     /// Executes loadDailyAnalytics.
-    private func loadDailyAnalytics() {
-        refreshDailyScoreFromCompletedTasksToday()
+    private func loadDailyAnalytics(includeGamificationRefresh: Bool = true) {
+        if V2FeatureFlags.gamificationV2Enabled {
+            guard includeGamificationRefresh else {
+                useCaseCoordinator.calculateAnalytics.calculateTodayAnalytics { [weak self] result in
+                    DispatchQueue.main.async {
+                        if case .success(let analytics) = result {
+                            self?.completionRate = analytics.completionRate
+                        }
+                    }
+                }
+                return
+            }
+            refreshGamificationV2State()
+        } else {
+            refreshDailyScoreFromCompletedTasksToday()
+        }
 
         useCaseCoordinator.calculateAnalytics.calculateTodayAnalytics { [weak self] result in
             DispatchQueue.main.async {
@@ -1787,11 +2043,41 @@ public final class HomeViewModel: ObservableObject {
             }
         }
 
-        useCaseCoordinator.calculateAnalytics.calculateStreak { [weak self] result in
+        if !V2FeatureFlags.gamificationV2Enabled {
+            useCaseCoordinator.calculateAnalytics.calculateStreak { [weak self] result in
+                DispatchQueue.main.async {
+                    if case .success(let streakInfo) = result {
+                        self?.streak = streakInfo.currentStreak
+                        self?.refreshProgressState()
+                    }
+                }
+            }
+        }
+    }
+
+    /// Fetches gamification state from the v2 XP ledger.
+    private func refreshGamificationV2State() {
+        let engine = useCaseCoordinator.gamificationEngine
+
+        engine.fetchTodayXP { [weak self] result in
             DispatchQueue.main.async {
-                if case .success(let streakInfo) = result {
-                    self?.streak = streakInfo.currentStreak
-                    self?.refreshProgressState()
+                guard let self else { return }
+                if case .success(let todayXP) = result {
+                    self.dailyScore = todayXP
+                    self.refreshProgressState()
+                }
+            }
+        }
+
+        engine.fetchCurrentProfile { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if case .success(let profile) = result {
+                    self.currentLevel = profile.level
+                    self.totalXP = profile.xpTotal
+                    self.nextLevelXP = profile.nextLevelXP
+                    self.streak = profile.currentStreak
+                    self.refreshProgressState()
                 }
             }
         }
@@ -2040,8 +2326,17 @@ public final class HomeViewModel: ObservableObject {
     /// Executes refreshProgressState.
     private func refreshProgressState() {
         let earnedXP = max(0, dailyScore)
-        let remainingPotentialXP = max(0, pointsPotential)
-        let targetXP = earnedXP + remainingPotentialXP
+        let remainingPotentialXP: Int
+        let targetXP: Int
+
+        if V2FeatureFlags.gamificationV2Enabled {
+            remainingPotentialXP = max(0, dailyXPCap - earnedXP)
+            targetXP = dailyXPCap
+        } else {
+            remainingPotentialXP = max(0, pointsPotential)
+            targetXP = earnedXP + remainingPotentialXP
+        }
+
         let streakDays = max(0, streak)
 
         progressState = HomeProgressState(
@@ -2417,10 +2712,91 @@ public final class HomeViewModel: ObservableObject {
     public func handleExternalMutation(reason: HomeTaskMutationEvent, repostEvent: Bool = true) {
         invalidateTaskCaches()
         reloadCurrentModeTasks()
-        loadDailyAnalytics()
+        loadDailyAnalytics(includeGamificationRefresh: false)
         if repostEvent {
             requestChartRefresh(reason: reason)
         }
+    }
+
+    private func handleGamificationLedgerMutation(_ mutation: GamificationLedgerMutation) {
+        lastLedgerMutationObservedAt = Date()
+        pendingLedgerMutationWatchdog?.cancel()
+        pendingLedgerMutationWatchdog = nil
+
+        dailyScore = max(0, mutation.dailyXPSoFar)
+        totalXP = mutation.totalXP
+        currentLevel = max(1, mutation.level)
+        streak = max(0, mutation.streakDays)
+        let levelInfo = XPCalculationEngine.levelForXP(mutation.totalXP)
+        nextLevelXP = levelInfo.nextThreshold
+        dailyXPCap = XPCalculationEngine.dailyCap
+        refreshProgressState()
+
+        let celebrationEligibleCategories: Set<XPActionCategory> = [.complete, .focus, .reflection]
+        guard celebrationEligibleCategories.contains(mutation.category), mutation.awardedXP > 0 else { return }
+
+        let milestone = XPCalculationEngine.milestoneCrossed(
+            previousXP: max(0, mutation.totalXP - Int64(mutation.awardedXP)),
+            newXP: mutation.totalXP
+        )
+        let celebration = XPCelebrationPayload(
+            awardedXP: mutation.awardedXP,
+            level: mutation.level,
+            didLevelUp: mutation.level > mutation.previousLevel,
+            crossedMilestone: milestone,
+            cooldownSeconds: GamificationEngine.celebrationCooldownSeconds,
+            occurredAt: mutation.occurredAt
+        )
+        let unlockedAchievements = mutation.unlockedAchievementKeys.map { key in
+            AchievementUnlockDefinition(
+                id: UUID(),
+                achievementKey: key,
+                unlockedAt: mutation.occurredAt,
+                sourceEventID: mutation.originatingEventID
+            )
+        }
+
+        dispatchCelebration(XPEventResult(
+            awardedXP: mutation.awardedXP,
+            totalXP: mutation.totalXP,
+            level: mutation.level,
+            previousLevel: mutation.previousLevel,
+            currentStreak: mutation.streakDays,
+            didLevelUp: mutation.level > mutation.previousLevel,
+            dailyXPSoFar: mutation.dailyXPSoFar,
+            dailyCap: XPCalculationEngine.dailyCap,
+            unlockedAchievements: unlockedAchievements,
+            crossedMilestone: milestone,
+            celebration: celebration
+        ))
+    }
+
+    private func scheduleLedgerMutationWatchdog(trigger: String) {
+        guard V2FeatureFlags.gamificationV2Enabled else { return }
+
+        pendingLedgerMutationWatchdog?.cancel()
+        let observedAtScheduleTime = lastLedgerMutationObservedAt
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard self.lastLedgerMutationObservedAt <= observedAtScheduleTime else { return }
+
+            logWarning(
+                event: "gamification_ledger_watchdog_refresh",
+                message: "Ledger mutation signal not observed in time; forcing one-shot XP state refresh",
+                fields: ["trigger": trigger]
+            )
+            self.refreshGamificationV2State()
+            NotificationCenter.default.post(
+                name: Notification.Name("DataDidChangeFromCloudSync"),
+                object: nil
+            )
+        }
+
+        pendingLedgerMutationWatchdog = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + ledgerMutationWatchdogDelaySeconds,
+            execute: workItem
+        )
     }
 
     /// Executes requestChartRefresh.

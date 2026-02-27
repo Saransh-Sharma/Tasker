@@ -442,7 +442,11 @@ struct TaskRowView: View {
     }
 
     private var compactXPBadge: some View {
-        Text("+\(displayModel.xpValue)")
+        let estimate = XPCalculationEngine.completionEstimate(
+            priorityRaw: task.priority.rawValue,
+            estimatedDuration: task.estimatedDuration
+        )
+        return Text(estimate.compactLabel)
             .font(.tasker(.caption2))
             .fontWeight(task.priority == .max || task.priority == .high ? .bold : .medium)
             .foregroundColor(task.priority == .max || task.priority == .high ? Color.tasker.accentOnPrimary : Color.tasker.textSecondary)
@@ -459,6 +463,10 @@ struct TaskRowView: View {
             .fixedSize()
             .scaleEffect(task.isComplete ? 1.15 : 1.0)
             .animation(TaskerAnimation.bouncy, value: task.isComplete)
+            .accessibilityLabel("Estimated XP \(estimate.shortLabel)")
+            .accessibilityHint(
+                "Estimate factors: \(XPCalculationEngine.estimateReasonHints(estimatedDuration: task.estimatedDuration, isFocusSessionActive: false, isPinnedInFocusStrip: false))"
+            )
     }
 }
 

@@ -567,6 +567,7 @@ public final class TaskerNotificationActionHandler {
 public final class TaskNotificationOrchestrator {
     private let taskRepository: TaskDefinitionRepositoryProtocol
     private let notificationService: NotificationServiceProtocol
+    private let gamificationRepository: GamificationRepositoryProtocol?
     private let preferencesStore: TaskerNotificationPreferencesStore
     private let calendar: Calendar
     private let now: () -> Date
@@ -577,7 +578,8 @@ public final class TaskNotificationOrchestrator {
         "task.overdue.",
         "task.snooze.",
         "daily.morning.",
-        "daily.nightly."
+        "daily.nightly.",
+        "daily.reflection."
     ]
 
     private var observers: [NSObjectProtocol] = []
@@ -587,12 +589,14 @@ public final class TaskNotificationOrchestrator {
     public init(
         taskRepository: TaskDefinitionRepositoryProtocol,
         notificationService: NotificationServiceProtocol,
+        gamificationRepository: GamificationRepositoryProtocol? = nil,
         preferencesStore: TaskerNotificationPreferencesStore = .shared,
         calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init
     ) {
         self.taskRepository = taskRepository
         self.notificationService = notificationService
+        self.gamificationRepository = gamificationRepository
         self.preferencesStore = preferencesStore
         self.calendar = calendar
         self.now = now
@@ -615,7 +619,8 @@ public final class TaskNotificationOrchestrator {
             NSNotification.Name("TaskUpdated"),
             NSNotification.Name("TaskDeleted"),
             NSNotification.Name("TaskCompletionChanged"),
-            Notification.Name("HomeTaskMutationEvent")
+            Notification.Name("HomeTaskMutationEvent"),
+            .dailyReflectionCompleted
         ]
         names.forEach { name in
             let token = NotificationCenter.default.addObserver(
@@ -650,58 +655,97 @@ public final class TaskNotificationOrchestrator {
 
     private func applyReconciliation(tasks: [TaskDefinition], reason: String) {
         let nowDate = now()
-        let preferences = preferencesStore.load()
-        let desired = desiredRequests(tasks: tasks, nowDate: nowDate, preferences: preferences)
-        let desiredByID = desired.reduce(into: [String: TaskerLocalNotificationRequest]()) { partialResult, request in
-            partialResult[request.id] = request
-        }
-
-        notificationService.pendingRequests { pending in
-            let pendingByID = pending.reduce(into: [String: TaskerPendingNotificationRequest]()) { partialResult, request in
+        resolveExactDailyXPByDateKey(nowDate: nowDate) { [weak self] exactDailyXPByDateKey in
+            guard let self else { return }
+            let preferences = self.preferencesStore.load()
+            let desired = self.desiredRequests(
+                tasks: tasks,
+                nowDate: nowDate,
+                preferences: preferences,
+                exactDailyXPByDateKey: exactDailyXPByDateKey
+            )
+            let desiredByID = desired.reduce(into: [String: TaskerLocalNotificationRequest]()) { partialResult, request in
                 partialResult[request.id] = request
             }
 
-            let staleIDs = pendingByID.keys
-                .filter { self.isManagedIdentifier($0) && desiredByID[$0] == nil }
-                .sorted()
-            let changedIDs = desiredByID.compactMap { id, request -> String? in
-                guard let existing = pendingByID[id] else { return nil }
-                let desiredFingerprint = self.fingerprint(for: request)
-                let existingFingerprint = self.fingerprint(for: existing)
-                return desiredFingerprint == existingFingerprint ? nil : id
-            }.sorted()
-            let changedSet = Set(changedIDs)
+            self.notificationService.pendingRequests { pending in
+                let pendingByID = pending.reduce(into: [String: TaskerPendingNotificationRequest]()) { partialResult, request in
+                    partialResult[request.id] = request
+                }
 
-            let addedRequests = desired.filter { pendingByID[$0.id] == nil }
-            let updatedRequests = desired.filter { changedSet.contains($0.id) }
-            let requestsToSchedule = addedRequests + updatedRequests
-            let unchangedCount = max(0, desired.count - requestsToSchedule.count)
-            let idsToCancel = Array(Set(staleIDs + changedIDs)).sorted()
+                let staleIDs = pendingByID.keys
+                    .filter { self.isManagedIdentifier($0) && desiredByID[$0] == nil }
+                    .sorted()
+                let changedIDs = desiredByID.compactMap { id, request -> String? in
+                    guard let existing = pendingByID[id] else { return nil }
+                    let desiredFingerprint = self.fingerprint(for: request)
+                    let existingFingerprint = self.fingerprint(for: existing)
+                    return desiredFingerprint == existingFingerprint ? nil : id
+                }.sorted()
+                let changedSet = Set(changedIDs)
 
-            if idsToCancel.isEmpty == false {
-                self.notificationService.cancel(ids: idsToCancel)
+                let addedRequests = desired.filter { pendingByID[$0.id] == nil }
+                let updatedRequests = desired.filter { changedSet.contains($0.id) }
+                let requestsToSchedule = addedRequests + updatedRequests
+                let unchangedCount = max(0, desired.count - requestsToSchedule.count)
+                let idsToCancel = Array(Set(staleIDs + changedIDs)).sorted()
+
+                if idsToCancel.isEmpty == false {
+                    self.notificationService.cancel(ids: idsToCancel)
+                }
+                requestsToSchedule.forEach { self.notificationService.schedule(request: $0) }
+
+                logWarning(
+                    event: "notification_reconciled",
+                    message: "Notification schedule reconciled",
+                    fields: [
+                        "reason": reason,
+                        "desired_count": String(desired.count),
+                        "added_count": String(addedRequests.count),
+                        "updated_count": String(updatedRequests.count),
+                        "removed_count": String(idsToCancel.count),
+                        "unchanged_count": String(unchangedCount)
+                    ]
+                )
             }
-            requestsToSchedule.forEach { self.notificationService.schedule(request: $0) }
+        }
+    }
 
-            logWarning(
-                event: "notification_reconciled",
-                message: "Notification schedule reconciled",
-                fields: [
-                    "reason": reason,
-                    "desired_count": String(desired.count),
-                    "added_count": String(addedRequests.count),
-                    "updated_count": String(updatedRequests.count),
-                    "removed_count": String(idsToCancel.count),
-                    "unchanged_count": String(unchangedCount)
-                ]
-            )
+    private func resolveExactDailyXPByDateKey(
+        nowDate: Date,
+        completion: @escaping ([String: Int]) -> Void
+    ) {
+        guard let gamificationRepository else {
+            completion([:])
+            return
+        }
+
+        let startOfToday = calendar.startOfDay(for: nowDate)
+        let endDate = calendar.date(byAdding: .day, value: 2, to: startOfToday) ?? startOfToday
+        let startKey = XPCalculationEngine.periodKey(for: startOfToday)
+        let endKey = XPCalculationEngine.periodKey(for: endDate)
+
+        gamificationRepository.fetchDailyAggregates(from: startKey, to: endKey) { result in
+            switch result {
+            case .success(let aggregates):
+                var mapped: [String: Int] = [:]
+                for aggregate in aggregates {
+                    let totalXP = max(0, aggregate.totalXP)
+                    mapped[aggregate.dateKey] = totalXP
+                    mapped[aggregate.dateKey.replacingOccurrences(of: "-", with: "")] = totalXP
+                }
+                completion(mapped)
+            case .failure:
+                completion([:])
+            }
         }
     }
 
     private func desiredRequests(
         tasks: [TaskDefinition],
         nowDate: Date,
-        preferences: TaskerNotificationPreferences
+        preferences: TaskerNotificationPreferences,
+        exactDailyXPByDateKey: [String: Int] = [:]
     ) -> [TaskerLocalNotificationRequest] {
         let openTasks = tasks.filter { !$0.isComplete }
         var requests: [TaskerLocalNotificationRequest] = []
@@ -719,8 +763,14 @@ public final class TaskNotificationOrchestrator {
             requests.append(contentsOf: makeMorningAgendaNotifications(tasks: tasks, nowDate: nowDate, preferences: preferences))
         }
         if preferences.nightlyRetrospectiveEnabled {
-            requests.append(contentsOf: makeNightlyRetrospectiveNotifications(tasks: tasks, nowDate: nowDate, preferences: preferences))
+            requests.append(contentsOf: makeNightlyRetrospectiveNotifications(
+                tasks: tasks,
+                nowDate: nowDate,
+                preferences: preferences,
+                exactDailyXPByDateKey: exactDailyXPByDateKey
+            ))
         }
+        requests.append(contentsOf: makeReflectionRitualNudges(nowDate: nowDate, preferences: preferences))
 
         let quietHoursAdjusted = applyQuietHours(to: requests, nowDate: nowDate, preferences: preferences)
         return quietHoursAdjusted.filter { $0.fireDate > nowDate }
@@ -854,7 +904,7 @@ public final class TaskNotificationOrchestrator {
             nowDate: nowDate,
             hour: preferences.morningHour,
             minute: preferences.morningMinute
-        ) { day in
+        ) { day, _ in
             self.morningAgendaBody(tasks: tasks, day: day)
         }
     }
@@ -862,7 +912,8 @@ public final class TaskNotificationOrchestrator {
     private func makeNightlyRetrospectiveNotifications(
         tasks: [TaskDefinition],
         nowDate: Date,
-        preferences: TaskerNotificationPreferences
+        preferences: TaskerNotificationPreferences,
+        exactDailyXPByDateKey: [String: Int]
     ) -> [TaskerLocalNotificationRequest] {
         makeDailyNotifications(
             prefix: "daily.nightly",
@@ -871,8 +922,69 @@ public final class TaskNotificationOrchestrator {
             nowDate: nowDate,
             hour: preferences.nightlyHour,
             minute: preferences.nightlyMinute
-        ) { day in
-            self.nightlyRetrospectiveBody(tasks: tasks, day: day)
+        ) { day, dateStamp in
+            self.nightlyRetrospectiveBody(
+                tasks: tasks,
+                day: day,
+                exactDayXP: exactDailyXPByDateKey[dateStamp]
+            )
+        }
+    }
+
+    private func makeReflectionRitualNudges(
+        nowDate: Date,
+        preferences: TaskerNotificationPreferences
+    ) -> [TaskerLocalNotificationRequest] {
+        guard preferences.nightlyRetrospectiveEnabled else { return [] }
+
+        let completedDateStamps = reflectionCompletedDateStamps()
+        let startOfToday = calendar.startOfDay(for: nowDate)
+        let offsets = [0, 1, 2]
+
+        return offsets.flatMap { offset -> [TaskerLocalNotificationRequest] in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: startOfToday) else { return [] }
+            let dateStamp = dateStamp(for: day)
+            guard completedDateStamps.contains(dateStamp) == false else { return [] }
+
+            guard let eveningFire = calendar.date(
+                bySettingHour: preferences.nightlyHour,
+                minute: preferences.nightlyMinute,
+                second: 0,
+                of: day
+            ) else {
+                return []
+            }
+
+            var requests: [TaskerLocalNotificationRequest] = []
+            if eveningFire > nowDate {
+                requests.append(
+                    TaskerLocalNotificationRequest(
+                        id: "daily.reflection.\(dateStamp).evening",
+                        kind: .nightlyRetrospective,
+                        title: "Daily Reflection",
+                        body: "Close your day with a 60-second reflection and secure your XP momentum.",
+                        fireDate: eveningFire,
+                        route: .dailySummary(kind: .nightly, dateStamp: dateStamp)
+                    )
+                )
+            }
+
+            if let followUpFire = calendar.date(byAdding: .minute, value: 90, to: eveningFire),
+               calendar.isDate(followUpFire, inSameDayAs: day),
+               followUpFire > nowDate {
+                requests.append(
+                    TaskerLocalNotificationRequest(
+                        id: "daily.reflection.\(dateStamp).followup",
+                        kind: .nightlyRetrospective,
+                        title: "Reflection Reminder",
+                        body: "One quick reflection keeps your streak resilient. Claim it before day-end.",
+                        fireDate: followUpFire,
+                        route: .dailySummary(kind: .nightly, dateStamp: dateStamp)
+                    )
+                )
+            }
+
+            return requests
         }
     }
 
@@ -883,7 +995,7 @@ public final class TaskNotificationOrchestrator {
         nowDate: Date,
         hour: Int,
         minute: Int,
-        bodyBuilder: (Date) -> String
+        bodyBuilder: (Date, String) -> String
     ) -> [TaskerLocalNotificationRequest] {
         let startOfToday = calendar.startOfDay(for: nowDate)
         let offsets = [0, 1, 2]
@@ -904,7 +1016,7 @@ public final class TaskNotificationOrchestrator {
                 id: "\(prefix).\(dateStamp)",
                 kind: kind,
                 title: title,
-                body: bodyBuilder(day),
+                body: bodyBuilder(day, dateStamp),
                 fireDate: fireDate,
                 route: route
             )
@@ -937,7 +1049,7 @@ public final class TaskNotificationOrchestrator {
         return "\(openCount) tasks today (\(highCount) high priority, \(overdueCount) overdue). Start with \"\(topTask.title)\"."
     }
 
-    private func nightlyRetrospectiveBody(tasks: [TaskDefinition], day: Date) -> String {
+    private func nightlyRetrospectiveBody(tasks: [TaskDefinition], day: Date, exactDayXP: Int?) -> String {
         let start = calendar.startOfDay(for: day)
         let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start
 
@@ -958,10 +1070,12 @@ public final class TaskNotificationOrchestrator {
         })
         let completedIDs = Set(completedToday.map(\.id))
         let totalCount = max(completedToday.count, dueTodayIDs.union(completedIDs).count)
-        let xp = completedToday.reduce(0) { $0 + $1.priority.scorePoints }
         let topCompletedTask = completedToday.first?.title ?? "Task"
 
-        return "Completed \(completedToday.count)/\(totalCount) tasks, earned \(xp) XP. Biggest win: \"\(topCompletedTask)\"."
+        if let exactDayXP {
+            return "Completed \(completedToday.count)/\(totalCount) tasks, earned \(exactDayXP) XP. Biggest win: \"\(topCompletedTask)\"."
+        }
+        return "Completed \(completedToday.count)/\(totalCount) tasks. Biggest win: \"\(topCompletedTask)\". Open Tasker for exact XP."
     }
 
     private func relativeDueText(for task: TaskDefinition, nowDate: Date) -> String? {
@@ -980,6 +1094,11 @@ public final class TaskNotificationOrchestrator {
 
     private func dateStamp(for date: Date) -> String {
         stampFormatter.string(from: date)
+    }
+
+    private func reflectionCompletedDateStamps() -> Set<String> {
+        let keys = UserDefaults.standard.stringArray(forKey: "gamification.reflection.completedDateKeys") ?? []
+        return Set(keys)
     }
 
     private func fingerprint(for request: TaskerLocalNotificationRequest) -> NotificationFingerprint {

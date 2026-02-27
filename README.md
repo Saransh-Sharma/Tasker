@@ -116,7 +116,7 @@ Full metric definitions, acceptance criteria, and requirement detail live in:
 ## Runtime Snapshot
 
 Current V3 runtime composition:
-1. `AppDelegate` bootstraps `TaskModelV3` stores with hard-cut epoch key `tasker.v3.store.epoch`, CloudKit container `iCloud.TaskerCloudKitV3`, and fail-closed readiness checks.
+1. `AppDelegate` bootstraps split `TaskModelV3` stores with hard-cut epoch key `tasker.v3.store.epoch`, CloudKit container `iCloud.TaskerCloudKitV3`, explicit sync runtime mode (`fullSync` vs `writeClosed`), and cloud-authoritative manual recovery actions.
 2. `EnhancedDependencyContainer` wires repositories/services and builds `UseCaseCoordinator`.
 3. `PresentationDependencyContainer` exposes ViewModels and validates presentation-side runtime readiness.
 
@@ -126,11 +126,32 @@ Primary source anchors:
 - `To Do List/Presentation/DI/PresentationDependencyContainer.swift`
 - `To Do List/UseCases/Coordinator/UseCaseCoordinator.swift`
 
+## Gamification V2
+
+Gamification V2 is now engine-driven and event-driven.
+
+Canonical loop:
+1. User action (task completion, focus session end, reflection completion).
+2. `GamificationEngine.recordEvent(context:)`.
+3. Core Data ledger/profile writes (`XPEvent`, `DailyXPAggregate`, `GamificationProfile`).
+4. Post-commit `Notification.Name.gamificationLedgerDidMutate`.
+5. Home (`HomeViewModel`), Insights (`InsightsViewModel`), and widgets consume updated state.
+
+How XP stays correct:
+- Idempotency keys prevent duplicate awards for repeated equivalent actions.
+- Global daily cap is enforced in XP calculation.
+- UI freshness is event-driven from post-commit ledger mutation notification.
+- `fullReconciliation()` rebuilds aggregates/profile from ledger truth after partial-write failure or qualified cloud import.
+
+Deep technical reference:
+- `docs/architecture/gamification-v2-engine.md`
+
 ## Release Cutover Policy
 
 - V3-only runtime: legacy task contracts (`TaskRepositoryProtocol`, compatibility task aliases, legacy bridge adapters) are removed.
 - Upgrade data policy is destructive reset by design for this hard cut.
 - Cloud sync cutover uses a new container: `iCloud.TaskerCloudKitV3`.
+- Runtime bootstrap does not auto-wipe stores on compatibility failures; cloud bootstrap failures enter write-closed mode (reads allowed, writes blocked) until user-initiated iCloud recovery.
 
 ## Repository Map
 
@@ -194,6 +215,7 @@ xcodebuild test -workspace Tasker.xcworkspace -scheme "To Do List" -destination 
 | `docs/architecture/data-model-v2.md` | V2 schema/domain invariants | Canonical | entity/field/relationship/migration changes | backend-state and feature engineers |
 | `docs/architecture/clean-architecture-v2.md` | layering, DI/runtime, fail-closed behavior | Canonical | runtime wiring/feature-gate/bootstrapping changes | platform and feature engineers |
 | `docs/architecture/usecases-v2.md` | usecase contracts and side effects | Canonical | usecase API/dependency/behavior changes | app engineers |
+| `docs/architecture/gamification-v2-engine.md` | gamification engine runtime, correctness, reconciliation, and widget path | Canonical | any change in `UseCases/Gamification/*`, `CoreDataGamificationRepository`, XP mutation signal flow, or Insights event-driven projection behavior | feature engineers, platform engineers, incident responders |
 | `docs/architecture/risk-register-v2.md` | migration risks and guardrails | Canonical | new risks, mitigations, release policy changes | tech leads, reviewers |
 | `docs/architecture/state-repositories-and-services-v2.md` | repository/service internals | Canonical | State repository/service changes | state/data engineers |
 | `docs/architecture/domain-events-and-observability-v2.md` | domain event system and handler behavior | Canonical | event schema/handler/notification changes | app + analytics engineers |
