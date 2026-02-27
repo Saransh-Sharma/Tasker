@@ -11,6 +11,10 @@ import UIKit
 // Import Clean Architecture components
 // These types are defined in the Presentation layer
 
+extension Notification.Name {
+    static let taskerOpenFocusDeepLink = Notification.Name("TaskerOpenFocusDeepLink")
+}
+
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
@@ -58,6 +62,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         case .bootstrapFailure(let message):
             showBootstrapFailureRoot(message: message)
+        }
+
+        if let deepLinkURL = connectionOptions.urlContexts.first?.url {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleIncomingURL(deepLinkURL)
+            }
         }
     }
 
@@ -116,6 +126,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         chatPrewarmTask?.cancel()
         chatPrewarmTask = nil
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_enter_background")
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard let url = URLContexts.first?.url else { return }
+        handleIncomingURL(url)
+    }
+
+    private func handleIncomingURL(_ url: URL) {
+        guard url.scheme?.lowercased() == "tasker" else { return }
+        guard let host = url.host?.lowercased() else { return }
+
+        if host == "focus" {
+            NotificationCenter.default.post(name: .taskerOpenFocusDeepLink, object: nil)
+        }
     }
 
 

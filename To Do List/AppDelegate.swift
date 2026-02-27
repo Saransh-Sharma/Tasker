@@ -28,6 +28,20 @@ struct PersistentStoreLoadReport {
     let errors: [NSError]
 }
 
+enum CloudKitMirroringMode {
+    case enabled
+    case disabled(reason: String)
+
+    var reason: String {
+        switch self {
+        case .enabled:
+            return "enabled"
+        case .disabled(let reason):
+            return reason
+        }
+    }
+}
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
@@ -37,6 +51,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private let v3StoreEpoch = 4
     private var notificationOrchestrator: TaskNotificationOrchestrator?
     private var notificationActionHandler: TaskerNotificationActionHandler?
+    private var gamificationRemoteChangeCoordinator: GamificationRemoteChangeCoordinator?
 
     private(set) static var persistentBootstrapFailureMessage: String?
     static var isPersistentStoreReady: Bool {
@@ -100,6 +115,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     "source": firebaseStartupSource
                 ]
             )
+            GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_launch")
         } else {
             logWarning(
                 event: "firebase_startup_mode",
@@ -139,6 +155,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
             guard didConfigureRuntime else {
                 break
             }
+
+            gamificationRemoteChangeCoordinator = GamificationRemoteChangeCoordinator(
+                container: container,
+                notificationCenter: .default,
+                onQualifiedCloudImport: { reason in
+                    guard V2FeatureFlags.gamificationV2Enabled else { return }
+                    let engine = PresentationDependencyContainer.shared.coordinator.gamificationEngine
+                    engine.fullReconciliation { result in
+                        switch result {
+                        case .success:
+                            engine.writeWidgetSnapshot()
+                        case .failure(let error):
+                            logError(
+                                event: "gamification_remote_reconciliation_failed",
+                                message: "Gamification reconciliation failed after qualified CloudKit import transaction",
+                                fields: [
+                                    "reason": reason,
+                                    "error": error.localizedDescription
+                                ]
+                            )
+                        }
+                    }
+                }
+            )
 
             registerBackgroundTasks()
             scheduleOccurrenceRefresh()
@@ -215,6 +255,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// Executes applicationDidBecomeActive.
     func applicationDidBecomeActive(_ application: UIApplication) {
         notificationOrchestrator?.reconcile(reason: "app_did_become_active")
+        if FirebaseApp.app() != nil {
+            GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_did_become_active")
+        }
     }
 
     /// Executes makeLaunchRootMode.
@@ -334,23 +377,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// Executes handlePersistentStoreRemoteChange.
     @objc
     func handlePersistentStoreRemoteChange(_ notification: Notification) {
-        guard let context = persistentContainer?.viewContext else {
-            return
-        }
-        // Perform merging on the context's queue to avoid threading issues
-        context.perform { // Changed from performAndWait to perform for potentially better responsiveness
-            context.mergeChanges(fromContextDidSave: notification) // Correct method signature
-
-            // **CRITICAL: Call consolidation logic after merging CloudKit changes**
-            // Note: consolidateDataWithCleanArchitecture is private, call setupCleanArchitecture instead
-            // or make the method internal in AppDelegate+Migration.swift
-            
-            // Notify repository system about potential data changes
-            NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
-
-            // Consider posting a custom notification if UI needs to react strongly to these background changes
-            // NotificationCenter.default.post(name: Notification.Name("DataDidChangeFromCloudSync"), object: nil)
-        }
+        gamificationRemoteChangeCoordinator?.handleRemoteChange(notification)
     }
     
     // Remote notification registration success/failure callbacks
@@ -481,6 +508,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// Executes makeV3PersistentContainer.
     private func makeV3PersistentContainer() -> NSPersistentCloudKitContainer {
         let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
+        let cloudKitMode = cloudKitMirroringMode()
 
         let baseURL = NSPersistentContainer.defaultDirectoryURL()
         let cloudURL = baseURL.appendingPathComponent("TaskModelV3-cloud.sqlite")
@@ -488,9 +516,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
 
         let cloudDescription = NSPersistentStoreDescription(url: cloudURL)
         cloudDescription.configuration = "CloudSync"
-        cloudDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-            containerIdentifier: "iCloud.TaskerCloudKitV3"
-        )
+        if case .enabled = cloudKitMode {
+            cloudDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
+                containerIdentifier: "iCloud.TaskerCloudKitV3"
+            )
+        } else {
+            logWarning(
+                event: "cloudkit_mirroring_disabled",
+                message: "CloudKit entitlement unavailable at runtime; using local Core Data store for CloudSync configuration",
+                fields: [
+                    "reason": cloudKitMode.reason,
+                    "configuration": "CloudSync"
+                ]
+            )
+        }
         cloudDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         cloudDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
 
@@ -503,6 +542,30 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         container.viewContext.automaticallyMergesChangesFromParent = true
         container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
         return container
+    }
+
+    /// Executes cloudKitMirroringMode.
+    ///
+    /// Keep CloudKit mirroring off in simulator/XCTest runs to avoid startup crashes in
+    /// unsigned test hosts where runtime entitlements are unavailable.
+    private func cloudKitMirroringMode() -> CloudKitMirroringMode {
+        let processInfo = ProcessInfo.processInfo
+        let environment = processInfo.environment
+
+        if environment["XCTestConfigurationFilePath"] != nil || environment["XCInjectBundleInto"] != nil {
+            return .disabled(reason: "xctest_runtime")
+        }
+
+        #if targetEnvironment(simulator)
+        return .disabled(reason: "simulator_runtime")
+        #else
+            #if DEBUG
+            if processInfo.arguments.contains("-TASKER_DISABLE_CLOUDKIT") {
+                return .disabled(reason: "launch_arg_disable_cloudkit")
+            }
+            #endif
+            return .enabled
+        #endif
     }
 
     /// Executes bootstrapV3PersistentContainer.
@@ -651,7 +714,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                         "code": String(nsError.code),
                         "error": nsError.localizedDescription,
                         "url": store.url?.absoluteString ?? "unknown",
-                        "configuration": store.configurationName ?? "unknown"
+                        "configuration": store.configurationName
                     ]
                 )
             }
@@ -1184,6 +1247,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         ensureV3Defaults()
         repairProjectIdentityIfNeeded()
 
+        // Reconcile gamification data on launch
+        if V2FeatureFlags.gamificationV2Enabled {
+            let engine = stateContainer.useCaseCoordinator.gamificationEngine
+            engine.fullReconciliation { _ in
+                engine.writeWidgetSnapshot()
+            }
+            engine.updateStreak { _ in }
+        }
+
         // Configure LLM access through repositories (no direct Core Data context pulls).
         LLMContextRepositoryProvider.configure(
             taskReadModelRepository: stateContainer.taskReadModelRepository,
@@ -1230,6 +1302,188 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
                     fields: ["error": error.localizedDescription]
                 )
             }
+        }
+    }
+}
+
+enum GamificationRemoteChangeClassifier {
+    static func isQualifiedCloudImport(author: String?, contextName: String?) -> Bool {
+        let normalizedAuthor = (author ?? "").lowercased()
+        let normalizedContext = (contextName ?? "").lowercased()
+
+        // Prefer author-based classification to avoid false-positive loops from local writes.
+        if normalizedAuthor.isEmpty == false {
+            let hasCloudKitSignal = normalizedAuthor.contains("cloudkit") || normalizedAuthor.contains("mirroringdelegate")
+            let hasImportSignal = normalizedAuthor.contains("import")
+            return hasCloudKitSignal && hasImportSignal
+        }
+
+        // Fallback only for environments where author may be nil but context keeps CloudKit import naming.
+        return normalizedContext.contains("nscloudkitmirroringdelegate.import")
+            || normalizedContext.contains("cloudkit.import")
+    }
+}
+
+final class GamificationRemoteChangeCoordinator {
+    private enum Constants {
+        static let historyTokenDefaultsKey = "gamification.remote_change.history_token"
+        static let cloudSyncNotification = Notification.Name("DataDidChangeFromCloudSync")
+    }
+
+    private struct HistoryScanOutcome {
+        let scannedTransactions: Int
+        let qualifiedTransactions: Int
+        let shouldReconcile: Bool
+    }
+
+    private let container: NSPersistentCloudKitContainer
+    private let notificationCenter: NotificationCenter
+    private let onQualifiedCloudImport: (_ reason: String) -> Void
+    private let defaults: UserDefaults
+    private let workQueue = DispatchQueue(label: "com.tasker.gamification.remote_change", qos: .utility)
+
+    private var isProcessing = false
+    private var pendingReplay = false
+    private var historyToken: NSPersistentHistoryToken?
+
+    init(
+        container: NSPersistentCloudKitContainer,
+        notificationCenter: NotificationCenter,
+        defaults: UserDefaults = .standard,
+        onQualifiedCloudImport: @escaping (_ reason: String) -> Void
+    ) {
+        self.container = container
+        self.notificationCenter = notificationCenter
+        self.defaults = defaults
+        self.onQualifiedCloudImport = onQualifiedCloudImport
+        self.historyToken = Self.loadPersistedToken(defaults: defaults)
+    }
+
+    func handleRemoteChange(_ notification: Notification) {
+        _ = notification
+        workQueue.async { [weak self] in
+            guard let self else { return }
+            self.pendingReplay = true
+            self.processIfNeeded()
+        }
+    }
+
+    private func processIfNeeded() {
+        guard pendingReplay, isProcessing == false else { return }
+        pendingReplay = false
+        isProcessing = true
+
+        let outcome = scanPersistentHistory()
+        isProcessing = false
+
+        if outcome.shouldReconcile {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.notificationCenter.post(name: Constants.cloudSyncNotification, object: nil)
+                self.onQualifiedCloudImport("persistent_history_cloud_import")
+            }
+        }
+
+        if pendingReplay {
+            processIfNeeded()
+        }
+    }
+
+    private func scanPersistentHistory() -> HistoryScanOutcome {
+        let context = container.newBackgroundContext()
+        context.mergePolicy = NSMergeByPropertyStoreTrumpMergePolicy
+
+        var transactions: [NSPersistentHistoryTransaction] = []
+        var fetchError: Error?
+
+        context.performAndWait {
+            do {
+                let historyRequest = NSPersistentHistoryChangeRequest.fetchHistory(after: historyToken)
+                historyRequest.resultType = .transactionsOnly
+                let historyResult = try context.execute(historyRequest) as? NSPersistentHistoryResult
+                transactions = historyResult?.result as? [NSPersistentHistoryTransaction] ?? []
+            } catch {
+                fetchError = error
+            }
+        }
+
+        if let fetchError {
+            logError(
+                event: "gamification_remote_history_fetch_failed",
+                message: "Failed to fetch persistent history transactions for remote-change processing",
+                fields: ["error": fetchError.localizedDescription]
+            )
+            return HistoryScanOutcome(
+                scannedTransactions: 0,
+                qualifiedTransactions: 0,
+                shouldReconcile: false
+            )
+        }
+
+        guard transactions.isEmpty == false else {
+            return HistoryScanOutcome(
+                scannedTransactions: 0,
+                qualifiedTransactions: 0,
+                shouldReconcile: false
+            )
+        }
+
+        if let latestToken = transactions.last?.token {
+            historyToken = latestToken
+            Self.persist(token: latestToken, defaults: defaults)
+        }
+
+        let qualifiedCount = transactions.reduce(into: 0) { partialResult, transaction in
+            if GamificationRemoteChangeClassifier.isQualifiedCloudImport(
+                author: transaction.author,
+                contextName: transaction.contextName
+            ) {
+                partialResult += 1
+            }
+        }
+
+        logDebug(
+            "gamification_remote_history_scan " +
+                "scanned=\(transactions.count) qualified=\(qualifiedCount)"
+        )
+
+        return HistoryScanOutcome(
+            scannedTransactions: transactions.count,
+            qualifiedTransactions: qualifiedCount,
+            shouldReconcile: qualifiedCount > 0
+        )
+    }
+
+    private static func loadPersistedToken(defaults: UserDefaults) -> NSPersistentHistoryToken? {
+        guard let tokenData = defaults.data(forKey: Constants.historyTokenDefaultsKey) else {
+            return nil
+        }
+        do {
+            return try NSKeyedUnarchiver.unarchivedObject(
+                ofClass: NSPersistentHistoryToken.self,
+                from: tokenData
+            )
+        } catch {
+            logWarning(
+                event: "gamification_remote_history_token_decode_failed",
+                message: "Failed to decode persistent history token; starting scan from nil token",
+                fields: ["error": error.localizedDescription]
+            )
+            defaults.removeObject(forKey: Constants.historyTokenDefaultsKey)
+            return nil
+        }
+    }
+
+    private static func persist(token: NSPersistentHistoryToken, defaults: UserDefaults) {
+        do {
+            let tokenData = try NSKeyedArchiver.archivedData(withRootObject: token, requiringSecureCoding: true)
+            defaults.set(tokenData, forKey: Constants.historyTokenDefaultsKey)
+        } catch {
+            logWarning(
+                event: "gamification_remote_history_token_encode_failed",
+                message: "Failed to encode persistent history token; coordinator will keep in-memory token only",
+                fields: ["error": error.localizedDescription]
+            )
         }
     }
 }

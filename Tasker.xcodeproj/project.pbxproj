@@ -58,6 +58,7 @@
 		5665C4C2C0BD133E3E4F59AA /* AssistantActionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432D634291596A7CBBCFA76B /* AssistantActionRepositoryProtocol.swift */; };
 		599BA3DB81762830929CF142 /* ManageSectionsUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9334755BADE444C8A77BCA3E /* ManageSectionsUseCase.swift */; };
 		59E0A865A7529C69B04F684A /* LocalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C94956D526284966A1EEDC /* LocalNotificationService.swift */; };
+		7F1B2C3D4E5F60718293A4B5 /* GamificationRemoteKillSwitchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F1B2C3D4E5F60718293A4B6 /* GamificationRemoteKillSwitchService.swift */; };
 		5AC278B44C8BDF3A50E94379 /* TagMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32B0321DD6413CCDC888416 /* TagMapper.swift */; };
 		5F230AF6BB3D9F989C5A6418 /* ColorTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B812E7A0B879607C95C0571B /* ColorTokens.swift */; };
 		600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39FDE21811FCBE733038318 /* GetHomeFilteredTasksUseCaseTests.swift */; };
@@ -371,6 +372,30 @@
 		44A001832E330AF45EED98AA /* QuietHoursCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1DA9F6A39882873264672B /* QuietHoursCard.swift */; };
 		4C1BDC9E724542DA36739830 /* QuietHoursTimeBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7273F65E17455922134AB7A9 /* QuietHoursTimeBar.swift */; };
 		FA7A583FEC8560AC162964C2 /* SettingsFooterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 718216D68E8278668DDB49BC /* SettingsFooterView.swift */; };
+		511B4F3A5B402E7BCB708321 /* XPEnums.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E754344BF05CE3FA97D8E /* XPEnums.swift */; };
+		D1855A230115C554ADB92AEA /* DailyXPAggregateDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF3952DBA8C2ACE185FEF0 /* DailyXPAggregateDefinition.swift */; };
+		E9479027EA89BB78EAD282EF /* FocusSessionDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD2798DFE7058AA45DECE737 /* FocusSessionDefinition.swift */; };
+		8FB82D17163DA0089635E128 /* XPCalculationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D115AC1607F718EC014575BE /* XPCalculationEngine.swift */; };
+		A6D5E0EA942DF95EA0C175B8 /* GamificationTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D48E4DB12D2E1FE5A90FC97D /* GamificationTokens.swift */; };
+		76CEBFD41A570542EB212A69 /* GamificationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5FAE972A10C45BCDDB0142 /* GamificationEngine.swift */; };
+		C537950FC6FD78BB996E7CA5 /* HomeXPHeroView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DC0A5BC84D9C6C792B2AB6 /* HomeXPHeroView.swift */; };
+		C4B2E3D5F6A70819 /* AchievementCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F708 /* AchievementCatalog.swift */; };
+		C4B2E3D5F6A7081A /* BadgeGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F709 /* BadgeGalleryView.swift */; };
+		C4B2E3D5F6A7081B /* LevelUpCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70A /* LevelUpCelebrationView.swift */; };
+		C4B2E3D5F6A7081C /* MilestoneCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70B /* MilestoneCelebrationView.swift */; };
+		C4B2E3D5F6A7081D /* BadgeDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A1F2C4D5E6F70C /* BadgeDetailSheet.swift */; };
+		36235D01BFCF2D2001A39CCE /* FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* FocusSessionUseCase.swift */; };
+		A2181FC3974A81C3FB7BEDFF /* MarkDailyReflectionCompleteUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = C63740651E231116AA556D8F /* MarkDailyReflectionCompleteUseCase.swift */; };
+		3A549BEBEF3902410F96971A /* FocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* FocusTimerView.swift */; };
+		A912CB15A1588398C547FCE3 /* FocusSessionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D63FBA200D736491232884A /* FocusSessionSummaryView.swift */; };
+		BA046E8ED5086F9E39ACB225 /* DailyReflectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2BA3F253548BE9F1EE2AB4B /* DailyReflectionView.swift */; };
+		FFCF1FC469B2AE9FC88CF3D1 /* InsightsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EDFF0556DE6F60CD19AA39 /* InsightsViewModel.swift */; };
+		A25DA7AE7D00020D26A9EBC7 /* InsightsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C915FFCD3814E051A506B72 /* InsightsTabView.swift */; };
+		7129612FB537C3EBFEFAE820 /* InsightsTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EADF87F8D6DB5378683DFA6C /* InsightsTodayView.swift */; };
+		ABEDCF04774EFF887D0E6357 /* InsightsWeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A29C6400C2C2B7C5DD54720 /* InsightsWeekView.swift */; };
+		512890EDADD52FEAEBF07400 /* InsightsSystemsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1286F3B4BF1B37261405007 /* InsightsSystemsView.swift */; };
+		4D31E9106C4721F38F1B2394 /* AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */; };
+		3D5A1FDECBC53839EF1F4953 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21637D8476DC186EA285FB33 /* WidgetSnapshot.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -434,6 +459,7 @@
 		4FCA458CC709E59AA20BC5C8 /* NextActionModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NextActionModule.swift; sourceTree = "<group>"; };
 		52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailComponents.swift; sourceTree = "<group>"; };
 		53C94956D526284966A1EEDC /* LocalNotificationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Services/LocalNotificationService.swift"; sourceTree = SOURCE_ROOT; };
+		7F1B2C3D4E5F60718293A4B6 /* GamificationRemoteKillSwitchService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Services/GamificationRemoteKillSwitchService.swift"; sourceTree = SOURCE_ROOT; };
 		55C5A46909EF46C27D7B84E3 /* SavedHomeViewRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SavedHomeViewRepositoryProtocol.swift; sourceTree = "<group>"; };
 		592346DCA3C3FE56E12617C2 /* TaskDefinitionMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Mappers/TaskDefinitionMapper.swift"; sourceTree = SOURCE_ROOT; };
 		594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAdvancedFilterSheetView.swift; sourceTree = "<group>"; };
@@ -572,6 +598,7 @@
 		75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColoredPillBackgroundView.swift; sourceTree = "<group>"; };
 		75F0C7122DEA3DF8008F4460 /* ProjectPillCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPillCell.swift; sourceTree = "<group>"; };
 		75F18101245C99CD004D9A69 /* TaskModelV3.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3.xcdatamodel; sourceTree = "<group>"; };
+		A9C6F21138AB4C41B2D309E7 /* TaskModelV3_Gamification.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_Gamification.xcdatamodel; sourceTree = "<group>"; };
 		75F18109245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TaskDefinitionEntity+CoreDataClass.swift"; path = "To Do List/State/Entities/TaskDefinitionEntity+CoreDataClass.swift"; sourceTree = "<group>"; };
 		75F1810A245CA7DF004D9A69 /* TaskDefinitionEntity+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "TaskDefinitionEntity+CoreDataProperties.swift"; path = "To Do List/State/Entities/TaskDefinitionEntity+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		75F89F2C2DFC44E6009EDD8F /* Data.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Data.swift; sourceTree = "<group>"; };
@@ -762,6 +789,36 @@
 		FA1DA9F6A39882873264672B /* QuietHoursCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietHoursCard.swift; sourceTree = "<group>"; };
 		7273F65E17455922134AB7A9 /* QuietHoursTimeBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietHoursTimeBar.swift; sourceTree = "<group>"; };
 		718216D68E8278668DDB49BC /* SettingsFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFooterView.swift; sourceTree = "<group>"; };
+		945E754344BF05CE3FA97D8E /* XPEnums.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/XPEnums.swift"; sourceTree = SOURCE_ROOT; };
+		C4AF3952DBA8C2ACE185FEF0 /* DailyXPAggregateDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/DailyXPAggregateDefinition.swift"; sourceTree = SOURCE_ROOT; };
+		AD2798DFE7058AA45DECE737 /* FocusSessionDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/FocusSessionDefinition.swift"; sourceTree = SOURCE_ROOT; };
+		D115AC1607F718EC014575BE /* XPCalculationEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/XPCalculationEngine.swift"; sourceTree = SOURCE_ROOT; };
+		D48E4DB12D2E1FE5A90FC97D /* GamificationTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GamificationTokens.swift; sourceTree = "<group>"; };
+		1C5FAE972A10C45BCDDB0142 /* GamificationEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Gamification/GamificationEngine.swift"; sourceTree = SOURCE_ROOT; };
+		17DC0A5BC84D9C6C792B2AB6 /* HomeXPHeroView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/HomeXPHeroView.swift"; sourceTree = SOURCE_ROOT; };
+		B3A1F2C4D5E6F708 /* AchievementCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Domain/Models/AchievementCatalog.swift"; sourceTree = SOURCE_ROOT; };
+		B3A1F2C4D5E6F709 /* BadgeGalleryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/BadgeGalleryView.swift"; sourceTree = SOURCE_ROOT; };
+		B3A1F2C4D5E6F70A /* LevelUpCelebrationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/LevelUpCelebrationView.swift"; sourceTree = SOURCE_ROOT; };
+		B3A1F2C4D5E6F70B /* MilestoneCelebrationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/MilestoneCelebrationView.swift"; sourceTree = SOURCE_ROOT; };
+		B3A1F2C4D5E6F70C /* BadgeDetailSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/BadgeDetailSheet.swift"; sourceTree = SOURCE_ROOT; };
+		7CC4B584282446580AA72B44 /* FocusSessionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Gamification/FocusSessionUseCase.swift"; sourceTree = SOURCE_ROOT; };
+		C63740651E231116AA556D8F /* MarkDailyReflectionCompleteUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/UseCases/Gamification/MarkDailyReflectionCompleteUseCase.swift"; sourceTree = SOURCE_ROOT; };
+		37E2466DBE2A76A73458F530 /* FocusTimerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/FocusTimerView.swift"; sourceTree = SOURCE_ROOT; };
+		6D63FBA200D736491232884A /* FocusSessionSummaryView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/FocusSessionSummaryView.swift"; sourceTree = SOURCE_ROOT; };
+		E2BA3F253548BE9F1EE2AB4B /* DailyReflectionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/DailyReflectionView.swift"; sourceTree = SOURCE_ROOT; };
+		52EDFF0556DE6F60CD19AA39 /* InsightsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/Presentation/ViewModels/InsightsViewModel.swift"; sourceTree = SOURCE_ROOT; };
+		7C915FFCD3814E051A506B72 /* InsightsTabView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/Insights/InsightsTabView.swift"; sourceTree = SOURCE_ROOT; };
+		EADF87F8D6DB5378683DFA6C /* InsightsTodayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/Insights/InsightsTodayView.swift"; sourceTree = SOURCE_ROOT; };
+		9A29C6400C2C2B7C5DD54720 /* InsightsWeekView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/Insights/InsightsWeekView.swift"; sourceTree = SOURCE_ROOT; };
+		B1286F3B4BF1B37261405007 /* InsightsSystemsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "To Do List/View/Insights/InsightsSystemsView.swift"; sourceTree = SOURCE_ROOT; };
+		79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Shared/AppGroupConstants.swift; sourceTree = SOURCE_ROOT; };
+		21637D8476DC186EA285FB33 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Shared/WidgetSnapshot.swift; sourceTree = SOURCE_ROOT; };
+		C1256A6FF63A60FC9D9E82C2 /* TaskerWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TaskerWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
+		3A74DF0E9DCAEB8A8179F375 /* TodayXPWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/TodayXPWidget.swift; sourceTree = SOURCE_ROOT; };
+		B4599EE24B534345B7E5F063 /* WeeklyScoreboardWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/WeeklyScoreboardWidget.swift; sourceTree = SOURCE_ROOT; };
+		89676F376DC27DF3823AB623 /* NextMilestoneWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/NextMilestoneWidget.swift; sourceTree = SOURCE_ROOT; };
+		9BBE8CE1B13AA2877F4BBCAE /* StreakResilienceWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/StreakResilienceWidget.swift; sourceTree = SOURCE_ROOT; };
+		FD3BCAD6C5A546608629F532 /* FocusSeedWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskerWidgets/FocusSeedWidget.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -821,6 +878,9 @@
 			isa = PBXGroup;
 			children = (
 				05E5245EF6140902F09F99CA /* RecordXPUseCase.swift */,
+				1C5FAE972A10C45BCDDB0142 /* GamificationEngine.swift */,
+				7CC4B584282446580AA72B44 /* FocusSessionUseCase.swift */,
+				C63740651E231116AA556D8F /* MarkDailyReflectionCompleteUseCase.swift */,
 			);
 			name = Gamification;
 			sourceTree = "<group>";
@@ -968,6 +1028,7 @@
 				B1A1C1D1E1F1020304050603 /* ChartCardViewModel.swift */,
 				B1A1C1D1E1F1020304050604 /* RadarChartCardViewModel.swift */,
 				B1A1C1D1E1F1020304050605 /* ProjectSelectionViewModel.swift */,
+				52EDFF0556DE6F60CD19AA39 /* InsightsViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -1051,6 +1112,8 @@
 				031AB8D26C533B56B12C3D36 /* Frameworks */,
 				7524B71A2DE4EAC90026D865 /* GoogleService-Info.plist */,
 				2B50014F36B8614DE15D0108 /* Tasker */,
+				CF470A08F638B7A4505F5DD1 /* Shared */,
+				05554359AC0AA7171B2351B8 /* TaskerWidgets */,
 				755F74D72F46270F0046BBE9 /* Recovered References */,
 			);
 			sourceTree = "<group>";
@@ -1283,6 +1346,7 @@
 				594ECD331C0135DA36357314 /* HomeAdvancedFilterSheetView.swift */,
 				A10000000000000000000001 /* QuickViewSelector.swift */,
 				A10000000000000000000002 /* NavPieChart.swift */,
+				17DC0A5BC84D9C6C792B2AB6 /* HomeXPHeroView.swift */,
 				BF5D7161411B42651DF00D60 /* HomeForedropView.swift */,
 				F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */,
 				F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */,
@@ -1317,8 +1381,27 @@
 				95932952BC5EBADE8D30791C /* AddTaskTagMultiSelect.swift */,
 				2D01967BDAF0ABB45A855C29 /* AddTaskTaskPicker.swift */,
 				D7C5BD9B9BA76D61F7F044BD /* TaskerSnackbar.swift */,
+				B3A1F2C4D5E6F709 /* BadgeGalleryView.swift */,
+				B3A1F2C4D5E6F70A /* LevelUpCelebrationView.swift */,
+				B3A1F2C4D5E6F70B /* MilestoneCelebrationView.swift */,
+				B3A1F2C4D5E6F70C /* BadgeDetailSheet.swift */,
+				37E2466DBE2A76A73458F530 /* FocusTimerView.swift */,
+				6D63FBA200D736491232884A /* FocusSessionSummaryView.swift */,
+				E2BA3F253548BE9F1EE2AB4B /* DailyReflectionView.swift */,
+				4BDE4D4721AB3214B6F9804E /* Insights */,
 			);
 			path = View;
+			sourceTree = "<group>";
+		};
+		4BDE4D4721AB3214B6F9804E /* Insights */ = {
+			isa = PBXGroup;
+			children = (
+				7C915FFCD3814E051A506B72 /* InsightsTabView.swift */,
+				EADF87F8D6DB5378683DFA6C /* InsightsTodayView.swift */,
+				9A29C6400C2C2B7C5DD54720 /* InsightsWeekView.swift */,
+				B1286F3B4BF1B37261405007 /* InsightsSystemsView.swift */,
+			);
+			path = Insights;
 			sourceTree = "<group>";
 		};
 		755FE8E02479E61600A71A75 /* Theme */ = {
@@ -1386,6 +1469,7 @@
 				6442D619CAA8E6CA77B46126 /* TaskerTokens.swift */,
 				FB9BE07CCB7761E186498D8C /* TaskerTheme.swift */,
 				B812E7A0B879607C95C0571B /* ColorTokens.swift */,
+				D48E4DB12D2E1FE5A90FC97D /* GamificationTokens.swift */,
 				CA35E641ED7341169B9EC48D /* TypographyTokens.swift */,
 				D39BBE25D96F4BE6E41320B1 /* SpacingTokens.swift */,
 				ADB62B5450F5D70EBBEC2940 /* ElevationTokens.swift */,
@@ -1418,6 +1502,7 @@
 			children = (
 				34CC91CCAA408A3ADB2D8693 /* V2FeatureFlags.swift */,
 				53C94956D526284966A1EEDC /* LocalNotificationService.swift */,
+				7F1B2C3D4E5F60718293A4B6 /* GamificationRemoteKillSwitchService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1530,12 +1615,17 @@
 				208608AB50F4EA01C74D2758 /* Occurrence.swift */,
 				E4F394C64907F22C89881E3A /* ReminderDefinition.swift */,
 				A9ADCB5DB568A54708322C8E /* GamificationProfile.swift */,
+				945E754344BF05CE3FA97D8E /* XPEnums.swift */,
+				C4AF3952DBA8C2ACE185FEF0 /* DailyXPAggregateDefinition.swift */,
+				AD2798DFE7058AA45DECE737 /* FocusSessionDefinition.swift */,
+				D115AC1607F718EC014575BE /* XPCalculationEngine.swift */,
 				85F3DEB89B5BEB05F1972CA7 /* XPEvent.swift */,
 				7C900006EE1DF0BACD33342B /* Achievement.swift */,
 				E78CA56E2EAD1B448EFED377 /* AssistantAction.swift */,
 				3CAA3A6573B0FE5C495C67AC /* ExternalSyncModels.swift */,
 				65A7A039AC9CA38845D1E44F /* SyncMergeState.swift */,
 				2856D1EE26429146B60B6633 /* TaskReadQueries.swift */,
+				B3A1F2C4D5E6F708 /* AchievementCatalog.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -1832,6 +1922,28 @@
 				5DAFF791DE50B3141083F4FD /* Components */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		CF470A08F638B7A4505F5DD1 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */,
+				21637D8476DC186EA285FB33 /* WidgetSnapshot.swift */,
+			);
+			name = Shared;
+			sourceTree = "<group>";
+		};
+		05554359AC0AA7171B2351B8 /* TaskerWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				C1256A6FF63A60FC9D9E82C2 /* TaskerWidgetBundle.swift */,
+				3A74DF0E9DCAEB8A8179F375 /* TodayXPWidget.swift */,
+				B4599EE24B534345B7E5F063 /* WeeklyScoreboardWidget.swift */,
+				89676F376DC27DF3823AB623 /* NextMilestoneWidget.swift */,
+				9BBE8CE1B13AA2877F4BBCAE /* StreakResilienceWidget.swift */,
+				FD3BCAD6C5A546608629F532 /* FocusSeedWidget.swift */,
+			);
+			name = TaskerWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -2379,18 +2491,43 @@
 				722536ED9234849F6B954FAF /* MaintainOccurrencesUseCase.swift in Sources */,
 				3EA2500F6FA7AE834A238C3A /* ScheduleReminderUseCase.swift in Sources */,
 				1D79C65FEB0FF79A7D4C349D /* RecordXPUseCase.swift in Sources */,
+				C537950FC6FD78BB996E7CA5 /* HomeXPHeroView.swift in Sources */,
+				511B4F3A5B402E7BCB708321 /* XPEnums.swift in Sources */,
+				D1855A230115C554ADB92AEA /* DailyXPAggregateDefinition.swift in Sources */,
+				E9479027EA89BB78EAD282EF /* FocusSessionDefinition.swift in Sources */,
+				8FB82D17163DA0089635E128 /* XPCalculationEngine.swift in Sources */,
+				A6D5E0EA942DF95EA0C175B8 /* GamificationTokens.swift in Sources */,
+				76CEBFD41A570542EB212A69 /* GamificationEngine.swift in Sources */,
 				858A4B4BBFF2BD3553D36F21 /* AssistantActionPipelineUseCase.swift in Sources */,
 				2C3429C2681D310EA9197AE3 /* LinkExternalRemindersUseCase.swift in Sources */,
 				DFF1C01087EA0CE41AF85876 /* ReconcileExternalRemindersUseCase.swift in Sources */,
 				AE2B20F87AC525CF7E27B3C0 /* LLMContextProjectionService.swift in Sources */,
 				BEB8BC780A4A962C58A77BC4 /* V2FeatureFlags.swift in Sources */,
 				59E0A865A7529C69B04F684A /* LocalNotificationService.swift in Sources */,
+				7F1B2C3D4E5F60718293A4B5 /* GamificationRemoteKillSwitchService.swift in Sources */,
 				C03666F6116B077DFA194278 /* SyncMergeState.swift in Sources */,
 				47EE4E9B0C3B5EC21C43BED8 /* ReminderMergeEngine.swift in Sources */,
 				6A4B1EB5E3E85FE74AD7AEDC /* AssistantCommandExecutor.swift in Sources */,
 				6211D7BD7037AA1D03E6F90B /* TaskReadModelRepositoryProtocol.swift in Sources */,
 				ACE5DE19204D2D1CDBF3A053 /* TaskReadQueries.swift in Sources */,
 				8CF22C53A483ED3E88E74656 /* CoreDataTaskReadModelRepository.swift in Sources */,
+				C4B2E3D5F6A70819 /* AchievementCatalog.swift in Sources */,
+				C4B2E3D5F6A7081A /* BadgeGalleryView.swift in Sources */,
+				C4B2E3D5F6A7081B /* LevelUpCelebrationView.swift in Sources */,
+				C4B2E3D5F6A7081C /* MilestoneCelebrationView.swift in Sources */,
+				C4B2E3D5F6A7081D /* BadgeDetailSheet.swift in Sources */,
+				36235D01BFCF2D2001A39CCE /* FocusSessionUseCase.swift in Sources */,
+				A2181FC3974A81C3FB7BEDFF /* MarkDailyReflectionCompleteUseCase.swift in Sources */,
+				3A549BEBEF3902410F96971A /* FocusTimerView.swift in Sources */,
+				A912CB15A1588398C547FCE3 /* FocusSessionSummaryView.swift in Sources */,
+				BA046E8ED5086F9E39ACB225 /* DailyReflectionView.swift in Sources */,
+				FFCF1FC469B2AE9FC88CF3D1 /* InsightsViewModel.swift in Sources */,
+				A25DA7AE7D00020D26A9EBC7 /* InsightsTabView.swift in Sources */,
+				7129612FB537C3EBFEFAE820 /* InsightsTodayView.swift in Sources */,
+				ABEDCF04774EFF887D0E6357 /* InsightsWeekView.swift in Sources */,
+				512890EDADD52FEAEBF07400 /* InsightsSystemsView.swift in Sources */,
+				4D31E9106C4721F38F1B2394 /* AppGroupConstants.swift in Sources */,
+				3D5A1FDECBC53839EF1F4953 /* WidgetSnapshot.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2860,8 +2997,9 @@
 			isa = XCVersionGroup;
 			children = (
 				75F18101245C99CD004D9A69 /* TaskModelV3.xcdatamodel */,
+				A9C6F21138AB4C41B2D309E7 /* TaskModelV3_Gamification.xcdatamodel */,
 			);
-			currentVersion = 75F18101245C99CD004D9A69 /* TaskModelV3.xcdatamodel */;
+			currentVersion = A9C6F21138AB4C41B2D309E7 /* TaskModelV3_Gamification.xcdatamodel */;
 			path = TaskModelV3.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;
