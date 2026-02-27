@@ -8,19 +8,22 @@ public struct FocusSessionSummaryView: View {
     private let dailyXPSoFar: Int
     private let dailyXPCap: Int
     private let onDismiss: () -> Void
+    private let onContinueMomentum: (() -> Void)?
 
     public init(
         durationSeconds: Int,
         xpAwarded: Int,
         dailyXPSoFar: Int,
         dailyXPCap: Int,
-        onDismiss: @escaping () -> Void
+        onDismiss: @escaping () -> Void,
+        onContinueMomentum: (() -> Void)? = nil
     ) {
         self.durationSeconds = durationSeconds
         self.xpAwarded = xpAwarded
         self.dailyXPSoFar = dailyXPSoFar
         self.dailyXPCap = dailyXPCap
         self.onDismiss = onDismiss
+        self.onContinueMomentum = onContinueMomentum
     }
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -78,9 +81,27 @@ public struct FocusSessionSummaryView: View {
                     }
                 }
                 .frame(height: GamificationTokens.progressBarHeight)
+
+                Text("Next: complete another task to keep momentum.")
+                    .font(.tasker(.caption2))
+                    .foregroundColor(Color.tasker.textTertiary)
             }
 
             Spacer()
+
+            if let onContinueMomentum {
+                Button(action: onContinueMomentum) {
+                    Text("Complete Another Task")
+                        .font(.tasker(.bodyEmphasis))
+                        .foregroundColor(Color.tasker.accentPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.tasker.accentPrimary, lineWidth: 1.5)
+                        )
+                }
+            }
 
             Button(action: onDismiss) {
                 Text("Done")

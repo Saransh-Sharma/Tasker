@@ -4,15 +4,18 @@ import SwiftUI
 public struct LevelUpCelebrationView: View {
 
     private let level: Int
+    private let awardedXP: Int
     @Binding var isPresented: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var badgeScale: CGFloat = 0
     @State private var textOpacity: Double = 0
     @State private var overlayOpacity: Double = 0
     @State private var pendingDismissWorkItem: DispatchWorkItem?
 
-    public init(level: Int, isPresented: Binding<Bool>) {
+    public init(level: Int, awardedXP: Int = 0, isPresented: Binding<Bool>) {
         self.level = level
+        self.awardedXP = max(0, awardedXP)
         self._isPresented = isPresented
     }
 
@@ -39,19 +42,24 @@ public struct LevelUpCelebrationView: View {
                         .font(.tasker(.body))
                         .foregroundColor(Color.tasker.textSecondary)
                         .opacity(textOpacity)
+
+                    if awardedXP > 0 {
+                        Text("+\(awardedXP) XP")
+                            .font(.tasker(.headline))
+                            .foregroundColor(Color.tasker.accentSecondary)
+                            .opacity(textOpacity)
+                    }
                 }
             }
             .onAppear { performAnimation() }
             .onDisappear { cancelPendingDismissWorkItem() }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Level up! You reached level \(level)")
+            .accessibilityLabel("Level up! You reached level \(level). \(awardedXP > 0 ? "+\(awardedXP) XP awarded." : "")")
             .accessibilityAddTraits(.isModal)
         }
     }
 
     private func performAnimation() {
-        let reduceMotion = UIAccessibility.isReduceMotionEnabled
-
         withAnimation(reduceMotion ? .easeInOut(duration: 0.3) : .spring(
             response: GamificationTokens.SpringConfig.levelUp.response,
             dampingFraction: GamificationTokens.SpringConfig.levelUp.dampingFraction

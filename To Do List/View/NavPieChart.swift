@@ -2,7 +2,7 @@
 //  NavPieChart.swift
 //  Tasker
 //
-//  Compact navigation bar pie chart showing today's score.
+//  Compact navigation bar pie chart showing today's XP.
 //  SwiftUI replacement for legacy TinyPieChart (DGCharts).
 //
 
@@ -10,8 +10,8 @@ import SwiftUI
 
 // MARK: - Nav Pie Chart
 
-/// Compact pie chart for navigation bar showing today's score.
-/// Displays score in center with priority-colored segments.
+/// Compact pie chart for navigation bar showing today's XP.
+/// Displays XP value in center with progress arc.
 public struct NavPieChart: View {
     let score: Int
     let maxScore: Int
@@ -70,7 +70,7 @@ public struct NavPieChart: View {
                         )
                         .rotationEffect(.degrees(-90))
 
-                    // Score text
+                    // XP value
                     Text("\(score)")
                         .font(.system(size: scoreFont, weight: .semibold, design: .rounded))
                         .foregroundColor(Color.tasker.accentPrimary)
@@ -81,7 +81,7 @@ public struct NavPieChart: View {
             .contentShape(Rectangle())
             .frame(width: minimumTapTargetSize, height: minimumTapTargetSize)
             .optionalAccessibilityIdentifier(accessibilityButtonID)
-            .accessibilityLabel("Today's score: \(score) points")
+            .accessibilityLabel("Today's XP: \(score)")
             .accessibilityHint("Double tap to view analytics")
         }
         .frame(width: minimumTapTargetSize, height: minimumTapTargetSize)
@@ -169,7 +169,7 @@ public struct NavPieChartDetailed: View {
                     )
                     .scaleEffect(animatedScales[0])
 
-                // Score text
+                // XP value
                 Text("\(score)")
                     .font(.system(size: scoreFont, weight: .semibold, design: .rounded))
                     .foregroundColor(Color.tasker.accentPrimary)
@@ -183,7 +183,7 @@ public struct NavPieChartDetailed: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Today's score: \(score) points")
+        .accessibilityLabel("Today's XP: \(score)")
         .onAppear {
             animateSegments()
         }

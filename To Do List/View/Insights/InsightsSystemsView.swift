@@ -4,9 +4,20 @@ import SwiftUI
 struct InsightsSystemsView: View {
 
     @ObservedObject var viewModel: InsightsViewModel
+    @State private var selectedCategory: AchievementDefinition.AchievementCategory?
+    @State private var selectedBadgeKey: String?
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
     private var state: InsightsSystemsState { viewModel.systemsState }
+    private var progressByKey: [String: AchievementProgressState] {
+        Dictionary(uniqueKeysWithValues: state.achievementProgress.map { ($0.key, $0) })
+    }
+    private var filteredAchievements: [AchievementDefinition] {
+        AchievementCatalog.all.filter { achievement in
+            guard let selectedCategory else { return true }
+            return achievement.category == selectedCategory
+        }
+    }
 
     private var levelProgress: CGFloat {
         let range = state.nextLevelXP - state.currentLevelThreshold
@@ -48,6 +59,8 @@ struct InsightsSystemsView: View {
                         .font(.tasker(.caption1))
                         .foregroundColor(Color.tasker.textTertiary)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Level \(state.level). \(state.totalXP) XP total. Next level at \(state.nextLevelXP) XP.")
             }
 
             // Next Milestone
@@ -94,12 +107,42 @@ struct InsightsSystemsView: View {
                             }
                         }
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(
+                        "Next milestone \(milestone.name). \(Int(state.milestoneProgress * 100)) percent complete. \(milestone.xpThreshold - state.totalXP) XP remaining."
+                    )
                 }
             }
 
             // Achievements
             insightsCard {
-                BadgeGalleryView(unlockedKeys: state.unlockedAchievements)
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: spacing.s4) {
+                            categoryChip(title: "All", isSelected: selectedCategory == nil) {
+                                selectedCategory = nil
+                            }
+
+                            ForEach(AchievementDefinition.AchievementCategory.allCases, id: \.rawValue) { category in
+                                categoryChip(
+                                    title: category.rawValue.capitalized,
+                                    isSelected: selectedCategory == category
+                                ) {
+                                    selectedCategory = category
+                                }
+                            }
+                        }
+                    }
+
+                    BadgeGalleryView(
+                        achievements: filteredAchievements,
+                        unlockedKeys: state.unlockedAchievements,
+                        progressByKey: progressByKey,
+                        onBadgeTap: { key in
+                            selectedBadgeKey = key
+                        }
+                    )
+                }
             }
 
             // Streaks
@@ -118,7 +161,7 @@ struct InsightsSystemsView: View {
                                 Text("Current")
                                     .font(.tasker(.caption2))
                                     .foregroundColor(Color.tasker.textTertiary)
-                                Text("\(state.streakDays) days")
+                                Text("\(state.streakDays) \(state.streakDays == 1 ? "day" : "days")")
                                     .font(.system(size: 16, weight: .bold, design: .rounded))
                                     .foregroundColor(Color.tasker.textPrimary)
                             }
@@ -132,17 +175,46 @@ struct InsightsSystemsView: View {
                                 Text("Best")
                                     .font(.tasker(.caption2))
                                     .foregroundColor(Color.tasker.textTertiary)
-                                Text("\(state.bestStreak) days")
+                                Text("\(state.bestStreak) \(state.bestStreak == 1 ? "day" : "days")")
                                     .font(.system(size: 16, weight: .bold, design: .rounded))
                                     .foregroundColor(Color.tasker.textPrimary)
                             }
                         }
                     }
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(
+                    "Streaks. Current \(state.streakDays) \(state.streakDays == 1 ? "day" : "days"). Best \(state.bestStreak) \(state.bestStreak == 1 ? "day" : "days")."
+                )
             }
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.bottom, spacing.s16)
+        .sheet(
+            isPresented: Binding(
+                get: { selectedBadgeKey != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        selectedBadgeKey = nil
+                    }
+                }
+            )
+        ) {
+            if let selectedBadgeKey,
+               let achievement = AchievementCatalog.definition(for: selectedBadgeKey) {
+                BadgeDetailSheet(
+                    achievement: achievement,
+                    unlockDate: progressByKey[selectedBadgeKey]?.unlockDate,
+                    progressState: progressByKey[selectedBadgeKey]
+                )
+            }
+        }
+        .onAppear {
+            applyHighlightedAchievementIfNeeded()
+        }
+        .onChange(of: viewModel.highlightedAchievementKey) { _ in
+            applyHighlightedAchievementIfNeeded()
+        }
     }
 
     @ViewBuilder
@@ -154,5 +226,31 @@ struct InsightsSystemsView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.tasker.surfacePrimary)
             )
+    }
+
+    private func categoryChip(
+        title: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.tasker(.caption1))
+                .foregroundColor(isSelected ? Color.tasker.textInverse : Color.tasker.textSecondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.tasker.accentPrimary : Color.tasker.surfaceTertiary)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func applyHighlightedAchievementIfNeeded() {
+        guard let highlightedKey = viewModel.consumeHighlightedAchievementKey() else { return }
+        guard let definition = AchievementCatalog.definition(for: highlightedKey) else { return }
+        selectedCategory = definition.category
+        selectedBadgeKey = highlightedKey
     }
 }

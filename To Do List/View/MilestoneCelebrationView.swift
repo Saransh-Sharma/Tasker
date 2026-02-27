@@ -5,7 +5,9 @@ import SwiftUI
 public struct MilestoneCelebrationView: View {
 
     let milestone: XPCalculationEngine.Milestone
+    let awardedXP: Int
     @Binding var isPresented: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var iconScale: CGFloat = 0
     @State private var textOpacity: Double = 0
@@ -46,18 +48,25 @@ public struct MilestoneCelebrationView: View {
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
                         .foregroundColor(Color.tasker.textTertiary)
                         .opacity(textOpacity)
+
+                    if awardedXP > 0 {
+                        Text("+\(awardedXP) XP")
+                            .font(.tasker(.headline))
+                            .foregroundColor(Color.tasker.accentSecondary)
+                            .opacity(textOpacity)
+                    }
                 }
             }
             .onAppear { performAnimation() }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Milestone reached! \(milestone.name) at \(milestone.xpThreshold) XP")
+            .accessibilityLabel(
+                "Milestone reached! \(milestone.name) at \(milestone.xpThreshold) XP. \(awardedXP > 0 ? "+\(awardedXP) XP awarded." : "")"
+            )
             .accessibilityAddTraits(.isModal)
         }
     }
 
     private func performAnimation() {
-        let reduceMotion = UIAccessibility.isReduceMotionEnabled
-
         withAnimation(reduceMotion ? .easeInOut(duration: 0.3) : .spring(
             response: GamificationTokens.SpringConfig.levelUp.response,
             dampingFraction: GamificationTokens.SpringConfig.levelUp.dampingFraction
@@ -83,9 +92,11 @@ public struct MilestoneCelebrationView: View {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            let second = UINotificationFeedbackGenerator()
-            second.notificationOccurred(.success)
+        if !reduceMotion {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                let second = UINotificationFeedbackGenerator()
+                second.notificationOccurred(.success)
+            }
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + GamificationTokens.milestoneDuration) {

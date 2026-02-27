@@ -9,7 +9,13 @@ struct InsightsWeekView: View {
     private var state: InsightsWeekState { viewModel.weekState }
 
     private var maxBarXP: Int {
-        max(state.weeklyBars.map(\.xp).max() ?? 1, GamificationTokens.dailyXPCap)
+        let personalMax = max(state.weeklyBars.map(\.xp).max() ?? 1, 1)
+        switch viewModel.weekScaleMode {
+        case .goal:
+            return max(personalMax, GamificationTokens.dailyXPCap)
+        case .personalMax:
+            return personalMax
+        }
     }
 
     var body: some View {
@@ -27,6 +33,17 @@ struct InsightsWeekView: View {
                             .foregroundColor(Color.tasker.textPrimary)
                     }
 
+                    Picker("Scale", selection: Binding(
+                        get: { viewModel.weekScaleMode },
+                        set: { viewModel.setWeekScaleMode($0) }
+                    )) {
+                        ForEach(InsightsWeekScaleMode.allCases, id: \.rawValue) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("Weekly XP scale mode")
+
                     // Bar Chart
                     HStack(alignment: .bottom, spacing: GamificationTokens.weeklyBarSpacing) {
                         ForEach(state.weeklyBars) { bar in
@@ -40,13 +57,19 @@ struct InsightsWeekView: View {
                                     .foregroundColor(bar.isToday ? Color.tasker.textPrimary : Color.tasker.textTertiary)
                             }
                             .frame(maxWidth: .infinity)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel(
+                                "\(bar.label). \(bar.xp) XP\(bar.isToday ? ". Today" : "")\(bar.isFuture ? ". Future day" : "")"
+                            )
                         }
                     }
 
                     // Goal line label
                     HStack {
                         Spacer()
-                        Text("Goal: \(GamificationTokens.dailyXPCap) XP")
+                        Text(viewModel.weekScaleMode == .goal
+                                ? "Goal: \(GamificationTokens.dailyXPCap) XP"
+                                : "Scale: Personal max")
                             .font(.tasker(.caption2))
                             .foregroundColor(Color.tasker.textQuaternary)
                     }
@@ -103,6 +126,9 @@ struct InsightsWeekView: View {
                 .fontWeight(.semibold)
                 .foregroundColor(Color.tasker.textPrimary)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(value)
     }
 
     @ViewBuilder

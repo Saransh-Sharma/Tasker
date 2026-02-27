@@ -13,8 +13,49 @@ struct InsightsTodayView: View {
         return min(1.0, CGFloat(state.dailyXP) / CGFloat(state.dailyCap))
     }
 
+    private var remainingToGoal: Int {
+        max(0, state.dailyCap - state.dailyXP)
+    }
+
+    private var topXPSource: String {
+        guard let top = state.xpBreakdown.max(by: { $0.xp < $1.xp }) else {
+            return "No XP source yet"
+        }
+        return "\(top.displayName) (+\(top.xp) XP)"
+    }
+
     var body: some View {
         VStack(spacing: spacing.s12) {
+            insightsCard {
+                VStack(alignment: .leading, spacing: spacing.s8) {
+                    Text("Actionable Momentum")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textTertiary)
+
+                    statLine(
+                        title: "Completed",
+                        value: "\(state.tasksCompletedToday)/\(max(state.totalTasksToday, state.tasksCompletedToday)) tasks"
+                    )
+                    statLine(
+                        title: "Remaining",
+                        value: "\(remainingToGoal) XP to daily goal"
+                    )
+                    statLine(
+                        title: "Top Source",
+                        value: topXPSource
+                    )
+                    if state.tasksCompletedToday == 0 {
+                        Text("Next: complete 1 task to start your streak momentum.")
+                            .font(.tasker(.caption1))
+                            .foregroundColor(Color.tasker.textSecondary)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(
+                    "Actionable momentum. Completed \(state.tasksCompletedToday) tasks. \(remainingToGoal) XP remaining to goal. Top source: \(topXPSource)."
+                )
+            }
+
             // XP Card
             insightsCard {
                 VStack(alignment: .leading, spacing: spacing.s8) {
@@ -76,6 +117,8 @@ struct InsightsTodayView: View {
                         }
                     }
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Today XP \(state.dailyXP) of \(state.dailyCap). Level \(state.level).")
             }
 
             // XP Breakdown
@@ -109,8 +152,20 @@ struct InsightsTodayView: View {
                                 }
                                 .frame(height: 8)
                             }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(item.displayName)
+                            .accessibilityValue("\(item.xp) XP")
                         }
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("XP breakdown with \(state.xpBreakdown.count) categories.")
+                }
+            } else {
+                insightsCard {
+                    Text("No XP events yet today. Start by completing one task.")
+                        .font(.tasker(.callout))
+                        .foregroundColor(Color.tasker.textSecondary)
+                        .accessibilityLabel("No XP events yet today. Start by completing one task.")
                 }
             }
 
@@ -153,5 +208,20 @@ struct InsightsTodayView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.tasker.surfacePrimary)
             )
+    }
+
+    private func statLine(title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.tasker(.caption1))
+                .foregroundColor(Color.tasker.textTertiary)
+            Spacer()
+            Text(value)
+                .font(.tasker(.callout))
+                .foregroundColor(Color.tasker.textPrimary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(value)
     }
 }
