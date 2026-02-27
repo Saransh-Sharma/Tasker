@@ -1553,6 +1553,49 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
         )
     }
 
+    func testPersistentStoreDescriptionsEnableAutomaticMigrationOptions() throws {
+        let appDelegateSource = try loadWorkspaceFile("To Do List/AppDelegate.swift")
+        XCTAssertTrue(
+            appDelegateSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
+            "Cloud store description must enable automatic migration"
+        )
+        XCTAssertTrue(
+            appDelegateSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)"),
+            "Cloud store description must enable inferred mapping migration"
+        )
+        XCTAssertTrue(
+            appDelegateSource.contains("localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
+            "Local store description must enable automatic migration"
+        )
+        XCTAssertTrue(
+            appDelegateSource.contains("localDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)"),
+            "Local store description must enable inferred mapping migration"
+        )
+    }
+
+    func testGamificationStartupReconciliationFailureIsHandledBeforeFollowups() throws {
+        let appDelegateSource = try loadWorkspaceFile("To Do List/AppDelegate.swift")
+        XCTAssertTrue(
+            appDelegateSource.contains("gamification_startup_reconciliation_failed"),
+            "Startup path must log reconciliation failures explicitly"
+        )
+        XCTAssertTrue(
+            appDelegateSource.contains("gamification_startup_streak_update_failed"),
+            "Startup path must log follow-up streak update failures"
+        )
+        let writeSnapshotRange = appDelegateSource.range(of: "engine.writeWidgetSnapshot()")
+        let updateStreakRange = appDelegateSource.range(of: "engine.updateStreak { streakResult in")
+        XCTAssertNotNil(writeSnapshotRange, "Startup path must write widget snapshot after reconciliation")
+        XCTAssertNotNil(updateStreakRange, "Startup path must update streak after successful reconciliation")
+        if let writeSnapshotRange, let updateStreakRange {
+            XCTAssertLessThan(
+                writeSnapshotRange.lowerBound,
+                updateStreakRange.lowerBound,
+                "Startup path must sequence writeWidgetSnapshot before updateStreak"
+            )
+        }
+    }
+
     private func loadWorkspaceFile(_ relativePath: String) throws -> String {
         let testsFilePath = URL(fileURLWithPath: #filePath)
         let workspaceRoot = testsFilePath.deletingLastPathComponent().deletingLastPathComponent()

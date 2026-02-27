@@ -532,11 +532,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         }
         cloudDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         cloudDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        cloudDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
+        cloudDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
 
         let localDescription = NSPersistentStoreDescription(url: localURL)
         localDescription.configuration = "LocalOnly"
         localDescription.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         localDescription.setOption(true as NSNumber, forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+        localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)
+        localDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)
 
         container.persistentStoreDescriptions = [cloudDescription, localDescription]
         container.viewContext.automaticallyMergesChangesFromParent = true
@@ -1250,10 +1254,31 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // Reconcile gamification data on launch
         if V2FeatureFlags.gamificationV2Enabled {
             let engine = stateContainer.useCaseCoordinator.gamificationEngine
-            engine.fullReconciliation { _ in
-                engine.writeWidgetSnapshot()
+            engine.fullReconciliation { result in
+                switch result {
+                case .success:
+                    engine.writeWidgetSnapshot()
+                    engine.updateStreak { streakResult in
+                        if case .failure(let error) = streakResult {
+                            logError(
+                                event: "gamification_startup_streak_update_failed",
+                                message: "Gamification startup streak update failed after successful reconciliation",
+                                fields: [
+                                    "error": error.localizedDescription
+                                ]
+                            )
+                        }
+                    }
+                case .failure(let error):
+                    logError(
+                        event: "gamification_startup_reconciliation_failed",
+                        message: "Gamification startup reconciliation failed; skipping startup follow-up updates",
+                        fields: [
+                            "error": error.localizedDescription
+                        ]
+                    )
+                }
             }
-            engine.updateStreak { _ in }
         }
 
         // Configure LLM access through repositories (no direct Core Data context pulls).
