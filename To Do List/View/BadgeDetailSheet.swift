@@ -5,10 +5,16 @@ public struct BadgeDetailSheet: View {
 
     private let achievement: AchievementDefinition
     private let unlockDate: Date?
+    private let progressState: AchievementProgressState?
 
-    public init(achievement: AchievementDefinition, unlockDate: Date? = nil) {
+    public init(
+        achievement: AchievementDefinition,
+        unlockDate: Date? = nil,
+        progressState: AchievementProgressState? = nil
+    ) {
         self.achievement = achievement
         self.unlockDate = unlockDate
+        self.progressState = progressState
     }
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -36,7 +42,30 @@ public struct BadgeDetailSheet: View {
                 .foregroundColor(Color.tasker.textSecondary)
                 .multilineTextAlignment(.center)
 
-            if let date = unlockDate {
+            if let progressState, progressState.unlocked == false {
+                VStack(spacing: spacing.s8) {
+                    Text("Progress: \(progressState.progressLabel)")
+                        .font(.tasker(.caption1))
+                        .foregroundColor(Color.tasker.textSecondary)
+
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.tasker.surfaceTertiary)
+                            Capsule()
+                                .fill(Color.tasker.accentPrimary)
+                                .frame(width: geo.size.width * progressState.progressFraction)
+                        }
+                    }
+                    .frame(height: 8)
+
+                    Text("Next step: complete more tasks to unlock this badge.")
+                        .font(.tasker(.caption2))
+                        .foregroundColor(Color.tasker.textTertiary)
+                }
+                .frame(maxWidth: .infinity)
+            }
+
+            if let date = unlockDate ?? progressState?.unlockDate {
                 HStack(spacing: spacing.s4) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 14))
@@ -52,6 +81,8 @@ public struct BadgeDetailSheet: View {
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(achievement.name). \(achievement.description). \(unlockDate != nil ? "Unlocked" : "Locked")")
+        .accessibilityLabel(
+            "\(achievement.name). \(achievement.description). \((unlockDate != nil || progressState?.unlocked == true) ? "Unlocked" : "Locked")"
+        )
     }
 }

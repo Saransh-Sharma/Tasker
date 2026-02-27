@@ -2,7 +2,7 @@
 //  AddTaskXPPreview.swift
 //  Tasker
 //
-//  Dynamic XP preview badge — shows points based on selected priority.
+//  Dynamic XP preview badge — shows estimated XP based on selected priority.
 //  Uses .contentTransition(.numericText()) for rolling counter animation.
 //
 
@@ -13,8 +13,11 @@ import SwiftUI
 struct AddTaskXPPreview: View {
     let priority: TaskPriority
 
-    private var xpValue: Int {
-        priority.scorePoints
+    private var estimate: XPDisplayEstimate {
+        XPCalculationEngine.completionEstimate(
+            priorityRaw: priority.rawValue,
+            estimatedDuration: nil
+        )
     }
 
     private var isHighValue: Bool {
@@ -41,7 +44,7 @@ struct AddTaskXPPreview: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(isHighValue ? Color.tasker.accentSecondary : Color.tasker.textTertiary)
 
-                Text("+\(xpValue) XP")
+                Text(estimate.shortLabel)
                     .font(.tasker(.callout))
                     .fontWeight(.medium)
                     .foregroundColor(isHighValue ? Color.tasker.textSecondary : Color.tasker.textTertiary)

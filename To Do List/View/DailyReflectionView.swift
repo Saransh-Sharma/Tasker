@@ -1,5 +1,13 @@
 import SwiftUI
 
+public enum DailyReflectionClaimState: Equatable {
+    case ready
+    case submitting
+    case claimed(xp: Int)
+    case alreadyClaimed
+    case unavailable(message: String)
+}
+
 /// Bottom sheet for daily reflection prompt.
 /// Shows today's progress summary and awards XP on completion.
 public struct DailyReflectionView: View {
@@ -7,9 +15,7 @@ public struct DailyReflectionView: View {
     let tasksCompleted: Int
     let xpEarned: Int
     let streakDays: Int
-    let isSubmitting: Bool
-    let alreadyCompletedToday: Bool
-    let statusMessage: String?
+    let claimState: DailyReflectionClaimState
     let onComplete: () -> Void
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -61,22 +67,22 @@ public struct DailyReflectionView: View {
                 .padding(.vertical, spacing.s4)
 
             if let statusMessage {
-                Text(statusMessage)
+                Text(statusMessage.text)
                     .font(.tasker(.caption1))
-                    .foregroundColor(alreadyCompletedToday ? Color.tasker.textSecondary : Color.tasker.statusDanger)
+                    .foregroundColor(statusMessage.color)
                     .multilineTextAlignment(.center)
             }
 
             // Complete Button
             Button(action: {
-                guard !isSubmitting, !alreadyCompletedToday else { return }
+                guard canClaim else { return }
                 onComplete()
             }) {
                 VStack(spacing: 2) {
-                    Text(alreadyCompletedToday ? "Reflection Claimed" : "Complete Reflection")
+                    Text(primaryCTA)
                         .font(.tasker(.bodyEmphasis))
                         .foregroundColor(Color.tasker.textInverse)
-                    Text(alreadyCompletedToday ? "Already completed today" : "+10 XP")
+                    Text(secondaryCTA)
                         .font(.tasker(.caption2))
                         .foregroundColor(Color.tasker.textInverse.opacity(0.8))
                 }
@@ -87,8 +93,8 @@ public struct DailyReflectionView: View {
                         .fill(Color.tasker.accentPrimary)
                 )
             }
-            .disabled(isSubmitting || alreadyCompletedToday)
-            .opacity((isSubmitting || alreadyCompletedToday) ? 0.6 : 1.0)
+            .disabled(!canClaim)
+            .opacity(canClaim ? 1.0 : 0.6)
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.vertical, spacing.s16)
@@ -103,6 +109,61 @@ public struct DailyReflectionView: View {
             Text(text)
                 .font(.tasker(.callout))
                 .foregroundColor(Color.tasker.textSecondary)
+        }
+    }
+
+    private var canClaim: Bool {
+        if case .ready = claimState {
+            return true
+        }
+        if case .unavailable = claimState {
+            return true
+        }
+        return false
+    }
+
+    private var primaryCTA: String {
+        switch claimState {
+        case .ready:
+            return "Complete Reflection"
+        case .submitting:
+            return "Claiming Reflection..."
+        case .claimed:
+            return "Reflection Claimed"
+        case .alreadyClaimed:
+            return "Reflection Already Claimed"
+        case .unavailable:
+            return "Try Again"
+        }
+    }
+
+    private var secondaryCTA: String {
+        switch claimState {
+        case .ready:
+            return "+10 XP"
+        case .submitting:
+            return "Applying reward"
+        case .claimed(let xp):
+            return "+\(xp) XP secured"
+        case .alreadyClaimed:
+            return "Already completed today"
+        case .unavailable:
+            return "Claim unavailable"
+        }
+    }
+
+    private var statusMessage: (text: String, color: Color)? {
+        switch claimState {
+        case .ready:
+            return nil
+        case .submitting:
+            return ("Claiming reflection reward...", Color.tasker.textSecondary)
+        case .claimed(let xp):
+            return ("Reflection claimed. +\(xp) XP awarded.", Color.tasker.statusSuccess)
+        case .alreadyClaimed:
+            return ("Reflection already completed today.", Color.tasker.textSecondary)
+        case .unavailable(let message):
+            return (message, Color.tasker.statusDanger)
         }
     }
 }
