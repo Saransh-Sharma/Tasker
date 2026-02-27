@@ -13,67 +13,37 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertEqual(metrics.offset(for: .collapsed), 0)
     }
 
-    func testMidRevealOffsetIncludesCalendarExpansion() {
+    func testMidRevealOffsetIsAnchored() {
         let metrics = HomeForedropLayoutMetrics(
             calendarExpandedHeight: 24,
             analyticsSectionHeight: 280,
             geometryHeight: 844
         )
 
-        XCTAssertEqual(
-            metrics.offset(for: .midReveal),
-            HomeForedropLayoutMetrics.midRevealBaseOffset + 24,
-            accuracy: 0.001
-        )
+        XCTAssertEqual(metrics.offset(for: .midReveal), 0, accuracy: 0.001)
     }
 
-    func testFullRevealOffsetEnforcesMinimumAnalyticsPeekFloorWhenSectionIsSmall() {
+    func testFullRevealOffsetIsAnchored() {
         let metrics = HomeForedropLayoutMetrics(
             calendarExpandedHeight: 12,
             analyticsSectionHeight: 280,
             geometryHeight: 1000
         )
 
-        let expectedMid = HomeForedropLayoutMetrics.midRevealBaseOffset + 12
-        let expectedFull = expectedMid + HomeForedropLayoutMetrics.minimumAnalyticsPeekAtFullReveal
-
-        XCTAssertEqual(metrics.offset(for: .fullReveal), expectedFull, accuracy: 0.001)
+        XCTAssertEqual(metrics.offset(for: .fullReveal), 0, accuracy: 0.001)
     }
 
-    func testFullRevealOffsetIsCappedByMinimumVisibleForedropHeight() {
-        let metrics = HomeForedropLayoutMetrics(
-            calendarExpandedHeight: 12,
-            analyticsSectionHeight: 900,
-            geometryHeight: 500
-        )
-
-        let expectedCapped = 500 - HomeForedropLayoutMetrics.minimumVisibleForedropHeight
-        XCTAssertEqual(metrics.offset(for: .fullReveal), expectedCapped, accuracy: 0.001)
+    func testAnchorMappingSelectsBottomBarHomeForNonAnalyticsAnchors() {
+        XCTAssertEqual(ForedropAnchor.collapsed.selectedBottomBarItem, .home)
+        XCTAssertEqual(ForedropAnchor.midReveal.selectedBottomBarItem, .home)
     }
 
-    func testFullRevealOffsetIsMateriallyDeeperThanLegacyOnStandardHeightDevice() {
-        let metrics = HomeForedropLayoutMetrics(
-            calendarExpandedHeight: 0,
-            analyticsSectionHeight: 300,
-            geometryHeight: 844
-        )
-
-        let legacyFull: CGFloat = 380
-        XCTAssertGreaterThan(metrics.offset(for: .fullReveal), legacyFull + 220)
+    func testAnchorMappingSelectsBottomBarChartsForAnalyticsAnchor() {
+        XCTAssertEqual(ForedropAnchor.fullReveal.selectedBottomBarItem, .charts)
     }
 
-    func testFullRevealStaysAtOrBelowBottomClampOnVeryShortScreens() {
-        let metrics = HomeForedropLayoutMetrics(
-            calendarExpandedHeight: 20,
-            analyticsSectionHeight: 420,
-            geometryHeight: 300
-        )
-
-        let full = metrics.offset(for: .fullReveal)
-        let mid = metrics.offset(for: .midReveal)
-        let expectedClamp = 300 - HomeForedropLayoutMetrics.minimumVisibleForedropHeight
-
-        XCTAssertGreaterThanOrEqual(full, mid - 0.001)
-        XCTAssertEqual(full, expectedClamp, accuracy: 0.001)
+    func testAccessibilityValueContractRemainsStable() {
+        XCTAssertEqual(ForedropAnchor.collapsed.accessibilityValue, "collapsed")
+        XCTAssertEqual(ForedropAnchor.fullReveal.accessibilityValue, "fullReveal")
     }
 }
