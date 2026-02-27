@@ -18,27 +18,46 @@ public final class FocusSessionUseCase {
         targetDurationSeconds: Int,
         completion: @escaping (Result<FocusSessionDefinition, Error>) -> Void
     ) {
-        let session = FocusSessionDefinition(
-            id: UUID(),
-            taskID: taskID,
-            startedAt: Date(),
-            endedAt: nil,
-            durationSeconds: 0,
-            targetDurationSeconds: targetDurationSeconds,
-            wasCompleted: false,
-            xpAwarded: 0
-        )
-        repository.createFocusSession(session) { result in
-            switch result {
-            case .success:
-                // Persist active session for foreground recovery
-                UserDefaults.standard.set(session.id.uuidString, forKey: "focusSessionActiveID")
-                UserDefaults.standard.set(session.startedAt.timeIntervalSince1970, forKey: "focusSessionStartedAt")
-                UserDefaults.standard.set(taskID?.uuidString, forKey: "focusSessionTaskID")
-                UserDefaults.standard.set(targetDurationSeconds, forKey: "focusSessionTargetSeconds")
-                completion(.success(session))
+        repository.fetchFocusSessions(from: .distantPast, to: Date().addingTimeInterval(1)) { [weak self] fetchResult in
+            guard let self else { return }
+            switch fetchResult {
             case .failure(let error):
                 completion(.failure(error))
+                return
+            case .success(let sessions):
+                if sessions.contains(where: { $0.endedAt == nil }) {
+                    completion(.failure(FocusSessionError.alreadyActive))
+                    return
+                }
+            }
+
+            // If no active session exists in storage, clear any stale foreground recovery keys.
+            if UserDefaults.standard.string(forKey: "focusSessionActiveID") != nil {
+                self.clearPersistedSession()
+            }
+
+            let session = FocusSessionDefinition(
+                id: UUID(),
+                taskID: taskID,
+                startedAt: Date(),
+                endedAt: nil,
+                durationSeconds: 0,
+                targetDurationSeconds: targetDurationSeconds,
+                wasCompleted: false,
+                xpAwarded: 0
+            )
+            self.repository.createFocusSession(session) { result in
+                switch result {
+                case .success:
+                    // Persist active session for foreground recovery
+                    UserDefaults.standard.set(session.id.uuidString, forKey: "focusSessionActiveID")
+                    UserDefaults.standard.set(session.startedAt.timeIntervalSince1970, forKey: "focusSessionStartedAt")
+                    UserDefaults.standard.set(taskID?.uuidString, forKey: "focusSessionTaskID")
+                    UserDefaults.standard.set(targetDurationSeconds, forKey: "focusSessionTargetSeconds")
+                    completion(.success(session))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
             }
         }
     }

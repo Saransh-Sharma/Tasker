@@ -2864,6 +2864,127 @@ final class ConcurrencyRaceTests: XCTestCase {
     }
 }
 
+final class FocusSessionUseCaseTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        clearPersistedFocusSessionKeys()
+    }
+
+    override func tearDown() {
+        clearPersistedFocusSessionKeys()
+        super.tearDown()
+    }
+
+    func testStartSessionFailsWhenUnfinishedSessionAlreadyExists() {
+        let repository = FocusSessionRepositorySpy()
+        repository.focusSessions = [
+            FocusSessionDefinition(
+                id: UUID(),
+                taskID: UUID(),
+                startedAt: Date().addingTimeInterval(-300),
+                endedAt: nil,
+                durationSeconds: 0,
+                targetDurationSeconds: 25 * 60,
+                wasCompleted: false,
+                xpAwarded: 0
+            )
+        ]
+        let useCase = FocusSessionUseCase(repository: repository, engine: GamificationEngine(repository: repository))
+
+        let expectation = expectation(description: "start-session-fails-already-active")
+        useCase.startSession(taskID: nil, targetDurationSeconds: 25 * 60) { result in
+            switch result {
+            case .success:
+                XCTFail("Expected startSession to fail when an unfinished session exists")
+            case .failure(let error):
+                guard let focusError = error as? FocusSessionError else {
+                    return XCTFail("Expected FocusSessionError.alreadyActive but got \(error)")
+                }
+                if case .alreadyActive = focusError {
+                    // expected
+                } else {
+                    XCTFail("Expected alreadyActive, got \(focusError)")
+                }
+            }
+            expectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 1.0)
+        XCTAssertEqual(repository.createFocusSessionCallCount, 0)
+    }
+
+    func testStartSessionCreatesSessionWhenNoUnfinishedSessionExists() throws {
+        let repository = FocusSessionRepositorySpy()
+        repository.focusSessions = [
+            FocusSessionDefinition(
+                id: UUID(),
+                taskID: UUID(),
+                startedAt: Date().addingTimeInterval(-1_800),
+                endedAt: Date().addingTimeInterval(-1_200),
+                durationSeconds: 600,
+                targetDurationSeconds: 25 * 60,
+                wasCompleted: false,
+                xpAwarded: 10
+            )
+        ]
+        let useCase = FocusSessionUseCase(repository: repository, engine: GamificationEngine(repository: repository))
+
+        let createdSession = try awaitResult { completion in
+            useCase.startSession(taskID: nil, targetDurationSeconds: 20 * 60, completion: completion)
+        }
+
+        XCTAssertEqual(repository.createFocusSessionCallCount, 1)
+        XCTAssertEqual(repository.createdSessions.first?.id, createdSession.id)
+        XCTAssertEqual(repository.createdSessions.first?.targetDurationSeconds, 20 * 60)
+    }
+
+    private func clearPersistedFocusSessionKeys() {
+        UserDefaults.standard.removeObject(forKey: "focusSessionActiveID")
+        UserDefaults.standard.removeObject(forKey: "focusSessionStartedAt")
+        UserDefaults.standard.removeObject(forKey: "focusSessionTaskID")
+        UserDefaults.standard.removeObject(forKey: "focusSessionTargetSeconds")
+    }
+}
+
+private final class FocusSessionRepositorySpy: GamificationRepositoryProtocol {
+    var focusSessions: [FocusSessionDefinition] = []
+    private(set) var createFocusSessionCallCount = 0
+    private(set) var createdSessions: [FocusSessionDefinition] = []
+
+    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(false)) }
+    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
+
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        createFocusSessionCallCount += 1
+        createdSessions.append(session)
+        focusSessions.append(session)
+        completion(.success(()))
+    }
+
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        if let index = focusSessions.firstIndex(where: { $0.id == session.id }) {
+            focusSessions[index] = session
+        } else {
+            focusSessions.append(session)
+        }
+        completion(.success(()))
+    }
+
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+        let filtered = focusSessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }
+        completion(.success(filtered))
+    }
+}
+
 final class GamificationEngineMutationOrderingTests: XCTestCase {
     func testRecordEventEmitsLedgerMutationWithUpdatedStreak() throws {
         let repository = InMemoryGamificationEngineRepository()
