@@ -71,26 +71,85 @@ public final class EnhancedDependencyContainer {
         self.cacheService = InMemoryCacheService()
         
         // Initialize repositories
+        let writeGate = SyncWriteGate()
+        let baseProjectRepository = CoreDataProjectRepository(container: container)
         let taskDefinitionRepository = CoreDataTaskDefinitionRepository(container: container)
         let taskReadModelRepository = CoreDataTaskReadModelRepository(container: container)
         let taskTagLinkRepository = CoreDataTaskTagLinkRepository(container: container)
         let taskDependencyRepository = CoreDataTaskDependencyRepository(container: container)
-        self.projectRepository = CoreDataProjectRepository(container: container)
-        self.taskDefinitionRepository = taskDefinitionRepository
+        let baseLifeAreaRepository = CoreDataLifeAreaRepository(container: container)
+        let baseSectionRepository = CoreDataSectionRepository(container: container)
+        let baseTagRepository = CoreDataTagRepository(container: container)
+        let baseHabitRepository = CoreDataHabitRepository(container: container)
+        let baseScheduleRepository = CoreDataScheduleRepository(container: container)
+        let baseOccurrenceRepository = CoreDataOccurrenceRepository(container: container)
+        let baseReminderRepository = CoreDataReminderRepository(container: container)
+        let baseGamificationRepository = CoreDataGamificationRepository(container: container)
+        let baseAssistantActionRepository = CoreDataAssistantActionRepository(container: container)
+        let baseExternalSyncRepository = CoreDataExternalSyncRepository(container: container)
+        let baseTombstoneRepository = CoreDataTombstoneRepository(container: container)
+
+        self.projectRepository = WriteClosedProjectRepositoryAdapter(
+            base: baseProjectRepository,
+            gate: writeGate
+        )
+        self.taskDefinitionRepository = WriteClosedTaskDefinitionRepositoryAdapter(
+            base: taskDefinitionRepository,
+            gate: writeGate
+        )
         self.taskReadModelRepository = taskReadModelRepository
-        self.taskTagLinkRepository = taskTagLinkRepository
-        self.taskDependencyRepository = taskDependencyRepository
-        self.lifeAreaRepository = CoreDataLifeAreaRepository(container: container)
-        self.sectionRepository = CoreDataSectionRepository(container: container)
-        self.tagRepository = CoreDataTagRepository(container: container)
-        self.habitRepository = CoreDataHabitRepository(container: container)
-        self.scheduleRepository = CoreDataScheduleRepository(container: container)
-        self.occurrenceRepository = CoreDataOccurrenceRepository(container: container)
-        self.reminderRepository = CoreDataReminderRepository(container: container)
-        self.gamificationRepository = CoreDataGamificationRepository(container: container)
-        self.assistantActionRepository = CoreDataAssistantActionRepository(container: container)
-        self.externalSyncRepository = CoreDataExternalSyncRepository(container: container)
-        self.tombstoneRepository = CoreDataTombstoneRepository(container: container)
+        self.taskTagLinkRepository = WriteClosedTaskTagLinkRepositoryAdapter(
+            base: taskTagLinkRepository,
+            gate: writeGate
+        )
+        self.taskDependencyRepository = WriteClosedTaskDependencyRepositoryAdapter(
+            base: taskDependencyRepository,
+            gate: writeGate
+        )
+        self.lifeAreaRepository = WriteClosedLifeAreaRepositoryAdapter(
+            base: baseLifeAreaRepository,
+            gate: writeGate
+        )
+        self.sectionRepository = WriteClosedSectionRepositoryAdapter(
+            base: baseSectionRepository,
+            gate: writeGate
+        )
+        self.tagRepository = WriteClosedTagRepositoryAdapter(
+            base: baseTagRepository,
+            gate: writeGate
+        )
+        self.habitRepository = WriteClosedHabitRepositoryAdapter(
+            base: baseHabitRepository,
+            gate: writeGate
+        )
+        self.scheduleRepository = WriteClosedScheduleRepositoryAdapter(
+            base: baseScheduleRepository,
+            gate: writeGate
+        )
+        self.occurrenceRepository = WriteClosedOccurrenceRepositoryAdapter(
+            base: baseOccurrenceRepository,
+            gate: writeGate
+        )
+        self.reminderRepository = WriteClosedReminderRepositoryAdapter(
+            base: baseReminderRepository,
+            gate: writeGate
+        )
+        self.gamificationRepository = WriteClosedGamificationRepositoryAdapter(
+            base: baseGamificationRepository,
+            gate: writeGate
+        )
+        self.assistantActionRepository = WriteClosedAssistantActionRepositoryAdapter(
+            base: baseAssistantActionRepository,
+            gate: writeGate
+        )
+        self.externalSyncRepository = WriteClosedExternalSyncRepositoryAdapter(
+            base: baseExternalSyncRepository,
+            gate: writeGate
+        )
+        self.tombstoneRepository = WriteClosedTombstoneRepositoryAdapter(
+            base: baseTombstoneRepository,
+            gate: writeGate
+        )
         if let scheduleRepository, let occurrenceRepository {
             self.schedulingEngine = CoreSchedulingEngine(
                 scheduleRepository: scheduleRepository,
