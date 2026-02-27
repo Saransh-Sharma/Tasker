@@ -9,6 +9,7 @@ import Observation
 struct HomeGlassBottomBar: View {
     @Bindable var state: HomeBottomBarState
 
+    let onHome: () -> Void
     let onChartsToggle: () -> Void
     let onSearch: () -> Void
     let onChat: () -> Void
@@ -49,6 +50,8 @@ struct HomeGlassBottomBar: View {
         }
 
         switch item {
+        case .home:
+            onHome()
         case .charts:
             onChartsToggle()
         case .search:
@@ -81,16 +84,22 @@ private struct BottomToolDescriptor: Identifiable {
 private struct LiquidToolCluster: View {
     private static let tools: [BottomToolDescriptor] = [
         BottomToolDescriptor(
-            item: .search,
-            symbolName: "magnifyingglass",
-            accessibilityID: "home.searchButton",
-            accessibilityLabel: "Search"
+            item: .home,
+            symbolName: "house.fill",
+            accessibilityID: "home.bottomBar.home",
+            accessibilityLabel: "Home"
         ),
         BottomToolDescriptor(
             item: .charts,
             symbolName: "chart.bar.xaxis",
             accessibilityID: "home.bottomBar.charts",
             accessibilityLabel: "Analytics"
+        ),
+        BottomToolDescriptor(
+            item: .search,
+            symbolName: "magnifyingglass",
+            accessibilityID: "home.searchButton",
+            accessibilityLabel: "Search"
         ),
         BottomToolDescriptor(
             item: .chat,
@@ -133,6 +142,7 @@ private struct LiquidToolCluster: View {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier(tool.accessibilityID)
                         .accessibilityLabel(tool.accessibilityLabel)
+                        .accessibilityValue(selectedItem == tool.item ? "selected" : "unselected")
                         .simultaneousGesture(
                             DragGesture(minimumDistance: 0)
                                 .onChanged { _ in
