@@ -404,10 +404,12 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                 let canonicalID = (object.value(forKey: "id") as? UUID) ?? aggregate.id
                 let incomingTotalXP = Int32(aggregate.totalXP)
                 let incomingEventCount = Int32(aggregate.eventCount)
+                let incomingUpdatedAt = aggregate.updatedAt
                 let existingMatches = (object.value(forKey: "id") as? UUID ?? canonicalID) == canonicalID
                     && (object.value(forKey: "dateKey") as? String ?? normalizedDateKey) == normalizedDateKey
                     && (object.value(forKey: "totalXP") as? Int32 ?? 0) == incomingTotalXP
                     && (object.value(forKey: "eventCount") as? Int32 ?? 0) == incomingEventCount
+                    && (object.value(forKey: "updatedAt") as? Date) == incomingUpdatedAt
 
                 if existingMatches {
                     self.finalizeWrite(completion: completion)

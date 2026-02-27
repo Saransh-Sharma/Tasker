@@ -2727,6 +2727,69 @@ final class ConcurrencyRaceTests: XCTestCase {
         XCTAssertEqual(aggregate?.eventCount, 2)
     }
 
+    func testSaveDailyAggregateUpdatesWhenOnlyUpdatedAtChanges() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataGamificationRepository(container: container)
+        let dateKey = XPCalculationEngine.periodKey()
+        let initialUpdatedAt = Date()
+        let newerUpdatedAt = initialUpdatedAt.addingTimeInterval(30)
+
+        try awaitResult { completion in
+            repository.saveDailyAggregate(
+                DailyXPAggregateDefinition(
+                    id: UUID(),
+                    dateKey: dateKey,
+                    totalXP: 25,
+                    eventCount: 3,
+                    updatedAt: initialUpdatedAt
+                ),
+                completion: completion
+            )
+        }
+
+        try awaitResult { completion in
+            repository.saveDailyAggregate(
+                DailyXPAggregateDefinition(
+                    id: UUID(),
+                    dateKey: dateKey,
+                    totalXP: 25,
+                    eventCount: 3,
+                    updatedAt: newerUpdatedAt
+                ),
+                completion: completion
+            )
+        }
+
+        let aggregate = try awaitResult { completion in
+            repository.fetchDailyAggregate(dateKey: dateKey, completion: completion)
+        }
+        XCTAssertEqual(aggregate?.updatedAt, newerUpdatedAt)
+    }
+
+    func testGamificationModelDefinesUniquenessConstraintsForXPEventAndDailyAggregate() throws {
+        let container = try makeInMemoryV2Container()
+        let model = container.managedObjectModel
+
+        guard let xpEventEntity = model.entitiesByName["XPEvent"] else {
+            return XCTFail("Expected XPEvent entity in model")
+        }
+        guard let dailyAggregateEntity = model.entitiesByName["DailyXPAggregate"] else {
+            return XCTFail("Expected DailyXPAggregate entity in model")
+        }
+
+        let xpEventConstraints = normalizedUniquenessConstraints(for: xpEventEntity)
+        let dailyAggregateConstraints = normalizedUniquenessConstraints(for: dailyAggregateEntity)
+
+        XCTAssertTrue(
+            xpEventConstraints.contains(["idempotencyKey"]),
+            "XPEvent must enforce uniqueness on idempotencyKey"
+        )
+        XCTAssertTrue(
+            dailyAggregateConstraints.contains(["dateKey"]),
+            "DailyXPAggregate must enforce uniqueness on dateKey"
+        )
+    }
+
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
         let bundles = [Bundle.main, Bundle(for: type(of: self))]
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
@@ -2749,6 +2812,12 @@ final class ConcurrencyRaceTests: XCTestCase {
             throw loadError
         }
         return container
+    }
+
+    private func normalizedUniquenessConstraints(for entity: NSEntityDescription) -> Set<Set<String>> {
+        Set(entity.uniquenessConstraints.map { rawConstraint in
+            Set(rawConstraint.compactMap { $0 as? String })
+        })
     }
 }
 
