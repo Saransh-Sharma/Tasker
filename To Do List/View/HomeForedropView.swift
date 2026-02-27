@@ -2495,8 +2495,9 @@ private extension ForedropAnchor {
 
 struct HomeBackdropForedropRootView: View {
     @ObservedObject var viewModel: HomeViewModel
-    @ObservedObject var chartCardViewModel: ChartCardViewModel
-    @ObservedObject var radarChartCardViewModel: RadarChartCardViewModel
+    let chartCardViewModel: ChartCardViewModel
+    let radarChartCardViewModel: RadarChartCardViewModel
+    let insightsViewModel: InsightsViewModel
     @ObservedObject private var themeManager = TaskerThemeManager.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -2511,6 +2512,7 @@ struct HomeBackdropForedropRootView: View {
     let onOpenChat: () -> Void
     let onOpenProjectCreator: () -> Void
     let onOpenSettings: () -> Void
+    let onStartFocus: (TaskDefinition) -> Void
 
     @State private var foredropAnchor: ForedropAnchor = .collapsed
     @State private var calendarExpandedHeight: CGFloat = 0
@@ -2521,6 +2523,15 @@ struct HomeBackdropForedropRootView: View {
     @State private var lastDailyScore: Int?
     @State private var showXPBurst = false
     @State private var xpBurstValue = 0
+    @State private var showLevelUp = false
+    @State private var levelUpValue = 1
+    @State private var showMilestone = false
+    @State private var milestoneValue: XPCalculationEngine.Milestone?
+    @State private var lastCelebrationAt: Date?
+    @State private var showReflectionSheet = false
+    @State private var reflectionIsSubmitting = false
+    @State private var reflectionAlreadyCompleted = false
+    @State private var reflectionStatusMessage: String?
     @State private var bottomBarState = HomeBottomBarState()
     @State private var foredropHintOffset: CGFloat = 0
     @State private var hintAnimationTask: _Concurrency.Task<Void, Never>?
@@ -2533,6 +2544,7 @@ struct HomeBackdropForedropRootView: View {
     private static let foredropHintReturnResponse: TimeInterval = 0.22
     private static let foredropHintReturnDampingFraction: CGFloat = 0.86
     private static let foredropHintSettleDuration: TimeInterval = 0.16
+    private static let celebrationCooldownSeconds: TimeInterval = GamificationEngine.celebrationCooldownSeconds
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
@@ -2606,8 +2618,6 @@ struct HomeBackdropForedropRootView: View {
                                 )
                                     .offset(y: foredropOffset(for: contentGeometry.size.height) + foredropHintOffset)
                                     .animation(TaskerAnimation.snappy, value: foredropAnchor)
-                                    .animation(TaskerAnimation.snappy, value: calendarExpandedHeight)
-                                    .animation(TaskerAnimation.snappy, value: analyticsSectionHeight)
                                     .gesture(
                                         DragGesture(minimumDistance: 8)
                                             .onEnded { value in
@@ -2701,6 +2711,14 @@ struct HomeBackdropForedropRootView: View {
             if showXPBurst {
                 xpBurstOverlay
             }
+
+            if showLevelUp {
+                LevelUpCelebrationView(level: levelUpValue, isPresented: $showLevelUp)
+            }
+
+            if showMilestone, let milestone = milestoneValue {
+                MilestoneCelebrationView(milestone: milestone, isPresented: $showMilestone)
+            }
         }
         .accessibilityIdentifier("home.view")
         .overlay(alignment: .bottom) {
@@ -2720,6 +2738,15 @@ struct HomeBackdropForedropRootView: View {
         }
         .onReceive(viewModel.$dailyScore.receive(on: RunLoop.main)) { newScore in
             handleDailyScoreUpdate(newScore)
+        }
+        .onReceive(viewModel.$lastXPResult.receive(on: RunLoop.main)) { result in
+            handleXPResult(result)
+        }
+        .onReceive(viewModel.$insightsLaunchToken.receive(on: RunLoop.main)) { token in
+            guard token != nil else { return }
+            withAnimation(TaskerAnimation.snappy) {
+                foredropAnchor = .fullReveal
+            }
         }
         .sheet(isPresented: Binding(
             get: { viewModel.evaFocusWhySheetPresented },
@@ -2799,6 +2826,37 @@ struct HomeBackdropForedropRootView: View {
                 },
                 onTrack: { action, metadata in
                     viewModel.trackHomeInteraction(action: action, metadata: metadata)
+                }
+            )
+        }
+        .sheet(isPresented: $showReflectionSheet) {
+            DailyReflectionView(
+                tasksCompleted: max(viewModel.dailyCompletedTasks.count, insightsViewModel.tasksCompletedToday),
+                xpEarned: viewModel.dailyScore,
+                streakDays: viewModel.streak,
+                isSubmitting: reflectionIsSubmitting,
+                alreadyCompletedToday: reflectionAlreadyCompleted,
+                statusMessage: reflectionStatusMessage,
+                onComplete: {
+                    reflectionIsSubmitting = true
+                    reflectionStatusMessage = nil
+                    viewModel.completeDailyReflection { result in
+                        reflectionIsSubmitting = false
+                        switch result {
+                        case .success(let xpResult):
+                            if xpResult.awardedXP > 0 {
+                                reflectionAlreadyCompleted = false
+                                reflectionStatusMessage = nil
+                                showReflectionSheet = false
+                            } else {
+                                reflectionAlreadyCompleted = true
+                                reflectionStatusMessage = "Reflection already completed today."
+                            }
+                        case .failure(let error):
+                            reflectionAlreadyCompleted = false
+                            reflectionStatusMessage = error.localizedDescription
+                        }
+                    }
                 }
             )
         }
@@ -2898,22 +2956,35 @@ struct HomeBackdropForedropRootView: View {
                         )
                         .onPreferenceChange(CalendarHeightPreferenceKey.self) { height in
                             let baseWeekHeight: CGFloat = 80
-                            calendarExpandedHeight = max(0, height - baseWeekHeight)
+                            let nextHeight = max(0, height - baseWeekHeight)
+                            guard abs(calendarExpandedHeight - nextHeight) > 0.5 else { return }
+                            calendarExpandedHeight = nextHeight
                         }
                         .opacity(foredropAnchor != .collapsed ? 1 : 0.001)
 
                         // 2. Chart Cards (visible when fully revealed)
                         VStack(alignment: .leading, spacing: spacing.s12) {
-                            Text("Analytics")
-                                .font(.tasker(.headline))
-                                .foregroundColor(Color.tasker.textPrimary)
+                            HStack(spacing: spacing.s8) {
+                                Text("Analytics")
+                                    .font(.tasker(.headline))
+                                    .foregroundColor(Color.tasker.textPrimary)
+                                Spacer()
+                                Button("Reflect") {
+                                    reflectionIsSubmitting = false
+                                    let completedToday = viewModel.isDailyReflectionCompletedToday()
+                                    reflectionAlreadyCompleted = completedToday
+                                    reflectionStatusMessage = completedToday
+                                        ? "Reflection already completed today."
+                                        : nil
+                                    showReflectionSheet = true
+                                }
+                                .font(.tasker(.caption1))
+                                .buttonStyle(.plain)
+                                .foregroundColor(Color.tasker.accentPrimary)
+                                .frame(minHeight: 44)
+                            }
 
-                            ChartCardsScrollView(
-                                referenceDate: viewModel.selectedDate,
-                                onCreateProject: onOpenProjectCreator,
-                                chartViewModel: chartCardViewModel,
-                                radarViewModel: radarChartCardViewModel
-                            )
+                            InsightsTabView(viewModel: insightsViewModel)
                                 .frame(height: chartCardsViewportHeight(for: geometry))
                         }
                         .padding(.horizontal, spacing.s16)
@@ -2926,7 +2997,9 @@ struct HomeBackdropForedropRootView: View {
                             }
                         )
                         .onPreferenceChange(AnalyticsSectionHeightPreferenceKey.self) { height in
-                            analyticsSectionHeight = max(0, height)
+                            let nextHeight = max(0, height)
+                            guard abs(analyticsSectionHeight - nextHeight) > 0.5 else { return }
+                            analyticsSectionHeight = nextHeight
                         }
                         .opacity(foredropAnchor == .fullReveal ? 1 : 0.001)
                     }
@@ -3116,8 +3189,12 @@ struct HomeBackdropForedropRootView: View {
                     accessibilityContainerID: "home.navXpPieChart",
                     accessibilityButtonID: "home.navXpPieChart.button"
                 ) {
+                    let shouldOpenInsights = foredropAnchor != .fullReveal
                     withAnimation(TaskerAnimation.snappy) {
                         foredropAnchor = foredropAnchor == .fullReveal ? .collapsed : .fullReveal
+                    }
+                    if shouldOpenInsights {
+                        viewModel.launchInsights()
                     }
                 }
                 .background(
@@ -3320,6 +3397,9 @@ struct HomeBackdropForedropRootView: View {
                 trackTaskToggle(task, source: "focus_strip")
                 onToggleComplete(task)
             },
+            onStartFocus: { task in
+                onStartFocus(task)
+            },
             onTaskDragStarted: { task in
                 trackTaskDragStarted(task, source: "focus_strip")
             },
@@ -3331,8 +3411,12 @@ struct HomeBackdropForedropRootView: View {
         HomeGlassBottomBar(
             state: bottomBarState,
             onChartsToggle: {
+                let shouldOpenInsights = foredropAnchor != .fullReveal
                 withAnimation(TaskerAnimation.snappy) {
                     foredropAnchor = foredropAnchor == .fullReveal ? .collapsed : .fullReveal
+                }
+                if shouldOpenInsights {
+                    viewModel.launchInsights()
                 }
             },
             onSearch: {
@@ -3476,6 +3560,38 @@ struct HomeBackdropForedropRootView: View {
         }
     }
 
+    private func canShowCelebration(now: Date = Date()) -> Bool {
+        guard let lastCelebrationAt else { return true }
+        return now.timeIntervalSince(lastCelebrationAt) >= Self.celebrationCooldownSeconds
+    }
+
+    private func markCelebrationShown(now: Date = Date()) {
+        lastCelebrationAt = now
+    }
+
+    private func handleXPResult(_ result: XPEventResult?) {
+        guard let result, result.awardedXP > 0 else { return }
+        guard canShowCelebration() else { return }
+
+        if let milestone = result.crossedMilestone {
+            milestoneValue = milestone
+            showMilestone = true
+            markCelebrationShown()
+            return
+        }
+
+        if result.didLevelUp {
+            levelUpValue = result.level
+            showLevelUp = true
+            markCelebrationShown()
+            return
+        }
+
+        xpBurstValue = result.awardedXP
+        showXPBurst = true
+        markCelebrationShown()
+    }
+
     /// Executes handleDailyScoreUpdate.
     private func handleDailyScoreUpdate(_ newScore: Int) {
         defer { lastDailyScore = newScore }
@@ -3483,9 +3599,11 @@ struct HomeBackdropForedropRootView: View {
         guard let previous = lastDailyScore else { return }
         let delta = newScore - previous
         guard delta > 0 else { return }
+        guard canShowCelebration() else { return }
 
         xpBurstValue = delta
         showXPBurst = true
+        markCelebrationShown()
 
         // Enhanced haptic feedback based on XP gain
         if delta >= 7 {
