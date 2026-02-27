@@ -1,6 +1,6 @@
 # Tasker Documentation Hub
 
-Last updated: 2026-02-24
+Last updated: 2026-02-27
 
 This directory is the canonical home for technical architecture, operations, release runbooks, and archived legacy docs.
 
@@ -37,6 +37,7 @@ flowchart TD
 | `docs/architecture/domain-events-and-observability-v2.md` | Domain events, handlers, notification bridge, observability |
 | `docs/architecture/notifications-local-strategy-v3.md` | Local notification catalog, product decisions, scheduling/reconcile and action handling contracts |
 | `docs/architecture/llm-assistant-stack-v2.md` | LLM context pipeline and assistant transaction stack |
+| `docs/architecture/gamification-v2-engine.md` | Gamification engine runtime path, event-driven freshness, reconciliation, and widget snapshot architecture |
 
 ## Operations Docs
 
@@ -52,3 +53,6 @@ Product-facing intent remains in:
 
 Root hub:
 - `README.md`
+
+Gamification freshness note:
+- Gamification UI updates are driven by `gamificationLedgerDidMutate` (post-commit ledger mutation), not TTL-based refresh.

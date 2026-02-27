@@ -1,6 +1,6 @@
 # Tasker V3 Risk Register and Guardrails
 
-**Last validated against code on 2026-02-21**
+**Last validated against code on 2026-02-27**
 
 This register tracks technical risks that can regress V3 runtime correctness, data integrity, and release safety.
 
@@ -8,11 +8,13 @@ Primary source anchors:
 - `To Do List/AppDelegate.swift`
 - `To Do List/State/DI/EnhancedDependencyContainer.swift`
 - `To Do List/Presentation/DI/PresentationDependencyContainer.swift`
-- `To Do List/TaskModelV3.xcdatamodeld/TaskModelV3.xcdatamodel/contents`
+- `To Do List/TaskModelV3.xcdatamodeld/.xccurrentversion`
+- `To Do List/TaskModelV3.xcdatamodeld/TaskModelV3_Gamification.xcdatamodel/contents`
 - `To Do List/State/Repositories/*.swift`
 - `To Do List/UseCases/Sync/ReconcileExternalRemindersUseCase.swift`
 - `To Do List/UseCases/Sync/ReminderMergeEngine.swift`
 - `To Do List/UseCases/LLM/AssistantActionPipelineUseCase.swift`
+- `To Do List/UseCases/Gamification/GamificationEngine.swift`
 - `To Do List/LLM/Views/Chat/ChatView.swift`
 - `To Do List/LLM/Models/AssistantCardPayload.swift`
 - `To Do List/LLM/Models/TaskSemanticRetrievalService.swift`
@@ -38,6 +40,10 @@ Primary source anchors:
 | `R-014` | Notification deep-link seeding drift (brief/triage) | Medium | wrong chat mode/prompt seeded or no chat open on tap | pending keys diverge between producers/consumer | centralize key names and verify open-chat signal path |
 | `R-015` | Semantic index performance drift under mutation volume | Medium | UI lag or stale semantic ranking | rebuild-heavy path used too often instead of incremental updates | prefer incremental upsert/remove and bounded rebuild fallback |
 | `R-016` | AI cold-start and surface latency regression | Medium | users perceive assistant as stalled on first interaction | model not warmed, heavy route chosen, or long generation budgets | staged status UX + current-model prewarm + fast-first fallback + latency telemetry |
+| `R-017` | Gamification remote-change reconciliation loop regression | High | sustained write churn, WAL checkpoint flood, delayed UI mutation handling | local writes re-trigger full reconcile path | keep persistent-history author/context qualification + serial coalescing coordinator |
+| `R-018` | Gamification stale read-after-write snapshot | High | XP charts lag until restart; inconsistent same-session values | read context not reset/merged after writes | enforce `readContext.reset()` post-write and keep read/write context split contract explicit |
+| `R-019` | Missed ledger mutation signal in UI observers | High | XP updates not reflected live on Home/Insights | observer not attached or event dropped during heavy churn | use ledger-mutation watchdog fallback refresh + notification-path tests |
+| `R-020` | Gamification doc/runtime drift | Medium | incidents prolonged due to incorrect runbook assumptions | runtime changed without architecture docs update | require same-PR updates for `gamification-v2-engine.md` and linked architecture docs |
 
 ## Detection Signals and Containment
 
@@ -59,6 +65,10 @@ Primary source anchors:
 | `R-014` | daily brief open path does not seed chat thread/prompt | verify pending key writes and `.assistantOpenChatRequested` notification path |
 | `R-015` | frequent full index rebuild logs, degraded search latency | tune mutation observer handling and keep incremental upsert/remove active |
 | `R-016` | first-token and surface latency drift beyond SLO | inspect warmup events, routing mode, and generation profile budgets; tune fast-first paths |
+| `R-017` | elevated remote-change volume and repeated reconcile starts | inspect persistent-history classifier results and ensure only qualified CloudKit imports trigger reconcile |
+| `R-018` | immediate post-write fetch does not reflect updated XP/profile/aggregate | verify gamification repository finalize-write reset behavior and canonical row selection |
+| `R-019` | completion/focus/reflection XP visible only after restart | inspect `gamificationLedgerDidMutate` emission/observer path and watchdog fallback logs |
+| `R-020` | stale architecture references during review/incident triage | block merge until gamification architecture docs are updated and cross-linked |
 
 ## AI Telemetry Signals to Watch
 
@@ -98,6 +108,8 @@ Primary source anchors:
 | Assistant apply requires confirmed runs and valid undo payloads | transactional safety and user trust | `AssistantActionPipelineUseCase.swift` |
 | Tombstone lifecycle (write -> expire -> purge) is intact | prevents deletion regressions and sync churn | `DeleteTaskDefinitionUseCase.swift`, `MaintainOccurrencesUseCase.swift` |
 | Card actions require run/thread ownership checks | prevents cross-thread accidental mutation operations | `ChatView.swift`, `ConversationView.swift` |
+| Gamification mutation signal emitted post-commit only | prevents stale pre-write UI reads | `GamificationEngine.swift`, `HomeViewModel.swift`, `InsightsViewModel.swift` |
+| Remote-change reconcile only for qualified external transactions | prevents local-write reconciliation loops | `AppDelegate.swift` (`GamificationRemoteChangeCoordinator`) |
 
 ## Review Checklist (Required in PRs Touching Architecture)
 
