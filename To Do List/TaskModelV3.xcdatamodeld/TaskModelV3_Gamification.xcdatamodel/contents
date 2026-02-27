@@ -439,11 +439,6 @@
         <memberEntity name="OccurrenceResolution"/>
         <memberEntity name="Reminder"/>
         <memberEntity name="ReminderTrigger"/>
-        <memberEntity name="GamificationProfile"/>
-        <memberEntity name="XPEvent"/>
-        <memberEntity name="AchievementUnlock"/>
-        <memberEntity name="DailyXPAggregate"/>
-        <memberEntity name="FocusSession"/>
         <memberEntity name="ExternalContainerMap"/>
         <memberEntity name="ExternalItemMap"/>
         <memberEntity name="Tombstone"/>
@@ -451,5 +446,10 @@
     </configuration>
     <configuration name="LocalOnly">
         <memberEntity name="ReminderDelivery"/>
+        <memberEntity name="GamificationProfile"/>
+        <memberEntity name="XPEvent"/>
+        <memberEntity name="AchievementUnlock"/>
+        <memberEntity name="DailyXPAggregate"/>
+        <memberEntity name="FocusSession"/>
     </configuration>
 </model>
