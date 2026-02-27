@@ -53,6 +53,10 @@ class HomePage {
         return app.buttons[AccessibilityIdentifiers.Home.bottomBarCharts]
     }
 
+    var homeButton: XCUIElement {
+        return app.buttons[AccessibilityIdentifiers.Home.bottomBarHome]
+    }
+
     var settingsButton: XCUIElement {
         let byIdentifier = app.buttons[AccessibilityIdentifiers.Home.settingsButton]
         if byIdentifier.exists {
@@ -390,6 +394,11 @@ class HomePage {
         chartsButton.tap()
     }
 
+    /// Tap home button
+    func tapHome() {
+        homeButton.tap()
+    }
+
     /// Tap chat button
     func tapChat() {
         chatButton.tap()
@@ -411,6 +420,18 @@ class HomePage {
         let chart = navXpPieChart
         XCTAssertTrue(chart.waitForExistence(timeout: 5), "Navigation XP pie chart should exist before tapping")
         chart.tap()
+    }
+
+    func isToolSelected(_ element: XCUIElement) -> Bool {
+        let rawValue = element.value as? String
+        return rawValue == "selected"
+    }
+
+    @discardableResult
+    func waitForToolSelection(_ element: XCUIElement, timeout: TimeInterval = 2) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", "selected")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
     }
 
     /// Tap project filter button

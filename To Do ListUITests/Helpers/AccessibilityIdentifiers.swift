@@ -25,6 +25,7 @@ enum AccessibilityIdentifiers {
         static let completionRateLabel = "home.completionRateLabel"
         static let datePicker = "home.datePicker"
         static let bottomBar = "home.bottomBar"
+        static let bottomBarHome = "home.bottomBar.home"
         static let bottomBarCharts = "home.bottomBar.charts"
         static let searchButton = "home.searchButton"
         static let topNavSearchButton = "home.topNav.searchButton"

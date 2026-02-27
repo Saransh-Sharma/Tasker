@@ -73,7 +73,9 @@ class AnalyticsAndChartsTests: BaseUITest {
         XCTAssertTrue(homePage.projectFilterButton.waitForExistence(timeout: 3), "Quick view selector should be present in top nav")
         XCTAssertTrue(homePage.topNavSearchButton.waitForExistence(timeout: 3), "Top nav search should be present")
         XCTAssertTrue(homePage.searchButton.waitForExistence(timeout: 3), "Bottom search should remain present")
+        XCTAssertTrue(homePage.homeButton.waitForExistence(timeout: 3), "Bottom home button should remain present")
         XCTAssertTrue(homePage.settingsButton.waitForExistence(timeout: 3), "Settings button should be present in top nav")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be the default selected bottom tool")
 
         // Top nav controls should stay above the foredrop surface.
         XCTAssertTrue(homePage.dailyScoreLabel.waitForExistence(timeout: 3), "Top XP label should exist")
@@ -105,10 +107,8 @@ class AnalyticsAndChartsTests: BaseUITest {
         // THEN: Analytics foredrop should expand.
         XCTAssertTrue(homePage.waitForForedropState("fullReveal", timeout: 3), "Ring tap should expand analytics")
         XCTAssertTrue(homePage.foredropCollapseHint.waitForExistence(timeout: 2), "Collapse hint should appear at full reveal")
-        XCTAssertTrue(
-            homePage.verifyWeeklyCalendarStartsAfterTopNav(),
-            "Weekly calendar should render immediately after top nav when revealed"
-        )
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.chartsButton), "Analytics should become selected while back face is visible")
+        XCTAssertFalse(homePage.weeklyCalendar.isHittable, "Weekly calendar should be hidden while analytics back face is visible")
 
         // WHEN: User taps ring again
         homePage.tapNavXpPieChart()
@@ -116,6 +116,7 @@ class AnalyticsAndChartsTests: BaseUITest {
 
         // THEN: Analytics foredrop should collapse.
         XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Second ring tap should collapse analytics")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be re-selected after collapsing analytics")
 
         // WHEN: User completes a task and gains XP
         let taskTitle = "Nav XP Visibility Task"
@@ -500,6 +501,7 @@ class AnalyticsAndChartsTests: BaseUITest {
 
         XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 2), "Foredrop should start collapsed")
         XCTAssertFalse(homePage.foredropCollapseHint.exists, "Collapse hint should be hidden while collapsed")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected by default")
 
         let collapsedMinY = homePage.foredropSurface.frame.minY
 
@@ -510,16 +512,22 @@ class AnalyticsAndChartsTests: BaseUITest {
         XCTAssertTrue(homePage.foredropCollapseHint.waitForExistence(timeout: 2), "Collapse hint should be visible at full reveal")
 
         let fullRevealMinY = homePage.foredropSurface.frame.minY
-        XCTAssertGreaterThan(
-            fullRevealMinY,
-            collapsedMinY + 220,
-            "Foredrop should move down substantially when fully revealing analytics"
+        XCTAssertLessThan(
+            abs(fullRevealMinY - collapsedMinY),
+            12,
+            "Foredrop surface should stay anchored while analytics flips in place"
         )
-        XCTAssertGreaterThan(
-            fullRevealMinY,
-            homePage.view.frame.height * 0.70,
-            "Foredrop full reveal should reach a low enough position across screen sizes"
-        )
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.chartsButton), "Analytics button should be selected while analytics is open")
+
+        XCTAssertTrue(homePage.homeButton.isHittable, "Home button should be tappable")
+        homePage.tapHome()
+        waitForAnimations(duration: 0.5)
+        XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Home button should flip foredrop back to default state")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after closing analytics via home button")
+
+        homePage.tapCharts()
+        waitForAnimations(duration: 0.5)
+        XCTAssertTrue(homePage.waitForForedropState("fullReveal", timeout: 3), "Charts should reopen analytics")
 
         XCTAssertTrue(homePage.foredropCollapseHint.isHittable, "Collapse hint should be tappable")
         homePage.foredropCollapseHint.tap()
@@ -527,6 +535,7 @@ class AnalyticsAndChartsTests: BaseUITest {
 
         XCTAssertTrue(homePage.waitForForedropState("collapsed", timeout: 3), "Collapse hint should return foredrop to default state")
         XCTAssertFalse(homePage.foredropCollapseHint.waitForExistence(timeout: 1), "Collapse hint should hide after collapsing")
+        XCTAssertTrue(homePage.waitForToolSelection(homePage.homeButton), "Home should be selected after collapse hint returns to tasks")
         takeScreenshot(named: "home_foredrop_full_reveal_collapse_hint")
     }
 
