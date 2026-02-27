@@ -593,6 +593,22 @@ extension UseCaseCoordinator {
         cacheService: CacheServiceProtocol? = nil,
         notificationService: NotificationServiceProtocol? = nil
     ) {
+        self.init(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            gamificationRepository: LegacyNoopGamificationRepository(),
+            cacheService: cacheService,
+            notificationService: notificationService
+        )
+    }
+
+    convenience init(
+        taskRepository: LegacyTaskRepositoryShim,
+        projectRepository: ProjectRepositoryProtocol,
+        gamificationRepository: GamificationRepositoryProtocol,
+        cacheService: CacheServiceProtocol? = nil,
+        notificationService: NotificationServiceProtocol? = nil
+    ) {
         let readModel = (taskRepository as? TaskReadModelRepositoryProtocol)
             ?? ShimTaskReadModelAdapter(legacyRepository: taskRepository)
         let taskDefinitionRepository = ShimTaskDefinitionRepositoryAdapter(legacyRepository: taskRepository)
@@ -609,7 +625,7 @@ extension UseCaseCoordinator {
             occurrenceRepository: LegacyNoopOccurrenceRepository(),
             tombstoneRepository: LegacyNoopTombstoneRepository(),
             reminderRepository: LegacyNoopReminderRepository(),
-            gamificationRepository: LegacyNoopGamificationRepository(),
+            gamificationRepository: gamificationRepository,
             assistantActionRepository: LegacyNoopAssistantActionRepository(),
             externalSyncRepository: LegacyNoopExternalSyncRepository(),
             remindersProvider: nil
@@ -2982,6 +2998,114 @@ private final class FocusSessionRepositorySpy: GamificationRepositoryProtocol {
     func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
         let filtered = focusSessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }
         completion(.success(filtered))
+    }
+}
+
+final class HomeViewModelFocusSessionThreadingTests: XCTestCase {
+    func testStartFocusSessionCompletionIsDeliveredOnMainQueue() {
+        let suiteName = "HomeViewModelFocusSessionThreadingTests.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create isolated defaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let inbox = Project.createInbox()
+        let seedTask = Task(
+            id: UUID(),
+            projectID: inbox.id,
+            name: "Focus threading",
+            details: nil,
+            type: .morning,
+            priority: .low,
+            dueDate: Date(),
+            project: inbox.name
+        )
+        let taskRepository = MockTaskRepository(seed: seedTask)
+        let projectRepository = MockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository,
+            gamificationRepository: BackgroundFocusSessionRepository()
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        let completionExpectation = expectation(description: "focus session completion")
+        var completionOnMainThread = false
+        viewModel.startFocusSession(taskID: nil, targetDurationSeconds: 60) { result in
+            completionOnMainThread = Thread.isMainThread
+            if case .failure(let error) = result {
+                XCTFail("Expected successful start session, got \(error)")
+            }
+            completionExpectation.fulfill()
+        }
+
+        waitForExpectations(timeout: 2.0)
+        XCTAssertTrue(completionOnMainThread)
+    }
+}
+
+private final class BackgroundFocusSessionRepository: GamificationRepositoryProtocol {
+    private let callbackQueue = DispatchQueue(label: "BackgroundFocusSessionRepository.callback")
+
+    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
+        completion(.success(nil))
+    }
+
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+        completion(.success(false))
+    }
+
+    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
+        completion(.success(nil))
+    }
+
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        callbackQueue.async {
+            completion(.success(()))
+        }
+    }
+
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+        callbackQueue.async {
+            completion(.success([]))
+        }
     }
 }
 
@@ -6376,6 +6500,43 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
 
         XCTAssertEqual(repository.fetchDailyAggregateCount, dailyAggregateFetchesBeforeReselect)
         XCTAssertEqual(repository.fetchXPEventsRangeCount, xpRangeFetchesBeforeReselect)
+    }
+
+    func testTodayRefreshAllowsTotalTasksTodayToDecreaseWhenEventsShrink() {
+        let repository = InsightsRepositorySpy()
+        let todayKey = XPCalculationEngine.periodKey()
+        repository.dailyAggregatesByDateKey[todayKey] = DailyXPAggregateDefinition(
+            dateKey: todayKey,
+            totalXP: 30,
+            eventCount: 3
+        )
+        repository.todayEvents = [
+            XPEventDefinition(delta: 10, reason: "task_completion", idempotencyKey: "a", category: .complete),
+            XPEventDefinition(delta: 10, reason: "task_completion", idempotencyKey: "b", category: .complete),
+            XPEventDefinition(delta: 10, reason: "task_completion", idempotencyKey: "c", category: .complete)
+        ]
+
+        let viewModel = makeInsightsViewModel(repository: repository)
+        viewModel.onAppear()
+        waitUntil(timeout: 1.5) {
+            viewModel.refreshState(for: .today).isLoaded
+                && viewModel.todayState.totalTasksToday == 3
+        }
+
+        repository.todayEvents = [
+            XPEventDefinition(delta: 10, reason: "task_completion", idempotencyKey: "d", category: .complete)
+        ]
+
+        viewModel.noteMutation(.taskCompleted)
+
+        waitUntil(timeout: 2.0) {
+            viewModel.refreshState(for: .today).inFlight == false
+                && viewModel.todayState.tasksCompletedToday == 1
+                && viewModel.todayState.totalTasksToday == 1
+        }
+
+        XCTAssertEqual(viewModel.todayState.tasksCompletedToday, 1)
+        XCTAssertEqual(viewModel.todayState.totalTasksToday, 1)
     }
 
     func testMutationBurstCoalescesIntoSingleRefreshPass() {

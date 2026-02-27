@@ -558,7 +558,7 @@ public final class InsightsViewModel: ObservableObject {
             if case .success(let events) = result {
                 let summary = Self.summarize(events: events)
                 tasksCompletedToday = summary.tasksCompleted
-                totalTasksToday = max(totalTasksToday, summary.tasksCompleted)
+                totalTasksToday = summary.tasksCompleted
                 xpBreakdown = summary.breakdown
                 recoveryXP = summary.recoveryXP
                 recoveryCount = summary.recoveryCount

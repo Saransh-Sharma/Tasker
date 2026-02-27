@@ -1075,7 +1075,11 @@ public final class HomeViewModel: ObservableObject {
         useCaseCoordinator.focusSession.startSession(
             taskID: taskID,
             targetDurationSeconds: targetDurationSeconds,
-            completion: completion
+            completion: { result in
+                DispatchQueue.main.async {
+                    completion(result)
+                }
+            }
         )
     }
 

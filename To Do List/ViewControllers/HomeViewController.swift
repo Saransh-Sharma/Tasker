@@ -500,25 +500,23 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     }
 
     private func presentFocusTimer(task: TaskDefinition?, session: FocusSessionDefinition, source: String) {
-        var hostingController: UIHostingController<FocusTimerView>?
         let timerView = FocusTimerView(
             taskTitle: task?.title,
             taskPriority: task?.priority.displayName,
             targetDurationSeconds: session.targetDurationSeconds,
             onComplete: { [weak self] _ in
-                hostingController?.dismiss(animated: true) {
+                self?.dismiss(animated: true) {
                     self?.finishFocusSession(sessionID: session.id, source: source)
                 }
             },
             onCancel: { [weak self] in
-                hostingController?.dismiss(animated: true) {
+                self?.dismiss(animated: true) {
                     self?.finishFocusSession(sessionID: session.id, source: "\(source)_cancel")
                 }
             }
         )
         let host = UIHostingController(rootView: timerView)
         host.modalPresentationStyle = .fullScreen
-        hostingController = host
         present(host, animated: true)
     }
 
