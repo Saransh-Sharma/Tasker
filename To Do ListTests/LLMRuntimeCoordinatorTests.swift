@@ -4,20 +4,20 @@ import UIKit
 
 @MainActor
 final class LLMRuntimeCoordinatorTests: XCTestCase {
-    private var originalPrewarmFlag: Bool = true
+    private var originalPrewarmMode: LLMChatPrewarmMode = .adaptiveOnDemand
 
     override func setUp() {
         super.setUp()
-        originalPrewarmFlag = V2FeatureFlags.llmChatPrewarmEnabled
+        originalPrewarmMode = V2FeatureFlags.llmChatPrewarmMode
     }
 
     override func tearDown() {
-        V2FeatureFlags.llmChatPrewarmEnabled = originalPrewarmFlag
+        V2FeatureFlags.llmChatPrewarmMode = originalPrewarmMode
         super.tearDown()
     }
 
     func testNoPrewarmWhenFeatureFlagDisabled() async {
-        V2FeatureFlags.llmChatPrewarmEnabled = false
+        V2FeatureFlags.llmChatPrewarmMode = .disabled
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Disabled.\(UUID().uuidString)")!
         defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
 
@@ -36,7 +36,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
     }
 
     func testRepeatedPrewarmSkipsAfterFirstActivation() async {
-        V2FeatureFlags.llmChatPrewarmEnabled = true
+        V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Repeated.\(UUID().uuidString)")!
         defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
 
@@ -59,7 +59,7 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
     }
 
     func testSwitchModelCancelsInflightPrewarm() async {
-        V2FeatureFlags.llmChatPrewarmEnabled = true
+        V2FeatureFlags.llmChatPrewarmMode = .adaptiveOnDemand
         let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Cancel.\(UUID().uuidString)")!
         defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
 
@@ -157,5 +157,60 @@ final class LLMRuntimeCoordinatorTests: XCTestCase {
 
         _ = coordinator
         XCTAssertEqual(unloadCount, 1)
+    }
+
+    func testReleaseSessionSchedulesIdleUnload() async {
+        let center = NotificationCenter()
+        let defaults = UserDefaults(suiteName: "LLMRuntimeCoordinatorTests.Idle.\(UUID().uuidString)")!
+        defaults.set("mlx-community/Qwen3-0.6B-4bit", forKey: "currentModelName")
+        V2FeatureFlags.llmChatPrewarmMode = .eager
+
+        var unloadCount = 0
+        let coordinator = LLMRuntimeCoordinator(
+            defaults: defaults,
+            notificationCenter: center,
+            prepareHandler: { _ in LLMEvaluator.PrepareResult(wasAlreadyLoaded: false) },
+            unloadHandler: {
+                unloadCount += 1
+            },
+            idleUnloadDelayNanoseconds: 40_000_000,
+            registerLifecycleObservers: false
+        )
+
+        await coordinator.prepareCurrentModelIfConfigured(trigger: "test")
+        coordinator.acquireSession(reason: "test_session")
+        coordinator.releaseSession(reason: "test_session")
+
+        try? await _Concurrency.Task.sleep(nanoseconds: 90_000_000)
+        XCTAssertEqual(unloadCount, 1)
+    }
+
+    func testCancelGenerationIfActiveCancelsEvaluator() {
+        let evaluator = LLMEvaluator()
+        evaluator.running = true
+        let coordinator = LLMRuntimeCoordinator(
+            evaluator: evaluator,
+            registerLifecycleObservers: false
+        )
+        coordinator.acquireSession(reason: "chat_generation")
+
+        coordinator.cancelGenerationIfActive(reason: "unit_test")
+
+        XCTAssertTrue(evaluator.cancelled)
+        XCTAssertEqual(evaluator.runtimePhase, .stopping)
+        _ = coordinator
+    }
+
+    func testCancelGenerationClearsThinkingWhenNotRunning() {
+        let evaluator = LLMEvaluator()
+        evaluator.running = false
+        evaluator.isThinking = true
+        evaluator.runtimePhase = .thinking
+
+        evaluator.cancelGeneration(reason: "unit_test_not_running")
+
+        XCTAssertTrue(evaluator.cancelled)
+        XCTAssertFalse(evaluator.isThinking)
+        XCTAssertEqual(evaluator.runtimePhase, .stopping)
     }
 }
