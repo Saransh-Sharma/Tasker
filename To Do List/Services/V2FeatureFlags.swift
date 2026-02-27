@@ -79,4 +79,9 @@ public enum V2FeatureFlags {
         get { defaults.object(forKey: "feature.gamification.focus_sessions") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.gamification.focus_sessions") }
     }
+
+    public static var gamificationOverhaulV1Enabled: Bool {
+        get { defaults.object(forKey: "feature.gamification.overhaul.v1") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "feature.gamification.overhaul.v1") }
+    }
 }

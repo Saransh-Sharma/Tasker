@@ -19,6 +19,8 @@ public struct GamificationLedgerMutation: Equatable {
     public let didChange: Bool
     public let dateKey: String
     public let occurredAt: Date
+    public let unlockedAchievementKeys: [String]
+    public let originatingEventID: UUID?
 
     public init(
         source: String,
@@ -31,7 +33,9 @@ public struct GamificationLedgerMutation: Equatable {
         streakDays: Int,
         didChange: Bool,
         dateKey: String,
-        occurredAt: Date
+        occurredAt: Date,
+        unlockedAchievementKeys: [String] = [],
+        originatingEventID: UUID? = nil
     ) {
         self.source = source
         self.category = category
@@ -44,6 +48,8 @@ public struct GamificationLedgerMutation: Equatable {
         self.didChange = didChange
         self.dateKey = dateKey
         self.occurredAt = occurredAt
+        self.unlockedAchievementKeys = unlockedAchievementKeys
+        self.originatingEventID = originatingEventID
     }
 
     public var userInfo: [AnyHashable: Any] {
@@ -58,7 +64,9 @@ public struct GamificationLedgerMutation: Equatable {
             "streakDays": streakDays,
             "didChange": didChange,
             "dateKey": dateKey,
-            "occurredAt": occurredAt
+            "occurredAt": occurredAt,
+            "unlockedAchievementKeys": unlockedAchievementKeys,
+            "originatingEventID": originatingEventID as Any
         ]
     }
 
@@ -88,6 +96,8 @@ public struct GamificationLedgerMutation: Equatable {
             ?? (userInfo["previousLevel"] as? Int)
         let streakDays = (userInfo["streakDays"] as? NSNumber)?.intValue
             ?? (userInfo["streakDays"] as? Int)
+        let unlockedAchievementKeys = userInfo["unlockedAchievementKeys"] as? [String] ?? []
+        let originatingEventID = userInfo["originatingEventID"] as? UUID
 
         guard
             let awardedXP,
@@ -111,6 +121,8 @@ public struct GamificationLedgerMutation: Equatable {
         self.didChange = didChange
         self.dateKey = dateKey
         self.occurredAt = occurredAt
+        self.unlockedAchievementKeys = unlockedAchievementKeys
+        self.originatingEventID = originatingEventID
     }
 }
 
@@ -738,7 +750,12 @@ public final class GamificationEngine {
 
                                         self.emitXPFunnelTelemetry(context: context, result: result)
                                         self.writeWidgetSnapshot()
-                                        self.emitLedgerMutation(context: context, result: result, didChange: true)
+                                        self.emitLedgerMutation(
+                                            context: context,
+                                            result: result,
+                                            didChange: true,
+                                            originatingEventID: event.id
+                                        )
                                         completion(.success(result))
                                     }
                                 }
@@ -1029,7 +1046,8 @@ public final class GamificationEngine {
     private func emitLedgerMutation(
         context: XPEventContext,
         result: XPEventResult,
-        didChange: Bool
+        didChange: Bool,
+        originatingEventID: UUID? = nil
     ) {
         let payload = GamificationLedgerMutation(
             source: context.source.rawValue,
@@ -1042,7 +1060,9 @@ public final class GamificationEngine {
             streakDays: result.currentStreak,
             didChange: didChange,
             dateKey: XPCalculationEngine.periodKey(for: context.completedAt),
-            occurredAt: Date()
+            occurredAt: Date(),
+            unlockedAchievementKeys: result.unlockedAchievements.map(\.achievementKey),
+            originatingEventID: originatingEventID
         )
         TaskNotificationDispatcher.postOnMain(
             name: .gamificationLedgerDidMutate,

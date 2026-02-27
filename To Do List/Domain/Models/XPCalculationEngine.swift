@@ -1,5 +1,33 @@
 import Foundation
 
+public enum XPDisplayEstimate: Equatable {
+    case exact(Int)
+    case range(min: Int, max: Int)
+    case capped(Int)
+
+    public var shortLabel: String {
+        switch self {
+        case .exact(let value):
+            return "Est. +\(value) XP"
+        case .range(let min, let max):
+            return "Est. +\(min)-\(max) XP"
+        case .capped(let value):
+            return "Est. +\(value) XP (cap)"
+        }
+    }
+
+    public var compactLabel: String {
+        switch self {
+        case .exact(let value):
+            return "~+\(value)"
+        case .range(let min, let max):
+            return "~+\(min)-\(max)"
+        case .capped(let value):
+            return "~+\(value) cap"
+        }
+    }
+}
+
 public struct XPCalculationEngine {
 
     public static let dailyCap: Int = 250
@@ -82,6 +110,56 @@ public struct XPCalculationEngine {
         guard durationSeconds >= focusMinimumSeconds else { return 0 }
         let minutes = durationSeconds / 60
         return minutes * focusXPPerMinute
+    }
+
+    public static func completionEstimate(
+        priorityRaw: Int32,
+        estimatedDuration: TimeInterval?,
+        isFocusSessionActive: Bool = false,
+        isPinnedInFocusStrip: Bool = false,
+        dailyEarnedSoFar: Int? = nil,
+        cap: Int = dailyCap
+    ) -> XPDisplayEstimate {
+        let priority = max(0, Int(priorityRaw) - 1)
+        let quality = qualityWeight(
+            priority: priority,
+            estimatedDuration: estimatedDuration,
+            isFocusSessionActive: isFocusSessionActive,
+            isPinnedInFocusStrip: isPinnedInFocusStrip
+        )
+
+        let minRaw = Int(round(Double(baseXP(for: .complete)) * quality))
+        let maxRaw = Int(round(Double(baseXP(for: .complete) + onTimeBonusXP()) * quality))
+
+        let minXP: Int
+        let maxXP: Int
+        if let dailyEarnedSoFar {
+            let remaining = max(0, cap - dailyEarnedSoFar)
+            minXP = min(minRaw, remaining)
+            maxXP = min(maxRaw, remaining)
+        } else {
+            minXP = minRaw
+            maxXP = maxRaw
+        }
+
+        if minXP == maxXP {
+            if maxXP < maxRaw {
+                return .capped(maxXP)
+            }
+            return .exact(maxXP)
+        }
+        return .range(min: minXP, max: maxXP)
+    }
+
+    public static func estimateReasonHints(
+        estimatedDuration: TimeInterval?,
+        isFocusSessionActive: Bool,
+        isPinnedInFocusStrip: Bool
+    ) -> String {
+        _ = estimatedDuration
+        _ = isFocusSessionActive
+        _ = isPinnedInFocusStrip
+        return "priority · on-time · focus · effort · cap"
     }
 
     // MARK: - Level Curve

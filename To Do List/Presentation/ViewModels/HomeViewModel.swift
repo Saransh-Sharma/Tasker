@@ -33,6 +33,132 @@ public extension Notification.Name {
     static let homeTaskMutation = Notification.Name("HomeTaskMutationEvent")
 }
 
+public enum CelebrationKind: String {
+    case milestone
+    case levelUp
+    case achievementUnlock
+    case xpBurst
+}
+
+public struct CelebrationEvent: Equatable {
+    public let kind: CelebrationKind
+    public let awardedXP: Int
+    public let level: Int
+    public let milestone: XPCalculationEngine.Milestone?
+    public let achievementKey: String?
+    public let occurredAt: Date
+    public let signature: String
+
+    public static func from(_ result: XPEventResult) -> CelebrationEvent? {
+        guard result.awardedXP > 0 else { return nil }
+        let unlockedKey = result.unlockedAchievements
+            .map(\.achievementKey)
+            .sorted()
+            .first
+
+        if let milestone = result.crossedMilestone {
+            return CelebrationEvent(
+                kind: .milestone,
+                awardedXP: result.awardedXP,
+                level: result.level,
+                milestone: milestone,
+                achievementKey: unlockedKey,
+                occurredAt: result.celebration?.occurredAt ?? Date(),
+                signature: "milestone:\(result.totalXP):\(milestone.xpThreshold)"
+            )
+        }
+        if result.didLevelUp {
+            return CelebrationEvent(
+                kind: .levelUp,
+                awardedXP: result.awardedXP,
+                level: result.level,
+                milestone: nil,
+                achievementKey: unlockedKey,
+                occurredAt: result.celebration?.occurredAt ?? Date(),
+                signature: "levelup:\(result.totalXP):\(result.level)"
+            )
+        }
+        if let unlockedKey {
+            return CelebrationEvent(
+                kind: .achievementUnlock,
+                awardedXP: result.awardedXP,
+                level: result.level,
+                milestone: nil,
+                achievementKey: unlockedKey,
+                occurredAt: result.celebration?.occurredAt ?? Date(),
+                signature: "achievement:\(result.totalXP):\(unlockedKey)"
+            )
+        }
+        return CelebrationEvent(
+            kind: .xpBurst,
+            awardedXP: result.awardedXP,
+            level: result.level,
+            milestone: nil,
+            achievementKey: nil,
+            occurredAt: result.celebration?.occurredAt ?? Date(),
+            signature: "xpburst:\(result.totalXP):\(result.awardedXP):\(result.level)"
+        )
+    }
+}
+
+public struct CelebrationPresentation: Equatable {
+    public let event: CelebrationEvent
+}
+
+public protocol CelebrationRouter: AnyObject {
+    func route(event: CelebrationEvent) -> CelebrationPresentation?
+}
+
+public final class DefaultCelebrationRouter: CelebrationRouter {
+    private var lastShownAtByKind: [CelebrationKind: Date] = [:]
+    private var lastSignature: String?
+
+    private let cooldownByKind: [CelebrationKind: TimeInterval] = [
+        .milestone: 0,
+        .levelUp: 0.4,
+        .achievementUnlock: 1.0,
+        .xpBurst: 4.0
+    ]
+
+    public init() {}
+
+    public func route(event: CelebrationEvent) -> CelebrationPresentation? {
+        if lastSignature == event.signature {
+            return nil
+        }
+        let cooldown = cooldownByKind[event.kind] ?? 0
+        if let last = lastShownAtByKind[event.kind],
+           cooldown > 0,
+           event.occurredAt.timeIntervalSince(last) < cooldown {
+            return nil
+        }
+
+        lastShownAtByKind[event.kind] = event.occurredAt
+        lastSignature = event.signature
+        return CelebrationPresentation(event: event)
+    }
+}
+
+public struct InsightsLaunchRequest: Equatable {
+    public let token: UUID
+    public let targetTab: InsightsViewModel.InsightsTab
+    public let highlightedAchievementKey: String?
+
+    public init(
+        token: UUID = UUID(),
+        targetTab: InsightsViewModel.InsightsTab = .today,
+        highlightedAchievementKey: String? = nil
+    ) {
+        self.token = token
+        self.targetTab = targetTab
+        self.highlightedAchievementKey = highlightedAchievementKey
+    }
+
+    public static var `default`: InsightsLaunchRequest {
+        InsightsLaunchRequest(targetTab: .today)
+    }
+}
+
 /// ViewModel for the Home screen
 /// Manages all business logic and state for the home view
 public final class HomeViewModel: ObservableObject {
@@ -54,6 +180,7 @@ public final class HomeViewModel: ObservableObject {
     @Published public private(set) var totalXP: Int64 = 0
     @Published public private(set) var nextLevelXP: Int64 = 0
     @Published public private(set) var lastXPResult: XPEventResult?
+    @Published public private(set) var insightsLaunchRequest: InsightsLaunchRequest?
     @Published public private(set) var insightsLaunchToken: UUID?
 
     // TaskDefinition lists by category
@@ -1091,7 +1218,6 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let focusResult):
-                    self?.dispatchCelebration(focusResult.xpResult)
                     if focusResult.xpResult?.awardedXP ?? 0 > 0 {
                         self?.scheduleLedgerMutationWatchdog(trigger: "focus_session_end")
                     }
@@ -1112,7 +1238,6 @@ public final class HomeViewModel: ObservableObject {
             DispatchQueue.main.async {
                 switch result {
                 case .success(let xpResult):
-                    self?.dispatchCelebration(xpResult)
                     if xpResult.awardedXP > 0 {
                         self?.scheduleLedgerMutationWatchdog(trigger: "daily_reflection_complete")
                     }
@@ -1130,9 +1255,20 @@ public final class HomeViewModel: ObservableObject {
         useCaseCoordinator.markDailyReflection.isCompletedToday()
     }
 
-    public func launchInsights() {
-        insightsLaunchToken = UUID()
-        trackHomeInteraction(action: "insights_launch_requested", metadata: [:])
+    public func launchInsights(_ request: InsightsLaunchRequest = .default) {
+        let resolved = InsightsLaunchRequest(
+            targetTab: request.targetTab,
+            highlightedAchievementKey: request.highlightedAchievementKey
+        )
+        insightsLaunchRequest = resolved
+        insightsLaunchToken = resolved.token
+        trackHomeInteraction(
+            action: "insights_launch_requested",
+            metadata: [
+                "target_tab": resolved.targetTab.rawValue.lowercased(),
+                "has_highlighted_achievement": resolved.highlightedAchievementKey == nil ? "false" : "true"
+            ]
+        )
     }
 
     public func dispatchCelebration(_ result: XPEventResult?) {
@@ -2596,7 +2732,9 @@ public final class HomeViewModel: ObservableObject {
         dailyXPCap = XPCalculationEngine.dailyCap
         refreshProgressState()
 
-        guard mutation.category == .complete, mutation.awardedXP > 0 else { return }
+        let celebrationEligibleCategories: Set<XPActionCategory> = [.complete, .focus, .reflection]
+        guard celebrationEligibleCategories.contains(mutation.category), mutation.awardedXP > 0 else { return }
+
         let milestone = XPCalculationEngine.milestoneCrossed(
             previousXP: max(0, mutation.totalXP - Int64(mutation.awardedXP)),
             newXP: mutation.totalXP
@@ -2609,6 +2747,15 @@ public final class HomeViewModel: ObservableObject {
             cooldownSeconds: GamificationEngine.celebrationCooldownSeconds,
             occurredAt: mutation.occurredAt
         )
+        let unlockedAchievements = mutation.unlockedAchievementKeys.map { key in
+            AchievementUnlockDefinition(
+                id: UUID(),
+                achievementKey: key,
+                unlockedAt: mutation.occurredAt,
+                sourceEventID: mutation.originatingEventID
+            )
+        }
+
         dispatchCelebration(XPEventResult(
             awardedXP: mutation.awardedXP,
             totalXP: mutation.totalXP,
@@ -2618,7 +2765,7 @@ public final class HomeViewModel: ObservableObject {
             didLevelUp: mutation.level > mutation.previousLevel,
             dailyXPSoFar: mutation.dailyXPSoFar,
             dailyCap: XPCalculationEngine.dailyCap,
-            unlockedAchievements: [],
+            unlockedAchievements: unlockedAchievements,
             crossedMilestone: milestone,
             celebration: celebration
         ))

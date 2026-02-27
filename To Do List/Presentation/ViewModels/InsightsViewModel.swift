@@ -21,6 +21,20 @@ public enum InsightsMutation: Equatable {
     case dayBoundaryChanged
 }
 
+public enum InsightsWeekScaleMode: String, CaseIterable {
+    case goal
+    case personalMax
+
+    public var displayName: String {
+        switch self {
+        case .goal:
+            return "Goal scale"
+        case .personalMax:
+            return "Personal max"
+        }
+    }
+}
+
 public struct InsightsTodayState: Equatable {
     public var dailyXP: Int
     public var dailyCap: Int
@@ -82,6 +96,7 @@ public struct InsightsSystemsState: Equatable {
     public var streakDays: Int
     public var bestStreak: Int
     public var unlockedAchievements: Set<String>
+    public var achievementProgress: [AchievementProgressState]
     public var nextMilestone: XPCalculationEngine.Milestone?
     public var milestoneProgress: CGFloat
 
@@ -93,6 +108,7 @@ public struct InsightsSystemsState: Equatable {
         streakDays: Int = 0,
         bestStreak: Int = 0,
         unlockedAchievements: Set<String> = [],
+        achievementProgress: [AchievementProgressState] = [],
         nextMilestone: XPCalculationEngine.Milestone? = nil,
         milestoneProgress: CGFloat = 0
     ) {
@@ -103,6 +119,7 @@ public struct InsightsSystemsState: Equatable {
         self.streakDays = streakDays
         self.bestStreak = bestStreak
         self.unlockedAchievements = unlockedAchievements
+        self.achievementProgress = achievementProgress
         self.nextMilestone = nextMilestone
         self.milestoneProgress = milestoneProgress
     }
@@ -146,6 +163,8 @@ public final class InsightsViewModel: ObservableObject {
     // MARK: - Published State
 
     @Published public private(set) var selectedTab: InsightsTab = .today
+    @Published public private(set) var weekScaleMode: InsightsWeekScaleMode = .personalMax
+    @Published public private(set) var highlightedAchievementKey: String?
     @Published public private(set) var todayState: InsightsTodayState = InsightsTodayState()
     @Published public private(set) var weekState: InsightsWeekState = InsightsWeekState()
     @Published public private(set) var systemsState: InsightsSystemsState = InsightsSystemsState()
@@ -173,6 +192,7 @@ public final class InsightsViewModel: ObservableObject {
     public var streakDays: Int { systemsState.streakDays }
     public var bestStreak: Int { systemsState.bestStreak }
     public var unlockedAchievements: Set<String> { systemsState.unlockedAchievements }
+    public var achievementProgress: [AchievementProgressState] { systemsState.achievementProgress }
     public var nextMilestone: XPCalculationEngine.Milestone? { systemsState.nextMilestone }
     public var milestoneProgress: CGFloat { systemsState.milestoneProgress }
 
@@ -181,6 +201,7 @@ public final class InsightsViewModel: ObservableObject {
     private let engine: GamificationEngine
     private let repository: GamificationRepositoryProtocol
     private let notificationCenter: NotificationCenter
+    private let userDefaults: UserDefaults
 
     // MARK: - Session Projection State
 
@@ -190,23 +211,29 @@ public final class InsightsViewModel: ObservableObject {
     private var pendingMutationWorkItem: DispatchWorkItem?
     private var sessionDayKey: String
 
-    private static let dayLetters = ["M", "T", "W", "T", "F", "S", "S"]
+    private static let dayLetters = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
     private static let orderedBreakdownCategories = ["complete", "start", "focus", "reflection", "recoverReschedule", "decompose"]
     private static let completionReasons = Set(["task_completion", "complete", "complete_on_time"])
     private static let mutationDebounceInterval: TimeInterval = 0.22
     private static let cloudSyncNotification = Notification.Name("DataDidChangeFromCloudSync")
+    private static let weekScaleModeDefaultsKey = "insights.week.scale.mode.v1"
 
     // MARK: - Init
 
     public init(
         engine: GamificationEngine,
         repository: GamificationRepositoryProtocol,
-        notificationCenter: NotificationCenter = .default
+        notificationCenter: NotificationCenter = .default,
+        userDefaults: UserDefaults = .standard
     ) {
         self.engine = engine
         self.repository = repository
         self.notificationCenter = notificationCenter
+        self.userDefaults = userDefaults
         self.sessionDayKey = Self.dateKey(for: Date(), calendar: XPCalculationEngine.mondayCalendar())
+        let persistedScaleMode = userDefaults.string(forKey: Self.weekScaleModeDefaultsKey)
+            .flatMap(InsightsWeekScaleMode.init(rawValue:))
+        self.weekScaleMode = persistedScaleMode ?? .personalMax
 
         for tab in InsightsTab.allCases {
             tabRefreshState[tab] = InsightsTabRefreshState()
@@ -236,6 +263,21 @@ public final class InsightsViewModel: ObservableObject {
     public func refreshSelectedTabIfNeeded(force: Bool = false) {
         noteDayBoundaryChangeIfNeeded()
         refresh(tab: selectedTab, force: force)
+    }
+
+    public func setWeekScaleMode(_ mode: InsightsWeekScaleMode) {
+        guard weekScaleMode != mode else { return }
+        weekScaleMode = mode
+        userDefaults.set(mode.rawValue, forKey: Self.weekScaleModeDefaultsKey)
+    }
+
+    public func highlightAchievement(_ key: String?) {
+        highlightedAchievementKey = key
+    }
+
+    public func consumeHighlightedAchievementKey() -> String? {
+        defer { highlightedAchievementKey = nil }
+        return highlightedAchievementKey
     }
 
     public func noteXPMutation() {
@@ -497,6 +539,9 @@ public final class InsightsViewModel: ObservableObject {
         next.totalXP = mutation.totalXP
         next.level = max(1, mutation.level)
         next.streakDays = max(0, mutation.streakDays)
+        if !mutation.unlockedAchievementKeys.isEmpty {
+            next.unlockedAchievements.formUnion(mutation.unlockedAchievementKeys)
+        }
 
         let levelInfo = XPCalculationEngine.levelForXP(mutation.totalXP)
         next.currentLevelThreshold = levelInfo.currentThreshold
@@ -676,11 +721,15 @@ public final class InsightsViewModel: ObservableObject {
         let group = DispatchGroup()
 
         var state = systemsState
+        var latestProfile: GamificationSnapshot?
+        var unlocks: [AchievementUnlockDefinition] = []
+        var events: [XPEventDefinition] = []
 
         group.enter()
         engine.fetchCurrentProfile { result in
             lock.lock()
             if case .success(let profile) = result {
+                latestProfile = profile
                 let levelInfo = XPCalculationEngine.levelForXP(profile.xpTotal)
                 state.level = levelInfo.level
                 state.totalXP = profile.xpTotal
@@ -708,8 +757,20 @@ public final class InsightsViewModel: ObservableObject {
         group.enter()
         repository.fetchAchievementUnlocks { result in
             lock.lock()
-            if case .success(let unlocks) = result {
-                state.unlockedAchievements = Set(unlocks.map(\.achievementKey))
+            if case .success(let fetchedUnlocks) = result {
+                unlocks = fetchedUnlocks
+                // Keep local unlock projections until repository persistence catches up.
+                state.unlockedAchievements.formUnion(fetchedUnlocks.map(\.achievementKey))
+            }
+            lock.unlock()
+            group.leave()
+        }
+
+        group.enter()
+        repository.fetchXPEvents { result in
+            lock.lock()
+            if case .success(let fetchedEvents) = result {
+                events = fetchedEvents
             }
             lock.unlock()
             group.leave()
@@ -717,6 +778,11 @@ public final class InsightsViewModel: ObservableObject {
 
         group.notify(queue: .main) { [weak self] in
             guard let self else { return }
+            state.achievementProgress = Self.buildAchievementProgress(
+                profile: latestProfile,
+                unlocks: unlocks,
+                events: events
+            )
             if self.systemsState != state {
                 self.systemsState = state
             }
@@ -774,6 +840,86 @@ public final class InsightsViewModel: ObservableObject {
             recoveryXP: recoveryXP,
             recoveryCount: recoveryCount
         )
+    }
+
+    private static func buildAchievementProgress(
+        profile: GamificationSnapshot?,
+        unlocks: [AchievementUnlockDefinition],
+        events: [XPEventDefinition]
+    ) -> [AchievementProgressState] {
+        let profile = profile ?? GamificationSnapshot()
+        let unlockByKey = Dictionary(
+            grouping: unlocks,
+            by: \.achievementKey
+        ).compactMapValues { entries in
+            entries.map(\.unlockedAt).max()
+        }
+
+        let completionEvents = events.filter {
+            $0.category == .complete
+                || completionReasons.contains($0.reason)
+                || $0.reason.contains("on_time")
+        }
+        let reflectionEvents = events.filter {
+            $0.category == .reflection || $0.reason == "reflection"
+        }
+        let decomposeEvents = events.filter {
+            $0.category == .decompose || $0.reason == "decompose"
+        }
+
+        let calendar = Calendar.current
+        let oneWeekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        let onTimeWeekCount = completionEvents.filter {
+            $0.createdAt >= oneWeekAgo
+                && ($0.reason.contains("on_time") || $0.reason.contains("onTime"))
+        }.count
+
+        return AchievementCatalog.all.map { definition in
+            let unlockDate = unlockByKey[definition.key]
+            let isUnlocked = unlockDate != nil
+
+            let current: Int
+            let target: Int
+            switch definition.key {
+            case "first_step":
+                current = completionEvents.count
+                target = 1
+            case "xp_100":
+                current = Int(profile.xpTotal)
+                target = 100
+            case "week_warrior":
+                current = max(profile.currentStreak, profile.bestStreak)
+                target = 7
+            case "seven_day_return":
+                current = max(profile.returnStreak, profile.bestReturnStreak)
+                target = 7
+            case "on_time_10_week":
+                current = onTimeWeekCount
+                target = 10
+            case "decomposer_20":
+                current = decomposeEvents.count
+                target = 20
+            case "reflection_7":
+                current = reflectionEvents.count
+                target = 7
+            case "comeback_after_7_idle":
+                current = isUnlocked ? 1 : 0
+                target = 1
+            default:
+                current = isUnlocked ? 1 : 0
+                target = 1
+            }
+
+            return AchievementProgressState(
+                key: definition.key,
+                name: definition.name,
+                description: definition.description,
+                unlocked: isUnlocked,
+                progressCurrent: isUnlocked ? max(current, target) : current,
+                progressTarget: target,
+                unlockDate: unlockDate
+            )
+        }
     }
 
     private static func makeDateFormatter(calendar: Calendar) -> DateFormatter {
