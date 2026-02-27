@@ -88,6 +88,58 @@ final class HomeViewModelXPScoreRegressionTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testLedgerMutationNotificationImmediatelyUpdatesGamificationSurfaces() {
+        let suiteName = "HomeViewModelXPScoreRegressionTests.LedgerMutation.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Failed to create isolated defaults suite")
+        }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let inbox = Project.createInbox()
+        let taskRepository = XPRegressionMockTaskRepository(tasks: [])
+        let projectRepository = XPRegressionMockProjectRepository(projects: [inbox])
+        let coordinator = UseCaseCoordinator(
+            taskRepository: taskRepository,
+            projectRepository: projectRepository
+        )
+        let viewModel = HomeViewModel(useCaseCoordinator: coordinator, userDefaults: defaults)
+
+        waitForMainQueueFlush(seconds: 0.35)
+
+        let totalXP: Int64 = 980
+        let expectedNextLevelXP = XPCalculationEngine.levelForXP(totalXP).nextThreshold
+        let mutation = GamificationLedgerMutation(
+            source: XPSource.manual.rawValue,
+            category: .complete,
+            awardedXP: 18,
+            dailyXPSoFar: 72,
+            totalXP: totalXP,
+            level: 5,
+            previousLevel: 4,
+            streakDays: 9,
+            didChange: true,
+            dateKey: XPCalculationEngine.periodKey(),
+            occurredAt: Date()
+        )
+
+        NotificationCenter.default.post(
+            name: .gamificationLedgerDidMutate,
+            object: nil,
+            userInfo: mutation.userInfo
+        )
+
+        waitForMainQueueFlush(seconds: 0.25)
+
+        XCTAssertEqual(viewModel.dailyScore, 72)
+        XCTAssertEqual(viewModel.totalXP, totalXP)
+        XCTAssertEqual(viewModel.currentLevel, 5)
+        XCTAssertEqual(viewModel.streak, 9)
+        XCTAssertEqual(viewModel.nextLevelXP, expectedNextLevelXP)
+        XCTAssertEqual(viewModel.lastXPResult?.awardedXP, 18)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
     private func makeTask(
         id: UUID = UUID(),
         name: String,

@@ -546,9 +546,17 @@ private final class LegacyNoopGamificationRepository: GamificationRepositoryProt
     func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) { completion(.success(nil)) }
     func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
     func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) { completion(.success([])) }
     func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) { completion(.success(false)) }
     func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) { completion(.success([])) }
     func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) { completion(.success(nil)) }
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) { completion(.success([])) }
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) { completion(.success(())) }
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) { completion(.success([])) }
 }
 
 private final class LegacyNoopAssistantActionRepository: AssistantActionRepositoryProtocol {
@@ -996,6 +1004,38 @@ final class LaunchResilienceTests: XCTestCase {
         let dependencyContainer = PresentationDependencyContainer.shared
         let injected = dependencyContainer.tryInject(into: UIViewController())
         XCTAssertEqual(injected, dependencyContainer.isConfiguredForRuntime)
+    }
+}
+
+final class GamificationRemoteChangeClassifierTests: XCTestCase {
+    func testClassifiesCloudKitImportTransactions() {
+        XCTAssertTrue(
+            GamificationRemoteChangeClassifier.isQualifiedCloudImport(
+                author: "com.apple.coredata.cloudkit.import",
+                contextName: "NSCloudKitMirroringDelegate.import"
+            )
+        )
+    }
+
+    func testRejectsNonImportOrNonCloudKitTransactions() {
+        XCTAssertFalse(
+            GamificationRemoteChangeClassifier.isQualifiedCloudImport(
+                author: "tasker.gamification.local",
+                contextName: "home.update"
+            )
+        )
+        XCTAssertFalse(
+            GamificationRemoteChangeClassifier.isQualifiedCloudImport(
+                author: "com.apple.coredata.cloudkit.export",
+                contextName: "NSCloudKitMirroringDelegate.export"
+            )
+        )
+        XCTAssertFalse(
+            GamificationRemoteChangeClassifier.isQualifiedCloudImport(
+                author: nil,
+                contextName: nil
+            )
+        )
     }
 }
 
@@ -2649,6 +2689,44 @@ final class ConcurrencyRaceTests: XCTestCase {
         XCTAssertEqual(matches.count, 1, "Race save should keep one canonical XP event per idempotency key")
     }
 
+    func testGamificationReadContextReturnsLatestAggregateImmediatelyAfterWrite() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataGamificationRepository(container: container)
+        let dateKey = XPCalculationEngine.periodKey()
+
+        try awaitResult { completion in
+            repository.saveDailyAggregate(
+                DailyXPAggregateDefinition(
+                    id: UUID(),
+                    dateKey: dateKey,
+                    totalXP: 12,
+                    eventCount: 1,
+                    updatedAt: Date()
+                ),
+                completion: completion
+            )
+        }
+
+        try awaitResult { completion in
+            repository.saveDailyAggregate(
+                DailyXPAggregateDefinition(
+                    id: UUID(),
+                    dateKey: dateKey,
+                    totalXP: 39,
+                    eventCount: 2,
+                    updatedAt: Date().addingTimeInterval(1)
+                ),
+                completion: completion
+            )
+        }
+
+        let aggregate = try awaitResult { completion in
+            repository.fetchDailyAggregate(dateKey: dateKey, completion: completion)
+        }
+        XCTAssertEqual(aggregate?.totalXP, 39)
+        XCTAssertEqual(aggregate?.eventCount, 2)
+    }
+
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
         let bundles = [Bundle.main, Bundle(for: type(of: self))]
         guard let model = NSManagedObjectModel.mergedModel(from: bundles),
@@ -2671,6 +2749,312 @@ final class ConcurrencyRaceTests: XCTestCase {
             throw loadError
         }
         return container
+    }
+}
+
+final class GamificationEngineMutationOrderingTests: XCTestCase {
+    func testRecordEventEmitsLedgerMutationWithUpdatedStreak() throws {
+        let repository = InMemoryGamificationEngineRepository()
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        repository.profile = GamificationSnapshot(
+            xpTotal: 0,
+            level: 1,
+            currentStreak: 0,
+            bestStreak: 0,
+            lastActiveDate: yesterday,
+            updatedAt: Date(),
+            gamificationV2ActivatedAt: nil,
+            nextLevelXP: 100,
+            returnStreak: 0,
+            bestReturnStreak: 0
+        )
+
+        let engine = GamificationEngine(repository: repository)
+        let taskID = UUID()
+        var observedMutation: GamificationLedgerMutation?
+        let mutationExpectation = expectation(description: "ledger mutation")
+        let completionExpectation = expectation(description: "record completion")
+        var capturedResult: Result<XPEventResult, Error>?
+        let token = NotificationCenter.default.addObserver(
+            forName: .gamificationLedgerDidMutate,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let mutation = notification.gamificationLedgerMutation else { return }
+            guard mutation.category == .complete else { return }
+            observedMutation = mutation
+            mutationExpectation.fulfill()
+        }
+        defer {
+            NotificationCenter.default.removeObserver(token)
+        }
+
+        engine.recordEvent(
+            context: XPEventContext(
+                category: .complete,
+                source: .manual,
+                taskID: taskID,
+                completedAt: Date(),
+                priority: 2
+            )
+        ) { result in
+            capturedResult = result
+            completionExpectation.fulfill()
+        }
+
+        wait(for: [mutationExpectation, completionExpectation], timeout: 2.0)
+        let result = try XCTUnwrap(capturedResult).get()
+        XCTAssertEqual(result.currentStreak, 1)
+        XCTAssertEqual(observedMutation?.streakDays, 1)
+        XCTAssertEqual(observedMutation?.didChange, true)
+    }
+
+    func testRecordEventRecoversWhenDailyAggregateWriteFailsAfterEventSave() throws {
+        let repository = InMemoryGamificationEngineRepository()
+        repository.failNextDailyAggregateSave = true
+        let engine = GamificationEngine(repository: repository)
+
+        let completedAt = Date()
+        let dateKey = XPCalculationEngine.periodKey(for: completedAt)
+        var observedMutation: GamificationLedgerMutation?
+        var capturedResult: Result<XPEventResult, Error>?
+        let mutationExpectation = expectation(description: "recovery mutation")
+        let completionExpectation = expectation(description: "record completion")
+
+        let token = NotificationCenter.default.addObserver(
+            forName: .gamificationLedgerDidMutate,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let mutation = notification.gamificationLedgerMutation else { return }
+            guard mutation.category == .complete else { return }
+            observedMutation = mutation
+            mutationExpectation.fulfill()
+        }
+        defer {
+            NotificationCenter.default.removeObserver(token)
+        }
+
+        engine.recordEvent(
+            context: XPEventContext(
+                category: .complete,
+                source: .manual,
+                taskID: UUID(),
+                completedAt: completedAt,
+                priority: 2
+            )
+        ) { result in
+            capturedResult = result
+            completionExpectation.fulfill()
+        }
+
+        wait(for: [mutationExpectation, completionExpectation], timeout: 3.0)
+
+        let result = try XCTUnwrap(capturedResult).get()
+        XCTAssertGreaterThan(result.awardedXP, 0)
+        XCTAssertTrue(observedMutation?.didChange ?? false)
+
+        let aggregate = try awaitResult { completion in
+            repository.fetchDailyAggregate(dateKey: dateKey, completion: completion)
+        }
+        XCTAssertEqual(aggregate?.totalXP, result.dailyXPSoFar)
+        XCTAssertEqual(aggregate?.eventCount, 1)
+    }
+
+    func testFullReconciliationSkipsNoOpWritesWhenLedgerAlreadyCanonical() {
+        let repository = InMemoryGamificationEngineRepository()
+        let now = Date()
+        let dateKey = XPCalculationEngine.periodKey(for: now)
+        repository.seed(events: [
+            XPEventDefinition(
+                id: UUID(),
+                taskID: UUID(),
+                delta: 18,
+                reason: "task_completion",
+                idempotencyKey: "reconcile.noop.1",
+                createdAt: now,
+                category: .complete,
+                source: .manual,
+                qualityWeight: 1.0,
+                periodKey: dateKey
+            )
+        ])
+
+        let engine = GamificationEngine(repository: repository)
+
+        let firstPass = expectation(description: "first reconciliation")
+        engine.fullReconciliation { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected first reconciliation to succeed, got error: \(error)")
+            }
+            firstPass.fulfill()
+        }
+        wait(for: [firstPass], timeout: 2.0)
+
+        repository.resetWriteCounters()
+
+        let secondPass = expectation(description: "second reconciliation")
+        engine.fullReconciliation { result in
+            if case .failure(let error) = result {
+                XCTFail("Expected second reconciliation to succeed, got error: \(error)")
+            }
+            secondPass.fulfill()
+        }
+        wait(for: [secondPass], timeout: 2.0)
+
+        XCTAssertEqual(repository.saveProfileCount, 0, "Second reconciliation should skip unchanged profile write")
+        XCTAssertEqual(repository.saveDailyAggregateCount, 0, "Second reconciliation should skip unchanged daily aggregate writes")
+    }
+}
+
+private final class InMemoryGamificationEngineRepository: GamificationRepositoryProtocol {
+    private let lock = NSLock()
+    var profile: GamificationSnapshot?
+    private var events: [XPEventDefinition] = []
+    private var dailyAggregates: [String: DailyXPAggregateDefinition] = [:]
+    private var unlocks: [AchievementUnlockDefinition] = []
+    private var focusSessions: [FocusSessionDefinition] = []
+    private(set) var saveProfileCount = 0
+    private(set) var saveDailyAggregateCount = 0
+    var failNextDailyAggregateSave = false
+
+    func seed(
+        profile: GamificationSnapshot? = nil,
+        events: [XPEventDefinition] = [],
+        dailyAggregates: [String: DailyXPAggregateDefinition] = [:]
+    ) {
+        lock.lock()
+        self.profile = profile
+        self.events = events
+        self.dailyAggregates = dailyAggregates
+        lock.unlock()
+    }
+
+    func resetWriteCounters() {
+        lock.lock()
+        saveProfileCount = 0
+        saveDailyAggregateCount = 0
+        lock.unlock()
+    }
+
+    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
+        lock.lock()
+        let snapshot = profile
+        lock.unlock()
+        completion(.success(snapshot))
+    }
+
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) {
+        lock.lock()
+        self.profile = profile
+        saveProfileCount += 1
+        lock.unlock()
+        completion(.success(()))
+    }
+
+    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+        lock.lock()
+        let current = events
+        lock.unlock()
+        completion(.success(current))
+    }
+
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+        lock.lock()
+        let filtered = events.filter { $0.createdAt >= startDate && $0.createdAt < endDate }
+        lock.unlock()
+        completion(.success(filtered))
+    }
+
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        lock.lock()
+        if events.contains(where: { $0.idempotencyKey == event.idempotencyKey }) == false {
+            events.append(event)
+        }
+        lock.unlock()
+        completion(.success(()))
+    }
+
+    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+        lock.lock()
+        let exists = events.contains { $0.idempotencyKey == idempotencyKey }
+        lock.unlock()
+        completion(.success(exists))
+    }
+
+    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) {
+        lock.lock()
+        let current = unlocks
+        lock.unlock()
+        completion(.success(current))
+    }
+
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        lock.lock()
+        if unlocks.contains(where: { $0.achievementKey == unlock.achievementKey }) == false {
+            unlocks.append(unlock)
+        }
+        lock.unlock()
+        completion(.success(()))
+    }
+
+    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
+        lock.lock()
+        let aggregate = dailyAggregates[dateKey]
+        lock.unlock()
+        completion(.success(aggregate))
+    }
+
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        lock.lock()
+        if failNextDailyAggregateSave {
+            failNextDailyAggregateSave = false
+            lock.unlock()
+            completion(.failure(NSError(
+                domain: "InMemoryGamificationEngineRepository",
+                code: 500,
+                userInfo: [NSLocalizedDescriptionKey: "Injected saveDailyAggregate failure"]
+            )))
+            return
+        }
+        dailyAggregates[aggregate.dateKey] = aggregate
+        saveDailyAggregateCount += 1
+        lock.unlock()
+        completion(.success(()))
+    }
+
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
+        lock.lock()
+        let values = dailyAggregates.values
+            .filter { $0.dateKey >= startDateKey && $0.dateKey <= endDateKey }
+            .sorted { $0.dateKey < $1.dateKey }
+        lock.unlock()
+        completion(.success(values))
+    }
+
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        lock.lock()
+        focusSessions.append(session)
+        lock.unlock()
+        completion(.success(()))
+    }
+
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        lock.lock()
+        if let index = focusSessions.firstIndex(where: { $0.id == session.id }) {
+            focusSessions[index] = session
+        } else {
+            focusSessions.append(session)
+        }
+        lock.unlock()
+        completion(.success(()))
+    }
+
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+        lock.lock()
+        let current = focusSessions.filter { $0.startedAt >= startDate && $0.startedAt < endDate }
+        lock.unlock()
+        completion(.success(current))
     }
 }
 
@@ -5695,5 +6079,369 @@ private extension Calendar {
     init(identifier: Calendar.Identifier, timeZoneID: String) {
         self.init(identifier: identifier)
         self.timeZone = TimeZone(identifier: timeZoneID) ?? TimeZone(secondsFromGMT: 0)!
+    }
+}
+
+final class InsightsViewModelPerformanceLogicTests: XCTestCase {
+    func testOnAppearLoadsSelectedTabOnly() {
+        let repository = InsightsRepositorySpy()
+        repository.dailyAggregatesByDateKey[XPCalculationEngine.periodKey()] = DailyXPAggregateDefinition(
+            dateKey: XPCalculationEngine.periodKey(),
+            totalXP: 42,
+            eventCount: 3
+        )
+        repository.todayEvents = [
+            XPEventDefinition(delta: 20, reason: "task_completion", idempotencyKey: "a", category: .complete)
+        ]
+        let viewModel = makeInsightsViewModel(repository: repository)
+
+        viewModel.onAppear()
+        waitUntil {
+            viewModel.refreshState(for: .today).isLoaded
+        }
+
+        XCTAssertEqual(repository.fetchDailyAggregateCount, 1)
+        XCTAssertEqual(repository.fetchXPEventsRangeCount, 1)
+        XCTAssertEqual(repository.fetchDailyAggregatesCount, 0)
+        XCTAssertEqual(repository.fetchAchievementUnlocksCount, 0)
+    }
+
+    func testCleanTabSwitchDoesNotRefetchLoadedTab() {
+        let repository = InsightsRepositorySpy()
+        let todayKey = XPCalculationEngine.periodKey()
+        repository.dailyAggregatesByDateKey[todayKey] = DailyXPAggregateDefinition(dateKey: todayKey, totalXP: 12, eventCount: 1)
+
+        let calendar = XPCalculationEngine.mondayCalendar()
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(for: Date(), calendar: calendar)
+        let formatter = makeDateFormatter(calendar: calendar)
+        for dayOffset in 0..<7 {
+            guard let day = calendar.date(byAdding: .day, value: dayOffset, to: weekStart) else { continue }
+            let key = formatter.string(from: day)
+            repository.weekAggregates.append(
+                DailyXPAggregateDefinition(dateKey: key, totalXP: (dayOffset + 1) * 5, eventCount: dayOffset + 1)
+            )
+        }
+
+        let viewModel = makeInsightsViewModel(repository: repository)
+        viewModel.onAppear()
+        waitUntil {
+            viewModel.refreshState(for: .today).isLoaded
+        }
+
+        viewModel.selectTab(.week)
+        waitUntil {
+            viewModel.refreshState(for: .week).isLoaded
+        }
+
+        let dailyAggregateFetchesBeforeReselect = repository.fetchDailyAggregateCount
+        let xpRangeFetchesBeforeReselect = repository.fetchXPEventsRangeCount
+
+        viewModel.selectTab(.today)
+        waitUntil {
+            viewModel.selectedTab == .today
+        }
+
+        XCTAssertEqual(repository.fetchDailyAggregateCount, dailyAggregateFetchesBeforeReselect)
+        XCTAssertEqual(repository.fetchXPEventsRangeCount, xpRangeFetchesBeforeReselect)
+    }
+
+    func testMutationBurstCoalescesIntoSingleRefreshPass() {
+        let repository = InsightsRepositorySpy()
+        let todayKey = XPCalculationEngine.periodKey()
+        repository.dailyAggregatesByDateKey[todayKey] = DailyXPAggregateDefinition(dateKey: todayKey, totalXP: 8, eventCount: 1)
+        repository.todayEvents = [
+            XPEventDefinition(delta: 8, reason: "task_completion", idempotencyKey: "burst", category: .complete)
+        ]
+        let viewModel = makeInsightsViewModel(repository: repository)
+
+        viewModel.onAppear()
+        waitUntil {
+            viewModel.refreshState(for: .today).isLoaded
+        }
+
+        let beforeDailyAggregateFetches = repository.fetchDailyAggregateCount
+        let beforeXPRangeFetches = repository.fetchXPEventsRangeCount
+
+        viewModel.noteMutation(.taskCompleted)
+        viewModel.noteMutation(.taskCompleted)
+        viewModel.noteMutation(.taskCompleted)
+
+        waitUntil(timeout: 2.0) {
+            repository.fetchXPEventsRangeCount >= beforeXPRangeFetches + 1
+        }
+
+        XCTAssertEqual(repository.fetchDailyAggregateCount - beforeDailyAggregateFetches, 1)
+        XCTAssertEqual(repository.fetchXPEventsRangeCount - beforeXPRangeFetches, 1)
+    }
+
+    func testMutationDuringInFlightTriggersSingleReplay() {
+        let repository = InsightsRepositorySpy()
+        repository.rangeFetchDelay = 0.35
+        let todayKey = XPCalculationEngine.periodKey()
+        repository.dailyAggregatesByDateKey[todayKey] = DailyXPAggregateDefinition(dateKey: todayKey, totalXP: 14, eventCount: 2)
+        repository.todayEvents = [
+            XPEventDefinition(delta: 14, reason: "task_completion", idempotencyKey: "inflight", category: .complete)
+        ]
+        let viewModel = makeInsightsViewModel(repository: repository)
+
+        viewModel.onAppear()
+        waitUntil(timeout: 1.0) {
+            viewModel.refreshState(for: .today).inFlight
+        }
+
+        viewModel.noteMutation(.taskCompleted)
+
+        waitUntil(timeout: 3.0) {
+            viewModel.refreshState(for: .today).isLoaded
+                && viewModel.refreshState(for: .today).inFlight == false
+                && repository.fetchXPEventsRangeCount >= 2
+        }
+
+        XCTAssertEqual(repository.fetchXPEventsRangeCount, 2)
+        XCTAssertEqual(repository.fetchDailyAggregateCount, 2)
+    }
+
+    func testWeeklyBarIdentityUsesUniqueDateKey() {
+        let repository = InsightsRepositorySpy()
+        let todayKey = XPCalculationEngine.periodKey()
+        repository.dailyAggregatesByDateKey[todayKey] = DailyXPAggregateDefinition(dateKey: todayKey, totalXP: 20, eventCount: 2)
+
+        let calendar = XPCalculationEngine.mondayCalendar()
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(for: Date(), calendar: calendar)
+        let formatter = makeDateFormatter(calendar: calendar)
+        repository.weekAggregates = (0..<7).compactMap { offset in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return nil }
+            return DailyXPAggregateDefinition(
+                dateKey: formatter.string(from: day),
+                totalXP: (offset + 1) * 3,
+                eventCount: offset + 1
+            )
+        }
+
+        let viewModel = makeInsightsViewModel(repository: repository)
+        viewModel.selectTab(.week)
+        viewModel.onAppear()
+        waitUntil(timeout: 1.5) {
+            viewModel.refreshState(for: .week).isLoaded
+        }
+
+        let ids = viewModel.weekState.weeklyBars.map(\.id)
+        XCTAssertEqual(ids.count, 7)
+        XCTAssertEqual(Set(ids).count, ids.count)
+    }
+
+    func testLedgerMutationAppliesProjectionWithoutRepositoryRefetch() {
+        let repository = InsightsRepositorySpy()
+        let center = NotificationCenter()
+        let calendar = XPCalculationEngine.mondayCalendar()
+        let weekStart = XPCalculationEngine.mondayStartOfWeek(for: Date(), calendar: calendar)
+        let formatter = makeDateFormatter(calendar: calendar)
+        let todayKey = XPCalculationEngine.periodKey()
+
+        repository.dailyAggregatesByDateKey[todayKey] = DailyXPAggregateDefinition(
+            dateKey: todayKey,
+            totalXP: 20,
+            eventCount: 2
+        )
+        repository.todayEvents = [
+            XPEventDefinition(delta: 20, reason: "task_completion", idempotencyKey: "pre", category: .complete)
+        ]
+        repository.weekAggregates = (0..<7).compactMap { offset in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return nil }
+            return DailyXPAggregateDefinition(
+                dateKey: formatter.string(from: day),
+                totalXP: offset == 0 ? 20 : 0,
+                eventCount: offset == 0 ? 2 : 0
+            )
+        }
+
+        let viewModel = makeInsightsViewModel(repository: repository, notificationCenter: center)
+        viewModel.onAppear()
+        waitUntil(timeout: 1.5) {
+            viewModel.refreshState(for: .today).isLoaded
+        }
+
+        viewModel.selectTab(.week)
+        waitUntil(timeout: 1.5) {
+            viewModel.refreshState(for: .week).isLoaded
+        }
+
+        let dailyAggregateFetches = repository.fetchDailyAggregateCount
+        let xpRangeFetches = repository.fetchXPEventsRangeCount
+        let weeklyAggregateFetches = repository.fetchDailyAggregatesCount
+
+        let mutation = GamificationLedgerMutation(
+            source: XPSource.manual.rawValue,
+            category: .complete,
+            awardedXP: 15,
+            dailyXPSoFar: 35,
+            totalXP: 220,
+            level: 4,
+            previousLevel: 3,
+            streakDays: 5,
+            didChange: true,
+            dateKey: todayKey,
+            occurredAt: Date()
+        )
+        center.post(
+            name: .gamificationLedgerDidMutate,
+            object: nil,
+            userInfo: mutation.userInfo
+        )
+
+        waitUntil(timeout: 1.5) {
+            viewModel.todayState.dailyXP == 35
+                && viewModel.weekState.weeklyBars.contains(where: { $0.dateKey == todayKey && $0.xp == 35 })
+        }
+
+        XCTAssertEqual(repository.fetchDailyAggregateCount, dailyAggregateFetches)
+        XCTAssertEqual(repository.fetchXPEventsRangeCount, xpRangeFetches)
+        XCTAssertEqual(repository.fetchDailyAggregatesCount, weeklyAggregateFetches)
+    }
+
+    private func makeInsightsViewModel(
+        repository: InsightsRepositorySpy,
+        notificationCenter: NotificationCenter = NotificationCenter()
+    ) -> InsightsViewModel {
+        let engine = GamificationEngine(repository: repository)
+        return InsightsViewModel(
+            engine: engine,
+            repository: repository,
+            notificationCenter: notificationCenter
+        )
+    }
+
+    private func makeDateFormatter(calendar: Calendar) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        return formatter
+    }
+
+    private func waitUntil(
+        timeout: TimeInterval = 1.0,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        condition: @escaping () -> Bool
+    ) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() {
+                return
+            }
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
+        }
+        XCTFail("Condition not met before timeout", file: file, line: line)
+    }
+}
+
+private final class InsightsRepositorySpy: GamificationRepositoryProtocol {
+    private let lock = NSLock()
+
+    var profile = GamificationSnapshot(
+        xpTotal: 120,
+        level: 2,
+        currentStreak: 3,
+        bestStreak: 5,
+        nextLevelXP: 150,
+        returnStreak: 0,
+        bestReturnStreak: 0
+    )
+    var dailyAggregatesByDateKey: [String: DailyXPAggregateDefinition] = [:]
+    var weekAggregates: [DailyXPAggregateDefinition] = []
+    var todayEvents: [XPEventDefinition] = []
+    var achievements: [AchievementUnlockDefinition] = []
+    var rangeFetchDelay: TimeInterval = 0
+
+    private(set) var fetchProfileCount = 0
+    private(set) var fetchDailyAggregateCount = 0
+    private(set) var fetchDailyAggregatesCount = 0
+    private(set) var fetchXPEventsRangeCount = 0
+    private(set) var fetchAchievementUnlocksCount = 0
+
+    func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void) {
+        lock.lock()
+        fetchProfileCount += 1
+        let snapshot = profile
+        lock.unlock()
+        completion(.success(snapshot))
+    }
+
+    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchXPEvents(completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+        completion(.success([]))
+    }
+
+    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping (Result<[XPEventDefinition], Error>) -> Void) {
+        lock.lock()
+        fetchXPEventsRangeCount += 1
+        let events = todayEvents
+        let delay = rangeFetchDelay
+        lock.unlock()
+
+        if delay > 0 {
+            DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                completion(.success(events))
+            }
+            return
+        }
+
+        completion(.success(events))
+    }
+
+    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) {
+        completion(.success(false))
+    }
+
+    func fetchAchievementUnlocks(completion: @escaping (Result<[AchievementUnlockDefinition], Error>) -> Void) {
+        lock.lock()
+        fetchAchievementUnlocksCount += 1
+        let unlocks = achievements
+        lock.unlock()
+        completion(.success(unlocks))
+    }
+
+    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
+        lock.lock()
+        fetchDailyAggregateCount += 1
+        let aggregate = dailyAggregatesByDateKey[dateKey]
+        lock.unlock()
+        completion(.success(aggregate))
+    }
+
+    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
+        lock.lock()
+        fetchDailyAggregatesCount += 1
+        let values = weekAggregates.filter { $0.dateKey >= startDateKey && $0.dateKey <= endDateKey }
+        lock.unlock()
+        completion(.success(values.sorted { $0.dateKey < $1.dateKey }))
+    }
+
+    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.success(()))
+    }
+
+    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping (Result<[FocusSessionDefinition], Error>) -> Void) {
+        completion(.success([]))
     }
 }
