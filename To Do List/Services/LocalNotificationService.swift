@@ -577,7 +577,8 @@ public final class TaskNotificationOrchestrator {
         "task.overdue.",
         "task.snooze.",
         "daily.morning.",
-        "daily.nightly."
+        "daily.nightly.",
+        "daily.reflection."
     ]
 
     private var observers: [NSObjectProtocol] = []
@@ -615,7 +616,8 @@ public final class TaskNotificationOrchestrator {
             NSNotification.Name("TaskUpdated"),
             NSNotification.Name("TaskDeleted"),
             NSNotification.Name("TaskCompletionChanged"),
-            Notification.Name("HomeTaskMutationEvent")
+            Notification.Name("HomeTaskMutationEvent"),
+            .dailyReflectionCompleted
         ]
         names.forEach { name in
             let token = NotificationCenter.default.addObserver(
@@ -721,6 +723,7 @@ public final class TaskNotificationOrchestrator {
         if preferences.nightlyRetrospectiveEnabled {
             requests.append(contentsOf: makeNightlyRetrospectiveNotifications(tasks: tasks, nowDate: nowDate, preferences: preferences))
         }
+        requests.append(contentsOf: makeReflectionRitualNudges(nowDate: nowDate, preferences: preferences))
 
         let quietHoursAdjusted = applyQuietHours(to: requests, nowDate: nowDate, preferences: preferences)
         return quietHoursAdjusted.filter { $0.fireDate > nowDate }
@@ -876,6 +879,63 @@ public final class TaskNotificationOrchestrator {
         }
     }
 
+    private func makeReflectionRitualNudges(
+        nowDate: Date,
+        preferences: TaskerNotificationPreferences
+    ) -> [TaskerLocalNotificationRequest] {
+        guard preferences.nightlyRetrospectiveEnabled else { return [] }
+
+        let completedDateStamps = reflectionCompletedDateStamps()
+        let startOfToday = calendar.startOfDay(for: nowDate)
+        let offsets = [0, 1, 2]
+
+        return offsets.flatMap { offset -> [TaskerLocalNotificationRequest] in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: startOfToday) else { return [] }
+            let dateStamp = dateStamp(for: day)
+            guard completedDateStamps.contains(dateStamp) == false else { return [] }
+
+            guard let eveningFire = calendar.date(
+                bySettingHour: preferences.nightlyHour,
+                minute: preferences.nightlyMinute,
+                second: 0,
+                of: day
+            ) else {
+                return []
+            }
+
+            var requests: [TaskerLocalNotificationRequest] = []
+            if eveningFire > nowDate {
+                requests.append(
+                    TaskerLocalNotificationRequest(
+                        id: "daily.reflection.\(dateStamp).evening",
+                        kind: .nightlyRetrospective,
+                        title: "Daily Reflection",
+                        body: "Close your day with a 60-second reflection and secure your XP momentum.",
+                        fireDate: eveningFire,
+                        route: .dailySummary(kind: .nightly, dateStamp: dateStamp)
+                    )
+                )
+            }
+
+            if let followUpFire = calendar.date(byAdding: .minute, value: 90, to: eveningFire),
+               calendar.isDate(followUpFire, inSameDayAs: day),
+               followUpFire > nowDate {
+                requests.append(
+                    TaskerLocalNotificationRequest(
+                        id: "daily.reflection.\(dateStamp).followup",
+                        kind: .nightlyRetrospective,
+                        title: "Reflection Reminder",
+                        body: "One quick reflection keeps your streak resilient. Claim it before day-end.",
+                        fireDate: followUpFire,
+                        route: .dailySummary(kind: .nightly, dateStamp: dateStamp)
+                    )
+                )
+            }
+
+            return requests
+        }
+    }
+
     private func makeDailyNotifications(
         prefix: String,
         kind: TaskerLocalNotificationKind,
@@ -980,6 +1040,11 @@ public final class TaskNotificationOrchestrator {
 
     private func dateStamp(for date: Date) -> String {
         stampFormatter.string(from: date)
+    }
+
+    private func reflectionCompletedDateStamps() -> Set<String> {
+        let keys = UserDefaults.standard.stringArray(forKey: "gamification.reflection.completedDateKeys") ?? []
+        return Set(keys)
     }
 
     private func fingerprint(for request: TaskerLocalNotificationRequest) -> NotificationFingerprint {

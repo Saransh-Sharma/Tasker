@@ -10,7 +10,8 @@ enum TaskNotificationDispatcher {
         if Foundation.Thread.current.isMainThread {
             NotificationCenter.default.post(name: name, object: object, userInfo: userInfo)
         } else {
-            DispatchQueue.main.sync {
+            // Never block caller queues on main-thread notification delivery.
+            DispatchQueue.main.async {
                 NotificationCenter.default.post(name: name, object: object, userInfo: userInfo)
             }
         }
