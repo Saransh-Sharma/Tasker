@@ -22,6 +22,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     // MARK: - UI
 
     private var homeHostingController: UIHostingController<HomeBackdropForedropRootView>?
+    private var insightsViewModel: InsightsViewModel?
 
     // MARK: - State
 
@@ -44,6 +45,7 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         mountHomeShell()
         observeMutations()
         observeNotificationRoutes()
+        observeFocusDeepLinks()
         observeTaskCreatedForSnackbar()
         applyTheme()
     }
@@ -116,11 +118,16 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
     /// Executes mountHomeShell.
     private func mountHomeShell() {
         guard let viewModel else { return }
+        if insightsViewModel == nil {
+            insightsViewModel = viewModel.makeInsightsViewModel()
+        }
+        guard let insightsViewModel else { return }
 
         let root = HomeBackdropForedropRootView(
             viewModel: viewModel,
             chartCardViewModel: chartCardViewModel,
             radarChartCardViewModel: radarChartCardViewModel,
+            insightsViewModel: insightsViewModel,
             onTaskTap: { [weak self] task in
                 self?.handleTaskTap(task)
             },
@@ -150,6 +157,9 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
             },
             onOpenSettings: { [weak self] in
                 self?.onMenuButtonTapped()
+            },
+            onStartFocus: { [weak self] task in
+                self?.startFocusFlow(task: task, source: "focus_strip")
             }
         )
 
@@ -194,6 +204,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
                 let route = TaskerNotificationRoute.from(payload: payload, fallbackTaskID: nil)
                 self?.handleNotificationRoute(route)
                 _ = TaskerNotificationRouteBus.shared.consumePendingRoute()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeFocusDeepLinks() {
+        NotificationCenter.default.publisher(for: .taskerOpenFocusDeepLink)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.handleFocusDeepLink()
             }
             .store(in: &cancellables)
     }
@@ -442,6 +461,114 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
         }
 
         present(hostingController, animated: true)
+    }
+
+    private func handleFocusDeepLink() {
+        let preferredTask = viewModel?.focusTasks.first
+            ?? viewModel?.morningTasks.first(where: { !$0.isComplete })
+            ?? viewModel?.eveningTasks.first(where: { !$0.isComplete })
+        startFocusFlow(task: preferredTask, source: "deeplink")
+    }
+
+    private func startFocusFlow(task: TaskDefinition?, source: String) {
+        guard let viewModel else { return }
+        if presentedViewController != nil {
+            dismiss(animated: true) { [weak self] in
+                self?.startFocusFlow(task: task, source: source)
+            }
+            return
+        }
+
+        viewModel.startFocusSession(taskID: task?.id) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success(let session):
+                    self.presentFocusTimer(task: task, session: session, source: source)
+                case .failure(let error):
+                    logWarning(
+                        event: "focus_session_start_failed",
+                        message: "Failed to start focus session",
+                        fields: [
+                            "source": source,
+                            "error": error.localizedDescription
+                        ]
+                    )
+                }
+            }
+        }
+    }
+
+    private func presentFocusTimer(task: TaskDefinition?, session: FocusSessionDefinition, source: String) {
+        var hostingController: UIHostingController<FocusTimerView>?
+        let timerView = FocusTimerView(
+            taskTitle: task?.title,
+            taskPriority: task?.priority.displayName,
+            targetDurationSeconds: session.targetDurationSeconds,
+            onComplete: { [weak self] _ in
+                hostingController?.dismiss(animated: true) {
+                    self?.finishFocusSession(sessionID: session.id, source: source)
+                }
+            },
+            onCancel: { [weak self] in
+                hostingController?.dismiss(animated: true) {
+                    self?.finishFocusSession(sessionID: session.id, source: "\(source)_cancel")
+                }
+            }
+        )
+        let host = UIHostingController(rootView: timerView)
+        host.modalPresentationStyle = .fullScreen
+        hostingController = host
+        present(host, animated: true)
+    }
+
+    private func finishFocusSession(sessionID: UUID, source: String) {
+        viewModel?.endFocusSession(sessionID: sessionID) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                switch result {
+                case .success(let focusResult):
+                    self.presentFocusSummary(focusResult)
+                    self.viewModel?.trackHomeInteraction(
+                        action: "focus_session_finished",
+                        metadata: [
+                            "source": source,
+                            "duration_seconds": focusResult.session.durationSeconds,
+                            "awarded_xp": focusResult.xpResult?.awardedXP ?? 0
+                        ]
+                    )
+                case .failure(let error):
+                    logWarning(
+                        event: "focus_session_end_failed",
+                        message: "Failed to end focus session",
+                        fields: [
+                            "source": source,
+                            "error": error.localizedDescription
+                        ]
+                    )
+                }
+            }
+        }
+    }
+
+    private func presentFocusSummary(_ result: FocusSessionResult) {
+        guard let viewModel else { return }
+        let summaryView = FocusSessionSummaryView(
+            durationSeconds: result.session.durationSeconds,
+            xpAwarded: result.xpResult?.awardedXP ?? result.session.xpAwarded,
+            dailyXPSoFar: result.xpResult?.dailyXPSoFar ?? viewModel.dailyScore,
+            dailyXPCap: GamificationTokens.dailyXPCap,
+            onDismiss: { [weak self] in
+                self?.dismiss(animated: true)
+            }
+        )
+        let host = UIHostingController(rootView: summaryView)
+        host.modalPresentationStyle = .pageSheet
+        if let sheet = host.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(host, animated: true)
     }
 
     private func handleNotificationRoute(_ route: TaskerNotificationRoute) {
