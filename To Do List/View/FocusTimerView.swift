@@ -12,6 +12,7 @@ public struct FocusTimerView: View {
     @State private var elapsedSeconds: Int = 0
     @State private var isRunning: Bool = true
     @State private var timer: Timer?
+    @State private var completionSent: Bool = false
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 
@@ -116,8 +117,7 @@ public struct FocusTimerView: View {
                 }
 
                 Button(action: {
-                    stopTimer()
-                    onComplete(elapsedSeconds)
+                    completeIfNeeded()
                 }) {
                     Text("Complete Session")
                         .font(.tasker(.bodyEmphasis))
@@ -152,10 +152,9 @@ public struct FocusTimerView: View {
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             elapsedSeconds += 1
             if elapsedSeconds >= targetDurationSeconds {
-                stopTimer()
                 let generator = UINotificationFeedbackGenerator()
                 generator.notificationOccurred(.success)
-                onComplete(elapsedSeconds)
+                completeIfNeeded()
             }
         }
     }
@@ -174,5 +173,12 @@ public struct FocusTimerView: View {
         isRunning = false
         timer?.invalidate()
         timer = nil
+    }
+
+    private func completeIfNeeded() {
+        guard !completionSent else { return }
+        completionSent = true
+        stopTimer()
+        onComplete(elapsedSeconds)
     }
 }

@@ -122,6 +122,10 @@ public protocol ReminderRepositoryProtocol {
     func updateDelivery(_ delivery: ReminderDeliveryDefinition, completion: @escaping (Result<ReminderDeliveryDefinition, Error>) -> Void)
 }
 
+public enum GamificationRepositoryWriteError: Error, Equatable {
+    case idempotentReplay(idempotencyKey: String)
+}
+
 public protocol GamificationRepositoryProtocol {
     // MARK: - Profile
     func fetchProfile(completion: @escaping (Result<GamificationSnapshot?, Error>) -> Void)

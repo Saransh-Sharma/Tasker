@@ -1,4 +1,5 @@
 import Foundation
+import CoreData
 #if canImport(WidgetKit)
 import WidgetKit
 #endif
@@ -245,30 +246,7 @@ public final class GamificationEngine {
                 completion(.failure(error))
             case .success(let exists):
                 if exists {
-                    // Already recorded — return current state without awarding
-                    self.fetchCurrentState { stateResult in
-                        switch stateResult {
-                        case .failure(let error):
-                            completion(.failure(error))
-                        case .success(let (profile, dailyXP)):
-                            let levelInfo = XPCalculationEngine.levelForXP(profile.xpTotal)
-                            let result = XPEventResult(
-                                awardedXP: 0,
-                                totalXP: profile.xpTotal,
-                                level: levelInfo.level,
-                                previousLevel: levelInfo.level,
-                                currentStreak: profile.currentStreak,
-                                didLevelUp: false,
-                                dailyXPSoFar: dailyXP,
-                                dailyCap: XPCalculationEngine.dailyCap,
-                                unlockedAchievements: [],
-                                crossedMilestone: nil,
-                                celebration: nil
-                            )
-                            self.emitLedgerMutation(context: context, result: result, didChange: false)
-                            completion(.success(result))
-                        }
-                    }
+                    self.completeIdempotentReplay(context: context, completion: completion)
                     return
                 }
 
@@ -668,7 +646,11 @@ public final class GamificationEngine {
                 // Save event
                 self.repository.saveXPEvent(event) { saveResult in
                     if case .failure(let error) = saveResult {
-                        completion(.failure(error))
+                        if self.isIdempotentReplayError(error) {
+                            self.completeIdempotentReplay(context: context, completion: completion)
+                        } else {
+                            completion(.failure(error))
+                        }
                         return
                     }
 
@@ -933,15 +915,18 @@ public final class GamificationEngine {
                             let group = DispatchGroup()
                             var savedUnlocks: [AchievementUnlockDefinition] = []
                             var firstError: Error?
+                            let stateQueue = DispatchQueue(label: "GamificationEngine.evaluateAchievements.state")
 
                             for unlock in candidates {
                                 group.enter()
                                 self.repository.saveAchievementUnlock(unlock) { result in
-                                    switch result {
-                                    case .success:
-                                        savedUnlocks.append(unlock)
-                                    case .failure(let error):
-                                        firstError = firstError ?? error
+                                    stateQueue.sync {
+                                        switch result {
+                                        case .success:
+                                            savedUnlocks.append(unlock)
+                                        case .failure(let error):
+                                            firstError = firstError ?? error
+                                        }
                                     }
                                     group.leave()
                                 }
@@ -1068,6 +1053,56 @@ public final class GamificationEngine {
             name: .gamificationLedgerDidMutate,
             userInfo: payload.userInfo
         )
+    }
+
+    private func completeIdempotentReplay(
+        context: XPEventContext,
+        completion: @escaping (Result<XPEventResult, Error>) -> Void
+    ) {
+        fetchCurrentState { stateResult in
+            switch stateResult {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let (profile, dailyXP)):
+                let levelInfo = XPCalculationEngine.levelForXP(profile.xpTotal)
+                let result = XPEventResult(
+                    awardedXP: 0,
+                    totalXP: profile.xpTotal,
+                    level: levelInfo.level,
+                    previousLevel: levelInfo.level,
+                    currentStreak: profile.currentStreak,
+                    didLevelUp: false,
+                    dailyXPSoFar: dailyXP,
+                    dailyCap: XPCalculationEngine.dailyCap,
+                    unlockedAchievements: [],
+                    crossedMilestone: nil,
+                    celebration: nil
+                )
+                self.emitLedgerMutation(context: context, result: result, didChange: false)
+                completion(.success(result))
+            }
+        }
+    }
+
+    private func isIdempotentReplayError(_ error: Error) -> Bool {
+        if case GamificationRepositoryWriteError.idempotentReplay = error {
+            return true
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain {
+            let replayCodes: Set<Int> = [
+                NSManagedObjectConstraintMergeError,
+                NSValidationMultipleErrorsError
+            ]
+            if replayCodes.contains(nsError.code) {
+                return true
+            }
+            if let detailedErrors = nsError.userInfo[NSDetailedErrorsKey] as? [NSError],
+               detailedErrors.contains(where: { replayCodes.contains($0.code) }) {
+                return true
+            }
+        }
+        return false
     }
 
     private func fetchCurrentState(completion: @escaping (Result<(GamificationSnapshot, Int), Error>) -> Void) {

@@ -59,11 +59,13 @@ struct TodayXPWidgetView: View {
     }
 
     var body: some View {
-        switch family {
-        case .systemSmall:
-            smallView
-        default:
-            mediumView
+        Group {
+            switch family {
+            case .systemSmall:
+                smallView
+            default:
+                mediumView
+            }
         }
         .widgetURL(URL(string: "tasker://home"))
     }

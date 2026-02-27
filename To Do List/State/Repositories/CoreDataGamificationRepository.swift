@@ -182,7 +182,10 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                     if self.backgroundContext.hasChanges {
                         try self.backgroundContext.save()
                     }
-                    self.finalizeWrite(completion: completion)
+                    self.completeIdempotentReplay(
+                        key: normalizedIdempotencyKey,
+                        completion: completion
+                    )
                     return
                 }
                 let object = try V2CoreDataRepositorySupport.upsertByID(
@@ -205,6 +208,13 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
                 try self.backgroundContext.save()
                 self.finalizeWrite(completion: completion)
             } catch {
+                if Self.isIdempotencyConstraintConflict(error) {
+                    self.completeIdempotentReplay(
+                        key: event.idempotencyKey,
+                        completion: completion
+                    )
+                    return
+                }
                 completion(.failure(error))
             }
         }
@@ -572,6 +582,45 @@ public final class CoreDataGamificationRepository: GamificationRepositoryProtoco
             )
             #endif
             completion(.success(()))
+        }
+    }
+
+    private func completeIdempotentReplay(
+        key: String,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        readContext.perform {
+            let registeredObjectCount = self.readContext.registeredObjects.count
+            self.readContext.reset()
+            #if DEBUG
+            logDebug(
+                "gamification_read_context_reset_after_write " +
+                    "registered_objects=\(registeredObjectCount)"
+            )
+            #endif
+            completion(.failure(GamificationRepositoryWriteError.idempotentReplay(
+                idempotencyKey: key
+            )))
+        }
+    }
+
+    private static func isIdempotencyConstraintConflict(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        guard nsError.domain == NSCocoaErrorDomain else { return false }
+        let conflictCodes: Set<Int> = [
+            NSManagedObjectConstraintMergeError,
+            NSValidationMultipleErrorsError
+        ]
+        if conflictCodes.contains(nsError.code) {
+            return true
+        }
+        guard let detailedErrors = nsError.userInfo[NSDetailedErrorsKey] as? [NSError] else {
+            return false
+        }
+        return detailedErrors.contains { nested in
+            nested.domain == NSCocoaErrorDomain
+                && (nested.code == NSManagedObjectConstraintMergeError
+                    || nested.code == NSValidationMultipleErrorsError)
         }
     }
 

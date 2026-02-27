@@ -117,7 +117,7 @@ public struct FocusSessionSummaryView: View {
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.bottom, spacing.s16)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Session complete. \(xpAwarded) XP earned. \(minutesFocused) minutes focused.")
     }
 }

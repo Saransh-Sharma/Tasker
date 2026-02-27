@@ -24,7 +24,11 @@ public final class RecordXPUseCase {
         repository.saveXPEvent(event) { result in
             switch result {
             case .failure(let error):
-                completion(.failure(error))
+                if case GamificationRepositoryWriteError.idempotentReplay = error {
+                    completion(.success(()))
+                } else {
+                    completion(.failure(error))
+                }
             case .success:
                 self.reconcileProfile { reconcileResult in
                     switch reconcileResult {

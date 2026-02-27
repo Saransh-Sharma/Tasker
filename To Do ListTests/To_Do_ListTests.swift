@@ -2726,6 +2726,10 @@ final class ConcurrencyRaceTests: XCTestCase {
             )
             repository.saveXPEvent(event) { result in
                 if case .failure(let error) = result {
+                    if case GamificationRepositoryWriteError.idempotentReplay = error {
+                        group.leave()
+                        return
+                    }
                     lock.lock()
                     if firstError == nil {
                         firstError = error
@@ -2746,6 +2750,60 @@ final class ConcurrencyRaceTests: XCTestCase {
         }
         let matches = storedEvents.filter { $0.idempotencyKey == idempotencyKey }
         XCTAssertEqual(matches.count, 1, "Race save should keep one canonical XP event per idempotency key")
+    }
+
+    func testSaveXPEventReturnsIdempotentReplayErrorForDuplicateKey() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataGamificationRepository(container: container)
+        let idempotencyKey = "xp-dup-\(UUID().uuidString)"
+
+        let first = XPEventDefinition(
+            id: UUID(),
+            occurrenceID: nil,
+            taskID: nil,
+            delta: 12,
+            reason: "duplicate-test",
+            idempotencyKey: idempotencyKey,
+            createdAt: Date()
+        )
+        let second = XPEventDefinition(
+            id: UUID(),
+            occurrenceID: nil,
+            taskID: nil,
+            delta: 18,
+            reason: "duplicate-test",
+            idempotencyKey: idempotencyKey,
+            createdAt: Date()
+        )
+
+        try awaitResult { completion in
+            repository.saveXPEvent(first, completion: completion)
+        }
+
+        let duplicateExpectation = expectation(description: "duplicate save result")
+        var duplicateResult: Result<Void, Error>?
+        repository.saveXPEvent(second) { result in
+            duplicateResult = result
+            duplicateExpectation.fulfill()
+        }
+        wait(for: [duplicateExpectation], timeout: 2.0)
+
+        switch duplicateResult {
+        case .success?:
+            XCTFail("Expected duplicate save to return idempotent replay error")
+        case .failure(let error)?:
+            guard case GamificationRepositoryWriteError.idempotentReplay(let key) = error else {
+                return XCTFail("Expected idempotent replay error, got \(error)")
+            }
+            XCTAssertEqual(key, idempotencyKey)
+        case nil:
+            XCTFail("Duplicate save did not complete")
+        }
+
+        let storedEvents = try awaitResult { completion in
+            repository.fetchXPEvents(completion: completion)
+        }
+        XCTAssertEqual(storedEvents.filter { $0.idempotencyKey == idempotencyKey }.count, 1)
     }
 
     func testGamificationReadContextReturnsLatestAggregateImmediatelyAfterWrite() throws {
@@ -3262,6 +3320,118 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         XCTAssertEqual(repository.saveProfileCount, 0, "Second reconciliation should skip unchanged profile write")
         XCTAssertEqual(repository.saveDailyAggregateCount, 0, "Second reconciliation should skip unchanged daily aggregate writes")
     }
+
+    func testRecordEventTreatsIdempotentReplaySaveErrorAsSuccessWithoutMutation() {
+        let repository = InMemoryGamificationEngineRepository()
+        let now = Date()
+        let dateKey = XPCalculationEngine.periodKey(for: now)
+        let seededProfile = GamificationSnapshot(
+            xpTotal: 220,
+            level: 4,
+            currentStreak: 5,
+            bestStreak: 8,
+            lastActiveDate: now,
+            updatedAt: now,
+            gamificationV2ActivatedAt: nil,
+            nextLevelXP: 300,
+            returnStreak: 0,
+            bestReturnStreak: 0
+        )
+        repository.seed(
+            profile: seededProfile,
+            dailyAggregates: [
+                dateKey: DailyXPAggregateDefinition(
+                    id: UUID(),
+                    dateKey: dateKey,
+                    totalXP: 40,
+                    eventCount: 2,
+                    updatedAt: now
+                )
+            ]
+        )
+        repository.hasXPEventOverride = false
+        repository.failNextSaveXPEventError = GamificationRepositoryWriteError.idempotentReplay(idempotencyKey: "forced.replay")
+
+        let engine = GamificationEngine(repository: repository)
+        let completionExpectation = expectation(description: "record completion")
+        let mutationExpectation = expectation(description: "ledger mutation")
+        var capturedResult: Result<XPEventResult, Error>?
+        var observedMutation: GamificationLedgerMutation?
+
+        let token = NotificationCenter.default.addObserver(
+            forName: .gamificationLedgerDidMutate,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let mutation = notification.gamificationLedgerMutation else { return }
+            guard mutation.category == .complete else { return }
+            observedMutation = mutation
+            mutationExpectation.fulfill()
+        }
+        defer { NotificationCenter.default.removeObserver(token) }
+
+        engine.recordEvent(
+            context: XPEventContext(
+                category: .complete,
+                source: .manual,
+                taskID: UUID(),
+                completedAt: now,
+                priority: 2
+            )
+        ) { result in
+            capturedResult = result
+            completionExpectation.fulfill()
+        }
+
+        wait(for: [mutationExpectation, completionExpectation], timeout: 2.0)
+        let result = try? XCTUnwrap(capturedResult).get()
+
+        XCTAssertEqual(result?.awardedXP, 0)
+        XCTAssertEqual(result?.totalXP, seededProfile.xpTotal)
+        XCTAssertEqual(result?.dailyXPSoFar, 40)
+        XCTAssertEqual(observedMutation?.didChange, false)
+        XCTAssertEqual(repository.saveProfileCount, 0)
+        XCTAssertEqual(repository.saveDailyAggregateCount, 0)
+    }
+
+    func testRecordEventHandlesConcurrentAchievementUnlockCallbacks() throws {
+        let repository = InMemoryGamificationEngineRepository()
+        repository.concurrentUnlockCallbacks = true
+        repository.profile = GamificationSnapshot(
+            xpTotal: 95,
+            level: 1,
+            currentStreak: 0,
+            bestStreak: 0,
+            lastActiveDate: Date(),
+            updatedAt: Date(),
+            gamificationV2ActivatedAt: nil,
+            nextLevelXP: 100,
+            returnStreak: 0,
+            bestReturnStreak: 0
+        )
+        let engine = GamificationEngine(repository: repository)
+        let completionExpectation = expectation(description: "record completion")
+        var capturedResult: Result<XPEventResult, Error>?
+
+        engine.recordEvent(
+            context: XPEventContext(
+                category: .complete,
+                source: .manual,
+                taskID: UUID(),
+                completedAt: Date(),
+                priority: 2
+            )
+        ) { result in
+            capturedResult = result
+            completionExpectation.fulfill()
+        }
+
+        wait(for: [completionExpectation], timeout: 2.0)
+        let result = try XCTUnwrap(capturedResult).get()
+        let unlocked = Set(result.unlockedAchievements.map(\.achievementKey))
+        XCTAssertTrue(unlocked.contains("first_step"))
+        XCTAssertTrue(unlocked.contains("xp_100"))
+    }
 }
 
 private final class InMemoryGamificationEngineRepository: GamificationRepositoryProtocol {
@@ -3274,6 +3444,9 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
     private(set) var saveProfileCount = 0
     private(set) var saveDailyAggregateCount = 0
     var failNextDailyAggregateSave = false
+    var failNextSaveXPEventError: Error?
+    var hasXPEventOverride: Bool?
+    var concurrentUnlockCallbacks = false
 
     func seed(
         profile: GamificationSnapshot? = nil,
@@ -3325,6 +3498,12 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
 
     func saveXPEvent(_ event: XPEventDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
         lock.lock()
+        if let injectedError = failNextSaveXPEventError {
+            failNextSaveXPEventError = nil
+            lock.unlock()
+            completion(.failure(injectedError))
+            return
+        }
         if events.contains(where: { $0.idempotencyKey == event.idempotencyKey }) == false {
             events.append(event)
         }
@@ -3334,6 +3513,11 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
 
     func hasXPEvent(idempotencyKey: String, completion: @escaping (Result<Bool, Error>) -> Void) {
         lock.lock()
+        if let override = hasXPEventOverride {
+            lock.unlock()
+            completion(.success(override))
+            return
+        }
         let exists = events.contains { $0.idempotencyKey == idempotencyKey }
         lock.unlock()
         completion(.success(exists))
@@ -3347,12 +3531,19 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
     }
 
     func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping (Result<Void, Error>) -> Void) {
-        lock.lock()
-        if unlocks.contains(where: { $0.achievementKey == unlock.achievementKey }) == false {
-            unlocks.append(unlock)
+        let write = {
+            self.lock.lock()
+            if self.unlocks.contains(where: { $0.achievementKey == unlock.achievementKey }) == false {
+                self.unlocks.append(unlock)
+            }
+            self.lock.unlock()
+            completion(.success(()))
         }
-        lock.unlock()
-        completion(.success(()))
+        if concurrentUnlockCallbacks {
+            DispatchQueue.global(qos: .userInitiated).async(execute: write)
+            return
+        }
+        write()
     }
 
     func fetchDailyAggregate(dateKey: String, completion: @escaping (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
