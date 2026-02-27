@@ -111,14 +111,8 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Ho
 
     /// Executes bindViewModel.
     private func bindViewModel() {
-        guard let viewModel else { return }
-
-        if !viewModel.focusEngineEnabled {
-            viewModel.loadTodayTasks()
-        }
-
-        viewModel.loadProjects()
-        viewModel.loadTodayTasks()
+        // HomeViewModel performs initial data loading in its initializer.
+        // Keep this hook for future bindings, but avoid duplicate startup fetches.
     }
 
     /// Executes mountHomeShell.

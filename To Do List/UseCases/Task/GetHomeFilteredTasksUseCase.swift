@@ -28,6 +28,7 @@ public enum GetHomeFilteredTasksError: LocalizedError {
 public final class GetHomeFilteredTasksUseCase {
 
     private let readModelRepository: TaskReadModelRepositoryProtocol?
+    private let homeWindowLimit = 1_200
 
     /// Initializes a new instance.
     public init(
@@ -57,7 +58,7 @@ public final class GetHomeFilteredTasksUseCase {
                 projectID: narrowedProjectID,
                 includeCompleted: true,
                 sortBy: .dueDateAscending,
-                limit: 2_000,
+                limit: self.homeWindowLimit,
                 offset: 0
             )
             readModel.fetchTasks(query: query) { result in

@@ -155,6 +155,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         request.sortDescriptors = sortDescriptors
         request.fetchLimit = max(1, limit)
         request.fetchOffset = max(0, offset)
+        request.fetchBatchSize = min(max(50, limit), 200)
         return try context.fetch(request)
     }
 

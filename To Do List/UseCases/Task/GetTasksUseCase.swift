@@ -15,6 +15,8 @@ public final class GetTasksUseCase {
 
     private let readModelRepository: TaskReadModelRepositoryProtocol?
     private let cacheService: CacheServiceProtocol?
+    private let listWindowLimit = 1_200
+    private let searchWindowLimit = 800
 
     // MARK: - Initialization
 
@@ -40,7 +42,7 @@ public final class GetTasksUseCase {
             query: TaskReadQuery(
                 includeCompleted: true,
                 sortBy: .dueDateAscending,
-                limit: 5_000,
+                limit: listWindowLimit,
                 offset: 0
             )
         ) { [weak self] result in
@@ -87,7 +89,7 @@ public final class GetTasksUseCase {
                 includeCompleted: true,
                 dueDateEnd: endOfDay,
                 sortBy: .dueDateAscending,
-                limit: 5_000,
+                limit: listWindowLimit,
                 offset: 0
             )
         ) { [weak self] result in
@@ -122,7 +124,7 @@ public final class GetTasksUseCase {
                 projectID: projectID,
                 includeCompleted: true,
                 sortBy: .dueDateAscending,
-                limit: 5_000,
+                limit: listWindowLimit,
                 offset: 0
             )
         ) { [weak self] sliceResult in
@@ -151,7 +153,7 @@ public final class GetTasksUseCase {
                 includeCompleted: false,
                 dueDateEnd: startOfToday,
                 sortBy: .dueDateAscending,
-                limit: 5_000,
+                limit: listWindowLimit,
                 offset: 0
             )
         ) { result in
@@ -177,7 +179,7 @@ public final class GetTasksUseCase {
                 includeCompleted: false,
                 dueDateStart: startOfTomorrow,
                 sortBy: .dueDateAscending,
-                limit: 5_000,
+                limit: listWindowLimit,
                 offset: 0
             )
         ) { [weak self] result in
@@ -207,7 +209,7 @@ public final class GetTasksUseCase {
                     dueDateStart: startOfDay,
                     dueDateEnd: endOfDay,
                     sortBy: .dueDateAscending,
-                    limit: 5_000,
+                    limit: listWindowLimit,
                     offset: 0
                 )
             ) { result in
@@ -225,7 +227,7 @@ public final class GetTasksUseCase {
             query: TaskReadQuery(
                 includeCompleted: true,
                 sortBy: .dueDateAscending,
-                limit: 5_000,
+                limit: listWindowLimit,
                 offset: 0
             )
         ) { result in
@@ -253,7 +255,7 @@ public final class GetTasksUseCase {
                     query: TaskReadQuery(
                         includeCompleted: true,
                         sortBy: .dueDateAscending,
-                        limit: 5_000,
+                        limit: listWindowLimit,
                         offset: 0
                     ),
                     completion: completion
@@ -263,7 +265,7 @@ public final class GetTasksUseCase {
                     query: TaskSearchQuery(
                         text: trimmed,
                         includeCompleted: true,
-                        limit: 5_000,
+                        limit: searchWindowLimit,
                         offset: 0
                     ),
                     completion: completion
@@ -299,7 +301,7 @@ public final class GetTasksUseCase {
                         projectID: projectID,
                         includeCompleted: true,
                         sortBy: .dueDateAscending,
-                        limit: 5_000,
+                        limit: listWindowLimit,
                         offset: 0
                     ),
                     completion: completion
@@ -310,7 +312,7 @@ public final class GetTasksUseCase {
                         text: trimmed,
                         projectID: projectID,
                         includeCompleted: true,
-                        limit: 5_000,
+                        limit: searchWindowLimit,
                         offset: 0
                     ),
                     completion: completion
