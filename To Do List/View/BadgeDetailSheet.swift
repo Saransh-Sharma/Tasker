@@ -3,8 +3,13 @@ import SwiftUI
 /// Detail sheet shown when tapping an unlocked achievement badge.
 public struct BadgeDetailSheet: View {
 
-    let achievement: AchievementDefinition
-    let unlockDate: Date?
+    private let achievement: AchievementDefinition
+    private let unlockDate: Date?
+
+    public init(achievement: AchievementDefinition, unlockDate: Date? = nil) {
+        self.achievement = achievement
+        self.unlockDate = unlockDate
+    }
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 

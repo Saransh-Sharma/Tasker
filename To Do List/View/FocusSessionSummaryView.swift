@@ -3,11 +3,25 @@ import SwiftUI
 /// Sheet shown after a focus session ends, displaying duration and XP earned.
 public struct FocusSessionSummaryView: View {
 
-    let durationSeconds: Int
-    let xpAwarded: Int
-    let dailyXPSoFar: Int
-    let dailyXPCap: Int
-    let onDismiss: () -> Void
+    private let durationSeconds: Int
+    private let xpAwarded: Int
+    private let dailyXPSoFar: Int
+    private let dailyXPCap: Int
+    private let onDismiss: () -> Void
+
+    public init(
+        durationSeconds: Int,
+        xpAwarded: Int,
+        dailyXPSoFar: Int,
+        dailyXPCap: Int,
+        onDismiss: @escaping () -> Void
+    ) {
+        self.durationSeconds = durationSeconds
+        self.xpAwarded = xpAwarded
+        self.dailyXPSoFar = dailyXPSoFar
+        self.dailyXPCap = dailyXPCap
+        self.onDismiss = onDismiss
+    }
 
     private var spacing: TaskerSpacingTokens { TaskerThemeManager.shared.currentTheme.tokens.spacing }
 

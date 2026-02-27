@@ -3,12 +3,18 @@ import SwiftUI
 /// Full-screen overlay for level-up celebrations.
 public struct LevelUpCelebrationView: View {
 
-    let level: Int
+    private let level: Int
     @Binding var isPresented: Bool
 
     @State private var badgeScale: CGFloat = 0
     @State private var textOpacity: Double = 0
     @State private var overlayOpacity: Double = 0
+    @State private var pendingDismissWorkItem: DispatchWorkItem?
+
+    public init(level: Int, isPresented: Binding<Bool>) {
+        self.level = level
+        self._isPresented = isPresented
+    }
 
     public var body: some View {
         if isPresented {
@@ -36,6 +42,7 @@ public struct LevelUpCelebrationView: View {
                 }
             }
             .onAppear { performAnimation() }
+            .onDisappear { cancelPendingDismissWorkItem() }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("Level up! You reached level \(level)")
             .accessibilityAddTraits(.isModal)
@@ -66,19 +73,33 @@ public struct LevelUpCelebrationView: View {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + GamificationTokens.levelUpDuration) {
+        scheduleDismiss(after: GamificationTokens.levelUpDuration) {
             dismiss()
         }
     }
 
     private func dismiss() {
+        cancelPendingDismissWorkItem()
         withAnimation(.easeOut(duration: 0.3)) {
             overlayOpacity = 0
             badgeScale = 0
             textOpacity = 0
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+        scheduleDismiss(after: 0.35) {
+            pendingDismissWorkItem = nil
             isPresented = false
         }
+    }
+
+    private func scheduleDismiss(after delay: TimeInterval, action: @escaping () -> Void) {
+        cancelPendingDismissWorkItem()
+        let workItem = DispatchWorkItem(block: action)
+        pendingDismissWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
+    private func cancelPendingDismissWorkItem() {
+        pendingDismissWorkItem?.cancel()
+        pendingDismissWorkItem = nil
     }
 }
