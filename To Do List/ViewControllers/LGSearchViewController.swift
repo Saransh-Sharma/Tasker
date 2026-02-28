@@ -1026,10 +1026,23 @@ class LGSearchViewController: UIViewController, UseCaseCoordinatorInjectable, Pr
                 sheet.prefersScrollingExpandsWhenScrolledToEdge = true
             }
 
-            self.present(hostingController, animated: true)
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.impactOccurred()
-            logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.id.uuidString)")
+            let presentSheetIfPossible: () -> Void = { [weak self] in
+                guard let self else { return }
+                guard self.viewIfLoaded?.window != nil else { return }
+                guard self.isBeingDismissed == false, self.isMovingFromParent == false else { return }
+                guard self.presentedViewController == nil else { return }
+
+                self.present(hostingController, animated: true)
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+                logDebug("HOME_TAP_DETAIL mode=sheet scope=search action=presented taskID=\(task.id.uuidString)")
+            }
+
+            if Thread.isMainThread {
+                presentSheetIfPossible()
+            } else {
+                DispatchQueue.main.async(execute: presentSheetIfPossible)
+            }
         }
     }
 

@@ -890,6 +890,24 @@ class HomePage {
         return app.tables.cells.count
     }
 
+    /// Get task count scoped to the search results container.
+    func getSearchResultsCount() -> Int {
+        let scopedRows = searchResultsList
+            .descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'home.taskRow.'"))
+        let rowCount = scopedRows.count
+        if rowCount > 0 {
+            return rowCount
+        }
+
+        let cellCount = searchResultsList.cells.count
+        if cellCount > 0 {
+            return cellCount
+        }
+
+        return searchResultsList.descendants(matching: .cell).count
+    }
+
     /// Verify task count
     func verifyTaskCount(_ expectedCount: Int, file: StaticString = #file, line: UInt = #line) {
         let actualCount = getTaskCount()

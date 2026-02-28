@@ -560,6 +560,7 @@ struct ConversationView: View {
         for message in thread.messages {
             hasher.combine(message.id)
             hasher.combine(message.role.rawValue)
+            hasher.combine(message.content)
             hasher.combine(message.timestamp.timeIntervalSinceReferenceDate.bitPattern)
             hasher.combine(message.generatingTime?.bitPattern ?? 0)
         }

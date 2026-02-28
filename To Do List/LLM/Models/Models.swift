@@ -192,9 +192,12 @@ public extension ModelConfiguration {
             return
         }
 
-        while totalPromptCharacters(promptHistory) > maxChars && promptHistory.count > 2 {
-            // Preserve system prompt + recap entry, and trim oldest user/assistant turns first.
-            promptHistory.remove(at: 2)
+        while totalPromptCharacters(promptHistory) > maxChars && promptHistory.count > 1 {
+            // Preserve the system prompt and optional recap entry, then trim oldest remaining turns.
+            let recapIsPresent = promptHistory.count > 1 && promptHistory[1]["role"] == "system"
+            let firstRemovableIndex = recapIsPresent ? 2 : 1
+            guard promptHistory.count > firstRemovableIndex else { break }
+            promptHistory.remove(at: firstRemovableIndex)
         }
 
         if totalPromptCharacters(promptHistory) <= maxChars { return }

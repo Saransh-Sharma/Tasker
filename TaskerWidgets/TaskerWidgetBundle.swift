@@ -698,19 +698,35 @@ private extension TaskListWidgetSnapshot {
     }
 }
 
+private enum TaskWidgetFormatters {
+    static let relativeDueFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter
+    }()
+
+    static let shortDueFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "E HH:mm"
+        return formatter
+    }()
+
+    static let weekdayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "E"
+        return formatter
+    }()
+}
+
 private extension TaskListWidgetTask {
     var dueLabel: String {
         guard let dueDate else { return "No due" }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: dueDate, relativeTo: Date())
+        return TaskWidgetFormatters.relativeDueFormatter.localizedString(for: dueDate, relativeTo: Date())
     }
 
     var shortDueLabel: String {
         guard let dueDate else { return "No due" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "E HH:mm"
-        return formatter.string(from: dueDate)
+        return TaskWidgetFormatters.shortDueFormatter.string(from: dueDate)
     }
 
     var projectLabel: String {
@@ -1844,9 +1860,7 @@ private struct DeadlineHeatmapWidgetView: View {
                 guard let due = task.dueDate else { return false }
                 return calendar.isDate(due, inSameDayAs: day)
             }.count
-            let formatter = DateFormatter()
-            formatter.dateFormat = "E"
-            return (offset, formatter.string(from: day), count)
+            return (offset, TaskWidgetFormatters.weekdayFormatter.string(from: day), count)
         }
 
         return VStack(alignment: .leading, spacing: 10) {

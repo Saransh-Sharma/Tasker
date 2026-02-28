@@ -63,13 +63,31 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
             state.updateQuery("meeting")
         }
 
-        try await _Concurrency.Task.sleep(nanoseconds: 10_000_000)
         let queriesBeforeDebounce = await MainActor.run { engine.searchQueries }
         XCTAssertEqual(queriesBeforeDebounce, [""], "Debounced query should not fire immediately")
 
-        try await _Concurrency.Task.sleep(nanoseconds: 80_000_000)
+        let emittedLatestOnly = await waitForCondition(timeout: 1.0) {
+            await MainActor.run { engine.searchQueries == ["", "meeting"] }
+        }
+        XCTAssertTrue(emittedLatestOnly, "Debounce should emit only latest query")
+
         let queriesAfterDebounce = await MainActor.run { engine.searchQueries }
         XCTAssertEqual(queriesAfterDebounce, ["", "meeting"], "Debounce should emit only latest query")
+    }
+
+    private func waitForCondition(
+        timeout: TimeInterval,
+        pollIntervalNanoseconds: UInt64 = 10_000_000,
+        condition: @escaping () async -> Bool
+    ) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if await condition() {
+                return true
+            }
+            try? await _Concurrency.Task.sleep(nanoseconds: pollIntervalNanoseconds)
+        }
+        return await condition()
     }
 
     func testSearchStateAppliesStatusPriorityAndProjectFiltersTogether() async {

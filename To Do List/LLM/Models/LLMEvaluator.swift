@@ -370,12 +370,13 @@ class LLMEvaluator {
                     }
 
                     let nowNanoseconds = DispatchTime.now().uptimeNanoseconds
-                    let shouldUpdateByStride = tokens.count % outputTokenStride == 0
-                    let shouldUpdateByTime = outputMinUpdateNanoseconds > 0 && (
+                    let hasTokens = tokens.isEmpty == false
+                    let shouldUpdateByStride = hasTokens && tokens.count % outputTokenStride == 0
+                    let shouldUpdateByTime = hasTokens && outputMinUpdateNanoseconds > 0 && (
                         lastOutputUpdateNanoseconds == 0 ||
                         nowNanoseconds &- lastOutputUpdateNanoseconds >= outputMinUpdateNanoseconds
                     )
-                    let shouldPublishUpdate = shouldUpdateByStride || shouldUpdateByTime || tokens.count == 1
+                    let shouldPublishUpdate = hasTokens && (shouldUpdateByStride || shouldUpdateByTime || tokens.count == 1)
 
                     if shouldPublishUpdate {
                         lastOutputUpdateNanoseconds = nowNanoseconds

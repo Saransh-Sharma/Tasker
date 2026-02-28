@@ -104,7 +104,7 @@ class SearchAndFilteringTests: BaseUITest {
 
         // THEN: Results should still be visible and non-empty for empty-query search
         XCTAssertTrue(homePage.searchResultsList.waitForExistence(timeout: 2), "Results list should remain visible")
-        XCTAssertGreaterThan(homePage.getTaskCount(), 0, "Tasks should be visible after clearing search")
+        XCTAssertGreaterThan(homePage.getSearchResultsCount(), 0, "Tasks should be visible after clearing search")
         takeScreenshot(named: "clear_search")
     }
 

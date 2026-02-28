@@ -474,6 +474,7 @@ public final class AddTaskViewModel: ObservableObject {
     private func setupGamificationXPObservation() {
         NotificationCenter.default.publisher(for: .gamificationLedgerDidMutate)
             .compactMap { $0.gamificationLedgerMutation?.dailyXPSoFar }
+            .receive(on: RunLoop.main)
             .sink { [weak self] dailyXP in
                 self?.todayXPSoFar = max(0, dailyXP)
             }

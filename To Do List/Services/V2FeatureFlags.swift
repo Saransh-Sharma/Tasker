@@ -168,10 +168,10 @@ public enum V2FeatureFlags {
     }
 
     private static func boolValue(forKey key: String, defaultValue: Bool) -> Bool {
-        if let value = defaults.object(forKey: key) as? Bool {
+        if let value = sharedDefaults?.object(forKey: key) as? Bool {
             return value
         }
-        if let value = sharedDefaults?.object(forKey: key) as? Bool {
+        if let value = defaults.object(forKey: key) as? Bool {
             return value
         }
         return defaultValue
