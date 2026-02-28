@@ -83,6 +83,53 @@ class HomePage {
         return app.buttons[AccessibilityIdentifiers.Home.topNavSearchButton]
     }
 
+    var searchView: XCUIElement {
+        app.otherElements[AccessibilityIdentifiers.Search.view]
+    }
+
+    var searchField: XCUIElement {
+        let searchFieldByIdentifier = app.searchFields[AccessibilityIdentifiers.Search.searchField]
+        if searchFieldByIdentifier.exists {
+            return searchFieldByIdentifier
+        }
+
+        let textFieldByIdentifier = app.textFields[AccessibilityIdentifiers.Search.searchField]
+        if textFieldByIdentifier.exists {
+            return textFieldByIdentifier
+        }
+
+        return app.textFields.matching(
+            NSPredicate(
+                format: "identifier == %@ OR placeholderValue CONTAINS[c] 'Search tasks'",
+                AccessibilityIdentifiers.Search.searchField
+            )
+        ).firstMatch
+    }
+
+    var searchResultsList: XCUIElement {
+        let identified = app.scrollViews[AccessibilityIdentifiers.Search.resultsList]
+        if identified.exists {
+            return identified
+        }
+        return app.otherElements[AccessibilityIdentifiers.Search.resultsList]
+    }
+
+    var searchBackChip: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Search.backChip]
+    }
+
+    var searchStatusAllChip: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Search.statusAll]
+    }
+
+    var searchStatusTodayChip: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Search.statusToday]
+    }
+
+    var searchPriorityP2Chip: XCUIElement {
+        app.buttons[AccessibilityIdentifiers.Search.priorityP2]
+    }
+
     var topNavContainer: XCUIElement {
         return app.otherElements[AccessibilityIdentifiers.Home.topNavContainer]
     }
@@ -389,6 +436,11 @@ class HomePage {
         searchButton.tap()
     }
 
+    /// Tap top-nav search button
+    func tapTopNavSearch() {
+        topNavSearchButton.tap()
+    }
+
     /// Tap charts button
     func tapCharts() {
         chartsButton.tap()
@@ -397,6 +449,32 @@ class HomePage {
     /// Tap home button
     func tapHome() {
         homeButton.tap()
+    }
+
+    func tapSearchBackChip() {
+        searchBackChip.tap()
+    }
+
+    @discardableResult
+    func waitForSearchFaceOpen(timeout: TimeInterval = 3) -> Bool {
+        guard waitForForedropState("fullReveal", timeout: timeout) else { return false }
+        return searchView.waitForExistence(timeout: timeout)
+    }
+
+    func typeSearchQuery(_ query: String) {
+        let field = searchField
+        XCTAssertTrue(field.waitForExistence(timeout: 3), "Search field should exist before typing")
+        field.tap()
+
+        let currentValue = (field.value as? String) ?? ""
+        if !currentValue.isEmpty, currentValue != "Search tasks..." {
+            let deleteText = String(repeating: XCUIKeyboardKey.delete.rawValue, count: currentValue.count)
+            field.typeText(deleteText)
+        }
+
+        if !query.isEmpty {
+            field.typeText(query)
+        }
     }
 
     /// Tap chat button
