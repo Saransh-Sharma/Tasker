@@ -217,6 +217,8 @@ public final class GetHomeFilteredTasksUseCase {
             return applyQuickView(.today, to: tasks, anchorDate: date)
         case .upcoming:
             return applyQuickView(.upcoming, to: tasks, anchorDate: Date())
+        case .overdue:
+            return applyQuickView(.overdue, to: tasks, anchorDate: Date())
         case .done:
             return applyQuickView(.done, to: tasks, anchorDate: Date())
         case .morning:
@@ -253,6 +255,15 @@ public final class GetHomeFilteredTasksUseCase {
             return tasks.filter { task in
                 guard let dueDate = task.dueDate else { return false }
                 return dueDate >= startOfNextDay && dueDate <= endOfUpcomingWindow
+            }
+
+        case .overdue:
+            return tasks.filter { task in
+                guard task.isComplete == false,
+                      let dueDate = task.dueDate else {
+                    return false
+                }
+                return dueDate < startOfAnchorDay
             }
 
         case .done:

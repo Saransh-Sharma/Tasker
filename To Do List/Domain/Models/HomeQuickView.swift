@@ -10,6 +10,7 @@ import Foundation
 public enum HomeQuickView: String, CaseIterable, Codable {
     case today
     case upcoming
+    case overdue
     case done
     case morning
     case evening
@@ -20,6 +21,7 @@ public enum HomeQuickView: String, CaseIterable, Codable {
         switch self {
         case .today: return "Today"
         case .upcoming: return "Upcoming"
+        case .overdue: return "Overdue"
         case .done: return "Done"
         case .morning: return "Morning"
         case .evening: return "Evening"
@@ -30,6 +32,7 @@ public enum HomeQuickView: String, CaseIterable, Codable {
         switch self {
         case .today: return "today"
         case .upcoming: return "upcoming"
+        case .overdue: return "overdue"
         case .done: return "done"
         case .morning: return "morning"
         case .evening: return "evening"
@@ -41,6 +44,7 @@ public enum HomeListScope: Equatable, Codable {
     case today
     case customDate(Date)
     case upcoming
+    case overdue
     case done
     case morning
     case evening
@@ -51,6 +55,8 @@ public enum HomeListScope: Equatable, Codable {
             return .today
         case .upcoming:
             return .upcoming
+        case .overdue:
+            return .overdue
         case .done:
             return .done
         case .morning:
@@ -66,7 +72,7 @@ public enum HomeListScope: Equatable, Codable {
             return Date()
         case .customDate(let date):
             return date
-        case .upcoming, .done, .morning, .evening:
+        case .upcoming, .overdue, .done, .morning, .evening:
             return Date()
         }
     }
@@ -78,6 +84,8 @@ public enum HomeListScope: Equatable, Codable {
             return .today
         case .upcoming:
             return .upcoming
+        case .overdue:
+            return .overdue
         case .done:
             return .done
         case .morning:
@@ -96,6 +104,7 @@ public enum HomeListScope: Equatable, Codable {
         case today
         case customDate
         case upcoming
+        case overdue
         case done
         case morning
         case evening
@@ -113,6 +122,8 @@ public enum HomeListScope: Equatable, Codable {
             self = .customDate(date)
         case .upcoming:
             self = .upcoming
+        case .overdue:
+            self = .overdue
         case .done:
             self = .done
         case .morning:
@@ -133,6 +144,8 @@ public enum HomeListScope: Equatable, Codable {
             try container.encode(date, forKey: .date)
         case .upcoming:
             try container.encode(Kind.upcoming, forKey: .kind)
+        case .overdue:
+            try container.encode(Kind.overdue, forKey: .kind)
         case .done:
             try container.encode(Kind.done, forKey: .kind)
         case .morning:

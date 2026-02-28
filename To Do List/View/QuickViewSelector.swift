@@ -168,6 +168,7 @@ public struct CompactNavSelector: View {
         switch quickView {
         case .today: return "sun.max"
         case .upcoming: return "calendar"
+        case .overdue: return "exclamationmark.triangle"
         case .done: return "checkmark.circle"
         case .morning: return "sunrise"
         case .evening: return "moon"
