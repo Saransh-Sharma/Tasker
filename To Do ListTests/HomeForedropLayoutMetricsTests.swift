@@ -119,27 +119,82 @@ final class HomeForedropLayoutMetricsTests: XCTestCase {
         XCTAssertTrue(queryVisible)
         XCTAssertEqual(queryTitle, "No tasks found")
     }
+
+    func testSearchFocusPolicyAutofocusesPhoneOnly() {
+        let originalValue = V2FeatureFlags.iPadPerfSearchFocusStabilizationV3Enabled
+        defer { V2FeatureFlags.iPadPerfSearchFocusStabilizationV3Enabled = originalValue }
+        V2FeatureFlags.iPadPerfSearchFocusStabilizationV3Enabled = true
+
+        XCTAssertTrue(HomeSearchFocusPolicyResolver.shouldAutoFocusOnSearchEntry(layoutClass: .phone))
+        XCTAssertFalse(HomeSearchFocusPolicyResolver.shouldAutoFocusOnSearchEntry(layoutClass: .padRegular))
+        XCTAssertFalse(HomeSearchFocusPolicyResolver.shouldAutoFocusOnSearchEntry(layoutClass: .padExpanded))
+    }
+
+    func testSearchStateActivationSkipsRedundantRefreshWhenSignatureIsUnchanged() async {
+        let engine = await MainActor.run { MockHomeSearchEngine() }
+        let state = await MainActor.run {
+            HomeSearchState(debounceDelay: 0)
+        }
+
+        await MainActor.run {
+            state.configureIfNeeded { engine }
+        }
+
+        let initialCount = await MainActor.run { engine.searchQueries.count }
+
+        await MainActor.run {
+            state.activate()
+        }
+
+        let finalCount = await MainActor.run { engine.searchQueries.count }
+        XCTAssertEqual(initialCount, 1)
+        XCTAssertEqual(finalCount, initialCount, "Unchanged search activation should not issue a duplicate search")
+    }
+
+    func testSearchStateDataMutationForcesRefreshOnNextActivation() async {
+        let engine = await MainActor.run { MockHomeSearchEngine() }
+        let state = await MainActor.run {
+            HomeSearchState(debounceDelay: 0)
+        }
+
+        await MainActor.run {
+            state.configureIfNeeded { engine }
+            state.markDataMutated()
+            state.activate()
+        }
+
+        let queries = await MainActor.run { engine.searchQueries }
+        XCTAssertEqual(queries.count, 2, "A data mutation should force one additional refresh")
+    }
 }
 
 @MainActor
 private final class MockHomeSearchEngine: HomeSearchEngine {
-    var onResultsUpdated: (([TaskDefinition]) -> Void)?
+    var onResultsUpdated: ((Int, [TaskDefinition]) -> Void)?
     var projects: [Project] = [Project.createInbox()]
 
     var searchQueries: [String] = []
+    var searchRevisions: [Int] = []
     var currentStatus: HomeSearchStatusFilter = .all
     var currentPriorities: Set<Int32> = []
     var currentProjects: Set<String> = []
     var stubbedResultsByQuery: [String: [TaskDefinition]] = [:]
 
-    func search(query: String) {
+    func search(query: String, revision: Int) {
         searchQueries.append(query)
+        searchRevisions.append(revision)
         let payload = stubbedResultsByQuery[query] ?? []
-        onResultsUpdated?(payload)
+        onResultsUpdated?(revision, payload)
     }
 
     func loadProjects(completion: (() -> Void)?) {
         completion?()
+    }
+
+    func setFilters(status: HomeSearchStatusFilter, projects: [String], priorities: [Int32]) {
+        currentStatus = status
+        currentProjects = Set(projects)
+        currentPriorities = Set(priorities)
     }
 
     func clearFilters() {
@@ -166,6 +221,10 @@ private final class MockHomeSearchEngine: HomeSearchEngine {
 
     func setStatusFilter(_ filter: HomeSearchStatusFilter) {
         currentStatus = filter
+    }
+
+    func invalidateSearchCache(revision: Int) {
+        _ = revision
     }
 
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
